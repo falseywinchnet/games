@@ -36,3 +36,5 @@ ctest --test-dir .build/portable-audio-transport --output-on-failure --timeout 3
 ```
 
 This source profile tests real decoded score transitions and the complete 298-file audio corpus; it is not a full application or release SDK. The installed Audio SDK profile continues to test the ordinary adapters independently. Portable text requirements and exact font fixture provenance are in `docs/PORTABLE_TEXT_REQUIREMENTS.md` and `assets/fonts/manifest.json`.
+
+The optional `audio_device_smoke` target in that source profile plays a 14-second score exercise through the real device. Invoke it explicitly with the prepared asset directory; it is deliberately absent from CTest. Its native callback receipts and teardown checks establish device processing, while sound quality still requires listening.
