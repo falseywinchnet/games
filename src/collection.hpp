@@ -1,6 +1,7 @@
 #pragma once
 #include "eggy_view.hpp"
 #include "fourpegs_view.hpp"
+#include "atomprobe_view.hpp"
 #include "switchbox_view.hpp"
 #include "presentation.hpp"
 #include "puzzle_view.hpp"
@@ -22,6 +23,7 @@ class Collection final : public gf::Control {
     std::shared_ptr<eggy::EggyView> eggy_;
     std::shared_ptr<sbx::SwitchboxView> switchbox_{};
     std::shared_ptr<fp::FourPegsView> fourpegs_{};
+    std::shared_ptr<ap::AtomProbeView> atomprobe_{};
     std::shared_ptr<GameButton> play_;
     std::array<std::shared_ptr<GameButton>, 4> categories_;
     std::shared_ptr<SudokuView> sudoku_;

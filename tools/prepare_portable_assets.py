@@ -20,9 +20,25 @@ def prepare_image(source: Path, destination: Path) -> None:
     destination.write_bytes(b"GPIX" + struct.pack("<III", 1, 1024, 512) + image.tobytes())
 
 
+def prepare_fonts(source: Path, destination: Path) -> None:
+    manifest = json.loads((source / "manifest.json").read_text(encoding="utf-8"))
+    for record in manifest["files"]:
+        filename = record["file"]
+        if Path(filename).name != filename:
+            raise ValueError("Font manifest requires simple filenames")
+        digest = hashlib.sha256((source / filename).read_bytes()).hexdigest()
+        if digest != record["sha256"]:
+            raise ValueError("Font or license fingerprint differs: " + filename)
+    destination.mkdir(parents=True, exist_ok=True)
+    for record in manifest["files"]:
+        shutil.copy2(source / record["file"], destination / record["file"])
+    shutil.copy2(source / "manifest.json", destination / "manifest.json")
+    shutil.copy2(source / "ATTRIBUTION.md", destination / "ATTRIBUTION.md")
+
+
 def loop_bounds(source: Path) -> dict[str, int]:
     bounds: dict[str, int] = {}
-    for name in ("audio_manifest.json", "eggy_audio_manifest.json", "switchbox_audio_manifest.json", "fourpegs_audio_manifest.json"):
+    for name in ("audio_manifest.json", "eggy_audio_manifest.json", "switchbox_audio_manifest.json", "fourpegs_audio_manifest.json", "atomprobe_audio_manifest.json"):
         manifest = json.loads((source / "audio" / name).read_text(encoding="utf-8"))
         for entry in manifest["music"]:
             if entry.get("loop_start_sample", 0) != 0:
@@ -83,6 +99,7 @@ def main() -> None:
     options = parser.parse_args()
     source = options.source.resolve()
     output = options.output.resolve()
+    prepare_fonts(source / "fonts", output / "fonts")
     if output == source or source in output.parents:
         raise ValueError("Runtime output must be separate from source assets")
     output.mkdir(parents=True, exist_ok=True)
@@ -113,8 +130,8 @@ def main() -> None:
         record = prepare_audio(options.ffmpeg, path, audio / (path.stem + extension),
                                bounds.get(path.stem, 0), options.audio_format)
         records.append(record)
-    if len(records) != 275:
-        raise ValueError("Expected all 275 source audio files")
+    if len(records) != 298:
+        raise ValueError("Expected all 298 source audio files")
     audio_format = "IEEE float32 LE" if options.audio_format == "pcm" else "Ogg Vorbis quality 6"
     manifest = {"sample_rate": 48000, "channels": 2, "format": audio_format, "files": records}
     (audio / "portable_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")

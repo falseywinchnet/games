@@ -252,6 +252,19 @@ int main() {
         assert(clicked && !(*library).visible() && (*fourpegs).visible() && !(*switchbox).visible());
         clicked = (*button(*collection, "collection.command.0")).perform_click();
         assert(clicked && (*library).visible() && !(*fourpegs).visible());
+        std::shared_ptr<gf::Control> atomprobe{};
+        bool old_atom_offered = false;
+        for (const std::shared_ptr<gf::Control>& child : (*collection).children()) {
+            if ((*child).stable_id().value() == "atomprobe.view") { atomprobe = child; }
+            if ((*child).stable_id().value() == "collection.puzzle.3") { old_atom_offered = true; }
+        }
+        assert(atomprobe && !(*atomprobe).visible() && !old_atom_offered);
+        clicked = (*button(*library, "collection.5")).perform_click();
+        assert(clicked && (*library).visible() && !(*atomprobe).visible());
+        clicked = (*button(*library, "collection.open")).perform_click();
+        assert(clicked && !(*library).visible() && (*atomprobe).visible() && !(*fourpegs).visible());
+        clicked = (*button(*collection, "collection.command.0")).perform_click();
+        assert(clicked && (*library).visible() && !(*atomprobe).visible());
     }
     std::filesystem::remove_all(scratch);
     std::cout << "Nested card drag, Sudoku note/error/undo, Gems rejection, peg draft resume, "

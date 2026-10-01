@@ -1,6 +1,6 @@
 # Games
 
-One native C++20 / GUI.Forms application with twelve playable games: Solitaire, Spider, FreeCell, Hearts, Sudoku, Gems, Nature Cube, Untangle, Atom Probe, Four Pegs, Puzzle Solve, and Eggy and the Very, Very Tall Mountain.
+One native C++20 / GUI.Forms application whose collection contains: Solitaire, Spider, FreeCell, Hearts, Sudoku, Gems, Nature Cube, Untangle, Atom Probe, Four Pegs, Switchbox, Puzzle Solve, and Eggy and the Very, Very Tall Mountain.
 
 The collection uses the GUI.Forms File Manager house composition: a pearl command area, subdued watercolor identity band, category navigation, a white game field, and a selection/details pane. Single click selects; double click or Play / Continue opens the game. Game views retain their individual boards within the shared shell. Card tables use Plan Paint's actual fiber-rendered billiard felt, original cream card faces, and four coordinated backs. The cube has three visible and playable 4×4 faces, pronounced mouse-follow tilt, reflective environment sampling, and surface picking; gems are animated faceted meshes.
 
@@ -37,4 +37,4 @@ Use Collection to choose a game; Card tables contains the four card games. Music
 
 See [the game catalog](docs/GAME_CATALOG.md) for exact rules and provenance, [validation](docs/VALIDATION.md) for evidence and limitations, [audio integration](docs/AUDIO_INTEGRATION.md) for the delivered audio batches, and [source references](docs/SOURCE_REFERENCES.md). Catching Thieves remains a separately requested planned module; it is not one of the twelve playable games. Rendezvous Riders is excluded.
 
-Switchbox is reserved for the user's replacement module; its previous logic and collection entry have been removed. Sticks & Stones is retired. Existing assets and saves are retained. Nature Cube and Puzzle Solve now use separate `-v2.txt` saves, copying prior player names and scores without overwriting their old boards. See [the owner handoff](docs/OWNER_MODULE_HANDOFF.md) and [Eggy integration](docs/EGGY_INTEGRATION.md).
+Atom Probe, Four Pegs and Switchbox now select the owner's replacement controls in collection source. Their Windows integration is under development; full application builds and native validation remain pending shared text support. Sticks & Stones is retired. Existing assets and saves are retained. Nature Cube and Puzzle Solve now use separate `-v2.txt` saves, copying prior player names and scores without overwriting their old boards. See [the owner handoff](docs/OWNER_MODULE_HANDOFF.md) and [Eggy integration](docs/EGGY_INTEGRATION.md).

@@ -13,6 +13,9 @@ public:
     static constexpr std::size_t slot_count = 32;
     explicit PcmPlayer(bool offline = false) : offline_(offline) {}
     ~PcmPlayer();
+#ifdef GUI_FORMS_AUDIO_LOOP_TRANSPORT
+    gui_forms::AudioLoopStatus loop_transport(gui_forms::AudioLoopTransport& output);
+#endif
     void start(std::size_t slot, const std::string& name, bool loop, double gain, double rate = 1);
     void gain(std::size_t slot, double value);
     void pause(std::size_t slot);
@@ -39,6 +42,7 @@ private:
     std::array<Slot, slot_count> slots_{};
     bool attempted_{};
     bool offline_{};
+    void open();
     void create_voice(Slot& slot);
     static void report(gui_forms::AudioStatus status, const std::string& operation);
 };

@@ -36,6 +36,22 @@ add_library(sbx_core STATIC
   vendor/switchbox/src/mole.cpp)
 target_include_directories(sbx_core PUBLIC vendor/switchbox/src)
 target_link_libraries(sbx_core PUBLIC game_paths)
+find_package(Threads REQUIRED)
+add_library(ap_core STATIC
+  vendor/atomprobe/src/platform/raster.cpp vendor/atomprobe/src/platform/r3d.cpp
+  vendor/atomprobe/src/platform/mesh.cpp vendor/atomprobe/src/box.cpp
+  vendor/atomprobe/src/chamber.cpp vendor/atomprobe/src/save.cpp)
+target_include_directories(ap_core PUBLIC vendor/atomprobe/src)
+target_link_libraries(ap_core PUBLIC game_paths Threads::Threads)
+target_compile_definitions(ap_core PRIVATE _USE_MATH_DEFINES)
+add_executable(atomprobe_rules_tests vendor/atomprobe/tests/box_tests.cpp)
+target_link_libraries(atomprobe_rules_tests PRIVATE ap_core)
+add_executable(atomprobe_preview vendor/atomprobe/tests/preview.cpp)
+target_link_libraries(atomprobe_preview PRIVATE ap_core)
+add_executable(atomprobe_storage_tests tests/atomprobe_storage_tests.cpp)
+target_link_libraries(atomprobe_storage_tests PRIVATE ap_core)
+add_test(NAME atomprobe_rules COMMAND atomprobe_rules_tests)
+add_test(NAME atomprobe_storage COMMAND atomprobe_storage_tests)
 add_library(fp_core STATIC
   vendor/fourpegs/src/platform/raster.cpp vendor/fourpegs/src/platform/r3d.cpp
   vendor/fourpegs/src/platform/mesh.cpp vendor/fourpegs/src/platform/lines.cpp

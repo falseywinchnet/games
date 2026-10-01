@@ -300,7 +300,7 @@ void GameTile::on_paint(gf::Painter& p, gf::Rect) {
     auto m = p.measure_text_utf8(text(), f);
     p.draw_text_utf8({(b.width - m.width) / 2, 91}, text(), f, gf::Color::rgba(47, 65, 78));
     const char* types[] = {"4 card games",   "Number logic",    "Match three",  "Path puzzle",
-                           "Graph puzzle",   "Deduction",       "Codebreaking", "",
+                           "Graph puzzle",   "Deduction",       "Codebreaking", "Switch puzzle",
                            "Reconstruction", "An endless climb"};
     gf::FontSpec small{gf::FontRole::content, 12, 400, false};
     auto sm = p.measure_text_utf8(types[game_], small);

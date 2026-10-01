@@ -107,6 +107,7 @@ void FourPegsView::set_cabinet(bool foreground, bool music, bool sound, bool red
     cab_music_ = music;
     cab_sound_ = sound;
     cab_reduced_ = reduced_motion;
+    audio_cabinet(foreground, music, sound);
     if (!foreground) {
         cancel_drag();
         audio_stop();
