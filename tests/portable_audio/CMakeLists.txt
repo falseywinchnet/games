@@ -1,5 +1,18 @@
 cmake_minimum_required(VERSION 3.25)
 project(GamesPortableAudioTests LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+include(CheckCXXSourceCompiles)
+check_cxx_source_compiles("
+#include <stop_token>
+int main() {
+    std::stop_source source;
+    const bool requested = source.request_stop();
+    return requested && source.get_token().stop_requested() ? 0 : 1;
+}" GAMES_HAS_CXX20_CANCELLATION)
+if(NOT GAMES_HAS_CXX20_CANCELLATION)
+    message(FATAL_ERROR "Games audio requires a C++20 library with std::stop_token. On macOS use LLVM 20 or newer with its matching libc++ headers and runtime; see docs/PORTABLE_AUDIO_BUILD.md.")
+endif()
 set(GAMES_AUDIO_SOURCE_DIR "" CACHE PATH "Development GUI.Forms source root; leave empty for installed Audio SDK")
 if(GAMES_AUDIO_SOURCE_DIR)
     set(GUI_FORMS_BUILD_AUDIO_LOOP_TRANSPORT ON CACHE BOOL "Development transport" FORCE)
