@@ -6,4 +6,6 @@ Switchbox is reserved for the user's implementation. **The owner's replacement h
 
 Existing artwork (`assets/switchbox-girl.png`), delivered audio, and `switchbox-v1.txt` saves remain available. The historical numeric kind (5) and collection slot (7) remain reserved so existing unrelated game IDs do not move. No new logic is prescribed for the replacement. The shared native control, persistence, audio, and presentation interfaces can be used when the owner supplies the module.
 
+**Four Pegs has an owner replacement too**: `incoming/game-fourpegs-01` (2026-10-01), approved by the user and not yet integrated. It replaces the current Four Pegs view in slot 6 (`PuzzleKind::pegs`) with `fp::FourPegsView` through a `vendor/fourpegs` working copy; its `INTEGRATION_HANDOFF.txt` has the details. It saves to `four_pegs-v2.txt` and starts fresh; `four_pegs-v1.txt` is left untouched.
+
 Sticks & Stones is deprecated and is no longer constructed or offered by the collection. Its original numeric puzzle kind (7), files, and saves are retained. Its former collection slot (9) now opens the delivered Eggy control; no other active collection IDs changed. Eggy is integrated from `incoming/game-eggy-01` through the separate `vendor/eggy` cabinet copy.
