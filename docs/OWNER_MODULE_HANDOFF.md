@@ -8,4 +8,6 @@ Existing artwork (`assets/switchbox-girl.png`), delivered audio, and `switchbox-
 
 **Four Pegs has an owner replacement too**: `incoming/game-fourpegs-01` (2026-10-01), approved by the user and not yet integrated. It replaces the current Four Pegs view in slot 6 (`PuzzleKind::pegs`) with `fp::FourPegsView` through a `vendor/fourpegs` working copy; its `INTEGRATION_HANDOFF.txt` has the details. It saves to `four_pegs-v2.txt` and starts fresh; `four_pegs-v1.txt` is left untouched.
 
+**Atom Probe has an owner replacement too**: `incoming/game-atomprobe-01` (2026-10-01), approved by the user and not yet integrated. It replaces the current 4×4 Atom Probe in slot 5 (`PuzzleKind::atom`) with `ap::AtomProbeView`, a classic 8×8 Black Box with four atoms, through a `vendor/atomprobe` working copy; its `INTEGRATION_HANDOFF.txt` has the details. It saves to `atom_probe-v2.txt` and starts fresh; `atom_probe-v1.txt` is left untouched.
+
 Sticks & Stones is deprecated and is no longer constructed or offered by the collection. Its original numeric puzzle kind (7), files, and saves are retained. Its former collection slot (9) now opens the delivered Eggy control; no other active collection IDs changed. Eggy is integrated from `incoming/game-eggy-01` through the separate `vendor/eggy` cabinet copy.

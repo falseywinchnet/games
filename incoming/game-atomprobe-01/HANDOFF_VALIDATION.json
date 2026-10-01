@@ -1,0 +1,33 @@
+{
+ "package": "game-atomprobe-01",
+ "replaces": "Atom Probe (PuzzleKind::atom, collection slot 5)",
+ "clean_build_from_package": "ok (Release, arm64, GUI.Forms paint-port SDK copy on the Neo)",
+ "box_tests": "PASS (independent tracer vs the game's on all 635,376 boxes x 32 ports = 20,332,032 probes, 0 mismatches; reversibility; hand-worked cases; fairness incl. brute force; scoring; save round trip and tamper check)",
+ "fair_boxes": "99.4% of arrangements are uniquely deducible; only those are dealt",
+ "package_app_launch": "ok; saved GAMES_STATE_DIR/atom_probe-dev-v2.txt",
+ "audio_files": 28,
+ "audio_decoded_afconvert": 28,
+ "aac_valid_frames_equal_manifest_loop_end": true,
+ "behaviours_captured_in_app": [
+  "probing: hover, markers, crossed-out squares",
+  "a beam in the fog",
+  "lever pulled, vents open",
+  "atoms appear",
+  "beams replayed along their true paths",
+  "three of four found",
+  "all four found: sign the log",
+  "help",
+  "resume a saved box"
+ ],
+ "played_by_user": true,
+ "anomalies": [
+  "one scripted --dev launch of the package app (AP_SCRIPT=\"0.3:f5,1.6:m12\") saved the marker but not the probe; not reproduced in 9 further launches with the same and tighter timings"
+ ],
+ "not_verified": [
+  "listening pass (score, stingers, effects)",
+  "reduced motion (not implemented)",
+  "CPU measurement",
+  "cabinet integration",
+  "non-macOS platforms"
+ ]
+}
