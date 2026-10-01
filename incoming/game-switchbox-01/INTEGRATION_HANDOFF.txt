@@ -1,0 +1,84 @@
+GAME SWITCHBOX 01 — the owner's replacement Switchbox
+
+This is the user's replacement for the reserved Switchbox module (enum kind 5, collection slot 7; see docs/OWNER_MODULE_HANDOFF.md). It was built on the Neo by Claude Opus, working with the user, and it borrows the techniques of the delivered Eggy control. It does not restore the removed five-switch model. Wire in this package, and only this package.
+
+A chibi girl, drawn from assets/switchbox-girl.png (brown bob, star clips, mint sweater), lives in a pink toy box with six lamped toggle switches. The box hides an order for all six. Flip the correct next switch and it stays up with its lamp lit while she frets. Flip a wrong one and every lamp goes out: she pops out of her hatch and pushes down the wrong switch and every lit one. Light all six and she claps, beams, resets them, stretches, lies back down, and a new combination starts. The score is the flips taken to crack one combination; fewer is better. Play is endless.
+
+Mischief:
+- Patience ladder. After four all-wrong tries she points at the first switch. After progress followed by three all-wrong tries: "you forgot?!" and she points again. Further all-wrong tries bring scolding, then she vanishes and yanks every switch except the first down into the box, one by one. Flipping the first switch makes her push them back up, sulking.
+- Holding a switch. Her hand rests on the pointer, first patting, then tugging and cross, then in a full meltdown. After about 7 s one hand lifts the pointer away while the other pushes the switch down. When she drops it, the system cursor is moved to that spot.
+- Theft. Flipping the same switch four times in a row makes her steal it. Clicking the empty socket makes her pop up and taunt the player with it, then slot it back in from inside the box. If nobody clicks, she gloats on her own after about 15 s.
+- Head bonks. Twenty clicks climb a five-stage fluster ladder. Then she flees, and the switches play 30 s of whack-a-mole. 40 or more whacks earn her special "you're great" message.
+
+Package: about 3 MB. It contains sources, runtime audio, the line bank, and screenshots. There is no app bundle.
+
+LAYOUT
+  source/            CMakeLists.txt, README.md, src/ (+ src/platform/), tests/, audio_src/make_sfx.py
+  assets/audio/      18 AAC files from audio batch 02, byte-identical to the cabinet's assets/audio copies
+                     (switchbox music, win and top-score stingers, switch/reach/reset/unlock/giggle effects, ui_name_* keys);
+                     7 new WAVs (switchbox_clap, switchbox_babble_01..06); switchbox_audio_manifest.json (music loop end sample)
+  assets/lines/      30 categories, 206 lines, written for this game
+  screens/           real app captures of each behaviour, plus a headless render strip of the holding sequence
+
+BUILD (standalone, verified on the Neo)
+  Copy assets/ into source/assets first. The bundle copies source/assets to Resources/assets, and the dev build reads SBX_ASSET_DIR.
+  cmake -S source -B build -DCMAKE_PREFIX_PATH=<GUI.Forms paint-port SDK> && cmake --build build -j 8
+  ctest --test-dir build      puzzle_tests: rules, patience ladder, repeat rule, save state, and whack-a-mole reachability
+  build/preview faces|pose|anim ...   headless renders of the expressions and scripted sessions, for look development
+
+CODE BOUNDARY
+  Everything is in namespace sbx, so it does not clash with games or eggy.
+  Portable C++20 core (library sbx_core):
+    puzzle.*     rules and patience ladder (pure)
+    mole.*       whack-a-mole timing and scoring (pure)
+    actor.*      her behaviour: springs, hands, holding, theft, the bonk ladder, celebration
+    girl.*       her rig
+    face.*       painted expression textures
+    stage.*      the box, switches, lamps, room, camera, picking, effect sprites
+    save.*       the save file
+    platform/raster|r3d|mesh|lines   the Eggy renderer, extended with toon light and inverted-hull outlines
+  View, still portable C++ against GUI.Forms:
+    switchbox_view.*   input, HUD, speech, dialogs, autosave, LiveSurface fallback
+  macOS-only adapters:
+    platform/text.mm     the text.hpp mask/cache interface (CoreText; fonts are ChalkboardSE)
+    platform/audio.mm    the audio.hpp interface (AVFoundation, separate from games::music_play)
+    platform/present.mm  NativePresenter (Core Animation layer) plus cursor_set_hidden() and cursor_warp()
+  main.cpp is the standalone entry point. Do not link it into Games.
+
+INTEGRATING INTO THE CABINET
+  1. Copy source/src to vendor/switchbox/src (the working copy) and leave this incoming package unchanged, as with Eggy. Build sbx_core plus a sbx_ui library, then link both into game_ui.
+  2. Host it in the reserved Switchbox slot (kind 5, slot 7):
+       make_control<sbx::SwitchboxView>(gf::StableId("switchbox.view"), sbx::Options{})
+     Call activate() when shown. Call set_cabinet(foreground, music, sound) whenever the tab changes or the master switches change; it gates its own Music and Sound settings. It stops music, releases a held switch, restores the system cursor, and idles at 2 ticks/s while hidden. Stop the cabinet's music while Switchbox is in front.
+  3. Pointer coordinates: on_pointer() treats e.position as relative to the control. Under the cabinet header, convert first (Eggy needed point_from_window()). cursor_warp() takes window-content points and the view adds absolute_bounds(), so check that too.
+  4. Assets: sbx::LineBank loads every .txt in asset_dir()+"/lines". None of the 30 names collides with the cabinet's current files, but they are plain names (eep, win, pop...). Eggy's bank in the same folder would also load into Switchbox and the reverse, which is harmless but wasteful. A lines/switchbox/ subfolder (one-line change in SwitchboxView's constructor) is cleaner. The 18 AAC files already exist in the cabinet's assets/audio. Add the 7 new WAVs and switchbox_audio_manifest.json; the name avoids the cabinet's own audio_manifest.json.
+  5. Saves: switchbox-v2.txt in the cabinet's save folder; GAMES_STATE_DIR redirects it (--dev uses switchbox-dev-v2.txt). It is checksummed and atomically replaced. The old switchbox-v1.txt from the removed module is never read or written. Switchbox keeps its own top-ten list of fewest flips and name, written with the shared ui_name_* sounds; it is not in games::TopScores.
+  6. Presentation: the same scheme as Eggy. The frame is about 550x380 game pixels (2 points per pixel), magnified nearest-neighbour by a Core Animation layer at absolute_bounds, with text as cached layers. SBX_NO_NATIVE=1 forces the LiveSurface fallback.
+  7. Keys: 1-6 flip switches. F1 help, T top scores, M music, N sound, Esc closes. The accessible name is set.
+  8. Dev only, with --dev: SBX_SCRIPT="t:code,..." replays inputs (switch index; -1 head; 7 next correct; 8 whack; 9 a wrong switch; 10 the stolen switch's hole). SBX_PRINT_WID=1 prints the window id.
+
+WINDOWS (Shadow)
+  Treat it like the Eggy seams in docs/WINDOWS_HANDOFF.md:
+  - Replace text.mm, audio.mm and present.mm. NativePresenter::attach() may return false to use the LiveSurface fallback; text and audio still need real implementations.
+  - The holding gag needs cursor_set_hidden() and cursor_warp(). Windows equivalents are ShowCursor and SetCursorPos, converting from client coordinates. A no-op keeps the game playable: the game still draws its own pointer, and only the drop-relocation is lost.
+  - 19 uses of M_PI need _USE_MATH_DEFINES (or a constant) on MSVC.
+  - The CMake -Wall -Wextra flags are Clang/GCC spelling.
+  - save.cpp's default root is macOS Library/Application Support; keep the file name and GAMES_STATE_DIR.
+
+POLICY NOTES
+  - Switch sounds are identical for every switch, so audio never leaks the order. Her moods and faces only answer lamps the player can already see.
+  - Her lines are written for this game: kid-friendly, ASCII, at most 70 characters.
+  - The babble and clap are synthesized (source/audio_src/make_sfx.py). No samples are used.
+
+MEASURED / VERIFIED ON THE NEO
+  - Clean build of this package's sources: OK (Release, arm64). ctest: PASS.
+  - The package-built app launched, saved to GAMES_STATE_DIR/switchbox-dev-v2.txt, and spoke a line.
+  - Audio: 25/25 files decode with afconvert.
+  - Each behaviour was driven in the real app by SBX_SCRIPT and captured: frets on lit lamps, the push after a miss, the win and clap, theft, the taunt, bonks through whack-a-mole, and "you're great". The holding sequence was checked as headless renders.
+
+NOT VERIFIED
+  - Holding with a real mouse. Hiding the cursor, the hand on the game's pointer, and the cursor relocation were never tried by hand on the Neo.
+  - Listening: no one has listened to the babble or clap.
+  - Reduced motion: not implemented. The cabinet's Motion master is not consumed yet.
+  - Cabinet integration and any non-macOS platform.
+  - CPU: no measurement has been made yet. It runs at 30 fps while in front, 10 fps in the background, and 2 ticks/s while hidden.
