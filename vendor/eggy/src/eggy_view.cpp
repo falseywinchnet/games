@@ -1,7 +1,6 @@
 #include "eggy_view.hpp"
 
 #include "audio.hpp"
-#include "present.hpp"
 #include "text.hpp"
 
 #include "gui_forms/surface_material.hpp"
@@ -107,7 +106,6 @@ void EggyView::on_detaching_from_window(gf::Window&) noexcept {
     try { persist(); } catch (...) {}
     if (timer_) (*timer_).stop();
     timer_.reset();
-    presenter_.detach();
     audio_stop();
 }
 
@@ -119,7 +117,6 @@ void EggyView::register_surface() {
 }
 
 void EggyView::cabinet_visibility(bool shown) {
-    presenter_.set_visible(shown);
     audio_cabinet(shown, cabinet_music_, cabinet_sound_);
     if (!shown) {
         for (auto& key : keys_) key = false;
@@ -150,10 +147,10 @@ void EggyView::arrange(gf::Rect bounds) {
     scene_.resize(pw_, ph_);
     // The published surface matches the display's physical pixels so the
     // compositor copies it 1:1; we do the (cheap, crisp) pixel-art upscale.
-    bs_ = backing_scale();
+    bs_ = attached_window() != nullptr ? (*attached_window()).scale() : 1.0;
     phys_w_ = std::max(1, static_cast<int>(std::lround(bounds.width * bs_)));
     phys_h_ = std::max(1, static_cast<int>(std::lround(bounds.height * bs_)));
-    if (surface_) {  // fallback path only
+    if (surface_) {
         gf::LiveSurfaceDescription d;
         d.width = static_cast<std::uint32_t>(phys_w_);
         d.height = static_cast<std::uint32_t>(phys_h_);
@@ -458,34 +455,13 @@ void EggyView::tick() {
     }
     // render (only once the window has given us a size)
     const bool shown = visible();
-    presenter_.set_visible(shown);
     if (!shown) audio_music("", false);  // another tab is showing: stay quiet, keep climbing
     if (hidden || !shown || scene_.r.rgb.empty() || frame_.px.empty()) return;
     static const bool no_render = std::getenv("EGGY_NO_RENDER"), no_publish = std::getenv("EGGY_NO_PUBLISH");
     if (!no_render) { scene_.render(s, t_, dt); compose(); }
     if (no_publish) return;
-    // Fast path: hand the small frame to a native GPU layer (nearest-neighbour
-    // magnified), with text as small cached layers. Fallback: LiveSurface.
-    if (!presenter_.attached() && !std::getenv("EGGY_NO_NATIVE")) presenter_.attach();
-    if (presenter_.attached()) {
-        const double px = save_.settings.pixel;
-        const gf::Rect ab = absolute_bounds();
-        presenter_.frame(frame_, ab.x, ab.y, ab.width, ab.height, pw_ * px, ph_ * px);
-        sprites_.clear();
-        const int unit = std::max(1, static_cast<int>(std::lround(bs_)));
-        for (const HiText& h : texts_) {
-            char key[96];
-            std::snprintf(key, sizeof key, "|%d|%.1f|%d|%d|%08x", h.bold, h.size, h.wrap, h.big,
-                          static_cast<unsigned>(static_cast<int>(h.c.r * 255) << 24 | static_cast<int>(h.c.g * 255) << 16 |
-                                                static_cast<int>(h.c.b * 255) << 8 | static_cast<int>(h.c.a * 255)));
-            sprites_.push_back({h.s + key, &tmask(h.s, h.bold, h.size, h.wrap), h.c, unit * h.big, h.c.r + h.c.g + h.c.b > 1.5f,
-                                h.x * px, h.y * px});
-        }
-        presenter_.texts(sprites_);
-        text_cache_trim();
-        return;
-    }
-    if (!surface_) {  // native presentation unavailable: fall back to a LiveSurface
+    // All platforms publish through the toolkit-owned CPU surface.
+    if (!surface_) {
         gf::LiveSurfaceDescription d;
         d.width = static_cast<std::uint32_t>(phys_w_);
         d.height = static_cast<std::uint32_t>(phys_h_);

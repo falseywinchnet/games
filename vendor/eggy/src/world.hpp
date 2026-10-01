@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 // The mountain: a seeded, random-access, endless-feeling corridor of isometric
 // tiles that climbs for hundreds of millions of rows. Nothing here depends on
 // UI, audio, files or the wall clock; the same seed always yields the same

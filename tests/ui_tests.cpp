@@ -4,7 +4,7 @@
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
-#include <unistd.h>
+#include "test_paths.hpp"
 namespace gf = gui_forms;
 void require(bool condition, const char* message) {
     if (!condition)
@@ -19,8 +19,8 @@ void pointer(gf::Window& window, gf::PointerAction action, gf::Point point) {
 }
 int main() {
     std::filesystem::path scratch =
-        std::filesystem::temp_directory_path() / ("games-ui-test-" + std::to_string(getpid()));
-    setenv("GAMES_STATE_DIR", scratch.c_str(), 1);
+        games_test::scratch_directory("games-ui-test-");
+    games_test::isolate_saves(scratch);
     std::shared_ptr<games::Table> table =
         gf::make_control<games::Table>(gf::StableId("test.table"));
     (*table).game.deal(games::Kind::freecell, 42);

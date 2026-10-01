@@ -2,7 +2,6 @@
 // The game as a GUI.Forms control: frame loop, input, HUD, speech, dialogs,
 // autosave, music. Rendering is published through a LiveSurface.
 #include "lines.hpp"
-#include "present.hpp"
 #include "save.hpp"
 #include "scene.hpp"
 
@@ -80,8 +79,6 @@ private:
     double title_card_ = 0;    // the "ELITE SPECIAL SOLDIER" banner timer
 
     bool direct_ = false;
-    NativePresenter presenter_;
-    std::vector<TextSprite> sprites_;
     void register_surface();
     void on_attached_to_window() override;
     void on_detaching_from_window(gf::Window& window) noexcept override;

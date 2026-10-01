@@ -224,14 +224,14 @@ void paint_emblem(gf::Painter& p, gf::Rect r, int game) {
                 w * .145, colors[i]);
     } else if (game == 7) {
         p.fill_rounded_rect({x + w * .1, y + h * .3, w * .8, h * .5}, 5,
-                            gf::Color::rgba(165, 113, 85));
+                            gf::Color::rgba(235, 153, 187));
         p.stroke_rounded_rect({x + w * .1, y + h * .3, w * .8, h * .5}, 5,
-                              gf::Color::rgba(224, 179, 122), 1);
-        for (int i = 0; i < 3; ++i) {
-            p.fill_rounded_rect({x + w * (.22 + i * .23), y + h * .43, w * .13, h * .20}, 2,
+                              gf::Color::rgba(255, 210, 231), 1);
+        for (int i = 0; i < 6; ++i) {
+            p.fill_rounded_rect({x + w * (.16 + i * .12), y + h * .43, w * .08, h * .20}, 2,
                                 gf::Color::rgba(31, 54, 58));
             p.fill_rounded_rect(
-                {x + w * (.235 + i * .23), y + h * (i == 0 ? .44 : .54), w * .10, h * .06}, 1,
+                {x + w * (.17 + i * .12), y + h * (i == 0 ? .44 : .54), w * .06, h * .06}, 1,
                 accent);
         }
     } else if (game == 8) {
@@ -313,6 +313,9 @@ LibrarySurface::LibrarySurface(gf::StableId id) : Control(std::move(id)) {}
 void LibrarySurface::arrange(gf::Rect b) {
     arrange_self(b);
     const double field = b.width - 470, tw = field / 3;
+    const int entries = category == 0 ? 10 : category == 2 ? 8 : 1;
+    const int rows = (entries + 2) / 3;
+    const double row_pitch = std::min(146.0, (b.height - 190) / rows);
     int index = 0;
     for (const auto& child : children()) {
         if (auto tile = std::dynamic_pointer_cast<GameTile>(child)) {
@@ -322,7 +325,7 @@ void LibrarySurface::arrange(gf::Rect b) {
             tile->set_visible(shown);
             if (shown) {
                 set_child_layout(child,
-                                 {202 + (index % 3) * tw, 175.0 + (index / 3) * 146, tw - 10, 130});
+                                 {202 + (index % 3) * tw, 175.0 + (index / 3) * row_pitch, tw - 10, row_pitch - 10});
                 ++index;
             }
         } else {
@@ -377,7 +380,7 @@ void LibrarySurface::on_paint(gf::Painter& p, gf::Rect) {
         {"Reposition the points until", "every crossing is clear."},
         {"Send probes into the chamber.", "Deduce three hidden atoms."},
         {"Face the Curator's secret code.", "Four places. Ten attempts."},
-        {},
+        {"A girl guards six switches.", "Find the order that lights them all.", "Fewer flips make a better score."},
         {"Triangles, square, parallelogram.", "Rotate and reflect the pieces",
          "to reproduce a two-color target."},
         {"Eggy and the Very, Very", "Tall Mountain", "Help a little duckling climb.",
@@ -390,7 +393,7 @@ void LibrarySurface::on_paint(gf::Painter& p, gf::Rect) {
     p.draw_text_utf8({b.width - 239, b.height - 128}, "Progress saves automatically",
                      {gf::FontRole::content, 12, 400, false}, muted);
     p.fill_rect({0, b.height - 29, b.width, 29}, gf::Color::rgba(226, 230, 229));
-    p.draw_text_utf8({20, b.height - 10}, "12 games  ·  9 entries",
+    p.draw_text_utf8({20, b.height - 10}, "13 games  ·  10 entries",
                      {gf::FontRole::content, 12, 400, false}, ink);
     p.draw_text_utf8({b.width - 260, b.height - 10}, "Rainstar Games",
                      {gf::FontRole::content, 12, 400, false}, muted);

@@ -3,14 +3,14 @@
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
-#include <unistd.h>
+#include "test_paths.hpp"
 void require(bool condition, const char* message) {
     if (!condition)
         throw std::runtime_error(message);
 }
 int main() {
     std::filesystem::path root =
-        std::filesystem::temp_directory_path() / ("games-storage-test-" + std::to_string(getpid()));
+        games_test::scratch_directory("games-storage-test-");
     std::filesystem::path path = root / "save.txt";
     games::Cabinet source;
     source.active = 2;

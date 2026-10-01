@@ -1,5 +1,6 @@
 #include "gui_forms/application.hpp"
 #include "collection.hpp"
+#include "runtime_paths.hpp"
 #include <iostream>
 struct FocusTable final {
     std::weak_ptr<games::Collection> table;
@@ -11,8 +12,10 @@ struct FocusTable final {
         }
     }
 };
-int main() {
+int main(int argc, char** argv) {
     try {
+        if (argc < 1 || argv[0] == nullptr) { return 1; }
+        games::initialize_assets(argv[0]);
         std::shared_ptr<games::Collection> table =
             gui_forms::make_control<games::Collection>(gui_forms::StableId("games.table"));
         std::unique_ptr<gui_forms::Window> window =

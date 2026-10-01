@@ -4,7 +4,7 @@
 #include <filesystem>
 #include <iostream>
 #include <set>
-#include <unistd.h>
+#include "test_paths.hpp"
 namespace gf = gui_forms;
 using namespace games;
 class NullPainter final : public gf::Painter {
@@ -56,8 +56,8 @@ static std::shared_ptr<gf::Button> button(gf::Control& root, const std::string& 
 }
 int main() {
     std::filesystem::path scratch =
-        std::filesystem::temp_directory_path() / ("games-nested-ui-" + std::to_string(getpid()));
-    setenv("GAMES_STATE_DIR", scratch.c_str(), 1);
+        games_test::scratch_directory("games-nested-ui-");
+    games_test::isolate_saves(scratch);
     Cabinet preferences;
     for (int i = 0; i < 4; ++i) {
         preferences.games[i].deal(static_cast<Kind>(i), 42);
@@ -228,6 +228,17 @@ int main() {
         assert(button(*library, "collection.category.0")->perform_click());
         window.perform_layout();
         assert(button(*library, "collection.0")->visible());
+        std::shared_ptr<gf::Control> switchbox{};
+        for (const std::shared_ptr<gf::Control>& child : (*collection).children()) {
+            if ((*child).stable_id().value() == "switchbox.view") { switchbox = child; }
+        }
+        assert(switchbox && !(*switchbox).visible());
+        bool clicked = (*button(*library, "collection.7")).perform_click();
+        assert(clicked && (*library).visible() && !(*switchbox).visible());
+        clicked = (*button(*library, "collection.open")).perform_click();
+        assert(clicked && !(*library).visible() && (*switchbox).visible());
+        clicked = (*button(*collection, "collection.command.0")).perform_click();
+        assert(clicked && (*library).visible() && !(*switchbox).visible());
     }
     std::filesystem::remove_all(scratch);
     std::cout << "Nested card drag, Sudoku note/error/undo, Gems rejection, peg draft resume, "

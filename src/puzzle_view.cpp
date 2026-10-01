@@ -86,7 +86,7 @@ void PuzzleView::on_attached_to_window() {
         *this, gf::Delegate<>::bind<PuzzleView, &PuzzleView::tick>(*this)));
     if (game.kind == PuzzleKind::cube) {
         nature_ = load_art(*attached_window(), "nature-lake.png");
-        raster_.load_environment(asset_directory() + "/nature-lake.png");
+        raster_.load_environment(asset_directory() + "/nature-lake.gpix");
     }
     if (game.kind == PuzzleKind::pegs)
         curator_ = load_art(*attached_window(), "four-pegs-curator.png");
