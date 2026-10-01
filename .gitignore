@@ -3,3 +3,5 @@
 /.build/
 /preserved-state/
 /astra/
+
+__pycache__/
