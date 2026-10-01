@@ -1,0 +1,70 @@
+name: Native game core checks
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: core-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2022
+            platform: windows-x64
+            shell: 'msys2 {0}'
+          - runner: macos-15
+            platform: macos-arm64
+            shell: bash
+          - runner: ubuntu-24.04
+            platform: linux-x64
+            shell: bash
+          - runner: ubuntu-24.04-arm
+            platform: linux-arm64
+            shell: bash
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja git
+      - name: Install macOS tools
+        if: runner.os == 'macOS'
+        run: brew install ninja
+      - name: Install Linux tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: Configure the complete portable game core
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGAMES_BUILD_APPLICATION=OFF
+      - name: Build
+        run: cmake --build build --parallel 2
+      - name: Test rules and storage
+        run: ctest --test-dir build --output-on-failure --timeout 120 --output-junit results.xml
+      - name: Render replacement game scenes
+        run: |
+          mkdir -p build/previews
+          build/atomprobe_preview play build/previews/atomprobe-play.ppm
+          build/atomprobe_preview reveal build/previews/atomprobe-reveal.ppm
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: core-checks-${{ matrix.platform }}
+          path: |
+            build/results.xml
+            build/Testing/Temporary/LastTest.log
+            build/previews/*.ppm
+          if-no-files-found: warn

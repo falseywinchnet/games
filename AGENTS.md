@@ -38,3 +38,13 @@ ctest --test-dir .build/portable-audio-transport --output-on-failure --timeout 3
 This source profile tests real decoded score transitions and the complete 298-file audio corpus; it is not a full application or release SDK. The installed Audio SDK profile continues to test the ordinary adapters independently. Portable text requirements and exact font fixture provenance are in `docs/PORTABLE_TEXT_REQUIREMENTS.md` and `assets/fonts/manifest.json`.
 
 The optional `audio_device_smoke` target in that source profile plays a 14-second score exercise through the real device. Invoke it explicitly with the prepared asset directory; it is deliberately absent from CTest. Its native callback receipts and teardown checks establish device processing, while sound quality still requires listening.
+
+The portable core can be configured without a GUI.Forms SDK. This profile builds every current portable game core and all twelve rules, storage, simulation and actor tests; it does not build the graphical application:
+
+```sh
+cmake -S . -B .build/portable-core -G Ninja -DCMAKE_BUILD_TYPE=Release -DGAMES_BUILD_APPLICATION=OFF
+cmake --build .build/portable-core --parallel 2
+ctest --test-dir .build/portable-core --output-on-failure --timeout 120
+```
+
+The `Native game core checks` workflow runs that profile on native Windows x64, macOS arm64, Linux x64 and Linux arm64 runners. Test reports and scene previews are diagnostic artifacts, not application packages.
