@@ -63,5 +63,23 @@ These choices need inspection in the actual shared renderer before release. They
 
 `tests/fixtures/portable_text.json` contains actual game strings plus edge cases. Numeric mask goldens must be produced and reviewed with the pinned shared raster implementation; they are deliberately not guessed from CoreText or another font renderer. Initial assertions concern complete text coverage, line semantics, wrap bounds, mono coverage and scale-independent logical layout. The full help panels must then be inspected at ordinary and fractional DPI to verify that the last paragraph and buttons remain visible.
 
+
+## Request adapter development subset
+
+`TextRequests` is the Games-side bounded request broker for a single view and encoded font bank. It borrows a session that must outlive it, retains the font owner, deduplicates identical pending inputs after isolated-CR normalization, and drains completed slots without waiting for the worker. Only successful completion replaces the caller's mask lease. Pending work and typed failure preserve it. Closing the session prevents old completions from being returned.
+
+The adapter uses nine fixed records shared by pending and completed work. Its exact pending-source buffers occupy 144 KiB of application-owned storage, separate from the provider's lifetime ledger. It does not allocate coverage copies or maintain a second mask cache. Callers retain returned leases throughout frame composition and publish only complete frames. This broker is not yet connected to the game views.
+
+The independent consumer test currently targets the reviewed Stage 1 toolkit source revision `4d24f4363676ef8f81e03b0579117fa0b89152df`. Fetch the toolkit's pinned text dependencies before configuring:
+
+```sh
+cmake -S tests/portable_text -B build/text-requests -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release -DGAMES_TEXT_SOURCE_DIR=<GUIForms-source-root>
+cmake --build build/text-requests --target text_request_tests --parallel 2
+ctest --test-dir build/text-requests --output-on-failure --timeout 30
+```
+
+This test uses the real public service and its Carlito font fixture. It checks source normalization, deduplication, queue backpressure, retained completion records, executor affinity, cancellation and close. Stage 1 production requests must explicitly complete as `unsupported_profile`; the test does not fabricate successful masks. Once native wrapping and rasterization arrive, this expectation must be replaced by real mask, metric, line and scale acceptance before adopting the newer provider. No renderer or full application validation is established by this development subset.
+
 Author: Astra
 Sponsor: Rainstar
