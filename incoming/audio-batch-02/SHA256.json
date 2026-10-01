@@ -1,0 +1,1577 @@
+[
+  {
+    "file": "INTEGRATION_HANDOFF.txt",
+    "bytes": 3112,
+    "sha256": "62edbe41d47a373f469044671363a5acecd565009ba9056e3d3d25643ee015ec"
+  },
+  {
+    "file": "SOURCE_VALIDATION.json",
+    "bytes": 41738,
+    "sha256": "a2a461f9c6bd37f4bbfaaefd96f03255978a7eb91c47a274a3c4c85bacb42a56"
+  },
+  {
+    "file": "outputs/AUDIO_MANIFEST.md",
+    "bytes": 25998,
+    "sha256": "0ae14da1cbf5defdae5d3185dbc51cddfefac43d1e054d53659a1cdf7ce5488e"
+  },
+  {
+    "file": "outputs/audio_manifest.json",
+    "bytes": 124492,
+    "sha256": "d99469b10d28fd19842ceb250ab831e29643216e0d632ee019eb40935f284b29"
+  },
+  {
+    "file": "outputs/audio_manifest_masters.json",
+    "bytes": 81924,
+    "sha256": "913e879cb22930b8f42bab00bbbdba3b087270c86a531a31238c46ab73d71909"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_check_correct.m4a",
+    "bytes": 26751,
+    "sha256": "d78ddbee32b1ca7f0850c3026639d56da396c7745f8cc163cbcd83787c844c48"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_check_correct.ogg",
+    "bytes": 24639,
+    "sha256": "951d6d6ad14225e398b91c183c1fda00d95d4a675f14779851060e442eabc65f"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_check_wrong.m4a",
+    "bytes": 20251,
+    "sha256": "ef107d195b676d3427588706dafbbc2b810ffd16a69b302e891f34c7e60ff9ef"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_check_wrong.ogg",
+    "bytes": 14289,
+    "sha256": "1131d679533650bbca193ae87f639b5012376e8685e9adb797c3ae39dd118adc"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_fire_01.m4a",
+    "bytes": 9851,
+    "sha256": "3c0549a890b811c767245cb3f45b06393ccfc26075b31ef9e7c5fa0f94d23c38"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_fire_01.ogg",
+    "bytes": 5303,
+    "sha256": "9c64d21c279d7fd30c584fcd0830a07a2d24dd0f16f45786d67e786ee6950a7b"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_fire_02.m4a",
+    "bytes": 9851,
+    "sha256": "699591bf4e096ff652d937e1b8d75a475c9b8a6c280da13ca1b624f1304e9f0f"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_fire_02.ogg",
+    "bytes": 5332,
+    "sha256": "ba2677f30d990e5e07aa7f5ae52f2aaf496e0a3757e8db1afdb7c6cb39e2de13"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_mark_01.m4a",
+    "bytes": 17391,
+    "sha256": "bd1755f8294b2cdb3f240a77e113ca8a6435b6749c63747b3491848370280f76"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_mark_01.ogg",
+    "bytes": 12007,
+    "sha256": "450e1c1c12d6cb96292f88ccb82abdea75ed244d6a2dcb514958b1cd182b817b"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_mark_02.m4a",
+    "bytes": 17391,
+    "sha256": "89f28d0ff3ccb7a84ee36346ccf7383376731a35fa368cf3a5e81867aeff6ab0"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_mark_02.ogg",
+    "bytes": 12828,
+    "sha256": "f91e924ac7ab91733a8aaf627dcd98917146859ae634b33878187ef07945394b"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_result_absorb.m4a",
+    "bytes": 17391,
+    "sha256": "25ec88831dd73720cadfea05155d4e682e57a4cfe64c3ded21cbf63a1382dfb1"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_result_absorb.ogg",
+    "bytes": 9161,
+    "sha256": "759a28c3db61fec5d7a42d0a3e1fb914b74cf688e10155bc53f129b53d559f16"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_result_deflect.m4a",
+    "bytes": 19471,
+    "sha256": "08ba6cf7041549365c33eb80f04678267bbb59a0854df2bcbb4c45cf6e096113"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_result_deflect.ogg",
+    "bytes": 12317,
+    "sha256": "60d1823bc7b968668794a814b7dbd922fa1bd07215d06577814c3ca89f3eac5a"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_result_pass.m4a",
+    "bytes": 18691,
+    "sha256": "450ee0969bb8ef4b0d721ce14261cbb41ce2d494bc0305d220380ad245ce407d"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_result_pass.ogg",
+    "bytes": 11110,
+    "sha256": "c8b6b79bdaf9e92c564586eb01a882a1fbf13160d06513195b94e108718ca7b2"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_result_reflect.m4a",
+    "bytes": 20511,
+    "sha256": "c441119a63d3b70bc1bf71b0e80f0b7ed62a691d38de513b947dc64f0bc007a7"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_result_reflect.ogg",
+    "bytes": 12907,
+    "sha256": "4bba145f3b4a56b95f18c3b940f887ed76de4f28987ef931f58fbdc7d5c2d52c"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_unmark.m4a",
+    "bytes": 13231,
+    "sha256": "1371405e9727b7136cc43bace14780354f888aa247c49f2d2675b12b232b5d2c"
+  },
+  {
+    "file": "outputs/runtime/atom_probe_unmark.ogg",
+    "bytes": 8309,
+    "sha256": "68762663311fbd1f2d9a6b87c2048ea731cefe1d2870527c10f7f42fef973571"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_feedback_exact.m4a",
+    "bytes": 15571,
+    "sha256": "c46996de95491a6f2d5e3ee1652da9c64c139ec145646a628478dde88a2a711d"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_feedback_exact.ogg",
+    "bytes": 11263,
+    "sha256": "eb36a3640f2762ffb5dea38e370b809eca8b587f3a70ae50541894daae44a005"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_feedback_none.m4a",
+    "bytes": 6731,
+    "sha256": "426d35a97296d1042d947f10b7a260a48d7482eb3f35f5d9eed0cfb9f08cf1c0"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_feedback_none.ogg",
+    "bytes": 3416,
+    "sha256": "10482d41eadad98231a56cd1435ca352b95f6f28903cd55e0e1c38e757c659dd"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_feedback_partial.m4a",
+    "bytes": 15571,
+    "sha256": "04331b259c2b687ecec23a93d42e176328654d4e13b45ce9df6eff06f4d9daf4"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_feedback_partial.ogg",
+    "bytes": 11079,
+    "sha256": "581cebd705ec9c84d3d43ca29f7999a8d4f58fa5b80cbc7cd7e94cf248a765ca"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_out_of_turns.m4a",
+    "bytes": 27531,
+    "sha256": "82edb5a8c1e6b52c3dcb3d78426e20f5c3237401acc9d8a09fb5dc04fef6ef18"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_out_of_turns.ogg",
+    "bytes": 17286,
+    "sha256": "30ebce927d1c4867a091ddee3672f8fa6338e03e0f7abcb0421b3068287e2912"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_place_01.m4a",
+    "bytes": 10111,
+    "sha256": "29eeaa47c5b89c6e0baceba77ccbac9bbf7241318a08201193e129982e4be69d"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_place_01.ogg",
+    "bytes": 6437,
+    "sha256": "533ad7868eb5310e3c7411f79f2586043cd2fc78e47ba207cb67a82cdc0cc2d0"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_place_02.m4a",
+    "bytes": 10111,
+    "sha256": "0ce545864724f5e112be3e8e4419342a917235a49b1ea6ee0199b61e661953b2"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_place_02.ogg",
+    "bytes": 6455,
+    "sha256": "cad300f142653308ffb67c8ad9bc2cc69e28e770cc27a1c17acf3990321ea97c"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_place_03.m4a",
+    "bytes": 10111,
+    "sha256": "20a326087a70c0547eafe98f720b4be6f90cc39eec7ffa3ef044e1b9500734b0"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_place_03.ogg",
+    "bytes": 6553,
+    "sha256": "8bf48de73fc9266b09e8814d099d4c3960ee29e902b5005b950aa4ed0fe162df"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_place_04.m4a",
+    "bytes": 10111,
+    "sha256": "06337510eadfe51058de49e4cffb230efd61ca2ec5564cc3415989c4a94635b8"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_place_04.ogg",
+    "bytes": 6613,
+    "sha256": "a307188c92b6617c82d704e8653d25ff48373636064ace1e6e8814cef8509da8"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_remove.m4a",
+    "bytes": 8031,
+    "sha256": "b2094fdfe6c5f10c1591f5f2839e3ffd5d6f4c8e8396b703b8e4a24e238703f7"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_remove.ogg",
+    "bytes": 4435,
+    "sha256": "14698c77a93996365424d4b72ec06a4ab8c1e8943bff576b4c70969f834a3105"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_submit.m4a",
+    "bytes": 22427,
+    "sha256": "07ec30ca5a5f711e476f3ae8f8e79b989f9a228122ba595f26a4e39404e0ae9e"
+  },
+  {
+    "file": "outputs/runtime/four_pegs_submit.ogg",
+    "bytes": 14985,
+    "sha256": "14934faff9477fc30144be35e89f8db2d6f723af7f1fc0982b2e2db4fd0e459b"
+  },
+  {
+    "file": "outputs/runtime/gems_bomb.m4a",
+    "bytes": 22071,
+    "sha256": "9bf0a5a82a01779d9ac981462f029068a2a01e92959b3e94e01d68ba4e425112"
+  },
+  {
+    "file": "outputs/runtime/gems_bomb.ogg",
+    "bytes": 17589,
+    "sha256": "9698456e515276ddd2754c0336340be7ecd9e8d9ccebc902d9031111d9873299"
+  },
+  {
+    "file": "outputs/runtime/gems_hover_01.m4a",
+    "bytes": 15051,
+    "sha256": "7d5138ef9981538d3c7816ec7e2e8e5826ad70d5797c354afd72c59eea567e5d"
+  },
+  {
+    "file": "outputs/runtime/gems_hover_01.ogg",
+    "bytes": 9508,
+    "sha256": "7099ac3619ed88b5bdacdc29b97e4b6b8dbb137c7be728c9330f0a2c902ba5ea"
+  },
+  {
+    "file": "outputs/runtime/gems_hover_02.m4a",
+    "bytes": 14531,
+    "sha256": "0b4741573148e26ebdd2076e40cdffff6351930fd4a10d816f7058d5a9bcf27e"
+  },
+  {
+    "file": "outputs/runtime/gems_hover_02.ogg",
+    "bytes": 9714,
+    "sha256": "0fe5e7d314bf9b0effc81cc3599f3127a8ddfac79df5e1d450a6370380a40bdf"
+  },
+  {
+    "file": "outputs/runtime/gems_hover_03.m4a",
+    "bytes": 14531,
+    "sha256": "057a175656b64b2016361d0f7a4cd9c51d6c93b07d6ed4904b26cf1ff417eec3"
+  },
+  {
+    "file": "outputs/runtime/gems_hover_03.ogg",
+    "bytes": 9510,
+    "sha256": "6a620065ea0698f3c9ced0eada13e4637cf8663ffc60961c4792a278bb5f2432"
+  },
+  {
+    "file": "outputs/runtime/gems_hypercube.m4a",
+    "bytes": 40011,
+    "sha256": "fe1d940dc1ac6bdd74645ff011957ae57046d2c4e51c47e349a717e4029d0b40"
+  },
+  {
+    "file": "outputs/runtime/gems_hypercube.ogg",
+    "bytes": 35662,
+    "sha256": "0c5929bffc1881c9f82c904f417b03680ebd2a3ed065a9f3af3b4e66d14ff557"
+  },
+  {
+    "file": "outputs/runtime/gems_level_up.m4a",
+    "bytes": 29611,
+    "sha256": "389965a84e20adc197eddf61375d2ef7f91492e5f8fc1bb12ea199ce5948162d"
+  },
+  {
+    "file": "outputs/runtime/gems_level_up.ogg",
+    "bytes": 26244,
+    "sha256": "bc7c10fa4b9d9687e5993b8202e64c5d4975dd384d4133226098485e404a7f8b"
+  },
+  {
+    "file": "outputs/runtime/gems_match_01.m4a",
+    "bytes": 33251,
+    "sha256": "1a0c660e6c931efa66cedcab8177ed68dc1ea458ca46735ae3deba5b8b305876"
+  },
+  {
+    "file": "outputs/runtime/gems_match_01.ogg",
+    "bytes": 24695,
+    "sha256": "7ff1404e23601d51ab38674b2f778c9a84a26e551e2c1525a65b8244f2f2bd2b"
+  },
+  {
+    "file": "outputs/runtime/gems_match_02.m4a",
+    "bytes": 33251,
+    "sha256": "1967d3bf17dd05fcc42cf8e2da18ae883d6fa3941a7507160e92a7863ec9366b"
+  },
+  {
+    "file": "outputs/runtime/gems_match_02.ogg",
+    "bytes": 24953,
+    "sha256": "6104037d5c5646a0f9932179e70166648ab31c16745feb1aff51ea50dce611fd"
+  },
+  {
+    "file": "outputs/runtime/gems_match_03.m4a",
+    "bytes": 32991,
+    "sha256": "1c853eea85b78b696203e423061160cbebc3f3e9828a9344c6a8bdb61923b9ef"
+  },
+  {
+    "file": "outputs/runtime/gems_match_03.ogg",
+    "bytes": 25445,
+    "sha256": "48ed3fe22366c0e69a9a8530736579f1ecffcba3699a84aaa512260d914989ff"
+  },
+  {
+    "file": "outputs/runtime/gems_match_04.m4a",
+    "bytes": 33511,
+    "sha256": "c87fb4d2fe8bfc7cd5e0f8d46b1f3f219de7d9ee6cb043ef192bb70d384d40a3"
+  },
+  {
+    "file": "outputs/runtime/gems_match_04.ogg",
+    "bytes": 26251,
+    "sha256": "d2d724f8f176452736e674d963ca221a7b1607b6d21030edd4f66c9ef13edfa1"
+  },
+  {
+    "file": "outputs/runtime/gems_match_05.m4a",
+    "bytes": 32471,
+    "sha256": "355b1101178a69bef1a42b0c6008c7a890c31b79745fbb6c8d3fe6db09ca2fbd"
+  },
+  {
+    "file": "outputs/runtime/gems_match_05.ogg",
+    "bytes": 26463,
+    "sha256": "cc447888c359c901d290c70ce4bee085b3352f3cdbce530a97b4a77d4b2fff9e"
+  },
+  {
+    "file": "outputs/runtime/gems_no_moves_shuffle.m4a",
+    "bytes": 37411,
+    "sha256": "eeafdfe6d4ce660214d71f02ae5e55608ba55413b2fc7d03319ccb4f6aa4fe38"
+  },
+  {
+    "file": "outputs/runtime/gems_no_moves_shuffle.ogg",
+    "bytes": 26438,
+    "sha256": "1d5d8a46cc520c39491c5b32281a5f28664c66b24ab982990cb5928963dadd26"
+  },
+  {
+    "file": "outputs/runtime/gems_powerup_created.m4a",
+    "bytes": 33771,
+    "sha256": "91683cafb3fb159aec6f9c5c4788a945ab9b24ca6496fde9f864523f70c10f69"
+  },
+  {
+    "file": "outputs/runtime/gems_powerup_created.ogg",
+    "bytes": 27814,
+    "sha256": "566f2f690a859a386c04df1d62af0c20874eda26cc9402bdd39afffeeb6f934e"
+  },
+  {
+    "file": "outputs/runtime/gems_star_line.m4a",
+    "bytes": 35591,
+    "sha256": "900846dc4c8e479cce99cb7680c34db0056ddfdd53a81b2328f43e331037f1d5"
+  },
+  {
+    "file": "outputs/runtime/gems_star_line.ogg",
+    "bytes": 30304,
+    "sha256": "9c599f2eafa88478283667e6565b1d083cb64614c0616861e4635d003a29b86b"
+  },
+  {
+    "file": "outputs/runtime/gems_swap_01.m4a",
+    "bytes": 30651,
+    "sha256": "f98015852db13f399bb4e042d457dd811f14c20d1bf5cf20516ca3765785546f"
+  },
+  {
+    "file": "outputs/runtime/gems_swap_01.ogg",
+    "bytes": 21301,
+    "sha256": "d4f06034057be32a1abf7e2f424b0631f89452643a6df648663bf42bbcb8e8bb"
+  },
+  {
+    "file": "outputs/runtime/gems_swap_02.m4a",
+    "bytes": 30651,
+    "sha256": "cc347324e48ba71dcbe48a6d866c59131bc2206b6633d25bee6382c94e5dca67"
+  },
+  {
+    "file": "outputs/runtime/gems_swap_02.ogg",
+    "bytes": 21625,
+    "sha256": "5bc8d80da5e486891643c86e7e8ff8dba260588f3644a39a1e1e4f80783a4502"
+  },
+  {
+    "file": "outputs/runtime/gems_swap_03.m4a",
+    "bytes": 30651,
+    "sha256": "ef355f84ffb65fea37e97bc84f2cabb595e24e5aa151dbd8a9910abcd00c938e"
+  },
+  {
+    "file": "outputs/runtime/gems_swap_03.ogg",
+    "bytes": 22191,
+    "sha256": "f416b19f1cc9552a3b3764e115d90b509a8f4d450ebd5ef232848ea0da0f6007"
+  },
+  {
+    "file": "outputs/runtime/gems_swap_return_01.m4a",
+    "bytes": 25971,
+    "sha256": "99c9b9a4ad7c77865084d20b204c21ebd59ba4a3913e43973812889c1442dea1"
+  },
+  {
+    "file": "outputs/runtime/gems_swap_return_01.ogg",
+    "bytes": 17531,
+    "sha256": "e5103a5947442aa8ead5cfa7a4667ae8656a5a874bc3aa51d3c326fa4adfd4a7"
+  },
+  {
+    "file": "outputs/runtime/gems_swap_return_02.m4a",
+    "bytes": 25191,
+    "sha256": "1cd7ed5389a6937dea0ea2cd7259b980ea5a016f1c960d1a2c99719aaf8e3527"
+  },
+  {
+    "file": "outputs/runtime/gems_swap_return_02.ogg",
+    "bytes": 17110,
+    "sha256": "0efdaba538a50008c0211739ba7901759eb6a8f6be6abfb69e7cb893230ed3e7"
+  },
+  {
+    "file": "outputs/runtime/music_atom_probe_loop.m4a",
+    "bytes": 2319421,
+    "sha256": "2a7cc3a66b359da85c0907e34abed15c7e0db8b2ea40a1c553ba8f95b42951da"
+  },
+  {
+    "file": "outputs/runtime/music_atom_probe_loop.ogg",
+    "bytes": 2242256,
+    "sha256": "f7b25dc8b5dce2b80669f3b016cb82cd4f90d21e724d05bc0dcd8f981bded928"
+  },
+  {
+    "file": "outputs/runtime/music_four_pegs_loop.m4a",
+    "bytes": 2177744,
+    "sha256": "216a80b29d2bd693ac9a78b37a3a9db1affc7fd06d9f78414a2be8bcdad96b88"
+  },
+  {
+    "file": "outputs/runtime/music_four_pegs_loop.ogg",
+    "bytes": 1735019,
+    "sha256": "95b22f865c5d15645a7253449c88c0138976798905e58aca61d419bd42e4a9b0"
+  },
+  {
+    "file": "outputs/runtime/music_gems_loop.m4a",
+    "bytes": 2137261,
+    "sha256": "4393f6f13245e950d8344860c5c38951bf1ef717509a4866d59f967f82de7e0a"
+  },
+  {
+    "file": "outputs/runtime/music_gems_loop.ogg",
+    "bytes": 1913527,
+    "sha256": "43373720a48d72688a921ffbd335e50375f84a9cca8ece289b06c46dec4590ab"
+  },
+  {
+    "file": "outputs/runtime/music_nature_cube_loop.m4a",
+    "bytes": 2204567,
+    "sha256": "75224eea3de4e5fe2efd703591960c1744c476896cca788298e739b917f32cdf"
+  },
+  {
+    "file": "outputs/runtime/music_nature_cube_loop.ogg",
+    "bytes": 2036379,
+    "sha256": "fba1a4143fda28ce31151fc87cf67e7aed199a4c6fd24eedd9141934abac1c19"
+  },
+  {
+    "file": "outputs/runtime/music_puzzle_solve_loop.m4a",
+    "bytes": 2092025,
+    "sha256": "3e33cc4320b5b00d638d8840ca3b977588050e1f1af8c871baea53f5c0d196b6"
+  },
+  {
+    "file": "outputs/runtime/music_puzzle_solve_loop.ogg",
+    "bytes": 1931156,
+    "sha256": "33662a9e4edf2d7efd9001a8239fe15d37aff223dda06053a6549a134dd75e81"
+  },
+  {
+    "file": "outputs/runtime/music_sticks_stones_loop.m4a",
+    "bytes": 2133849,
+    "sha256": "fe29d8c9962c1678cd26a80786bc85ba51a42ce702563081c9a93fa0a62d84de"
+  },
+  {
+    "file": "outputs/runtime/music_sticks_stones_loop.ogg",
+    "bytes": 1768587,
+    "sha256": "1e5bcf857a8f3b203636fb6079bdc6bddb79ccc900bfde7faac95aab68f1cbd0"
+  },
+  {
+    "file": "outputs/runtime/music_sudoku_day_loop.m4a",
+    "bytes": 2042068,
+    "sha256": "feba367ebf1bd1db95ee487fdaa5f3ae5092f2eb5a0bcdd15fd43e93e9dcd20f"
+  },
+  {
+    "file": "outputs/runtime/music_sudoku_day_loop.ogg",
+    "bytes": 1706555,
+    "sha256": "eeb3f576d4b5a867bee7da8df80743891c1bbbdcaf8bf17c0b0ac7247ae69c5b"
+  },
+  {
+    "file": "outputs/runtime/music_sudoku_night_loop.m4a",
+    "bytes": 2282384,
+    "sha256": "5e9b6f3997efefa0d311e1de5f77ff72ae45c640c924cb3612ebf2b1b2a3fcd6"
+  },
+  {
+    "file": "outputs/runtime/music_sudoku_night_loop.ogg",
+    "bytes": 2220697,
+    "sha256": "5f919e864e42746f6a287107389b02c7d86dbe3bac85a407568a07db6bb23c56"
+  },
+  {
+    "file": "outputs/runtime/music_switchbox_loop.m4a",
+    "bytes": 1970577,
+    "sha256": "823422d874d3265ec1cfa091dcc5f60df0cfd4df03a783eaa21ab23b6044106c"
+  },
+  {
+    "file": "outputs/runtime/music_switchbox_loop.ogg",
+    "bytes": 1778509,
+    "sha256": "4e53edbbb0c7103a42c2b8c037d28aaa9cc7521227334d79a230e085c03d42ed"
+  },
+  {
+    "file": "outputs/runtime/music_untangle_loop.m4a",
+    "bytes": 2370682,
+    "sha256": "caf97465d0362f51d59e81e0de3712afd50a4f8ddd153867a2207b7949f25dd9"
+  },
+  {
+    "file": "outputs/runtime/music_untangle_loop.ogg",
+    "bytes": 2071646,
+    "sha256": "3dcd932d691b198b7e4e0705decfdee7621315eed7b8e9e3eb04e68ce3529682"
+  },
+  {
+    "file": "outputs/runtime/nature_cube_connect_01.m4a",
+    "bytes": 26491,
+    "sha256": "1908979ed7a0cd088f71f4366c762029b460ffe54fa10dac8e4a71d06b9ee22d"
+  },
+  {
+    "file": "outputs/runtime/nature_cube_connect_01.ogg",
+    "bytes": 22919,
+    "sha256": "263a8f0365fec937cca7a8bd94513a5ae5e81a11bd72eb60844d53d3980a59c8"
+  },
+  {
+    "file": "outputs/runtime/nature_cube_connect_02.m4a",
+    "bytes": 27271,
+    "sha256": "a0cb72b0b76351eb82355201d2060379a7228cc006561ecf4b16b2004a977c50"
+  },
+  {
+    "file": "outputs/runtime/nature_cube_connect_02.ogg",
+    "bytes": 24313,
+    "sha256": "7d29cfd75f7dc2b7c2fb6446559e5c308eadfb7fbca882abbae8acf8edb4dc45"
+  },
+  {
+    "file": "outputs/runtime/nature_cube_disconnect.m4a",
+    "bytes": 18691,
+    "sha256": "a11a06c6230e87f55c46b0faf35fe03a5b124668ec16038a659ceac22f512c00"
+  },
+  {
+    "file": "outputs/runtime/nature_cube_disconnect.ogg",
+    "bytes": 12980,
+    "sha256": "6128d2ab2b3fbae56e8edb4c85868c3327092cabe1d24eb982dd84142505136d"
+  },
+  {
+    "file": "outputs/runtime/nature_cube_path_full.m4a",
+    "bytes": 21551,
+    "sha256": "1c1bb174a06e83c9b7a7146dc9c392af7d02788a97ccf872dc440fc287b6cbbb"
+  },
+  {
+    "file": "outputs/runtime/nature_cube_path_full.ogg",
+    "bytes": 15882,
+    "sha256": "6a4d0b0d75395abb467768f7342c1d6c62c1108eea209d36bdf74bc550fc2019"
+  },
+  {
+    "file": "outputs/runtime/nature_cube_trace_01.m4a",
+    "bytes": 25971,
+    "sha256": "49f2a902117d2a5f1597e23a646b59d56efe81b0133eb5f4e59add10144bc1ff"
+  },
+  {
+    "file": "outputs/runtime/nature_cube_trace_01.ogg",
+    "bytes": 18411,
+    "sha256": "9fcb0063900c2de6e7e336c760d550701b4f4fa93b3caea486afb47e6c675b6b"
+  },
+  {
+    "file": "outputs/runtime/nature_cube_trace_02.m4a",
+    "bytes": 23631,
+    "sha256": "4bb2aac58583fc0c53fb7da453ba5a2160412d277474db3592cc3a8b3eb066f5"
+  },
+  {
+    "file": "outputs/runtime/nature_cube_trace_02.ogg",
+    "bytes": 17297,
+    "sha256": "b166f046d777b362bcbf80c99dde73b97af3aec5044c8230644b33f92f4aebbc"
+  },
+  {
+    "file": "outputs/runtime/nature_cube_trace_03.m4a",
+    "bytes": 24151,
+    "sha256": "de4ad688cae39516fed7c4c4a12d477dbdd386bba230aaa08ef9cc5444e472b0"
+  },
+  {
+    "file": "outputs/runtime/nature_cube_trace_03.ogg",
+    "bytes": 16312,
+    "sha256": "7c0abbe83e974ecc08798e054e0388493dde76aa5682760b30fac88ca9da45d6"
+  },
+  {
+    "file": "outputs/runtime/nature_cube_trace_04.m4a",
+    "bytes": 24671,
+    "sha256": "d45315fec25f6dec404b2d4fb177e62c5e87c07e66514bfc88a943c96eef8928"
+  },
+  {
+    "file": "outputs/runtime/nature_cube_trace_04.ogg",
+    "bytes": 16178,
+    "sha256": "828a48e27b7ff022ea164c7716b3fdfc4bc8f8dc2af47ad7854a1455feb02976"
+  },
+  {
+    "file": "outputs/runtime/puzzle_solve_fit.m4a",
+    "bytes": 25971,
+    "sha256": "292ce6730c4a4778b3ebae7c4d315abd935296fb443928c354b2e7df00feff87"
+  },
+  {
+    "file": "outputs/runtime/puzzle_solve_fit.ogg",
+    "bytes": 17289,
+    "sha256": "4eae18078668c11d8b03e8539d4c4ca5d52943328cab46298f709b5ae047120d"
+  },
+  {
+    "file": "outputs/runtime/puzzle_solve_flip_01.m4a",
+    "bytes": 8551,
+    "sha256": "0aff1bbcffbde7a8e8b16e0017337e9103823cce56f7f4576300846ee1b3489d"
+  },
+  {
+    "file": "outputs/runtime/puzzle_solve_flip_01.ogg",
+    "bytes": 4230,
+    "sha256": "73bcb029f77a230f4a618014b455e65720793c00cca0ac9b98aff226c074f377"
+  },
+  {
+    "file": "outputs/runtime/puzzle_solve_flip_02.m4a",
+    "bytes": 8551,
+    "sha256": "b8a37c528beacd53675c513098f62c32d1a2bfcf652f490e8994b1b111b8f2a8"
+  },
+  {
+    "file": "outputs/runtime/puzzle_solve_flip_02.ogg",
+    "bytes": 4250,
+    "sha256": "0da623819f65f3cf596991f28d12bca8bdf85882b1bcf6d0200ac0f1fd42dcb5"
+  },
+  {
+    "file": "outputs/runtime/puzzle_solve_no_fit.m4a",
+    "bytes": 6731,
+    "sha256": "b491443bcfc9fa910f002beb9a45d3c77dad44eb3813f8145a924002aacf2b75"
+  },
+  {
+    "file": "outputs/runtime/puzzle_solve_no_fit.ogg",
+    "bytes": 3722,
+    "sha256": "1fab4b2bfd7932b6b53c0d3a86f6528b023f9ff312551f6227d67c048432b973"
+  },
+  {
+    "file": "outputs/runtime/puzzle_solve_pickup.m4a",
+    "bytes": 5488,
+    "sha256": "6a63c8a2dcec6bceb5e9a5d035f6341258abc6f8540bb34112397ca6cf598bfe"
+  },
+  {
+    "file": "outputs/runtime/puzzle_solve_pickup.ogg",
+    "bytes": 2804,
+    "sha256": "db89678660b9a31bc23af449e134191a3ab420975319ce7c4483e26ca9663f1b"
+  },
+  {
+    "file": "outputs/runtime/puzzle_solve_place.m4a",
+    "bytes": 5951,
+    "sha256": "3a21fb1fedbf89ceb795d24a3f9a055c4c00e940243f61f46516a487b60bac6f"
+  },
+  {
+    "file": "outputs/runtime/puzzle_solve_place.ogg",
+    "bytes": 3050,
+    "sha256": "23ba1ecadabe28ecd4915ad21469beecabbe54cb1c8b07dd3b486dd6cfcce1c5"
+  },
+  {
+    "file": "outputs/runtime/puzzle_solve_rotate_01.m4a",
+    "bytes": 21863,
+    "sha256": "9bdba6ccd4dc1f6e1a5315a972795cc2f76dd5508ffe3f2712290bdca3cf70a9"
+  },
+  {
+    "file": "outputs/runtime/puzzle_solve_rotate_01.ogg",
+    "bytes": 14178,
+    "sha256": "85809b6b5c99b6825927bc281b9d6b6cea4e88b2df6df4d19db280f98ac8f905"
+  },
+  {
+    "file": "outputs/runtime/puzzle_solve_rotate_02.m4a",
+    "bytes": 21291,
+    "sha256": "68229f633ddf50135c9a36ed6a56d377b88ef3d2da44a4f9209bcb34b348455e"
+  },
+  {
+    "file": "outputs/runtime/puzzle_solve_rotate_02.ogg",
+    "bytes": 14353,
+    "sha256": "140a2f5f2ef56dc41ea48f95d5210ebea94aa5d8a803fa9372657f3fb73396d2"
+  },
+  {
+    "file": "outputs/runtime/puzzle_solve_rotate_03.m4a",
+    "bytes": 20771,
+    "sha256": "5b4ac262121891260b5b0d1635b1a6c1e232b6d9412b306388cd97f693fd3cf4"
+  },
+  {
+    "file": "outputs/runtime/puzzle_solve_rotate_03.ogg",
+    "bytes": 14155,
+    "sha256": "4421beccf537fda4b35e19bd83f7a972407ec86ac5017e6f064bbfb33cb64f66"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_constraint_broken.m4a",
+    "bytes": 16351,
+    "sha256": "6d9dd2d14eb2134061db34d5a4c8e3352941b01b4b4a1f783b42811038201752"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_constraint_broken.ogg",
+    "bytes": 8255,
+    "sha256": "f1bc262d440aa627cc106c06ba352da1fa12f8c56efc0b6caff5e3e0623790c2"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_constraint_ok_01.m4a",
+    "bytes": 18951,
+    "sha256": "b6da80fb4c1a74e3296acfd67cf9d57c5b04ed8dea0be6237af6a346e617ce0d"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_constraint_ok_01.ogg",
+    "bytes": 12503,
+    "sha256": "179bb2d664a07fe20255f067df09da4cde84f8d771c3a195ef897d0f3e4a427d"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_constraint_ok_02.m4a",
+    "bytes": 17911,
+    "sha256": "6451613953c8a9ea2b0abdb8241fc41071c3bcf2d39c272d44b4e3029ae23424"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_constraint_ok_02.ogg",
+    "bytes": 11285,
+    "sha256": "de857a4a6997406ddd5f0474bd0220a5b7e359285fbb16baca13a608cbe827be"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_remove.m4a",
+    "bytes": 6211,
+    "sha256": "db8992fc7039d2d2511bbc686cf38c5782d1211c4b19afd7f2c42d0d9ea5cf3a"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_remove.ogg",
+    "bytes": 3515,
+    "sha256": "005a0d67a853e60d893d4e0828accecac610b3f7f1de0d7bea12e25174bd0629"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_stick_place_01.m4a",
+    "bytes": 16351,
+    "sha256": "67a131d85921869075c6c596dbf45c8a6da9632244ab527d7e2006d67b2f9da2"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_stick_place_01.ogg",
+    "bytes": 8717,
+    "sha256": "c0a12dae520978b26111c85f348a7bc78d215b98a956f642a1c38cad70a836e7"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_stick_place_02.m4a",
+    "bytes": 16351,
+    "sha256": "c4196d7ffbbd97302ba36920c3ace7b77337cd6f888657ce2e0a7c876d1d7555"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_stick_place_02.ogg",
+    "bytes": 8470,
+    "sha256": "c62cddb5976dddb1ffadb21d20da7d0aed1d886038a359ee470cd43fd45bad77"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_stick_place_03.m4a",
+    "bytes": 16351,
+    "sha256": "2a676ace3985501ee48ac0f10d4c896ff0678b1053f471e7549a605caf304d3b"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_stick_place_03.ogg",
+    "bytes": 8639,
+    "sha256": "ef8abc2185d764a84a7a60f9ae1251345831c2b872d89d9c73e3658a10f31646"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_stone_place_01.m4a",
+    "bytes": 13751,
+    "sha256": "4f0f1e02b73a98bf1af4b41f41909f2ca050b582f490799a557f0aa6370115c2"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_stone_place_01.ogg",
+    "bytes": 7727,
+    "sha256": "8fbac777b4e54189200ff812191a9f2be0049e66173a064605a2a4dfcbd7beac"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_stone_place_02.m4a",
+    "bytes": 13751,
+    "sha256": "a89013468603f3590b06c0ae0e95a3627a35c4a4fa89bd837525118699ddb4a4"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_stone_place_02.ogg",
+    "bytes": 8169,
+    "sha256": "4f7027ef0113831c8fdcea78a54f0adc3de6d001b1206c521ba8d3e2cca371b8"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_stone_place_03.m4a",
+    "bytes": 13751,
+    "sha256": "c117d8042da1a1575f17efa7502d7be3427a58cd216ea91abc6599156e9885f9"
+  },
+  {
+    "file": "outputs/runtime/sticks_stones_stone_place_03.ogg",
+    "bytes": 7982,
+    "sha256": "25e8605fb1310ec1d93457c55f5c001c533fcc38cc80f6728e607d4230588061"
+  },
+  {
+    "file": "outputs/runtime/stinger_topscore_atom_probe.m4a",
+    "bytes": 50855,
+    "sha256": "8be655e891294de8af6357f09291a44b66688113ddbe8d356d3c5ac8f4957f3b"
+  },
+  {
+    "file": "outputs/runtime/stinger_topscore_atom_probe.ogg",
+    "bytes": 41246,
+    "sha256": "18d2b88fbc5ffc327d6531009581cfbf22edf2381c51d36ef44756c55eac81e4"
+  },
+  {
+    "file": "outputs/runtime/stinger_topscore_four_pegs.m4a",
+    "bytes": 51115,
+    "sha256": "51757d4fa236f412506697fd48a4999fb52e29287889ff308aad8afc73456930"
+  },
+  {
+    "file": "outputs/runtime/stinger_topscore_four_pegs.ogg",
+    "bytes": 44036,
+    "sha256": "f6613bb9393cda45d172b7a056b5d013049741540895d8737e02bcb965770485"
+  },
+  {
+    "file": "outputs/runtime/stinger_topscore_gems.m4a",
+    "bytes": 55275,
+    "sha256": "007e320f1bbb41057293310bacc57bcc3d25e09a6def25bdaa5be72a4ccf310d"
+  },
+  {
+    "file": "outputs/runtime/stinger_topscore_gems.ogg",
+    "bytes": 42098,
+    "sha256": "6d74a5c52105b37d43f8e0f9eefa645b52388294e81e40d0b8a5b1e158411632"
+  },
+  {
+    "file": "outputs/runtime/stinger_topscore_nature_cube.m4a",
+    "bytes": 48775,
+    "sha256": "cdee8a056ca794f7e3f069941e4664189381a998d0cb9c67ab75a05f76636de0"
+  },
+  {
+    "file": "outputs/runtime/stinger_topscore_nature_cube.ogg",
+    "bytes": 33086,
+    "sha256": "b21fcc490525a911bcf42fb745a488bd5f0b89a6faa923f7acfe85366fe387b9"
+  },
+  {
+    "file": "outputs/runtime/stinger_topscore_puzzle_solve.m4a",
+    "bytes": 48515,
+    "sha256": "b462256268e2e566238d74b4edf56d0d5b159312f9057ca2fa8e6344f23f41bc"
+  },
+  {
+    "file": "outputs/runtime/stinger_topscore_puzzle_solve.ogg",
+    "bytes": 46364,
+    "sha256": "78ca4409bb23429b59849b12f7e1600034d7aec46aea3197eaf940128eb3bbe9"
+  },
+  {
+    "file": "outputs/runtime/stinger_topscore_sticks_stones.m4a",
+    "bytes": 50595,
+    "sha256": "6dc85d1e2f9e0a2c36617b8493d3083f44b64cab437250fedeb2cda7f9d73ca1"
+  },
+  {
+    "file": "outputs/runtime/stinger_topscore_sticks_stones.ogg",
+    "bytes": 37699,
+    "sha256": "19e49462a1c988d6986dbac09f9a378c5792549ce36959735f0f01f6c9a44bb8"
+  },
+  {
+    "file": "outputs/runtime/stinger_topscore_sudoku.m4a",
+    "bytes": 54755,
+    "sha256": "5c9041d60b23c1d08d6fe3eb114773450da46879f8dcacaf9980da4f73548706"
+  },
+  {
+    "file": "outputs/runtime/stinger_topscore_sudoku.ogg",
+    "bytes": 49436,
+    "sha256": "2721b082dfe0b3fda76fa194c1492b3839c9516185479cf243fbda74c51bffb8"
+  },
+  {
+    "file": "outputs/runtime/stinger_topscore_switchbox.m4a",
+    "bytes": 46695,
+    "sha256": "05c46c2c9c148bb9b509f2e294cfba0d0d1b33dd0a28e819e6ea4070b6bcde4a"
+  },
+  {
+    "file": "outputs/runtime/stinger_topscore_switchbox.ogg",
+    "bytes": 41806,
+    "sha256": "914ae8a6476dc7ee233bd3ed1833090debdc1fb3b5825910383e89d868b056ee"
+  },
+  {
+    "file": "outputs/runtime/stinger_topscore_untangle.m4a",
+    "bytes": 48775,
+    "sha256": "d7cb715cdf92c225678d51d208f6b5fe8a5cd6f20ba4405190320b7a7b52dbc7"
+  },
+  {
+    "file": "outputs/runtime/stinger_topscore_untangle.ogg",
+    "bytes": 47489,
+    "sha256": "c4cdec1eed3874a1a1d5bdc383be2d84b86d4df221d6077702d762772c9cb237"
+  },
+  {
+    "file": "outputs/runtime/stinger_win_atom_probe.m4a",
+    "bytes": 52675,
+    "sha256": "f74084b9a54cdd95ba32681eca160b2073c1e1e7234832b5acd12fb5ea032f9c"
+  },
+  {
+    "file": "outputs/runtime/stinger_win_atom_probe.ogg",
+    "bytes": 50798,
+    "sha256": "fd812342292836e0cb9e3760cdebe902f149f6492a1b6b418c521e78408e0ee1"
+  },
+  {
+    "file": "outputs/runtime/stinger_win_four_pegs.m4a",
+    "bytes": 51895,
+    "sha256": "f19a7630b55f49d79306b62a95b24ad92526a9350c8593a0e13086585e43a887"
+  },
+  {
+    "file": "outputs/runtime/stinger_win_four_pegs.ogg",
+    "bytes": 49570,
+    "sha256": "b33e417e349f362ced16698f04fa713ab134341917d03b79eca25039f64d1b38"
+  },
+  {
+    "file": "outputs/runtime/stinger_win_gems.m4a",
+    "bytes": 57615,
+    "sha256": "74f9cf0fa4c58d54c02c976b08d6f0c575f2a815ced591c4c464d8da8a77f112"
+  },
+  {
+    "file": "outputs/runtime/stinger_win_gems.ogg",
+    "bytes": 47020,
+    "sha256": "1d1540ba5aebd49dd8ca7c8ba5d3fae9830d492bc54225225b479d5f796e8124"
+  },
+  {
+    "file": "outputs/runtime/stinger_win_nature_cube.m4a",
+    "bytes": 50855,
+    "sha256": "05b9a67544afae2870bcfd1d4fdb54db594644369b859ae62af23cec540ea3c6"
+  },
+  {
+    "file": "outputs/runtime/stinger_win_nature_cube.ogg",
+    "bytes": 38449,
+    "sha256": "b2415a5fdbc144ccd791f4b8f3174f069b8dd122c0083d549995606fbab79cf6"
+  },
+  {
+    "file": "outputs/runtime/stinger_win_puzzle_solve.m4a",
+    "bytes": 50855,
+    "sha256": "a141a3e11d2d1559f4588bc49d70d76d278b6195989f16c1ea3c26d5d00fe607"
+  },
+  {
+    "file": "outputs/runtime/stinger_win_puzzle_solve.ogg",
+    "bytes": 56128,
+    "sha256": "b939fb3e047b6587e2af01459a5108f1a2beacc262d266d6dc8c27c258608727"
+  },
+  {
+    "file": "outputs/runtime/stinger_win_sticks_stones.m4a",
+    "bytes": 50595,
+    "sha256": "8ef0f3a299400eea60d24efb0e459011d431cecc6b2f96b0ae76fdae041ebcb9"
+  },
+  {
+    "file": "outputs/runtime/stinger_win_sticks_stones.ogg",
+    "bytes": 41167,
+    "sha256": "d3838e42045df368f1cfe271fd56b8096b376bfbc5938c6a1f12c27f0e5eecfe"
+  },
+  {
+    "file": "outputs/runtime/stinger_win_sudoku.m4a",
+    "bytes": 56835,
+    "sha256": "cf87c1ccd37744841d535168e7e86a40d1ac33220ccb587f95a253b2690fdf4a"
+  },
+  {
+    "file": "outputs/runtime/stinger_win_sudoku.ogg",
+    "bytes": 52007,
+    "sha256": "295f6b13734e9ee1c3ba6024984c4afe424ef06208066ca1c191e850407152c0"
+  },
+  {
+    "file": "outputs/runtime/stinger_win_switchbox.m4a",
+    "bytes": 47735,
+    "sha256": "7993d83cf67e54813f3d4aac1c6d2ffc07c4840313d4e70717ed7a95075d490f"
+  },
+  {
+    "file": "outputs/runtime/stinger_win_switchbox.ogg",
+    "bytes": 47082,
+    "sha256": "cdb1c7e730d9bed32e33894082bbaee2be829a0d0e00103b58470ed2ce588e18"
+  },
+  {
+    "file": "outputs/runtime/stinger_win_untangle.m4a",
+    "bytes": 50855,
+    "sha256": "dc1cacb7f024f6179c152eb911e6e40861b63d1a89806e273db73041ecb6f878"
+  },
+  {
+    "file": "outputs/runtime/stinger_win_untangle.ogg",
+    "bytes": 56454,
+    "sha256": "5afe3d37937ded7a9811c5e8c25a493e70d2c2a8730b3e5417838d0ef84566d9"
+  },
+  {
+    "file": "outputs/runtime/sudoku_box_complete.m4a",
+    "bytes": 27011,
+    "sha256": "41603dc2cad46ebdf0bc86583fa0157a2c012881fe92abbdbfb8cd98527d71b9"
+  },
+  {
+    "file": "outputs/runtime/sudoku_box_complete.ogg",
+    "bytes": 23572,
+    "sha256": "3e6caf9f895cbd29cfc07bb8b71868972965fe6ab5dfbb5bb9b3871e52f75d5a"
+  },
+  {
+    "file": "outputs/runtime/sudoku_column_complete.m4a",
+    "bytes": 26491,
+    "sha256": "7e5001d26f1039ce7292c377ce2e304b6e75677456e6c1c598c310409bb8c825"
+  },
+  {
+    "file": "outputs/runtime/sudoku_column_complete.ogg",
+    "bytes": 24207,
+    "sha256": "a8c7cdf98b646a62cdcb036f70b50fbefdfa40226ad4a644a0a2835d22fb98a0"
+  },
+  {
+    "file": "outputs/runtime/sudoku_digit_place_01.m4a",
+    "bytes": 18171,
+    "sha256": "81aa1e7893af5c58c8b1557185297866b214835c247c4cce6d6f5c5dcf63096d"
+  },
+  {
+    "file": "outputs/runtime/sudoku_digit_place_01.ogg",
+    "bytes": 13557,
+    "sha256": "a3fb32f3de26dc6bf2b5b827b83b95a118d3410999e56c55f3b3ec86ac24ec64"
+  },
+  {
+    "file": "outputs/runtime/sudoku_digit_place_02.m4a",
+    "bytes": 18171,
+    "sha256": "a5ddd566381d0379be88244c0fddf56622ac40b664727bd55db326af57f7af25"
+  },
+  {
+    "file": "outputs/runtime/sudoku_digit_place_02.ogg",
+    "bytes": 13877,
+    "sha256": "404c86e262f1b79714aa36381bb7a44593aadd54a5d3d604182122df3ebff57f"
+  },
+  {
+    "file": "outputs/runtime/sudoku_digit_place_03.m4a",
+    "bytes": 18171,
+    "sha256": "65984dae095aa1325d348045bf1dec87a84a86d71618fe03de0aa7c65f09e313"
+  },
+  {
+    "file": "outputs/runtime/sudoku_digit_place_03.ogg",
+    "bytes": 14348,
+    "sha256": "94970d099f5df431f237d274576330e2806b175fe5e42d0524d5673d45d132d1"
+  },
+  {
+    "file": "outputs/runtime/sudoku_erase.m4a",
+    "bytes": 6471,
+    "sha256": "e66620211772e17008cef4da0c59a8dcf097fe337262909caeacf1df05842d80"
+  },
+  {
+    "file": "outputs/runtime/sudoku_erase.ogg",
+    "bytes": 3593,
+    "sha256": "43565883f43953dd453dda6f83f673c5b21933c5228e26f70cbb7d6ab8a44324"
+  },
+  {
+    "file": "outputs/runtime/sudoku_error.m4a",
+    "bytes": 14271,
+    "sha256": "7a260c9046f1f6fc68988d7cfc34ff2b59d60f637bcae85b39f302bb3586d829"
+  },
+  {
+    "file": "outputs/runtime/sudoku_error.ogg",
+    "bytes": 9470,
+    "sha256": "9782f12a6a2c971c2b71d74ebf8e7c5192931d47ec19bb8ba7ecac87063d5037"
+  },
+  {
+    "file": "outputs/runtime/sudoku_note_place_01.m4a",
+    "bytes": 4651,
+    "sha256": "396bf017494b4f9432cf8971738a2bfea5d0362a87e1084c3daa486bf2c8764c"
+  },
+  {
+    "file": "outputs/runtime/sudoku_note_place_01.ogg",
+    "bytes": 2140,
+    "sha256": "2e8da35749380fcd22de568473aa89a02d07653f56d41e5619fb2f0289000890"
+  },
+  {
+    "file": "outputs/runtime/sudoku_note_place_02.m4a",
+    "bytes": 4651,
+    "sha256": "ff0b82f0194104c7aa6bf987fc03d1b5128cdac24905f777f714b1f3c079fbc7"
+  },
+  {
+    "file": "outputs/runtime/sudoku_note_place_02.ogg",
+    "bytes": 2163,
+    "sha256": "5b92a04b983e356682e4de69d9c00adf4c7cbc03552f323fbb58bbc7e8b53c85"
+  },
+  {
+    "file": "outputs/runtime/sudoku_note_place_03.m4a",
+    "bytes": 4651,
+    "sha256": "a11dee878f87e909bd68171bf11d245c8510c72dda0191860e7ecdd5e05b8900"
+  },
+  {
+    "file": "outputs/runtime/sudoku_note_place_03.ogg",
+    "bytes": 2104,
+    "sha256": "134669d25b1a89844555fac3ac73b66a80a8af1459665616a61d62e0b4f2b15e"
+  },
+  {
+    "file": "outputs/runtime/sudoku_note_remove.m4a",
+    "bytes": 4651,
+    "sha256": "167b12228b1dfe4a123f1d98e6f44d018c0d5403a90ca1cf531a92817184febf"
+  },
+  {
+    "file": "outputs/runtime/sudoku_note_remove.ogg",
+    "bytes": 2109,
+    "sha256": "a1d624fc53bee1b3c5d95343017a39792775c577cdab5f611884f32f8ec610b9"
+  },
+  {
+    "file": "outputs/runtime/sudoku_row_complete.m4a",
+    "bytes": 26751,
+    "sha256": "af9b7afc0b78f4cd6896dcf50c49703845c112ba0063d67a91dd98e1c90a733b"
+  },
+  {
+    "file": "outputs/runtime/sudoku_row_complete.ogg",
+    "bytes": 22411,
+    "sha256": "864b0477d52100be18b2c7f891655cecfb9ee62212f0f37e96fccb54180f256f"
+  },
+  {
+    "file": "outputs/runtime/switchbox_giggle_boing.m4a",
+    "bytes": 11671,
+    "sha256": "6da139ffca2c4ec1305443da209d3b8446f994ded3f382ec801fe9ebf1266665"
+  },
+  {
+    "file": "outputs/runtime/switchbox_giggle_boing.ogg",
+    "bytes": 6677,
+    "sha256": "58785bca60ff5379e455da6121bc1f17b650b062cd4b405bb8ed26b8db850cf4"
+  },
+  {
+    "file": "outputs/runtime/switchbox_reach.m4a",
+    "bytes": 32731,
+    "sha256": "fcea1b6cac16f4dba53aeb32bb8fe82c4b4e55d3a540939e11c457e2536396dd"
+  },
+  {
+    "file": "outputs/runtime/switchbox_reach.ogg",
+    "bytes": 27104,
+    "sha256": "351ebfd468b8e55443cb22ce916c7dd843d90771fa2ab19fcd471a8ce6855c12"
+  },
+  {
+    "file": "outputs/runtime/switchbox_reset.m4a",
+    "bytes": 33511,
+    "sha256": "71db923fd4b553739b3e2112f3561ca420e042301e19de30ca0fa1339024317d"
+  },
+  {
+    "file": "outputs/runtime/switchbox_reset.ogg",
+    "bytes": 26054,
+    "sha256": "28add7582ae0aa62e77b94126e5e235c4e8929b093998586e31636376554b413"
+  },
+  {
+    "file": "outputs/runtime/switchbox_switch_off_01.m4a",
+    "bytes": 6471,
+    "sha256": "e2c61ad44d9c7cd5f60177bcbdc54ad821033bbf570bb6c7b46d0e245ab5ba14"
+  },
+  {
+    "file": "outputs/runtime/switchbox_switch_off_01.ogg",
+    "bytes": 3368,
+    "sha256": "31dd4f5eaf8d82d1a8ac19adc2bbe086ad639d515becf83b43950588c19490f8"
+  },
+  {
+    "file": "outputs/runtime/switchbox_switch_off_02.m4a",
+    "bytes": 6471,
+    "sha256": "c20828dbc2aaad91cad94c4f908cd818468870fc898e96c84d46c15a4c1c316b"
+  },
+  {
+    "file": "outputs/runtime/switchbox_switch_off_02.ogg",
+    "bytes": 3290,
+    "sha256": "b31cdd55b28bb07a8865bef541c2b5110f83d8cbcaf5ea9106c55c972dc38093"
+  },
+  {
+    "file": "outputs/runtime/switchbox_switch_off_03.m4a",
+    "bytes": 6471,
+    "sha256": "fb469eb0b55c353f8457c1d0987683fb556b6bf3db3b881494b1e8a7497fbb55"
+  },
+  {
+    "file": "outputs/runtime/switchbox_switch_off_03.ogg",
+    "bytes": 3399,
+    "sha256": "6318d3b301cc863cd0ecc8ff66ef8f709759b55e0fd2554f6fd2a1e128301c9b"
+  },
+  {
+    "file": "outputs/runtime/switchbox_switch_on_01.m4a",
+    "bytes": 6471,
+    "sha256": "3ec0c40393b5927ca5bf98b32da7c7ce526ef12a87f4e402fe5afb7d6598d118"
+  },
+  {
+    "file": "outputs/runtime/switchbox_switch_on_01.ogg",
+    "bytes": 3359,
+    "sha256": "953ae61347d0d7c875206b7bf061fa0c7c1d01b621b8afafba1494292ad120f1"
+  },
+  {
+    "file": "outputs/runtime/switchbox_switch_on_02.m4a",
+    "bytes": 6471,
+    "sha256": "dd7b1f6981e564611692d8a903ff1e05d291f7262e19c9093cc43b14f3b7b27d"
+  },
+  {
+    "file": "outputs/runtime/switchbox_switch_on_02.ogg",
+    "bytes": 3460,
+    "sha256": "eceb703e05fb09da911df63fa687b522c44a01478a6feaaf96436cf70fa6a27b"
+  },
+  {
+    "file": "outputs/runtime/switchbox_switch_on_03.m4a",
+    "bytes": 6471,
+    "sha256": "400a0eb62ca13f6fbf9531a00aed573b0c3a8dedc862005c0ff2fe3e61344be6"
+  },
+  {
+    "file": "outputs/runtime/switchbox_switch_on_03.ogg",
+    "bytes": 3515,
+    "sha256": "fae4628181c8f38d03343386665b88f7a746b5803cd436b2f77b016288488f8e"
+  },
+  {
+    "file": "outputs/runtime/switchbox_unlock.m4a",
+    "bytes": 33843,
+    "sha256": "56a0d1f49495d20c9651e71a9ce5e6fb7bbd3eec8d27d07710b12e589b303723"
+  },
+  {
+    "file": "outputs/runtime/switchbox_unlock.ogg",
+    "bytes": 30719,
+    "sha256": "825b5f2eea5ecef31d51aa0deaf1edcfe5f8be0d683451ff8a7629f9520a1184"
+  },
+  {
+    "file": "outputs/runtime/ui_name_backspace.m4a",
+    "bytes": 10891,
+    "sha256": "8d77c81646e80b27ecc42c6ebe67934c5a8260b9743feb1e1a53ef3dfbda3caf"
+  },
+  {
+    "file": "outputs/runtime/ui_name_backspace.ogg",
+    "bytes": 6058,
+    "sha256": "5f9fe327c99fa76b51058a1fa96b292ff6bc103b9761ead59506477f6045b70d"
+  },
+  {
+    "file": "outputs/runtime/ui_name_confirm.m4a",
+    "bytes": 24151,
+    "sha256": "334b4fe0842a6f0f7e684bfbcbee0b5f9c3079b0dec4b28f0ede44466a1430a5"
+  },
+  {
+    "file": "outputs/runtime/ui_name_confirm.ogg",
+    "bytes": 21657,
+    "sha256": "0ed98fd68c1dc5d6bcaecdc71709e863ae1bc9097a0721e32441604d513699b4"
+  },
+  {
+    "file": "outputs/runtime/ui_name_key_01.m4a",
+    "bytes": 10891,
+    "sha256": "a3e1daa7530d3a1d655bf40b53e8070fb0c263dc35039aca406bd951c10e3d1b"
+  },
+  {
+    "file": "outputs/runtime/ui_name_key_01.ogg",
+    "bytes": 6131,
+    "sha256": "901afb22756010c6b6940a500a30d46295cb4ac4bfc46c5ec50c5e37cc61435a"
+  },
+  {
+    "file": "outputs/runtime/ui_name_key_02.m4a",
+    "bytes": 10891,
+    "sha256": "30a52b47ed4746af4374e0eccaa2c82b9c0c7ed74d3d4b780a193d65959d1353"
+  },
+  {
+    "file": "outputs/runtime/ui_name_key_02.ogg",
+    "bytes": 6395,
+    "sha256": "5887af6f2bab90eb1f0402d307dc54d02f5ee3895907f7f493aeade87be3c21c"
+  },
+  {
+    "file": "outputs/runtime/ui_name_key_03.m4a",
+    "bytes": 10891,
+    "sha256": "c4ae0ab789bdf4a639a3e0a3d120b9241387a8f45555734a9530bdc99f457b3c"
+  },
+  {
+    "file": "outputs/runtime/ui_name_key_03.ogg",
+    "bytes": 6815,
+    "sha256": "068e62763e93fe7e1a07ca49862c9ebc1eb066fd7b706662b8a206843679c8e3"
+  },
+  {
+    "file": "outputs/runtime/ui_new_game.m4a",
+    "bytes": 24671,
+    "sha256": "b83398e01676f430455af23d0c206ceba9d0e7e494f24ee2c49fc7d840bf62e4"
+  },
+  {
+    "file": "outputs/runtime/ui_new_game.ogg",
+    "bytes": 16857,
+    "sha256": "baf8bd813ab66d1834cae089263b56d934e9c9f540bd7dc3f78ac777f131a59c"
+  },
+  {
+    "file": "outputs/runtime/untangle_edges_clear.m4a",
+    "bytes": 24151,
+    "sha256": "fcbad3d55989626fc2e7d35beb241e00f6d2d49c90b08f066cec828fcd0436ee"
+  },
+  {
+    "file": "outputs/runtime/untangle_edges_clear.ogg",
+    "bytes": 16682,
+    "sha256": "9ba0c59b2dd4e51e18452a91ec3dca1f6277cef8106fb0a3c3df3a53391fd978"
+  },
+  {
+    "file": "outputs/runtime/untangle_grab_01.m4a",
+    "bytes": 9071,
+    "sha256": "d75f4d3c04a53dd4572a412c594a354da9944107c96c04afc9d5dd96f6b62933"
+  },
+  {
+    "file": "outputs/runtime/untangle_grab_01.ogg",
+    "bytes": 4842,
+    "sha256": "12fce241f9f49d226e87fb37fe16925ea2b0830c1769265d66b0728c66ec37a0"
+  },
+  {
+    "file": "outputs/runtime/untangle_grab_02.m4a",
+    "bytes": 9071,
+    "sha256": "209f7a8069648fce18c1d51a3482ede4bf7c1daa5ed0337f4db37e84f6b01bb2"
+  },
+  {
+    "file": "outputs/runtime/untangle_grab_02.ogg",
+    "bytes": 4883,
+    "sha256": "e71fb6dbde98ae471de23348cd62794930357cda998b8db3d80bcb2b78e7e9cc"
+  },
+  {
+    "file": "outputs/runtime/untangle_grab_03.m4a",
+    "bytes": 9071,
+    "sha256": "d9fd710466d9526d6b08b539b4ab362e26ef25f0d9cb1569db5d35a6a1554f34"
+  },
+  {
+    "file": "outputs/runtime/untangle_grab_03.ogg",
+    "bytes": 4772,
+    "sha256": "c725b39f1891249c515e3af9042a52ca0e617cb6006fc860a7a1666fcde44e98"
+  },
+  {
+    "file": "outputs/runtime/untangle_release_01.m4a",
+    "bytes": 26231,
+    "sha256": "1f9f3fb7af328c7f3dca27868d5092e652fd798c28b5c19a961443bcb03abc1c"
+  },
+  {
+    "file": "outputs/runtime/untangle_release_01.ogg",
+    "bytes": 16294,
+    "sha256": "dca01b63344f5400071874010d716949f4f73cb96b98328e859413a2260b13b3"
+  },
+  {
+    "file": "outputs/runtime/untangle_release_02.m4a",
+    "bytes": 25451,
+    "sha256": "77d59230a256ed77bd29e59d59e2afd415781674bae9dc346c9e8eca4f214d50"
+  },
+  {
+    "file": "outputs/runtime/untangle_release_02.ogg",
+    "bytes": 15927,
+    "sha256": "a554a96a9afb6425111fa9fb855d45a3ac189ee5bb78ec5e0acb71f827bf6cba"
+  },
+  {
+    "file": "outputs/runtime/untangle_release_03.m4a",
+    "bytes": 24671,
+    "sha256": "62aa1369468854f6918c1fbffc621d23a1e6fa14c7bb2167311cbc865a35a9c6"
+  },
+  {
+    "file": "outputs/runtime/untangle_release_03.ogg",
+    "bytes": 15621,
+    "sha256": "a196ef89999ff69c7ed467bc7bdbc1cde311ee38d0e1000c02c2994b8074779c"
+  },
+  {
+    "file": "outputs/runtime/untangle_resolve.m4a",
+    "bytes": 46251,
+    "sha256": "1d18a653348ad51f7a89888f6befe058f9b82b55b6425dd12ef13fe3b30bf857"
+  },
+  {
+    "file": "outputs/runtime/untangle_resolve.ogg",
+    "bytes": 33641,
+    "sha256": "7be423b289241575156389e501e3e0c30a56a849958cdcf526887090f937f207"
+  },
+  {
+    "file": "work/analysis/atom_probe_features.json",
+    "bytes": 1617,
+    "sha256": "1aca53685cfb1c972c9399f1577c741f5c1e9d6546f81a3040251468a34b1119"
+  },
+  {
+    "file": "work/analysis/ct_165.json",
+    "bytes": 858,
+    "sha256": "48ea2d0ed6db982f25ffab7530d7f5ef20b2ef41e7b931a6990a8bfe89671e87"
+  },
+  {
+    "file": "work/analysis/ct_165.png",
+    "bytes": 592530,
+    "sha256": "f7028fcee703f792fa886c6620c795875ca6b6c3c15e32f483a622520019887f"
+  },
+  {
+    "file": "work/analysis/ct_165_rhythm.json",
+    "bytes": 688,
+    "sha256": "35ba014eab3ec70c36a2ad4248ec078ea6b7bf3bf799ae082f7880dbddd27e62"
+  },
+  {
+    "file": "work/analysis/ct_179.json",
+    "bytes": 1023,
+    "sha256": "15eef73a6dfb21acdb2ef653d608300555e793e79949fdad0dd96d3ae14ff9a4"
+  },
+  {
+    "file": "work/analysis/ct_179.png",
+    "bytes": 642291,
+    "sha256": "641cd24947585fd8259b0513b82d17b2722a5c3cdf9275d6b9acdbc82ddda4f5"
+  },
+  {
+    "file": "work/analysis/ct_179_rhythm.json",
+    "bytes": 686,
+    "sha256": "86fbfc3d16de24f2a33eaa4f553de39564afbc3e7e3531feb9816b47b9031326"
+  },
+  {
+    "file": "work/analysis/four_pegs_features.json",
+    "bytes": 1507,
+    "sha256": "4c16e9ae958a56ee7917c8ca7f8b0aab4f9ff1f804885e9e984485d3f941e5a0"
+  },
+  {
+    "file": "work/analysis/gems_features.json",
+    "bytes": 1523,
+    "sha256": "57d7077a99beac0115934b4a06ca067c523150296213bda15207931356429b1a"
+  },
+  {
+    "file": "work/analysis/klondike_features.json",
+    "bytes": 1748,
+    "sha256": "57fd8eb3dcf37cb028f42c7f79cfec6c7e69a4fe3bb850db14549bd6da70e737"
+  },
+  {
+    "file": "work/analysis/klondike_spec.png",
+    "bytes": 784478,
+    "sha256": "41a1867404502de78f525e59b8a47cbda85f6e12135f6600a73ae13e3c1cbd86"
+  },
+  {
+    "file": "work/analysis/nature_cube_features.json",
+    "bytes": 1591,
+    "sha256": "ab133aedd82e54bdfa40c41736aaf6256bb6f70b82b32700a633bab6b658efb9"
+  },
+  {
+    "file": "work/analysis/reference_features.json",
+    "bytes": 2050,
+    "sha256": "8e87701239b8e86ca44f911b10e9a1a88a03b41911f17d35c9f2746bd452602c"
+  },
+  {
+    "file": "work/analysis/reference_rhythm.json",
+    "bytes": 686,
+    "sha256": "388b10f84e38bc50eb5080062ea8cda8584c03ca77c8ca2cbc4be3b9384d2cc9"
+  },
+  {
+    "file": "work/analysis/sudoku_day_features.json",
+    "bytes": 1463,
+    "sha256": "aed80dd1eccdf0ecfbee2c0208a36dc042b641ee3fff80f0800a033ddf4ec68b"
+  },
+  {
+    "file": "work/analysis/sudoku_night_features.json",
+    "bytes": 1570,
+    "sha256": "1efca7acc3cbfe8037626c5d851c73691695546d48c6dc1b1a8394d54dc47852"
+  },
+  {
+    "file": "work/analysis/switchbox_features.json",
+    "bytes": 1491,
+    "sha256": "3dc0e3f3468105acbad75118267cacf6423be9df421090d1016daa3594bd9e1c"
+  },
+  {
+    "file": "work/analysis/untangle_features.json",
+    "bytes": 1587,
+    "sha256": "66561553150cd70c90d60f23ff634b0d27bf30e762c9a2b067b033a1895e1d8f"
+  },
+  {
+    "file": "work/music_render_report.json",
+    "bytes": 7481,
+    "sha256": "963404c478a6ae1b518e6b0cf355828da8bba67311872d2931510d9da05e1c4d"
+  },
+  {
+    "file": "work/score_atom_probe.json",
+    "bytes": 85188,
+    "sha256": "f77b0b1f4ad61bf71295d7081bc3e7daefde9d82a3348a1fef2a402714293eab"
+  },
+  {
+    "file": "work/score_four_pegs.json",
+    "bytes": 83091,
+    "sha256": "b3f3792cb710a5104f724ac2a9186202627453305fd70cdbd0a5b104abb083bb"
+  },
+  {
+    "file": "work/score_freecell.json",
+    "bytes": 143455,
+    "sha256": "942c2f4ca9c997c169ff3249865684b9bc1f3d38159e9192d6a2dd0f07d3be1e"
+  },
+  {
+    "file": "work/score_gems.json",
+    "bytes": 163509,
+    "sha256": "d8be715bcbaf77efdb3a84fdb3997e0c524540664b696b1ec13089187a0da80a"
+  },
+  {
+    "file": "work/score_hearts.json",
+    "bytes": 95557,
+    "sha256": "c67ad3ea154f38f4bfbca2a8ceb4b9bd30c56c793facd8242315de146fc4b241"
+  },
+  {
+    "file": "work/score_klondike.json",
+    "bytes": 124548,
+    "sha256": "b09b1b4cd520e5aaa130c9a5722bcb735edbeb06cc238a1d8dde962145285584"
+  },
+  {
+    "file": "work/score_menu.json",
+    "bytes": 42091,
+    "sha256": "7f9ad20a86e5b67035bc5d390c7f8e49a44d6555227c99f0be00097fe0f6eec5"
+  },
+  {
+    "file": "work/score_nature_cube.json",
+    "bytes": 34610,
+    "sha256": "9d48c4d3b16e48379594cf246af4d88cdb41ef27b7f68a15f7ca92b255970533"
+  },
+  {
+    "file": "work/score_puzzle_main.json",
+    "bytes": 101218,
+    "sha256": "90a2d869690269a12ba754b5fe3c1ad2f12f49ef281233dd4d3c47dd7121c946"
+  },
+  {
+    "file": "work/score_puzzle_solve.json",
+    "bytes": 58517,
+    "sha256": "e6286fc9f9629f068a42ae3ebbfdba964ed539c2edce4f836e18b856691d3f57"
+  },
+  {
+    "file": "work/score_puzzle_tiptoe.json",
+    "bytes": 97542,
+    "sha256": "2a16c6d2193ec95c775d2221ba7e828375f7fa21f5673f2471c63875814d6d27"
+  },
+  {
+    "file": "work/score_spider.json",
+    "bytes": 144825,
+    "sha256": "2cbeb11b05d6eceab2e3f537c50974f5b110b2a6b5cfc9a217bd53753350942a"
+  },
+  {
+    "file": "work/score_sticks_stones.json",
+    "bytes": 55291,
+    "sha256": "39a3eaf1cd33d9792fbd90a65dcc3e952c2e837425ef61df513fd0f252dc692f"
+  },
+  {
+    "file": "work/score_sudoku_day.json",
+    "bytes": 37379,
+    "sha256": "3f5fcddf21c5d298fa0c0191fd4f6ce1abc8771f868b15ab7d47ab993e45f564"
+  },
+  {
+    "file": "work/score_sudoku_night.json",
+    "bytes": 26921,
+    "sha256": "69b16b2b78664f1f72b25d5910347f2816894f246d15b3d7366730f41a49df38"
+  },
+  {
+    "file": "work/score_switchbox.json",
+    "bytes": 160055,
+    "sha256": "128f884844508837390f7bac6afb173cadd05b6e27542fe86481d92813f34415"
+  },
+  {
+    "file": "work/score_untangle.json",
+    "bytes": 57978,
+    "sha256": "bad7437715b99bcc94d23b9565d75697bf25f6a6c23213b00dd612c842ce71fe"
+  },
+  {
+    "file": "work/sfx2_render_report.json",
+    "bytes": 23382,
+    "sha256": "392165a9ecb9c14d3ce3a9a99f59d35ede41a6b001fb8970baf9b9a33cce049a"
+  },
+  {
+    "file": "work/sfx_render_report.json",
+    "bytes": 8890,
+    "sha256": "6ad6c8c1460fcaa554b9890eee0a0ac1f6386cf685277be3097e1dd27b401314"
+  },
+  {
+    "file": "work/src/analyze_reference.py",
+    "bytes": 2699,
+    "sha256": "7d5fb7b8c53222ee3451753114879ac291717134dfababbfc2a3b0e1ee1bf349"
+  },
+  {
+    "file": "work/src/analyze_reference2.py",
+    "bytes": 1748,
+    "sha256": "bb30cbaf2f89a512989a09d082ae3ec69c4abacb5c3586e625e79782f73801d9"
+  },
+  {
+    "file": "work/src/compose.py",
+    "bytes": 22129,
+    "sha256": "bd6c71e3a286fc01851a79834693b86b454ca0f92d70026b897851ba3819a69f"
+  },
+  {
+    "file": "work/src/finalize.py",
+    "bytes": 10095,
+    "sha256": "49ffff2792b45938faf8a050fb444df819c56477a6b196e98759f0ffbaac0b94"
+  },
+  {
+    "file": "work/src/render_music.py",
+    "bytes": 3033,
+    "sha256": "7b9fc9afd817b8393470f58db3e4832c8336f36ecc5064deb9141215870cdb09"
+  },
+  {
+    "file": "work/src/sfx.py",
+    "bytes": 11930,
+    "sha256": "f48424db1681109045c553056f21df5d80695d1ea8abbaed5eb274862dce1733"
+  },
+  {
+    "file": "work/src/sfx2.py",
+    "bytes": 16059,
+    "sha256": "6b05a30bbe0d538685e35c4a2f7d3a5e76cbfd89f7d37e4008b046fed574d7ef"
+  },
+  {
+    "file": "work/src/songs.py",
+    "bytes": 14594,
+    "sha256": "0fab13a0c2975424c9739182b8554b12ba99db29c9d22e1e53aa1b9c26268ab3"
+  },
+  {
+    "file": "work/src/songs2.py",
+    "bytes": 28051,
+    "sha256": "7de983783c6b4f34fb7e127880ee2e3d68eb0c48c4c661c01259f082c3478c78"
+  },
+  {
+    "file": "work/src/synth.py",
+    "bytes": 22308,
+    "sha256": "2fe525b1df9e8c7d15e42d8b0127e6571c51907b45a60e90eef6cfd82c40c43b"
+  }
+]

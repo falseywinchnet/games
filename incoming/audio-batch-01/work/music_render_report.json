@@ -1,0 +1,156 @@
+{
+ "klondike": {
+  "file": "outputs/music/music_klondike_loop.wav",
+  "samples": 6582784,
+  "seconds": 137.14133333333334,
+  "bpm_exact": 112.00124445827176,
+  "samples_per_beat": 25714,
+  "bars": 64,
+  "beats_per_bar": 4,
+  "lufs": -20.0,
+  "true_peak_dbtp": -4.4,
+  "bus_rms_db": {
+   "bass": -19.0,
+   "drums": -25.0,
+   "ep": -22.0,
+   "lead": -17.0,
+   "guitar": -24.0,
+   "counter": -24.0,
+   "pad": -28.0
+  },
+  "notes": 2066,
+  "render_s": 22.5
+ },
+ "menu": {
+  "file": "outputs/music/music_menu_loop.wav",
+  "samples": 4388608,
+  "seconds": 91.42933333333333,
+  "bpm_exact": 83.99930000583329,
+  "samples_per_beat": 34286,
+  "bars": 32,
+  "beats_per_bar": 4,
+  "lufs": -20.0,
+  "true_peak_dbtp": -5.2,
+  "bus_rms_db": {
+   "bass": -22.0,
+   "pad": -25.0,
+   "arp": -21.0,
+   "lead": -18.1,
+   "drums": -30.0,
+   "counter": -26.0
+  },
+  "notes": 622,
+  "render_s": 9.3
+ },
+ "spider": {
+  "file": "outputs/music/music_spider_loop.wav",
+  "samples": 5857680,
+  "seconds": 122.035,
+  "bpm_exact": 117.99893473183923,
+  "samples_per_beat": 24407,
+  "bars": 60,
+  "beats_per_bar": 4,
+  "lufs": -20.0,
+  "true_peak_dbtp": -4.1,
+  "bus_rms_db": {
+   "bass": -19.0,
+   "drums": -24.0,
+   "ost": -23.0,
+   "lead": -17.0,
+   "pizz": -24.0,
+   "pad": -29.0,
+   "counter": -25.0
+  },
+  "notes": 2391,
+  "render_s": 341.9
+ },
+ "freecell": {
+  "file": "outputs/music/music_freecell_loop.wav",
+  "samples": 6912000,
+  "seconds": 144.0,
+  "bpm_exact": 100.0,
+  "samples_per_beat": 28800,
+  "bars": 60,
+  "beats_per_bar": 4,
+  "lufs": -20.0,
+  "true_peak_dbtp": -4.4,
+  "bus_rms_db": {
+   "bass": -19.0,
+   "guitar": -22.0,
+   "lead": -17.0,
+   "drums": -25.0,
+   "ep": -25.0,
+   "counter": -25.0,
+   "pad": -28.0,
+   "arp": -23.0
+  },
+  "notes": 2385,
+  "render_s": 24.1
+ },
+ "hearts": {
+  "file": "outputs/music/music_hearts_loop.wav",
+  "samples": 4838400,
+  "seconds": 100.8,
+  "bpm_exact": 150.0,
+  "samples_per_beat": 19200,
+  "bars": 84,
+  "beats_per_bar": 3,
+  "lufs": -20.0,
+  "true_peak_dbtp": -7.6,
+  "bus_rms_db": {
+   "bass": -20.0,
+   "harp": -23.0,
+   "lead": -17.0,
+   "drums": -27.0,
+   "pah": -24.0,
+   "harm": -23.0,
+   "pad": -28.0,
+   "counter": -26.0
+  },
+  "notes": 1440,
+  "render_s": 16.5
+ },
+ "puzzle_main": {
+  "file": "outputs/music/music_puzzle_main_loop.wav",
+  "samples": 4538144,
+  "seconds": 94.54466666666667,
+  "bpm_exact": 132.00110000916675,
+  "samples_per_beat": 21818,
+  "bars": 52,
+  "beats_per_bar": 4,
+  "lufs": -20.0,
+  "true_peak_dbtp": -4.7,
+  "bus_rms_db": {
+   "bass": -19.0,
+   "drums": -24.0,
+   "acc": -22.0,
+   "lead": -17.0,
+   "pizz": -25.0,
+   "counter": -25.0
+  },
+  "notes": 1709,
+  "render_s": 19.5
+ },
+ "puzzle_tiptoe": {
+  "file": "outputs/music/music_puzzle_tiptoe_loop.wav",
+  "samples": 4369728,
+  "seconds": 91.036,
+  "bpm_exact": 115.99806669888835,
+  "samples_per_beat": 24828,
+  "bars": 44,
+  "beats_per_bar": 4,
+  "lufs": -20.0,
+  "true_peak_dbtp": -4.1,
+  "bus_rms_db": {
+   "bass": -19.0,
+   "drums": -24.0,
+   "pizz": -22.0,
+   "lead": -17.0,
+   "ost": -24.0,
+   "counter": -25.0,
+   "pad": -29.0
+  },
+  "notes": 1603,
+  "render_s": 36.5
+ }
+}

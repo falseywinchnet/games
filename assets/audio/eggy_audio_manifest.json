@@ -1,0 +1,315 @@
+{
+ "music": [
+  {
+   "id": "eggy_forest",
+   "title": "Mossy Mystery",
+   "file": "eggy_forest.m4a",
+   "sample_rate": 48000,
+   "channels": 2,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 5632000,
+   "seconds": 117.33,
+   "bpm": 90.0,
+   "lufs": -19.0,
+   "true_peak_dbtp": -3.2
+  },
+  {
+   "id": "eggy_highland",
+   "title": "Dwarven Halls",
+   "file": "eggy_highland.m4a",
+   "sample_rate": 48000,
+   "channels": 2,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 4937184,
+   "seconds": 102.86,
+   "bpm": 83.999,
+   "lufs": -19.0,
+   "true_peak_dbtp": -5.9
+  },
+  {
+   "id": "eggy_meadow",
+   "title": "Little Boots March",
+   "file": "eggy_meadow.m4a",
+   "sample_rate": 48000,
+   "channels": 2,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 3702816,
+   "seconds": 77.14,
+   "bpm": 112.001,
+   "lufs": -19.0,
+   "true_peak_dbtp": -3.5
+  },
+  {
+   "id": "eggy_monastery",
+   "title": "Snow Bell Monastery",
+   "file": "eggy_monastery.m4a",
+   "sample_rate": 48000,
+   "channels": 2,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 5585408,
+   "seconds": 116.36,
+   "bpm": 66.001,
+   "lufs": -19.0,
+   "true_peak_dbtp": -5.1
+  },
+  {
+   "id": "eggy_pond",
+   "title": "Brook Hoedown",
+   "file": "eggy_pond.m4a",
+   "sample_rate": 48000,
+   "channels": 2,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 4224000,
+   "seconds": 88.0,
+   "bpm": 120.0,
+   "lufs": -19.0,
+   "true_peak_dbtp": -4.4
+  },
+  {
+   "id": "eggy_ravine",
+   "title": "Fistful of Pebbles",
+   "file": "eggy_ravine.m4a",
+   "sample_rate": 48000,
+   "channels": 2,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 5280000,
+   "seconds": 110.0,
+   "bpm": 96.0,
+   "lufs": -19.0,
+   "true_peak_dbtp": -4.5
+  },
+  {
+   "id": "eggy_summit",
+   "title": "Summit, With Medal",
+   "file": "eggy_summit.m4a",
+   "sample_rate": 48000,
+   "channels": 2,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 2764800,
+   "seconds": 57.6,
+   "bpm": 100.0,
+   "lufs": -19.0,
+   "true_peak_dbtp": -5.4
+  },
+  {
+   "id": "eggy_title",
+   "title": "Little Boots March (title)",
+   "file": "eggy_title.m4a",
+   "sample_rate": 48000,
+   "channels": 2,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 2880000,
+   "seconds": 60.0,
+   "bpm": 96.0,
+   "lufs": -19.0,
+   "true_peak_dbtp": -3.6
+  }
+ ],
+ "effects": {
+  "eggy_chirp_01": {
+   "file": "eggy_chirp_01.m4a",
+   "seconds": 0.55,
+   "peak_dbfs": -17
+  },
+  "eggy_chirp_02": {
+   "file": "eggy_chirp_02.m4a",
+   "seconds": 0.55,
+   "peak_dbfs": -17
+  },
+  "eggy_chirp_03": {
+   "file": "eggy_chirp_03.m4a",
+   "seconds": 0.55,
+   "peak_dbfs": -17
+  },
+  "eggy_chirp_04": {
+   "file": "eggy_chirp_04.m4a",
+   "seconds": 0.55,
+   "peak_dbfs": -17
+  },
+  "eggy_chirp_05": {
+   "file": "eggy_chirp_05.m4a",
+   "seconds": 0.55,
+   "peak_dbfs": -17
+  },
+  "eggy_chirp_06": {
+   "file": "eggy_chirp_06.m4a",
+   "seconds": 0.55,
+   "peak_dbfs": -17
+  },
+  "eggy_step_grass": {
+   "file": "eggy_step_grass.m4a",
+   "seconds": 0.08,
+   "peak_dbfs": -27
+  },
+  "eggy_step_snow": {
+   "file": "eggy_step_snow.m4a",
+   "seconds": 0.076,
+   "peak_dbfs": -25
+  },
+  "eggy_step_rock": {
+   "file": "eggy_step_rock.m4a",
+   "seconds": 0.7,
+   "peak_dbfs": -27
+  },
+  "eggy_step_ice": {
+   "file": "eggy_step_ice.m4a",
+   "seconds": 0.08,
+   "peak_dbfs": -28
+  },
+  "eggy_step_water": {
+   "file": "eggy_step_water.m4a",
+   "seconds": 0.1,
+   "peak_dbfs": -23
+  },
+  "eggy_hop": {
+   "file": "eggy_hop.m4a",
+   "seconds": 0.12,
+   "peak_dbfs": -19
+  },
+  "eggy_land": {
+   "file": "eggy_land.m4a",
+   "seconds": 0.2,
+   "peak_dbfs": -19
+  },
+  "eggy_splash": {
+   "file": "eggy_splash.m4a",
+   "seconds": 1.202,
+   "peak_dbfs": -15
+  },
+  "eggy_drink": {
+   "file": "eggy_drink.m4a",
+   "seconds": 1.6,
+   "peak_dbfs": -17
+  },
+  "eggy_refresh": {
+   "file": "eggy_refresh.m4a",
+   "seconds": 2.724,
+   "peak_dbfs": -12
+  },
+  "eggy_pant": {
+   "file": "eggy_pant.m4a",
+   "seconds": 1.169,
+   "peak_dbfs": -21
+  },
+  "eggy_bonk": {
+   "file": "eggy_bonk.m4a",
+   "seconds": 1.319,
+   "peak_dbfs": -12
+  },
+  "eggy_star": {
+   "file": "eggy_star.m4a",
+   "seconds": 2.702,
+   "peak_dbfs": -10
+  },
+  "eggy_gust": {
+   "file": "eggy_gust.m4a",
+   "seconds": 2.2,
+   "peak_dbfs": -15
+  },
+  "eggy_slide": {
+   "file": "eggy_slide.m4a",
+   "seconds": 0.9,
+   "peak_dbfs": -17
+  },
+  "eggy_preen": {
+   "file": "eggy_preen.m4a",
+   "seconds": 0.629,
+   "peak_dbfs": -23
+  },
+  "eggy_flap": {
+   "file": "eggy_flap.m4a",
+   "seconds": 0.399,
+   "peak_dbfs": -19
+  },
+  "eggy_milestone": {
+   "file": "eggy_milestone.m4a",
+   "seconds": 1.71,
+   "peak_dbfs": -12
+  },
+  "eggy_biome": {
+   "file": "eggy_biome.m4a",
+   "seconds": 4.916,
+   "peak_dbfs": -16
+  },
+  "eggy_tent": {
+   "file": "eggy_tent.m4a",
+   "seconds": 1.1,
+   "peak_dbfs": -15
+  },
+  "eggy_salute": {
+   "file": "eggy_salute.m4a",
+   "seconds": 0.85,
+   "peak_dbfs": -12
+  },
+  "eggy_medal": {
+   "file": "eggy_medal.m4a",
+   "seconds": 2.516,
+   "peak_dbfs": -10
+  },
+  "eggy_ui_click": {
+   "file": "eggy_ui_click.m4a",
+   "seconds": 0.12,
+   "peak_dbfs": -19
+  },
+  "eggy_ui_key": {
+   "file": "eggy_ui_key.m4a",
+   "seconds": 0.04,
+   "peak_dbfs": -21
+  },
+  "eggy_fanfare": {
+   "file": "eggy_fanfare.m4a",
+   "seconds": 8.5,
+   "peak_dbfs": -6
+  },
+  "eggy_thunder_near": {
+   "file": "eggy_thunder_near.m4a",
+   "seconds": 6.037,
+   "peak_dbfs": -5
+  },
+  "eggy_thunder_far": {
+   "file": "eggy_thunder_far.m4a",
+   "seconds": 7.637,
+   "peak_dbfs": -9
+  },
+  "eggy_tree_fall": {
+   "file": "eggy_tree_fall.m4a",
+   "seconds": 5.0,
+   "peak_dbfs": -10
+  },
+  "eggy_ribbit": {
+   "file": "eggy_ribbit.m4a",
+   "seconds": 0.8,
+   "peak_dbfs": -20
+  },
+  "eggy_fish": {
+   "file": "eggy_fish.m4a",
+   "seconds": 0.5,
+   "peak_dbfs": -22
+  },
+  "eggy_amb_wind": {
+   "file": "eggy_amb_wind.wav",
+   "seconds": 20.0,
+   "loop": "whole file, seamless"
+  },
+  "eggy_amb_brook": {
+   "file": "eggy_amb_brook.wav",
+   "seconds": 20.0,
+   "loop": "whole file, seamless"
+  },
+  "eggy_amb_forest": {
+   "file": "eggy_amb_forest.wav",
+   "seconds": 20.0,
+   "loop": "whole file, seamless"
+  },
+  "eggy_amb_rain": {
+   "file": "eggy_amb_rain.wav",
+   "seconds": 20.0,
+   "loop": "whole file, seamless"
+  },
+  "eggy_amb_fire": {
+   "file": "eggy_amb_fire.wav",
+   "seconds": 20.0,
+   "loop": "whole file, seamless"
+  }
+ }
+}

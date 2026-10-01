@@ -1,0 +1,138 @@
+{
+  "engine": "1.0.0",
+  "platform": "darwin",
+  "arch": "arm64",
+  "cpu": "Apple M4",
+  "node": "v25.2.1",
+  "perBand": 1000,
+  "independentlyVerified": 3000,
+  "traceSteps": 155487,
+  "techniques": {
+    "nakedSingle": 124095,
+    "hiddenSingle": 25857,
+    "lockedCandidate": 4353,
+    "nakedPair": 865,
+    "hiddenPair": 242,
+    "xWing": 53,
+    "nakedTriple": 22
+  },
+  "duplicatePuzzles": 0,
+  "description": "Held-out seeds; equal alternating symmetry modes. Timings cover generation, rating, and production final uniqueness recheck; independent Algorithm X and trace replay run outside the timing.",
+  "elapsedSeconds": 121.131376458,
+  "results": {
+    "easy": {
+      "requested": 1000,
+      "generated": 1000,
+      "failures": 0,
+      "generationMs": {
+        "min": 0.16295799999988958,
+        "median": 0.3137080000001333,
+        "p95": 0.4018750000000182,
+        "p99": 0.462291999999934,
+        "max": 4.373291999999992,
+        "mean": 0.31588456300000134
+      },
+      "clues": {
+        "min": 36,
+        "median": 38,
+        "p95": 39,
+        "p99": 40,
+        "max": 43,
+        "mean": 38.181
+      },
+      "attempts": {
+        "min": 1,
+        "median": 1,
+        "p95": 1,
+        "p99": 1,
+        "max": 2,
+        "mean": 1.006
+      },
+      "quantileError": {
+        "min": 0.0025699986473691205,
+        "median": 0.08445488976058435,
+        "p95": 0.1161571757067496,
+        "p99": 0.11920059515758152,
+        "max": 0.11996145002028946,
+        "mean": 0.08023023468145543
+      },
+      "outsideTolerance": 0
+    },
+    "medium": {
+      "requested": 1000,
+      "generated": 1000,
+      "failures": 0,
+      "generationMs": {
+        "min": 0.580707999997685,
+        "median": 21.646833000000697,
+        "p95": 84.68962500000089,
+        "p99": 123.54058299999815,
+        "max": 195.71870899999703,
+        "mean": 30.326370745999956
+      },
+      "clues": {
+        "min": 23,
+        "median": 27,
+        "p95": 32,
+        "p99": 34,
+        "max": 36,
+        "mean": 27.399
+      },
+      "attempts": {
+        "min": 1,
+        "median": 15,
+        "p95": 71,
+        "p99": 104,
+        "max": 150,
+        "mean": 22.257
+      },
+      "quantileError": {
+        "min": 0,
+        "median": 0.06987577639751552,
+        "p95": 0.13198757763975155,
+        "p99": 0.2080745341614907,
+        "max": 0.29658385093167705,
+        "mean": 0.06945341614906841
+      },
+      "outsideTolerance": 60
+    },
+    "hard": {
+      "requested": 1000,
+      "generated": 1000,
+      "failures": 0,
+      "generationMs": {
+        "min": 0.91120800000499,
+        "median": 74.11187500000233,
+        "p95": 226.8009999999922,
+        "p99": 304.5715829999972,
+        "max": 468.57479199999943,
+        "mean": 88.70102550400021
+      },
+      "clues": {
+        "min": 23,
+        "median": 27,
+        "p95": 32,
+        "p99": 34,
+        "max": 41,
+        "mean": 27.468
+      },
+      "attempts": {
+        "min": 1,
+        "median": 47,
+        "p95": 183,
+        "p99": 256,
+        "max": 256,
+        "mean": 63.33
+      },
+      "quantileError": {
+        "min": 0.0016286644951140072,
+        "median": 0.07654723127035828,
+        "p95": 0.19055374592833874,
+        "p99": 0.252442996742671,
+        "max": 0.46742671009771986,
+        "mean": 0.08460912052117282
+      },
+      "outsideTolerance": 204
+    }
+  }
+}

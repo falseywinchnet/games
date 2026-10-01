@@ -1,0 +1,253 @@
+{
+ "decoded_files": 49,
+ "passed": 49,
+ "decode_results": [
+  {
+   "file": "assets/audio/eggy_amb_brook.wav",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_amb_fire.wav",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_amb_forest.wav",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_amb_rain.wav",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_amb_wind.wav",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_biome.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_bonk.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_chirp_01.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_chirp_02.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_chirp_03.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_chirp_04.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_chirp_05.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_chirp_06.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_drink.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_fanfare.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_fish.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_flap.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_forest.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_gust.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_highland.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_hop.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_land.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_meadow.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_medal.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_milestone.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_monastery.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_pant.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_pond.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_preen.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_ravine.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_refresh.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_ribbit.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_salute.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_slide.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_splash.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_star.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_step_grass.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_step_ice.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_step_rock.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_step_snow.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_step_water.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_summit.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_tent.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_thunder_far.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_thunder_near.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_title.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_tree_fall.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_ui_click.m4a",
+   "ok": true,
+   "error": ""
+  },
+  {
+   "file": "assets/audio/eggy_ui_key.m4a",
+   "ok": true,
+   "error": ""
+  }
+ ],
+ "line_files": 54,
+ "line_total": 17918
+}

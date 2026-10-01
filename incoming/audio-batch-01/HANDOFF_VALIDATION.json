@@ -1,0 +1,287 @@
+{
+  "wav_decodes": [
+    {
+      "file": "outputs/music/music_freecell_loop.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/music/music_hearts_loop.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/music/music_klondike_loop.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/music/music_menu_loop.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/music/music_puzzle_main_loop.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/music/music_puzzle_tiptoe_loop.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/music/music_spider_loop.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/music/stinger_win_freecell.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/music/stinger_win_hearts.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/music/stinger_win_klondike.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/music/stinger_win_menu.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/music/stinger_win_puzzle.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/music/stinger_win_spider.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_deal_01.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_deal_02.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_deal_03.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_deal_04.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_flip_01.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_flip_02.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_flip_03.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_flip_04.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_foundation_01.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_foundation_02.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_foundation_03.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_foundation_04.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_pickup_01.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_pickup_02.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_pickup_03.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_pickup_04.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_place_01.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_place_02.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_place_03.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_place_04.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_shuffle_01.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/card_shuffle_02.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_blocked_01.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_blocked_02.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_fail.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_on_target_01.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_on_target_02.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_push_01.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_push_02.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_push_03.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_undo_01.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_walk_01.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_walk_02.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_walk_03.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_walk_04.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_win.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/ui_hint_01.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/ui_hint_02.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/ui_invalid_01.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/ui_invalid_02.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/ui_undo_01.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/ui_undo_02.wav",
+      "ok": true,
+      "errors": ""
+    },
+    {
+      "file": "outputs/sfx/ui_victory.wav",
+      "ok": true,
+      "errors": ""
+    }
+  ],
+  "missing_manifest_files": [],
+  "listening_review": "not performed",
+  "engine_loop_review": "not performed"
+}

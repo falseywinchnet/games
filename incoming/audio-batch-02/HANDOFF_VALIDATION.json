@@ -1,0 +1,1974 @@
+{
+  "decoded_files": 393,
+  "passed": 393,
+  "decode_results": [
+    {
+      "file": "outputs/music/music_atom_probe_loop.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/music_four_pegs_loop.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/music_gems_loop.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/music_nature_cube_loop.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/music_puzzle_solve_loop.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/music_sticks_stones_loop.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/music_sudoku_day_loop.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/music_sudoku_night_loop.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/music_switchbox_loop.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/music_untangle_loop.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/stinger_topscore_atom_probe.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/stinger_topscore_four_pegs.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/stinger_topscore_gems.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/stinger_topscore_nature_cube.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/stinger_topscore_puzzle_solve.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/stinger_topscore_sticks_stones.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/stinger_topscore_sudoku.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/stinger_topscore_switchbox.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/stinger_topscore_untangle.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/stinger_win_atom_probe.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/stinger_win_four_pegs.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/stinger_win_gems.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/stinger_win_nature_cube.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/stinger_win_puzzle_solve.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/stinger_win_sticks_stones.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/stinger_win_sudoku.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/stinger_win_switchbox.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/music/stinger_win_untangle.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_check_correct.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_check_correct.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_check_wrong.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_check_wrong.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_fire_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_fire_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_fire_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_fire_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_mark_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_mark_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_mark_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_mark_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_result_absorb.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_result_absorb.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_result_deflect.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_result_deflect.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_result_pass.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_result_pass.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_result_reflect.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_result_reflect.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_unmark.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/atom_probe_unmark.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_feedback_exact.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_feedback_exact.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_feedback_none.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_feedback_none.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_feedback_partial.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_feedback_partial.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_out_of_turns.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_out_of_turns.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_place_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_place_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_place_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_place_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_place_03.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_place_03.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_place_04.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_place_04.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_remove.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_remove.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_submit.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/four_pegs_submit.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_bomb.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_bomb.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_hover_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_hover_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_hover_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_hover_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_hover_03.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_hover_03.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_hypercube.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_hypercube.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_level_up.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_level_up.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_match_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_match_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_match_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_match_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_match_03.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_match_03.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_match_04.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_match_04.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_match_05.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_match_05.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_no_moves_shuffle.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_no_moves_shuffle.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_powerup_created.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_powerup_created.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_star_line.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_star_line.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_swap_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_swap_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_swap_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_swap_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_swap_03.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_swap_03.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_swap_return_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_swap_return_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_swap_return_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/gems_swap_return_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_atom_probe_loop.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_atom_probe_loop.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_four_pegs_loop.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_four_pegs_loop.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_gems_loop.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_gems_loop.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_nature_cube_loop.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_nature_cube_loop.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_puzzle_solve_loop.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_puzzle_solve_loop.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_sticks_stones_loop.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_sticks_stones_loop.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_sudoku_day_loop.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_sudoku_day_loop.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_sudoku_night_loop.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_sudoku_night_loop.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_switchbox_loop.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_switchbox_loop.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_untangle_loop.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/music_untangle_loop.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/nature_cube_connect_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/nature_cube_connect_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/nature_cube_connect_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/nature_cube_connect_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/nature_cube_disconnect.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/nature_cube_disconnect.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/nature_cube_path_full.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/nature_cube_path_full.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/nature_cube_trace_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/nature_cube_trace_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/nature_cube_trace_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/nature_cube_trace_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/nature_cube_trace_03.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/nature_cube_trace_03.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/nature_cube_trace_04.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/nature_cube_trace_04.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/puzzle_solve_fit.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/puzzle_solve_fit.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/puzzle_solve_flip_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/puzzle_solve_flip_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/puzzle_solve_flip_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/puzzle_solve_flip_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/puzzle_solve_no_fit.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/puzzle_solve_no_fit.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/puzzle_solve_pickup.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/puzzle_solve_pickup.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/puzzle_solve_place.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/puzzle_solve_place.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/puzzle_solve_rotate_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/puzzle_solve_rotate_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/puzzle_solve_rotate_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/puzzle_solve_rotate_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/puzzle_solve_rotate_03.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/puzzle_solve_rotate_03.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_constraint_broken.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_constraint_broken.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_constraint_ok_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_constraint_ok_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_constraint_ok_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_constraint_ok_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_remove.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_remove.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_stick_place_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_stick_place_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_stick_place_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_stick_place_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_stick_place_03.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_stick_place_03.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_stone_place_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_stone_place_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_stone_place_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_stone_place_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_stone_place_03.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sticks_stones_stone_place_03.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_topscore_atom_probe.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_topscore_atom_probe.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_topscore_four_pegs.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_topscore_four_pegs.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_topscore_gems.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_topscore_gems.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_topscore_nature_cube.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_topscore_nature_cube.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_topscore_puzzle_solve.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_topscore_puzzle_solve.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_topscore_sticks_stones.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_topscore_sticks_stones.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_topscore_sudoku.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_topscore_sudoku.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_topscore_switchbox.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_topscore_switchbox.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_topscore_untangle.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_topscore_untangle.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_win_atom_probe.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_win_atom_probe.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_win_four_pegs.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_win_four_pegs.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_win_gems.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_win_gems.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_win_nature_cube.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_win_nature_cube.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_win_puzzle_solve.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_win_puzzle_solve.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_win_sticks_stones.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_win_sticks_stones.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_win_sudoku.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_win_sudoku.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_win_switchbox.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_win_switchbox.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_win_untangle.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/stinger_win_untangle.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_box_complete.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_box_complete.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_column_complete.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_column_complete.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_digit_place_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_digit_place_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_digit_place_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_digit_place_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_digit_place_03.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_digit_place_03.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_erase.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_erase.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_error.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_error.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_note_place_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_note_place_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_note_place_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_note_place_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_note_place_03.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_note_place_03.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_note_remove.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_note_remove.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_row_complete.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/sudoku_row_complete.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_giggle_boing.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_giggle_boing.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_reach.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_reach.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_reset.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_reset.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_switch_off_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_switch_off_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_switch_off_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_switch_off_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_switch_off_03.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_switch_off_03.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_switch_on_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_switch_on_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_switch_on_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_switch_on_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_switch_on_03.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_switch_on_03.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_unlock.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/switchbox_unlock.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/ui_name_backspace.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/ui_name_backspace.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/ui_name_confirm.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/ui_name_confirm.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/ui_name_key_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/ui_name_key_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/ui_name_key_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/ui_name_key_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/ui_name_key_03.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/ui_name_key_03.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/ui_new_game.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/ui_new_game.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/untangle_edges_clear.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/untangle_edges_clear.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/untangle_grab_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/untangle_grab_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/untangle_grab_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/untangle_grab_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/untangle_grab_03.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/untangle_grab_03.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/untangle_release_01.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/untangle_release_01.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/untangle_release_02.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/untangle_release_02.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/untangle_release_03.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/untangle_release_03.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/untangle_resolve.m4a",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/runtime/untangle_resolve.ogg",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/atom_probe_check_correct.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/atom_probe_check_wrong.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/atom_probe_fire_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/atom_probe_fire_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/atom_probe_mark_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/atom_probe_mark_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/atom_probe_result_absorb.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/atom_probe_result_deflect.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/atom_probe_result_pass.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/atom_probe_result_reflect.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/atom_probe_unmark.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/four_pegs_feedback_exact.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/four_pegs_feedback_none.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/four_pegs_feedback_partial.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/four_pegs_out_of_turns.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/four_pegs_place_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/four_pegs_place_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/four_pegs_place_03.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/four_pegs_place_04.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/four_pegs_remove.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/four_pegs_submit.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_bomb.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_hover_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_hover_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_hover_03.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_hypercube.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_level_up.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_match_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_match_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_match_03.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_match_04.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_match_05.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_no_moves_shuffle.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_powerup_created.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_star_line.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_swap_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_swap_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_swap_03.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_swap_return_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/gems_swap_return_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/nature_cube_connect_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/nature_cube_connect_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/nature_cube_disconnect.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/nature_cube_path_full.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/nature_cube_trace_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/nature_cube_trace_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/nature_cube_trace_03.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/nature_cube_trace_04.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_solve_fit.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_solve_flip_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_solve_flip_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_solve_no_fit.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_solve_pickup.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_solve_place.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_solve_rotate_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_solve_rotate_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/puzzle_solve_rotate_03.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sticks_stones_constraint_broken.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sticks_stones_constraint_ok_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sticks_stones_constraint_ok_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sticks_stones_remove.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sticks_stones_stick_place_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sticks_stones_stick_place_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sticks_stones_stick_place_03.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sticks_stones_stone_place_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sticks_stones_stone_place_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sticks_stones_stone_place_03.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sudoku_box_complete.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sudoku_column_complete.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sudoku_digit_place_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sudoku_digit_place_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sudoku_digit_place_03.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sudoku_erase.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sudoku_error.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sudoku_note_place_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sudoku_note_place_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sudoku_note_place_03.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sudoku_note_remove.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/sudoku_row_complete.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/switchbox_giggle_boing.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/switchbox_reach.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/switchbox_reset.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/switchbox_switch_off_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/switchbox_switch_off_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/switchbox_switch_off_03.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/switchbox_switch_on_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/switchbox_switch_on_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/switchbox_switch_on_03.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/switchbox_unlock.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/ui_name_backspace.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/ui_name_confirm.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/ui_name_key_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/ui_name_key_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/ui_name_key_03.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/ui_new_game.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/untangle_edges_clear.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/untangle_grab_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/untangle_grab_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/untangle_grab_03.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/untangle_release_01.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/untangle_release_02.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/untangle_release_03.wav",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "outputs/sfx/untangle_resolve.wav",
+      "ok": true,
+      "error": ""
+    }
+  ],
+  "format_or_loop_issues": [],
+  "listening_review": "not performed",
+  "engine_playback_review": "not performed"
+}

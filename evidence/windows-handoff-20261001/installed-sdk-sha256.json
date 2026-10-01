@@ -1,0 +1,1091 @@
+{
+  "root": "/Users/joshuahkuttenkuler/Developer/Projects/gui-forms-investigation/paint-port-sdk",
+  "files": {
+    "include/gui_forms/animation/animation_timeline/animation_timeline.hpp": {
+      "bytes": 3857,
+      "sha256": "3e850fa5cc13768a5112810187be3d86445ca6b670c4ae69af0a4e17fae6ba2e"
+    },
+    "include/gui_forms/animation.hpp": {
+      "bytes": 163,
+      "sha256": "cd7a5f73b6d7ab4e63f59faa7bb60466e7739d4043062789bd39355d41df6e5f"
+    },
+    "include/gui_forms/application/application.hpp": {
+      "bytes": 3138,
+      "sha256": "371259168f19323413daa0635e80c5a9df33988b5534044e6e60bb4905585d53"
+    },
+    "include/gui_forms/application.hpp": {
+      "bytes": 62,
+      "sha256": "d1327cb67be930b858558651592f465d11e77eab30bb2c20d73556b0edd6c630"
+    },
+    "include/gui_forms/basic_controls.hpp": {
+      "bytes": 707,
+      "sha256": "b701a5a944272cda29baa5d01e7ac4c084b980f10ef4371d3b8be22fcc9ba817"
+    },
+    "include/gui_forms/binding/binding/binding.hpp": {
+      "bytes": 3368,
+      "sha256": "ee482208e076daaebee87ad0425bd6620791cc859292bd2aba40685622ae82ad"
+    },
+    "include/gui_forms/binding/binding_context/binding_context.hpp": {
+      "bytes": 1665,
+      "sha256": "ed339294408ba3f71ae25b86a801672ed3707733ca8d6ccdee94cfe10ed96323"
+    },
+    "include/gui_forms/binding/binding_manager_base/binding_manager_base.hpp": {
+      "bytes": 1381,
+      "sha256": "0f36e07d707e1c1a6de2225a3cd163ebf3467d01319744c4f1edd4c1dca350e4"
+    },
+    "include/gui_forms/binding/binding_source/binding_source.hpp": {
+      "bytes": 6236,
+      "sha256": "8522c88b1326053db695831ead680ea3cb39e1e90dc3a1ce3f51899b0fab61a9"
+    },
+    "include/gui_forms/binding/control_bindings_collection/control_bindings_collection.hpp": {
+      "bytes": 1869,
+      "sha256": "2f83e03e12b5779b1b4c4872e1436a7e9a59076e18fd0c8ee3c4e8210c02df24"
+    },
+    "include/gui_forms/binding/currency_manager/currency_manager.hpp": {
+      "bytes": 1595,
+      "sha256": "f4347b0fc65b668f4abcecf5bb19c85e38bbb1f686ece3edb31756d044b498fb"
+    },
+    "include/gui_forms/binding/types/binding_contract_types.hpp": {
+      "bytes": 3650,
+      "sha256": "ac538c5ce66f94b5a9da7dd8cc2466666d916295c7712fb0bb10cb376e801e66"
+    },
+    "include/gui_forms/binding/value/binding_value.hpp": {
+      "bytes": 11650,
+      "sha256": "b52a23309bbbe094837e78d827ad8af6907c7d664ff200889b4d6855c22e93d9"
+    },
+    "include/gui_forms/binding/value/binding_value_kind/binding_value_kind.hpp": {
+      "bytes": 343,
+      "sha256": "42be659e699293c47269443d4a48f31da8a65c983898e10455934fe37b7aa19f"
+    },
+    "include/gui_forms/binding/value/property_collection_value/property_collection_value.hpp": {
+      "bytes": 1132,
+      "sha256": "fd9dcfa4fedec7cc2feb4b8be2e90ed932c4a10a84ed4319dba1790484f28e23"
+    },
+    "include/gui_forms/binding/value/property_object_value/property_object_value.hpp": {
+      "bytes": 1082,
+      "sha256": "bab88668ec8e8e3428300bb74cc0938e8bce6ce7b642496567b93305d94652e6"
+    },
+    "include/gui_forms/binding.hpp": {
+      "bytes": 617,
+      "sha256": "1d4503259d1bfa47aef668d1a8f7bb027ac73fe8e93cfe83e3df583df5ca4e70"
+    },
+    "include/gui_forms/binding_types.hpp": {
+      "bytes": 145,
+      "sha256": "f301fb45c304f14e58d23ead7aef0f5ab90e4d12836242eb544a7fc9be90bab9"
+    },
+    "include/gui_forms/c_api.h": {
+      "bytes": 27489,
+      "sha256": "a3dbfa85febf56be4889f8560c0a8b053dd927c7dc467ebc2f79f280fac8f8ed"
+    },
+    "include/gui_forms/c_api.hpp": {
+      "bytes": 6091,
+      "sha256": "52e36bc02fc72ec95cb5cf54e5381a5c31377d5c38ef6f92a025d813ad27b00b"
+    },
+    "include/gui_forms/canvas.hpp": {
+      "bytes": 154,
+      "sha256": "e7a27e0f11b2fcc0d95b89d2ad94d515c87a65e6fab26bd3594185625eff26a3"
+    },
+    "include/gui_forms/collection_controls.hpp": {
+      "bytes": 292,
+      "sha256": "0242129a00bb21a74a9a5127a53a17d00a2052641ea5df0c08c69e275f2eaeb5"
+    },
+    "include/gui_forms/commands/command/command.hpp": {
+      "bytes": 1612,
+      "sha256": "a9294f334fe159cbf316cb38710a47de2eb23ae4a9280254348cca3084e67d81"
+    },
+    "include/gui_forms/commands/command_binding/command_binding.hpp": {
+      "bytes": 1171,
+      "sha256": "6fc15fc46f03b3231867b69bc2233810c1875aaf28caa47c702010a3bcce334b"
+    },
+    "include/gui_forms/commands/types/command_types.hpp": {
+      "bytes": 870,
+      "sha256": "df63534f3ca9b8b303018babadb17548e0f1d7c09ffb2442b7bec24fd970048c"
+    },
+    "include/gui_forms/commands.hpp": {
+      "bytes": 264,
+      "sha256": "d026b6eb10be9c36195e92faefae78b54b9585ff52c1c8c79ddef84c9163fd7d"
+    },
+    "include/gui_forms/component/component/component.hpp": {
+      "bytes": 1174,
+      "sha256": "f9ce0c8219f7109412432c5831ef3700b61394da18c423aeb1be60496cb786f5"
+    },
+    "include/gui_forms/component/component_container/component_container.hpp": {
+      "bytes": 904,
+      "sha256": "16e95cf9c427acd403293ffce6aace3e04f202b07a378fe296b4f8b7cd9e8b18"
+    },
+    "include/gui_forms/component/revocable/revocable.hpp": {
+      "bytes": 251,
+      "sha256": "0ff1efcb02c62e7b2a8136a4b690a8b8f92f499ee48c5e186408090278177cb2"
+    },
+    "include/gui_forms/component/types/component_types.hpp": {
+      "bytes": 134,
+      "sha256": "3ee78db2ba3538e0df3a9faceafb3c4db854ba2a37811a67b7ac1e29f23a79cb"
+    },
+    "include/gui_forms/component.hpp": {
+      "bytes": 334,
+      "sha256": "bc3eecddf8f04908eee4558b91e12d391b771e7d085414d6bf781252ff360da8"
+    },
+    "include/gui_forms/components/context_menu/context_menu.hpp": {
+      "bytes": 3274,
+      "sha256": "04ee180c999ab37aa514715fdce68ebf955948c1a6ac95a2d4f6d99b05ba8e0f"
+    },
+    "include/gui_forms/components/error_provider/error_provider.hpp": {
+      "bytes": 6952,
+      "sha256": "c026c70e0d6ec351618e4308c74dd54279f2ca758b552aa69eafb436d81b41d6"
+    },
+    "include/gui_forms/components/help_provider/help_provider.hpp": {
+      "bytes": 4112,
+      "sha256": "ea8f3316e6e5573b9cde2426ff15834b6fa8895eedec4430a21d099bc11fd298"
+    },
+    "include/gui_forms/components/tool_tip/tool_tip.hpp": {
+      "bytes": 4833,
+      "sha256": "76d9dd60fb38f297552eacdcdc8214e7e5f3855d6e4863bf4176e884e5fcccf4"
+    },
+    "include/gui_forms/composition_controls.hpp": {
+      "bytes": 363,
+      "sha256": "ca95a3d2b9e9ac638aae00198f59bc70ce9f38b3cd638aa14946f1016ff6cbfa"
+    },
+    "include/gui_forms/connected_controls/types/connected_control_types.hpp": {
+      "bytes": 2316,
+      "sha256": "ae71c7b6cf9076fc5ffa49389cb04fae582caa225385329d399aa1be76343385"
+    },
+    "include/gui_forms/connected_controls.hpp": {
+      "bytes": 1214,
+      "sha256": "cf98887b3c3888eb2db1defff48e5989cea0021aec54b8218d558f6bc0de01d7"
+    },
+    "include/gui_forms/container_controls.hpp": {
+      "bytes": 1284,
+      "sha256": "1b7b76fb7854c7266c8ec4a4e761c7d9753c0b5ac5787cc0130f25c6e76b96ac"
+    },
+    "include/gui_forms/control/control/control.hpp": {
+      "bytes": 49829,
+      "sha256": "c7a95a4c845dcee5d6a7fd0924029f8421b3d1704747962337c380d6f66aa472"
+    },
+    "include/gui_forms/control/stable_id/stable_id.hpp": {
+      "bytes": 608,
+      "sha256": "a0ccfa9ae42e56c7504a28209f0379c3c2013eaaf2bf4b45f23d52d204746349"
+    },
+    "include/gui_forms/control/static_tree/control_factory/control_factory.hpp": {
+      "bytes": 851,
+      "sha256": "22ed815a17928fa37e8d119bdcbf042dc41428b1c267e7cb380623a25329dcf1"
+    },
+    "include/gui_forms/control/static_tree/static_tree.hpp": {
+      "bytes": 91,
+      "sha256": "a789caef3b15fc2c80c5c0de87eba6b8b63be470170f14ba863f690a566d2660"
+    },
+    "include/gui_forms/control.hpp": {
+      "bytes": 204,
+      "sha256": "f6166d87a9197108ca0dd83d78daf50de64ee8a267e34c53eb1b95b12c74265c"
+    },
+    "include/gui_forms/controls/button_base/button/button.hpp": {
+      "bytes": 1880,
+      "sha256": "9e679ca933063f770d083676fb337c6b5296a92c4a2e907a33b1bbf63d319a74"
+    },
+    "include/gui_forms/controls/button_base/button/drop_down_button/drop_down_button.hpp": {
+      "bytes": 2517,
+      "sha256": "a2875e132d71ab2bee9f0710343918ce81445cbb7ffab81e185ba23b94c53bff"
+    },
+    "include/gui_forms/controls/button_base/button_base.hpp": {
+      "bytes": 8124,
+      "sha256": "4f5a38fd1ab720e5d1b5dbaf467e8d9c36e55fd443a0c7c0633fcc7f4c4a8314"
+    },
+    "include/gui_forms/controls/button_base/check_box/check_box.hpp": {
+      "bytes": 2193,
+      "sha256": "3836768f6a49e7984ca6114bedf13a65bd874d8ed5af359677a219c9eda1625a"
+    },
+    "include/gui_forms/controls/button_base/link_label/link_label.hpp": {
+      "bytes": 548,
+      "sha256": "911669ccee5dbf1914d70e546da1c205820cdfa74e485cd7da924f2110c86edc"
+    },
+    "include/gui_forms/controls/button_base/radio_button/radio_button.hpp": {
+      "bytes": 1375,
+      "sha256": "8cec4492a66fd05fe3ffbe0ca5eb7788f5e12b0e1f2e85fe72548cdd534b537f"
+    },
+    "include/gui_forms/controls/container/master_detail_view/master_detail_view.hpp": {
+      "bytes": 4620,
+      "sha256": "c4263107212a050dcd1adf694357b9109b2cfbbdd16e8a8c7fa56874b062518c"
+    },
+    "include/gui_forms/controls/drawing_surface/drawing_surface.hpp": {
+      "bytes": 1423,
+      "sha256": "0e75c18c97eca2b85e7dc556784a8d68c36c9a4b6789a03465c86a47f8330c05"
+    },
+    "include/gui_forms/controls/easing_preview/easing_preview.hpp": {
+      "bytes": 2786,
+      "sha256": "e145a0cb9972f9d52fed4448c7a3b814289de64fb70d1764a6151caed0474f90"
+    },
+    "include/gui_forms/controls/label/label.hpp": {
+      "bytes": 4274,
+      "sha256": "f23099837dc882e3958f7fb9d53becb0a4cf526f639715bd99ac8e31f7b8c722"
+    },
+    "include/gui_forms/controls/menu_strip/menu_strip.hpp": {
+      "bytes": 4016,
+      "sha256": "9f6cfff029e33796521d16a399225fc014572abfc4caa1f22f098dda97cbe43f"
+    },
+    "include/gui_forms/controls/metrics_view/metrics_view.hpp": {
+      "bytes": 1101,
+      "sha256": "74944e5f10109c822e0f46662a8fda15deaf718cb9ae87f52a75047eaa6926e8"
+    },
+    "include/gui_forms/controls/panel/anchored_popup_layer/anchored_popup_layer.hpp": {
+      "bytes": 2604,
+      "sha256": "72e50437c864681d7f891e1b7b5d945f7b6f2314cdc68058c9993a568e8cd178"
+    },
+    "include/gui_forms/controls/panel/anchored_popup_layer/anchored_popup_placement/anchored_popup_placement.hpp": {
+      "bytes": 1174,
+      "sha256": "557cdc7d11aecd3393fb82a7b49d2961ceec37fe2c7d879ab69eb503543915ae"
+    },
+    "include/gui_forms/controls/panel/breadcrumb_trail/breadcrumb_trail.hpp": {
+      "bytes": 5328,
+      "sha256": "46a953a4e5e619a15624f4f959562186418f738be6c73a92b5e76fa94e36623d"
+    },
+    "include/gui_forms/controls/panel/card/card.hpp": {
+      "bytes": 4142,
+      "sha256": "c0e3b0dbe745bded08d1595b9a02985982cc447cc6c43420be429bc0d538f589"
+    },
+    "include/gui_forms/controls/panel/card/review_card/review_card.hpp": {
+      "bytes": 2695,
+      "sha256": "c7065899173ba8fe67f8ed5e23c3c499714ce4a28af234e118a7bd8b2c598d92"
+    },
+    "include/gui_forms/controls/panel/color_value_editor/color_value_editor.hpp": {
+      "bytes": 1872,
+      "sha256": "19701fb7e3f3cb293cfc18e87106d00f2c8c131e56085b502c7deddf582f4c03"
+    },
+    "include/gui_forms/controls/panel/combo_box/combo_box.hpp": {
+      "bytes": 4024,
+      "sha256": "ae28d95c6a8910b9b8558f866f104a288ce745bbed8e8891fc9d294c8e63abfe"
+    },
+    "include/gui_forms/controls/panel/correspondence_view/correspondence_view.hpp": {
+      "bytes": 8779,
+      "sha256": "606b838a3f3584b7fa988284c7c865060d12cfd5ca0afc3dc2534d428bdb74ae"
+    },
+    "include/gui_forms/controls/panel/date_time_picker/date_time_format_provider/date_time_format_provider.hpp": {
+      "bytes": 722,
+      "sha256": "6cf38220f45842ea81a3fc8ebb2d4b1aecdf2e081773265c61b1232ed16d64db"
+    },
+    "include/gui_forms/controls/panel/date_time_picker/date_time_picker.hpp": {
+      "bytes": 4702,
+      "sha256": "604b9ebe6b2cdf5bc9fe20e31a00cda5da6bb5ad520fbf3bd54777a3439c00b4"
+    },
+    "include/gui_forms/controls/panel/date_time_picker/date_time_value/date_time_value.hpp": {
+      "bytes": 1819,
+      "sha256": "867ca6efe23b1810adfab5a339f4eb2a1d6fbfd507266895a76d7b4335ec9485"
+    },
+    "include/gui_forms/controls/panel/flags_value_editor/flags_value_editor.hpp": {
+      "bytes": 2410,
+      "sha256": "b27c44b4261f73d08319c6dd8b7792b0645c6758f591e5f358f1686880fd9423"
+    },
+    "include/gui_forms/controls/panel/group_box/group_box.hpp": {
+      "bytes": 994,
+      "sha256": "62bd759c0d3ef11fa3499325d39700c0d40fcdca8fd46819e45de3c2a5573cfd"
+    },
+    "include/gui_forms/controls/panel/group_box/scaled_group_box/scaled_group_box.hpp": {
+      "bytes": 888,
+      "sha256": "d8f39b9dec546e9c7bbb14883da04e5f2fae8a959d2f69284fad1963534146e7"
+    },
+    "include/gui_forms/controls/panel/instrument_rack/instrument_rack.hpp": {
+      "bytes": 3438,
+      "sha256": "51304b11bf65b799317c03386e90ecdbf9da2b4bf08c5edb1fc37a56c2d13874"
+    },
+    "include/gui_forms/controls/panel/list_box/checked_list_box/checked_list_box.hpp": {
+      "bytes": 2535,
+      "sha256": "429fedc00b4588a1872ac1de7e2c04723eebcbf8e293df6a06f0df9292b8f9a4"
+    },
+    "include/gui_forms/controls/panel/list_box/list_box.hpp": {
+      "bytes": 4028,
+      "sha256": "b8c471649d61792b921ef3ed8c84911f250f9067cd99ae1ea7574eb4eaa3dfaa"
+    },
+    "include/gui_forms/controls/panel/material_panel/material_panel.hpp": {
+      "bytes": 944,
+      "sha256": "8c3eb8a1739ac4017bb53a0b811c2922d1b5b589a43af328cb4199b88be5b7d5"
+    },
+    "include/gui_forms/controls/panel/numeric_up_down/numeric_up_down.hpp": {
+      "bytes": 2570,
+      "sha256": "6c0a6fcf3851b973a33c06cb243a6b2fce8554486655d3b79f68249e93fab7bf"
+    },
+    "include/gui_forms/controls/panel/object_view/object_view.hpp": {
+      "bytes": 7169,
+      "sha256": "f212f5b6d881c277171c212d04ba5a6de1bd7aded0b0e9f270eed946876d27a8"
+    },
+    "include/gui_forms/controls/panel/panel.hpp": {
+      "bytes": 1716,
+      "sha256": "ad0c21a8fc0726c5ba1ddef05f92f17bcbadb8167b22e5cd429c507d0e3c6ea1"
+    },
+    "include/gui_forms/controls/panel/picture_box/picture_box.hpp": {
+      "bytes": 1940,
+      "sha256": "e3b77a53dd7a32430bf498b8d1b0fec373e1b984aeb1af8daef8a6f99099724f"
+    },
+    "include/gui_forms/controls/panel/property_grid/property_grid.hpp": {
+      "bytes": 3742,
+      "sha256": "a536b8ab47d81984e62c0c9dff0a9f45bd6046ad25721e772c47b74df5f0909f"
+    },
+    "include/gui_forms/controls/panel/property_list/property_list.hpp": {
+      "bytes": 3434,
+      "sha256": "e72949874eae14ffec18e78640ab62a8d592982cca828d983ceabfb5f0a09d47"
+    },
+    "include/gui_forms/controls/panel/scaled_panel/scaled_panel.hpp": {
+      "bytes": 790,
+      "sha256": "c2b8c9348a7d8f5eef531b3cdcbb5a86928be1c963feb35733392dd5df224621"
+    },
+    "include/gui_forms/controls/panel/text_box/text_box.hpp": {
+      "bytes": 6057,
+      "sha256": "e1c7972d7ffa81be30bfccfafd9efa06edf15a25cf4d97db404c70016fd9541b"
+    },
+    "include/gui_forms/controls/panel/tree_view/tree_view.hpp": {
+      "bytes": 4713,
+      "sha256": "b9b11f680270ee829089ff0d6f4499b0ca34ee6a35c33e67a70639d56bd77d67"
+    },
+    "include/gui_forms/controls/range_control/progress_bar/progress_bar.hpp": {
+      "bytes": 4512,
+      "sha256": "87ab828a301338fffd3568bc30e3d2312886d6386ff31bcf5834a40094fb9480"
+    },
+    "include/gui_forms/controls/range_control/range_control.hpp": {
+      "bytes": 2445,
+      "sha256": "4cf6e177d15d94316dea48cf8b308f310ff2e4776edc0ef013e598979eb354f3"
+    },
+    "include/gui_forms/controls/range_control/scroll_bar/h_scroll_bar/h_scroll_bar.hpp": {
+      "bytes": 234,
+      "sha256": "9a09395e35ea9b0aedd0de6e0a7e32870922781cb3b74bb520c62f7f25236abe"
+    },
+    "include/gui_forms/controls/range_control/scroll_bar/scroll_bar.hpp": {
+      "bytes": 2861,
+      "sha256": "ae79787ae4f43b59fd1706cf4dea3735c116305cb31edbc2ba03875ef570fe99"
+    },
+    "include/gui_forms/controls/range_control/scroll_bar/v_scroll_bar/v_scroll_bar.hpp": {
+      "bytes": 234,
+      "sha256": "9266f3200492b2e8752bb5ec8f43ce4094572f2e1b1541763b7a0a2a8a72a8b9"
+    },
+    "include/gui_forms/controls/range_control/track_bar/track_bar.hpp": {
+      "bytes": 1474,
+      "sha256": "ecf1eb2ce8d51e9bbe88146aa7a1cb56579754d9c25495af22e0f88d8e5a1f89"
+    },
+    "include/gui_forms/controls/raster_canvas/raster_canvas.hpp": {
+      "bytes": 3573,
+      "sha256": "ab08dfc4f3c680904ba36b13c890950e0047098e4c339b4baea19a2b758660c0"
+    },
+    "include/gui_forms/controls/scrollable_control/container_control/command_overflow_panel/command_overflow_panel.hpp": {
+      "bytes": 3140,
+      "sha256": "01be2508835da5ce3376e04ae16fd413fc74ed0f15c839287d314bd80920a408"
+    },
+    "include/gui_forms/controls/scrollable_control/container_control/container_control.hpp": {
+      "bytes": 1308,
+      "sha256": "65f8877ef07768e61c8beb867e374f24e59b7a7b5dcced715e4a2253c1770132"
+    },
+    "include/gui_forms/controls/scrollable_control/container_control/flow_layout_panel/flow_layout_panel.hpp": {
+      "bytes": 2540,
+      "sha256": "f6f0604d2452cfd23ab4f369ad5c304379161b77d0683459a5b68ee5c4539b43"
+    },
+    "include/gui_forms/controls/scrollable_control/container_control/responsive_track_panel/responsive_track_panel.hpp": {
+      "bytes": 6295,
+      "sha256": "64966eed75eba2c81e0311f7b9eadc8a476a6b29fd262adfdfb09387b3b1d2ea"
+    },
+    "include/gui_forms/controls/scrollable_control/container_control/split_container/split_container.hpp": {
+      "bytes": 9921,
+      "sha256": "2b9e5a1904a193efd3961623f19cd61295c05556fc4fa68ee44f2ed0117a2124"
+    },
+    "include/gui_forms/controls/scrollable_control/container_control/split_container/splitter_panel/splitter_panel.hpp": {
+      "bytes": 726,
+      "sha256": "8643a12df27a6029e2e038f1b036d6d03c98bf7ca6e2bd44e099aea7edfab45e"
+    },
+    "include/gui_forms/controls/scrollable_control/container_control/tab_control/tab_control.hpp": {
+      "bytes": 3794,
+      "sha256": "6512a263063f83eabd7907e76001d616d22e6949eaed3267f371e876fb7c8138"
+    },
+    "include/gui_forms/controls/scrollable_control/container_control/tab_control/tab_page/tab_page.hpp": {
+      "bytes": 465,
+      "sha256": "0b0df9ad2f41ecf9ac666dadc868b14df879210cc56a165e20df802aba8ee4d4"
+    },
+    "include/gui_forms/controls/scrollable_control/container_control/table_layout_panel/table_layout_panel.hpp": {
+      "bytes": 5030,
+      "sha256": "dbffb6c1b37562d3ba544358065ba2bd571e49f1c859c4949e32fce6a0964f8f"
+    },
+    "include/gui_forms/controls/scrollable_control/container_control/user_control/user_control.hpp": {
+      "bytes": 881,
+      "sha256": "5af4995ccd5b145cb4fcee4b00b039534609c1a0911c709769348b4262fe822c"
+    },
+    "include/gui_forms/controls/scrollable_control/scroll_properties/scroll_properties.hpp": {
+      "bytes": 2832,
+      "sha256": "c9aacbd51e931597df2f8fc17db2d503e2fd35d9d39f71c17de7d4150223b591"
+    },
+    "include/gui_forms/controls/scrollable_control/scrollable_control.hpp": {
+      "bytes": 7214,
+      "sha256": "55302379beeea058d78e82d5421adb9522ab923b603451338b7fea82731df7f0"
+    },
+    "include/gui_forms/controls/typography_specimen/typography_specimen.hpp": {
+      "bytes": 1593,
+      "sha256": "9203dae1b56bd49a6ae680306efd61009c3522fc8084388b721a48e7c588cd29"
+    },
+    "include/gui_forms/controls/visual_inspector_view/visual_inspector_view.hpp": {
+      "bytes": 1889,
+      "sha256": "d26091966de32d85a2c9b3ff06b7d765b8328af3cde26badca76e7d8e553828e"
+    },
+    "include/gui_forms/date_time_picker.hpp": {
+      "bytes": 352,
+      "sha256": "8db7f2c4f244b3e1f1a0838d7bf46f36a7debe0be667a1ec7f7f0e15df6bbc4c"
+    },
+    "include/gui_forms/delegate.hpp": {
+      "bytes": 63,
+      "sha256": "342fcdfb36a064d4b79a563f74232aee52549f59fc3cae8f7e488d5d4fae99e3"
+    },
+    "include/gui_forms/detail/algorithm/binary_search.hpp": {
+      "bytes": 2777,
+      "sha256": "390203768b13c290025f977b9c0d5392de8cb72d21479f5538b9afba2fbaff21"
+    },
+    "include/gui_forms/detail/algorithm/sort.hpp": {
+      "bytes": 10690,
+      "sha256": "ecbc40dc839ad7b367f7b8ca23804530e1829ae739fc2ba64b18d72e680d91b5"
+    },
+    "include/gui_forms/detail/bound_member_function.hpp": {
+      "bytes": 2608,
+      "sha256": "07695335410fa4f32e443286413598941d5f925dfade0b2a5857f91a938d65e7"
+    },
+    "include/gui_forms/detail/property_binding_adapters.hpp": {
+      "bytes": 3687,
+      "sha256": "02f843ef12c21f3da5f8f18a67ef029397e28bf8d256c85d4602fa3592b12283"
+    },
+    "include/gui_forms/detail/weak_member_callback.hpp": {
+      "bytes": 1615,
+      "sha256": "66d4f1009e16d62603ff1e73b50fa67736960c51b21225f43510c19ef1ea6767"
+    },
+    "include/gui_forms/diagnostic_controls.hpp": {
+      "bytes": 435,
+      "sha256": "7793fc80ee3a5719fbcb1a6ce8617fdd8e5112f468d6916bfd37cd6e430b9722"
+    },
+    "include/gui_forms/dirty.hpp": {
+      "bytes": 2886,
+      "sha256": "99c5078e2bb95f7b4db74242a4ffc80d27191cbe7537f71228b1594d72ad8d18"
+    },
+    "include/gui_forms/dispatcher/operation/dispatch_operation.hpp": {
+      "bytes": 1490,
+      "sha256": "e12ac2e31ad876f78c2056cdc434d32f65c2d278cf1a69fc30acf3a52d5fcdc9"
+    },
+    "include/gui_forms/dispatcher/types/dispatcher_types.hpp": {
+      "bytes": 1025,
+      "sha256": "592b4cb2fd2b88a3a004dc196988811af6a9fc58abf5e714823b2b02f30eb4e5"
+    },
+    "include/gui_forms/dispatcher.hpp": {
+      "bytes": 214,
+      "sha256": "fff907cabed8e617f83372af0e73e8f68d4778cf23743c5bfa838e318cb0e9c3"
+    },
+    "include/gui_forms/display/types/display_types.hpp": {
+      "bytes": 783,
+      "sha256": "00d27157bb3abdd36b47a4a3c862e5db0de880600547423af2b63fd7c968be54"
+    },
+    "include/gui_forms/display.hpp": {
+      "bytes": 132,
+      "sha256": "9b0749dae5d490ade3cce64ed0a46b75e6b3fd960c4efa381929c61468fb2694"
+    },
+    "include/gui_forms/drawing/bitmap/bitmap.hpp": {
+      "bytes": 3923,
+      "sha256": "c01e7b28ffacc3f3294f10a59524aec2247468b16dfe64ea0e0e2f64346935f1"
+    },
+    "include/gui_forms/drawing/brush/brush.hpp": {
+      "bytes": 502,
+      "sha256": "71b659e0a5222761d3c8f47c8196928427be5684f51e9cb5c13b923465b62e8e"
+    },
+    "include/gui_forms/drawing/brush/hatch_brush.hpp": {
+      "bytes": 422,
+      "sha256": "4ce030f71d4f63877c511c09e79682018ae440f79400520ab5a1452eab9368c9"
+    },
+    "include/gui_forms/drawing/brush/linear_gradient_brush.hpp": {
+      "bytes": 805,
+      "sha256": "7b95e1b709d4891c323043c1d632df906553e3ef8dce75556feb44ea35f3f68c"
+    },
+    "include/gui_forms/drawing/brush/path_gradient_brush.hpp": {
+      "bytes": 862,
+      "sha256": "381afd1c2bd111a6e46dc811082f50ed9c97c95113997f1f1c920e88564fd966"
+    },
+    "include/gui_forms/drawing/color/color.hpp": {
+      "bytes": 6273,
+      "sha256": "2122398e3ab07414b5900b815366b0d7e358d595f5aa3e8527a61814b40ff212"
+    },
+    "include/gui_forms/drawing/font/font.hpp": {
+      "bytes": 795,
+      "sha256": "6c4bcfee3eee7db0ed4c2812ee71533ce2a18b62f9927c51e44d32790dd90dd9"
+    },
+    "include/gui_forms/drawing/geometry/drawing_geometry.hpp": {
+      "bytes": 354,
+      "sha256": "5227b6845ba830f3f2808493a6d0e9d840dabd2cbcaaf566e6a0d2c213438141"
+    },
+    "include/gui_forms/drawing/geometry/point_f/point_f.hpp": {
+      "bytes": 350,
+      "sha256": "fd8e656e64c023fd6e143574e2fbf9d16fadbfae05fce5e306ffb3b13e1fd101"
+    },
+    "include/gui_forms/drawing/geometry/point_i/point_i.hpp": {
+      "bytes": 403,
+      "sha256": "0c0d42caba71e55d57b9f35d518a6516b822d594cf4d4481185139602ac181f2"
+    },
+    "include/gui_forms/drawing/geometry/rect_f/rect_f.hpp": {
+      "bytes": 1401,
+      "sha256": "f809b50552e0d5e079e809c66f442680574aeb3712718dc6904c802bf2ef960b"
+    },
+    "include/gui_forms/drawing/geometry/rect_i/rect_i.hpp": {
+      "bytes": 1537,
+      "sha256": "50360c801a2d3de387727e14930c3d438f8f7ec70267edb665a3ba1936533339"
+    },
+    "include/gui_forms/drawing/geometry/size_f/size_f.hpp": {
+      "bytes": 335,
+      "sha256": "e2afdf2ebf8732e705497a4e3e03c044493d9bd0838e4f905e668f70fbfdaae3"
+    },
+    "include/gui_forms/drawing/geometry/size_i/size_i.hpp": {
+      "bytes": 367,
+      "sha256": "06ff6a5935ca0a0d8a327df510fd3a820c842ddc8d965db3af02eef5241b94fb"
+    },
+    "include/gui_forms/drawing/graphics_path/graphics_path.hpp": {
+      "bytes": 2127,
+      "sha256": "309671967f32957bdabf4b50a29bdddb7afc55e7fde0e5b5ae023ed691069f53"
+    },
+    "include/gui_forms/drawing/graphics_recorder/graphics_recorder.hpp": {
+      "bytes": 5288,
+      "sha256": "2b801aa52e2884b3904c8c1937cea1c20ee60e1f39ebb86527e8c9294e7750be"
+    },
+    "include/gui_forms/drawing/image_attributes/image_attributes.hpp": {
+      "bytes": 1197,
+      "sha256": "700af073f159f78004b1e03eaea09ea077b76433b5b60ca0cbc041ceb2dc8d6b"
+    },
+    "include/gui_forms/drawing/image_reference/image_reference.hpp": {
+      "bytes": 741,
+      "sha256": "044d37ecb4a903bcd46d2f505c480f7162a276a4e73387d2ae55d05d5d9b5e3c"
+    },
+    "include/gui_forms/drawing/image_snapshot/image_snapshot.hpp": {
+      "bytes": 779,
+      "sha256": "3edaac2205e759fa8a68d533b2fb2ebd4d7c371c15ab8afe1d5f5699ba3e801f"
+    },
+    "include/gui_forms/drawing/matrix/matrix.hpp": {
+      "bytes": 1663,
+      "sha256": "73f942a07b730a8567bc5300a57d93e26b1adc0793b2190c0bf34480aad1da91"
+    },
+    "include/gui_forms/drawing/object/drawing_object.hpp": {
+      "bytes": 951,
+      "sha256": "3f95599ea2043c9f0e141f4b731ddd25ffde077ec58c6b27c310d11b09553ec5"
+    },
+    "include/gui_forms/drawing/pen/pen.hpp": {
+      "bytes": 748,
+      "sha256": "8f7a9106c951234aa1650599c1d06d4ee9d63c8416e15e336f1ecaeabe36337e"
+    },
+    "include/gui_forms/drawing/region/region.hpp": {
+      "bytes": 703,
+      "sha256": "f210717de65e9684d63f5bf57dbd9d273dd2b4dca4311f7b34d87558d054dca9"
+    },
+    "include/gui_forms/drawing/string_format/string_format.hpp": {
+      "bytes": 898,
+      "sha256": "d0e7736815db726cc376919094a5bc50c96a3a66a6d051b0b2894dae3ea5db8c"
+    },
+    "include/gui_forms/drawing/texture_brush/texture_brush.hpp": {
+      "bytes": 982,
+      "sha256": "abb2afd8e42094786dad9a9ce577f59da814e4b4668aff72ab5417b96d0fa1b5"
+    },
+    "include/gui_forms/drawing/types/drawing_types.hpp": {
+      "bytes": 2348,
+      "sha256": "c727b67294eaa57acc89e27ba2a847d5f6f54f53ac93ce37cad02c48d42e52f7"
+    },
+    "include/gui_forms/drawing/types/pixel_format/pixel_format.hpp": {
+      "bytes": 182,
+      "sha256": "59bb98de92ab0fd1841bbcc66ebf67b49f5b47af084eff527d89c863b9d2e8db"
+    },
+    "include/gui_forms/drawing.hpp": {
+      "bytes": 1198,
+      "sha256": "f105d21c09103d046ff1fbc4cd8b9f8423f8a0714ba2448b795a4647a6ada5ab"
+    },
+    "include/gui_forms/drawing_c_api.h": {
+      "bytes": 20222,
+      "sha256": "9a527ca31955d04e84bcff5943e24ac9924d0a5bd665b5c790971bf106705178"
+    },
+    "include/gui_forms/event/delegate/delegate.hpp": {
+      "bytes": 2412,
+      "sha256": "0bd237d8acdbcc8a7d54d0de2465079aff360d108744e36eff07cbb5c59bced2"
+    },
+    "include/gui_forms/event/event/event.hpp": {
+      "bytes": 8102,
+      "sha256": "01c861408b0aed28d93de28f455882b5d58f17791fc17ba9a1aaa2b5f2938932"
+    },
+    "include/gui_forms/event.hpp": {
+      "bytes": 131,
+      "sha256": "c9059a8732bb54e23689a5d5eb8e3198b9b2597defaf5d0a9359e24247a7c69e"
+    },
+    "include/gui_forms/events/input_events/input_events.hpp": {
+      "bytes": 7300,
+      "sha256": "d863a39f002203197f92ae90a23bf9bd87dbff5b25b778117106d635ae6be8db"
+    },
+    "include/gui_forms/events.hpp": {
+      "bytes": 143,
+      "sha256": "71762e092638c1dc92ee06e2ecbb8b76c9ed30685382b7822f2dfe981984537d"
+    },
+    "include/gui_forms/feedback/semantic_feedback/semantic_feedback.hpp": {
+      "bytes": 1547,
+      "sha256": "8e70e3cdb31d5803ef42b86e35136000b7ba35ef7169616998fe33784bf6e172"
+    },
+    "include/gui_forms/feedback/types/feedback_types.hpp": {
+      "bytes": 1385,
+      "sha256": "d46daf87c3e162758f98f9b4cc17f8974a0b65a447f4d65e46dacb62d8e79c42"
+    },
+    "include/gui_forms/feedback.hpp": {
+      "bytes": 220,
+      "sha256": "1eed85c449949fe79050e93fe79ab4541e73b5c693f3db703ae1a4810000bd2a"
+    },
+    "include/gui_forms/gui_forms.hpp": {
+      "bytes": 1761,
+      "sha256": "9b3012d33cc49c975c417d11c1354983eb9e3e5c881d0c5f2b4bb8df143e48c1"
+    },
+    "include/gui_forms/guidance.hpp": {
+      "bytes": 144,
+      "sha256": "efc08b2894c2bda3524fc5b1d7320e37c274e27bcd62b1375ac562f146ae7992"
+    },
+    "include/gui_forms/host/image/host_image.hpp": {
+      "bytes": 1498,
+      "sha256": "6da64af64b8888ea60d4f9588c87c4e5c7500b0ae9fe90f1891ba4b02aaf0fb3"
+    },
+    "include/gui_forms/host/services/host_services.hpp": {
+      "bytes": 4256,
+      "sha256": "90d3e08711dfb9796f5a6268e54744f64814d394a5eae2972dcb5264215bf1ae"
+    },
+    "include/gui_forms/host/session/host_session.hpp": {
+      "bytes": 1684,
+      "sha256": "e3472261dca0c0e48a050c51b89c440b672007c925d81ee3464f04656a738a14"
+    },
+    "include/gui_forms/host/types/host_capabilities/host_capabilities.hpp": {
+      "bytes": 606,
+      "sha256": "c95e292c3d42b2d66c7aa1dcbeb67e31a18c4a0a9c3832af33dd1be0cf2731a1"
+    },
+    "include/gui_forms/host/types/host_capability/host_capability.hpp": {
+      "bytes": 1373,
+      "sha256": "7070e5ca2eab1db9ad2e89088c5363344bc201735064f0a9c671ccfe63369976"
+    },
+    "include/gui_forms/host/types/host_lifecycle_phase/host_lifecycle_phase.hpp": {
+      "bytes": 212,
+      "sha256": "3df135c5fd24709333ce8fa09c3ffec4fc8708cc2f6d5ef873c2f250fc049cd8"
+    },
+    "include/gui_forms/host/types/host_services_snapshot/host_services_snapshot.hpp": {
+      "bytes": 1139,
+      "sha256": "bc94342f53e081cec11570fb9365378b9259b978e61d3e93ab660ee15b0c5a2a"
+    },
+    "include/gui_forms/host/types/host_session_snapshot/host_session_snapshot.hpp": {
+      "bytes": 1015,
+      "sha256": "9dfc10741a359a0fc6584f3af91f0bcfcf928b9e9bff7ffb41c8a9d25957c5d5"
+    },
+    "include/gui_forms/host/types/host_types.hpp": {
+      "bytes": 10912,
+      "sha256": "c0ccfc4c645a6d16080951f4e7926d8fe37e8cbc585a23d9a70c10b35b53e0b1"
+    },
+    "include/gui_forms/host.hpp": {
+      "bytes": 244,
+      "sha256": "013ab51a1d2a618f4f0b0288c6d5b4e94c822327ab8ac19bcad3205488921e40"
+    },
+    "include/gui_forms/image_list/image_list/image_list.hpp": {
+      "bytes": 5444,
+      "sha256": "0849ca17f6fddbd2934f7ebc43e42105e4c4ce28ef6dbfba3474d25c8877aaf4"
+    },
+    "include/gui_forms/image_list.hpp": {
+      "bytes": 149,
+      "sha256": "c4c1b5685403fd0a9411eb4e926112019caad32c5169c479453d25aa2a1f2ed1"
+    },
+    "include/gui_forms/input_controls.hpp": {
+      "bytes": 449,
+      "sha256": "b719c6e1b20461e1d11342df37547870c229f95bcb5f0119ab566b3b55f01758"
+    },
+    "include/gui_forms/inspection/inspection_types.hpp": {
+      "bytes": 1633,
+      "sha256": "0cfab0b8bb010ed3eb3675e50a98d48b28c025589775d075942ca7e3e2cd1257"
+    },
+    "include/gui_forms/inspection/property_editor_registry/property_editor_registry.hpp": {
+      "bytes": 1504,
+      "sha256": "79c0b7748252496fb7de6e78513834fee18b41131c7be978f926f8f6a15552d8"
+    },
+    "include/gui_forms/inspection/property_row_spec/property_row_spec.hpp": {
+      "bytes": 1648,
+      "sha256": "2e74a41afe18bb413b11037e06ac9c3e277e86eebab6356ee56f55cf3d1a4518"
+    },
+    "include/gui_forms/inspection/property_value_converter_registry/property_value_converter_registry.hpp": {
+      "bytes": 3146,
+      "sha256": "9b5853153b2dbe8aa7d42d64a1f20fa95ec486c231650248b5a4bd0b61a7b4a9"
+    },
+    "include/gui_forms/inspection/types/property_editor_kind/property_editor_kind.hpp": {
+      "bytes": 195,
+      "sha256": "74713470a3a488fa95c347cd47c974d25e2f6694690f46991d905bd6a522953e"
+    },
+    "include/gui_forms/inspection_controls.hpp": {
+      "bytes": 628,
+      "sha256": "dd4417a14192dd391096695675798cb7a1d967d10ea8bbac6b33d5f4e943d32c"
+    },
+    "include/gui_forms/instrument/instrument_types.hpp": {
+      "bytes": 1388,
+      "sha256": "99709756e470d7ef2df2e373aa08bf46ae2f63365c2c89a983326a00116a2a37"
+    },
+    "include/gui_forms/instrument_controls.hpp": {
+      "bytes": 218,
+      "sha256": "4931951130a8ebbfcc2206f34a62ad958dd9c525e3129578f9a4d2715ea63438"
+    },
+    "include/gui_forms/live_surface/frame/live_surface_frame.hpp": {
+      "bytes": 1809,
+      "sha256": "ce001bd8552afb03764a9dafa8a9e30de77cb1a330d5f0df9c470e6c10b81a33"
+    },
+    "include/gui_forms/live_surface/surface/live_surface.hpp": {
+      "bytes": 1556,
+      "sha256": "270642c2d79a34849b9752000b4e292623dc55ae6a2d4017fca3311e822aeac1"
+    },
+    "include/gui_forms/live_surface/types/live_surface_types.hpp": {
+      "bytes": 1325,
+      "sha256": "f9765b814ee347134b1a67c4eb6cb08a76075850b516f221dc445998deb6d42d"
+    },
+    "include/gui_forms/live_surface/wake_connection/live_surface_wake_connection.hpp": {
+      "bytes": 1222,
+      "sha256": "5c6f1b137cc74089ec4b2494657df4483b47fc27d30d53b78ae1ab34eb2388c6"
+    },
+    "include/gui_forms/live_surface/write_lease/live_surface_write_lease.hpp": {
+      "bytes": 1788,
+      "sha256": "769c41e85f66f00e2feabb04429e2e056ddd25ba01a48b6b38777843f0bae82d"
+    },
+    "include/gui_forms/live_surface.hpp": {
+      "bytes": 509,
+      "sha256": "7405ecf10880ed98d44301206979fec52f8c65c5ced6f96ab1fc0c8627505273"
+    },
+    "include/gui_forms/material.hpp": {
+      "bytes": 162,
+      "sha256": "63113cdd5d873e6242757faeedf3cddc3a13461669dad4b49abbe4a1334f2270"
+    },
+    "include/gui_forms/menu_controls.hpp": {
+      "bytes": 132,
+      "sha256": "80fe51415f0ecbb40b97213d480b5412aeab316b253b4bd9777ebc3221f3104c"
+    },
+    "include/gui_forms/metrics/metrics/metrics.hpp": {
+      "bytes": 3217,
+      "sha256": "72bee959d8be58b1433d99b41b7597a62c4cac9c56681854b9f4681fc9ca6bdf"
+    },
+    "include/gui_forms/metrics/types/metrics_types.hpp": {
+      "bytes": 3046,
+      "sha256": "e8f98e40ec5dcf7efe53935bbed419c86e8b41a94d4cd650415a06d6a2f70bfc"
+    },
+    "include/gui_forms/metrics.hpp": {
+      "bytes": 196,
+      "sha256": "29bf11bb46d261cfef3c0e9c410454c129d40eeea3f75535ba2d21d83008bf6e"
+    },
+    "include/gui_forms/platform/linux_host.hpp": {
+      "bytes": 1661,
+      "sha256": "93ed89f1404d9bd17cb7830e61171aaeeb65f90f7c64433d129ec4ac433d08b0"
+    },
+    "include/gui_forms/platform/macos_host.hpp": {
+      "bytes": 3894,
+      "sha256": "7cbfb3877332a163abf96abba1bda7384a3b2b5092deb35e9c1ab2bf9232a275"
+    },
+    "include/gui_forms/platform/windows_compatibility_paint_endpoint/windows_compatibility_paint_endpoint.hpp": {
+      "bytes": 2010,
+      "sha256": "6edd3eb2dd98e7e25fe931b2ed505b055b7c3d2b893f44bd511a305151b7b6d2"
+    },
+    "include/gui_forms/platform/windows_host.hpp": {
+      "bytes": 2344,
+      "sha256": "6543252a50920e3d137f4261a5042095706edeea31206395d461b8fea4646d5d"
+    },
+    "include/gui_forms/popup_controls.hpp": {
+      "bytes": 207,
+      "sha256": "40d3c8aacd40746b44752180ac1a82c05296acbf0c8a68a0b91c8987bae00edf"
+    },
+    "include/gui_forms/range_controls.hpp": {
+      "bytes": 522,
+      "sha256": "6f80f899e6d488eb618fc9387facc003b667cdafe5cb857bf231815ab02f1c81"
+    },
+    "include/gui_forms/resources/image_registry/image_registry.hpp": {
+      "bytes": 2728,
+      "sha256": "08faaa87f0f92fad1a51042d7c8965d1f4d5d72b5b7923acab02d197ad0f510e"
+    },
+    "include/gui_forms/resources/types/image_resource_types.hpp": {
+      "bytes": 3911,
+      "sha256": "9fea3b4ed26a4c50ef0c47484a953158c076d92fe8bafa2ecd56780f09177f37"
+    },
+    "include/gui_forms/resources.hpp": {
+      "bytes": 141,
+      "sha256": "aa848f8dc3defb6def3592a60c94d2e39fb7c35b31e1b830c6ac7fd8314ebafb"
+    },
+    "include/gui_forms/scheduler/frame_request_token/frame_request_token.hpp": {
+      "bytes": 742,
+      "sha256": "0de9101fee3dae6b8c4d23842d91fdc07b1ef309ce7db311ff6761bfd59a5804"
+    },
+    "include/gui_forms/scheduler/types/scheduler_types.hpp": {
+      "bytes": 1243,
+      "sha256": "8aea2db51dd0e517fa9e74159f2763b02b4a05971fcd6137abb85b928521f548"
+    },
+    "include/gui_forms/scheduler.hpp": {
+      "bytes": 207,
+      "sha256": "65066ee966f2c04f56ad8362c951dc36108b3c9b912604439d7def78011e3f2c"
+    },
+    "include/gui_forms/scrolling.hpp": {
+      "bytes": 248,
+      "sha256": "7a065e174bf33bba9640d5edff6643669a6ae9fd25316860881d2db8706e3ad9"
+    },
+    "include/gui_forms/semantics/types/semantic_types.hpp": {
+      "bytes": 2976,
+      "sha256": "177beca2569ca12e49f0f8b9806ccbe45ea6410f8d08f773d54478211d88e317"
+    },
+    "include/gui_forms/semantics.hpp": {
+      "bytes": 70,
+      "sha256": "394244fa5e441d2db64ddc074c786acea7c36d7646287b29ed0e380473a9b9af"
+    },
+    "include/gui_forms/static_tree.hpp": {
+      "bytes": 149,
+      "sha256": "507615daf86e56a9a8f20783ac86f7a1786c63a04b6a0fec48e1201425465ce5"
+    },
+    "include/gui_forms/surface_material/material_fill_layer/material_fill_layer.hpp": {
+      "bytes": 5333,
+      "sha256": "5069275aef422f148cd391859cc520e128d1d9e22bef6e5eb606db4504d2a507"
+    },
+    "include/gui_forms/surface_material/painting/surface_material_painting.hpp": {
+      "bytes": 447,
+      "sha256": "6314417f64331f23bc9de743c42ea779898a425e3fd0e58ba5137e359f8fbe50"
+    },
+    "include/gui_forms/surface_material/types/surface_material_types.hpp": {
+      "bytes": 4786,
+      "sha256": "8a2700a9162fc9d559ea9ac44ec299e82ec787292e595bacb71b789f00635be4"
+    },
+    "include/gui_forms/surface_material.hpp": {
+      "bytes": 162,
+      "sha256": "bab1cbfc59c2d3bacee470f65b7e4b4fbc434c87289276031a9336eaaa0a7149"
+    },
+    "include/gui_forms/text/text_store/text_store.hpp": {
+      "bytes": 4240,
+      "sha256": "5e6223decacec9694448e0cf126c653d4304d350aea118bc6b70df80a84e54be"
+    },
+    "include/gui_forms/text/types/text_types.hpp": {
+      "bytes": 4937,
+      "sha256": "feb40ef5249082021fe6d19a913dd87418ab6ad0741b3ccfa3159a675294cb9d"
+    },
+    "include/gui_forms/text.hpp": {
+      "bytes": 113,
+      "sha256": "91a108d728bc473400439592d5db9c2e4153de286c8f4fe02a17fb6a8a6cd8b4"
+    },
+    "include/gui_forms/text_shaping/font_fallback_resolver/font_fallback_resolver.hpp": {
+      "bytes": 352,
+      "sha256": "d0e1edd8f7f9d65acaf96004f306ec81f365ebcf78ca7506a0bfa1aca2ab947b"
+    },
+    "include/gui_forms/text_shaping/text_shaper/text_shaper.hpp": {
+      "bytes": 271,
+      "sha256": "d90a7ffd08cc7f99fd12d2baca9cd26b906d70aabbbbf268946e6d3890de8642"
+    },
+    "include/gui_forms/text_shaping/types/text_shaping_types.hpp": {
+      "bytes": 4692,
+      "sha256": "6893cabad66752ba5b8c4ea6eafbcb7febd3dd645ce797ee35527d468c172afd"
+    },
+    "include/gui_forms/text_shaping.hpp": {
+      "bytes": 223,
+      "sha256": "f75fda0dbabe7b73ecd6d069d0cefcfc0a315c9418e5e5a1e5c9af30a33b2867"
+    },
+    "include/gui_forms/theme/theme/theme.hpp": {
+      "bytes": 1134,
+      "sha256": "8ac0240b34153f1723352f98b6ed3e8b89c0e868dd55411ebdfa4726015679f2"
+    },
+    "include/gui_forms/theme/types/theme_types.hpp": {
+      "bytes": 10870,
+      "sha256": "dbd5b4c03a5c69bbd6f9adf0f774cd719a1eca804864c4c775184efb9962f39b"
+    },
+    "include/gui_forms/theme.hpp": {
+      "bytes": 106,
+      "sha256": "9f9f37730a753db3bb568aa8cee1ad78c79dd90d523446f01e204751d3d21466"
+    },
+    "include/gui_forms/timer/timer/timer.hpp": {
+      "bytes": 1681,
+      "sha256": "bfaf61c1ada062ec1f906c9fe6782311286177a49afc690d99a386d2d62a3997"
+    },
+    "include/gui_forms/timer.hpp": {
+      "bytes": 131,
+      "sha256": "7d603164c95675b020809dd2f1fe0ffc5f9a39de4c85e60be3feee9d461fb93a"
+    },
+    "include/gui_forms/tooltip.hpp": {
+      "bytes": 68,
+      "sha256": "b4d98f76c70db2493141a3206707cd535b5adc80b4bc6d64215308fca3bf2350"
+    },
+    "include/gui_forms/types/core_types/core_types.hpp": {
+      "bytes": 382,
+      "sha256": "1980ebb70dd06f1aa92330b3ea9adba80aec4ac74d1da1821417cad2afadfeb7"
+    },
+    "include/gui_forms/types/damage_region/damage_region.hpp": {
+      "bytes": 999,
+      "sha256": "cc6f2d92a5b66980a77255cc024a513904417d1c991b6b379ab7f773cd17b0b6"
+    },
+    "include/gui_forms/types/geometry/geometry.hpp": {
+      "bytes": 2588,
+      "sha256": "6eff3e7264e70a835d25dcbdbd37bdfaf62da0298ffb9145dbe514980a5bb711"
+    },
+    "include/gui_forms/types/paint_types/paint_types.hpp": {
+      "bytes": 3751,
+      "sha256": "448559cb44bfc550c295d437c67aef8dea2046321d5ca1af0d94a63b984498cd"
+    },
+    "include/gui_forms/types/painter/painter.hpp": {
+      "bytes": 5375,
+      "sha256": "5a73341848b0863d367d81baa1193ded86bc527378f93dab853ff98256ae1112"
+    },
+    "include/gui_forms/types.hpp": {
+      "bytes": 208,
+      "sha256": "f59dbb31105899b68368ec5cd3953558f5ffaaeeed22e775a717075b9e4c8ed1"
+    },
+    "include/gui_forms/typography/types/typography_types.hpp": {
+      "bytes": 2814,
+      "sha256": "db8910cfcd6c83bf115083e6eccf06ac5618af223c55bee98b573c8700d5b5c6"
+    },
+    "include/gui_forms/typography.hpp": {
+      "bytes": 73,
+      "sha256": "d3fcb67bbe55b6ff3798e5c1a537cb3bbcdd9b834bc78bda8ee236a9eb5c6a3f"
+    },
+    "include/gui_forms/visual_inspection/types/visual_inspection_types.hpp": {
+      "bytes": 5385,
+      "sha256": "c98de6a7abfda750815843278fb611e3252c796252d7e723684d2f8d977e1013"
+    },
+    "include/gui_forms/visual_inspection.hpp": {
+      "bytes": 163,
+      "sha256": "4d7e646a3108fdc888489ecede71ca1c28fa8e05fcb0293b555865b5f22b6902"
+    },
+    "include/gui_forms/window/presentation/presentation_types.hpp": {
+      "bytes": 2914,
+      "sha256": "8959df85ce76ecac8e48178c70a61455f5ee1fc2c3388c934b7a9ba618c526fb"
+    },
+    "include/gui_forms/window/update_scope/update_scope.hpp": {
+      "bytes": 648,
+      "sha256": "85029e122c6af57c75b5a5ad8fce85f01a725b83802c78de6b76e996c74e5643"
+    },
+    "include/gui_forms/window/window.hpp": {
+      "bytes": 36074,
+      "sha256": "2573c427f3802a89c45342e56d0f024bfff6e12eccf87beec08ddc22355e7edd"
+    },
+    "include/gui_forms/window.hpp": {
+      "bytes": 205,
+      "sha256": "9493ea5ae39c6dfe123e049042d0fd66c5935b3061341426296587c42771b255"
+    },
+    "lib/cmake/GUIForms/GUIFormsApplicationTargets-release.cmake": {
+      "bytes": 946,
+      "sha256": "a064c04f72945ab4dfe2a0cc5f3cbc942ae969bf8301eb37b18a92a5779a8c4b"
+    },
+    "lib/cmake/GUIForms/GUIFormsApplicationTargets.cmake": {
+      "bytes": 4198,
+      "sha256": "f7d14c11fa37514539918f566cb29b4eb36d1fe9529610e9aca2429f6671415b"
+    },
+    "lib/cmake/GUIForms/GUIFormsConfig.cmake": {
+      "bytes": 2033,
+      "sha256": "b153ec8991dab4b14c5ea3574e5411206618fd82567814674d0b502d41deaa03"
+    },
+    "lib/cmake/GUIForms/GUIFormsConfigVersion.cmake": {
+      "bytes": 3675,
+      "sha256": "6cecb804c170b7d5262a13684a8949f8d1c01a5d72898b1cd64f9e3ebfe448dd"
+    },
+    "lib/cmake/GUIForms/GUIFormsTargets-release.cmake": {
+      "bytes": 1868,
+      "sha256": "56f2b6af853aac27ef6be06b0b2fbf93a854017830cc2e336e40d1dfaf7d2153"
+    },
+    "lib/cmake/GUIForms/GUIFormsTargets.cmake": {
+      "bytes": 4717,
+      "sha256": "e3c9e6b2351beba9326bd6a74a3acae2d0b68828297782ab1efaf00adba72a15"
+    },
+    "lib/libgui_drawing_core.a": {
+      "bytes": 376880,
+      "sha256": "1b90dfe7bd07165352c72659210e8f12f0d28173134725529de54b84b48262ce"
+    },
+    "lib/libgui_forms_application.0.1.0.dylib": {
+      "bytes": 9704480,
+      "sha256": "aad95cb2fc7f21f48baf04f313d0d60010cb2c908de2c4bbf8943976f247393a"
+    },
+    "lib/libgui_forms_application.0.dylib": {
+      "symlink": "libgui_forms_application.0.1.0.dylib"
+    },
+    "lib/libgui_forms_application.dylib": {
+      "symlink": "libgui_forms_application.0.dylib"
+    },
+    "lib/libgui_forms_controls.a": {
+      "bytes": 6480560,
+      "sha256": "f551da07c27902f2bd86dbe4275b9df70e14e896422a275798560dc355791d12"
+    },
+    "lib/libgui_forms_core.a": {
+      "bytes": 3097600,
+      "sha256": "620f8ef9896070af57701eda4054d353ae8ad5be4b11e45f353258318fcba4ea"
+    },
+    "share/GUIForms/fonts/ATTRIBUTION.md": {
+      "bytes": 3726,
+      "sha256": "db74566335ff72d930aae0e0e8dd38a79a857c761c1b2de9d1dc28370f9f5c28"
+    },
+    "share/GUIForms/fonts/Carlito-Bold.ttf": {
+      "bytes": 682468,
+      "sha256": "bb5d20f79b82599ec72983597437373a80f2d2085fa91fc144fd74e876a594db"
+    },
+    "share/GUIForms/fonts/Carlito-BoldItalic.ttf": {
+      "bytes": 808508,
+      "sha256": "b32928186c119599e03ca6a1ffc680fdcb7fac95772f4b95d989cf6cd3861517"
+    },
+    "share/GUIForms/fonts/Carlito-Italic.ttf": {
+      "bytes": 615236,
+      "sha256": "0b019225e58d702bfedcbd35c21696769f8ee115cb6343f84c2f240312450d1c"
+    },
+    "share/GUIForms/fonts/Carlito-Regular.ttf": {
+      "bytes": 628032,
+      "sha256": "f6418f708baede9789daef5d458c0f53d2a888af9820e8062934e504fedc6595"
+    },
+    "share/GUIForms/fonts/Cousine-Bold.ttf": {
+      "bytes": 298048,
+      "sha256": "331215ec6445f41e98d8971251bb6237e722907f4101faae990583accfe79545"
+    },
+    "share/GUIForms/fonts/Cousine-BoldItalic.ttf": {
+      "bytes": 308292,
+      "sha256": "7f804549c941ceaac0a9635389ed09c4bbc86e4bfe37589191dacd1b5b0e26a5"
+    },
+    "share/GUIForms/fonts/Cousine-Italic.ttf": {
+      "bytes": 306880,
+      "sha256": "afb869eee8643d09915c3286edb61dad66278ceb1511c79b474ce21548421bcd"
+    },
+    "share/GUIForms/fonts/Cousine-Regular.ttf": {
+      "bytes": 296856,
+      "sha256": "5a57f0184000371cb22fe3fcea4c500354cab1a69efaf7beaf3e6eca6ecfefea"
+    },
+    "share/GUIForms/fonts/NotoEmoji-Regular.ttf": {
+      "bytes": 418804,
+      "sha256": "415dc6290378574135b64c808dc640c1df7531973290c4970c51fdeb849cb0c5"
+    },
+    "share/GUIForms/fonts/NotoSansCJKjp-Regular.otf": {
+      "bytes": 16467736,
+      "sha256": "68a3fc98800b2a27b371f2fb79991daf3633bd89309d4ffaa6946fd587f375b5"
+    },
+    "share/GUIForms/fonts/OFL-Carlito.txt": {
+      "bytes": 4424,
+      "sha256": "58402f82a7c332a700294988fe7554fbb0a63a8d27ccc1ee3bbc640311990a00"
+    },
+    "share/GUIForms/fonts/OFL-Cousine.txt": {
+      "bytes": 4387,
+      "sha256": "b81c4d4dc0a9f72c9155e78187316e016e2012a8102468804173dc61468b906d"
+    },
+    "share/GUIForms/fonts/OFL-NotoEmoji.txt": {
+      "bytes": 4301,
+      "sha256": "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2"
+    },
+    "share/GUIForms/fonts/OFL-NotoSansCJKjp.txt": {
+      "bytes": 4301,
+      "sha256": "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2"
+    },
+    "share/GUIForms/fonts/PortsmouthRapids-Bold.ttf": {
+      "bytes": 181084,
+      "sha256": "f97d702778f5933b4ae138064a348499a6dba90d9e2e6bf75a6ab81a6730c03a"
+    },
+    "share/GUIForms/fonts/PortsmouthRapids.ttf": {
+      "bytes": 164544,
+      "sha256": "88988bea222852c30e08a3629d9f929baacfec4844c85bb978dcc68e6f4d4add"
+    },
+    "share/licenses/GUIForms/FreeType-FTL.txt": {
+      "bytes": 6743,
+      "sha256": "5a5ee54c5001bbad1cdc1a57cc3dd4c42199b2da09d39c7ee41fab002d02967f"
+    },
+    "share/licenses/GUIForms/HarfBuzz-COPYING.txt": {
+      "bytes": 1971,
+      "sha256": "ba8f810f2455c2f08e2d56bb49b72f37fcf68f1f4fade38977cfd7372050ad64"
+    },
+    "share/licenses/GUIForms/LICENSE": {
+      "bytes": 1208,
+      "sha256": "eed8ab2821054e7586f41aa840aa669d05c39245d82c2cd5778035ba9c71f454"
+    },
+    "share/licenses/GUIForms/Skia-LICENSE.txt": {
+      "bytes": 1507,
+      "sha256": "5f787c1dee3c56547f09ccc2906ab5f5293c4d8dd6c8654e573216c38e908dbd"
+    },
+    "share/licenses/GUIForms/Unicode-LICENSE.txt": {
+      "bytes": 1991,
+      "sha256": "bfb121a2aaa8fa3d77f3429ae2aaed879cc53cacad6fbe42a2513043b80fcb9a"
+    },
+    "share/licenses/GUIForms/libpng-LICENSE.txt": {
+      "bytes": 5345,
+      "sha256": "bdb0a645ea18c60507d0368379b1ac5474b92255fcc2d115e07486a7672ba526"
+    },
+    "share/licenses/GUIForms/zlib-LICENSE.txt": {
+      "bytes": 910,
+      "sha256": "e1cfcc55c325b3f78cf55df9664abaa066e2271dffe8213347d9fccdfbac8f2c"
+    }
+  }
+}

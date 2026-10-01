@@ -1,0 +1,1 @@
+With explicit user approval on 2026-10-01, the 56 checksum-verified duplicate WAV masters (239156362 bytes) were removed from this M4 copy to relieve disk exhaustion. Original masters remain preserved on Neo at /Users/ultimussecundai/Documents/Codex/2026-09-30/sol/outputs/audio-batch-01/. All AAC/Opus runtime assets, source scripts, SHA256 records and manifests remain here.

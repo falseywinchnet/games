@@ -1,0 +1,937 @@
+[
+  {
+    "file": "card_deal_01.m4a",
+    "batch": 1,
+    "sha256": "2aaaa06f873e7068e8b2c28a3987d1afe64e2ac29beab34c77ba43eb8711255c"
+  },
+  {
+    "file": "card_deal_02.m4a",
+    "batch": 1,
+    "sha256": "ece5f2f0154f9357050fab103b48170e0c15715b52d4d6c74b0bd3a74a5e09f9"
+  },
+  {
+    "file": "card_deal_03.m4a",
+    "batch": 1,
+    "sha256": "e2e2b34ea5434c5df3d3c31297aaa3c508551042a236df05adbb2b206d774d73"
+  },
+  {
+    "file": "card_deal_04.m4a",
+    "batch": 1,
+    "sha256": "2f2611bc673f12dcb9eba934dadbe71bfa5bc64ba8220598a7d63348bd336e08"
+  },
+  {
+    "file": "card_flip_01.m4a",
+    "batch": 1,
+    "sha256": "83ccf93bc421b0a3a7b2b8af49645bba905913e56fe33d6ef45b82a0cc91dec4"
+  },
+  {
+    "file": "card_flip_02.m4a",
+    "batch": 1,
+    "sha256": "93e49a4560d03503b73886b1b7bd6f0c4ea0139ceb0c4ac7f9d6e00010c78287"
+  },
+  {
+    "file": "card_flip_03.m4a",
+    "batch": 1,
+    "sha256": "42f6cc5f13c1f263183b421a125b2a318eb4933963d04cc58a0a6fe98b2eb81c"
+  },
+  {
+    "file": "card_flip_04.m4a",
+    "batch": 1,
+    "sha256": "c04690d206ad6fc631a0cb41d542049aef235c91a46a5e408757f7f1a435f2b7"
+  },
+  {
+    "file": "card_foundation_01.m4a",
+    "batch": 1,
+    "sha256": "f7574a6868c52a1d7442fdd6a09eaef8a08e0b7743c55ad057ecae720160443d"
+  },
+  {
+    "file": "card_foundation_02.m4a",
+    "batch": 1,
+    "sha256": "74678ce8d31574b92293038ea2b5132745bbd75248e7dddc840e10fb6b7ce03a"
+  },
+  {
+    "file": "card_foundation_03.m4a",
+    "batch": 1,
+    "sha256": "9fa978a81010837b6aaab28a05e672612b3615220e7bcd5f30bb98addc7a5307"
+  },
+  {
+    "file": "card_foundation_04.m4a",
+    "batch": 1,
+    "sha256": "70833bb299b51c95a2d6490e2beed52ec1dd5245a764169a49eb4a55ada0f10e"
+  },
+  {
+    "file": "card_pickup_01.m4a",
+    "batch": 1,
+    "sha256": "e485d8d68cf34db15c9ee1a67cf38386999f88690c229d88fd710621f14017da"
+  },
+  {
+    "file": "card_pickup_02.m4a",
+    "batch": 1,
+    "sha256": "9f4277161606bd6400df8fd47b947fd5de94e2583d0000eddbf5af0817d90204"
+  },
+  {
+    "file": "card_pickup_03.m4a",
+    "batch": 1,
+    "sha256": "236b0a9b615533ef9806ea6969dbfd6cb7a0ba6b72d13b7435d648ecb512698a"
+  },
+  {
+    "file": "card_pickup_04.m4a",
+    "batch": 1,
+    "sha256": "e067db482b9daa75858acc82006c5d479a63b19ba1444178541d9377f6e6451d"
+  },
+  {
+    "file": "card_place_01.m4a",
+    "batch": 1,
+    "sha256": "c60baca0b63f0f7c5bd12ece61a2b5f015550f9d61423e8e863cb20071602419"
+  },
+  {
+    "file": "card_place_02.m4a",
+    "batch": 1,
+    "sha256": "73d0b42e5ea6bbf33a0b4e4a3973df8c8ea255133e1147576f39933cdfcc5563"
+  },
+  {
+    "file": "card_place_03.m4a",
+    "batch": 1,
+    "sha256": "0489ba5a173f00dea2446a3b19e2cc7586413bbce5a38e4353f0ce48f81fef8d"
+  },
+  {
+    "file": "card_place_04.m4a",
+    "batch": 1,
+    "sha256": "e78db50c7a57fa8ee5f2ae27b0f78d5aa155042d1446210530d1d0ff89737878"
+  },
+  {
+    "file": "card_shuffle_01.m4a",
+    "batch": 1,
+    "sha256": "34a17a742748ced9aa9fcee75ec1ffaba53be51b9c60fa199e8fb44fdec73cad"
+  },
+  {
+    "file": "card_shuffle_02.m4a",
+    "batch": 1,
+    "sha256": "c42f491ae38cb5b34e522da382bfc51ecbc63745e4955b7638a8f129acd4920a"
+  },
+  {
+    "file": "music_freecell_loop.m4a",
+    "batch": 1,
+    "sha256": "aa57835db88db6a8649bd63548d18ed44824508649ba15753e5febfd6664c3ef"
+  },
+  {
+    "file": "music_hearts_loop.m4a",
+    "batch": 1,
+    "sha256": "3642721032078fedf7f92fdc7be898c7bd9bcbbdce954c0e5e37f6163a042140"
+  },
+  {
+    "file": "music_klondike_loop.m4a",
+    "batch": 1,
+    "sha256": "24565eaa6622ac75ca00c195331f76a632801463377b6461a5defda2eafd8aad"
+  },
+  {
+    "file": "music_menu_loop.m4a",
+    "batch": 1,
+    "sha256": "b6c3a545502fe3a12c158b629058c48ea64c6943e36f9cf910d65847bc65388b"
+  },
+  {
+    "file": "music_puzzle_main_loop.m4a",
+    "batch": 1,
+    "sha256": "f93f413118fbafdf74f0768aefe0981ee9bba6af49094e8627005c112352a88a"
+  },
+  {
+    "file": "music_puzzle_tiptoe_loop.m4a",
+    "batch": 1,
+    "sha256": "b345f525067a1dac56661bd367ef80214524edf265bef92b66f42c8ea0afdb7c"
+  },
+  {
+    "file": "music_spider_loop.m4a",
+    "batch": 1,
+    "sha256": "f1b69197ad1cc89bfb1f5fbe039f906a1dd001af3d3df85298e05a2cbc073159"
+  },
+  {
+    "file": "puzzle_blocked_01.m4a",
+    "batch": 1,
+    "sha256": "c658fd51d98674c9232a4404489e17b9525751fe1f73549c6cc1d019fe39f974"
+  },
+  {
+    "file": "puzzle_blocked_02.m4a",
+    "batch": 1,
+    "sha256": "e23876e40f579b57cc877050b1cd2e9a94ffc60b69a0f09b34d5cf278001a58c"
+  },
+  {
+    "file": "puzzle_fail.m4a",
+    "batch": 1,
+    "sha256": "38bfe443b14e492746ab1d8fceb8a8709dc0f188935c1441d5e695b464ef3136"
+  },
+  {
+    "file": "puzzle_on_target_01.m4a",
+    "batch": 1,
+    "sha256": "e2b36b3464c04b4f81bf0cff8ece52b68cacd6b0d3a7546429b412aec406527f"
+  },
+  {
+    "file": "puzzle_on_target_02.m4a",
+    "batch": 1,
+    "sha256": "647aa4ab1ad6089593c76d7b1e521909d4a9f3642437010dce5eae49c15d82fe"
+  },
+  {
+    "file": "puzzle_push_01.m4a",
+    "batch": 1,
+    "sha256": "18fa441b1b2274d6884de9e7e84449bc5a891c288d83bb73c20f83a2ccc47eb6"
+  },
+  {
+    "file": "puzzle_push_02.m4a",
+    "batch": 1,
+    "sha256": "e40e3be1c784de24b0e15183406d5bc0be04886196e6b81fc14019a11d88e64b"
+  },
+  {
+    "file": "puzzle_push_03.m4a",
+    "batch": 1,
+    "sha256": "8c62ac9982d4e922c14d5532d31cc630f3505951631fdb6149bedd78c445d5ea"
+  },
+  {
+    "file": "puzzle_undo_01.m4a",
+    "batch": 1,
+    "sha256": "859a5e112cef161ba7684b8cac7d1e213a09f34ac1b15eec75c9de23f98afb15"
+  },
+  {
+    "file": "puzzle_walk_01.m4a",
+    "batch": 1,
+    "sha256": "b6671868f89bdcbbac15e27b813f6a98137a21bb8181393cf5527498c9373b89"
+  },
+  {
+    "file": "puzzle_walk_02.m4a",
+    "batch": 1,
+    "sha256": "e0e4406d7939ff1955501154c01f16f5d914b63a5108ca49618b6e205b1adbee"
+  },
+  {
+    "file": "puzzle_walk_03.m4a",
+    "batch": 1,
+    "sha256": "6ec7ca90b082ca8dcf11f353981594245f53ff3365fe24835164a03813da4511"
+  },
+  {
+    "file": "puzzle_walk_04.m4a",
+    "batch": 1,
+    "sha256": "ce4e126c92c5d47df2ccd154e8356421843986612e6dc94e56de64ee033e56bc"
+  },
+  {
+    "file": "puzzle_win.m4a",
+    "batch": 1,
+    "sha256": "753c93b5a653d62fcee297730d1d40e8ee3b476779ed5162e21e3d94ccb93aa3"
+  },
+  {
+    "file": "stinger_win_freecell.m4a",
+    "batch": 1,
+    "sha256": "5b00d3036148fb772d3aec651d7d7914ac718b9b06171e001d2c912ca2f98fbb"
+  },
+  {
+    "file": "stinger_win_hearts.m4a",
+    "batch": 1,
+    "sha256": "182b85de95a4c995bfbbfc09586181cdf7eaccd40ad2cfe24abdb9b765af8e73"
+  },
+  {
+    "file": "stinger_win_klondike.m4a",
+    "batch": 1,
+    "sha256": "aba73e2ea1c7ccb57da945db8b31c02a2b286e9f1c9fe18803c747eb48b82927"
+  },
+  {
+    "file": "stinger_win_menu.m4a",
+    "batch": 1,
+    "sha256": "39593a1515b4388bec47c1c1bb70e1a71526f44252cbe33e00e13826121d717b"
+  },
+  {
+    "file": "stinger_win_puzzle.m4a",
+    "batch": 1,
+    "sha256": "86a164705c1ffe141fa263e8c84318c02289524fd8029fa8dd5dff1f90efa69c"
+  },
+  {
+    "file": "stinger_win_spider.m4a",
+    "batch": 1,
+    "sha256": "a6db7d90d0f3b4246209fa7458f542a8585ad7a9097d2d46b16fbccd54cef42f"
+  },
+  {
+    "file": "ui_hint_01.m4a",
+    "batch": 1,
+    "sha256": "638a5ead59193523da450c209f1f9fda9d2020b9fb0de974191142cde990bf33"
+  },
+  {
+    "file": "ui_hint_02.m4a",
+    "batch": 1,
+    "sha256": "30de89600195fefd396a5ad89e4038cba8b17a75a861844d1dc610f83cddef95"
+  },
+  {
+    "file": "ui_invalid_01.m4a",
+    "batch": 1,
+    "sha256": "6e1b5db7502edaa73497937d6fc3d8413ed5f43bc82fd3a961c34bb3d89c346b"
+  },
+  {
+    "file": "ui_invalid_02.m4a",
+    "batch": 1,
+    "sha256": "9e9d29d89b4675223a14b7d4a34ed0f2236353e1ea5bc02fa609467d9353e94c"
+  },
+  {
+    "file": "ui_undo_01.m4a",
+    "batch": 1,
+    "sha256": "859a5e112cef161ba7684b8cac7d1e213a09f34ac1b15eec75c9de23f98afb15"
+  },
+  {
+    "file": "ui_undo_02.m4a",
+    "batch": 1,
+    "sha256": "a75769078f198f46c498940f1df7fb77dc7ae71921e0dbfe30a7798317d59933"
+  },
+  {
+    "file": "ui_victory.m4a",
+    "batch": 1,
+    "sha256": "afb410f46fe3ebec952edb430ffa74a514e6bdf5521371c973445d7c636df640"
+  },
+  {
+    "file": "atom_probe_check_correct.m4a",
+    "batch": 2,
+    "sha256": "d78ddbee32b1ca7f0850c3026639d56da396c7745f8cc163cbcd83787c844c48"
+  },
+  {
+    "file": "atom_probe_check_wrong.m4a",
+    "batch": 2,
+    "sha256": "ef107d195b676d3427588706dafbbc2b810ffd16a69b302e891f34c7e60ff9ef"
+  },
+  {
+    "file": "atom_probe_fire_01.m4a",
+    "batch": 2,
+    "sha256": "3c0549a890b811c767245cb3f45b06393ccfc26075b31ef9e7c5fa0f94d23c38"
+  },
+  {
+    "file": "atom_probe_fire_02.m4a",
+    "batch": 2,
+    "sha256": "699591bf4e096ff652d937e1b8d75a475c9b8a6c280da13ca1b624f1304e9f0f"
+  },
+  {
+    "file": "atom_probe_mark_01.m4a",
+    "batch": 2,
+    "sha256": "bd1755f8294b2cdb3f240a77e113ca8a6435b6749c63747b3491848370280f76"
+  },
+  {
+    "file": "atom_probe_mark_02.m4a",
+    "batch": 2,
+    "sha256": "89f28d0ff3ccb7a84ee36346ccf7383376731a35fa368cf3a5e81867aeff6ab0"
+  },
+  {
+    "file": "atom_probe_result_absorb.m4a",
+    "batch": 2,
+    "sha256": "25ec88831dd73720cadfea05155d4e682e57a4cfe64c3ded21cbf63a1382dfb1"
+  },
+  {
+    "file": "atom_probe_result_deflect.m4a",
+    "batch": 2,
+    "sha256": "08ba6cf7041549365c33eb80f04678267bbb59a0854df2bcbb4c45cf6e096113"
+  },
+  {
+    "file": "atom_probe_result_pass.m4a",
+    "batch": 2,
+    "sha256": "450ee0969bb8ef4b0d721ce14261cbb41ce2d494bc0305d220380ad245ce407d"
+  },
+  {
+    "file": "atom_probe_result_reflect.m4a",
+    "batch": 2,
+    "sha256": "c441119a63d3b70bc1bf71b0e80f0b7ed62a691d38de513b947dc64f0bc007a7"
+  },
+  {
+    "file": "atom_probe_unmark.m4a",
+    "batch": 2,
+    "sha256": "1371405e9727b7136cc43bace14780354f888aa247c49f2d2675b12b232b5d2c"
+  },
+  {
+    "file": "four_pegs_feedback_exact.m4a",
+    "batch": 2,
+    "sha256": "c46996de95491a6f2d5e3ee1652da9c64c139ec145646a628478dde88a2a711d"
+  },
+  {
+    "file": "four_pegs_feedback_none.m4a",
+    "batch": 2,
+    "sha256": "426d35a97296d1042d947f10b7a260a48d7482eb3f35f5d9eed0cfb9f08cf1c0"
+  },
+  {
+    "file": "four_pegs_feedback_partial.m4a",
+    "batch": 2,
+    "sha256": "04331b259c2b687ecec23a93d42e176328654d4e13b45ce9df6eff06f4d9daf4"
+  },
+  {
+    "file": "four_pegs_out_of_turns.m4a",
+    "batch": 2,
+    "sha256": "82edb5a8c1e6b52c3dcb3d78426e20f5c3237401acc9d8a09fb5dc04fef6ef18"
+  },
+  {
+    "file": "four_pegs_place_01.m4a",
+    "batch": 2,
+    "sha256": "29eeaa47c5b89c6e0baceba77ccbac9bbf7241318a08201193e129982e4be69d"
+  },
+  {
+    "file": "four_pegs_place_02.m4a",
+    "batch": 2,
+    "sha256": "0ce545864724f5e112be3e8e4419342a917235a49b1ea6ee0199b61e661953b2"
+  },
+  {
+    "file": "four_pegs_place_03.m4a",
+    "batch": 2,
+    "sha256": "20a326087a70c0547eafe98f720b4be6f90cc39eec7ffa3ef044e1b9500734b0"
+  },
+  {
+    "file": "four_pegs_place_04.m4a",
+    "batch": 2,
+    "sha256": "06337510eadfe51058de49e4cffb230efd61ca2ec5564cc3415989c4a94635b8"
+  },
+  {
+    "file": "four_pegs_remove.m4a",
+    "batch": 2,
+    "sha256": "b2094fdfe6c5f10c1591f5f2839e3ffd5d6f4c8e8396b703b8e4a24e238703f7"
+  },
+  {
+    "file": "four_pegs_submit.m4a",
+    "batch": 2,
+    "sha256": "07ec30ca5a5f711e476f3ae8f8e79b989f9a228122ba595f26a4e39404e0ae9e"
+  },
+  {
+    "file": "gems_bomb.m4a",
+    "batch": 2,
+    "sha256": "9bf0a5a82a01779d9ac981462f029068a2a01e92959b3e94e01d68ba4e425112"
+  },
+  {
+    "file": "gems_hover_01.m4a",
+    "batch": 2,
+    "sha256": "7d5138ef9981538d3c7816ec7e2e8e5826ad70d5797c354afd72c59eea567e5d"
+  },
+  {
+    "file": "gems_hover_02.m4a",
+    "batch": 2,
+    "sha256": "0b4741573148e26ebdd2076e40cdffff6351930fd4a10d816f7058d5a9bcf27e"
+  },
+  {
+    "file": "gems_hover_03.m4a",
+    "batch": 2,
+    "sha256": "057a175656b64b2016361d0f7a4cd9c51d6c93b07d6ed4904b26cf1ff417eec3"
+  },
+  {
+    "file": "gems_hypercube.m4a",
+    "batch": 2,
+    "sha256": "fe1d940dc1ac6bdd74645ff011957ae57046d2c4e51c47e349a717e4029d0b40"
+  },
+  {
+    "file": "gems_level_up.m4a",
+    "batch": 2,
+    "sha256": "389965a84e20adc197eddf61375d2ef7f91492e5f8fc1bb12ea199ce5948162d"
+  },
+  {
+    "file": "gems_match_01.m4a",
+    "batch": 2,
+    "sha256": "1a0c660e6c931efa66cedcab8177ed68dc1ea458ca46735ae3deba5b8b305876"
+  },
+  {
+    "file": "gems_match_02.m4a",
+    "batch": 2,
+    "sha256": "1967d3bf17dd05fcc42cf8e2da18ae883d6fa3941a7507160e92a7863ec9366b"
+  },
+  {
+    "file": "gems_match_03.m4a",
+    "batch": 2,
+    "sha256": "1c853eea85b78b696203e423061160cbebc3f3e9828a9344c6a8bdb61923b9ef"
+  },
+  {
+    "file": "gems_match_04.m4a",
+    "batch": 2,
+    "sha256": "c87fb4d2fe8bfc7cd5e0f8d46b1f3f219de7d9ee6cb043ef192bb70d384d40a3"
+  },
+  {
+    "file": "gems_match_05.m4a",
+    "batch": 2,
+    "sha256": "355b1101178a69bef1a42b0c6008c7a890c31b79745fbb6c8d3fe6db09ca2fbd"
+  },
+  {
+    "file": "gems_no_moves_shuffle.m4a",
+    "batch": 2,
+    "sha256": "eeafdfe6d4ce660214d71f02ae5e55608ba55413b2fc7d03319ccb4f6aa4fe38"
+  },
+  {
+    "file": "gems_powerup_created.m4a",
+    "batch": 2,
+    "sha256": "91683cafb3fb159aec6f9c5c4788a945ab9b24ca6496fde9f864523f70c10f69"
+  },
+  {
+    "file": "gems_star_line.m4a",
+    "batch": 2,
+    "sha256": "900846dc4c8e479cce99cb7680c34db0056ddfdd53a81b2328f43e331037f1d5"
+  },
+  {
+    "file": "gems_swap_01.m4a",
+    "batch": 2,
+    "sha256": "f98015852db13f399bb4e042d457dd811f14c20d1bf5cf20516ca3765785546f"
+  },
+  {
+    "file": "gems_swap_02.m4a",
+    "batch": 2,
+    "sha256": "cc347324e48ba71dcbe48a6d866c59131bc2206b6633d25bee6382c94e5dca67"
+  },
+  {
+    "file": "gems_swap_03.m4a",
+    "batch": 2,
+    "sha256": "ef355f84ffb65fea37e97bc84f2cabb595e24e5aa151dbd8a9910abcd00c938e"
+  },
+  {
+    "file": "gems_swap_return_01.m4a",
+    "batch": 2,
+    "sha256": "99c9b9a4ad7c77865084d20b204c21ebd59ba4a3913e43973812889c1442dea1"
+  },
+  {
+    "file": "gems_swap_return_02.m4a",
+    "batch": 2,
+    "sha256": "1cd7ed5389a6937dea0ea2cd7259b980ea5a016f1c960d1a2c99719aaf8e3527"
+  },
+  {
+    "file": "music_atom_probe_loop.m4a",
+    "batch": 2,
+    "sha256": "2a7cc3a66b359da85c0907e34abed15c7e0db8b2ea40a1c553ba8f95b42951da"
+  },
+  {
+    "file": "music_four_pegs_loop.m4a",
+    "batch": 2,
+    "sha256": "216a80b29d2bd693ac9a78b37a3a9db1affc7fd06d9f78414a2be8bcdad96b88"
+  },
+  {
+    "file": "music_gems_loop.m4a",
+    "batch": 2,
+    "sha256": "4393f6f13245e950d8344860c5c38951bf1ef717509a4866d59f967f82de7e0a"
+  },
+  {
+    "file": "music_nature_cube_loop.m4a",
+    "batch": 2,
+    "sha256": "75224eea3de4e5fe2efd703591960c1744c476896cca788298e739b917f32cdf"
+  },
+  {
+    "file": "music_puzzle_solve_loop.m4a",
+    "batch": 2,
+    "sha256": "3e33cc4320b5b00d638d8840ca3b977588050e1f1af8c871baea53f5c0d196b6"
+  },
+  {
+    "file": "music_sticks_stones_loop.m4a",
+    "batch": 2,
+    "sha256": "fe29d8c9962c1678cd26a80786bc85ba51a42ce702563081c9a93fa0a62d84de"
+  },
+  {
+    "file": "music_sudoku_day_loop.m4a",
+    "batch": 2,
+    "sha256": "feba367ebf1bd1db95ee487fdaa5f3ae5092f2eb5a0bcdd15fd43e93e9dcd20f"
+  },
+  {
+    "file": "music_sudoku_night_loop.m4a",
+    "batch": 2,
+    "sha256": "5e9b6f3997efefa0d311e1de5f77ff72ae45c640c924cb3612ebf2b1b2a3fcd6"
+  },
+  {
+    "file": "music_switchbox_loop.m4a",
+    "batch": 2,
+    "sha256": "823422d874d3265ec1cfa091dcc5f60df0cfd4df03a783eaa21ab23b6044106c"
+  },
+  {
+    "file": "music_untangle_loop.m4a",
+    "batch": 2,
+    "sha256": "caf97465d0362f51d59e81e0de3712afd50a4f8ddd153867a2207b7949f25dd9"
+  },
+  {
+    "file": "nature_cube_connect_01.m4a",
+    "batch": 2,
+    "sha256": "1908979ed7a0cd088f71f4366c762029b460ffe54fa10dac8e4a71d06b9ee22d"
+  },
+  {
+    "file": "nature_cube_connect_02.m4a",
+    "batch": 2,
+    "sha256": "a0cb72b0b76351eb82355201d2060379a7228cc006561ecf4b16b2004a977c50"
+  },
+  {
+    "file": "nature_cube_disconnect.m4a",
+    "batch": 2,
+    "sha256": "a11a06c6230e87f55c46b0faf35fe03a5b124668ec16038a659ceac22f512c00"
+  },
+  {
+    "file": "nature_cube_path_full.m4a",
+    "batch": 2,
+    "sha256": "1c1bb174a06e83c9b7a7146dc9c392af7d02788a97ccf872dc440fc287b6cbbb"
+  },
+  {
+    "file": "nature_cube_trace_01.m4a",
+    "batch": 2,
+    "sha256": "49f2a902117d2a5f1597e23a646b59d56efe81b0133eb5f4e59add10144bc1ff"
+  },
+  {
+    "file": "nature_cube_trace_02.m4a",
+    "batch": 2,
+    "sha256": "4bb2aac58583fc0c53fb7da453ba5a2160412d277474db3592cc3a8b3eb066f5"
+  },
+  {
+    "file": "nature_cube_trace_03.m4a",
+    "batch": 2,
+    "sha256": "de4ad688cae39516fed7c4c4a12d477dbdd386bba230aaa08ef9cc5444e472b0"
+  },
+  {
+    "file": "nature_cube_trace_04.m4a",
+    "batch": 2,
+    "sha256": "d45315fec25f6dec404b2d4fb177e62c5e87c07e66514bfc88a943c96eef8928"
+  },
+  {
+    "file": "puzzle_solve_fit.m4a",
+    "batch": 2,
+    "sha256": "292ce6730c4a4778b3ebae7c4d315abd935296fb443928c354b2e7df00feff87"
+  },
+  {
+    "file": "puzzle_solve_flip_01.m4a",
+    "batch": 2,
+    "sha256": "0aff1bbcffbde7a8e8b16e0017337e9103823cce56f7f4576300846ee1b3489d"
+  },
+  {
+    "file": "puzzle_solve_flip_02.m4a",
+    "batch": 2,
+    "sha256": "b8a37c528beacd53675c513098f62c32d1a2bfcf652f490e8994b1b111b8f2a8"
+  },
+  {
+    "file": "puzzle_solve_no_fit.m4a",
+    "batch": 2,
+    "sha256": "b491443bcfc9fa910f002beb9a45d3c77dad44eb3813f8145a924002aacf2b75"
+  },
+  {
+    "file": "puzzle_solve_pickup.m4a",
+    "batch": 2,
+    "sha256": "6a63c8a2dcec6bceb5e9a5d035f6341258abc6f8540bb34112397ca6cf598bfe"
+  },
+  {
+    "file": "puzzle_solve_place.m4a",
+    "batch": 2,
+    "sha256": "3a21fb1fedbf89ceb795d24a3f9a055c4c00e940243f61f46516a487b60bac6f"
+  },
+  {
+    "file": "puzzle_solve_rotate_01.m4a",
+    "batch": 2,
+    "sha256": "9bdba6ccd4dc1f6e1a5315a972795cc2f76dd5508ffe3f2712290bdca3cf70a9"
+  },
+  {
+    "file": "puzzle_solve_rotate_02.m4a",
+    "batch": 2,
+    "sha256": "68229f633ddf50135c9a36ed6a56d377b88ef3d2da44a4f9209bcb34b348455e"
+  },
+  {
+    "file": "puzzle_solve_rotate_03.m4a",
+    "batch": 2,
+    "sha256": "5b4ac262121891260b5b0d1635b1a6c1e232b6d9412b306388cd97f693fd3cf4"
+  },
+  {
+    "file": "sticks_stones_constraint_broken.m4a",
+    "batch": 2,
+    "sha256": "6d9dd2d14eb2134061db34d5a4c8e3352941b01b4b4a1f783b42811038201752"
+  },
+  {
+    "file": "sticks_stones_constraint_ok_01.m4a",
+    "batch": 2,
+    "sha256": "b6da80fb4c1a74e3296acfd67cf9d57c5b04ed8dea0be6237af6a346e617ce0d"
+  },
+  {
+    "file": "sticks_stones_constraint_ok_02.m4a",
+    "batch": 2,
+    "sha256": "6451613953c8a9ea2b0abdb8241fc41071c3bcf2d39c272d44b4e3029ae23424"
+  },
+  {
+    "file": "sticks_stones_remove.m4a",
+    "batch": 2,
+    "sha256": "db8992fc7039d2d2511bbc686cf38c5782d1211c4b19afd7f2c42d0d9ea5cf3a"
+  },
+  {
+    "file": "sticks_stones_stick_place_01.m4a",
+    "batch": 2,
+    "sha256": "67a131d85921869075c6c596dbf45c8a6da9632244ab527d7e2006d67b2f9da2"
+  },
+  {
+    "file": "sticks_stones_stick_place_02.m4a",
+    "batch": 2,
+    "sha256": "c4196d7ffbbd97302ba36920c3ace7b77337cd6f888657ce2e0a7c876d1d7555"
+  },
+  {
+    "file": "sticks_stones_stick_place_03.m4a",
+    "batch": 2,
+    "sha256": "2a676ace3985501ee48ac0f10d4c896ff0678b1053f471e7549a605caf304d3b"
+  },
+  {
+    "file": "sticks_stones_stone_place_01.m4a",
+    "batch": 2,
+    "sha256": "4f0f1e02b73a98bf1af4b41f41909f2ca050b582f490799a557f0aa6370115c2"
+  },
+  {
+    "file": "sticks_stones_stone_place_02.m4a",
+    "batch": 2,
+    "sha256": "a89013468603f3590b06c0ae0e95a3627a35c4a4fa89bd837525118699ddb4a4"
+  },
+  {
+    "file": "sticks_stones_stone_place_03.m4a",
+    "batch": 2,
+    "sha256": "c117d8042da1a1575f17efa7502d7be3427a58cd216ea91abc6599156e9885f9"
+  },
+  {
+    "file": "stinger_topscore_atom_probe.m4a",
+    "batch": 2,
+    "sha256": "8be655e891294de8af6357f09291a44b66688113ddbe8d356d3c5ac8f4957f3b"
+  },
+  {
+    "file": "stinger_topscore_four_pegs.m4a",
+    "batch": 2,
+    "sha256": "51757d4fa236f412506697fd48a4999fb52e29287889ff308aad8afc73456930"
+  },
+  {
+    "file": "stinger_topscore_gems.m4a",
+    "batch": 2,
+    "sha256": "007e320f1bbb41057293310bacc57bcc3d25e09a6def25bdaa5be72a4ccf310d"
+  },
+  {
+    "file": "stinger_topscore_nature_cube.m4a",
+    "batch": 2,
+    "sha256": "cdee8a056ca794f7e3f069941e4664189381a998d0cb9c67ab75a05f76636de0"
+  },
+  {
+    "file": "stinger_topscore_puzzle_solve.m4a",
+    "batch": 2,
+    "sha256": "b462256268e2e566238d74b4edf56d0d5b159312f9057ca2fa8e6344f23f41bc"
+  },
+  {
+    "file": "stinger_topscore_sticks_stones.m4a",
+    "batch": 2,
+    "sha256": "6dc85d1e2f9e0a2c36617b8493d3083f44b64cab437250fedeb2cda7f9d73ca1"
+  },
+  {
+    "file": "stinger_topscore_sudoku.m4a",
+    "batch": 2,
+    "sha256": "5c9041d60b23c1d08d6fe3eb114773450da46879f8dcacaf9980da4f73548706"
+  },
+  {
+    "file": "stinger_topscore_switchbox.m4a",
+    "batch": 2,
+    "sha256": "05c46c2c9c148bb9b509f2e294cfba0d0d1b33dd0a28e819e6ea4070b6bcde4a"
+  },
+  {
+    "file": "stinger_topscore_untangle.m4a",
+    "batch": 2,
+    "sha256": "d7cb715cdf92c225678d51d208f6b5fe8a5cd6f20ba4405190320b7a7b52dbc7"
+  },
+  {
+    "file": "stinger_win_atom_probe.m4a",
+    "batch": 2,
+    "sha256": "f74084b9a54cdd95ba32681eca160b2073c1e1e7234832b5acd12fb5ea032f9c"
+  },
+  {
+    "file": "stinger_win_four_pegs.m4a",
+    "batch": 2,
+    "sha256": "f19a7630b55f49d79306b62a95b24ad92526a9350c8593a0e13086585e43a887"
+  },
+  {
+    "file": "stinger_win_gems.m4a",
+    "batch": 2,
+    "sha256": "74f9cf0fa4c58d54c02c976b08d6f0c575f2a815ced591c4c464d8da8a77f112"
+  },
+  {
+    "file": "stinger_win_nature_cube.m4a",
+    "batch": 2,
+    "sha256": "05b9a67544afae2870bcfd1d4fdb54db594644369b859ae62af23cec540ea3c6"
+  },
+  {
+    "file": "stinger_win_puzzle_solve.m4a",
+    "batch": 2,
+    "sha256": "a141a3e11d2d1559f4588bc49d70d76d278b6195989f16c1ea3c26d5d00fe607"
+  },
+  {
+    "file": "stinger_win_sticks_stones.m4a",
+    "batch": 2,
+    "sha256": "8ef0f3a299400eea60d24efb0e459011d431cecc6b2f96b0ae76fdae041ebcb9"
+  },
+  {
+    "file": "stinger_win_sudoku.m4a",
+    "batch": 2,
+    "sha256": "cf87c1ccd37744841d535168e7e86a40d1ac33220ccb587f95a253b2690fdf4a"
+  },
+  {
+    "file": "stinger_win_switchbox.m4a",
+    "batch": 2,
+    "sha256": "7993d83cf67e54813f3d4aac1c6d2ffc07c4840313d4e70717ed7a95075d490f"
+  },
+  {
+    "file": "stinger_win_untangle.m4a",
+    "batch": 2,
+    "sha256": "dc1cacb7f024f6179c152eb911e6e40861b63d1a89806e273db73041ecb6f878"
+  },
+  {
+    "file": "sudoku_box_complete.m4a",
+    "batch": 2,
+    "sha256": "41603dc2cad46ebdf0bc86583fa0157a2c012881fe92abbdbfb8cd98527d71b9"
+  },
+  {
+    "file": "sudoku_column_complete.m4a",
+    "batch": 2,
+    "sha256": "7e5001d26f1039ce7292c377ce2e304b6e75677456e6c1c598c310409bb8c825"
+  },
+  {
+    "file": "sudoku_digit_place_01.m4a",
+    "batch": 2,
+    "sha256": "81aa1e7893af5c58c8b1557185297866b214835c247c4cce6d6f5c5dcf63096d"
+  },
+  {
+    "file": "sudoku_digit_place_02.m4a",
+    "batch": 2,
+    "sha256": "a5ddd566381d0379be88244c0fddf56622ac40b664727bd55db326af57f7af25"
+  },
+  {
+    "file": "sudoku_digit_place_03.m4a",
+    "batch": 2,
+    "sha256": "65984dae095aa1325d348045bf1dec87a84a86d71618fe03de0aa7c65f09e313"
+  },
+  {
+    "file": "sudoku_erase.m4a",
+    "batch": 2,
+    "sha256": "e66620211772e17008cef4da0c59a8dcf097fe337262909caeacf1df05842d80"
+  },
+  {
+    "file": "sudoku_error.m4a",
+    "batch": 2,
+    "sha256": "7a260c9046f1f6fc68988d7cfc34ff2b59d60f637bcae85b39f302bb3586d829"
+  },
+  {
+    "file": "sudoku_note_place_01.m4a",
+    "batch": 2,
+    "sha256": "396bf017494b4f9432cf8971738a2bfea5d0362a87e1084c3daa486bf2c8764c"
+  },
+  {
+    "file": "sudoku_note_place_02.m4a",
+    "batch": 2,
+    "sha256": "ff0b82f0194104c7aa6bf987fc03d1b5128cdac24905f777f714b1f3c079fbc7"
+  },
+  {
+    "file": "sudoku_note_place_03.m4a",
+    "batch": 2,
+    "sha256": "a11dee878f87e909bd68171bf11d245c8510c72dda0191860e7ecdd5e05b8900"
+  },
+  {
+    "file": "sudoku_note_remove.m4a",
+    "batch": 2,
+    "sha256": "167b12228b1dfe4a123f1d98e6f44d018c0d5403a90ca1cf531a92817184febf"
+  },
+  {
+    "file": "sudoku_row_complete.m4a",
+    "batch": 2,
+    "sha256": "af9b7afc0b78f4cd6896dcf50c49703845c112ba0063d67a91dd98e1c90a733b"
+  },
+  {
+    "file": "switchbox_giggle_boing.m4a",
+    "batch": 2,
+    "sha256": "6da139ffca2c4ec1305443da209d3b8446f994ded3f382ec801fe9ebf1266665"
+  },
+  {
+    "file": "switchbox_reach.m4a",
+    "batch": 2,
+    "sha256": "fcea1b6cac16f4dba53aeb32bb8fe82c4b4e55d3a540939e11c457e2536396dd"
+  },
+  {
+    "file": "switchbox_reset.m4a",
+    "batch": 2,
+    "sha256": "71db923fd4b553739b3e2112f3561ca420e042301e19de30ca0fa1339024317d"
+  },
+  {
+    "file": "switchbox_switch_off_01.m4a",
+    "batch": 2,
+    "sha256": "e2c61ad44d9c7cd5f60177bcbdc54ad821033bbf570bb6c7b46d0e245ab5ba14"
+  },
+  {
+    "file": "switchbox_switch_off_02.m4a",
+    "batch": 2,
+    "sha256": "c20828dbc2aaad91cad94c4f908cd818468870fc898e96c84d46c15a4c1c316b"
+  },
+  {
+    "file": "switchbox_switch_off_03.m4a",
+    "batch": 2,
+    "sha256": "fb469eb0b55c353f8457c1d0987683fb556b6bf3db3b881494b1e8a7497fbb55"
+  },
+  {
+    "file": "switchbox_switch_on_01.m4a",
+    "batch": 2,
+    "sha256": "3ec0c40393b5927ca5bf98b32da7c7ce526ef12a87f4e402fe5afb7d6598d118"
+  },
+  {
+    "file": "switchbox_switch_on_02.m4a",
+    "batch": 2,
+    "sha256": "dd7b1f6981e564611692d8a903ff1e05d291f7262e19c9093cc43b14f3b7b27d"
+  },
+  {
+    "file": "switchbox_switch_on_03.m4a",
+    "batch": 2,
+    "sha256": "400a0eb62ca13f6fbf9531a00aed573b0c3a8dedc862005c0ff2fe3e61344be6"
+  },
+  {
+    "file": "switchbox_unlock.m4a",
+    "batch": 2,
+    "sha256": "56a0d1f49495d20c9651e71a9ce5e6fb7bbd3eec8d27d07710b12e589b303723"
+  },
+  {
+    "file": "ui_name_backspace.m4a",
+    "batch": 2,
+    "sha256": "8d77c81646e80b27ecc42c6ebe67934c5a8260b9743feb1e1a53ef3dfbda3caf"
+  },
+  {
+    "file": "ui_name_confirm.m4a",
+    "batch": 2,
+    "sha256": "334b4fe0842a6f0f7e684bfbcbee0b5f9c3079b0dec4b28f0ede44466a1430a5"
+  },
+  {
+    "file": "ui_name_key_01.m4a",
+    "batch": 2,
+    "sha256": "a3e1daa7530d3a1d655bf40b53e8070fb0c263dc35039aca406bd951c10e3d1b"
+  },
+  {
+    "file": "ui_name_key_02.m4a",
+    "batch": 2,
+    "sha256": "30a52b47ed4746af4374e0eccaa2c82b9c0c7ed74d3d4b780a193d65959d1353"
+  },
+  {
+    "file": "ui_name_key_03.m4a",
+    "batch": 2,
+    "sha256": "c4ae0ab789bdf4a639a3e0a3d120b9241387a8f45555734a9530bdc99f457b3c"
+  },
+  {
+    "file": "ui_new_game.m4a",
+    "batch": 2,
+    "sha256": "b83398e01676f430455af23d0c206ceba9d0e7e494f24ee2c49fc7d840bf62e4"
+  },
+  {
+    "file": "untangle_edges_clear.m4a",
+    "batch": 2,
+    "sha256": "fcbad3d55989626fc2e7d35beb241e00f6d2d49c90b08f066cec828fcd0436ee"
+  },
+  {
+    "file": "untangle_grab_01.m4a",
+    "batch": 2,
+    "sha256": "d75f4d3c04a53dd4572a412c594a354da9944107c96c04afc9d5dd96f6b62933"
+  },
+  {
+    "file": "untangle_grab_02.m4a",
+    "batch": 2,
+    "sha256": "209f7a8069648fce18c1d51a3482ede4bf7c1daa5ed0337f4db37e84f6b01bb2"
+  },
+  {
+    "file": "untangle_grab_03.m4a",
+    "batch": 2,
+    "sha256": "d9fd710466d9526d6b08b539b4ab362e26ef25f0d9cb1569db5d35a6a1554f34"
+  },
+  {
+    "file": "untangle_release_01.m4a",
+    "batch": 2,
+    "sha256": "1f9f3fb7af328c7f3dca27868d5092e652fd798c28b5c19a961443bcb03abc1c"
+  },
+  {
+    "file": "untangle_release_02.m4a",
+    "batch": 2,
+    "sha256": "77d59230a256ed77bd29e59d59e2afd415781674bae9dc346c9e8eca4f214d50"
+  },
+  {
+    "file": "untangle_release_03.m4a",
+    "batch": 2,
+    "sha256": "62aa1369468854f6918c1fbffc621d23a1e6fa14c7bb2167311cbc865a35a9c6"
+  },
+  {
+    "file": "untangle_resolve.m4a",
+    "batch": 2,
+    "sha256": "1d18a653348ad51f7a89888f6befe058f9b82b55b6425dd12ef13fe3b30bf857"
+  }
+]
