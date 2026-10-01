@@ -18,6 +18,8 @@ cmake --build build --parallel 2
 ctest --test-dir build --output-on-failure --timeout 120
 ```
 
+The separate `Prepare runtime assets` workflow produces verified platform-independent game data: compact Vorbis audio, fonts and their licenses, artwork, prepared environment pixels, and the offline Sudoku engine. This archive supplies future application packages; it does not contain an executable.
+
 CMake fetches the pinned QuickJS source for the offline Sudoku generator. No external Node installation or server is needed. The application profile remains enabled by default and requires GUI.Forms. Complete application builds are pending the shared wrapped and monochrome text service and a matching toolkit source distribution. The original macOS validation predates the replacement game integrations; it does not validate the current application.
 
 ## Current games and scores

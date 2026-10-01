@@ -99,10 +99,10 @@ def main() -> None:
     options = parser.parse_args()
     source = options.source.resolve()
     output = options.output.resolve()
-    prepare_fonts(source / "fonts", output / "fonts")
-    if output == source or source in output.parents:
+    if output == source or source in output.parents or output in source.parents:
         raise ValueError("Runtime output must be separate from source assets")
     output.mkdir(parents=True, exist_ok=True)
+    prepare_fonts(source / "fonts", output / "fonts")
     for path in source.iterdir():
         if path.name == "audio":
             continue

@@ -29,8 +29,10 @@ void PuzzleRaster::triangle(RasterVertex a, RasterVertex b, RasterVertex c, int 
         y1 = std::min(height - 1, static_cast<int>(std::ceil(std::max({a.y, b.y, c.y}))));
     for (int y = y0; y <= y1; ++y)
         for (int x = x0; x <= x1; ++x) {
+            // Evaluate all three edges directly: subtraction can make an exact
+            // shared-edge pixel slightly negative and open a crack in the mesh.
             double wa = side(b, c, x + .5, y + .5) / area, wb = side(c, a, x + .5, y + .5) / area,
-                   wc = 1 - wa - wb;
+                   wc = side(a, b, x + .5, y + .5) / area;
             if (wa < 0 || wb < 0 || wc < 0)
                 continue;
             int n = y * width + x;
@@ -63,10 +65,10 @@ void PuzzleRaster::triangle(RasterVertex a, RasterVertex b, RasterVertex c, int 
                         35;
                 col = {channels[0], channels[1], channels[2], 255};
             }
-            pixels[n * 4] = static_cast<std::byte>(std::clamp(col.b * col.a / 255, 0.0, 255.0));
-            pixels[n * 4 + 1] = static_cast<std::byte>(std::clamp(col.g * col.a / 255, 0.0, 255.0));
-            pixels[n * 4 + 2] = static_cast<std::byte>(std::clamp(col.r * col.a / 255, 0.0, 255.0));
-            pixels[n * 4 + 3] = static_cast<std::byte>(std::clamp(col.a, 0.0, 255.0));
+            pixels[n * 4] = static_cast<std::byte>(std::clamp(col.b * col.a / 255, 0.0, 255.0) + .5);
+            pixels[n * 4 + 1] = static_cast<std::byte>(std::clamp(col.g * col.a / 255, 0.0, 255.0) + .5);
+            pixels[n * 4 + 2] = static_cast<std::byte>(std::clamp(col.r * col.a / 255, 0.0, 255.0) + .5);
+            pixels[n * 4 + 3] = static_cast<std::byte>(std::clamp(col.a, 0.0, 255.0) + .5);
         }
 }
 void PuzzleRaster::disc(Point2 c, double radius, PixelColor color, int id, double z) {

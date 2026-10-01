@@ -39,7 +39,7 @@ This source profile tests real decoded score transitions and the complete 298-fi
 
 The optional `audio_device_smoke` target in that source profile plays a 14-second score exercise through the real device. Invoke it explicitly with the prepared asset directory; it is deliberately absent from CTest. Its native callback receipts and teardown checks establish device processing, while sound quality still requires listening.
 
-The portable core can be configured without a GUI.Forms SDK. This profile builds every current portable game core and all twelve rules, storage, simulation and actor tests; it does not build the graphical application:
+The portable core can be configured without a GUI.Forms SDK. This profile builds every current portable game core and all thirteen rules, storage, simulation, actor and raster tests; it does not build the graphical application:
 
 ```sh
 cmake -S . -B .build/portable-core -G Ninja -DCMAKE_BUILD_TYPE=Release -DGAMES_BUILD_APPLICATION=OFF
