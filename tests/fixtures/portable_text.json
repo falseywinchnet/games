@@ -1,5 +1,5 @@
 {
-  "status": "proposed shared-service acceptance fixtures; raster goldens pending",
+  "status": "consumer-accepted inputs and scale policy; implementation and raster goldens pending",
   "logical_units": "mask pixels before window device scale",
   "cases": [
     {"id": "atomprobe-help", "face": "BarlowCondensed-Regular.ttf", "size": 11.5, "wrap_width": 704, "text": "Four atoms hide in the fogged chamber. Click an emitter on the rim to fire a beam into the box, and watch where it comes out.", "expect": "all text retained; no line advance exceeds wrap width"},
@@ -13,6 +13,10 @@
     {"id": "long-word", "face": "Carlito-Regular.ttf", "size": 12, "wrap_width": 40, "text": "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "expect": "fallback breaks preserve all characters; no implicit hyphen or ellipsis"},
     {"id": "combining", "face": "Carlito-Regular.ttf", "size": 12, "wrap_width": 8, "text": "e\u0301e\u0301", "expect": "each base and accent remain in the same shaping cluster"}
   ],
-  "device_scales": [1, 1.25, 1.5, 2],
+  "default_raster": "gray",
+  "device_scales_by_raster": {"gray": [1, 1.25, 1.5, 2], "mono": [1, 2, 3, 4]},
+  "refusal_cases": [
+    {"id": "fractional-mono", "face": "Cousine-Bold.ttf", "size": 14, "wrap_width": 0, "raster": "mono", "device_scales": [0.5, 1.25, 1.5], "text": "EGGY", "expect": "typed failure; caller-owned previous mask remains unchanged"}
+  ],
   "same_input_invariants": ["identical logical line breaks at every device scale", "cache reuse preserves dimensions and coverage", "retained mask survives cache eviction"]
 }
