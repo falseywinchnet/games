@@ -36,6 +36,23 @@ add_library(sbx_core STATIC
   vendor/switchbox/src/mole.cpp)
 target_include_directories(sbx_core PUBLIC vendor/switchbox/src)
 target_link_libraries(sbx_core PUBLIC game_paths)
+add_library(fp_core STATIC
+  vendor/fourpegs/src/platform/raster.cpp vendor/fourpegs/src/platform/r3d.cpp
+  vendor/fourpegs/src/platform/mesh.cpp vendor/fourpegs/src/platform/lines.cpp
+  vendor/fourpegs/src/board.cpp vendor/fourpegs/src/vface.cpp vendor/fourpegs/src/villain.cpp
+  vendor/fourpegs/src/lair.cpp vendor/fourpegs/src/script.cpp vendor/fourpegs/src/vactor.cpp
+  vendor/fourpegs/src/save.cpp)
+target_include_directories(fp_core PUBLIC vendor/fourpegs/src)
+target_link_libraries(fp_core PUBLIC game_paths)
+target_compile_definitions(fp_core PRIVATE _USE_MATH_DEFINES)
+add_executable(fourpegs_rules_tests vendor/fourpegs/tests/board_tests.cpp)
+target_link_libraries(fourpegs_rules_tests PRIVATE fp_core)
+add_executable(fourpegs_preview vendor/fourpegs/tests/preview.cpp)
+target_link_libraries(fourpegs_preview PRIVATE fp_core)
+add_executable(fourpegs_storage_tests tests/fourpegs_storage_tests.cpp)
+target_link_libraries(fourpegs_storage_tests PRIVATE fp_core)
+add_test(NAME fourpegs_rules COMMAND fourpegs_rules_tests)
+add_test(NAME fourpegs_storage COMMAND fourpegs_storage_tests)
 target_compile_options(eggy_core PRIVATE -Wall -Wextra -O2)
 add_library(eggy_ui STATIC vendor/eggy/src/eggy_view.cpp vendor/eggy/src/text.mm vendor/eggy/src/audio.mm)
 target_link_libraries(eggy_ui PUBLIC eggy_core GUIForms::Application "-framework AppKit" "-framework AVFoundation" "-framework CoreText")

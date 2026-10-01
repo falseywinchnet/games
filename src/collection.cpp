@@ -29,9 +29,11 @@ void Collection::initialize_control_tree() {
     add_child(eggy_);
     switchbox_ = gf::make_control<sbx::SwitchboxView>(gf::StableId("switchbox.view"), sbx::Options{});
     add_child(switchbox_);
+    fourpegs_ = gf::make_control<fp::FourPegsView>(gf::StableId("fourpegs.view"), fp::Options{});
+    add_child(fourpegs_);
     for (int i = 0; i < 8; ++i) {
-        if (i == 5 || i == 7)
-            continue; // Switchbox has its own control; Sticks & Stones is retired.
+        if (i == 4 || i == 5 || i == 7)
+            continue; // Four Pegs and Switchbox have their own controls; Sticks & Stones is retired.
         puzzles_[i] = gf::make_control<PuzzleView>(
             gf::StableId("collection.puzzle." + std::to_string(i)), static_cast<PuzzleKind>(i));
         add_child(puzzles_[i]);
@@ -98,6 +100,7 @@ void Collection::visibility() {
     (*cards_).set_visible(!choosing_ && active_ == 0);
     (*eggy_).set_visible(!choosing_ && active_ == 9);
     (*switchbox_).set_visible(!choosing_ && active_ == 7);
+    (*fourpegs_).set_visible(!choosing_ && active_ == 6);
     (*sudoku_).set_visible(!choosing_ && active_ == 1);
     for (int i = 0; i < 8; ++i)
         if (puzzles_[i])
@@ -113,6 +116,7 @@ void Collection::arrange(gf::Rect b) {
     set_child_layout(sudoku_, content);
     set_child_layout(eggy_, content);
     set_child_layout(switchbox_, content);
+    set_child_layout(fourpegs_, content);
     for (int i = 0; i < 8; ++i)
         if (puzzles_[i])
             set_child_layout(puzzles_[i], content);
@@ -143,6 +147,7 @@ void Collection::preferences() {
         return;
     (*eggy_).set_cabinet_preferences(cabinet.music, cabinet.sound, cabinet.reduced);
     (*switchbox_).set_cabinet(!choosing_ && active_ == 7, cabinet.music, cabinet.sound, cabinet.reduced);
+    (*fourpegs_).set_cabinet(!choosing_ && active_ == 6, cabinet.music, cabinet.sound, cabinet.reduced);
     (*controls_[1]).set_text(cabinet.music ? "Music on" : "Music off");
     (*controls_[2]).set_text(cabinet.sound ? "Sound on" : "Sound off");
     (*controls_[3]).set_text(cabinet.reduced ? "Quiet motion" : "Full motion");
@@ -161,6 +166,9 @@ void Collection::activate() {
     } else if (active_ == 7) {
         music_play("", false);
         (*switchbox_).activate();
+    } else if (active_ == 6) {
+        music_play("", false);
+        (*fourpegs_).activate();
     } else if (active_ == 0)
         (*cards_).activate();
     else if (active_ == 1)

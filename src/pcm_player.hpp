@@ -11,6 +11,8 @@ namespace games {
 class PcmPlayer final {
 public:
     static constexpr std::size_t slot_count = 32;
+    explicit PcmPlayer(bool offline = false) : offline_(offline) {}
+    ~PcmPlayer();
     void start(std::size_t slot, const std::string& name, bool loop, double gain, double rate = 1);
     void gain(std::size_t slot, double value);
     void pause(std::size_t slot);
@@ -19,18 +21,24 @@ public:
     void tick();
     void shutdown();
     bool playing(std::size_t slot) const;
+    bool pending() const;
+    gui_forms::AudioStatus status() const;
+    gui_forms::AudioStatus render(std::span<float> samples);
 private:
     struct Slot final {
         std::string name{};
         std::shared_ptr<const gui_forms::AudioClip> clip{};
         std::future<gui_forms::AudioClipResult> pending{};
         gui_forms::AudioVoice voice{};
+        std::stop_source cancellation{};
+        bool voice_ready{};
         bool loop{}, paused{};
         double gain{1}, rate{1};
     };
     gui_forms::AudioEngine engine_{};
     std::array<Slot, slot_count> slots_{};
     bool attempted_{};
+    bool offline_{};
     void create_voice(Slot& slot);
     static void report(gui_forms::AudioStatus status, const std::string& operation);
 };

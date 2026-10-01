@@ -61,13 +61,18 @@ void SwitchboxView::on_attached_to_window() {
     audio_start(asset_dir());
     timer_ = std::make_unique<gf::Timer>(*attached_window(), std::chrono::milliseconds(33));
     subs_.push_back((*timer_).tick().subscribe(*this, gf::Delegate<>::bind<SwitchboxView, &SwitchboxView::tick>(*this)));
+    subs_.push_back((*attached_window()).active_changed().subscribe(
+        *this, gf::Delegate<bool>::bind<SwitchboxView, &SwitchboxView::cursor_active_changed>(*this)));
+    subs_.push_back((*attached_window()).pointer_capture_changed().subscribe(
+        *this, gf::Delegate<const gf::PointerCaptureChange&>::bind<SwitchboxView, &SwitchboxView::cursor_capture_changed>(*this)));
     last_ = std::chrono::steady_clock::now();
     (*timer_).start();
 }
 
 void SwitchboxView::on_detaching_from_window(gf::Window&) noexcept {
     try { persist(); } catch (...) {}
-    cursor_set_hidden(false);
+    subs_.clear();
+    cancel_cursor_interaction();
     if (timer_) (*timer_).stop();
     timer_.reset();
     audio_stop();
@@ -84,15 +89,42 @@ void SwitchboxView::set_cabinet(bool foreground, bool music, bool sound, bool re
     cab_reduced_ = reduced_motion;
     audio_cabinet(foreground, music, sound);
     if (!foreground) {
-        hold_sw_ = -1;
-        hold_blocked_ = true;
-        actor_.cancel_pointer_interaction();
-        mouse_down_ = false;
-        set_pointer_capture(false);
-        cursor_hidden_ = false;
-        cursor_set_hidden(false);
+        cancel_cursor_interaction();
     }
     audio_music(foreground ? kMusic : "", foreground && music && save_.settings.music);
+}
+
+void SwitchboxView::cancel_cursor_interaction() {
+    hold_sw_ = -1;
+    hold_blocked_ = true;
+    mouse_down_ = false;
+    st_.cursor = false;
+    cursor_hidden_ = false;
+    actor_.cancel_pointer_interaction();
+    const gf::CursorStatus released = cursor_lease_.release();
+    if (!released.accepted() && released.error == gf::CursorError::native_failure) {
+        std::fprintf(stderr, "Switchbox cursor restoration failed.\n");
+    }
+    set_pointer_capture(false);
+}
+
+void SwitchboxView::on_focus_changed(bool focused) {
+    if (!focused) { cancel_cursor_interaction(); }
+}
+
+void SwitchboxView::cursor_active_changed(bool active) {
+    if (!active) { cancel_cursor_interaction(); }
+}
+
+void SwitchboxView::cursor_capture_changed(const gf::PointerCaptureChange& change) {
+    const bool owns_capture = change.captured && change.control_id == runtime_id();
+    if (!owns_capture && (mouse_down_ || cursor_hidden_)) { cancel_cursor_interaction(); }
+}
+
+void SwitchboxView::cursor_refused(gf::CursorStatus status) {
+    cancel_cursor_interaction();
+    std::fprintf(stderr, "Switchbox pointer interaction refused: %d\n", static_cast<int>(status.error));
+    say_text("The pointer stays with you here.");
 }
 
 void SwitchboxView::arrange(gf::Rect bounds) {
@@ -270,8 +302,7 @@ void SwitchboxView::tick() {
     const auto pace = std::chrono::milliseconds(hidden || !shown || !cab_front_ ? 500 : front ? 33 : 100);
     if (timer_ && (*timer_).interval() != pace) (*timer_).set_interval(pace);
     if (!shown || !cab_front_) {
-        if (cursor_hidden_) { cursor_hidden_ = false; cursor_set_hidden(false); }
-        hold_sw_ = -1;
+        cancel_cursor_interaction();
     }
     if (hidden || !shown || stage_.r.rgb.empty() || frame_.px.empty()) return;
     StageState displayed = st_;
@@ -323,23 +354,27 @@ void SwitchboxView::publish() {
 // Holding a switch (her hand on the pointer), the pointer she carries off, and
 // the system cursor that hides while the game draws its own.
 void SwitchboxView::mischief(double) {
-    if (!cab_front_ || !visible() || (attached_window() && !(*attached_window()).active())) {
-        actor_.cancel_pointer_interaction();
-        hold_sw_ = -1;
-        hold_blocked_ = true;
-        mouse_down_ = false;
-        set_pointer_capture(false);
-        st_.cursor = false;
-        if (cursor_hidden_) { cursor_hidden_ = false; cursor_set_hidden(false); }
+    gf::Window* window = attached_window();
+    if (!cab_front_ || !visible() || window == nullptr || !(*window).active()) {
+        cancel_cursor_interaction();
         return;
     }
-    if (actor_.take_forced_release()) hold_blocked_ = true;
-    V3 drop;
-    if (actor_.take_pointer_drop(drop)) {
-        double sx, sy;
+    if (cursor_hidden_ && cursor_lease_.snapshot().phase != gf::CursorLeasePhase::active) {
+        cancel_cursor_interaction();
+        return;
+    }
+    const bool forced_release = actor_.take_forced_release();
+    if (forced_release) { hold_blocked_ = true; }
+    V3 drop{};
+    const bool dropped = actor_.take_pointer_drop(drop);
+    if (dropped) {
+        const gf::CursorMetrics metrics = (*window).cursor_metrics();
+        double sx{}, sy{};
         stage_.to_screen(drop, sx, sy);
-        const gf::Rect ab = absolute_bounds();
-        cursor_warp(ab.x + sx * pixel_, ab.y + sy * pixel_);
+        const gf::Rect bounds = absolute_bounds();
+        const gf::CursorStatus placed = (*window).warp_cursor(
+            metrics, {bounds.x + sx * pixel_, bounds.y + sy * pixel_});
+        if (!placed.accepted()) { cursor_refused(placed); return; }
         mouse_x_ = sx;
         mouse_y_ = sy;
         hold_blocked_ = true;
@@ -352,12 +387,17 @@ void SwitchboxView::mischief(double) {
         st_.cursor = true;
         st_.cursor_at = Stage::knob(hold_sw_, st_.sw[static_cast<size_t>(hold_sw_)].on) + V3{0, -.06, .09};
     }
-    if (st_.cursor != cursor_hidden_) {
-        cursor_hidden_ = st_.cursor;
-        cursor_set_hidden(cursor_hidden_);
+    if (st_.cursor && !cursor_hidden_) {
+        gf::CursorLeaseResult hidden = (*window).begin_cursor_hidden();
+        if (!hidden.status.accepted()) { cursor_refused(hidden.status); return; }
+        cursor_lease_ = std::move(hidden.lease);
+        cursor_hidden_ = true;
+    } else if (!st_.cursor && cursor_hidden_) {
+        const gf::CursorStatus released = cursor_lease_.release();
+        cursor_hidden_ = false;
+        if (!released.accepted()) { cursor_refused(released); }
     }
 }
-
 // Whack-a-mole: she hides, the switches drop into their sockets and pop up at
 // random for thirty seconds; then they settle back exactly as they were.
 void SwitchboxView::mole_tick(double dt) {

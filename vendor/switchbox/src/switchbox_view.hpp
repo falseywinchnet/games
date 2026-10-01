@@ -5,7 +5,8 @@
 #include "actor.hpp"
 #include "mole.hpp"
 #include "platform/lines.hpp"
-#include "platform/cursor.hpp"
+#include "gui_forms/host/cursor_interaction/cursor_interaction.hpp"
+#include "gui_forms/window.hpp"
 #include "save.hpp"
 #include "stage.hpp"
 
@@ -87,6 +88,7 @@ private:
     double result_t_ = 0;       // the whack-a-mole score stays on screen a moment
     int result_hits_ = 0;
     bool cursor_hidden_ = false;
+    gf::CursorHiddenLease cursor_lease_{};
     bool cab_front_ = true, cab_music_ = true, cab_sound_ = true;
     bool cab_reduced_ = false;
     std::vector<std::pair<double, int>> script_;  // dev: SBX_SCRIPT="t:switch,..." flips (-1 head, 7 next correct, 8 whack, 9 a wrong one, 10 the stolen hole)
@@ -96,6 +98,11 @@ private:
 
     void on_attached_to_window() override;
     void on_detaching_from_window(gf::Window& window) noexcept override;
+    void on_focus_changed(bool focused) override;
+    void cursor_active_changed(bool active);
+    void cursor_capture_changed(const gf::PointerCaptureChange& change);
+    void cancel_cursor_interaction();
+    void cursor_refused(gf::CursorStatus status);
     void tick();
     void publish();
     void flip(int sw);

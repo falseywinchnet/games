@@ -12,9 +12,12 @@ void SceneAudio::music(const std::string& name, bool enabled) {
         front_ = 1 - front_;
         player_.clear(front_);
         music_gain_[front_] = 0;
-        if (!name.empty()) { player_.start(front_, name, true, 0); }
+        front_started_ = false;
     }
-    if (music_on_ && !was_on) { player_.resume(front_); }
+    if (music_on_ && !name.empty() && !front_started_) {
+        player_.start(front_, name, true, 0);
+        front_started_ = true;
+    } else if (music_on_ && !was_on) { player_.resume(front_); }
 }
 void SceneAudio::effects(const std::string& name, double gain, double rate, bool enabled) {
     if (!enabled || !foreground_ || !master_sound_) { return; }
@@ -45,8 +48,6 @@ void SceneAudio::cabinet(bool foreground, bool music, bool sound) {
     if (!foreground || !music) {
         music_on_ = false;
         for (std::size_t i = 0; i < 2; ++i) { music_gain_[i] = 0; player_.gain(i, 0); player_.pause(i); }
-    } else {
-        player_.resume(front_);
     }
     if (!foreground || !sound) {
         for (std::size_t i = 0; i < 5; ++i) { bed_gain_[i] = bed_target_[i] = 0; player_.pause(i + 2); }
@@ -56,6 +57,7 @@ void SceneAudio::cabinet(bool foreground, bool music, bool sound) {
         // Hidden controls do not retain large music buffers or delayed effects.
         player_.shutdown();
         wanted_.clear();
+        front_started_ = false;
         bed_started_.fill(false);
     }
 }
@@ -71,6 +73,7 @@ void SceneAudio::tick(double dt) {
         music_gain_[i] += std::clamp(target - music_gain_[i], -dt / 3.5, dt / 3.5);
         player_.gain(i, music_gain_[i]);
         if (i != front_ && music_gain_[i] == 0) { player_.clear(i); }
+        if (i == front_ && !music_on_ && music_gain_[i] == 0) { player_.pause(i); }
     }
     for (std::size_t i = 0; i < 5; ++i) {
         if (!bed_started_[i]) { continue; }
@@ -80,5 +83,15 @@ void SceneAudio::tick(double dt) {
         else if (!player_.playing(i + 2)) { player_.resume(i + 2); }
     }
 }
-void SceneAudio::stop() { player_.shutdown(); wanted_.clear(); bed_started_.fill(false); music_gain_.fill(0); }
+void SceneAudio::stop() {
+    player_.shutdown(); wanted_.clear(); bed_started_.fill(false); music_gain_.fill(0);
+    bed_gain_.fill(0); bed_target_.fill(0); front_started_ = false; music_on_ = false;
+}
+bool SceneAudio::pending() const { const bool result = player_.pending(); return result; }
+gui_forms::AudioStatus SceneAudio::status() const {
+    const gui_forms::AudioStatus result = player_.status(); return result;
+}
+gui_forms::AudioStatus SceneAudio::render(std::span<float> samples) {
+    const gui_forms::AudioStatus result = player_.render(samples); return result;
+}
 }

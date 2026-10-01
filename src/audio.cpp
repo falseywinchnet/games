@@ -24,15 +24,21 @@ std::string effect_name(const std::string& name) {
     unsigned count = 0;
     if (found != aliases.end()) { base = (*found).second.first; count = (*found).second.second; }
     else {
-        while (count < 9 && std::filesystem::exists(std::filesystem::path(asset_directory()) / "audio" /
-                   (base + "_0" + std::to_string(count + 1) + ".wav"))) { ++count; }
+        const std::filesystem::path directory = std::filesystem::path(asset_directory()) / "audio";
+        while (count < 9) {
+            const std::string stem = base + "_0" + std::to_string(count + 1);
+            const bool compressed = std::filesystem::exists(directory / (stem + ".ogg"));
+            const bool pcm = std::filesystem::exists(directory / (stem + ".wav"));
+            if (!compressed && !pcm) { break; }
+            ++count;
+        }
     }
     return count ? base + "_0" + std::to_string(1 + variants[base]++ % count) : base;
 }
 }
 void music_play(const std::string& game, bool enabled) {
     music_enabled = enabled;
-    if (game.empty()) { player.clear(0); player.clear(1); current.clear(); return; }
+    if (game.empty()) { player.shutdown(); effects.fill({}); current.clear(); return; }
     if (!enabled) { player.pause(0); return; }
     if (current != game) {
         player.clear(1);
