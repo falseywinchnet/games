@@ -1,0 +1,84 @@
+GAME FOURPEGS 01 — the owner's replacement Four Pegs
+
+This is the user's replacement for the current Four Pegs (PuzzleKind::pegs, collection slot 6, which today is the PuzzleView with the static "Curator" painting). It was built on the Neo by Claude Opus, working with the user, and it borrows the Eggy and Switchbox techniques. The user approved this build for integration on 2026-10-01.
+
+A composed gentleman villain, as formal as a butler, sits behind a glowing code console in his lair. He wears a tailcoat, white gloves, a monocle, and has an old duelling scar. Each new game resets the console while he states the stakes ("Should you fail to name my code within ten attempts, I shall fold the Moon into a small paper swan, while a full orchestra plays."). His schemes are generated: about 40 deeds x 45 targets x 20 flourishes, avoiding recent repeats. Rules: four pegs from six colours, repeats allowed, ten attempts. Gold pins mean exact, white rings mean elsewhere. Every peg also carries a symbol, so colour is never required.
+
+He leans in to inspect each guess. The pins then light one by one, and he states the counts in his own words. If a guess is no better than the player's best, he adds a jab (intelligence, ability, determination, patience) that sharpens with each guess that fails to improve. Between guesses he steeples his fingers, strokes his chin, straightens his tie, reminds the player of the stakes, and consults his pocket watch as the attempts run low.
+
+Win: he loses his composure in a generated "curses, foiled again" (exclamation, lament, vow), then gives a grudging golf clap. The code rises from the desk.
+
+Loss: he keeps his promise. He rises with his arms flung wide and laughs maniacally while the lair shakes, cracks and collapses around him over about 7 s. Then a blackout, and a GAME OVER screen states what he went on to do, shows the code, and offers Try again.
+
+Score: "The Mastermind's Console". One D-minor theme in three tiers (Scheming 116, Rising 128, Doom clock 144 BPM; 32-bar loops). The game cuts tiers on the next bar line as attempts dwindle: tier 1 with 6 or more attempts left, tier 2 with 3-5, tier 3 with 2 or fewer, and tier 3 throughout the collapse.
+
+Package: about 10 MB of sources, runtime audio, and screenshots. No app bundle. The WAV music masters stay on the Neo under /Users/ultimussecundai/solitaire_sounds/fourpegs/audio_src/masters. Re-render them with source/audio_src.
+
+LAYOUT
+  source/            CMakeLists.txt, README.md, src/ (+ src/platform/), tests/, audio_src/ (villain_music.py, make_sfx.py, engine/synth.py)
+  assets/audio/      3 music loops and 3 stingers (AAC .m4a), 31 WAV effects and voice
+                     (fp_*: console, pins, desk, clap, laugh, rumble, crash, eight voice syllables, "hm", chuckle;
+                      ui_name_*: the shared name-entry keys), fourpegs_audio_manifest.json
+  screens/           real app captures: the stakes, a jab, three exact, foiled, the promise, the laugh, the collapse, GAME OVER
+
+BUILD (standalone, verified on the Neo)
+  Copy assets/ into source/assets first. The dev build reads FP_ASSET_DIR; the bundle copies source/assets to Resources/assets.
+  cmake -S source -B build -DCMAKE_PREFIX_PATH=<GUI.Forms paint-port SDK> && cmake --build build -j 8
+  ctest --test-dir build      board_tests: the evaluator against an independent reference on all 1,679,616 pairs, duplicates, flow, save state
+  build/preview faces|pose|anim ...   headless renders of his expressions and of scripted sessions, for look development
+
+CODE BOUNDARY
+  Everything is in namespace fp, so it clashes with neither games, eggy, nor sbx.
+  Portable C++20 core (library fp_core):
+    board.*      rules and evaluator (pure)
+    script.*     his generated lines
+    vactor.*     his performance: 17 gestures, sequencing, gaze, talking
+    villain.*    his figure
+    vface.*      painted expressions
+    lair.*       room, console, red CHECK button, collapse, picking
+    save.*       the save file
+    platform/raster|r3d|mesh|lines   the shared renderer; r3d gained perspective and plane unprojection
+  View, still portable C++ against GUI.Forms:
+    fourpegs_view.*   input, test sheet, speech, voice, music tiers, collapse timeline, dialogs, autosave, LiveSurface fallback
+  macOS-only adapters:
+    platform/text.mm     the text.hpp interface (CoreText; his speech uses Baskerville)
+    platform/audio.mm    the audio.hpp interface (AVFoundation), including audio_music_on_bar(), the bar-line tier cut
+    platform/present.mm  NativePresenter (Core Animation)
+  main.cpp is the standalone entry point. Do not link it into Games.
+
+INTEGRATING INTO THE CABINET
+  1. Copy source/src to vendor/fourpegs/src and leave this package unchanged (as with Eggy and Switchbox). Build fp_core plus an fp_ui library and link both into game_ui.
+  2. Replace slot 6 (PuzzleKind::pegs). Host
+       make_control<fp::FourPegsView>(gf::StableId("fourpegs.view"), fp::Options{})
+     in place of puzzles_[4] for that slot. The old PuzzleKind::pegs model and its painting are no longer offered, but keep the enum value so other IDs do not move. Call activate() when shown. Call set_cabinet(foreground, music, sound) on tab changes and when the master switches change. It gates its own Music and Sound settings, idles at 2 ticks/s when hidden, and stops music. Stop the cabinet's music while it is in front.
+  3. Pointer coordinates: on_pointer() treats e.position as relative to the control. Under the cabinet header, convert first (as Eggy needed with point_from_window()).
+  4. Assets: add the fp_* files and fourpegs_audio_manifest.json to assets/audio. The ui_name_* files already exist in the cabinet as AAC. There are no line files: his lines are generated in script.cpp.
+  5. Saves: four_pegs-v2.txt in the cabinet's save folder; GAMES_STATE_DIR redirects it (--dev uses four_pegs-dev-v2.txt). Checksummed and atomically replaced. Pin feedback is recomputed from the secret on load. The old four_pegs-v1.txt is never read or written; the user asked for a fresh start. It keeps its own top-ten list of fewest attempts with a name. It is not in games::TopScores.
+  6. Presentation: as with Eggy and Switchbox. About 550x380 game pixels at 2 points per pixel, a Core Animation layer at absolute_bounds, and text as cached layers. FP_NO_NATIVE=1 forces the LiveSurface fallback. The full-screen GAME OVER panel deliberately draws no table text.
+  7. Keys: 1-6 place a peg, Backspace removes one, Enter or Space checks (or Try again on GAME OVER). F1 help, T top scores, M music, S sound, Esc closes.
+  8. Dev only, with --dev: FP_SCRIPT="t:code,..." replays inputs (n new game, w a guess, x three exact, s the answer, c check, p poke). FP_PRINT_WID=1 prints the window id. FP_AUDIO_LOG=1 logs each bar-line music cut.
+
+WINDOWS (Shadow)
+  These follow the Eggy and Switchbox seams in docs/WINDOWS_HANDOFF.md.
+  - Replace text.mm, audio.mm, present.mm. NativePresenter::attach() may return false to use the LiveSurface fallback.
+  - The adaptive score needs a real audio_music_on_bar(): start the next tier sample-accurately at the next bar line of the playing loop (bar_samples is in the manifest) and fade the old one out quickly from that point. A plain crossfade still works but loses the on-the-beat cut. AAC decoding must honour the encoder priming: the decoded lengths must equal loop_end_sample_exclusive, as they do through AVAudioFile.
+  - His speech font is Baskerville (macOS). Use a comparable serif on Windows, for example Georgia or Palatino Linotype, through the text adapter.
+  - 24 uses of M_PI need _USE_MATH_DEFINES on MSVC. The -Wall -Wextra flags are Clang/GCC spelling. save.cpp's default root is macOS Library/Application Support; keep the file name and GAMES_STATE_DIR.
+
+POLICY NOTES
+  - Rules commit before animation. He reacts only to what the pins already show. Pin sounds are played per lit pin and say only what that pin shows.
+  - Threats are absurd and never about harming anyone. The jabs are teasing, not cruel.
+  - All audio is synthesized: no samples, no third-party audio.
+
+MEASURED / VERIFIED ON THE NEO
+  - Clean build of this package's sources: OK (Release, arm64). ctest: PASS.
+  - The package-built app launched and saved to GAMES_STATE_DIR/four_pegs-dev-v2.txt.
+  - Audio: 37/37 files decode. AAC valid-frame counts equal the manifest loop ends exactly (encoder priming 2112 frames).
+  - Both tier cuts were logged landing on bar lines, with WAV and with the shipped AAC.
+  - Win and loss were driven end to end in the real app by FP_SCRIPT and captured (screens/).
+
+NOT VERIFIED
+  - Listening: nobody has listened to the score, the voice, the laugh, the collapse or the effects. The checks were numerical only.
+  - Reduced motion: not implemented. The cabinet's Motion master is not consumed, and the collapse shakes the camera.
+  - CPU: no measurement yet. It runs at 30 fps in front, 10 fps in the background, and 2 ticks/s when hidden.
+  - Cabinet integration and any non-macOS platform.
