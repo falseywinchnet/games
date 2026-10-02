@@ -68,18 +68,20 @@ These choices need inspection in the actual shared renderer before release. They
 
 `TextRequests` is the Games-side bounded request broker for a single view and encoded font bank. It borrows a session that must outlive it, retains the font owner, deduplicates identical pending inputs after isolated-CR normalization, and drains completed slots without waiting for the worker. Only successful completion replaces the caller's mask lease. Pending work and typed failure preserve it. Closing the session prevents old completions from being returned.
 
-The adapter uses nine fixed records shared by pending and completed work. Its exact pending-source buffers occupy 144 KiB of application-owned storage, separate from the provider's lifetime ledger. It does not allocate coverage copies or maintain a second mask cache. Callers retain returned leases throughout frame composition and publish only complete frames. This broker is not yet connected to the game views.
+The adapter uses nine fixed records shared by pending and completed work. Its exact pending-source buffers occupy 144 KiB, plus one reused 16 KiB normalization workspace, of application-owned storage, separate from the provider's lifetime ledger. It does not allocate coverage copies or maintain a second mask cache. Callers retain returned leases throughout frame composition and publish only complete frames. This broker is not yet connected to the game views.
 
-The independent consumer test currently targets the reviewed Stage 1 toolkit source revision `4d24f4363676ef8f81e03b0579117fa0b89152df`. Fetch the toolkit's pinned text dependencies before configuring:
+The independent consumer test currently targets the reviewed Stage 2 toolkit source revision `7b260cfb9f3267392e1470b0fcf4cd2497437819`. Fetch the toolkit's pinned text dependencies before configuring:
 
 ```sh
 cmake -S tests/portable_text -B build/text-requests -G Ninja \
   -DCMAKE_BUILD_TYPE=Release -DGAMES_TEXT_SOURCE_DIR=<GUIForms-source-root>
-cmake --build build/text-requests --target text_request_tests --parallel 2
+cmake --build build/text-requests --target text_request_tests text_native_consumer_tests --parallel 2
 ctest --test-dir build/text-requests --output-on-failure --timeout 30
 ```
 
-This test uses the real public service and its Carlito font fixture. It checks source normalization, deduplication, queue backpressure, retained completion records, executor affinity, cancellation and close. Stage 1 production requests must explicitly complete as `unsupported_profile`; the test does not fabricate successful masks. Once native wrapping and rasterization arrive, this expectation must be replaced by real mask, metric, line and scale acceptance before adopting the newer provider. No renderer or full application validation is established by this development subset.
+These two tests use the real public service and its approved Carlito and Cousine font fixtures. The lifecycle test checks normalization, deduplication, backpressure, retained completions, executor affinity, cancellation and close. The native consumer checks actual wrapped dialogue, scale-independent logical lines, grayscale rendering from 0.5× through 4×, binary monochrome rendering at integer scales, combining-cluster integrity, CRLF/trailing lines, empty text, retained ownership after cache eviction and service closure, and preservation of prior coverage on admission or late dimension failure.
+
+Both tests pass on Windows with the pinned source. The optional second argument to `text_native_consumer_tests` writes native PGM previews; the wrapped dialogue at 150% and Eggy lettering at 300% have been visually inspected. These are text-adapter checks, not complete game-frame or application validation. The toolkit feature remains default-off and source-only; its headers are not promoted into the installed SDK by this consumer.
 
 Author: Astra
 Sponsor: Rainstar

@@ -8,17 +8,17 @@
 
 namespace {
 using gui_forms::TextMaskStatus;
-void require(bool condition, const char* message) {
+void require(const bool condition, const char* const message) {
     if (!condition) { throw std::runtime_error(message); }
 }
-std::vector<std::byte> read_font(const char* path) {
+std::vector<std::byte> read_font(const char* const path) {
     std::ifstream input(path, std::ios::binary | std::ios::ate);
     require(static_cast<bool>(input), "Open the real provider font fixture");
     const std::streamoff length = input.tellg();
     require(length > 0 && length <= 4 * 1024 * 1024, "Bound fixture file allocation");
     std::vector<std::byte> bytes(static_cast<std::size_t>(length));
     input.seekg(0);
-    input.read(reinterpret_cast<char*>(bytes.data()), length);
+    input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(length));
     require(static_cast<bool>(input), "Read complete encoded font");
     return bytes;
 }
@@ -86,26 +86,31 @@ void exercise(gui_forms::TextMaskService& service, const gui_forms::EncodedFontL
     for (const std::string& text : strings) {
         input.utf8 = text;
         result = requests.request(input, output);
-        // Stage 1 has no raster backend. This must fail when native rendering
-        // arrives, requiring real mask/metric acceptance tests before adoption.
-        require(result.status == TextMaskStatus::unsupported_profile && !output.has_value(),
-            "Stage-1 production failure is surfaced, never disguised as an empty mask");
+        require(result.status == TextMaskStatus::success && output.has_value() && !output.coverage().empty(),
+            "Production completion returns a real native mask");
+        const std::string_view expected = text == strings[0] ? std::string_view("a\nb") : std::string_view(text);
+        require(output.source_utf8() == expected, "Completed mask owns the admitted normalized source");
     }
-    require(requests.outstanding() == 0, "Consuming failures releases consumer records");
+    require(requests.outstanding() == 0, "Consuming native results releases consumer records");
+    const std::uint8_t* const retained_pixels = output.coverage().data();
+    input.utf8 = excessive;
+    result = requests.request(input, output);
+    require(result.status == TextMaskStatus::limit_exceeded && output.coverage().data() == retained_pixels,
+        "Admission failure preserves a real previous mask owner");
     input.utf8 = "cancelled request";
     result = requests.request(input, output);
-    require(result.status == TextMaskStatus::pending, "Admit cancellation exercise");
+    require(result.status == TextMaskStatus::pending && output.coverage().data() == retained_pixels, "Pending request preserves a real previous mask");
     result = requests.cancel_all();
     require(result.status == TextMaskStatus::success && requests.outstanding() == 0,
         "Cancel drops consumer ownership without waiting for a running worker");
     (*session).begin_close();
     result = requests.request(input, output);
-    require(result.status == TextMaskStatus::closing && !output.has_value(),
+    require(result.status == TextMaskStatus::closing && output.coverage().data() == retained_pixels,
         "Closing a view cannot return an old completion or admit new work");
     (*session).join_and_release();
 }
 }
-int main(int argc, char** argv) {
+int main(const int argc, char** const argv) {
     try {
         require(argc == 2, "Pass the provider's Carlito font fixture");
         const std::vector<std::byte> bytes = read_font(argv[1]);
@@ -115,7 +120,7 @@ int main(int argc, char** argv) {
         const gui_forms::TextMaskResult registered = service.create_font_bank(sources, fonts);
         require(registered.status == TextMaskStatus::success, "Register bounded real encoded font");
         exercise(service, fonts);
-        std::cout << "Consumer queue, backpressure, normalization, typed failures and close passed; raster unavailable\n";
+        std::cout << "Consumer queue, backpressure, normalization, typed failures and close passed with native masks\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

@@ -41,5 +41,7 @@ private:
     // Exactly 144 KiB of text capacity. Completed results share these nine
     // records with pending work; there is no extra completion queue or LRU.
     std::array<Pending, 9> pending_{};
+    // Reused normalization workspace; only the admitted input length is read.
+    std::array<char, input_limit> normalized_{};
 };
 }

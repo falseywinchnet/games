@@ -24,3 +24,8 @@ target_link_libraries(text_request_tests PRIVATE game_text_requests)
 enable_testing()
 add_test(NAME text_request_lifecycle COMMAND text_request_tests "${GAMES_TEXT_SOURCE_DIR}/assets/fonts/Carlito-Regular.ttf")
 set_tests_properties(text_request_lifecycle PROPERTIES TIMEOUT 30)
+
+add_executable(text_native_consumer_tests "${games_root}/tests/text_native_consumer_tests.cpp")
+target_link_libraries(text_native_consumer_tests PRIVATE game_text_requests)
+add_test(NAME text_native_consumer COMMAND text_native_consumer_tests "${GAMES_TEXT_SOURCE_DIR}/assets/fonts")
+set_tests_properties(text_native_consumer PROPERTIES TIMEOUT 30)

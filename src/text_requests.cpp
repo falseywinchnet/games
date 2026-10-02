@@ -40,15 +40,14 @@ gui_forms::TextMaskResult TextRequests::request(const gui_forms::TextMaskRequest
         return {TextMaskStatus::limit_exceeded, TextMaskLimit::input_bytes};
     }
     if (input.utf8.data() == nullptr && !input.utf8.empty()) { return {TextMaskStatus::invalid_input}; }
-    std::array<char, input_limit> normalized{};
     for (std::size_t index = 0; index < input.utf8.size(); ++index) {
         const char byte = input.utf8[index];
         const bool isolated_cr = byte == '\r' &&
             (index + 1 == input.utf8.size() || input.utf8[index + 1] != '\n');
-        normalized[index] = isolated_cr ? '\n' : byte;
+        normalized_[index] = isolated_cr ? '\n' : byte;
     }
     gui_forms::TextMaskRequest request = input;
-    request.utf8 = std::string_view(normalized.data(), input.utf8.size());
+    request.utf8 = std::string_view(normalized_.data(), input.utf8.size());
     for (Pending& item : pending_) {
         if (!matches(item, request)) { continue; }
         if (!item.completed) { return {TextMaskStatus::pending}; }
