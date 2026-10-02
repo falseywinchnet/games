@@ -18,11 +18,12 @@ def main():
     bundle = output / "Games"
     bundle.mkdir(parents=True, exist_ok=False)
     shutil.copy2(args.build / "games", bundle / "games")
-    libraries = list((args.build / "toolkit").glob("libgui_forms_application.so*"))
-    if not libraries:
-        raise RuntimeError("Missing GUI.Forms application library")
-    for source in libraries:
-        shutil.copy2(source, bundle / source.name)
+    imports = subprocess.check_output(["patchelf", "--print-needed", str(bundle / "games")], text=True).splitlines()
+    libraries = [name for name in imports if name.startswith("libgui_forms_application.so")]
+    if len(libraries) != 1:
+        raise RuntimeError("Expected one GUI.Forms application library import")
+    for name in libraries:
+        shutil.copy2(args.build / "toolkit" / name, bundle / name)
     for binary in [bundle / "games"] + list(bundle.glob("*.so*")):
         subprocess.run(["patchelf", "--set-rpath", "$ORIGIN", str(binary)], check=True)
         subprocess.run(["strip", "--strip-unneeded", str(binary)], check=True)

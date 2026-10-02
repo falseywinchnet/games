@@ -18,6 +18,11 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Verify release tag matches application version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version="$(PYTHONPATH=tools python3 -c 'from package_common import project_version; print(project_version())')"
+          test "$GITHUB_REF_NAME" = "v$version"
       - uses: actions/cache@v4
         id: runtime-cache
         with:
@@ -78,11 +83,11 @@ jobs:
           install: >-
             mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake
             mingw-w64-x86_64-ninja mingw-w64-x86_64-python
-            mingw-w64-x86_64-nsis git
+            mingw-w64-x86_64-nsis mingw-w64-x86_64-ccache git
       - name: Install macOS C++20 compiler and runtime
         if: runner.os == 'macOS'
         run: |
-          brew install ninja llvm@20
+          brew install ninja llvm@20 ccache
           llvm_prefix="$(brew --prefix llvm@20)"
           echo "CXX=$llvm_prefix/bin/clang++" >> "$GITHUB_ENV"
           echo "OBJCXX=$llvm_prefix/bin/clang++" >> "$GITHUB_ENV"
@@ -93,13 +98,26 @@ jobs:
       - name: Install Linux compiler and desktop libraries
         if: runner.os == 'Linux'
         run: >-
-          sudo apt-get update && sudo apt-get install -y clang ninja-build generate-ninja
+          sudo apt-get update && sudo apt-get install -y clang ninja-build generate-ninja ccache
           libx11-dev libxcursor-dev libatk1.0-dev libatk-bridge2.0-dev
           libasound2t64 patchelf xvfb dpkg-dev
       - name: Fetch pinned text sources
         run: |
           sh toolkit/gui_forms/third_party/fetch_text_stack.sh
           sh toolkit/gui_forms/third_party/fetch_linebreak.sh
+      - uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: games-objects-v1-${{ matrix.platform }}-${{ hashFiles('CMakeLists.txt', 'cmake/**', 'src/**', 'tests/**', 'vendor/**') }}
+          restore-keys: games-objects-v1-${{ matrix.platform }}-
+      - name: Configure compiler cache
+        run: |
+          cache_dir="$PWD/.ccache"
+          if command -v cygpath >/dev/null; then cache_dir="$(cygpath -m "$cache_dir")"; fi
+          export CCACHE_DIR="$cache_dir"
+          echo "CCACHE_DIR=$cache_dir" >> "$GITHUB_ENV"
+          echo "CCACHE_COMPILERCHECK=content" >> "$GITHUB_ENV"
+          ccache --max-size=500M
       - uses: actions/cache/restore@v4
         if: runner.os != 'Windows'
         id: skia
@@ -134,6 +152,8 @@ jobs:
           mkdir -p build/runtime
           tar -xzf build/data/runtime.tar.gz -C build/runtime
           cmake -S . -B build/app -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_OBJCXX_COMPILER_LAUNCHER=ccache \
             -DGAMES_TOOLKIT_SOURCE_DIR="$PWD/toolkit/gui_forms" \
             -DGAMES_RUNTIME_ASSET_DIR="$PWD/build/runtime" \
             -DGUI_FORMS_SKIA_PREBUILT=ON \

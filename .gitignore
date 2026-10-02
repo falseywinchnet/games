@@ -4,5 +4,6 @@
 /preserved-state/
 /astra/
 /dist/
+/.ccache/
 
 __pycache__/

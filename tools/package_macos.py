@@ -116,7 +116,16 @@ def main():
     run(["codesign", "--verify", "--deep", "--strict", str(app)])
     stem = "games-" + project_version() + "-macos-arm64"
     run(["ditto", "-c", "-k", "--keepParent", str(app), str(output / (stem + ".zip"))])
-    run(["pkgbuild", "--component", str(app), "--install-location", "/Applications",
+    installer_root = output / "installer-root"
+    shutil.copytree(app, installer_root / "Games.app")
+    components = output / "components.plist"
+    run(["pkgbuild", "--analyze", "--root", str(installer_root), str(components)])
+    records = plistlib.loads(components.read_bytes())
+    for record in records:
+        record["BundleIsRelocatable"] = False
+    components.write_bytes(plistlib.dumps(records))
+    run(["pkgbuild", "--root", str(installer_root), "--component-plist", str(components),
+         "--install-location", "/Applications",
          "--identifier", "org.rainstar.games", "--version", project_version(), str(output / (stem + ".pkg"))])
 
 

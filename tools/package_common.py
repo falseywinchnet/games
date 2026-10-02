@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 import shutil
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOLKIT_REVISION = "7b260cfb9f3267392e1470b0fcf4cd2497437819"
@@ -70,6 +71,8 @@ def write_manifest(bundle, system, architecture):
     for path in sorted(bundle.rglob("*")):
         if path.is_file():
             files[path.relative_to(bundle).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
-    manifest = {"version": project_version(), "system": system, "architecture": architecture,
+    revision = subprocess.check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True).strip()
+    manifest = {"version": project_version(), "source_revision": revision,
+                "system": system, "architecture": architecture,
                 "toolkit_source_revision": TOOLKIT_REVISION, "files": files}
     (bundle / "package-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
