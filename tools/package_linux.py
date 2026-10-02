@@ -57,9 +57,10 @@ def main():
     metadata.write_text("Source: rainstar-games\nSection: games\nPriority: optional\n"
                         "Maintainer: Astra <noreply@rainstar.invalid>\n\n"
                         "Package: rainstar-games\nArchitecture: any\nDescription: Native game collection\n", encoding="utf-8")
+    binaries = [installed / "games"] + list(installed.glob("*.so*"))
     dependencies = subprocess.check_output(
-        ["dpkg-shlibdeps", "-O", "-l" + str(installed), "-e" + str(installed / "games"),
-         "--ignore-missing-info"], cwd=output, text=True).strip().removeprefix("shlibs:Depends=")
+        ["dpkg-shlibdeps", "-O", "-l" + str(installed), "--ignore-missing-info"] +
+        ["-e" + str(binary) for binary in binaries], cwd=output, text=True).strip().removeprefix("shlibs:Depends=")
     control.write_text("Package: rainstar-games\nVersion: " + project_version() + "\nArchitecture: " + arch +
         "\nMaintainer: Astra <noreply@rainstar.invalid>\nSection: games\nPriority: optional\nDepends: " +
         dependencies + ", libasound2t64\nDescription: Native card games, puzzles and arcade scenes\n", encoding="utf-8")

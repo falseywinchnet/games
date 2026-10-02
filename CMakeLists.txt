@@ -4,6 +4,9 @@ option(GAMES_BUILD_APPLICATION "Build the complete graphical game collection and
 enable_testing()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
 include(FetchContent)
 FetchContent_Declare(quickjs
   GIT_REPOSITORY https://github.com/quickjs-ng/quickjs.git

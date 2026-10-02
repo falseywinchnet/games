@@ -6,7 +6,7 @@ import plistlib
 import re
 import shutil
 import subprocess
-from package_common import copy_resources, project_version, write_manifest
+from package_common import ROOT, copy_resources, project_version, write_manifest
 
 
 def run(arguments):
@@ -40,10 +40,10 @@ def main():
     frameworks.mkdir(exist_ok=True)
     resources = app / "Contents/Resources"
     copy_resources(build, args.toolkit, resources)
-    llvm_notices = next((path for path in (args.llvm / "LICENSE.TXT", args.llvm / "share/doc/llvm/LICENSE.TXT") if path.is_file()), None)
-    if llvm_notices is None:
-        raise RuntimeError("LLVM distribution license is missing")
-    shutil.copy2(llvm_notices, resources / "licenses/LLVM.txt")
+    compiler = run([str(args.llvm / "bin/clang++"), "--version"])
+    if "20.1.8" not in compiler:
+        raise RuntimeError("Review the runtime license pin before packaging another LLVM version")
+    shutil.copytree(ROOT / "packaging/licenses/llvm", resources / "licenses/LLVM")
     plist_path = app / "Contents/Info.plist"
     plist = plistlib.loads(plist_path.read_bytes())
     plist["LSMinimumSystemVersion"] = "15.0"
@@ -100,8 +100,10 @@ def main():
         if library not in seen:
             library.unlink()
     for target in seen:
+        identifiers = run(["otool", "-D", str(target)]).splitlines()[1:]
+        own_id = identifiers[0] if identifiers else None
         for dependency in dependencies(target):
-            if dependency.startswith(("/System/", "/usr/lib/", "@rpath/")):
+            if dependency == own_id or dependency.startswith(("/System/", "/usr/lib/")):
                 continue
             if not dependency.startswith(("@loader_path/", "@executable_path/../Frameworks/")):
                 raise RuntimeError("Nonportable dependency: " + dependency)

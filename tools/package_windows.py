@@ -19,12 +19,12 @@ def make_installer(bundle, output):
     installer = output / ("games-" + project_version() + "-windows-x64-setup.exe")
     script = output / "games-installer.nsi"
     lines = ['Unicode True', '!include "MUI2.nsh"', 'Name "Games"',
-             'OutFile "' + str(installer) + '"', 'InstallDir "$LOCALAPPDATA\\Rainstar\\Games"',
+             'OutFile "' + str(installer).replace("/", "\\") + '"', 'InstallDir "$LOCALAPPDATA\\Rainstar\\Games"',
              'RequestExecutionLevel user', '!insertmacro MUI_PAGE_WELCOME',
              '!insertmacro MUI_PAGE_DIRECTORY', '!insertmacro MUI_PAGE_INSTFILES',
              '!insertmacro MUI_PAGE_FINISH', '!insertmacro MUI_UNPAGE_CONFIRM',
              '!insertmacro MUI_UNPAGE_INSTFILES', '!insertmacro MUI_LANGUAGE "English"',
-             'Section "Games"', 'SetOutPath "$INSTDIR"', 'File /r "' + str(bundle / "*") + '"',
+             'Section "Games"', 'SetOutPath "$INSTDIR"', 'File /r "' + str(bundle / "*").replace("/", "\\") + '"',
              'CreateDirectory "$SMPROGRAMS\\Rainstar"',
              'CreateShortcut "$SMPROGRAMS\\Rainstar\\Games.lnk" "$INSTDIR\\games.exe"',
              'WriteUninstaller "$INSTDIR\\Uninstall.exe"',
@@ -87,7 +87,10 @@ def main():
     for binary in bundle.iterdir():
         subprocess.run(["strip", "--strip-unneeded", str(binary)], check=True)
     copy_resources(args.build, args.toolkit, bundle)
-    shutil.copytree(ROOT / "packaging/licenses", bundle / "licenses/runtime")
+    runtime_notices = bundle / "licenses/runtime"
+    runtime_notices.mkdir()
+    for notice in (ROOT / "packaging/licenses").glob("*.txt"):
+        shutil.copy2(notice, runtime_notices / notice.name)
     write_manifest(bundle, "Windows", "x64")
     archive = output / ("games-" + project_version() + "-windows-x64.zip")
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as compressed:

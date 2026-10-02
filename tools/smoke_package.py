@@ -24,9 +24,13 @@ def main():
         print(result.stderr)
         if "Native Games window smoke passed" not in result.stdout:
             raise RuntimeError("Native host did not finish its scheduled close")
-        receipts = [json.loads(line) for line in result.stdout.splitlines() if line.startswith('{"stable_id"')]
+        receipts = [json.loads(line) for line in result.stdout.splitlines() if line.startswith('{')]
+        receipts = [receipt for receipt in receipts if "window" in receipt]
         if not receipts or receipts[0]["window"]["frames_presented"] < 1:
             raise RuntimeError("Native host did not present the collection")
+        renderer = receipts[0]["window"]["renderer_name"]
+        if "incomplete" in renderer or "fallback" == renderer:
+            raise RuntimeError("Native host did not load its required bundled fonts")
 
 
 if __name__ == "__main__":

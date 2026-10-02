@@ -1,3 +1,15 @@
+# Current cross-platform validation
+
+The complete Windows Release application passes all 22 CTest cases, including replacement game rules and saves, cabinet routing, offline QuickJS Sudoku, all 298 compact audio files, Four Pegs bar transitions, and complete frames from all four vendor views. The packaged application launches and presents its collection with isolated saves and only Windows system directories in PATH. Its scheduled native close returns success.
+
+The [native text run](https://github.com/falseywinchnet/games/actions/runs/36950462158) passes all seven consumer and complete-frame tests on Windows x64, macOS arm64, Linux x64 and Linux arm64. Actual game/help frames at 100% and 150% have been inspected. Software-frame checks do not measure native presentation latency.
+
+The [application workflow](https://github.com/falseywinchnet/games/actions/workflows/applications.yml) builds, tests, packages and launches the full application independently on those platforms. Tagged releases require all four application jobs to pass. Launch smoke establishes resource loading, a presented collection frame and clean shutdown; it is not a full manual gameplay review or listening test. A Windows Four Pegs device-audio exercise was heard clearly by the tester.
+
+The following record describes the earlier macOS implementation. Its JavaScriptCore, Core Animation, audio inventory and roster claims are historical and do not certify the replacement application.
+
+---
+
 # Validation record — October 1 refinement
 
 The combined Release build passed **8/8 CTest targets in 9.26 seconds**. Focused card/collection tests were rerun after the final category-selection adjustment; collection and Eggy simulation checks were rerun after gating the initial Eggy save on Begin. The earlier 13-game validation is preserved separately in `VALIDATION_PRE_REFINEMENT_20261001.md`; it describes the prior implementation, including modules no longer offered.

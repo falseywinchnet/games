@@ -24,6 +24,9 @@ if(NOT MSVC)
     target_compile_options(game_ui PRIVATE -Wall -Wextra)
 endif()
 add_executable(games MACOSX_BUNDLE src/main.cpp)
+if(WIN32)
+    set_target_properties(games PROPERTIES WIN32_EXECUTABLE TRUE)
+endif()
 target_link_libraries(games PRIVATE game_ui)
 set_target_properties(games PROPERTIES
     MACOSX_BUNDLE_BUNDLE_NAME "Games"

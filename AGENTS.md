@@ -1,5 +1,7 @@
 # Games development
 
+The complete application now builds from pinned GUI.Forms source using `GAMES_TOOLKIT_SOURCE_DIR` and prepared `GAMES_RUNTIME_ASSET_DIR`. Follow `docs/BUILDING.md` and `.github/workflows/applications.yml` for current native application and packaging commands. The full Windows profile passes 22 tests and a packaged native-window smoke; earlier subset commands below remain useful but are not the complete application recipe. Do not modify the shared toolkit checkout to fix application builds.
+
 Preserve the complete current game collection and its behavior. Do not remove games, substitute simpler implementations, or disable tests to obtain a successful platform build. Read docs/WINDOWS_HANDOFF.md for roster and reservation boundaries, platform seams, and validation requirements.
 
 The user requires most reusable cross-platform capabilities needed by Games to become GUI.Forms enhancements so other applications benefit. Inspect existing toolkit APIs first. Coordinate additions with the GUI.Forms owner; keep game-specific rules, assets, and Sudoku generation policy in Games, using thin integration with shared services. Preserve existing frozen SDKs and unrelated active work. Validate a new SDK before adopting it here.

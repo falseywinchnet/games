@@ -1,7 +1,7 @@
 name: Build installable Games
 on:
   push:
-    branches: [main, 'codex/**']
+    branches: [main]
     tags: ['v*']
     paths-ignore: ['docs/**', '*.md']
   pull_request:
@@ -100,7 +100,7 @@ jobs:
         run: |
           sh toolkit/gui_forms/third_party/fetch_text_stack.sh
           sh toolkit/gui_forms/third_party/fetch_linebreak.sh
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         if: runner.os != 'Windows'
         id: skia
         with:
@@ -120,6 +120,11 @@ jobs:
           cp toolkit/gui_forms/third_party/skia_cpu_args.gn "$skia/out/games/args.gn"
           "$skia/bin/gn" gen "$skia/out/games" --root="$skia"
           "$skia/third_party/ninja/ninja" -C "$skia/out/games" -j2 skia
+      - uses: actions/cache/save@v4
+        if: runner.os != 'Windows' && steps.skia.outputs.cache-hit != 'true'
+        with:
+          path: toolkit/gui_forms/third_party/skia
+          key: games-skia-7b260cf-v1-${{ matrix.platform }}
       - uses: actions/download-artifact@v4
         with:
           name: runtime
@@ -148,10 +153,15 @@ jobs:
         run: python3 tools/package_linux.py --build build/app --toolkit toolkit/gui_forms
       - name: Launch packaged Windows application
         if: runner.os == 'Windows'
-        run: python tools/smoke_package.py dist/Games/games.exe
+        run: |
+          python tools/smoke_package.py dist/Games/games.exe
+          python tools/test_windows_installer.py dist/*-setup.exe
       - name: Launch packaged macOS application
         if: runner.os == 'macOS'
-        run: python3 tools/smoke_package.py dist/Games.app/Contents/MacOS/games
+        run: |
+          python3 tools/smoke_package.py dist/Games.app/Contents/MacOS/games
+          sudo /usr/sbin/installer -pkg dist/*.pkg -target /
+          python3 tools/smoke_package.py /Applications/Games.app/Contents/MacOS/games
       - name: Install and launch Linux package
         if: runner.os == 'Linux'
         run: |

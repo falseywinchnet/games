@@ -294,17 +294,19 @@ void GameTile::on_paint(gf::Painter& p, gf::Rect) {
         p.stroke_rect(
             r, selected() ? gf::Color::rgba(132, 170, 192) : gf::Color::rgba(213, 225, 230), 1);
     }
-    paint_emblem(p, {b.width / 2 - 28, 14, 56, 56}, game_);
+    const double emblem_size = std::clamp(b.height - 58.0, 24.0, 56.0);
+    paint_emblem(p, {b.width / 2 - emblem_size / 2, 14, emblem_size, emblem_size}, game_);
     gf::FontSpec f{gf::FontRole::content, 15, selected() ? std::uint16_t(600) : std::uint16_t(400),
                    false};
-    auto m = p.measure_text_utf8(text(), f);
-    p.draw_text_utf8({(b.width - m.width) / 2, 91}, text(), f, gf::Color::rgba(47, 65, 78));
+    const gf::Size m = p.measure_text_utf8(text(), f);
+    const double title_baseline = std::min(91.0, b.height - 27.0);
+    p.draw_text_utf8({(b.width - m.width) / 2, title_baseline}, text(), f, gf::Color::rgba(47, 65, 78));
     const char* types[] = {"4 card games",   "Number logic",    "Match three",  "Path puzzle",
                            "Graph puzzle",   "Deduction",       "Codebreaking", "Switch puzzle",
                            "Reconstruction", "An endless climb"};
     gf::FontSpec small{gf::FontRole::content, 12, 400, false};
-    auto sm = p.measure_text_utf8(types[game_], small);
-    p.draw_text_utf8({(b.width - sm.width) / 2, 111}, types[game_], small,
+    const gf::Size sm = p.measure_text_utf8(types[game_], small);
+    p.draw_text_utf8({(b.width - sm.width) / 2, title_baseline + 20}, types[game_], small,
                      gf::Color::rgba(113, 124, 132));
     if (focus_cue_visible())
         p.stroke_rect({5, 5, b.width - 10, b.height - 10}, gf::Color::rgba(84, 133, 169), 1);
