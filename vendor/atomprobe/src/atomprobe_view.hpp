@@ -1,4 +1,5 @@
 #pragma once
+#include "game_text.hpp"
 // The game as a GUI.Forms control: frame loop, input (fire emitters, mark
 // squares, pull the lever), the probe and reveal sequences, the score,
 // dialogs and autosave. The frame is a small pixel-art image the compositor
@@ -50,6 +51,25 @@ private:
         double t = 0;
         int stage = 0;      // 0 charging, 1 in the fog, 2 answered
     };
+
+    // Stable render input while the live simulation and audio advance.
+    struct RenderState {
+        Box box_{1};
+        SaveData save_{};
+        ChamberState st_{};
+        std::string message_, name_entry_, pressed_, hover_;
+        Col message_col_{};
+        std::vector<Button> buttons_;
+        Panel panel_ = Panel::none;
+        bool result_ = false;
+        int pending_score_ = 0;
+        double message_t_ = 0, t_ = 0;
+    };
+    std::unique_ptr<RenderState> rendering_;
+    bool rendering_pending_ = false;
+    std::unique_ptr<games::GameText> game_text_;
+    void capture_render_state();
+    void layout_render_buttons();
 
     Options opt_;
     SaveData save_;
@@ -123,10 +143,10 @@ private:
     void draw_result();
     void draw_panel();
     void draw_button(const Button& b);
-    const Mask& tmask(const std::string& s, bool bold, double size, int wrap_game) const;
+    games::TextImage tmask(const std::string& s, bool bold, double size, int wrap_game);
     int text(const std::string& s, int x, int y, Col c, double size = 11, bool bold = false, int wrap = 0);
-    int text_w(const std::string& s, double size, bool bold) const;
-    int text_h(const std::string& s, double size, bool bold, int wrap = 0) const;
+    int text_w(const std::string& s, double size, bool bold);
+    int text_h(const std::string& s, double size, bool bold, int wrap = 0);
     void blit_texts(std::uint32_t* dst, size_t stride_px, double k);
 };
 

@@ -1,7 +1,7 @@
 #include "atomprobe_view.hpp"
 
 #include "platform/audio.hpp"
-#include "platform/text.hpp"
+#include "runtime_paths.hpp"
 
 #include "gui_forms/surface_material.hpp"
 #include "gui_forms/window.hpp"
@@ -482,6 +482,12 @@ void AtomProbeView::tick() {
     const auto pace = std::chrono::milliseconds(hidden || !shown || !cab_front_ ? 500 : front ? 33 : 100);
     if (timer_ && (*timer_).interval() != pace) (*timer_).set_interval(pace);
     if (hidden || !shown || ch_.r.rgb.empty() || frame_.px.empty()) return;
+    if (!game_text_) {
+        game_text_ = std::make_unique<games::GameText>(
+            std::filesystem::path(games::asset_directory()) / "fonts", "BarlowCondensed");
+    }
+    if (!rendering_pending_) {
+        capture_render_state();
     if (cab_reduced_) {
         ChamberState displayed = st_;
         displayed.shake = 0;
@@ -490,6 +496,8 @@ void AtomProbeView::tick() {
     } else {
         ch_.render(st_, t_);
     }
+    }
+    (*game_text_).begin();
     compose();
     publish();
 }
@@ -503,7 +511,7 @@ void AtomProbeView::publish() {
         if (surface_ && attached_window()) direct_ = (*attached_window()).queue_live_surface_presentation(shared_from_this(), surface_);
     }
     if (!surface_) return;
-    gf::LiveSurfaceWriteLease lease = surface_->try_acquire_write();
+    gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write();
     if (lease && static_cast<int>(lease.width()) == phys_w_ && static_cast<int>(lease.height()) == phys_h_) {
         std::span<std::byte> dst = lease.pixels();
         const size_t rb = lease.row_bytes();
@@ -520,10 +528,15 @@ void AtomProbeView::publish() {
             for (int x = 0; x < phys_w_; ++x) o[x] = sr[xmap_[static_cast<size_t>(x)]];
         }
         blit_texts(reinterpret_cast<std::uint32_t*>(dst.data()), rb / 4, k);
-        static_cast<void>(lease.publish());
+        if (!(*game_text_).ready()) return;
+        const bool published = lease.publish();
+        if (published) {
+            buttons_ = (*rendering_).buttons_;
+            rendering_pending_ = false;
+        }
     }
     if (!direct_) invalidate(gf::Dirty::paint);
-    text_cache_trim();
+
 }
 
 // ------------------------------------------------------------------ input
@@ -645,55 +658,57 @@ void AtomProbeView::open(Panel p) {
 }
 
 // ------------------------------------------------------------------ drawing
-const Mask& AtomProbeView::tmask(const std::string& s, bool bold, double size, int wrap_game) const {
-    return text_mask(s, bold ? Font::speech_bold : Font::speech, size, wrap_game > 0 ? wrap_game * pixel_ : 0);
+games::TextImage AtomProbeView::tmask(const std::string& s, bool bold, double size, int wrap_game) {
+    games::TextImage image = (*game_text_).get(s, bold, size,
+        wrap_game > 0 ? wrap_game * pixel_ : 0, bs_);
+    return image;
 }
 int AtomProbeView::text(const std::string& s, int x, int y, Col c, double size, bool bold, int wrap) {
     texts_.push_back({s, bold, size, wrap, x, y, c});
     return text_w(s, size, bold);
 }
-int AtomProbeView::text_w(const std::string& s, double size, bool bold) const {
+int AtomProbeView::text_w(const std::string& s, double size, bool bold) {
     return static_cast<int>(std::ceil(tmask(s, bold, size, 0).w / static_cast<double>(pixel_)));
 }
-int AtomProbeView::text_h(const std::string& s, double size, bool bold, int wrap) const {
+int AtomProbeView::text_h(const std::string& s, double size, bool bold, int wrap) {
     return static_cast<int>(std::ceil(tmask(s, bold, size, wrap).h / static_cast<double>(pixel_)));
 }
 
-void AtomProbeView::layout_buttons() {
-    buttons_.clear();
+void AtomProbeView::layout_render_buttons() {
+    (*rendering_).buttons_.clear();
     if (pw_ <= 0) return;
-    if (panel_ == Panel::none) {
+    if ((*rendering_).panel_ == Panel::none) {
         const int bh = 13, y = 5;
         int x = 6;
         auto add = [&](const std::string& id, const std::string& label) {
             const int w = text_w(label, 11, true) + 12;
-            buttons_.push_back({id, label, x, y, w, bh});
+            (*rendering_).buttons_.push_back({id, label, x, y, w, bh});
             x += w + 4;
         };
         add("new", "New box");
         add("help", "Help");
         add("scores", "Top scores");
-        add("music", save_.settings.music ? "Music on" : "Music off");
-        add("sound", save_.settings.sound ? "Sound on" : "Sound off");
-        if (result_) {
+        add("music", (*rendering_).save_.settings.music ? "Music on" : "Music off");
+        add("sound", (*rendering_).save_.settings.sound ? "Sound on" : "Sound off");
+        if ((*rendering_).result_) {
             // over the console once the box is open
             double cx, cy;
             ch_.to_screen(Chamber::lever_pivot() + V3{0, -.4, .8}, cx, cy);
             const std::string label = "New box";
             const int w = text_w(label, 13, true) + 22;
-            buttons_.push_back({"new", label, static_cast<int>(cx) - w / 2, static_cast<int>(cy) + 6, w, 18, true});
+            (*rendering_).buttons_.push_back({"new", label, static_cast<int>(cx) - w / 2, static_cast<int>(cy) + 6, w, 18, true});
         }
         return;
     }
     const int ww = std::min(pw_ - 30, 380), wh = std::min(ph_ - 30, 280);
     const int wx = (pw_ - ww) / 2, wy = (ph_ - wh) / 2;
-    const std::string label = panel_ == Panel::name ? "Sign the log" : "Close";
+    const std::string label = (*rendering_).panel_ == Panel::name ? "Sign the log" : "Close";
     const int w = text_w(label, 11, true) + 16;
-    buttons_.push_back({panel_ == Panel::name ? "save_name" : "close", label, wx + ww - w - 10, wy + wh - 20, w, 14});
+    (*rendering_).buttons_.push_back({(*rendering_).panel_ == Panel::name ? "save_name" : "close", label, wx + ww - w - 10, wy + wh - 20, w, 14});
 }
 
 void AtomProbeView::draw_button(const Button& b) {
-    const bool down = pressed_ == b.id, over = hover_ == b.id;
+    const bool down = (*rendering_).pressed_ == b.id, over = (*rendering_).hover_ == b.id;
     frame_.fill_rect(b.x + 1, b.y + 1, b.w, b.h, hex(0x000000, .5f));
     frame_.begin(); frame_.rect(b.x, b.y + (down ? 1 : 0), b.w, b.h); frame_.fill(b.big ? (over ? hex(0x1E6A4A) : hex(0x124430)) : over ? hex(0x16303C) : kPanel);
     frame_.begin(); frame_.rect(b.x + .5, b.y + .5 + (down ? 1 : 0), b.w - 1, b.h - 1); frame_.stroke(b.big ? kGood : over ? kCyan : kCyanDim, 1);
@@ -705,7 +720,7 @@ void AtomProbeView::draw_button(const Button& b) {
 // Words on the scene: the answers on the emitter plates, the console's labels, the status line.
 void AtomProbeView::draw_overlay() {
     for (int p = 0; p < kPorts; ++p) {
-        const PortView& v = st_.ports[static_cast<size_t>(p)];
+        const PortView& v = (*rendering_).st_.ports[static_cast<size_t>(p)];
         if (!v.kind) continue;
         double x, y, ex, ey;
         ch_.to_screen(Chamber::plate(p), x, y);
@@ -717,27 +732,27 @@ void AtomProbeView::draw_overlay() {
         text(g, static_cast<int>(std::lround(x - w / 2.0)), static_cast<int>(std::lround(y - h / 2.0)), kInk, size, true);
     }
     double x, y;
-    if (!result_) {
+    if (!(*rendering_).result_) {
         ch_.to_screen(Chamber::readout() + V3{0, .78, 0}, x, y);
         text("POINTS", static_cast<int>(x) - text_w("POINTS", 10, true) / 2, static_cast<int>(y) - 6, kCyanDim, 10, true);
         ch_.to_screen(Chamber::tray(0) + V3{.75, .5, 0}, x, y);
         text("MARKERS", static_cast<int>(x) - text_w("MARKERS", 10, true) / 2, static_cast<int>(y) - 6, kCyanDim, 10, true);
         ch_.to_screen(Chamber::lever_pivot() + V3{0, -1.6, 0}, x, y);
-        const Col oc = st_.lever_ready ? kInk : hex(0xC08088);
+        const Col oc = (*rendering_).st_.lever_ready ? kInk : hex(0xC08088);
         text("OPEN", static_cast<int>(x) - text_w("OPEN", 10, true) / 2, static_cast<int>(y) - 6, oc, 10, true);
     }
     // the status line, top right of the buttons
-    if (!message_.empty() && message_t_ < 6) {
-        const float a = static_cast<float>(std::clamp(6 - message_t_, 0.0, 1.0));
+    if (!(*rendering_).message_.empty() && (*rendering_).message_t_ < 6) {
+        const float a = static_cast<float>(std::clamp(6 - (*rendering_).message_t_, 0.0, 1.0));
         const double size = 14;
-        const int w = text_w(message_, size, true);
+        const int w = text_w((*rendering_).message_, size, true);
         const int mx = std::max(pw_ / 2 - w / 2 - 40, 270);
-        text(message_, mx, 5, alpha(message_col_, a), size, true);
+        text((*rendering_).message_, mx, 5, alpha((*rendering_).message_col_, a), size, true);
     }
 }
 
 void AtomProbeView::draw_result() {
-    if (!result_) return;
+    if (!(*rendering_).result_) return;
     // a card over the console: what was found and what it cost
     // fitted to the console's top, clear of the emitters
     double lx, ly, rx, ry;
@@ -745,21 +760,21 @@ void AtomProbeView::draw_result() {
     ch_.to_screen({Chamber::kConsoleX1 - .05, Chamber::kConsoleY1, .8}, rx, ry);
     const int w = std::max(110, static_cast<int>(rx - lx)), h = 74;
     const int x = std::clamp(static_cast<int>(lx), 4, pw_ - w - 4), y = std::max(24, static_cast<int>(std::min(ly, ry)) - 4);
-    const bool solved = box_.found() == kAtoms;
+    const bool solved = (*rendering_).box_.found() == kAtoms;
     frame_.fill_rect(x + 2, y + 2, w, h, hex(0x000000, .5f));
     frame_.fill_rect(x, y, w, h, hex(0x081016, .94f));
     frame_.begin(); frame_.rect(x + .5, y + .5, w - 1, h - 1); frame_.stroke(solved ? kGood : kBad, 1);
-    const std::string head = solved ? "ALL FOUR FOUND" : std::to_string(box_.found()) + " OF 4 FOUND";
+    const std::string head = solved ? "ALL FOUR FOUND" : std::to_string((*rendering_).box_.found()) + " OF 4 FOUND";
     text(head, x + (w - text_w(head, 13, true)) / 2, y + 5, solved ? kGood : kBad, 13, true);
-    const std::string pts = std::to_string(box_.points()) + " points";
+    const std::string pts = std::to_string((*rendering_).box_.points()) + " points";
     text(pts, x + (w - text_w(pts, 18, true)) / 2, y + 22, kGold, 18, true);
-    const std::string sub = solved ? std::to_string(box_.probes().size()) + (box_.probes().size() == 1 ? " beam fired" : " beams fired")
-                                   : "+" + std::to_string(kMissPenalty * box_.missed()) + " for missed atoms = " + std::to_string(box_.total());
+    const std::string sub = solved ? std::to_string((*rendering_).box_.probes().size()) + ((*rendering_).box_.probes().size() == 1 ? " beam fired" : " beams fired")
+                                   : "+" + std::to_string(kMissPenalty * (*rendering_).box_.missed()) + " for missed atoms = " + std::to_string((*rendering_).box_.total());
     text(sub, x + (w - text_w(sub, 10, false)) / 2, y + 46, kText, 10, false);
 }
 
 void AtomProbeView::draw_panel() {
-    if (panel_ == Panel::none) return;
+    if ((*rendering_).panel_ == Panel::none) return;
     frame_.fill_rect(0, 0, pw_, ph_, hex(0x000000, .5f));
     const int ww = std::min(pw_ - 30, 380), wh = std::min(ph_ - 30, 280);
     const int wx = (pw_ - ww) / 2, wy = (ph_ - wh) / 2;
@@ -773,7 +788,7 @@ void AtomProbeView::draw_panel() {
         ly += text_h(t, size, bold, ww - 28) + 3;
     };
     auto title = [&](const std::string& t) { text(t, wx + (ww - text_w(t, 16, true)) / 2, wy + 9, kCyan, 16, true); };
-    switch (panel_) {
+    switch ((*rendering_).panel_) {
         case Panel::help:
             title("Atom Probe");
             line("Four atoms hide in the fogged chamber. Click an emitter on the rim to fire a beam into the box, and watch where it comes out.");
@@ -787,9 +802,9 @@ void AtomProbeView::draw_panel() {
             break;
         case Panel::scores:
             title("The Lab Log");
-            if (save_.scores.empty()) line("No box solved yet.", kCyanDim);
-            for (size_t i = 0; i < save_.scores.size(); ++i) {
-                const TopScore& t = save_.scores[i];
+            if ((*rendering_).save_.scores.empty()) line("No box solved yet.", kCyanDim);
+            for (size_t i = 0; i < (*rendering_).save_.scores.size(); ++i) {
+                const TopScore& t = (*rendering_).save_.scores[i];
                 char buf[64];
                 std::snprintf(buf, sizeof buf, "%2zu.  %-14s  %d %s", i + 1, t.name.c_str(), t.points, t.points == 1 ? "point" : "points");
                 line(buf, i == 0 ? kGold : kText, i == 0, 12);
@@ -797,52 +812,63 @@ void AtomProbeView::draw_panel() {
             break;
         case Panel::name:
             title("The Lab Log");
-            line("All four atoms found for " + std::to_string(pending_score_) + (pending_score_ == 1 ? " point." : " points."), kGood, true, 13);
+            line("All four atoms found for " + std::to_string((*rendering_).pending_score_) + ((*rendering_).pending_score_ == 1 ? " point." : " points."), kGood, true, 13);
             line("Sign the log:");
-            line(name_entry_ + (std::sin(t_ * 6) > 0 ? "_" : " "), kGold, true, 15);
+            line((*rendering_).name_entry_ + (std::sin((*rendering_).t_ * 6) > 0 ? "_" : " "), kGold, true, 15);
             break;
         case Panel::none: break;
     }
-    for (const Button& b : buttons_) draw_button(b);
+    for (const Button& b : (*rendering_).buttons_) draw_button(b);
 }
 
 void AtomProbeView::compose() {
     texts_.clear();
+    layout_render_buttons();
     ch_.r.present(frame_, 1, 0, 0, true);
     // text sits on its own layer above the frame: nothing from the scene may show through a dialog
-    if (panel_ == Panel::none) {
+    if ((*rendering_).panel_ == Panel::none) {
         draw_overlay();
         draw_result();
     }
-    if (panel_ == Panel::none) for (const Button& b : buttons_) draw_button(b);
+    if ((*rendering_).panel_ == Panel::none) for (const Button& b : (*rendering_).buttons_) draw_button(b);
     draw_panel();
 }
 
 void AtomProbeView::blit_texts(std::uint32_t* dst, size_t stride_px, double k) {
-    const int sc = std::max(1, static_cast<int>(std::lround(bs_)));
+    std::span<std::uint32_t> pixels(dst, stride_px * static_cast<std::size_t>(phys_h_));
     for (const HiText& h : texts_) {
-        const Mask& m = tmask(h.s, h.bold, h.size, h.wrap);
-        const int ox = static_cast<int>(h.x * k), oy = static_cast<int>(h.y * k);
-        const float pr = h.c.r * h.c.a, pg = h.c.g * h.c.a, pb = h.c.b * h.c.a;
-        for (int my = 0; my < m.h * sc; ++my) {
-            const int dy = oy + my;
-            if (dy < 0 || dy >= phys_h_) continue;
-            const std::uint8_t* srow = m.a.data() + static_cast<size_t>(my / sc) * m.w;
-            std::uint32_t* drow = dst + static_cast<size_t>(dy) * stride_px;
-            for (int mx = 0; mx < m.w * sc; ++mx) {
-                const int dx = ox + mx;
-                if (dx < 0 || dx >= phys_w_) continue;
-                const float cov = srow[mx / sc] * (1.f / 255.f);
-                if (cov <= 0) continue;
-                const std::uint32_t d = drow[dx];
-                const float a = h.c.a * cov, kk = 1 - a;
-                const auto ch = [&](int sh, float src) {
-                    return static_cast<std::uint32_t>(std::min(255.f, src * cov * 255 + static_cast<float>((d >> sh) & 255) * kk + .5f)) << sh;
-                };
-                drow[dx] = ch(0, pb) | ch(8, pg) | ch(16, pr) | (0xFFu << 24);
-            }
-        }
+        const games::TextImage image = tmask(h.s, h.bold, h.size, h.wrap);
+        games::blit_game_text(pixels, phys_w_, phys_h_, stride_px, image,
+            static_cast<int>(h.x * k), static_cast<int>(h.y * k),
+            h.c.r, h.c.g, h.c.b, h.c.a);
     }
+}
+
+void AtomProbeView::layout_buttons() {
+    // New panel, size or settings invalidate a pending attempt, never the
+    // currently displayed pixels. Hit regions follow the next published frame.
+    rendering_pending_ = false;
+    buttons_.clear();
+    if (game_text_) (*game_text_).cancel();
+}
+
+void AtomProbeView::capture_render_state() {
+    if (!rendering_) rendering_ = std::make_unique<RenderState>();
+    rendering_pending_ = true;
+    RenderState& state = *rendering_;
+    state.box_ = box_;
+    state.save_ = save_;
+    state.st_ = st_;
+    state.message_ = message_;
+    state.message_col_ = message_col_;
+    state.message_t_ = message_t_;
+    state.name_entry_ = name_entry_;
+    state.pressed_ = pressed_;
+    state.hover_ = hover_;
+    state.panel_ = panel_;
+    state.result_ = result_;
+    state.pending_score_ = pending_score_;
+    state.t_ = t_;
 }
 
 }  // namespace ap

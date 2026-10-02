@@ -79,37 +79,37 @@ TextImage GameText::get(const std::string_view source, const bool bold,
 void blit_game_text(std::span<std::uint32_t> destination, const int width,
     const int height, const std::size_t stride, const TextImage& text,
     const int x, const int y, const double red, const double green,
-    const double blue, const double alpha, const int magnification) {
+    const double blue, const double alpha, const double magnification) {
     if (width < 0 || height < 0 || stride < static_cast<std::size_t>(width) ||
         (height > 0 && stride > destination.size() / static_cast<std::size_t>(height)) ||
-        magnification < 1 || magnification > 16 || !std::isfinite(red) ||
+        !std::isfinite(magnification) || magnification < .5 || magnification > 16 || !std::isfinite(red) ||
         !std::isfinite(green) || !std::isfinite(blue) || !std::isfinite(alpha)) {
         throw std::invalid_argument("Invalid game text destination or color");
     }
-    if (!text.mask.has_value() || width == 0 || height == 0) { return; }
+    if (!text.mask.has_value() || text.mask.coverage().empty() || width == 0 || height == 0) { return; }
     const gui_forms::TextMaskMetrics metrics = text.mask.metrics();
     const std::span<const std::uint8_t> coverage = text.mask.coverage();
     if (metrics.width_px > 4096 || metrics.height_px > 4096 || metrics.stride_bytes < metrics.width_px ||
         (metrics.height_px > 0 && metrics.stride_bytes > coverage.size() / metrics.height_px)) {
         throw std::invalid_argument("Invalid game text coverage shape");
     }
-    const std::int64_t left = x + static_cast<std::int64_t>(metrics.ink_left_px) * magnification;
-    const std::int64_t top = y + static_cast<std::int64_t>(metrics.ink_top_px) * magnification;
-    const std::int64_t right = left + static_cast<std::int64_t>(metrics.width_px) * magnification;
-    const std::int64_t bottom = top + static_cast<std::int64_t>(metrics.height_px) * magnification;
-    const int begin_x = static_cast<int>(std::clamp<std::int64_t>(left, 0, width));
-    const int end_x = static_cast<int>(std::clamp<std::int64_t>(right, 0, width));
-    const int begin_y = static_cast<int>(std::clamp<std::int64_t>(top, 0, height));
-    const int end_y = static_cast<int>(std::clamp<std::int64_t>(bottom, 0, height));
+    const double left = x + metrics.ink_left_px * magnification;
+    const double top = y + metrics.ink_top_px * magnification;
+    const double right = left + metrics.width_px * magnification;
+    const double bottom = top + metrics.height_px * magnification;
+    const int begin_x = static_cast<int>(std::clamp(std::ceil(left - .5), 0.0, static_cast<double>(width)));
+    const int end_x = static_cast<int>(std::clamp(std::ceil(right - .5), 0.0, static_cast<double>(width)));
+    const int begin_y = static_cast<int>(std::clamp(std::ceil(top - .5), 0.0, static_cast<double>(height)));
+    const int end_y = static_cast<int>(std::clamp(std::ceil(bottom - .5), 0.0, static_cast<double>(height)));
     const double opacity = std::clamp(alpha, 0.0, 1.0);
     const double r = std::clamp(red, 0.0, 1.0);
     const double g = std::clamp(green, 0.0, 1.0);
     const double b = std::clamp(blue, 0.0, 1.0);
     for (int row = begin_y; row < end_y; ++row) {
-        const std::size_t source_row = static_cast<std::size_t>((row - top) / magnification) * metrics.stride_bytes;
+        const std::size_t source_row = static_cast<std::size_t>((row + .5 - top) / magnification) * metrics.stride_bytes;
         const std::size_t destination_row = static_cast<std::size_t>(row) * stride;
         for (int column = begin_x; column < end_x; ++column) {
-            const std::size_t source_column = static_cast<std::size_t>((column - left) / magnification);
+            const std::size_t source_column = static_cast<std::size_t>((column + .5 - left) / magnification);
             const double a = coverage[source_row + source_column] * (opacity / 255.0);
             if (a == 0) { continue; }
             std::uint32_t& pixel = destination[destination_row + static_cast<std::size_t>(column)];

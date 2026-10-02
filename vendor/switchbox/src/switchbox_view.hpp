@@ -1,4 +1,5 @@
 #pragma once
+#include "game_text.hpp"
 // The game as a GUI.Forms control: frame loop, input, HUD, speech, dialogs,
 // autosave, sound. The frame is a small pixel-art image the compositor
 // magnifies; text is drawn crisply on top as cached layers.
@@ -47,6 +48,26 @@ private:
     struct Button { std::string id, label; int x, y, w, h; };
     struct Bubble { std::string text; double age = 0, dur = 0; int shown = 0; bool muffled = false, special = false; };
     struct HiText { std::string s; bool bold; double size; int wrap; int x, y; Col c; };
+
+    // Stable render input while the live simulation and audio advance.
+    struct RenderState {
+        Puzzle puzzle_{1};
+        SaveData save_{};
+        StageState st_{};
+        Bubble bubble_{};
+        Mole mole_{};
+        std::string name_entry_, pressed_, hover_;
+        std::vector<Button> buttons_;
+        Panel panel_ = Panel::none;
+        bool actor_hidden_ = false, cab_reduced_ = false;
+        int last_steps_ = 0, result_hits_ = 0;
+        double result_t_ = 0, t_ = 0;
+    };
+    std::unique_ptr<RenderState> rendering_;
+    bool rendering_pending_ = false;
+    std::unique_ptr<games::GameText> game_text_;
+    void capture_render_state();
+    void layout_render_buttons();
 
     Options opt_;
     SaveData save_;
@@ -123,10 +144,10 @@ private:
     void draw_bubble();
     void draw_panel();
     void draw_button(const Button& b);
-    const Mask& tmask(const std::string& s, bool bold, double size, int wrap_game) const;
+    games::TextImage tmask(const std::string& s, bool bold, double size, int wrap_game);
     int text(const std::string& s, int x, int y, Col c, double size = 9, bool bold = false, int wrap = 0);
-    int text_w(const std::string& s, double size, bool bold) const;
-    int text_h(const std::string& s, double size, bool bold, int wrap = 0) const;
+    int text_w(const std::string& s, double size, bool bold);
+    int text_h(const std::string& s, double size, bool bold, int wrap = 0);
     void blit_texts(std::uint32_t* dst, size_t stride_px, double k);
 };
 

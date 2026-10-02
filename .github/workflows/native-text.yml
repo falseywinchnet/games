@@ -2,9 +2,9 @@ name: Native portable text
 on:
   push:
     branches: [main, 'codex/**']
-    paths: ['src/text_requests.*', 'src/game_text.*', 'vendor/fourpegs/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', '.github/workflows/native-text.yml']
+    paths: ['src/text_requests.*', 'src/game_text.*', 'vendor/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', '.github/workflows/native-text.yml']
   pull_request:
-    paths: ['src/text_requests.*', 'src/game_text.*', 'vendor/fourpegs/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', '.github/workflows/native-text.yml']
+    paths: ['src/text_requests.*', 'src/game_text.*', 'vendor/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', '.github/workflows/native-text.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -69,15 +69,17 @@ jobs:
       - name: Configure public-API text consumer
         run: >-
           cmake -S tests/portable_text -B build/text -G Ninja
-          -DCMAKE_BUILD_TYPE=Release -DGAMES_TEST_FOURPEGS_FRAMES=ON -DGAMES_TEXT_SOURCE_DIR="$PWD/toolkit/gui_forms"
+          -DCMAKE_BUILD_TYPE=Release -DGAMES_TEST_VENDOR_FRAMES=ON -DGAMES_TEXT_SOURCE_DIR="$PWD/toolkit/gui_forms"
       - name: Build native masks and Games adapters
-        run: cmake --build build/text --target text_request_tests text_native_consumer_tests game_text_frame_tests fourpegs_frame_tests --parallel 2
+        run: cmake --build build/text --target text_request_tests text_native_consumer_tests game_text_frame_tests vendor_game_frame_tests --parallel 2
       - name: Test lifecycle and actual native text
-        run: ctest --test-dir build/text --output-on-failure --timeout 120 --output-junit results.xml -R '^(text_request_lifecycle|text_native_consumer|game_text_frame_preparation|fourpegs_native_frames)$'
+        run: ctest --test-dir build/text --output-on-failure --timeout 120 --output-junit results.xml -R '^(text_request_lifecycle|text_native_consumer|game_text_frame_preparation|(fourpegs|atomprobe|switchbox|eggy)_native_frames)$'
       - name: Render actual text previews
         run: |
           build/text/text_native_consumer_tests toolkit/gui_forms/assets/fonts build/text/previews
-          build/text/fourpegs_frame_tests assets build/text/previews
+          for game in fourpegs atomprobe switchbox eggy; do
+            build/text/vendor_game_frame_tests assets "$game" build/text/previews
+          done
       - uses: actions/upload-artifact@v4
         if: always()
         with:

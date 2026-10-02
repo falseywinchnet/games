@@ -37,5 +37,5 @@ private:
 void blit_game_text(std::span<std::uint32_t> destination, const int width,
     const int height, const std::size_t stride, const TextImage& text,
     const int x, const int y, const double red, const double green,
-    const double blue, const double alpha, const int magnification = 1);
+    const double blue, const double alpha, const double magnification = 1);
 }

@@ -1,7 +1,7 @@
 #include "eggy_view.hpp"
 
 #include "audio.hpp"
-#include "text.hpp"
+#include "runtime_paths.hpp"
 
 #include "gui_forms/surface_material.hpp"
 #include "gui_forms/window.hpp"
@@ -458,7 +458,16 @@ void EggyView::tick() {
     if (!shown) audio_music("", false);  // another tab is showing: stay quiet, keep climbing
     if (hidden || !shown || scene_.r.rgb.empty() || frame_.px.empty()) return;
     static const bool no_render = std::getenv("EGGY_NO_RENDER"), no_publish = std::getenv("EGGY_NO_PUBLISH");
-    if (!no_render) { scene_.render(s, t_, dt); compose(); }
+    if (!game_text_) {
+        game_text_ = std::make_unique<games::GameText>(
+            std::filesystem::path(games::asset_directory()) / "fonts", "Carlito");
+    }
+    if (!rendering_pending_) {
+        capture_render_state();
+        if (!no_render) scene_.render(s, t_, dt);
+    }
+    (*game_text_).begin();
+    compose();
     if (no_publish) return;
     // All platforms publish through the toolkit-owned CPU surface.
     if (!surface_) {
@@ -469,7 +478,7 @@ void EggyView::tick() {
         register_surface();
     }
     if (surface_) {
-        gf::LiveSurfaceWriteLease lease = surface_->try_acquire_write();
+        gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write();
         if (lease && static_cast<int>(lease.width()) == phys_w_ && static_cast<int>(lease.height()) == phys_h_) {
             // nearest-neighbour upscale: expand one row, then duplicate it
             std::span<std::byte> dst = lease.pixels();
@@ -496,6 +505,7 @@ void EggyView::tick() {
                 }
             }
             blit_texts(reinterpret_cast<std::uint32_t*>(dst.data()), rb / 4, k);
+            if (!(*game_text_).ready()) return;
             // debugging aid: EGGY_SNAPSHOT=/path.ppm EGGY_SNAPSHOT_AT=seconds writes one published frame
             if (const char* snap = std::getenv("EGGY_SNAPSHOT")) {
                 static bool done = false;
@@ -514,12 +524,17 @@ void EggyView::tick() {
                     }
                 }
             }
-            if (const char* td = std::getenv("EGGY_TEST_DAMAGE")) static_cast<void>(lease.publish(gf::Rect{0, 0, std::atof(td), std::atof(td)}));
-            else static_cast<void>(lease.publish());
+            bool published = false;
+            if (const char* td = std::getenv("EGGY_TEST_DAMAGE")) published = lease.publish(gf::Rect{0, 0, std::atof(td), std::atof(td)});
+            else published = lease.publish();
+            if (published) {
+                buttons_ = (*rendering_).buttons_;
+                rendering_pending_ = false;
+            }
         }
     }
     if (!direct_ || std::getenv("EGGY_NO_DIRECT")) invalidate(gf::Dirty::paint);
-    text_cache_trim();
+
 }
 
 // ------------------------------------------------------------------ base camp
@@ -605,21 +620,21 @@ void EggyView::open(Panel p) {
     layout_buttons();
 }
 
-void EggyView::layout_buttons() {
-    buttons_.clear();
+void EggyView::layout_render_buttons() {
+    (*rendering_).buttons_.clear();
     const int bh = 8, y = ph_ - bh - 1;
     int x = pw_ - 2;
     auto add_right = [&](const std::string& id, const std::string& label) {
         const int w = text_w(label, 10, true) + 6;
         x -= w;
-        buttons_.push_back({id, label, x, y, w, bh});
+        (*rendering_).buttons_.push_back({id, label, x, y, w, bh});
         x -= 2;
     };
-    if (panel_ == Panel::none) {
+    if ((*rendering_).panel_ == Panel::none) {
         add_right("zoom_in", " + ");
         add_right("zoom_out", " - ");
-        add_right("music", save_.settings.music ? "MUSIC ON" : "MUSIC OFF");
-        add_right("sound", save_.settings.sound ? "SOUND ON" : "SOUND OFF");
+        add_right("music", (*rendering_).save_.settings.music ? "MUSIC ON" : "MUSIC OFF");
+        add_right("sound", (*rendering_).save_.settings.sound ? "SOUND ON" : "SOUND OFF");
         add_right("scores", "TOP SCORES");
         add_right("help", "HELP");
         add_right("new", "NEW CLIMB");
@@ -629,15 +644,15 @@ void EggyView::layout_buttons() {
     const int wx = (pw_ - ww) / 2, wy = (ph_ - wh) / 2;
     auto add = [&](const std::string& id, const std::string& label, bool right) {
         const int w = text_w(label, 10, true) + 10;
-        buttons_.push_back({id, label, right ? wx + ww - w - 6 : wx + 6, wy + wh - 14, w, 9});
+        (*rendering_).buttons_.push_back({id, label, right ? wx + ww - w - 6 : wx + 6, wy + wh - 14, w, 9});
     };
-    switch (panel_) {
-        case Panel::title: buttons_.push_back({"start", "BEGIN", pw_ / 2 - 20, ph_ - 30, 40, 9}); break;
+    switch ((*rendering_).panel_) {
+        case Panel::title: (*rendering_).buttons_.push_back({"start", "BEGIN", pw_ / 2 - 20, ph_ - 30, 40, 9}); break;
         case Panel::help: case Panel::scores: add("close", "CLOSE", true); break;
         case Panel::confirm: add("keep", "KEEP CLIMBING", false); add("restart", "START OVER", true); break;
         case Panel::away: add("close", "ONWARD!", true); break;
         case Panel::finale:
-            if (!score_saved_) add("save_name", "SAVE NAME", false);
+            if (!(*rendering_).score_saved_) add("save_name", "SAVE NAME", false);
             add("restart", "NEW CLIMB", true);
             break;
         default: break;
@@ -759,22 +774,23 @@ void EggyView::on_text_input(gf::TextInputEvent& e) {
 // ------------------------------------------------------------------ drawing
 // Shapes are drawn into the small game-pixel framebuffer; text is queued and
 // drawn crisply at display resolution after the pixel-art upscale.
-const Mask& EggyView::tmask(const std::string& s, bool bold, double size, int wrap_game) const {
-    const double wrap_font = wrap_game > 0 ? wrap_game * save_.settings.pixel : 0;
-    return text_mask(s, bold ? Font::pixel_bold : Font::pixel, size, wrap_font);
+games::TextImage EggyView::tmask(const std::string& s, bool bold, double size, int wrap_game) {
+    const double wrap_font = wrap_game > 0 ? wrap_game * (*rendering_).save_.settings.pixel : 0;
+    games::TextImage image = (*game_text_).get(s, bold, size, wrap_font, 1, true);
+    return image;
 }
 
 int EggyView::text(const std::string& s, int x, int y, Col c, double size, bool bold, int wrap, int big) {
-    const Mask& m = tmask(s, bold, size, wrap > 0 ? wrap / big : 0);
+    const games::TextImage m = tmask(s, bold, size, wrap > 0 ? wrap / big : 0);
     texts_.push_back({s, bold, size, wrap > 0 ? wrap / big : 0, x, y, c, big});
-    return static_cast<int>(std::ceil(m.w * big / save_.settings.pixel));
+    return static_cast<int>(std::ceil(m.w * big / static_cast<double>((*rendering_).save_.settings.pixel)));
 }
 
-int EggyView::text_w(const std::string& s, double size, bool bold, int big) const {
-    return static_cast<int>(std::ceil(tmask(s, bold, size, 0).w * big / save_.settings.pixel));
+int EggyView::text_w(const std::string& s, double size, bool bold, int big) {
+    return static_cast<int>(std::ceil(tmask(s, bold, size, 0).w * big / static_cast<double>((*rendering_).save_.settings.pixel)));
 }
-int EggyView::text_h(const std::string& s, double size, bool bold, int wrap, int big) const {
-    return static_cast<int>(std::ceil(tmask(s, bold, size, wrap > 0 ? wrap / big : 0).h * big / save_.settings.pixel));
+int EggyView::text_h(const std::string& s, double size, bool bold, int wrap, int big) {
+    return static_cast<int>(std::ceil(tmask(s, bold, size, wrap > 0 ? wrap / big : 0).h * big / static_cast<double>((*rendering_).save_.settings.pixel)));
 }
 
 void EggyView::draw_window(int x, int y, int w, int h, const std::string& title) {
@@ -790,7 +806,7 @@ void EggyView::draw_window(int x, int y, int w, int h, const std::string& title)
 }
 
 void EggyView::draw_button(const Button& b) {
-    const bool down = pressed_ == b.id;
+    const bool down = (*rendering_).pressed_ == b.id;
     frame_.fill_rect(b.x, b.y, b.w, b.h, kDark);
     frame_.fill_rect(b.x, b.y, b.w - 1, b.h - 1, down ? kShadow : kLight);
     frame_.fill_rect(b.x + 1, b.y + 1, b.w - 2, b.h - 2, down ? kLight : kShadow);
@@ -800,7 +816,7 @@ void EggyView::draw_button(const Button& b) {
 }
 
 void EggyView::draw_hud() {
-    const Sim& s = *sim_;
+    const Sim& s = (*rendering_).sim_;
     // status panel: only what Eggy has achieved, never what remains
     const int x = 3, y = 3, w = 64, h = 25;
     frame_.fill_rect(x + 1, y + 1, w, h, hex(0x000000, .35f));
@@ -814,7 +830,7 @@ void EggyView::draw_hud() {
     };
     row("ALTITUDE", with_commas(s.world.altitude_m(s.d.v)) + " m", hex(0xFFFFFF));
     row("STARS", std::to_string(s.stars_collected), kGoldT);
-    row("CLIMBING", format_duration(std::max(0.0, (s.finished ? save_.finish_seconds : wall_clock() - save_.start_wall))), hex(0xFFFFFF));
+    row("CLIMBING", format_duration(std::max(0.0, (s.finished ? (*rendering_).save_.finish_seconds : (*rendering_).wall_ - (*rendering_).save_.start_wall))), hex(0xFFFFFF));
     text("BREATH", x + 3, ly, hex(0x9FB4D8), 10, false);
     const int bx = x + 23, by = ly + 1, bw = 38, bh = 3;
     frame_.fill_rect(bx, by, bw, bh, hex(0x000000, .6f));
@@ -831,43 +847,43 @@ void EggyView::draw_hud() {
         const int mw = text_w(m, 10, true) + 6, mx = pw_ - mw - 3, my = 3;
         frame_.fill_rect(mx, my, mw, 7, helping ? hex(0x1F7A3A, .88f) : hex(0x8A5A10, .85f));
         frame_.begin(); frame_.rect(mx + .5, my + .5, mw - 1, 6); frame_.stroke(hex(0xFFE9A0, .9f), 1);
-        const float pulse = helping ? 1.f : static_cast<float>(.8 + .2 * std::sin(t_ * 3));
+        const float pulse = helping ? 1.f : static_cast<float>(.8 + .2 * std::sin((*rendering_).t_ * 3));
         text(m, mx + 3, my + 1, hex(0xFFFFFF, pulse), 10, true);
         if (!helping) {
             const std::string hint = "hold a key or the mouse to help";
             text(hint, pw_ - 3 - text_w(hint, 10, false), my + 9, hex(0xFFFFFF, .8f), 10, false);
         }
     }
-    if (banner_t_ > 0) {
-        const float a = static_cast<float>(std::min(1.0, std::min(banner_t_, 5 - banner_t_) * 1.5));
-        const int bw2 = text_w(banner_, 12, true, 2);
-        text(banner_, (pw_ - bw2) / 2, 24, hex(0xFFF2C0, a), 12, true, 0, 2);
+    if ((*rendering_).banner_t_ > 0) {
+        const float a = static_cast<float>(std::min(1.0, std::min((*rendering_).banner_t_, 5 - (*rendering_).banner_t_) * 1.5));
+        const int bw2 = text_w((*rendering_).banner_, 12, true, 2);
+        text((*rendering_).banner_, (pw_ - bw2) / 2, 24, hex(0xFFF2C0, a), 12, true, 0, 2);
     }
     frame_.fill_rect(0, ph_ - 11, pw_, 11, hex(0x10182A, .8f));
     text(std::string(biome_name(s.world.row(static_cast<std::int64_t>(s.d.v)).biome)) + (s.sun() < .2 ? "  -  night" : s.sun() < .6 ? "  -  twilight" : "  -  day"),
          3, ph_ - 8, hex(0xD8E4FF), 10, false);
-    for (const Button& b : buttons_) draw_button(b);
+    for (const Button& b : (*rendering_).buttons_) draw_button(b);
 }
 
 void EggyView::draw_bubble() {
-    if (bubble_.text.empty()) return;
-    const Sim& s = *sim_;
+    if ((*rendering_).bubble_.text.empty()) return;
+    const Sim& s = (*rendering_).sim_;
     double hx, hy;
-    if (bubble_.officer) {
+    if ((*rendering_).bubble_.officer) {
         double z;
         scene_.r.project({scene_.officer_u, scene_.officer_v, s.world.ground(scene_.officer_u, scene_.officer_v) + .5 / scene_.r.height_scale}, hx, hy, z);
     } else {
         scene_.duck_screen(s, hx, hy);
     }
     const int wrap = 66;
-    const std::string shown = bubble_.text.substr(0, static_cast<size_t>(std::max(1, bubble_.shown)));
-    const int tw = std::min(wrap, text_w(bubble_.text, 11, false)), th = text_h(bubble_.text, 11, false, wrap);
+    const std::string shown = (*rendering_).bubble_.text.substr(0, static_cast<size_t>(std::max(1, (*rendering_).bubble_.shown)));
+    const int tw = std::min(wrap, text_w((*rendering_).bubble_.text, 11, false)), th = text_h((*rendering_).bubble_.text, 11, false, wrap);
     const int bw = tw + 5, bh = th + 3;
-    const double pop = std::min(1.0, bubble_.age * 8);
+    const double pop = std::min(1.0, (*rendering_).bubble_.age * 8);
     int bx = static_cast<int>(hx - bw * .3), by = static_cast<int>(hy - bh - 6 - (1 - pop) * 3);
     bx = std::clamp(bx, 3, pw_ - bw - 3);
     by = std::clamp(by, 31, ph_ - bh - 14);
-    const Col bg = bubble_.officer ? hex(0xE9F2D0) : hex(0xFFFFFF);
+    const Col bg = (*rendering_).bubble_.officer ? hex(0xE9F2D0) : hex(0xFFFFFF);
     frame_.fill_rect(bx + 1, by + 1, bw, bh, hex(0x000000, .3f));
     frame_.fill_rect(bx - 1, by - 1, bw + 2, bh + 2, kInk);
     frame_.fill_rect(bx, by, bw, bh, bg);
@@ -876,13 +892,13 @@ void EggyView::draw_bubble() {
         frame_.fill_rect(tx - (4 - i) / 2 - 1, by + bh + i - 1, (4 - i) + 2, 1, kInk);
         frame_.fill_rect(tx - (4 - i) / 2, by + bh + i - 1, (4 - i), 1, bg);
     }
-    text(shown, bx + 2, by + 1, bubble_.officer ? hex(0x2A3A10) : kInk, 11, false, wrap);
+    text(shown, bx + 2, by + 1, (*rendering_).bubble_.officer ? hex(0x2A3A10) : kInk, 11, false, wrap);
 }
 
 void EggyView::draw_panel() {
-    if (panel_ == Panel::none) return;
-    const Sim& s = *sim_;
-    frame_.fill_rect(0, 0, pw_, ph_, hex(0x000010, panel_ == Panel::title ? .25f : .45f));
+    if ((*rendering_).panel_ == Panel::none) return;
+    const Sim& s = (*rendering_).sim_;
+    frame_.fill_rect(0, 0, pw_, ph_, hex(0x000010, (*rendering_).panel_ == Panel::title ? .25f : .45f));
     const int ww = std::min(pw_ - 12, 200), wh = std::min(ph_ - 12, 140);
     const int wx = (pw_ - ww) / 2, wy = (ph_ - wh) / 2;
     int ly = wy + 13;
@@ -890,25 +906,25 @@ void EggyView::draw_panel() {
         text(t, wx + 6, ly, c, 11, bold, ww - 12);
         ly += text_h(t, 11, bold, ww - 12) + 2;
     };
-    switch (panel_) {
+    switch ((*rendering_).panel_) {
         case Panel::title: {
             const int sc = 4;
-            const Mask& t1 = text_mask("EGGY", Font::pixel_bold, 14);
+            const games::TextImage t1 = (*game_text_).get("EGGY", true, 14, 0, 1, true);
             const int tx = (pw_ - t1.w * sc) / 2, ty = ph_ / 2 - 70;
             for (int dx = -1; dx <= 1; ++dx)
-                for (int dy = -1; dy <= 1; ++dy) frame_.draw_mask(t1, tx + dx * 2, ty + dy * 2, hex(0x3A1E08), sc);
-            frame_.draw_mask(t1, tx + sc, ty + sc, hex(0x000000, .5f), sc);
-            frame_.draw_mask(t1, tx, ty, kGoldT, sc);
+                for (int dy = -1; dy <= 1; ++dy) blit_title_mask(t1, tx + dx * 2, ty + dy * 2, hex(0x3A1E08), sc);
+            blit_title_mask(t1, tx + sc, ty + sc, hex(0x000000, .5f), sc);
+            blit_title_mask(t1, tx, ty, kGoldT, sc);
             int yy = ty + t1.h * sc + 4;
             auto centre = [&](const std::string& t, Col c, double size, bool bold, int big) {
                 text(t, (pw_ - text_w(t, size, bold, big)) / 2, yy, c, size, bold, 0, big);
                 yy += text_h(t, size, bold, 0, big) + 3;
             };
             centre("and the Very, Very Tall Mountain", hex(0xFFFFFF), 13, true, 2);
-            centre(away_m_ > 1 ? "Eggy kept climbing while you were away." : "A tiny duck. A very, very tall mountain.", hex(0xFFF2C0), 12, false, 1);
+            centre((*rendering_).away_m_ > 1 ? "Eggy kept climbing while you were away." : "A tiny duck. A very, very tall mountain.", hex(0xFFF2C0), 12, false, 1);
             yy += 4;
-            centre("CLICK OR PRESS ANY KEY", hex(0xFFFFFF, std::sin(t_ * 4) > 0 ? 1.f : .45f), 12, true, 1);
-            buttons_.clear();
+            centre("CLICK OR PRESS ANY KEY", hex(0xFFFFFF, std::sin((*rendering_).t_ * 4) > 0 ? 1.f : .45f), 12, true, 1);
+            (*rendering_).buttons_.clear();
             return;
         }
         case Panel::help:
@@ -922,18 +938,18 @@ void EggyView::draw_panel() {
             line("Why can't Eggy be your screensaver? Because the ducks always find their way out of the game and onto people's desks.", hex(0x6A1A1A));
             break;
         case Panel::scores: case Panel::finale: {
-            const bool fin = panel_ == Panel::finale;
+            const bool fin = (*rendering_).panel_ == Panel::finale;
             draw_window(wx, wy, ww, wh, fin ? "ELITE SPECIAL SOLDIER, FIRST CLASS" : "TOP SCORES");
             if (fin) {
-                line("Eggy reached the summit! Time to complete: " + format_duration(save_.finish_seconds), kInk, true);
+                line("Eggy reached the summit! Time to complete: " + format_duration((*rendering_).save_.finish_seconds), kInk, true);
                 line("Stars collected: " + std::to_string(s.stars_collected), kInk);
-                if (!score_saved_) line("ENTER YOUR NAME:  " + name_entry_ + (std::sin(t_ * 6) > 0 ? "_" : " "), hex(0x0A246A), true);
+                if (!(*rendering_).score_saved_) line("ENTER YOUR NAME:  " + (*rendering_).name_entry_ + (std::sin((*rendering_).t_ * 6) > 0 ? "_" : " "), hex(0x0A246A), true);
                 else line("Your name is in the book of summits.", hex(0x1F6A2A), true);
                 ly += 2;
             }
-            if (save_.scores.empty()) line("No summits yet. The mountain is very, very tall.", kShadow);
-            for (size_t i = 0; i < save_.scores.size() && ly < wy + wh - 18; ++i) {
-                const TopScore& t = save_.scores[i];
+            if ((*rendering_).save_.scores.empty()) line("No summits yet. The mountain is very, very tall.", kShadow);
+            for (size_t i = 0; i < (*rendering_).save_.scores.size() && ly < wy + wh - 18; ++i) {
+                const TopScore& t = (*rendering_).save_.scores[i];
                 std::ostringstream o;
                 o << (i + 1) << ". " << std::left << std::setw(13) << t.name << " " << format_duration(t.seconds) << "   stars " << t.stars;
                 line(o.str(), i == 0 ? hex(0x8A5A00) : kInk, i == 0);
@@ -947,60 +963,74 @@ void EggyView::draw_panel() {
             break;
         case Panel::away:
             draw_window(wx, wy, ww, wh, "WHILE YOU WERE AWAY");
-            line("You were gone for " + format_duration(away_s_) + ".");
-            line("Eggy climbed " + with_commas(away_m_) + " m on his own.", kInk, true);
+            line("You were gone for " + format_duration((*rendering_).away_s_) + ".");
+            line("Eggy climbed " + with_commas((*rendering_).away_m_) + " m on his own.", kInk, true);
             line("He chirped the whole way. He did not stop. He never stops.");
             line("(Stars wait for a helping hand.)", kShadow);
             break;
         default: break;
     }
-    for (const Button& b : buttons_) draw_button(b);
+    for (const Button& b : (*rendering_).buttons_) draw_button(b);
 }
 
 void EggyView::compose() {
     texts_.clear();
+    layout_render_buttons();
     scene_.r.present(frame_, 1, 0, 0, true);
-    if (title_card_ > 0 && panel_ == Panel::none) {
+    if ((*rendering_).title_card_ > 0 && (*rendering_).panel_ == Panel::none) {
         const std::string t = "ELITE SPECIAL SOLDIER";
         text(t, (pw_ - text_w(t, 14, true, 3)) / 2, 30, kGoldT, 14, true, 0, 3);
     }
-    if (panel_ == Panel::title) layout_buttons();
-    if (panel_ != Panel::title) draw_hud();
-    if (panel_ == Panel::none) draw_bubble();
+
+    if ((*rendering_).panel_ != Panel::title) draw_hud();
+    if ((*rendering_).panel_ == Panel::none) draw_bubble();
     draw_panel();
 }
 
 void EggyView::blit_texts(std::uint32_t* dst, size_t stride_px, double k) {
-    const int scale_unit = std::max(1, static_cast<int>(std::lround(bs_)));
+    // Scale the finished binary pixel-art mask with the same mapping as the scene.
+    const double scale_unit = bs_;
+    std::span<std::uint32_t> pixels(dst, stride_px * static_cast<std::size_t>(phys_h_));
     for (const HiText& h : texts_) {
-        const Mask& m = tmask(h.s, h.bold, h.size, h.wrap);
-        const int sc = scale_unit * h.big;
-        const int ox = static_cast<int>(h.x * k), oy = static_cast<int>(h.y * k);
-        const bool shadow = h.c.r + h.c.g + h.c.b > 1.5f;
-        for (int pass = shadow ? 0 : 1; pass < 2; ++pass) {
-            const Col c = pass == 0 ? hex(0x000000, .7f * h.c.a) : h.c;
-            const int off = pass == 0 ? sc : 0;
-            const float pr = c.r * c.a, pg = c.g * c.a, pb = c.b * c.a;
-            for (int my = 0; my < m.h * sc; ++my) {
-                const int dy = oy + my + off;
-                if (dy < 0 || dy >= phys_h_) continue;
-                const std::uint8_t* srow = m.a.data() + static_cast<size_t>(my / sc) * m.w;
-                std::uint32_t* drow = dst + static_cast<size_t>(dy) * stride_px;
-                for (int mx = 0; mx < m.w * sc; ++mx) {
-                    const int dx = ox + mx + off;
-                    if (dx < 0 || dx >= phys_w_) continue;
-                    const float cov = srow[mx / sc] * (1.f / 255.f);
-                    if (cov <= 0) continue;
-                    const std::uint32_t d = drow[dx];
-                    const float a = c.a * cov, kk = 1 - a;
-                    const auto ch = [&](int sh, float src) {
-                        return static_cast<std::uint32_t>(std::min(255.f, src * cov * 255 + static_cast<float>((d >> sh) & 255) * kk + .5f)) << sh;
-                    };
-                    drow[dx] = ch(0, pb) | ch(8, pg) | ch(16, pr) | (0xFFu << 24);
-                }
-            }
+        const games::TextImage image = tmask(h.s, h.bold, h.size, h.wrap);
+        const double sc = scale_unit * h.big;
+        const int x = static_cast<int>(h.x * k), y = static_cast<int>(h.y * k);
+        if (h.c.r + h.c.g + h.c.b > 1.5) {
+            games::blit_game_text(pixels, phys_w_, phys_h_, stride_px, image,
+                x + static_cast<int>(std::lround(sc)), y + static_cast<int>(std::lround(sc)), 0, 0, 0, .7 * h.c.a, sc);
         }
+        games::blit_game_text(pixels, phys_w_, phys_h_, stride_px, image,
+            x, y, h.c.r, h.c.g, h.c.b, h.c.a, sc);
     }
+}
+void EggyView::blit_title_mask(const games::TextImage& image, int x, int y, Col color, int scale) {
+    std::span<std::uint32_t> pixels(reinterpret_cast<std::uint32_t*>(frame_.px.data()), frame_.px.size() / 4);
+    games::blit_game_text(pixels, frame_.w, frame_.h, static_cast<std::size_t>(frame_.w),
+        image, x, y, color.r, color.g, color.b, color.a, scale);
+}
+void EggyView::layout_buttons() {
+    rendering_pending_ = false;
+    buttons_.clear();
+    if (game_text_) (*game_text_).cancel();
+}
+void EggyView::capture_render_state() {
+    if (!rendering_) rendering_ = std::make_unique<RenderState>();
+    rendering_pending_ = true;
+    RenderState& state = *rendering_;
+    state.sim_ = *sim_;
+    state.wall_ = wall_clock();
+    state.save_ = save_;
+    state.bubble_ = bubble_;
+    state.banner_ = banner_;
+    state.name_entry_ = name_entry_;
+    state.pressed_ = pressed_;
+    state.panel_ = panel_;
+    state.score_saved_ = score_saved_;
+    state.away_m_ = away_m_;
+    state.away_s_ = away_s_;
+    state.banner_t_ = banner_t_;
+    state.t_ = t_;
+    state.title_card_ = title_card_;
 }
 
 }  // namespace eggy

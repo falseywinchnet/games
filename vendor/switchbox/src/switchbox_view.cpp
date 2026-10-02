@@ -1,7 +1,7 @@
 #include "switchbox_view.hpp"
 
 #include "platform/audio.hpp"
-#include "platform/text.hpp"
+#include "runtime_paths.hpp"
 
 #include "gui_forms/surface_material.hpp"
 #include "gui_forms/window.hpp"
@@ -314,7 +314,15 @@ void SwitchboxView::tick() {
         displayed.fx.hearts = displayed.fx.sparkle = displayed.fx.steam = 0;
         for (SwitchVis& lever : displayed.sw) { lever.wiggle = 0; }
     }
+    if (!game_text_) {
+        game_text_ = std::make_unique<games::GameText>(
+            std::filesystem::path(games::asset_directory()) / "fonts", "ComicNeue");
+    }
+    if (!rendering_pending_) {
+        capture_render_state();
     stage_.render(displayed, quiet ? 0 : t_);
+    }
+    (*game_text_).begin();
     compose();
     publish();
 }
@@ -328,7 +336,7 @@ void SwitchboxView::publish() {
         if (surface_ && attached_window()) direct_ = (*attached_window()).queue_live_surface_presentation(shared_from_this(), surface_);
     }
     if (!surface_) return;
-    gf::LiveSurfaceWriteLease lease = surface_->try_acquire_write();
+    gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write();
     if (lease && static_cast<int>(lease.width()) == phys_w_ && static_cast<int>(lease.height()) == phys_h_) {
         std::span<std::byte> dst = lease.pixels();
         const size_t rb = lease.row_bytes();
@@ -345,10 +353,15 @@ void SwitchboxView::publish() {
             for (int x = 0; x < phys_w_; ++x) o[x] = sr[xmap_[static_cast<size_t>(x)]];
         }
         blit_texts(reinterpret_cast<std::uint32_t*>(dst.data()), rb / 4, k);
-        static_cast<void>(lease.publish());
+        if (!(*game_text_).ready()) return;
+        const bool published = lease.publish();
+        if (published) {
+            buttons_ = (*rendering_).buttons_;
+            rendering_pending_ = false;
+        }
     }
     if (!direct_) invalidate(gf::Dirty::paint);
-    text_cache_trim();
+
 }
 
 // Holding a switch (her hand on the pointer), the pointer she carries off, and
@@ -564,47 +577,49 @@ void SwitchboxView::open(Panel p) {
 }
 
 // ------------------------------------------------------------------ drawing
-const Mask& SwitchboxView::tmask(const std::string& s, bool bold, double size, int wrap_game) const {
-    return text_mask(s, bold ? Font::speech_bold : Font::speech, size, wrap_game > 0 ? wrap_game * pixel_ : 0);
+games::TextImage SwitchboxView::tmask(const std::string& s, bool bold, double size, int wrap_game) {
+    games::TextImage image = (*game_text_).get(s, bold, size,
+        wrap_game > 0 ? wrap_game * pixel_ : 0, bs_);
+    return image;
 }
 int SwitchboxView::text(const std::string& s, int x, int y, Col c, double size, bool bold, int wrap) {
     texts_.push_back({s, bold, size, wrap, x, y, c});
     return text_w(s, size, bold);
 }
-int SwitchboxView::text_w(const std::string& s, double size, bool bold) const {
+int SwitchboxView::text_w(const std::string& s, double size, bool bold) {
     return static_cast<int>(std::ceil(tmask(s, bold, size, 0).w / static_cast<double>(pixel_)));
 }
-int SwitchboxView::text_h(const std::string& s, double size, bool bold, int wrap) const {
+int SwitchboxView::text_h(const std::string& s, double size, bool bold, int wrap) {
     return static_cast<int>(std::ceil(tmask(s, bold, size, wrap).h / static_cast<double>(pixel_)));
 }
 
-void SwitchboxView::layout_buttons() {
-    buttons_.clear();
+void SwitchboxView::layout_render_buttons() {
+    (*rendering_).buttons_.clear();
     if (pw_ <= 0) return;
     const int bh = 12, y = ph_ - bh - 4;
     int x = pw_ - 4;
     auto add_right = [&](const std::string& id, const std::string& label) {
         const int w = text_w(label, 11, true) + 10;
         x -= w;
-        buttons_.push_back({id, label, x, y, w, bh});
+        (*rendering_).buttons_.push_back({id, label, x, y, w, bh});
         x -= 3;
     };
-    if (panel_ == Panel::none) {
-        add_right("music", save_.settings.music ? "Music on" : "Music off");
-        add_right("sound", save_.settings.sound ? "Sound on" : "Sound off");
+    if ((*rendering_).panel_ == Panel::none) {
+        add_right("music", (*rendering_).save_.settings.music ? "Music on" : "Music off");
+        add_right("sound", (*rendering_).save_.settings.sound ? "Sound on" : "Sound off");
         add_right("scores", "Top scores");
         add_right("help", "Help");
         return;
     }
     const int ww = std::min(pw_ - 20, 300), wh = std::min(ph_ - 20, 210);
     const int wx = (pw_ - ww) / 2, wy = (ph_ - wh) / 2;
-    const std::string label = panel_ == Panel::name ? "Save" : "Close";
+    const std::string label = (*rendering_).panel_ == Panel::name ? "Save" : "Close";
     const int w = text_w(label, 11, true) + 14;
-    buttons_.push_back({panel_ == Panel::name ? "save_name" : "close", label, wx + ww - w - 8, wy + wh - 18, w, 13});
+    (*rendering_).buttons_.push_back({(*rendering_).panel_ == Panel::name ? "save_name" : "close", label, wx + ww - w - 8, wy + wh - 18, w, 13});
 }
 
 void SwitchboxView::draw_button(const Button& b) {
-    const bool down = pressed_ == b.id, over = hover_ == b.id;
+    const bool down = (*rendering_).pressed_ == b.id, over = (*rendering_).hover_ == b.id;
     frame_.begin(); frame_.rrect(b.x + 1, b.y + 1, b.w, b.h, 4); frame_.fill(hex(0x8A4A66, .35f));
     frame_.begin(); frame_.rrect(b.x, b.y + (down ? 1 : 0), b.w, b.h, 4); frame_.fill(over ? kPinkSoft : kPaper);
     frame_.begin(); frame_.rrect(b.x + .5, b.y + .5 + (down ? 1 : 0), b.w - 1, b.h - 1, 4); frame_.stroke(kPink, 1);
@@ -614,32 +629,32 @@ void SwitchboxView::draw_button(const Button& b) {
 
 void SwitchboxView::draw_hud() {
     const int x = 6, y = 6;
-    const std::string steps = "Steps  " + std::to_string(puzzle_.steps());
-    const std::string best = save_.scores.empty() ? "Best  -" : "Best  " + std::to_string(save_.scores.front().steps);
+    const std::string steps = "Steps  " + std::to_string((*rendering_).puzzle_.steps());
+    const std::string best = (*rendering_).save_.scores.empty() ? "Best  -" : "Best  " + std::to_string((*rendering_).save_.scores.front().steps);
     const int w = std::max(text_w(steps, 13, true), text_w(best, 11, false)) + 14, h = 27;
     frame_.begin(); frame_.rrect(x + 1, y + 1, w, h, 6); frame_.fill(hex(0x8A4A66, .3f));
     frame_.begin(); frame_.rrect(x, y, w, h, 6); frame_.fill(alpha(kPaper, .92f));
     frame_.begin(); frame_.rrect(x + .5, y + .5, w - 1, h - 1, 6); frame_.stroke(kPink, 1);
     text(steps, x + 7, y + 3, kInk, 13, true);
     text(best, x + 7, y + 15, hex(0x9A6A80), 11, false);
-    if (save_.cracked > 0) {
-        const std::string c = "Cracked " + std::to_string(save_.cracked);
+    if ((*rendering_).save_.cracked > 0) {
+        const std::string c = "Cracked " + std::to_string((*rendering_).save_.cracked);
         text(c, x + 2, y + h + 3, hex(0x9A6A80), 10, false);
     }
-    for (const Button& b : buttons_) draw_button(b);
+    for (const Button& b : (*rendering_).buttons_) draw_button(b);
 }
 
 void SwitchboxView::draw_mole_hud() {
-    if (!mole_.active() && result_t_ <= 0) return;
+    if (!(*rendering_).mole_.active() && (*rendering_).result_t_ <= 0) return;
     std::string big, small;
-    if (mole_.active() && !mole_.playing()) { big = "Ready..."; small = "Whack the switches as they pop up!"; }
-    else if (mole_.active()) {
-        const int s = static_cast<int>(std::ceil(mole_.left()));
-        big = "0:" + std::string(s < 10 ? "0" : "") + std::to_string(s) + "    " + std::to_string(mole_.hits()) + " whacked";
-        small = mole_.hits() >= Mole::kGreat ? "Amazing! Keep going!" : std::to_string(Mole::kGreat - mole_.hits()) + " more for a surprise";
+    if ((*rendering_).mole_.active() && !(*rendering_).mole_.playing()) { big = "Ready..."; small = "Whack the switches as they pop up!"; }
+    else if ((*rendering_).mole_.active()) {
+        const int s = static_cast<int>(std::ceil((*rendering_).mole_.left()));
+        big = "0:" + std::string(s < 10 ? "0" : "") + std::to_string(s) + "    " + std::to_string((*rendering_).mole_.hits()) + " whacked";
+        small = (*rendering_).mole_.hits() >= Mole::kGreat ? "Amazing! Keep going!" : std::to_string(Mole::kGreat - (*rendering_).mole_.hits()) + " more for a surprise";
     } else {
-        big = std::to_string(result_hits_) + " whacked!";
-        small = result_hits_ >= Mole::kGreat ? "" : "Get " + std::to_string(Mole::kGreat) + " for a surprise.";
+        big = std::to_string((*rendering_).result_hits_) + " whacked!";
+        small = (*rendering_).result_hits_ >= Mole::kGreat ? "" : "Get " + std::to_string(Mole::kGreat) + " for a surprise.";
     }
     const int bw = std::max(text_w(big, 20, true), text_w(small, 11, false)) + 24, bh = small.empty() ? 30 : 42;
     const int bx = (pw_ - bw) / 2, by = 8;
@@ -651,38 +666,38 @@ void SwitchboxView::draw_mole_hud() {
 }
 
 void SwitchboxView::draw_bubble() {
-    if (bubble_.text.empty()) return;
+    if ((*rendering_).bubble_.text.empty()) return;
     // anchor: her mouth when she is out, the lid's gap while she is inside
     double ax, ay;
-    if (bubble_.muffled && actor_.hidden()) stage_.to_screen({0, Stage::kOpenY0 + .2, Stage::kBoxZ + .1}, ax, ay);
+    if ((*rendering_).bubble_.muffled && (*rendering_).actor_hidden_) stage_.to_screen({0, Stage::kOpenY0 + .2, Stage::kBoxZ + .1}, ax, ay);
     else {
-        const M34 h = head_frame(st_.girl);
+        const M34 h = head_frame((*rendering_).st_.girl);
         stage_.to_screen(h.apply({0, -.4, -.2}), ax, ay);
     }
-    const int wrap = bubble_.special ? 170 : 130;
-    const double size = bubble_.special ? 17 : bubble_.muffled ? 11 : 12.5;
-    const std::string shown = bubble_.text.substr(0, static_cast<size_t>(std::max(1, bubble_.shown)));
-    const int tw = std::min(wrap, text_w(bubble_.text, size, bubble_.special)), th = text_h(bubble_.text, size, bubble_.special, wrap);
+    const int wrap = (*rendering_).bubble_.special ? 170 : 130;
+    const double size = (*rendering_).bubble_.special ? 17 : (*rendering_).bubble_.muffled ? 11 : 12.5;
+    const std::string shown = (*rendering_).bubble_.text.substr(0, static_cast<size_t>(std::max(1, (*rendering_).bubble_.shown)));
+    const int tw = std::min(wrap, text_w((*rendering_).bubble_.text, size, (*rendering_).bubble_.special)), th = text_h((*rendering_).bubble_.text, size, (*rendering_).bubble_.special, wrap);
     const int bw = tw + 12, bh = th + 7;
-    const double pop = cab_reduced_ || save_.settings.reduced_motion ? 1.0 : std::min(1.0, bubble_.age * 7);
+    const double pop = (*rendering_).cab_reduced_ || (*rendering_).save_.settings.reduced_motion ? 1.0 : std::min(1.0, (*rendering_).bubble_.age * 7);
     const bool right = ax < pw_ * .5;
     int bx = static_cast<int>(right ? ax + 26 : ax - 26 - bw), by = static_cast<int>(ay - bh - 18 - (1 - pop) * 4);
     bx = std::clamp(bx, 4, pw_ - bw - 4);
     by = std::clamp(by, 4, ph_ - bh - 24);
-    const Col bg = bubble_.special ? hex(0xFFE3EE) : bubble_.muffled ? hex(0xF7EEF4) : kPaper;
-    const Col line = bubble_.special ? hex(0xE0508A) : bubble_.muffled ? hex(0xC9A3B8) : kPink;
+    const Col bg = (*rendering_).bubble_.special ? hex(0xFFE3EE) : (*rendering_).bubble_.muffled ? hex(0xF7EEF4) : kPaper;
+    const Col line = (*rendering_).bubble_.special ? hex(0xE0508A) : (*rendering_).bubble_.muffled ? hex(0xC9A3B8) : kPink;
     // tail toward the speaker
     const double tx = std::clamp(ax, bx + 10.0, bx + bw - 10.0);
     frame_.begin(); frame_.move(tx - 6, by + bh - 1); frame_.line(ax, ay - 6); frame_.line(tx + 6, by + bh - 1); frame_.close(); frame_.fill(line);
     frame_.begin(); frame_.rrect(bx + 1, by + 2, bw, bh, 8); frame_.fill(hex(0x8A4A66, .25f));
     frame_.begin(); frame_.rrect(bx, by, bw, bh, 8); frame_.fill(bg);
-    frame_.begin(); frame_.rrect(bx + .5, by + .5, bw - 1, bh - 1, 8); frame_.stroke(line, bubble_.muffled ? 1 : 1.5);
+    frame_.begin(); frame_.rrect(bx + .5, by + .5, bw - 1, bh - 1, 8); frame_.stroke(line, (*rendering_).bubble_.muffled ? 1 : 1.5);
     frame_.begin(); frame_.move(tx - 4.5, by + bh - 1.5); frame_.line(ax, ay - 8); frame_.line(tx + 4.5, by + bh - 1.5); frame_.close(); frame_.fill(bg);
-    text(shown, bx + 6, by + 3, bubble_.special ? hex(0xB02A66) : bubble_.muffled ? hex(0x8E6E80) : kInk, size, bubble_.special, wrap);
+    text(shown, bx + 6, by + 3, (*rendering_).bubble_.special ? hex(0xB02A66) : (*rendering_).bubble_.muffled ? hex(0x8E6E80) : kInk, size, (*rendering_).bubble_.special, wrap);
 }
 
 void SwitchboxView::draw_panel() {
-    if (panel_ == Panel::none) return;
+    if ((*rendering_).panel_ == Panel::none) return;
     frame_.fill_rect(0, 0, pw_, ph_, hex(0x4A2C40, .35f));
     const int ww = std::min(pw_ - 20, 300), wh = std::min(ph_ - 20, 210);
     const int wx = (pw_ - ww) / 2, wy = (ph_ - wh) / 2;
@@ -696,7 +711,7 @@ void SwitchboxView::draw_panel() {
         ly += text_h(t, size, bold, ww - 20) + 3;
     };
     auto title = [&](const std::string& t) { text(t, wx + 10, wy + 5, kInk, 14, true); };
-    switch (panel_) {
+    switch ((*rendering_).panel_) {
         case Panel::help:
             title("Switchbox");
             line("She lives in the box, and those are her switches. Flip one and she pops up to push it back down.");
@@ -708,9 +723,9 @@ void SwitchboxView::draw_panel() {
             break;
         case Panel::scores:
             title("Fewest flips");
-            if (save_.scores.empty()) line("No combinations cracked yet.", hex(0x9A6A80));
-            for (size_t i = 0; i < save_.scores.size(); ++i) {
-                const TopScore& t = save_.scores[i];
+            if ((*rendering_).save_.scores.empty()) line("No combinations cracked yet.", hex(0x9A6A80));
+            for (size_t i = 0; i < (*rendering_).save_.scores.size(); ++i) {
+                const TopScore& t = (*rendering_).save_.scores[i];
                 char buf[64];
                 std::snprintf(buf, sizeof buf, "%2zu.  %-14s  %d", i + 1, t.name.c_str(), t.steps);
                 line(buf, i == 0 ? hex(0xB0507A) : kInk, i == 0);
@@ -718,49 +733,62 @@ void SwitchboxView::draw_panel() {
             break;
         case Panel::name:
             title("A top score!");
-            line("You cracked it in " + std::to_string(last_steps_) + " flips.", kInk, true, 12);
+            line("You cracked it in " + std::to_string((*rendering_).last_steps_) + " flips.", kInk, true, 12);
             line("Your name for the box:");
-            line(name_entry_ + (std::sin(t_ * 6) > 0 ? "_" : " "), hex(0xB0507A), true, 14);
+            line((*rendering_).name_entry_ + (std::sin((*rendering_).t_ * 6) > 0 ? "_" : " "), hex(0xB0507A), true, 14);
             break;
         case Panel::none: break;
     }
-    for (const Button& b : buttons_) draw_button(b);
+    for (const Button& b : (*rendering_).buttons_) draw_button(b);
 }
 
 void SwitchboxView::compose() {
     texts_.clear();
+    layout_render_buttons();
     stage_.r.present(frame_, 1, 0, 0, true);
     draw_hud();
     draw_mole_hud();
-    draw_bubble();
+    if ((*rendering_).panel_ == Panel::none) draw_bubble();
     draw_panel();
 }
 
 void SwitchboxView::blit_texts(std::uint32_t* dst, size_t stride_px, double k) {
-    const int sc = std::max(1, static_cast<int>(std::lround(bs_)));
+    std::span<std::uint32_t> pixels(dst, stride_px * static_cast<std::size_t>(phys_h_));
     for (const HiText& h : texts_) {
-        const Mask& m = tmask(h.s, h.bold, h.size, h.wrap);
-        const int ox = static_cast<int>(h.x * k), oy = static_cast<int>(h.y * k);
-        const float pr = h.c.r * h.c.a, pg = h.c.g * h.c.a, pb = h.c.b * h.c.a;
-        for (int my = 0; my < m.h * sc; ++my) {
-            const int dy = oy + my;
-            if (dy < 0 || dy >= phys_h_) continue;
-            const std::uint8_t* srow = m.a.data() + static_cast<size_t>(my / sc) * m.w;
-            std::uint32_t* drow = dst + static_cast<size_t>(dy) * stride_px;
-            for (int mx = 0; mx < m.w * sc; ++mx) {
-                const int dx = ox + mx;
-                if (dx < 0 || dx >= phys_w_) continue;
-                const float cov = srow[mx / sc] * (1.f / 255.f);
-                if (cov <= 0) continue;
-                const std::uint32_t d = drow[dx];
-                const float a = h.c.a * cov, kk = 1 - a;
-                const auto ch = [&](int sh, float src) {
-                    return static_cast<std::uint32_t>(std::min(255.f, src * cov * 255 + static_cast<float>((d >> sh) & 255) * kk + .5f)) << sh;
-                };
-                drow[dx] = ch(0, pb) | ch(8, pg) | ch(16, pr) | (0xFFu << 24);
-            }
-        }
+        const games::TextImage image = tmask(h.s, h.bold, h.size, h.wrap);
+        games::blit_game_text(pixels, phys_w_, phys_h_, stride_px, image,
+            static_cast<int>(h.x * k), static_cast<int>(h.y * k),
+            h.c.r, h.c.g, h.c.b, h.c.a);
     }
+}
+
+void SwitchboxView::layout_buttons() {
+    // New panel, size or settings invalidate a pending attempt, never the
+    // currently displayed pixels. Hit regions follow the next published frame.
+    rendering_pending_ = false;
+    buttons_.clear();
+    if (game_text_) (*game_text_).cancel();
+}
+
+void SwitchboxView::capture_render_state() {
+    if (!rendering_) rendering_ = std::make_unique<RenderState>();
+    rendering_pending_ = true;
+    RenderState& state = *rendering_;
+    state.puzzle_ = puzzle_;
+    state.save_ = save_;
+    state.st_ = st_;
+    state.bubble_ = bubble_;
+    state.mole_ = mole_;
+    state.name_entry_ = name_entry_;
+    state.pressed_ = pressed_;
+    state.hover_ = hover_;
+    state.panel_ = panel_;
+    state.cab_reduced_ = cab_reduced_;
+    state.last_steps_ = last_steps_;
+    state.result_hits_ = result_hits_;
+    state.result_t_ = result_t_;
+    state.t_ = t_;
+    state.actor_hidden_ = actor_.hidden();
 }
 
 }  // namespace sbx

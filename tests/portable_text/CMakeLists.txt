@@ -36,11 +36,15 @@ add_executable(game_text_frame_tests "${games_root}/tests/game_text_frame_tests.
 target_link_libraries(game_text_frame_tests PRIVATE game_text_frames)
 add_test(NAME game_text_frame_preparation COMMAND game_text_frame_tests "${GAMES_TEXT_SOURCE_DIR}/assets/fonts")
 set_tests_properties(game_text_frame_preparation PROPERTIES TIMEOUT 30)
-add_library(fourpegs_text_view_compile OBJECT "${games_root}/vendor/fourpegs/src/fourpegs_view.cpp")
-target_link_libraries(fourpegs_text_view_compile PRIVATE game_text_frames GUIForms::Controls)
+add_library(vendor_text_views OBJECT
+    "${games_root}/vendor/eggy/src/eggy_view.cpp"
+    "${games_root}/vendor/fourpegs/src/fourpegs_view.cpp"
+    "${games_root}/vendor/atomprobe/src/atomprobe_view.cpp"
+    "${games_root}/vendor/switchbox/src/switchbox_view.cpp")
+target_link_libraries(vendor_text_views PRIVATE game_text_frames GUIForms::Controls)
 
-option(GAMES_TEST_FOURPEGS_FRAMES "Render complete Four Pegs frames with real portable services" OFF)
-if(GAMES_TEST_FOURPEGS_FRAMES)
+option(GAMES_TEST_VENDOR_FRAMES "Render complete vendor game frames with real portable services" OFF)
+if(GAMES_TEST_VENDOR_FRAMES)
     set(GAMES_BUILD_APPLICATION OFF CACHE BOOL "" FORCE)
     add_subdirectory("${games_root}" game_cores EXCLUDE_FROM_ALL)
     set(GUI_FORMS_BUILD_AUDIO_LOOP_TRANSPORT ON CACHE BOOL "" FORCE)
@@ -49,12 +53,18 @@ if(GAMES_TEST_FOURPEGS_FRAMES)
         "${games_root}/src/audio_loader.cpp"
         "${games_root}/src/pcm_player.cpp"
         "${games_root}/src/fourpegs_audio.cpp"
+        "${games_root}/src/scene_audio.cpp"
+        "${games_root}/vendor/eggy/src/audio.cpp"
+        "${games_root}/vendor/atomprobe/src/platform/audio.cpp"
+        "${games_root}/vendor/switchbox/src/platform/audio.cpp"
         "${games_root}/vendor/fourpegs/src/platform/audio.cpp")
     target_include_directories(fourpegs_frame_audio PUBLIC "${games_root}/src")
     target_link_libraries(fourpegs_frame_audio PUBLIC GUIForms::Audio game_paths)
-    add_executable(fourpegs_frame_tests "${games_root}/tests/fourpegs_frame_tests.cpp")
-    target_link_libraries(fourpegs_frame_tests PRIVATE fourpegs_text_view_compile
-        game_text_frames fp_core fourpegs_frame_audio GUIForms::Controls)
-    add_test(NAME fourpegs_native_frames COMMAND fourpegs_frame_tests "${games_root}/assets")
-    set_tests_properties(fourpegs_native_frames PROPERTIES TIMEOUT 45)
+    add_executable(vendor_game_frame_tests "${games_root}/tests/vendor_game_frame_tests.cpp")
+    target_link_libraries(vendor_game_frame_tests PRIVATE vendor_text_views
+        game_text_frames fp_core ap_core sbx_core eggy_core fourpegs_frame_audio GUIForms::Controls)
+    foreach(game IN ITEMS fourpegs atomprobe switchbox eggy)
+        add_test(NAME ${game}_native_frames COMMAND vendor_game_frame_tests "${games_root}/assets" ${game})
+        set_tests_properties(${game}_native_frames PROPERTIES TIMEOUT 45)
+    endforeach()
 endif()
