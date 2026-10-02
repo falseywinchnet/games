@@ -1,0 +1,197 @@
+name: Build installable Games
+on:
+  push:
+    branches: [main, 'codex/**']
+    tags: ['v*']
+    paths-ignore: ['docs/**', '*.md']
+  pull_request:
+    paths-ignore: ['docs/**', '*.md']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: applications-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        id: runtime-cache
+        with:
+          path: build/runtime-assets
+          key: runtime-v1-${{ hashFiles('assets/**', 'tools/prepare_portable_assets.py') }}
+      - name: Install authoring tools
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg python3-pil
+      - name: Prepare compact game resources
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        run: /usr/bin/python3 tools/prepare_portable_assets.py --output build/runtime-assets --ffmpeg ffmpeg
+      - name: Verify and archive resources
+        run: |
+          /usr/bin/python3 tools/verify_portable_assets.py --runtime build/runtime-assets
+          tar -czf build/runtime.tar.gz -C build/runtime-assets .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime
+          path: build/runtime.tar.gz
+          compression-level: 0
+  application:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2022
+            platform: windows-x64
+            shell: 'msys2 {0}'
+          - runner: macos-15
+            platform: macos-arm64
+            shell: bash
+          - runner: ubuntu-24.04
+            platform: linux-amd64
+            shell: bash
+          - runner: ubuntu-24.04-arm
+            platform: linux-arm64
+            shell: bash
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch reviewed GUI.Forms source
+        uses: actions/checkout@v4
+        with:
+          repository: falseywinchnet/file_manager
+          ref: 7b260cfb9f3267392e1470b0fcf4cd2497437819
+          path: toolkit
+          sparse-checkout: gui_forms
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja mingw-w64-x86_64-python
+            mingw-w64-x86_64-nsis git
+      - name: Install macOS C++20 compiler and runtime
+        if: runner.os == 'macOS'
+        run: |
+          brew install ninja llvm@20
+          llvm_prefix="$(brew --prefix llvm@20)"
+          echo "CXX=$llvm_prefix/bin/clang++" >> "$GITHUB_ENV"
+          echo "OBJCXX=$llvm_prefix/bin/clang++" >> "$GITHUB_ENV"
+          echo "CC=$llvm_prefix/bin/clang" >> "$GITHUB_ENV"
+          echo "CXXFLAGS=-nostdinc++ -isystem $llvm_prefix/include/c++/v1" >> "$GITHUB_ENV"
+          echo "OBJCXXFLAGS=-nostdinc++ -isystem $llvm_prefix/include/c++/v1" >> "$GITHUB_ENV"
+          echo "LDFLAGS=-L$llvm_prefix/lib/c++ -Wl,-rpath,$llvm_prefix/lib/c++ -L$llvm_prefix/lib/unwind -Wl,-rpath,$llvm_prefix/lib/unwind -lunwind" >> "$GITHUB_ENV"
+      - name: Install Linux compiler and desktop libraries
+        if: runner.os == 'Linux'
+        run: >-
+          sudo apt-get update && sudo apt-get install -y clang ninja-build generate-ninja
+          libx11-dev libxcursor-dev libatk1.0-dev libatk-bridge2.0-dev
+          libasound2t64 patchelf xvfb dpkg-dev
+      - name: Fetch pinned text sources
+        run: |
+          sh toolkit/gui_forms/third_party/fetch_text_stack.sh
+          sh toolkit/gui_forms/third_party/fetch_linebreak.sh
+      - uses: actions/cache@v4
+        if: runner.os != 'Windows'
+        id: skia
+        with:
+          path: toolkit/gui_forms/third_party/skia
+          key: games-skia-7b260cf-v1-${{ matrix.platform }}
+      - name: Build CPU renderer on Linux
+        if: runner.os == 'Linux' && steps.skia.outputs.cache-hit != 'true'
+        run: |
+          GUI_FORMS_SYSTEM_BUILD_TOOLS=1 sh toolkit/gui_forms/third_party/fetch_skia_cpu.sh
+          BUILD_JOBS=2 sh toolkit/gui_forms/third_party/build_skia_cpu_linux.sh "$PWD/toolkit/gui_forms/third_party/skia/out/games"
+      - name: Build CPU renderer on macOS
+        if: runner.os == 'macOS' && steps.skia.outputs.cache-hit != 'true'
+        run: |
+          sh toolkit/gui_forms/third_party/fetch_skia_cpu.sh
+          skia="$PWD/toolkit/gui_forms/third_party/skia"
+          mkdir -p "$skia/out/games"
+          cp toolkit/gui_forms/third_party/skia_cpu_args.gn "$skia/out/games/args.gn"
+          "$skia/bin/gn" gen "$skia/out/games" --root="$skia"
+          "$skia/third_party/ninja/ninja" -C "$skia/out/games" -j2 skia
+      - uses: actions/download-artifact@v4
+        with:
+          name: runtime
+          path: build/data
+      - name: Configure complete application
+        run: |
+          mkdir -p build/runtime
+          tar -xzf build/data/runtime.tar.gz -C build/runtime
+          cmake -S . -B build/app -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DGAMES_TOOLKIT_SOURCE_DIR="$PWD/toolkit/gui_forms" \
+            -DGAMES_RUNTIME_ASSET_DIR="$PWD/build/runtime" \
+            -DGUI_FORMS_SKIA_PREBUILT=ON \
+            -DGUI_FORMS_SKIA_OUT="$PWD/toolkit/gui_forms/third_party/skia/out/games"
+      - name: Compile complete collection
+        run: cmake --build build/app --parallel 2
+      - name: Test complete application
+        run: ctest --test-dir build/app --output-on-failure --timeout 120 --output-junit results.xml
+      - name: Package Windows application and installer
+        if: runner.os == 'Windows'
+        run: python tools/package_windows.py --build build/app --toolkit toolkit/gui_forms --runtime-dir /mingw64/bin --installer
+      - name: Package macOS application and installer
+        if: runner.os == 'macOS'
+        run: python3 tools/package_macos.py --build build/app --toolkit toolkit/gui_forms --llvm "$(brew --prefix llvm@20)"
+      - name: Package Linux application and installer
+        if: runner.os == 'Linux'
+        run: python3 tools/package_linux.py --build build/app --toolkit toolkit/gui_forms
+      - name: Launch packaged Windows application
+        if: runner.os == 'Windows'
+        run: python tools/smoke_package.py dist/Games/games.exe
+      - name: Launch packaged macOS application
+        if: runner.os == 'macOS'
+        run: python3 tools/smoke_package.py dist/Games.app/Contents/MacOS/games
+      - name: Install and launch Linux package
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y ./dist/*.deb
+          xvfb-run -a python3 tools/smoke_package.py /usr/lib/rainstar-games/games
+      - uses: actions/upload-artifact@v4
+        with:
+          name: games-${{ matrix.platform }}
+          path: |
+            dist/*.zip
+            dist/*.exe
+            dist/*.pkg
+            dist/*.deb
+            dist/*.tar.gz
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: application-checks-${{ matrix.platform }}
+          path: |
+            build/app/results.xml
+            build/app/Testing/Temporary/LastTest.log
+          if-no-files-found: warn
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: application
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: games-*
+          merge-multiple: true
+          path: dist
+      - name: Publish tested application packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist && sha256sum * > SHA256SUMS.txt && cd ..
+          gh release create "$GITHUB_REF_NAME" dist/* --title "Games $GITHUB_REF_NAME" --notes-file packaging/RELEASE_NOTES.md
