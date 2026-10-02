@@ -63,6 +63,8 @@ void PuzzleRaster::triangle(RasterVertex a, RasterVertex b, RasterVertex c, int 
                 continue;
             int n = y * width + x;
             double z = wa * a.z + wb * b.z + wc * c.z;
+            if (z > -1e8)
+                z += z_bias;
             // Overlay strokes use a huge negative depth and paint in submission order.
             if (z > depth[n] && z > -1e8)
                 continue;
@@ -132,6 +134,13 @@ static PixelColor jewel(int color) {
                                  {255, 182, 48},  {126, 224, 111}, {168, 101, 249},
                                  {53, 220, 208},  {244, 119, 44},  {233, 127, 203}};
     return colors[std::clamp(color, 0, 8)];
+}
+// Nature Cube pair colors: nine hues that stay apart on the glass.
+static PixelColor pair_color(int pair) {
+    const PixelColor colors[] = {{220, 230, 240}, {232, 58, 90},   {52, 170, 255}, {255, 186, 40},
+                                 {98, 214, 92},   {170, 104, 250}, {40, 222, 208}, {255, 118, 36},
+                                 {250, 120, 205}, {176, 120, 70}};
+    return colors[std::clamp(pair, 0, 9)];
 }
 static PixelColor shade(PixelColor c, double n) {
     c.r = std::clamp(c.r * n, 0.0, 255.0);
@@ -392,8 +401,42 @@ void PuzzleRaster::cube(const PuzzleGame& game, double yaw, double pitch, int ho
         const double half = .224;
         const Point3 origin = add(center, add(scaled(u, -half), scaled(v, -half)));
         const int mark = game.state.marks[cell];
-        if (mark) {
-            PixelColor jewel_color = jewel(mark);
+        if (game.cube_rock(cell)) {
+            // A mossy pebble resting in a bed of earth: a domed fan of triangles, lit from
+            // the upper left, with moss on its shoulders.
+            quad(origin, scaled(u, 2 * half), scaled(v, 2 * half), n, {40, 54, 40}, .1, 3, 0, cell);
+            const int sides = 14;
+            const Point3 lift = scaled(n, .06);
+            const Projected top = project(add(center, lift));
+            for (int k = 0; k < sides; ++k) {
+                const double a0 = k * 6.283185307 / sides, a1 = (k + 1) * 6.283185307 / sides;
+                const double r0 = .2 * (1 + .1 * std::sin(a0 * 3 + cell)),
+                             r1 = .2 * (1 + .1 * std::sin(a1 * 3 + cell));
+                const Point3 e0 = add(
+                    center, add(scaled(u, std::cos(a0) * r0), scaled(v, std::sin(a0) * r0 * .86)));
+                const Point3 e1 = add(
+                    center, add(scaled(u, std::cos(a1) * r1), scaled(v, std::sin(a1) * r1 * .86)));
+                const Projected p0 = project(add(e0, scaled(n, .012))),
+                                p1 = project(add(e1, scaled(n, .012)));
+                const Projected screen_a = project(add(center, scaled(u, .1))),
+                                screen_b = project(add(center, scaled(v, .1)));
+                // Light by the rim direction on screen: brighter toward the upper left.
+                const double sx = (screen_a.x - top.x) * std::cos(a0 + .22) +
+                                  (screen_b.x - top.x) * std::sin(a0 + .22),
+                             sy = (screen_a.y - top.y) * std::cos(a0 + .22) +
+                                  (screen_b.y - top.y) * std::sin(a0 + .22);
+                const double len = std::max(1e-6, std::hypot(sx, sy));
+                const double lit = std::clamp(.55 - .45 * (sx + sy) / len * .7071, .15, 1.0);
+                const bool moss = std::sin(a0 * 2 + cell * 1.7) > .35;
+                const PixelColor rim =
+                    moss ? PixelColor{90 * lit + 40, 140 * lit + 46, 70 * lit + 34}
+                         : PixelColor{132 * lit + 44, 134 * lit + 44, 120 * lit + 40};
+                const PixelColor crown{150, 156, 140};
+                triangle({top.x, top.y, top.depth - .02, crown}, {p0.x, p0.y, p0.depth - .02, rim},
+                         {p1.x, p1.y, p1.depth - .02, rim}, cell);
+            }
+        } else if (mark) {
+            PixelColor jewel_color = pair_color(mark);
             quad(origin, scaled(u, 2 * half), scaled(v, 2 * half), n,
                  shade(jewel_color, cell == hover ? 1.2 : 1.0), .2, 3, 0, cell);
             // A pale socket marks where the color starts and ends.
@@ -439,9 +482,9 @@ void PuzzleRaster::cube(const PuzzleGame& game, double yaw, double pitch, int ho
     // in order (every rim, then every fill) rather than depth tested.
     const double thickness = std::max(3.0, scale * .042), front = -1e9;
     for (int pass = 0; pass < 2; ++pass)
-        for (int pair = 0; pair < 6; ++pair) {
+        for (int pair = 0; pair < game.cube_pairs(); ++pair) {
             const std::vector<int>& path = game.state.paths[pair];
-            const PixelColor color = pass ? jewel(pair + 1) : shade(jewel(pair + 1), .5);
+            const PixelColor color = pass ? pair_color(pair + 1) : shade(pair_color(pair + 1), .5);
             const double width = pass ? thickness : thickness * 1.3;
             struct CubeSegment {
                 PuzzleRaster& raster;

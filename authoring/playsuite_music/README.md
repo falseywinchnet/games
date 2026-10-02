@@ -62,6 +62,17 @@ lake pixels are reused after checking that `nature-lake.png` is unchanged. Final
 Note: `tools/package_audio.py` rebuilds `assets/audio` from the preserved `incoming/` deliveries and
 would restore the previous recordings; run `integrate.py` again afterwards if it is used.
 
+## Card handling sounds
+
+`playsuite_music sfx <out_dir>` renders the 22 card sounds (`src/card_sfx.cpp`: pickup, place,
+flip, foundation, deal and two riffle shuffles) from filtered noise and damped low "thumps" for
+paper on felt, with soft attacks and the top end rolled off. They are peak-normalised between
+-15.5 and -20.5 dBFS, a few dB under the earlier effects in short-term loudness. Package them with
+`integrate.py --masters <out_dir> --work <scratch> --runtime-base .build/runtime-playsuite
+--runtime-out <new runtime>`; it updates the `sfx` entries of `audio_manifest.json`. The 2026-10-02
+render passed the same decode-alignment checks and `verify_portable_assets`; like the music, it
+has not been reviewed by listening.
+
 ## Loops and mastering
 
 * Each loop is an exact whole number of bars; the tempo is chosen so that a beat is an integer number

@@ -46,6 +46,9 @@ PuzzleView::PuzzleView(gf::StableId id, PuzzleKind kind) : Control(std::move(id)
         game.deal(static_cast<std::uint32_t>(
             std::chrono::system_clock::now().time_since_epoch().count()));
     }
+    // The level of the game on the table is also the level of the next one.
+    if (game.kind == PuzzleKind::cube || game.kind == PuzzleKind::untangle)
+        game.level = std::clamp(game.state.aux[94], 0, 2);
 }
 std::filesystem::path PuzzleView::path() const {
     return cabinet_path().parent_path() /
@@ -117,7 +120,7 @@ void PuzzleView::activate() {
         panel(2);
     if (attached_window())
         static_cast<void>((*attached_window()).request_focus(shared_from_this()));
-    if (game.kind == PuzzleKind::gems && !reduced_ && timer_)
+    if ((game.kind == PuzzleKind::gems || game.kind == PuzzleKind::untangle) && timer_)
         (*timer_).start();
     render();
     invalidate(gf::Dirty::paint);
@@ -140,10 +143,12 @@ void PuzzleView::arrange(gf::Rect b) {
     if (game.kind == PuzzleKind::gems || game.kind == PuzzleKind::untangle) {
         // Centered when narrow; with room, a legend card sits to the left.
         const bool wide = b.width >= 900;
-        const double gside =
-            std::max(160.0, std::min({600.0, b.height - 104, b.width - (wide ? 560.0 : 48.0)}));
+        // Untangle's cushion and status line need room below the board.
+        const double below = game.kind == PuzzleKind::untangle ? 64 : 0;
+        const double gside = std::max(
+            160.0, std::min({600.0, b.height - 104 - below, b.width - (wide ? 560.0 : 48.0)}));
         board_ = {wide ? std::max(264.0, (b.width - gside) * .5) : (b.width - gside) * .5,
-                  std::max(66.0, 62 + (b.height - 62 - 30 - gside) * .5), gside, gside};
+                  std::max(66.0, 62 + (b.height - 62 - 30 - below - gside) * .5), gside, gside};
     }
     if (game.kind == PuzzleKind::pegs) {
         board_ = {24, 82, b.width - 332, b.height - 139};
@@ -226,38 +231,96 @@ void PuzzleView::render() {
                     }
             }
         }
-        for (int i = 0; i < 64; ++i) {
-            int value = (*grid)[i];
-            double radius = cell * .38;
-            double x = (i % 8 + .5) * cell, y = (i / 8 + .5) * cell;
-            if (source && !falling && (*source)[i] != value) {
-                if (progress < .5) {
-                    value = (*source)[i];
-                    radius *= 1 - progress * 1.7;
-                } else
-                    radius *= .15 + (progress - .5) * 1.7;
-            }
-            if (!value || radius < .5)
-                continue;
-            if (falling) {
-                // Ease out with a little overshoot, so gems settle like they have weight.
-                const double c1 = 1.4, c3 = c1 + 1, u = progress - 1;
-                double ease = 1 + c3 * u * u * u + c1 * u * u;
-                y = (origin[i] + (i / 8 - origin[i]) * ease + .5) * cell;
-            }
-            if (moving && (i == swap_a_ || i == swap_b_) && (t < .23 || invalid_swap_)) {
-                double u = std::clamp(t / .23, 0.0, 1.0);
-                if (invalid_swap_ && t > .23)
-                    u = 1 - std::clamp((t - .23) / .23, 0.0, 1.0);
-                u = u * u * (3 - 2 * u);
-                int other = i == swap_a_ ? swap_b_ : swap_a_;
-                x += (other % 8 - i % 8) * cell * u;
-                y += (other / 8 - i / 8) * cell * u;
-            }
-            double spin = hover_ == i && !reduced_ ? time * 2.1 : 0,
-                   glisten = reduced_ ? 0 : .5 + .5 * std::sin(time * 1.25 + i * 2.7);
-            raster_.gem({x, y}, radius, value, spin, glisten, i);
+        const int lifted = !moving ? (drag_ >= 0 && gem_dragging_ ? drag_ : gem_spring_) : -1;
+        int partner = -1;
+        if (lifted >= 0) {
+            const int sx = gem_offset_.x > 0   ? 1
+                           : gem_offset_.x < 0 ? -1
+                                               : 0,
+                      sy = gem_offset_.y > 0   ? 1
+                           : gem_offset_.y < 0 ? -1
+                                               : 0;
+            const int px = lifted % 8 + sx, py = lifted / 8 + sy;
+            if ((sx || sy) && px >= 0 && px < 8 && py >= 0 && py < 8)
+                partner = py * 8 + px;
         }
+        const double intro_t =
+            intro_ ? std::chrono::duration<double>(gf::FrameClock::now() - intro_start_).count()
+                   : 9;
+        if (intro_ && intro_t > 1.4)
+            intro_ = false;
+        for (int pass = 0; pass < 2; ++pass)
+            for (int i = 0; i < 64; ++i) {
+                // The lifted gem draws last, above everything it passes over.
+                if ((pass == 1) != (i == lifted))
+                    continue;
+                int value = (*grid)[i];
+                double radius = cell * .38;
+                double x = (i % 8 + .5) * cell, y = (i / 8 + .5) * cell;
+                if (!moving && !reduced_)
+                    radius *= 1 + .022 * std::sin(time * 2.3 + i * 1.7); // the stones breathe
+                if (i == lifted) {
+                    x += gem_offset_.x * cell;
+                    y += gem_offset_.y * cell;
+                    radius *= 1.12;
+                } else if (i == partner) {
+                    x -= gem_offset_.x * cell;
+                    y -= gem_offset_.y * cell;
+                }
+                if (!moving && i == gem_pick_)
+                    radius *= 1.08 + .04 * std::sin(time * 7);
+                if (!moving && gem_hint_ >= 0 && (i == gem_hint_ || i == gem_hint_to_) &&
+                    !reduced_) {
+                    // After a long pause, one pair that would match nudges toward each other.
+                    const int other = i == gem_hint_ ? gem_hint_to_ : gem_hint_;
+                    const double nudge =
+                        std::fmod(time, 1.6) < .7 ? std::max(0.0, std::sin(time * 9)) * .09 : 0;
+                    x += (other % 8 - i % 8) * cell * nudge;
+                    y += (other / 8 - i / 8) * cell * nudge;
+                }
+                if (intro_t < 1.4) {
+                    // A fresh board pours in from above, bottom rows first, with a small bounce.
+                    const double delay = (7 - i / 8) * .07 + (i % 8) * .012;
+                    const double u = std::clamp((intro_t - delay) / .42, 0.0, 1.0);
+                    const double c1 = 1.5, c3 = c1 + 1, w = u - 1;
+                    const double settle = 1 + c3 * w * w * w + c1 * w * w;
+                    y -= (1 - settle) * (i / 8 + 1.6) * cell;
+                }
+                if (source && !falling && (*source)[i] != value) {
+                    if (progress < .5) {
+                        value = (*source)[i];
+                        radius *= 1 - progress * 1.7;
+                    } else
+                        radius *= .15 + (progress - .5) * 1.7;
+                }
+                if (!value || radius < .5)
+                    continue;
+                if (falling) {
+                    // Ease out with a little overshoot, so gems settle like they have weight.
+                    const double c1 = 1.4, c3 = c1 + 1, u = progress - 1;
+                    double ease = 1 + c3 * u * u * u + c1 * u * u;
+                    y = (origin[i] + (i / 8 - origin[i]) * ease + .5) * cell;
+                }
+                if (moving && (i == swap_a_ || i == swap_b_) && (t < .23 || invalid_swap_)) {
+                    double u = std::clamp(t / .23, 0.0, 1.0);
+                    u = u * u * (3 - 2 * u);
+                    // A swap released from a drag starts where the gems already are.
+                    u = swap_from_ + (1 - swap_from_) * u;
+                    if (invalid_swap_ && t > .23) {
+                        u = 1 - std::clamp((t - .23) / .23, 0.0, 1.0);
+                        u = u * u * (3 - 2 * u);
+                    }
+                    int other = i == swap_a_ ? swap_b_ : swap_a_;
+                    x += (other % 8 - i % 8) * cell * u;
+                    y += (other / 8 - i / 8) * cell * u;
+                }
+                const bool turning = hover_ == i || i == gem_pick_ || i == lifted;
+                double spin = turning && !reduced_ ? time * 2.1 : 0,
+                       glisten = reduced_ ? 0 : .5 + .5 * std::sin(time * 1.25 + i * 2.7);
+                raster_.z_bias = i == lifted ? -20 : 0;
+                raster_.gem({x, y}, radius, value, spin, glisten, i);
+                raster_.z_bias = 0;
+            }
     } else
         return;
     // In-place updates must keep the registered dimensions; a resized raster replaces the image.
@@ -328,6 +391,17 @@ void PuzzleView::spawn_effects(const std::array<int, 96>& before, const std::arr
                                         unit_random(fx_seed_) * 100, .5, 0, gem_color(before[j])});
         }
     }
+    if (!cleared.empty()) {
+        double sx = 0, sy = 0;
+        for (int i : cleared) {
+            sx += i % 8 + .5;
+            sy += i / 8 + .5;
+        }
+        const double n = static_cast<double>(cleared.size());
+        effects_.push_back({GemEffect::points, sx / n, sy / n, 0, -1.1, 0, .9,
+                            static_cast<double>(cleared.size() * 10),
+                            gem_color(before[cleared.front()])});
+    }
     if (depth >= 2 && !cleared.empty()) {
         static const char* words[] = {"", "", "Nice!", "Great!", "Superb!", "Dazzling!"};
         callout_ = words[std::min(depth, 5)];
@@ -338,6 +412,7 @@ void PuzzleView::step_effects() {
     const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
     const double dt = std::clamp(std::chrono::duration<double>(now - fx_clock_).count(), 0.0, .05);
     fx_clock_ = now;
+    fx_dt_ = dt;
     for (GemEffect& e : effects_) {
         e.age += dt;
         if (e.kind == GemEffect::shard) {
@@ -346,6 +421,8 @@ void PuzzleView::step_effects() {
             e.y += e.vy * dt;
             e.spin += dt * 9;
         }
+        if (e.kind == GemEffect::points)
+            e.y += e.vy * dt * (1 - e.age / e.life);
     }
     struct ExpiredEffect {
         bool operator()(const GemEffect& e) const {
@@ -391,8 +468,33 @@ void PuzzleView::paint_gems(gf::Painter& p) {
         p.fill_rounded_rect({board_.x + (hover_ % 8) * cell + 2, board_.y + (hover_ / 8) * cell + 2,
                              cell - 4, cell - 4},
                             cell * .16, gf::Color::rgba(255, 220, 150, 40));
+    if (gem_pick_ >= 0 && animation_duration_ <= 0) {
+        const double pulse = .5 + .5 * std::sin(t * 7);
+        const gf::Rect pick{board_.x + (gem_pick_ % 8) * cell + 1,
+                            board_.y + (gem_pick_ / 8) * cell + 1, cell - 2, cell - 2};
+        p.fill_rounded_rect(
+            pick, cell * .18,
+            gf::Color::rgba(255, 214, 120, static_cast<unsigned char>(50 + 40 * pulse)));
+        // The four neighbors it can trade places with.
+        for (const int d : {-8, 8, -1, 1}) {
+            const int n = gem_pick_ + d;
+            if (n < 0 || n >= 64 || ((d == 1 || d == -1) && n / 8 != gem_pick_ / 8))
+                continue;
+            p.fill_rounded_rect(
+                {board_.x + (n % 8) * cell + 4, board_.y + (n / 8) * cell + 4, cell - 8, cell - 8},
+                cell * .16, gf::Color::rgba(255, 230, 170, 26));
+        }
+    }
     if (image_.value)
         p.draw_image(image_, board_);
+    if (gem_pick_ >= 0 && animation_duration_ <= 0) {
+        const double pulse = .5 + .5 * std::sin(t * 7);
+        const gf::Rect pick{board_.x + (gem_pick_ % 8) * cell + 2,
+                            board_.y + (gem_pick_ / 8) * cell + 2, cell - 4, cell - 4};
+        p.stroke_rounded_rect(
+            pick, cell * .16,
+            gf::Color::rgba(255, 222, 140, static_cast<unsigned char>(150 + 100 * pulse)), 2.5);
+    }
     // Effects over the gems.
     struct GemPosition {
         gf::Rect board_;
@@ -458,6 +560,19 @@ void PuzzleView::paint_gems(gf::Painter& p) {
                                    stops);
             break;
         }
+        case GemEffect::points: {
+            const gf::Point q = at(e.x, e.y);
+            const std::string label = "+" + std::to_string(static_cast<int>(e.size));
+            const gf::FontSpec f{gf::FontRole::content, std::clamp(cell * .42, 14.0, 26.0), 800,
+                                 false};
+            const gf::Size m = p.measure_text_utf8(label, f);
+            const unsigned char alpha = static_cast<unsigned char>(255 * std::min(1.0, fade * 2));
+            p.draw_text_utf8({q.x - m.width * .5 + 1.5, q.y + 2}, label, f,
+                             gf::Color::rgba(30, 10, 40, alpha));
+            p.draw_text_utf8({q.x - m.width * .5, q.y}, label, f,
+                             gf::Color::rgba(255, 244, 214, alpha));
+            break;
+        }
         case GemEffect::bolt: {
             // A jagged bolt from the hypercube to a cleared gem, re-jittered each frame.
             std::uint32_t seed =
@@ -512,8 +627,8 @@ void PuzzleView::paint_gems(gf::Painter& p) {
         const gf::FontSpec body{gf::FontRole::content, 13, 400, false};
         const gf::Color ink2 = gf::Color::rgba(236, 226, 248),
                         soft = gf::Color::rgba(190, 176, 214);
-        p.draw_text_utf8({card.x + 14, card.y + 52}, "Drag a gem onto a neighbor.", body, ink2);
-        p.draw_text_utf8({card.x + 14, card.y + 72}, "Line up three or more.", body, ink2);
+        p.draw_text_utf8({card.x + 14, card.y + 52}, "Click a gem, then a neighbor,", body, ink2);
+        p.draw_text_utf8({card.x + 14, card.y + 72}, "or drag it. Line up three.", body, ink2);
         const char* rows[][2] = {{"Four in a row", "makes a bomb"},
                                  {"T or L shape", "makes a star"},
                                  {"Five in a row", "makes a hypercube"}};
@@ -532,33 +647,105 @@ void PuzzleView::paint_gems(gf::Painter& p) {
 double PuzzleView::untangle_radius() const {
     return std::clamp(board_.width * .026, 11.0, 17.0);
 }
-namespace {
-double turn(Point2 a, Point2 b, Point2 c) {
-    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-}
-bool segments_cross(Point2 p, Point2 q, Point2 r, Point2 s) {
-    return turn(p, q, r) * turn(p, q, s) < 0 && turn(r, s, p) * turn(r, s, q) < 0;
-}
-} // namespace
-// Untangle: a night-sky slate where crossing threads glow coral and clear ones aqua.
-// When the last crossing clears, the threads turn gold and a ripple runs outward.
+// Untangle: yarn tied to wooden pegs on a tufted cushion, watched by a cat. Each color of
+// yarn is its own layer; snags mark where a thread crosses its own color. When the last snag
+// clears, the yarn warms to gold, a ripple runs outward and the cat curls up in the web.
 void PuzzleView::paint_untangle(gf::Painter& p) {
     const gf::Rect b = client_rectangle();
-    p.fill_rect(b, gf::Color::rgba(10, 26, 36));
-    const gf::GradientStop sky[] = {{0, gf::Color::rgba(28, 74, 92)},
-                                    {1, gf::Color::rgba(8, 20, 30)}};
-    p.fill_radial_gradient(b, {board_.x + board_.width * .5, board_.y + board_.height * .4},
-                           {b.width * .7, b.height * .85}, sky);
-    const gf::Rect mat{board_.x - 14, board_.y - 14, board_.width + 28, board_.height + 28};
-    p.draw_box_shadow(mat, 16, {0, 8}, 26, 0, gf::Color::rgba(0, 0, 0, 140));
-    fill_vertical(p, mat, gf::Color::rgba(22, 46, 60), gf::Color::rgba(12, 28, 40));
-    p.stroke_rounded_rect(mat, 16, gf::Color::rgba(120, 220, 230, 60), 1);
-    for (int y = 1; y < 12; ++y)
-        for (int x = 1; x < 12; ++x)
-            p.fill_rect({board_.x + board_.width * x / 12 - .75,
-                         board_.y + board_.height * y / 12 - .75, 1.5, 1.5},
-                        gf::Color::rgba(140, 210, 220, 50));
+    const double t = std::chrono::duration<double>(gf::FrameClock::now() - clock_start_).count();
+    // A warm wooden floor under a tufted velvet cushion.
+    fill_vertical(p, b, gf::Color::rgba(94, 60, 38), gf::Color::rgba(60, 36, 22));
+    for (double x = -40; x < b.width; x += 74) {
+        p.draw_line({x, 0}, {x, b.height}, gf::Color::rgba(40, 22, 12, 120), 2);
+        p.draw_line({x + 2, 0}, {x + 2, b.height}, gf::Color::rgba(160, 110, 70, 40), 1);
+    }
+    const gf::GradientStop lamp[] = {{0, gf::Color::rgba(255, 210, 150, 60)},
+                                     {1, gf::Color::rgba(0, 0, 0, 0)}};
+    p.fill_radial_gradient(b, {board_.x + board_.width * .5, board_.y + board_.height * .3},
+                           {b.width * .6, b.height * .7}, lamp);
+    const double pad = std::max(14.0, board_.width * .045);
+    const gf::Rect cushion{board_.x - pad, board_.y - pad, board_.width + 2 * pad,
+                           board_.height + 2 * pad};
+    p.draw_box_shadow(cushion, pad * 1.4, {0, 12}, 30, 0, gf::Color::rgba(20, 6, 10, 170));
+    p.save();
+    p.clip_rounded_rect(cushion, pad * 1.4);
+    const gf::GradientStop velvet[] = {{0, gf::Color::rgba(150, 62, 96)},
+                                       {.7, gf::Color::rgba(104, 36, 66)},
+                                       {1, gf::Color::rgba(70, 20, 44)}};
+    p.fill_radial_gradient(cushion,
+                           {cushion.x + cushion.width * .45, cushion.y + cushion.height * .4},
+                           {cushion.width * .75, cushion.height * .75}, velvet);
+    // Tufting: buttons on a diamond grid with soft creases between them.
+    const double pitch = board_.width / 4;
+    std::vector<gf::Point> tufts;
+    for (int row = 0; row <= 4; ++row)
+        for (int col = 0; col <= 4; ++col) {
+            const double x = board_.x + col * pitch + (row % 2 ? pitch * .5 : 0);
+            if (x > board_.x + board_.width + 1)
+                continue;
+            tufts.push_back({x, board_.y + row * pitch});
+        }
+    for (const gf::Point a : tufts)
+        for (const gf::Point c : tufts) {
+            const double dx = c.x - a.x, dy = c.y - a.y;
+            if (dy > 0 && std::abs(std::abs(dx) - pitch * .5) < 1 && std::abs(dy - pitch) < 1) {
+                p.draw_line(a, c, gf::Color::rgba(50, 10, 30, 70), 3);
+                p.draw_line({a.x + 1.5, a.y}, {c.x + 1.5, c.y}, gf::Color::rgba(220, 120, 160, 26),
+                            1.5);
+            }
+        }
+    for (const gf::Point a : tufts) {
+        const double r = std::max(3.0, board_.width * .011);
+        p.fill_rounded_rect({a.x - r * 1.8, a.y - r * 1.8, r * 3.6, r * 3.6}, r * 1.8,
+                            gf::Color::rgba(40, 6, 24, 60));
+        const gf::Rect button{a.x - r, a.y - r, 2 * r, 2 * r};
+        const gf::GradientStop shine[] = {{0, gf::Color::rgba(236, 150, 186)},
+                                          {1, gf::Color::rgba(92, 24, 54)}};
+        p.save();
+        p.clip_rounded_rect(button, r);
+        p.fill_radial_gradient(button, {a.x - r * .35, a.y - r * .4}, {r * 1.6, r * 1.6}, shine);
+        p.restore();
+    }
+    p.restore();
+    // Gold piping round the edge.
+    p.stroke_rounded_rect(cushion, pad * 1.4, gf::Color::rgba(120, 82, 30), 5);
+    p.stroke_rounded_rect(cushion, pad * 1.4, gf::Color::rgba(232, 190, 104), 2.4);
+    const int layers = game.untangle_layers();
+    const gf::Color yarn[] = {gf::Color::rgba(228, 76, 70), gf::Color::rgba(80, 136, 236),
+                              gf::Color::rgba(240, 190, 58)};
+    // A ball of the first yarn in the corner, the end of its thread trailing off.
+    if (cushion.x > 110) {
+        const double r = std::min(46.0, cushion.x * .2);
+        const gf::Point ball{cushion.x - r - 16, cushion.y + cushion.height - r};
+        const gf::GradientStop shade[] = {{0, gf::Color::rgba(20, 6, 10, 130)},
+                                          {1, gf::Color::rgba(20, 6, 10, 0)}};
+        p.fill_radial_gradient({ball.x - r * 1.3, ball.y + r * .5, r * 2.6, r * .9},
+                               {ball.x, ball.y + r * .92}, {r * 1.2, r * .4}, shade);
+        p.fill_rounded_rect({ball.x - r, ball.y - r, 2 * r, 2 * r}, r, yarn[0]);
+        for (int k = 0; k < 7; ++k) {
+            const double a = k * .45 - .6;
+            std::vector<gf::Point> arc;
+            for (int s = 0; s <= 12; ++s) {
+                const double u = -1.3 + s * 2.6 / 12;
+                arc.push_back({ball.x + std::cos(a) * r * .9 * std::sin(u) - std::sin(a) * r * .3,
+                               ball.y + std::sin(a) * r * .9 * std::sin(u) +
+                                   std::cos(a) * r * .9 * std::cos(u) * .35});
+            }
+            for (std::size_t s = 1; s < arc.size(); ++s)
+                p.draw_line(arc[s - 1], arc[s], mix_color(yarn[0], gf::Color::rgba(0, 0, 0), .28),
+                            1.6);
+        }
+        const gf::GradientStop gloss[] = {{0, gf::Color::rgba(255, 255, 255, 70)},
+                                          {1, gf::Color::rgba(255, 255, 255, 0)}};
+        p.fill_radial_gradient({ball.x - r, ball.y - r, 2 * r, 2 * r},
+                               {ball.x - r * .4, ball.y - r * .45}, {r, r}, gloss);
+    }
     std::vector<Point2> positions = game.state.nodes;
+    if (swat_peg_ >= 0 && swat_peg_ < static_cast<int>(positions.size()) && swat_t_ < 1) {
+        const double k = 1 - (1 - swat_t_) * (1 - swat_t_);
+        positions[swat_peg_] = {swat_from_.x + (positions[swat_peg_].x - swat_from_.x) * k,
+                                swat_from_.y + (positions[swat_peg_].y - swat_from_.y) * k};
+    }
     if (drag_ >= 0)
         positions[drag_] = drag_position_;
     struct BoardPosition {
@@ -568,40 +755,74 @@ void PuzzleView::paint_untangle(gf::Painter& p) {
         }
     };
     BoardPosition at{board_};
+    const int edge_count = static_cast<int>(game.state.edges.size());
     std::vector<bool> crossed(game.state.edges.size(), false);
-    int crossings = 0;
-    for (std::size_t i = 0; i < game.state.edges.size(); ++i)
-        for (std::size_t j = i + 1; j < game.state.edges.size(); ++j) {
-            const Edge e = game.state.edges[i], f = game.state.edges[j];
-            if (e.a == f.a || e.a == f.b || e.b == f.a || e.b == f.b)
-                continue;
-            if (segments_cross(positions[e.a], positions[e.b], positions[f.a], positions[f.b])) {
+    std::vector<gf::Point> snags;
+    for (int i = 0; i < edge_count; ++i)
+        for (int j = i + 1; j < edge_count; ++j)
+            if (game.threads_cross(i, j, positions)) {
                 crossed[i] = crossed[j] = true;
-                ++crossings;
+                const Edge e = game.state.edges[i], f = game.state.edges[j];
+                const Point2 p0 = positions[e.a], p1 = positions[e.b], q0 = positions[f.a],
+                             q1 = positions[f.b];
+                const double den = (p1.x - p0.x) * (q1.y - q0.y) - (p1.y - p0.y) * (q1.x - q0.x);
+                if (std::abs(den) > 1e-9) {
+                    const double s =
+                        ((q0.x - p0.x) * (q1.y - q0.y) - (q0.y - p0.y) * (q1.x - q0.x)) / den;
+                    snags.push_back(at({p0.x + s * (p1.x - p0.x), p0.y + s * (p1.y - p0.y)}));
+                }
             }
-        }
+    const int crossings = game.crossings();
     const double celebrate = game.state.won && animation_duration_ > 0
                                  ? std::clamp(elapsed() / animation_duration_, 0.0, 1.0)
                                  : -1;
     const gf::Point center = at({.5, .5});
-    for (std::size_t i = 0; i < game.state.edges.size(); ++i) {
-        const Edge e = game.state.edges[i];
-        const gf::Point a = at(positions[e.a]), c = at(positions[e.b]);
-        gf::Color color =
-            crossed[i] ? gf::Color::rgba(240, 132, 120, 205) : gf::Color::rgba(110, 222, 236, 225);
-        if (game.state.won) {
-            // Gold spreads outward from the middle as the ripple passes.
-            const double d =
-                std::hypot((a.x + c.x) * .5 - center.x, (a.y + c.y) * .5 - center.y) / board_.width;
-            const double wave = celebrate < 0 ? 1 : std::clamp((celebrate * 1.6 - d) * 4, 0.0, 1.0);
-            color = mix_color(gf::Color::rgba(110, 222, 236, 210),
-                              gf::Color::rgba(255, 214, 110, 255), wave);
+    const double thread = std::clamp(board_.width * .0105, 3.0, 7.0);
+    // Threads, lowest color layer first, each a twisted strand of yarn.
+    for (int layer = 0; layer < layers; ++layer)
+        for (int i = 0; i < edge_count; ++i) {
+            if (game.untangle_layer(i) != layer)
+                continue;
+            const Edge e = game.state.edges[i];
+            const gf::Point a = at(positions[e.a]), c = at(positions[e.b]);
+            gf::Color color = yarn[layer];
+            if (game.state.won) {
+                // Gold spreads outward from the middle as the ripple passes.
+                const double d =
+                    std::hypot((a.x + c.x) * .5 - center.x, (a.y + c.y) * .5 - center.y) /
+                    board_.width;
+                const double wave =
+                    celebrate < 0 ? .35 : std::clamp((celebrate * 1.6 - d) * 4, 0.0, 1.0) * .7;
+                color = mix_color(color, gf::Color::rgba(255, 220, 120), wave);
+            }
+            const double w = crossed[i] ? thread * .85 : thread;
+            p.draw_line({a.x + 1, a.y + 2.5}, {c.x + 1, c.y + 2.5}, gf::Color::rgba(30, 4, 16, 70),
+                        w + 2);
+            p.draw_line(a, c, mix_color(color, gf::Color::rgba(0, 0, 0), .35), w + 1.6);
+            p.draw_line(a, c, color, w);
+            // The ply: short bright twists along the strand.
+            const double length = std::hypot(c.x - a.x, c.y - a.y);
+            if (length > 1) {
+                const double ux = (c.x - a.x) / length, uy = (c.y - a.y) / length;
+                const gf::Color ply = mix_color(color, gf::Color::rgba(255, 255, 255), .38);
+                for (double s = w; s < length - w * .5; s += w * 1.5) {
+                    const gf::Point q{a.x + ux * s, a.y + uy * s};
+                    p.draw_line(
+                        {q.x - ux * w * .35 - uy * w * .4, q.y - uy * w * .35 + ux * w * .4},
+                        {q.x + ux * w * .35 + uy * w * .4, q.y + uy * w * .35 - ux * w * .4}, ply,
+                        std::max(1.0, w * .3));
+                }
+            }
         }
-        if (crossed[i])
-            p.draw_line(a, c, gf::Color::rgba(255, 90, 80, 28), 6);
-        else
-            p.draw_line(a, c, gf::Color::rgba(110, 222, 236, 40), 6);
-        p.draw_line(a, c, color, crossed[i] ? 1.8 : 2.4);
+    // Snags where same-colored threads cross, pulsing gently.
+    for (const gf::Point q : snags) {
+        // A small knot with a soft pulsing halo.
+        const double r = thread * (.9 + .15 * std::sin(t * 5));
+        p.fill_rounded_rect({q.x - r * 2, q.y - r * 2, r * 4, r * 4}, r * 2,
+                            gf::Color::rgba(255, 236, 200, 46));
+        p.fill_rounded_rect({q.x - r, q.y - r, 2 * r, 2 * r}, r, gf::Color::rgba(70, 14, 24, 230));
+        p.stroke_rounded_rect({q.x - r, q.y - r, 2 * r, 2 * r}, r,
+                              gf::Color::rgba(255, 226, 190, 220), 1.2);
     }
     if (celebrate >= 0) {
         const double r = board_.width * (.1 + celebrate * .8);
@@ -610,61 +831,125 @@ void PuzzleView::paint_untangle(gf::Painter& p) {
             gf::Color::rgba(255, 220, 140, static_cast<unsigned char>(200 * (1 - celebrate))), 3);
     }
     const double radius = untangle_radius();
-    for (int i = 0; i < static_cast<int>(positions.size()); ++i) {
-        const gf::Point q = at(positions[i]);
-        const bool held = i == drag_, hot = i == hover_;
-        const double r = radius * (held ? 1.18 : hot ? 1.08 : 1);
-        const gf::Rect pearl{q.x - r, q.y - r, 2 * r, 2 * r};
-        p.draw_box_shadow(pearl, r, {0, held ? 6.0 : 3.0}, held ? 14 : 8, 0,
-                          gf::Color::rgba(0, 0, 0, held ? 150 : 110));
-        const gf::GradientStop shine[] = {
-            {0, gf::Color::rgba(255, 255, 255)},
-            {.55, game.state.won ? gf::Color::rgba(255, 226, 150)
-                  : held         ? gf::Color::rgba(255, 220, 150)
-                                 : gf::Color::rgba(196, 238, 236)},
-            {1, game.state.won ? gf::Color::rgba(196, 140, 50) : gf::Color::rgba(88, 150, 162)}};
-        p.save();
-        p.clip_rounded_rect(pearl, r);
-        p.fill_radial_gradient(pearl, {q.x - r * .35, q.y - r * .4}, {r * 1.6, r * 1.6}, shine);
-        p.restore();
-        p.stroke_rounded_rect(pearl, r, gf::Color::rgba(30, 70, 84, 200), 1.2);
-        const std::string label = std::to_string(i + 1);
-        const gf::FontSpec f{gf::FontRole::content, std::max(9.0, r * .78), 700, false};
-        const gf::Size m = p.measure_text_utf8(label, f);
-        p.draw_text_utf8({q.x - m.width * .5, q.y + f.size * .36}, label, f,
-                         gf::Color::rgba(24, 56, 66));
+    struct PegPainter {
+        gf::Painter& p;
+        double radius, t;
+        void operator()(const PuzzleGame& game, int i, gf::Point q, bool held, bool hot,
+                        double jiggle) const {
+            q.x += jiggle;
+            const double r = radius * (held ? 1.2 : hot ? 1.1 : 1);
+            const gf::Rect head{q.x - r, q.y - r, 2 * r, 2 * r};
+            p.draw_box_shadow(head, r, {0, held ? 7.0 : 3.0}, held ? 14 : 7, 0,
+                              gf::Color::rgba(30, 4, 16, held ? 150 : 110));
+            const bool frozen = game.untangle_frozen(i);
+            const gf::GradientStop wood[] = {{0, gf::Color::rgba(252, 226, 180)},
+                                             {.6, gf::Color::rgba(206, 150, 92)},
+                                             {1, gf::Color::rgba(122, 76, 40)}};
+            const gf::GradientStop ice[] = {{0, gf::Color::rgba(250, 254, 255)},
+                                            {.6, gf::Color::rgba(176, 218, 246)},
+                                            {1, gf::Color::rgba(92, 146, 204)}};
+            p.save();
+            p.clip_rounded_rect(head, r);
+            p.fill_radial_gradient(head, {q.x - r * .35, q.y - r * .4}, {r * 1.6, r * 1.6},
+                                   frozen ? ice : wood);
+            p.restore();
+            p.stroke_rounded_rect(
+                head, r, frozen ? gf::Color::rgba(60, 110, 170) : gf::Color::rgba(90, 52, 26), 1.3);
+            if (frozen) {
+                // A frost star, slowly glinting.
+                for (int k = 0; k < 3; ++k) {
+                    const double a = k * 1.0472 + t * .2;
+                    p.draw_line({q.x - std::cos(a) * r * .6, q.y - std::sin(a) * r * .6},
+                                {q.x + std::cos(a) * r * .6, q.y + std::sin(a) * r * .6},
+                                gf::Color::rgba(255, 255, 255, 230), 1.4);
+                }
+                const double glint = .5 + .5 * std::sin(t * 3 + i);
+                p.stroke_rounded_rect(
+                    {q.x - r - 3, q.y - r - 3, 2 * r + 6, 2 * r + 6}, r + 3,
+                    gf::Color::rgba(200, 236, 255, static_cast<unsigned char>(60 + 90 * glint)),
+                    1.5);
+            } else {
+                // The brass pin the yarn is tied to.
+                const double pin = r * .32;
+                p.fill_rounded_rect({q.x - pin, q.y - pin, 2 * pin, 2 * pin}, pin,
+                                    gf::Color::rgba(118, 84, 30));
+                p.fill_rounded_rect({q.x - pin * .55, q.y - pin * .7, pin, pin}, pin * .5,
+                                    gf::Color::rgba(255, 228, 150));
+            }
+            if (hot && !held)
+                p.stroke_rounded_rect({q.x - r - 4, q.y - r - 4, 2 * r + 8, 2 * r + 8}, r + 4,
+                                      gf::Color::rgba(255, 232, 170, 150), 2);
+        }
+    };
+    const PegPainter peg{p, radius, t};
+    for (int i = 0; i < static_cast<int>(positions.size()); ++i)
+        if (i != drag_) {
+            const double jiggle =
+                i == frozen_nudge_ && frozen_nudge_t_ < .45
+                    ? std::sin(frozen_nudge_t_ * 50) * 3 * (1 - frozen_nudge_t_ / .45)
+                    : 0;
+            peg(game, i, at(positions[i]), false, i == hover_, jiggle);
+        }
+    // Thaw puffs: little bursts of frost melting away.
+    for (const ThawPuff& puff : puffs_) {
+        const double k = std::clamp(puff.age / .8, 0.0, 1.0);
+        const gf::Point q = at(puff.at);
+        const double r = radius * (1.2 + k * 2.2);
+        p.stroke_rounded_rect(
+            {q.x - r, q.y - r, 2 * r, 2 * r}, r,
+            gf::Color::rgba(210, 240, 255, static_cast<unsigned char>(220 * (1 - k))),
+            2.5 * (1 - k) + .5);
+        for (int s = 0; s < 6; ++s) {
+            const double a = s * 1.0472 + .3;
+            p.fill_rounded_rect(
+                {q.x + std::cos(a) * r - 2, q.y + std::sin(a) * r - 2, 4, 4}, 2,
+                gf::Color::rgba(230, 248, 255, static_cast<unsigned char>(240 * (1 - k))));
+        }
     }
-    // Status plaque under the board.
+    kitten_.paint(p, board_);
+    if (drag_ >= 0)
+        peg(game, drag_, at(positions[drag_]), true, true, 0);
+    // Status line under the cushion.
+    const char* levels[] = {"Easy", "Medium", "Hard"};
     const std::string status = game.state.won
                                    ? "Untangled in " + std::to_string(game.state.moves) + " moves"
-                               : crossings == 1 ? "1 crossing left"
-                                                : std::to_string(crossings) + " crossings left";
+                               : crossings == 1 ? "1 tangle left"
+                                                : std::to_string(crossings) + " tangles left";
     const gf::FontSpec sf{gf::FontRole::content, 14, 700, false};
-    const gf::Size sm = p.measure_text_utf8(status, sf);
-    p.draw_text_utf8({board_.x + (board_.width - sm.width) * .5, mat.y + mat.height + 20}, status,
-                     sf,
-                     game.state.won ? gf::Color::rgba(255, 220, 140)
-                     : crossings    ? gf::Color::rgba(255, 160, 150)
-                                    : gf::Color::rgba(150, 230, 236));
-    if (board_.x > 230) {
-        const gf::Rect card{std::max(14.0, board_.x - 250), board_.y, 214, 196};
+    const std::string line = status + "   ·   " + levels[std::clamp(game.state.aux[94], 0, 2)];
+    const gf::Size sm = p.measure_text_utf8(line, sf);
+    p.draw_text_utf8(
+        {board_.x + (board_.width - sm.width) * .5, cushion.y + cushion.height + 24}, line, sf,
+        game.state.won ? gf::Color::rgba(255, 224, 150) : gf::Color::rgba(255, 236, 214));
+    if (board_.x > 236) {
+        const gf::Rect card{std::max(14.0, board_.x - pad - 240), board_.y, 214, 250};
         p.draw_box_shadow(card, 8, {0, 4}, 12, 0, gf::Color::rgba(0, 0, 0, 110));
-        fill_vertical(p, card, gf::Color::rgba(26, 58, 72, 235), gf::Color::rgba(14, 34, 46, 235));
-        p.stroke_rounded_rect(card, 8, gf::Color::rgba(120, 220, 230, 70), 1);
+        fill_vertical(p, card, gf::Color::rgba(252, 242, 222, 245),
+                      gf::Color::rgba(236, 220, 192, 245));
+        p.stroke_rounded_rect(card, 8, gf::Color::rgba(150, 100, 60, 120), 1);
         const gf::FontSpec caps{gf::FontRole::content, 11, 700, false, 1.2};
-        p.draw_text_utf8({card.x + 14, card.y + 24}, "UNTIE THE THREADS", caps,
-                         gf::Color::rgba(150, 230, 236));
+        p.draw_text_utf8({card.x + 14, card.y + 24}, "TIDY THE YARN", caps,
+                         gf::Color::rgba(150, 60, 70));
         const gf::FontSpec body{gf::FontRole::content, 13, 400, false};
-        const gf::Color ink2 = gf::Color::rgba(222, 240, 244),
-                        soft = gf::Color::rgba(160, 196, 204);
-        p.draw_text_utf8({card.x + 14, card.y + 52}, "Drag the pearls so that", body, ink2);
-        p.draw_text_utf8({card.x + 14, card.y + 70}, "no two threads cross.", body, ink2);
-        p.draw_text_utf8({card.x + 14, card.y + 104}, "Coral threads are crossing.", body,
-                         gf::Color::rgba(255, 160, 150));
-        p.draw_text_utf8({card.x + 14, card.y + 122}, "Aqua threads are clear.", body,
-                         gf::Color::rgba(150, 230, 236));
-        p.draw_text_utf8({card.x + 14, card.y + 156}, "Give each pearl its own", body, soft);
-        p.draw_text_utf8({card.x + 14, card.y + 174}, "space; they may not touch.", body, soft);
+        const gf::Color ink2 = gf::Color::rgba(70, 44, 30), soft = gf::Color::rgba(124, 92, 66);
+        p.draw_text_utf8({card.x + 14, card.y + 50}, "Drag the pegs until no", body, ink2);
+        p.draw_text_utf8({card.x + 14, card.y + 68}, "thread crosses its own color.", body, ink2);
+        double y = card.y + 98;
+        if (layers > 1) {
+            p.draw_text_utf8({card.x + 14, y}, "Different colors may cross.", body, soft);
+            for (int k = 0; k < layers; ++k)
+                p.draw_line({card.x + 14 + k * 30.0, y + 14}, {card.x + 38 + k * 30.0, y + 14},
+                            yarn[k], 5);
+            y += 40;
+        }
+        if (game.state.aux[94] > 0) {
+            p.draw_text_utf8({card.x + 14, y}, "Frosted pegs stay put until", body, soft);
+            p.draw_text_utf8({card.x + 14, y + 18}, "all their threads are clear.", body, soft);
+            y += 46;
+        }
+        p.draw_text_utf8({card.x + 14, y}, "Click the cat to shoo it.", body, soft);
+        if (game.state.aux[94] > 0)
+            p.draw_text_utf8({card.x + 14, y + 18}, "Leave it idle and it swats.", body, soft);
     }
 }
 static void draw_peg(gf::Painter& p, gf::Rect r, int value, bool selected = false) {
@@ -1357,27 +1642,29 @@ void PuzzleView::paint_sticks(gf::Painter& p) {
 void PuzzleView::paint_help(gf::Painter& p) {
     std::vector<std::string> lines;
     if (game.kind == PuzzleKind::gems)
-        lines = {"Drag between neighboring gems to match three or more of one color.",
-                 "An invalid swap finishes, then returns both gems to their places.",
+        lines = {"Click a gem, then a neighbor, to swap them; or drag the gem itself.",
+                 "A swap that makes no match slides back. Wait and a pair will nudge.",
                  "Four in a line makes a colored bomb. Matching it clears a 3 × 3 area.",
                  "A T or L match makes a star. Matching it clears its row and column.",
                  "Five in a line makes a hypercube: swap it with a color to clear that color.",
                  "Blasts trigger other specials. Cascades refill the board from above.",
                  "Additional colors arrive as you progress. No available swap ends the run."};
     else if (game.kind == PuzzleKind::cube)
-        lines = {"Connect all six colored pairs on the three visible faces.",
-                 "Click a colored endpoint square and trace through neighboring squares.",
-                 "Paths cannot share a square. Empty squares are allowed.",
-                 "Move the mouse to tilt all three faces. No rotation drag is needed.",
-                 "The cube holds still while you trace a path.",
-                 "Click an original endpoint to redraw that pair; trace backward to erase.",
-                 "Every generated puzzle includes a replay-verified solution."};
+        lines = {"Connect every colored pair on the three visible faces.",
+                 "Easy has five pairs; Medium seven and mossy stones; Hard nine pairs.",
+                 "Paths cannot share a square or cross a stone.",
+                 "Hard also asks you to fill every open square.",
+                 "Move the mouse to tilt the cube; it holds still while you trace.",
+                 "Click an endpoint to redraw that pair; trace backward to erase.",
+                 "Next: in the bar sets the level. Every board has a full solution."};
     else if (game.kind == PuzzleKind::untangle)
-        lines = {"Drag points until no two unrelated edges cross or touch.",
-                 "Connected edges may meet at their shared point.",
-                 "Keep points separated; piling them together does not solve the puzzle.",
-                 "Each graph was built from a planar solution before it was scrambled.",
-                 "You can move one point at a time, or pull a cluster outward."};
+        lines = {"Drag the pegs until no thread crosses another of its own color.",
+                 "Threads of different colors may cross. Snags mark the tangles left.",
+                 "Frosted pegs cannot move until every thread tied to them is clear.",
+                 "Keep pegs apart; a peg sitting on a thread counts as a tangle.",
+                 "The cat sits on pegs and chases what you drag. Click it to shoo it.",
+                 "On Medium and Hard, leave the yarn alone and the cat swats a peg.",
+                 "Next: in the bar sets the level. Every puzzle was tied from a solution."};
     else if (game.kind == PuzzleKind::pegs)
         lines = {"Find the four-symbol code in ten guesses. Six symbols A–F are available.",
                  "The secret may repeat a symbol. Feedback counts each occurrence once.",
@@ -1434,11 +1721,21 @@ void PuzzleView::on_paint(gf::Painter& p, gf::Rect) {
         p.draw_image(nature_, b);
         p.fill_rect(b, gf::Color::rgba(8, 24, 24, 56));
         p.fill_rounded_rect({15, 83, 235, 176}, 12, gf::Color::rgba(15, 38, 42, 190));
+        const char* levels[] = {"Easy", "Medium", "Hard"};
+        const int level = std::clamp(game.state.aux[94], 0, 2);
         text(p, 28, 114, "Let each color find home", 17, ink);
-        text(p, 28, 145, "Trace from a colored square.", 13, ink);
-        text(p, 28, 174, "Move the mouse to tilt the cube.", 13, ink);
-        text(p, 28, 203, "Hold a colored square to trace.", 13, ink);
-        text(p, 28, 232, "Help: continue across faces.", 13, ink);
+        text(p, 28, 145,
+             std::string(levels[level]) + "  ·  " + std::to_string(game.cube_pairs()) + " pairs",
+             13, ink);
+        text(p, 28, 174, "Trace from a colored square;", 13, ink);
+        text(p, 28, 203, level ? "paths go around the stones." : "paths may cross faces.", 13, ink);
+        if (game.cube_fill()) {
+            const int open = game.cube_open_tiles();
+            text(p, 28, 232,
+                 open ? "Fill every tile: " + std::to_string(open) + " left" : "Every tile filled",
+                 13, open ? gf::Color::rgba(255, 222, 150) : ink);
+        } else
+            text(p, 28, 232, "Move the mouse to tilt it.", 13, ink);
         if (image_.value)
             p.draw_image(image_, board_);
     } else if (game.kind == PuzzleKind::gems)
@@ -1543,6 +1840,21 @@ void PuzzleView::new_game() {
     piece_rotation_.fill(0);
     piece_flip_.fill(false);
     lifted_ = false;
+    gem_pick_ = gem_spring_ = gem_hint_ = gem_hint_to_ = -1;
+    gem_dragging_ = false;
+    gem_offset_ = {};
+    gem_idle_ = 0;
+    effects_.clear();
+    untangle_idle_ = 0;
+    swat_peg_ = frozen_nudge_ = -1;
+    puffs_.clear();
+    kitten_.reset(game.state.seed);
+    if (game.kind == PuzzleKind::gems && !reduced_) {
+        intro_ = true;
+        intro_start_ = gf::FrameClock::now();
+        if (timer_)
+            (*timer_).start();
+    }
     set_pointer_capture(false);
     panel(0);
     persist();
@@ -1552,6 +1864,10 @@ void PuzzleView::new_game() {
 }
 std::vector<GameCommand> PuzzleView::commands() const {
     std::vector<GameCommand> list{{"new", "New game", true, false, true}};
+    if (game.kind == PuzzleKind::cube || game.kind == PuzzleKind::untangle) {
+        const char* levels[] = {"Easy", "Medium", "Hard"};
+        list.push_back({"level", std::string("Next: ") + levels[std::clamp(game.level, 0, 2)]});
+    }
     if (game.kind == PuzzleKind::solve) {
         list.push_back({"rotate", "Rotate", panel_ == 0 && !game.state.over});
         list.push_back({"flip", "Flip", panel_ == 0 && !game.state.over, flip_});
@@ -1571,6 +1887,18 @@ void PuzzleView::run_command(std::string_view id) {
         action(*buttons_[4]);
     else if (id == "flip")
         action(*buttons_[5]);
+    else if (id == "level") {
+        game.level = (game.level + 1) % 3;
+        // A board nobody has touched yet is simply re-dealt at the new level.
+        if (game.state.moves == 0 && !game.state.over)
+            new_game();
+        else
+            game.message = "The next game will be " +
+                           std::string(game.level == 0   ? "Easy"
+                                       : game.level == 1 ? "Medium"
+                                                         : "Hard") +
+                           ".";
+    }
     invalidate(gf::Dirty::paint);
 }
 void PuzzleView::action(gf::ButtonBase& button) {
@@ -1658,7 +1986,7 @@ int PuzzleView::hit(gf::Point p) const {
         return best;
     }
     if (game.kind == PuzzleKind::untangle) {
-        for (int i = 0; i < 12; ++i)
+        for (int i = 0; i < static_cast<int>(game.state.nodes.size()); ++i)
             if (std::hypot(p.x - board_.x - game.state.nodes[i].x * board_.width,
                            p.y - board_.y - game.state.nodes[i].y * board_.height) <
                 untangle_radius() + 8)
@@ -1670,6 +1998,123 @@ int PuzzleView::hit(gf::Point p) const {
             return static_cast<int>(i);
     return -1;
 }
+void PuzzleView::gem_swap(int a, int b, double from) {
+    before_swap_ = game.state.grid;
+    cascade_step_ = -1;
+    swap_a_ = a;
+    swap_b_ = b;
+    swap_from_ = std::clamp(from, 0.0, .95);
+    gem_pick_ = gem_spring_ = gem_hint_ = gem_hint_to_ = -1;
+    gem_offset_ = {};
+    gem_dragging_ = false;
+    gem_idle_ = 0;
+    invalid_swap_ = !game.gem_swap(a, b);
+    animation_start_ = gf::FrameClock::now();
+    animation_duration_ = reduced_        ? 0
+                          : invalid_swap_ ? .46
+                                          : .23 + .24 * (game.cascade_frames.size() - 1);
+    if (timer_)
+        (*timer_).start();
+    changed(invalid_swap_ ? "gems_swap_return" : "gems_swap");
+}
+void PuzzleView::gem_drag(gf::Point local) {
+    const double cell = board_.width / 8;
+    const double dx = (local.x - gem_press_.x) / cell, dy = (local.y - gem_press_.y) / cell;
+    if (!gem_dragging_ && std::hypot(dx, dy) * cell < 6)
+        return;
+    gem_dragging_ = true;
+    gem_pick_ = -1;
+    // The gem slides along the stronger axis only, at most one cell, and stops at the rim.
+    const int col = drag_ % 8, row = drag_ / 8;
+    Point2 o = std::abs(dx) >= std::abs(dy) ? Point2{dx, 0} : Point2{0, dy};
+    o.x = std::clamp(o.x, col == 0 ? -.12 : -1.0, col == 7 ? .12 : 1.0);
+    o.y = std::clamp(o.y, row == 0 ? -.12 : -1.0, row == 7 ? .12 : 1.0);
+    gem_offset_ = o;
+    // Pulled most of the way, the swap commits without waiting for release.
+    if (std::abs(o.x) + std::abs(o.y) >= .72) {
+        const int from = drag_;
+        drag_ = -1;
+        set_pointer_capture(false);
+        gem_swap(from,
+                 from +
+                     (o.x > 0   ? 1
+                      : o.x < 0 ? -1
+                                : 0) +
+                     (o.y > 0   ? 8
+                      : o.y < 0 ? -8
+                                : 0),
+                 std::abs(o.x) + std::abs(o.y));
+        return;
+    }
+    if (timer_)
+        (*timer_).start();
+}
+void PuzzleView::gem_find_hint() {
+    for (int i = 0; i < 64; ++i)
+        for (const int d : {1, 8}) {
+            const int j = i + d;
+            if (j >= 64 || (d == 1 && j / 8 != i / 8))
+                continue;
+            PuzzleGame trial = game;
+            if (trial.gem_swap(i, j)) {
+                gem_hint_ = i;
+                gem_hint_to_ = j;
+                return;
+            }
+        }
+    gem_idle_ = 0; // nothing found; look again later
+}
+void PuzzleView::untangle_step() {
+    step_effects(); // advances the shared frame clock
+    const double dt = fx_dt_;
+    if (drag_ < 0 && !game.state.over && !panel_)
+        untangle_idle_ += dt;
+    swat_t_ = std::min(1.0, swat_t_ + dt / .28);
+    frozen_nudge_t_ = std::min(1.0, frozen_nudge_t_ + dt);
+    for (ThawPuff& puff : puffs_)
+        puff.age += dt;
+    struct Faded {
+        bool operator()(const ThawPuff& puff) const {
+            return puff.age > .8;
+        }
+    };
+    std::erase_if(puffs_, Faded{});
+    if (panel_)
+        return;
+    Kitten::Scene scene;
+    scene.pegs = &game.state.nodes;
+    for (int i = 0; i < static_cast<int>(game.state.nodes.size()); ++i)
+        scene.swattable.push_back(!game.untangle_frozen(i) && i != drag_);
+    scene.dragged = drag_;
+    scene.pointer = drag_ >= 0 ? drag_position_
+                               : Point2{(pointer_seen_.x - board_.x) / board_.width,
+                                        (pointer_seen_.y - board_.y) / board_.height};
+    scene.pointer_inside =
+        drag_ >= 0 || (pointer_seen_.x >= board_.x && pointer_seen_.x <= board_.x + board_.width &&
+                       pointer_seen_.y >= board_.y && pointer_seen_.y <= board_.y + board_.height);
+    scene.solved = game.state.won;
+    scene.mischief = game.state.aux[94] > 0;
+    scene.reduced = reduced_;
+    scene.idle = untangle_idle_;
+    const Kitten::Swat swat = kitten_.step(dt, scene);
+    if (swat.peg >= 0 && !game.state.over) {
+        const std::array<int, 96> marks = game.state.marks;
+        swat_from_ = game.state.nodes[swat.peg];
+        if (game.move_node(swat.peg, swat.to, false)) {
+            swat_peg_ = swat.peg;
+            swat_t_ = 0;
+            untangle_released(marks);
+            changed("untangle_grab");
+        }
+    }
+}
+void PuzzleView::untangle_released(const std::array<int, 96>& marks_before) {
+    for (int i = 0; i < static_cast<int>(game.state.nodes.size()); ++i)
+        if (marks_before[i] == 1 && game.state.marks[i] == 2) {
+            puffs_.push_back({game.state.nodes[i], 0});
+            sound_play("untangle_edges_clear", sound_);
+        }
+}
 void PuzzleView::tick() {
     if (!effectively_visible()) {
         if (timer_)
@@ -1677,8 +2122,24 @@ void PuzzleView::tick() {
         return;
     }
     bool moving = false;
-    if (game.kind == PuzzleKind::gems)
+    if (game.kind == PuzzleKind::gems) {
         step_effects();
+        if (gem_spring_ >= 0) {
+            const double k = std::exp(-fx_dt_ * 22);
+            gem_offset_ = {gem_offset_.x * k, gem_offset_.y * k};
+            if (std::abs(gem_offset_.x) + std::abs(gem_offset_.y) < .01) {
+                gem_offset_ = {};
+                gem_spring_ = -1;
+            }
+        }
+        if (animation_duration_ <= 0 && drag_ < 0 && !game.state.over && !panel_) {
+            gem_idle_ += fx_dt_;
+            if (gem_idle_ > 8 && gem_hint_ < 0)
+                gem_find_hint();
+        }
+        if (intro_ || gem_spring_ >= 0 || gem_pick_ >= 0)
+            moving = true;
+    }
     if (game.kind == PuzzleKind::gems && animation_duration_ > 0 && !invalid_swap_ &&
         elapsed() >= .23) {
         int step = static_cast<int>((elapsed() - .23) / .24);
@@ -1721,6 +2182,13 @@ void PuzzleView::tick() {
     }
     if (game.kind == PuzzleKind::gems && ((!reduced_ && !panel_) || !effects_.empty()))
         moving = true;
+    if (game.kind == PuzzleKind::untangle) {
+        untangle_step();
+        moving = !panel_ || !puffs_.empty();
+        const double reach = board_.width * .14;
+        invalidate({board_.x - reach, board_.y - reach, board_.width + 2 * reach,
+                    board_.height + 2 * reach});
+    }
     render();
     // Celebrations draw beyond the board, so the whole view repaints while they run.
     if (animation_duration_ > 0 && game.kind != PuzzleKind::gems)
@@ -1752,6 +2220,8 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
             e.handled = true;
         }
 
+        if (game.kind == PuzzleKind::gems && drag_ >= 0)
+            gem_drag(local_position);
         if (game.kind == PuzzleKind::gems) {
             if (hover_ != cell) {
                 hover_ = cell;
@@ -1761,6 +2231,8 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                 }
             }
         }
+        if (game.kind == PuzzleKind::untangle)
+            pointer_seen_ = local_position;
         if (game.kind == PuzzleKind::untangle && drag_ < 0 && hover_ != cell) {
             hover_ = cell;
             invalidate(board_);
@@ -1785,7 +2257,8 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                 bool extended = game.cube_extend(cell);
                 // A quick diagonal flick skips a cell; route through the free corner cell.
                 const int pair = game.state.stage - 1;
-                if (!extended && pair >= 0 && pair < 6 && !game.state.paths[pair].empty()) {
+                if (!extended && pair >= 0 && pair < game.cube_pairs() &&
+                    !game.state.paths[pair].empty()) {
                     const int back = game.state.paths[pair].back();
                     for (int m = 0; m < 96 && !extended; ++m)
                         if (PuzzleGame::cube_adjacent(back, m) &&
@@ -1820,7 +2293,7 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                 return;
             if (cell >= 0) {
                 bool started = false;
-                for (int pair = 0; pair < 6; ++pair)
+                for (int pair = 0; pair < game.cube_pairs(); ++pair)
                     if (!game.state.paths[pair].empty() && game.state.paths[pair].back() == cell &&
                         !game.cube_pair(cell)) {
                         game.state.stage = pair + 1;
@@ -1841,13 +2314,43 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
         if (animation_duration_ > 0)
             return;
         if (game.kind == PuzzleKind::gems && cell >= 0) {
+            gem_idle_ = 0;
+            gem_hint_ = gem_hint_to_ = -1;
+            if (gem_pick_ >= 0 && cell != gem_pick_ &&
+                std::abs(gem_pick_ / 8 - cell / 8) + std::abs(gem_pick_ % 8 - cell % 8) == 1) {
+                gem_swap(gem_pick_, cell, 0);
+                e.handled = true;
+                return;
+            }
             drag_ = cell;
+            gem_press_ = local_position;
+            gem_dragging_ = false;
+            gem_spring_ = -1;
+            gem_offset_ = {};
             set_pointer_capture(true);
-        } else if (game.kind == PuzzleKind::untangle && cell >= 0) {
-            drag_ = cell;
-            drag_position_ = game.state.nodes[cell];
-            set_pointer_capture(true);
-            sound_play("untangle_grab", sound_);
+            if (timer_)
+                (*timer_).start();
+        } else if (game.kind == PuzzleKind::untangle) {
+            const Point2 spot{(local_position.x - board_.x) / board_.width,
+                              (local_position.y - board_.y) / board_.height};
+            if (kitten_.hit(spot) || (cell >= 0 && kitten_.perch() == cell)) {
+                // The cat is in the way; it scampers off.
+                kitten_.shoo();
+                game.message = cell >= 0 ? "The cat was sitting on that peg." : "Shoo!";
+                sound_play("untangle_release", sound_);
+            } else if (cell >= 0 && game.untangle_frozen(cell)) {
+                frozen_nudge_ = cell;
+                frozen_nudge_t_ = 0;
+                game.message = "That peg is frozen until its threads are clear.";
+            } else if (cell >= 0) {
+                drag_ = cell;
+                drag_position_ = game.state.nodes[cell];
+                untangle_idle_ = 0;
+                set_pointer_capture(true);
+                sound_play("untangle_grab", sound_);
+            }
+            if (timer_)
+                (*timer_).start();
         } else if (game.kind == PuzzleKind::pegs) {
             if (cell >= 0 && cell < 4)
                 selection_ = cell;
@@ -1975,28 +2478,41 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
             persist();
         }
         if (game.kind == PuzzleKind::untangle && drag_ >= 0) {
+            const std::array<int, 96> marks = game.state.marks;
             game.move_node(drag_, drag_position_);
             drag_ = -1;
+            untangle_idle_ = 0;
+            untangle_released(marks);
             changed("untangle_release");
         }
         if (game.kind == PuzzleKind::gems && drag_ >= 0) {
-            int from = drag_;
+            const int from = drag_;
             drag_ = -1;
-            if (cell >= 0 && std::abs(from / 8 - cell / 8) + std::abs(from % 8 - cell % 8) == 1) {
-                before_swap_ = game.state.grid;
-                cascade_step_ = -1;
-                swap_a_ = from;
-                swap_b_ = cell;
-                invalid_swap_ = !game.gem_swap(from, cell);
-                animation_start_ = gf::FrameClock::now();
-                animation_duration_ = reduced_ ? 0
-                                      : invalid_swap_
-                                          ? .46
-                                          : .23 + .24 * (game.cascade_frames.size() - 1);
-                if (timer_)
-                    (*timer_).start();
-                changed(invalid_swap_ ? "gems_swap_return" : "gems_swap");
+            const double reach = std::abs(gem_offset_.x) + std::abs(gem_offset_.y);
+            if (gem_dragging_) {
+                gem_dragging_ = false;
+                const int sx = gem_offset_.x > 0   ? 1
+                               : gem_offset_.x < 0 ? -1
+                                                   : 0,
+                          sy = gem_offset_.y > 0   ? 1
+                               : gem_offset_.y < 0 ? -1
+                                                   : 0;
+                const int col = from % 8 + sx, row = from / 8 + sy;
+                if (reach >= .3 && (sx || sy) && col >= 0 && col < 8 && row >= 0 && row < 8)
+                    gem_swap(from, row * 8 + col, reach);
+                else
+                    gem_spring_ = from; // not far enough: it settles back into its socket
+            } else if (cell >= 0 && cell != from &&
+                       std::abs(from / 8 - cell / 8) + std::abs(from % 8 - cell % 8) == 1)
+                gem_swap(from, cell, 0);
+            else if (cell == from) {
+                gem_pick_ = gem_pick_ == from ? -1 : from;
+                if (gem_pick_ >= 0)
+                    sound_play("gems_hover", sound_);
+                invalidate(gf::Dirty::paint);
             }
+            if (timer_)
+                (*timer_).start();
         }
         e.handled = true;
     }

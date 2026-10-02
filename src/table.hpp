@@ -49,6 +49,10 @@ class Table final : public gf::Control, public CommandSource {
     std::array<gf::ImageId, 4> backs_{};
     gf::ImageId felt_{};
     gf::ImageId shadow_{};
+    // Lighting and texture laid over every card, rendered at the cards' device size.
+    gf::ImageId finish_{};
+    int finish_width_ = 0, finish_height_ = 0;
+    void refresh_finish();
     std::array<Sprite, 104> sprites_{};
     std::array<gf::Rect, 20> slots_{};
     std::vector<int> pass_cards_;
@@ -64,6 +68,15 @@ class Table final : public gf::Control, public CommandSource {
     gf::Point press_{}, pointer_{};
     gf::Rect popup_{};
     std::uint32_t next_seed_ = 0;
+    // Easy, Medium or Hard for Solitaire, Spider and FreeCell. Every deal is drawn from the
+    // verified winnable tables (deal_tables.cpp); `picks_` walks each table. Both are kept
+    // beside the cabinet in card-levels.txt.
+    std::array<int, 3> levels_{1, 1, 1};
+    std::array<std::uint32_t, 3> picks_{};
+    void load_levels();
+    void save_levels() const;
+    [[nodiscard]] std::uint32_t deal_seed(Kind kind, int option);
+    [[nodiscard]] std::string level_name() const;
     void on_attached_to_window() override;
     void on_detaching_from_window(gf::Window& window) noexcept override;
     void action(gf::ButtonBase& button);

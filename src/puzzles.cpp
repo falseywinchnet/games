@@ -55,32 +55,9 @@ void PuzzleGame::deal(std::uint32_t seed) {
         for (int i = 0; i < 4; ++i)
             state.secret[i] = 1 + random(6);
         message = "Four places, six symbols. Repeated symbols are allowed.";
-    } else if (kind == PuzzleKind::untangle) {
-        for (int y = 0; y < 3; ++y)
-            for (int x = 0; x < 4; ++x) {
-                state.embedding.push_back({.12 + x * .25, .14 + y * .35});
-                int i = y * 4 + x;
-                if (x < 3)
-                    state.edges.push_back({i, i + 1});
-                if (y < 2)
-                    state.edges.push_back({i, i + 4});
-                if (x < 3 && y < 2 && random(2))
-                    state.edges.push_back({i, i + 5});
-            }
-        std::vector<int> order;
-        for (int i = 0; i < 12; ++i)
-            order.push_back(i);
-        do {
-            for (int i = 11; i > 0; --i)
-                std::swap(order[i], order[random(i + 1)]);
-            state.nodes.clear();
-            for (int i = 0; i < 12; ++i) {
-                double angle = order[i] * 6.283185307179586 / 12;
-                state.nodes.push_back({.5 + .42 * std::cos(angle), .5 + .42 * std::sin(angle)});
-            }
-        } while (crossings() == 0);
-        message = "Drag the points until every line is clear.";
-    } else if (kind == PuzzleKind::cube)
+    } else if (kind == PuzzleKind::untangle)
+        generate_untangle();
+    else if (kind == PuzzleKind::cube)
         generate_cube();
     else if (kind == PuzzleKind::atom)
         generate_atoms();
@@ -305,21 +282,164 @@ static bool on_segment(Point2 a, Point2 b, Point2 c) {
            c.x <= std::max(a.x, b.x) + 1e-8 && c.y >= std::min(a.y, b.y) - 1e-8 &&
            c.y <= std::max(a.y, b.y) + 1e-8;
 }
+bool PuzzleGame::threads_cross(int e, int f, const std::vector<Point2>& at) const {
+    const Edge a = state.edges[static_cast<std::size_t>(e)],
+               b = state.edges[static_cast<std::size_t>(f)];
+    if (a.a == b.a || a.a == b.b || a.b == b.a || a.b == b.b ||
+        untangle_layer(e) != untangle_layer(f))
+        return false;
+    const Point2 p = at[a.a], q = at[a.b], r = at[b.a], s = at[b.b];
+    return (orientation(p, q, r) * orientation(p, q, s) < 0 &&
+            orientation(r, s, p) * orientation(r, s, q) < 0) ||
+           on_segment(p, q, r) || on_segment(p, q, s) || on_segment(r, s, p) || on_segment(r, s, q);
+}
+bool PuzzleGame::node_clear(int node, const std::vector<Point2>& at) const {
+    const int n = static_cast<int>(state.edges.size());
+    for (int e = 0; e < n; ++e) {
+        if (state.edges[e].a != node && state.edges[e].b != node)
+            continue;
+        for (int f = 0; f < n; ++f)
+            if (f != e && threads_cross(e, f, at))
+                return false;
+    }
+    return true;
+}
+int PuzzleGame::untangle_layers() const {
+    int layers = 1;
+    for (int e = 0; e < static_cast<int>(state.edges.size()); ++e)
+        layers = std::max(layers, untangle_layer(e) + 1);
+    return layers;
+}
+// Pegs are tied by colored threads. The solution is drawn first: well-spread pegs, then for
+// each color a set of threads that never cross each other there (other colors may). Frozen
+// pegs start, and stay, where the solution has them; the rest are wound round a circle.
+void PuzzleGame::generate_untangle() {
+    state.aux[94] = std::clamp(level, 0, 2);
+    const int lv = state.aux[94];
+    const int count = lv == 0 ? 10 : lv == 1 ? 13 : 16;
+    const int frozen = lv == 0 ? 0 : lv == 1 ? 2 : 3;
+    const int targets[3][3] = {{16, 0, 0}, {15, 9, 0}, {17, 11, 8}};
+    std::vector<Point2>& solution = state.embedding;
+    while (static_cast<int>(solution.size()) < count) {
+        Point2 best{};
+        double best_gap = -1;
+        for (int k = 0; k < 40; ++k) {
+            const Point2 c{.1 + random(1000) * .0008, .1 + random(1000) * .0008};
+            double gap = 9;
+            for (Point2 q : solution)
+                gap = std::min(gap, std::hypot(c.x - q.x, c.y - q.y));
+            if (gap > best_gap) {
+                best_gap = gap;
+                best = c;
+            }
+        }
+        solution.push_back(best);
+    }
+    state.nodes = solution;
+    std::vector<std::array<int, 3>> degree(count, std::array<int, 3>{});
+    struct Candidate {
+        double key;
+        int a, b;
+        bool operator<(const Candidate& other) const {
+            return key < other.key;
+        }
+    };
+    for (int layer = 0; layer <= lv; ++layer) {
+        std::vector<Candidate> candidates;
+        for (int a = 0; a < count; ++a)
+            for (int b = a + 1; b < count; ++b) {
+                const double length =
+                    std::hypot(solution[a].x - solution[b].x, solution[a].y - solution[b].y);
+                if (length < .5)
+                    candidates.push_back({length * (.6 + random(1000) * .0008), a, b});
+            }
+        std::sort(candidates.begin(), candidates.end());
+        int added = 0;
+        for (const Candidate& c : candidates) {
+            if (added >= targets[lv][layer] || state.edges.size() >= 88)
+                break;
+            if (degree[c.a][layer] >= 4 || degree[c.b][layer] >= 4)
+                continue;
+            bool fits = true;
+            for (const Edge& e : state.edges)
+                if ((e.a == c.a && e.b == c.b) || (e.a == c.b && e.b == c.a))
+                    fits = false;
+            // Keep clear of other pegs so a thread never seems to pass through one.
+            for (int k = 0; k < count && fits; ++k)
+                if (k != c.a && k != c.b) {
+                    const Point2 p = solution[c.a], q = solution[c.b], r = solution[k];
+                    const double len2 = (q.x - p.x) * (q.x - p.x) + (q.y - p.y) * (q.y - p.y);
+                    const double t = std::clamp(
+                        ((r.x - p.x) * (q.x - p.x) + (r.y - p.y) * (q.y - p.y)) / len2, 0.0, 1.0);
+                    if (std::hypot(p.x + t * (q.x - p.x) - r.x, p.y + t * (q.y - p.y) - r.y) < .045)
+                        fits = false;
+                }
+            if (!fits)
+                continue;
+            state.aux[state.edges.size()] = layer;
+            state.edges.push_back({c.a, c.b});
+            const int e = static_cast<int>(state.edges.size()) - 1;
+            for (int f = 0; f < e && fits; ++f)
+                fits = !threads_cross(e, f, solution);
+            if (!fits) {
+                state.edges.pop_back();
+                state.aux[state.edges.size()] = 0;
+                continue;
+            }
+            ++degree[c.a][layer];
+            ++degree[c.b][layer];
+            ++added;
+        }
+    }
+    // Frozen pegs: well-connected ones, left at their solved places.
+    std::vector<int> order;
+    for (int i = 0; i < count; ++i)
+        order.push_back(i);
+    for (int i = count - 1; i > 0; --i)
+        std::swap(order[i], order[random(i + 1)]);
+    int chosen = 0;
+    for (int i : order)
+        if (chosen < frozen && degree[i][0] + degree[i][1] + degree[i][2] >= 3) {
+            state.marks[i] = 1;
+            ++chosen;
+        }
+    // Everything else is wound around a circle until it is properly tangled, frozen pegs
+    // included in the knot.
+    for (int attempt = 0; attempt < 200; ++attempt) {
+        std::vector<int> loose;
+        for (int i = 0; i < count; ++i)
+            if (!untangle_frozen(i))
+                loose.push_back(i);
+        for (int i = static_cast<int>(loose.size()) - 1; i > 0; --i)
+            std::swap(loose[i], loose[random(i + 1)]);
+        for (std::size_t k = 0; k < loose.size(); ++k) {
+            const double angle = (k + .5) * 6.283185307179586 / loose.size();
+            state.nodes[loose[k]] = {.5 + .43 * std::cos(angle), .5 + .43 * std::sin(angle)};
+        }
+        bool knotted = crossings() > 0;
+        for (int i = 0; i < count && knotted; ++i)
+            if (untangle_frozen(i) && node_clear(i, state.nodes))
+                knotted = false;
+        if (knotted)
+            break;
+    }
+    const char* goals[] = {
+        "Drag the pegs until no threads cross.",
+        "Red may cross blue, but never red. Frosted pegs wait for clear threads.",
+        "Three colors of yarn, three frozen pegs, and a cat with opinions."};
+    message = goals[lv];
+}
+void PuzzleGame::thaw() {
+    for (int i = 0; i < static_cast<int>(state.nodes.size()); ++i)
+        if (untangle_frozen(i) && node_clear(i, state.nodes))
+            state.marks[i] = 2;
+}
 int PuzzleGame::crossings() const {
     int count = 0;
     for (std::size_t i = 0; i < state.edges.size(); ++i)
-        for (std::size_t j = i + 1; j < state.edges.size(); ++j) {
-            Edge a = state.edges[i], b = state.edges[j];
-            if (a.a == b.a || a.a == b.b || a.b == b.a || a.b == b.b)
-                continue;
-            Point2 p = state.nodes[a.a], q = state.nodes[a.b], r = state.nodes[b.a],
-                   s = state.nodes[b.b];
-            if ((orientation(p, q, r) * orientation(p, q, s) < 0 &&
-                 orientation(r, s, p) * orientation(r, s, q) < 0) ||
-                on_segment(p, q, r) || on_segment(p, q, s) || on_segment(r, s, p) ||
-                on_segment(r, s, q))
+        for (std::size_t j = i + 1; j < state.edges.size(); ++j)
+            if (threads_cross(static_cast<int>(i), static_cast<int>(j), state.nodes))
                 ++count;
-        }
     for (const Edge& edge : state.edges)
         for (int i = 0; i < static_cast<int>(state.nodes.size()); ++i)
             if (i != edge.a && i != edge.b &&
@@ -332,15 +452,22 @@ int PuzzleGame::crossings() const {
                 ++count;
     return count;
 }
-bool PuzzleGame::move_node(int node, Point2 position) {
+bool PuzzleGame::move_node(int node, Point2 position, bool by_player) {
     if (state.over || node < 0 || node >= static_cast<int>(state.nodes.size()))
         return false;
+    if (untangle_frozen(node)) {
+        message = "That peg is frozen until its threads are clear.";
+        return false;
+    }
     state.nodes[node] = {std::clamp(position.x, .035, .965), std::clamp(position.y, .035, .965)};
-    ++state.moves;
+    if (by_player)
+        ++state.moves;
+    thaw();
     state.over = crossings() == 0;
     state.won = state.over;
-    message = state.over ? "Every line is clear. Beautifully untangled."
-                         : "Drag a point to clear the crossing lines.";
+    message = state.over  ? "Every thread is clear. Beautifully untangled."
+              : by_player ? "Drag a peg to clear the crossing threads."
+                          : "The kitten knocked a peg loose.";
     return true;
 }
 PegFeedback PuzzleGame::evaluate_pegs(const std::array<int, 4>& code,
@@ -410,48 +537,148 @@ bool PuzzleGame::cube_adjacent(int a, int b) {
     double d = std::abs(p.x - q.x) + std::abs(p.y - q.y) + std::abs(p.z - q.z);
     return std::abs(d - .5) < 1e-8;
 }
+namespace {
+// Depth-first search for a path through every tile, trying the neighbor with the fewest
+// onward choices first (Warnsdorff's rule). The step budget keeps a bad start cheap.
+struct TileTour {
+    const std::array<std::vector<int>, 96>& next;
+    std::array<bool, 96> used{};
+    std::vector<int> path;
+    std::size_t goal = 0;
+    long budget = 0;
+    std::mt19937& rng;
+    bool extend() {
+        if (path.size() == goal)
+            return true;
+        if (--budget < 0)
+            return false;
+        std::vector<std::pair<int, int>> options;
+        for (int n : next[path.back()])
+            if (!used[n]) {
+                int onward = 0;
+                for (int m : next[n])
+                    onward += !used[m];
+                options.push_back({onward * 8 + static_cast<int>(rng() % 8), n});
+            }
+        std::sort(options.begin(), options.end());
+        for (const std::pair<int, int>& option : options) {
+            used[option.second] = true;
+            path.push_back(option.second);
+            if (extend())
+                return true;
+            path.pop_back();
+            used[option.second] = false;
+        }
+        return false;
+    }
+};
+} // namespace
+// Every board is cut from one path that visits all 48 tiles, so it always has a solution
+// that fills the cube. Easy has five pairs; Medium seven and three stones; Hard nine, five
+// stones, and must be filled completely.
 void PuzzleGame::generate_cube() {
     state.secret.fill(0);
     state.marks.fill(0);
+    state.grid.fill(0);
+    state.paths.clear();
+    state.solution_paths.clear();
     state.aux[95] = 3;
-    for (int pair = 1; pair <= 6; ++pair) {
-        std::vector<int> best;
-        for (int attempt = 0; attempt < 100; ++attempt) {
-            const int faces[] = {0, 3, 4};
-            int start = faces[(pair - 1) % 3] * 16 + random(16);
-            if (state.secret[start])
-                continue;
-            std::vector<int> path{start};
-            int length = 4 + random(5);
-            for (int step = 1; step < length; ++step) {
-                std::vector<int> choices;
-                for (int j = 0; j < 96; ++j)
-                    if (cube_playable(j) && !state.secret[j] && cube_adjacent(path.back(), j) &&
-                        std::find(path.begin(), path.end(), j) == path.end())
-                        choices.push_back(j);
-                if (choices.empty())
-                    break;
-                path.push_back(choices[random(static_cast<int>(choices.size()))]);
-            }
-            if (path.size() > best.size())
-                best = path;
-            if (best.size() >= static_cast<std::size_t>(length))
-                break;
+    state.aux[94] = std::clamp(level, 0, 2);
+    const int pairs = state.aux[94] == 0 ? 5 : state.aux[94] == 1 ? 7 : 9;
+    const int rocks = state.aux[94] == 0 ? 0 : state.aux[94] == 1 ? 3 : 5;
+    std::array<std::vector<int>, 96> next{};
+    std::vector<int> tiles;
+    for (int a = 0; a < 96; ++a)
+        if (cube_playable(a)) {
+            tiles.push_back(a);
+            for (int b = 0; b < 96; ++b)
+                if (cube_playable(b) && cube_adjacent(a, b))
+                    next[a].push_back(b);
         }
-        if (best.size() < 2) {
-            state.paths.clear();
-            state.solution_paths.clear();
-            generate_cube();
-            return;
-        }
-        for (int cell : best)
-            state.secret[cell] = pair;
-        state.marks[best.front()] = pair;
-        state.marks[best.back()] = pair;
-        state.solution_paths.push_back(best);
-        state.paths.push_back({});
+    std::mt19937 rng(static_cast<std::uint32_t>(random(1 << 30)));
+    std::vector<int> tour;
+    while (tour.empty()) {
+        TileTour search{next, {}, {}, tiles.size(), 20000, rng};
+        const int start = tiles[rng() % tiles.size()];
+        search.used[start] = true;
+        search.path.push_back(start);
+        if (search.extend())
+            tour = search.path;
     }
-    message = "Connect six pairs across the three visible faces. Move the mouse to tilt the cube.";
+    // Backbite moves wander the tour into a less regular shape.
+    for (int step = 0; step < 3000; ++step) {
+        if (rng() & 1)
+            std::reverse(tour.begin(), tour.end());
+        const std::vector<int>& around = next[tour.front()];
+        const int pivot = around[rng() % around.size()];
+        const std::size_t at =
+            static_cast<std::size_t>(std::find(tour.begin(), tour.end(), pivot) - tour.begin());
+        if (at > 1)
+            std::reverse(tour.begin(), tour.begin() + static_cast<std::ptrdiff_t>(at));
+    }
+    // Cut the tour into pairs and stones. Each path is at least three tiles long and its
+    // ends never touch, so no pair is solved before it starts.
+    const int open = static_cast<int>(tour.size()) - rocks;
+    for (int attempt = 0; attempt < 400; ++attempt) {
+        std::vector<int> lengths(pairs, 3);
+        for (int extra = open - 3 * pairs; extra > 0; --extra)
+            ++lengths[rng() % pairs];
+        std::vector<int> pieces(lengths.begin(), lengths.end());
+        pieces.insert(pieces.end(), rocks, 1); // a stone is a piece of length one
+        std::vector<bool> stone(pieces.size(), false);
+        for (int r = 0; r < rocks; ++r)
+            stone[pairs + r] = true;
+        for (std::size_t i = pieces.size() - 1; i > 0; --i) {
+            const std::size_t j = rng() % (i + 1);
+            std::swap(pieces[i], pieces[j]);
+            std::vector<bool>::swap(stone[i], stone[j]);
+        }
+        std::vector<std::vector<int>> cut;
+        std::vector<int> stones;
+        bool fair = true;
+        std::size_t at = 0;
+        for (std::size_t i = 0; i < pieces.size(); ++i) {
+            std::vector<int> piece(tour.begin() + static_cast<std::ptrdiff_t>(at),
+                                   tour.begin() + static_cast<std::ptrdiff_t>(at + pieces[i]));
+            at += pieces[i];
+            if (stone[i])
+                stones.push_back(piece.front());
+            else {
+                fair = fair && !cube_adjacent(piece.front(), piece.back());
+                cut.push_back(piece);
+            }
+        }
+        if (!fair && attempt < 399)
+            continue;
+        for (int cell : stones)
+            state.grid[cell] = 1;
+        for (int pair = 1; pair <= pairs; ++pair) {
+            const std::vector<int>& best = cut[pair - 1];
+            for (int cell : best)
+                state.secret[cell] = pair;
+            state.marks[best.front()] = pair;
+            state.marks[best.back()] = pair;
+            state.solution_paths.push_back(best);
+            state.paths.push_back({});
+        }
+        break;
+    }
+    const char* goals[] = {"Connect five pairs across the three visible faces.",
+                           "Connect seven pairs and steer around the mossy stones.",
+                           "Connect nine pairs and fill every open tile."};
+    message = std::string(goals[state.aux[94]]) + " Move the mouse to tilt the cube.";
+}
+int PuzzleGame::cube_open_tiles() const {
+    std::array<bool, 96> covered{};
+    for (const std::vector<int>& path : state.paths)
+        for (int cell : path)
+            if (cell >= 0 && cell < 96)
+                covered[cell] = true;
+    int open = 0;
+    for (int cell = 0; cell < 96; ++cell)
+        if (cube_playable(cell) && !cube_rock(cell) && !covered[cell])
+            ++open;
+    return open;
 }
 int PuzzleGame::cube_pair(int cell) const {
     return cell >= 0 && cell < 96 ? state.marks[cell] : 0;
@@ -466,8 +693,8 @@ bool PuzzleGame::cube_start(int cell) {
     return true;
 }
 bool PuzzleGame::cube_extend(int cell) {
-    if (state.over || state.stage < 1 || state.stage > 6 || cell < 0 || cell >= 96 ||
-        (state.aux[95] == 3 && !cube_playable(cell)))
+    if (state.over || state.stage < 1 || state.stage > cube_pairs() || cell < 0 || cell >= 96 ||
+        (state.aux[95] == 3 && !cube_playable(cell)) || cube_rock(cell))
         return false;
     std::vector<int>& path = state.paths[state.stage - 1];
     if (path.empty() || !cube_adjacent(path.back(), cell))
@@ -480,16 +707,20 @@ bool PuzzleGame::cube_extend(int cell) {
     if ((path.size() > 1 && cube_pair(path.back())) ||
         (cube_pair(cell) && cube_pair(cell) != state.stage))
         return false;
-    for (int i = 0; i < 6; ++i)
+    for (int i = 0; i < cube_pairs(); ++i)
         if (i != state.stage - 1 &&
             std::find(state.paths[i].begin(), state.paths[i].end(), cell) != state.paths[i].end())
             return false;
     path.push_back(cell);
     state.won = true;
-    for (int i = 0; i < 6; ++i) {
+    for (int i = 0; i < cube_pairs(); ++i) {
         const std::vector<int>& p = state.paths[i];
         if (p.size() < 2 || cube_pair(p.front()) != i + 1 || cube_pair(p.back()) != i + 1)
             state.won = false;
+    }
+    if (state.won && cube_fill() && cube_open_tiles() > 0) {
+        state.won = false;
+        message = "Every pair is joined. Now fill the empty tiles.";
     }
     state.over = state.won;
     if (state.over)
@@ -497,10 +728,13 @@ bool PuzzleGame::cube_extend(int cell) {
     return true;
 }
 bool PuzzleGame::cube_witness_valid() const {
-    if (state.solution_paths.size() != 6)
+    if (state.solution_paths.size() < 3 || state.solution_paths.size() > 9)
         return false;
     std::set<int> occupied;
-    for (int i = 0; i < 6; ++i) {
+    for (int cell = 0; cell < 96; ++cell)
+        if (cube_rock(cell))
+            occupied.insert(cell);
+    for (int i = 0; i < cube_pairs(); ++i) {
         const std::vector<int>& p = state.solution_paths[i];
         if (p.size() < 2 || cube_pair(p.front()) != i + 1 || cube_pair(p.back()) != i + 1)
             return false;
@@ -845,32 +1079,34 @@ bool PuzzleGame::invariant() const {
         return false;
     for (int i = 0; i < 96; ++i)
         if (state.grid[i] < 0 || state.grid[i] > 127 || state.secret[i] < 0 ||
-            state.secret[i] > 16 || state.marks[i] < 0 || state.marks[i] > 6 ||
+            state.secret[i] > 16 || state.marks[i] < 0 || state.marks[i] > 9 ||
             state.aux[i] < -99 || state.aux[i] > 100)
             return false;
     if (kind == PuzzleKind::cube) {
-        if (!cube_witness_valid() || state.paths.size() != 6)
+        if (!cube_witness_valid() || state.paths.size() != state.solution_paths.size())
             return false;
         std::set<int> used;
-        for (int pair = 0; pair < 6; ++pair) {
+        for (int pair = 0; pair < cube_pairs(); ++pair) {
             const std::vector<int>& path = state.paths[pair];
             if (!path.empty() && cube_pair(path.front()) != pair + 1)
                 return false;
             for (std::size_t j = 0; j < path.size(); ++j)
-                if (path[j] < 0 || path[j] >= 96 || !used.insert(path[j]).second ||
-                    (j && !cube_adjacent(path[j - 1], path[j])))
+                if (path[j] < 0 || path[j] >= 96 || cube_rock(path[j]) ||
+                    !used.insert(path[j]).second || (j && !cube_adjacent(path[j - 1], path[j])))
                     return false;
         }
     }
     if (kind == PuzzleKind::untangle) {
-        if (state.nodes.size() != 12 || state.embedding.size() != 12)
+        if (state.nodes.size() < 6 || state.nodes.size() > 24 ||
+            state.embedding.size() != state.nodes.size() || state.edges.size() > 88)
             return false;
         for (Point2 p : state.nodes)
             if (!std::isfinite(p.x) || !std::isfinite(p.y) || p.x < 0 || p.x > 1 || p.y < 0 ||
                 p.y > 1)
                 return false;
         for (Edge e : state.edges)
-            if (e.a < 0 || e.b < 0 || e.a >= 12 || e.b >= 12)
+            if (e.a < 0 || e.b < 0 || e.a >= static_cast<int>(state.nodes.size()) ||
+                e.b >= static_cast<int>(state.nodes.size()))
                 return false;
     }
     if (kind == PuzzleKind::solve && state.aux[95] == 3) {
@@ -1016,7 +1252,7 @@ bool PuzzleGame::load(const std::filesystem::path& path) {
     for (int which = 0; which < 2; ++which) {
         int count = 0;
         in >> count;
-        if (count < 0 || count > (kind == PuzzleKind::solve ? 7 : 6))
+        if (count < 0 || count > (kind == PuzzleKind::solve ? 7 : 9))
             return false;
         std::vector<std::vector<int>>& paths = which == 0 ? s.paths : s.solution_paths;
         for (int i = 0; i < count; ++i) {

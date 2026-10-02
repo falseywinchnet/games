@@ -189,11 +189,31 @@ def update_manifests(assets_audio: Path, replaced: dict, reports: dict, sections
             "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
             "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
         })
-    manifest["generated_by"] = ("Original Neo synthesis; two delivered batches. Eleven loops and fourteen stingers replaced "
-                                "by the PlaySuite C++ synthesizer (authoring/playsuite_music)")
-    manifest.setdefault("validation_summary", {})["playsuite_v2"] = {
-        "files_with_clipping": [s for s in replaced if reports[s]["clipped_samples"]],
-        "replaced": sorted(s + ".m4a" for s in replaced)}
+    for entry in manifest["sfx"]:
+        stem = Path(entry["file"]).stem
+        if stem not in replaced:
+            continue
+        r, dec = reports[stem], replaced[stem]
+        entry.update({
+            "file": "authoring/playsuite_music sfx: " + stem + ".wav",
+            "batch": "playsuite-v2", "producer": PRODUCER, "title": r["title"],
+            "channels": 2, "seconds": round(r["seconds"], 3),
+            "peak_dbfs": round(r["peak_dbfs"], 1),
+            "validation": {"peak_dbfs": r["peak_dbfs"], "clipped_samples": r["clipped_samples"], "dc_offset_max": r["dc_offset_max"],
+                           "start_abs": r["start_abs"], "end_abs": r["end_abs"],
+                           "decoded_aac": {"frames": dec["decoded_frames"], "alignment_offset": dec["best_offset"], "snr_db": dec["snr_db"],
+                                           "true_peak_dbtp": dec["true_peak_dbtp"]}},
+            "runtime": [stem + ".m4a"],
+            "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+        })
+        entry.pop("max_rms50ms_dbfs", None)
+    manifest["generated_by"] = ("Original Neo synthesis; two delivered batches. Eleven loops, fourteen stingers and the card "
+                                "handling sounds replaced by the PlaySuite C++ synthesizer (authoring/playsuite_music)")
+    # Runs may package different subsets (music, then card sounds); keep earlier records.
+    summary = manifest.setdefault("validation_summary", {}).setdefault("playsuite_v2", {})
+    summary["files_with_clipping"] = sorted(set(summary.get("files_with_clipping", [])) |
+                                            {s for s in replaced if reports[s]["clipped_samples"]})
+    summary["replaced"] = sorted(set(summary.get("replaced", [])) | {s + ".m4a" for s in replaced})
     path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
     path = assets_audio / "PACKAGED_SHA256.json"

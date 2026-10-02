@@ -888,7 +888,8 @@ std::string analyseDecoded(const std::string& decodedPath, const std::string& ma
     long n = std::min<long>({frames, dn, mn});
     // alignment: correlate a window anchored at the strongest onset (unambiguous for sustained
     // material)
-    long win = 24000, blk = 2400, centre = n / 2;
+    // Short effects are correlated over their whole length.
+    long win = std::min<long>(24000, n), blk = 2400, centre = n > win + 8192 ? n / 2 : 0;
     {
         double prev = 0, bestRise = -1;
         for (long b = 0; b + blk <= n - win - 4096; b += blk) {

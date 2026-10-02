@@ -13,22 +13,16 @@ class ShelfBox final : public gf::Button {
     [[nodiscard]] Entry entry() const {
         return entry_;
     }
-    [[nodiscard]] bool open_requested() const {
-        return open_requested_;
-    }
     [[nodiscard]] bool hot() const {
         return hovered_visual() || pressed_visual();
     }
     // Returns true while still moving.
     bool step(double dt, bool reduced);
-    void on_pointer(gf::PointerEvent& e) override;
-    void on_key(gf::KeyEvent& e) override;
     void on_paint(gf::Painter& painter, gf::Rect damage) override;
 
   private:
     Entry entry_;
     TextSprites& sprites_;
-    bool open_requested_ = false;
     double lift_ = 0;
 };
 
@@ -46,7 +40,8 @@ class LaunchCurtain final : public gf::Control {
 };
 
 // The PlaySuite main menu: a lit wall of shelves holding every game as a box,
-// a sign with the master switches, and a ticket for the chosen box.
+// a sign with the master switches, and a ticket describing the box under the pointer.
+// One click on a box opens its game.
 class ShelfView final : public gf::Control {
   public:
     ShelfView(gf::StableId id, TextSprites& sprites);
@@ -68,7 +63,6 @@ class ShelfView final : public gf::Control {
   private:
     TextSprites& sprites_;
     std::array<std::shared_ptr<ShelfBox>, entry_count> boxes_{};
-    std::shared_ptr<SuiteButton> play_;
     std::shared_ptr<LaunchCurtain> curtain_;
     bool launching_ = false;
     double launch_t_ = 0;
@@ -78,6 +72,7 @@ class ShelfView final : public gf::Control {
     std::unique_ptr<gf::Timer> timer_;
     std::chrono::steady_clock::time_point last_{};
     Entry selection_ = Entry::solitaire;
+    Entry shown_ = Entry::solitaire; // the box the ticket describes: hovered, else chosen
     std::array<bool, entry_count> started_{};
     bool reduced_ = false;
     int columns_ = 7;
@@ -88,7 +83,6 @@ class ShelfView final : public gf::Control {
     void on_detaching_from_window(gf::Window& window) noexcept override;
     void tick();
     void clicked_box(gf::ButtonBase& button);
-    void clicked_play(gf::ButtonBase& button);
     void clicked_switch(gf::ButtonBase& button);
 };
 } // namespace games

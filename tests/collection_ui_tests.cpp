@@ -143,6 +143,28 @@ int main() {
                    (*view).board().y + (b / 8 + .5) * (*view).board().height / 8});
             assert(game.state.grid == before && game.state.moves == 0 &&
                    game.message.find("does not") != std::string::npos);
+            // A click picks a gem; a click on its neighbor swaps the two.
+            const gf::Point at_a{(*view).board().x + (a % 8 + .5) * (*view).board().width / 8,
+                                 (*view).board().y + (a / 8 + .5) * (*view).board().height / 8};
+            const gf::Point at_b{(*view).board().x + (b % 8 + .5) * (*view).board().width / 8,
+                                 (*view).board().y + (b / 8 + .5) * (*view).board().height / 8};
+            game.message.clear();
+            point(window, *view, gf::PointerAction::down, at_a);
+            point(window, *view, gf::PointerAction::up, at_a);
+            assert(game.message.empty());
+            point(window, *view, gf::PointerAction::down, at_b);
+            assert(game.state.grid == before && game.message.find("does not") != std::string::npos);
+            point(window, *view, gf::PointerAction::up, at_b);
+            // Dragging the gem itself most of a cell toward its neighbor commits the swap.
+            game.message.clear();
+            point(window, *view, gf::PointerAction::down, at_a);
+            point(window, *view, gf::PointerAction::move, {at_a.x + 4, at_a.y});
+            assert(game.message.empty());
+            point(window, *view, gf::PointerAction::move,
+                  {at_a.x + (*view).board().width / 8 * .8, at_a.y});
+            assert(game.message.find("does not") != std::string::npos);
+            point(window, *view, gf::PointerAction::up,
+                  {at_a.x + (*view).board().width / 8 * .8, at_a.y});
         }
         if (game.kind == PuzzleKind::pegs) {
             static_cast<void>(window.request_focus(view));
@@ -258,10 +280,8 @@ int main() {
         assert(!button(*shelf, "collection.category.0"));
         assert(!std::filesystem::exists(scratch / "eggy-v1.txt"));
         const std::string eggy_box = "shelf.box." + std::to_string(static_cast<int>(Entry::eggy));
-        assert((*button(*shelf, eggy_box)).perform_click());
-        assert((*shelf).visible() && !(*eggy).visible()); // selection is separate from opening
+        assert((*button(*shelf, eggy_box)).perform_click()); // one click opens the box
         assert((*button(*shelf, eggy_box)).selected());
-        assert((*button(*shelf, "shelf.play")).perform_click());
         window.perform_layout();
         assert(!(*shelf).visible() && (*eggy).visible() && (*capsule).visible());
         assert(!std::filesystem::exists(scratch / "eggy-v1.txt"));
@@ -278,6 +298,29 @@ int main() {
             assert(static_cast<int>((*std::static_pointer_cast<Table>(cards)).game.state.kind) ==
                    static_cast<int>(e));
             assert(button(*capsule, "capsule.cmd.new") && button(*capsule, "capsule.cmd.undo"));
+            // Patience games offer Easy, Medium and Hard deals; Hearts has no levels.
+            Table& table = *std::static_pointer_cast<Table>(cards);
+            struct LevelLabel {
+                const Table& table;
+                std::string operator()() const {
+                    for (const GameCommand& command : table.commands())
+                        if (command.id == "level")
+                            return command.label;
+                    return "";
+                }
+            };
+            const LevelLabel level{table};
+            if (e == Entry::hearts)
+                assert(level().empty());
+            else {
+                const std::string before = level();
+                assert(before.rfind("Next: ", 0) == 0);
+                table.run_command("level");
+                assert(level() != before && level().rfind("Next: ", 0) == 0);
+                table.run_command("level");
+                table.run_command("level");
+                assert(level() == before);
+            }
             (*collection).show_shelf();
         }
         // Hovering opens the capsule; tests advance its opening directly.
@@ -302,8 +345,6 @@ int main() {
                 assert(view && !(*view).visible());
                 const std::string box = "shelf.box." + std::to_string(static_cast<int>(e));
                 assert((*button(*shelf, box)).perform_click());
-                assert((*shelf).visible() && !(*view).visible());
-                assert((*button(*shelf, "shelf.play")).perform_click());
                 window.perform_layout();
                 assert(!(*shelf).visible() && (*view).visible());
                 return view;

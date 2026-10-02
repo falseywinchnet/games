@@ -17,10 +17,10 @@ add_library(vendor_game_ui STATIC
 target_link_libraries(vendor_game_ui PUBLIC eggy_core sbx_core fp_core ap_core
     game_audio_adapters game_text_frames GUIForms::Application)
 add_library(game_ui src/table.cpp src/presentation.cpp src/puzzle_view.cpp src/collection.cpp
-    src/sudoku_view.cpp src/suite.cpp src/text_sprites.cpp src/shelf.cpp src/capsule.cpp
+    src/sudoku_view.cpp src/suite.cpp src/text_sprites.cpp src/shelf.cpp src/capsule.cpp src/kitten.cpp
     vendor/paint/carpet.cpp vendor/paint/image.cpp)
 target_include_directories(game_ui PUBLIC src PRIVATE vendor/paint)
-target_link_libraries(game_ui PUBLIC game_rules game_raster sudoku_generator vendor_game_ui)
+target_link_libraries(game_ui PUBLIC game_rules game_solver game_raster sudoku_generator vendor_game_ui)
 if(NOT MSVC)
     target_compile_options(game_ui PRIVATE -Wall -Wextra)
 endif()

@@ -46,15 +46,6 @@ bool ShelfBox::step(double dt, bool reduced) {
     }
     return moving;
 }
-void ShelfBox::on_pointer(gf::PointerEvent& e) {
-    if (e.action == gf::PointerAction::down)
-        open_requested_ = e.click_count >= 2;
-    gf::Button::on_pointer(e);
-}
-void ShelfBox::on_key(gf::KeyEvent& e) {
-    open_requested_ = true;
-    gf::Button::on_key(e);
-}
 void ShelfBox::on_paint(gf::Painter& p, gf::Rect) {
     const EntryInfo& info = entry_info(entry_);
     const gf::Rect b = client_rectangle();
@@ -160,13 +151,6 @@ void ShelfView::initialize_control_tree() {
                            gf::Delegate<gf::ButtonBase&>::bind<ShelfView, &ShelfView::clicked_box>(
                                *this)));
     }
-    play_ = gf::make_control<SuiteButton>(gf::StableId("shelf.play"), "Play", GlossTone::gold);
-    (*play_).set_glyph(Glyph::play);
-    (*play_).set_radius(5);
-    (*play_).set_font({gf::FontRole::content, 16, 700, false, .4});
-    add_child(play_);
-    subscriptions_.push_back((*play_).clicked().subscribe(
-        *this, gf::Delegate<gf::ButtonBase&>::bind<ShelfView, &ShelfView::clicked_play>(*this)));
     const char* names[] = {"Music", "Sound", "Motion"};
     const Glyph glyphs[] = {Glyph::music, Glyph::sound, Glyph::motion};
     for (int i = 0; i < 3; ++i) {
@@ -227,13 +211,21 @@ void ShelfView::tick() {
     last_ = now;
     if (!visible())
         return;
-    for (const std::shared_ptr<ShelfBox>& box : boxes_)
+    Entry shown = selection_;
+    for (const std::shared_ptr<ShelfBox>& box : boxes_) {
         (*box).step(dt, reduced_);
+        if ((*box).hot())
+            shown = (*box).entry();
+    }
+    if (shown != shown_) {
+        shown_ = shown;
+        invalidate(gf::Dirty::paint);
+    }
     if (launching_) {
-        launch_t_ += dt / .42;
+        launch_t_ += dt / .2;
         (*curtain_).progress = std::min(1.0, launch_t_);
         (*curtain_).invalidate(gf::Dirty::paint);
-        if (launch_t_ >= 1.12) {
+        if (launch_t_ >= 1.0) {
             launching_ = false;
             (*curtain_).set_visible(false);
             (*curtain_).progress = 0;
@@ -253,19 +245,16 @@ void ShelfView::set_preferences(bool music, bool sound, bool reduced) {
 }
 void ShelfView::set_progress(Entry entry, bool started) {
     started_[static_cast<std::size_t>(entry)] = started;
-    if (entry == selection_) {
-        (*play_).set_text(started ? "Continue" : "Play");
-        invalidate(gf::Dirty::layout | gf::Dirty::paint);
-    }
+    if (entry == selection_ || entry == shown_)
+        invalidate(gf::Dirty::paint);
 }
 void ShelfView::select(Entry entry) {
     selection_ = entry;
+    shown_ = entry;
     for (const std::shared_ptr<ShelfBox>& box : boxes_)
         if (box)
             (*box).set_selected((*box).entry() == entry);
-    if (play_)
-        (*play_).set_text(started_[static_cast<std::size_t>(entry)] ? "Continue" : "Play");
-    invalidate(gf::Dirty::layout | gf::Dirty::paint);
+    invalidate(gf::Dirty::paint);
 }
 void ShelfView::focus_selection() {
     if (attached_window())
@@ -276,12 +265,7 @@ void ShelfView::clicked_box(gf::ButtonBase& button) {
     const ShelfBox* box = dynamic_cast<ShelfBox*>(&button);
     if (!box)
         return;
-    select((*box).entry());
-    if ((*box).open_requested())
-        launch((*box).entry());
-}
-void ShelfView::clicked_play(gf::ButtonBase&) {
-    launch(selection_);
+    launch((*box).entry());
 }
 void ShelfView::clicked_switch(gf::ButtonBase& button) {
     for (int i = 0; i < 3; ++i)
@@ -353,9 +337,6 @@ void ShelfView::arrange(gf::Rect bounds) {
         shelf_lines_.push_back(y + kLiftRoom + box_h);
         y += pitch;
     }
-    const double play_w = compact ? 118 : 150, play_h = compact ? 38 : 46;
-    set_child_layout(play_, {w - play_w - (compact ? 14 : 28),
-                             ticket_.y + (ticket_.height - play_h) * .5, play_w, play_h});
     set_child_layout(curtain_, {0, 0, w, h});
     const double sw = compact ? 34 : 38;
     for (int i = 0; i < 3; ++i)
@@ -364,7 +345,7 @@ void ShelfView::arrange(gf::Rect bounds) {
 }
 void ShelfView::on_paint(gf::Painter& p, gf::Rect) {
     const gf::Rect b = client_rectangle();
-    const EntryInfo& chosen = entry_info(selection_);
+    const EntryInfo& chosen = entry_info(shown_);
     // Walnut wall with vertical panels and a warm spotlight from above.
     fill_vertical(p, b, rgb(58, 36, 22), rgb(30, 18, 10));
     for (double x = 0; x < b.width; x += 92) {
@@ -408,9 +389,9 @@ void ShelfView::on_paint(gf::Painter& p, gf::Rect) {
     paint_entry_emblem(
         p,
         {swatch.x + 3, swatch.y + (em - swatch.width + 6) * .5, swatch.width - 6, swatch.width - 6},
-        selection_);
+        shown_);
     const double tx = swatch.x + swatch.width + 16;
-    const double text_right = b.width - (compact ? 150 : 200);
+    const double text_right = b.width - inset - 16;
     SpriteSpec title{chosen.title, Face::serif, true, compact ? 19.0 : 25.0, rgb(52, 30, 14)};
     gf::Size ts = sprites_.measure(title);
     double ty = t.y + (compact ? 7 : 10);
@@ -428,7 +409,10 @@ void ShelfView::on_paint(gf::Painter& p, gf::Rect) {
     }
     p.draw_text_utf8({tx, ty + ts.height + (compact ? 12 : 17)}, blurb, body, rgb(92, 70, 48));
     if (!compact)
-        p.draw_text_utf8({tx, t.y + t.height - 8}, "Double-click a box or press Enter to play.",
+        p.draw_text_utf8({tx, t.y + t.height - 8},
+                         started_[static_cast<std::size_t>(shown_)]
+                             ? "Game in progress. Click the box to pick up where you left off."
+                             : "Click a box to play.",
                          {gf::FontRole::content, 11, 400, false}, rgb(140, 116, 86));
 }
 } // namespace games

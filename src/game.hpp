@@ -51,5 +51,13 @@ class Game {
 };
 bool red(Card card);
 std::string card_name(Card card);
+// Hearts opponents. Each match seats three players named after US presidents. Every hand,
+// one of them is sharp (remembers every card and thinks further ahead), one is forgetful,
+// and one plays a steady middle game. Player 0 is "You"; hints use the sharp player's eye.
+std::string hearts_name(const State& state, int player);
+enum class HeartsSkill { forgetful, steady, sharp };
+HeartsSkill hearts_skill(const State& state, int player);
+// The three cards a computer player passes.
+std::vector<int> hearts_pass_choice(const State& state, int player);
 const char* game_name(Kind kind);
 } // namespace games

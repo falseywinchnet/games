@@ -26,8 +26,21 @@ int main() {
                     sum += p;
                 require(sum == 26 || sum == 78, "Hearts points");
                 require(game.state.trick_number == 13, "13 tricks");
+                const std::string west = games::hearts_name(game.state, 1);
                 game.next_round();
                 require(game.state.round == 1, "next round");
+                require(games::hearts_name(game.state, 1) == west, "seats keep their names");
+                require(west != games::hearts_name(game.state, 2) &&
+                            west != games::hearts_name(game.state, 3) &&
+                            games::hearts_name(game.state, 2) != games::hearts_name(game.state, 3),
+                        "three different presidents");
+                int sharp = 0, forgetful = 0;
+                for (int p = 1; p < 4; ++p) {
+                    sharp += games::hearts_skill(game.state, p) == games::HeartsSkill::sharp;
+                    forgetful +=
+                        games::hearts_skill(game.state, p) == games::HeartsSkill::forgetful;
+                }
+                require(sharp == 1 && forgetful == 1, "one sharp and one forgetful seat per hand");
             } else {
                 for (int n = 0; n < 100; ++n) {
                     games::Move m = game.hint();

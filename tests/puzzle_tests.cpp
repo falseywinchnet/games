@@ -155,6 +155,7 @@ int main() {
     for (int k = 0; k < 8; ++k)
         for (int seed = 1; seed <= 24; ++seed) {
             PuzzleGame game(static_cast<PuzzleKind>(k));
+            game.level = seed % 3;
             game.deal(seed);
             assert(game.invariant());
             std::filesystem::path path = std::filesystem::temp_directory_path() /
@@ -175,11 +176,46 @@ int main() {
                     }
                 }
                 assert(game.state.won);
+                // Five, seven or nine pairs; stones from Medium up; the solution fills the cube.
+                assert(game.cube_pairs() == 5 + 2 * (seed % 3));
+                int stones = 0;
+                for (int cell = 0; cell < 96; ++cell)
+                    stones += game.cube_rock(cell);
+                assert(stones == (seed % 3 == 0 ? 0 : seed % 3 == 1 ? 3 : 5));
+                assert(game.cube_open_tiles() == 0 && game.cube_fill() == (seed % 3 == 2));
             }
             if (game.kind == PuzzleKind::untangle) {
                 assert(game.crossings() > 0);
-                game.state.nodes = game.state.embedding;
-                assert(game.crossings() == 0);
+                // Ten, thirteen or sixteen pegs; one more yarn color and more frozen pegs per
+                // level.
+                const int level = seed % 3;
+                assert(static_cast<int>(game.state.nodes.size()) == 10 + 3 * level);
+                assert(game.untangle_layers() == level + 1);
+                int frozen = 0;
+                for (int i = 0; i < static_cast<int>(game.state.nodes.size()); ++i)
+                    if (game.untangle_frozen(i)) {
+                        ++frozen;
+                        // Frozen pegs start where the solution has them, and refuse to move.
+                        assert(game.state.nodes[i].x == game.state.embedding[i].x &&
+                               game.state.nodes[i].y == game.state.embedding[i].y);
+                        PuzzleGame trial = game;
+                        assert(!trial.move_node(i, {.5, .5}) && trial.state.moves == 0);
+                    }
+                assert(frozen == (level == 0 ? 0 : level == 1 ? 2 : 3));
+                // The kitten's nudge is not the player's move.
+                PuzzleGame nudged = game;
+                for (int i = 0; i < static_cast<int>(nudged.state.nodes.size()); ++i)
+                    if (!nudged.untangle_frozen(i)) {
+                        assert(nudged.move_node(i, {.4, .41}, false) && nudged.state.moves == 0);
+                        break;
+                    }
+                // Moving the free pegs home solves it and thaws every frozen peg.
+                for (int i = 0; i < static_cast<int>(game.state.nodes.size()); ++i)
+                    if (!game.untangle_frozen(i))
+                        game.move_node(i, game.state.embedding[i]);
+                assert(game.crossings() == 0 && game.state.won);
+                for (int i = 0; i < static_cast<int>(game.state.nodes.size()); ++i)
+                    assert(!game.untangle_frozen(i));
             }
             if (game.kind == PuzzleKind::pegs) {
                 std::array<int, 4> c;

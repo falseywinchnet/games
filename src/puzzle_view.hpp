@@ -2,6 +2,7 @@
 #include "gui_forms/basic_controls.hpp"
 #include "gui_forms/controls/panel/text_box/text_box.hpp"
 #include "gui_forms/timer.hpp"
+#include "kitten.hpp"
 #include "puzzle_render.hpp"
 #include "suite.hpp"
 #include <chrono>
@@ -44,7 +45,7 @@ class PuzzleView final : public gf::Control, public CommandSource {
     bool flip_ = false, sound_ = true, music_ = true, reduced_ = false, invalid_swap_ = false,
          tracing_ = false, orbit_ = false;
     double yaw_ = .75, pitch_ = -.56, target_yaw_ = .75, target_pitch_ = -.56;
-    gf::Point last_pointer_{};
+    gf::Point last_pointer_{}, pointer_seen_{};
     Point2 drag_position_{};
     // Puzzle Solve: the dragged piece follows the pointer at its grab point, in board units.
     gf::Point solve_pointer_{};
@@ -60,11 +61,36 @@ class PuzzleView final : public gf::Control, public CommandSource {
     void layout_solve(gf::Rect bounds);
     [[nodiscard]] double untangle_radius() const;
     struct GemEffect {
-        enum Kind { shard, ring, shock, beam_row, beam_column, bolt } kind;
+        enum Kind { shard, ring, shock, beam_row, beam_column, bolt, points } kind;
         double x, y, vx, vy, spin, life, size;
         gf::Color color;
         double age = 0;
     };
+    // Gems: a click picks a gem and a click on a neighbor swaps the two; a press can also
+    // drag the gem itself toward a neighbor. Offsets and positions are in cells.
+    int gem_pick_ = -1, gem_spring_ = -1, gem_hint_ = -1, gem_hint_to_ = -1;
+    bool gem_dragging_ = false;
+    gf::Point gem_press_{};
+    Point2 gem_offset_{};
+    double swap_from_ = 0, gem_idle_ = 0, fx_dt_ = 0;
+    gf::FrameTime intro_start_{};
+    bool intro_ = false;
+    void gem_swap(int a, int b, double from);
+    void gem_find_hint();
+    void gem_drag(gf::Point local);
+    // Untangle: the cat, how long the pegs have been left alone, the peg it last knocked
+    // (animated from where it was), a frozen peg refusing to move, and thaw bursts.
+    Kitten kitten_;
+    double untangle_idle_ = 0, swat_t_ = 1, frozen_nudge_t_ = 1;
+    int swat_peg_ = -1, frozen_nudge_ = -1;
+    Point2 swat_from_{};
+    struct ThawPuff {
+        Point2 at;
+        double age = 0;
+    };
+    std::vector<ThawPuff> puffs_;
+    void untangle_step();
+    void untangle_released(const std::array<int, 96>& marks_before);
     std::vector<GemEffect> effects_;
     std::chrono::steady_clock::time_point fx_clock_{};
     std::uint32_t fx_seed_ = 0x9E3779B9u;

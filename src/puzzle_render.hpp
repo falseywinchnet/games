@@ -19,6 +19,7 @@ class PuzzleRaster {
     std::vector<std::byte> pixels;
     std::vector<int> ids;
     std::vector<double> depth;
+    double z_bias = 0; // added to ordinary depths; a lifted gem draws over its neighbors
     void resize(int w, int h);
     void clear();
     void triangle(RasterVertex a, RasterVertex b, RasterVertex c, int id);

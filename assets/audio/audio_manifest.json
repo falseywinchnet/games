@@ -1,5 +1,5 @@
 {
-  "generated_by": "Original Neo synthesis; two delivered batches. Eleven loops and fourteen stingers replaced by the PlaySuite C++ synthesizer (authoring/playsuite_music)",
+  "generated_by": "Original Neo synthesis; two delivered batches. Eleven loops, fourteen stingers and the card handling sounds replaced by the PlaySuite C++ synthesizer (authoring/playsuite_music)",
   "sample_rate": 48000,
   "music": [
     {
@@ -1803,444 +1803,620 @@
   ],
   "sfx": [
     {
-      "file": "outputs/sfx/card_deal_01.wav",
+      "file": "authoring/playsuite_music sfx: card_deal_01.wav",
       "event": "card_deal",
       "use": "all: one card dealt (fire per card, ~40-70 ms apart)",
-      "channels": 1,
-      "seconds": 0.29,
-      "peak_dbfs": -11,
-      "max_rms50ms_dbfs": -24.4,
+      "channels": 2,
+      "seconds": 0.3,
+      "peak_dbfs": -20.0,
       "validation": {
-        "peak_dbfs": -11.0,
+        "peak_dbfs": -20.0,
         "clipped_samples": 0,
-        "dc_offset_max": 4.62e-06,
+        "dc_offset_max": 5.4e-07,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 15360,
+          "alignment_offset": 0,
+          "snr_db": 25.54,
+          "true_peak_dbtp": -20.0
+        }
       },
       "runtime": [
-        "outputs/runtime/card_deal_01.ogg",
-        "outputs/runtime/card_deal_01.m4a"
-      ]
+        "card_deal_01.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card dealt to the table",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
     },
     {
-      "file": "outputs/sfx/card_deal_02.wav",
+      "file": "authoring/playsuite_music sfx: card_deal_02.wav",
       "event": "card_deal",
       "use": "all: one card dealt (fire per card, ~40-70 ms apart)",
-      "channels": 1,
-      "seconds": 0.29,
-      "peak_dbfs": -11,
-      "max_rms50ms_dbfs": -23.2,
+      "channels": 2,
+      "seconds": 0.3,
+      "peak_dbfs": -20.0,
       "validation": {
-        "peak_dbfs": -11.0,
-        "clipped_samples": 0,
-        "dc_offset_max": 5e-06,
-        "start_abs": 0.0,
-        "end_abs": 0.0
-      },
-      "runtime": [
-        "outputs/runtime/card_deal_02.ogg",
-        "outputs/runtime/card_deal_02.m4a"
-      ]
-    },
-    {
-      "file": "outputs/sfx/card_deal_03.wav",
-      "event": "card_deal",
-      "use": "all: one card dealt (fire per card, ~40-70 ms apart)",
-      "channels": 1,
-      "seconds": 0.29,
-      "peak_dbfs": -11,
-      "max_rms50ms_dbfs": -24.0,
-      "validation": {
-        "peak_dbfs": -11.0,
-        "clipped_samples": 0,
-        "dc_offset_max": 3.23e-06,
-        "start_abs": 0.0,
-        "end_abs": 0.0
-      },
-      "runtime": [
-        "outputs/runtime/card_deal_03.ogg",
-        "outputs/runtime/card_deal_03.m4a"
-      ]
-    },
-    {
-      "file": "outputs/sfx/card_deal_04.wav",
-      "event": "card_deal",
-      "use": "all: one card dealt (fire per card, ~40-70 ms apart)",
-      "channels": 1,
-      "seconds": 0.29,
-      "peak_dbfs": -11,
-      "max_rms50ms_dbfs": -22.2,
-      "validation": {
-        "peak_dbfs": -11.0,
-        "clipped_samples": 0,
-        "dc_offset_max": 4.58e-06,
-        "start_abs": 0.0,
-        "end_abs": 0.0
-      },
-      "runtime": [
-        "outputs/runtime/card_deal_04.ogg",
-        "outputs/runtime/card_deal_04.m4a"
-      ]
-    },
-    {
-      "file": "outputs/sfx/card_flip_01.wav",
-      "event": "card_flip",
-      "use": "Klondike/Spider: face-down card turned up; Klondike stock draw",
-      "channels": 1,
-      "seconds": 0.31,
-      "peak_dbfs": -9,
-      "max_rms50ms_dbfs": -27.0,
-      "validation": {
-        "peak_dbfs": -9.0,
-        "clipped_samples": 0,
-        "dc_offset_max": 3.84e-07,
-        "start_abs": 0.0,
-        "end_abs": 0.0
-      },
-      "runtime": [
-        "outputs/runtime/card_flip_01.ogg",
-        "outputs/runtime/card_flip_01.m4a"
-      ]
-    },
-    {
-      "file": "outputs/sfx/card_flip_02.wav",
-      "event": "card_flip",
-      "use": "Klondike/Spider: face-down card turned up; Klondike stock draw",
-      "channels": 1,
-      "seconds": 0.31,
-      "peak_dbfs": -9,
-      "max_rms50ms_dbfs": -27.2,
-      "validation": {
-        "peak_dbfs": -9.0,
-        "clipped_samples": 0,
-        "dc_offset_max": 1.36e-07,
-        "start_abs": 0.0,
-        "end_abs": 0.0
-      },
-      "runtime": [
-        "outputs/runtime/card_flip_02.ogg",
-        "outputs/runtime/card_flip_02.m4a"
-      ]
-    },
-    {
-      "file": "outputs/sfx/card_flip_03.wav",
-      "event": "card_flip",
-      "use": "Klondike/Spider: face-down card turned up; Klondike stock draw",
-      "channels": 1,
-      "seconds": 0.31,
-      "peak_dbfs": -9,
-      "max_rms50ms_dbfs": -28.1,
-      "validation": {
-        "peak_dbfs": -9.0,
-        "clipped_samples": 0,
-        "dc_offset_max": 1.61e-07,
-        "start_abs": 0.0,
-        "end_abs": 0.0
-      },
-      "runtime": [
-        "outputs/runtime/card_flip_03.ogg",
-        "outputs/runtime/card_flip_03.m4a"
-      ]
-    },
-    {
-      "file": "outputs/sfx/card_flip_04.wav",
-      "event": "card_flip",
-      "use": "Klondike/Spider: face-down card turned up; Klondike stock draw",
-      "channels": 1,
-      "seconds": 0.31,
-      "peak_dbfs": -9,
-      "max_rms50ms_dbfs": -26.7,
-      "validation": {
-        "peak_dbfs": -9.0,
-        "clipped_samples": 0,
-        "dc_offset_max": 7.24e-08,
-        "start_abs": 0.0,
-        "end_abs": 0.0
-      },
-      "runtime": [
-        "outputs/runtime/card_flip_04.ogg",
-        "outputs/runtime/card_flip_04.m4a"
-      ]
-    },
-    {
-      "file": "outputs/sfx/card_foundation_01.wav",
-      "event": "card_foundation",
-      "use": "valid foundation move (Klondike/FreeCell), completed run removed (Spider), trick taken (Hearts); use 01..04 ascending for consecutive moves",
-      "channels": 1,
-      "seconds": 1.805,
-      "peak_dbfs": -9,
-      "max_rms50ms_dbfs": -17.2,
-      "validation": {
-        "peak_dbfs": -9.0,
-        "clipped_samples": 0,
-        "dc_offset_max": 3.47e-05,
-        "start_abs": 0.0,
-        "end_abs": 0.0
-      },
-      "runtime": [
-        "outputs/runtime/card_foundation_01.ogg",
-        "outputs/runtime/card_foundation_01.m4a"
-      ]
-    },
-    {
-      "file": "outputs/sfx/card_foundation_02.wav",
-      "event": "card_foundation",
-      "use": "valid foundation move (Klondike/FreeCell), completed run removed (Spider), trick taken (Hearts); use 01..04 ascending for consecutive moves",
-      "channels": 1,
-      "seconds": 1.665,
-      "peak_dbfs": -9,
-      "max_rms50ms_dbfs": -16.8,
-      "validation": {
-        "peak_dbfs": -9.0,
-        "clipped_samples": 0,
-        "dc_offset_max": 3.15e-05,
-        "start_abs": 0.0,
-        "end_abs": 0.0
-      },
-      "runtime": [
-        "outputs/runtime/card_foundation_02.ogg",
-        "outputs/runtime/card_foundation_02.m4a"
-      ]
-    },
-    {
-      "file": "outputs/sfx/card_foundation_03.wav",
-      "event": "card_foundation",
-      "use": "valid foundation move (Klondike/FreeCell), completed run removed (Spider), trick taken (Hearts); use 01..04 ascending for consecutive moves",
-      "channels": 1,
-      "seconds": 1.788,
-      "peak_dbfs": -9,
-      "max_rms50ms_dbfs": -15.6,
-      "validation": {
-        "peak_dbfs": -9.0,
-        "clipped_samples": 0,
-        "dc_offset_max": 2.93e-05,
-        "start_abs": 0.0,
-        "end_abs": 0.0
-      },
-      "runtime": [
-        "outputs/runtime/card_foundation_03.ogg",
-        "outputs/runtime/card_foundation_03.m4a"
-      ]
-    },
-    {
-      "file": "outputs/sfx/card_foundation_04.wav",
-      "event": "card_foundation",
-      "use": "valid foundation move (Klondike/FreeCell), completed run removed (Spider), trick taken (Hearts); use 01..04 ascending for consecutive moves",
-      "channels": 1,
-      "seconds": 1.557,
-      "peak_dbfs": -9,
-      "max_rms50ms_dbfs": -18.4,
-      "validation": {
-        "peak_dbfs": -9.0,
-        "clipped_samples": 0,
-        "dc_offset_max": 3.31e-05,
-        "start_abs": 0.0,
-        "end_abs": 0.0
-      },
-      "runtime": [
-        "outputs/runtime/card_foundation_04.ogg",
-        "outputs/runtime/card_foundation_04.m4a"
-      ]
-    },
-    {
-      "file": "outputs/sfx/card_pickup_01.wav",
-      "event": "card_pickup",
-      "use": "all card games: card or stack lifted",
-      "channels": 1,
-      "seconds": 0.31,
-      "peak_dbfs": -11,
-      "max_rms50ms_dbfs": -26.2,
-      "validation": {
-        "peak_dbfs": -11.0,
-        "clipped_samples": 0,
-        "dc_offset_max": 4.36e-07,
-        "start_abs": 0.0,
-        "end_abs": 0.0
-      },
-      "runtime": [
-        "outputs/runtime/card_pickup_01.ogg",
-        "outputs/runtime/card_pickup_01.m4a"
-      ]
-    },
-    {
-      "file": "outputs/sfx/card_pickup_02.wav",
-      "event": "card_pickup",
-      "use": "all card games: card or stack lifted",
-      "channels": 1,
-      "seconds": 0.31,
-      "peak_dbfs": -11,
-      "max_rms50ms_dbfs": -24.8,
-      "validation": {
-        "peak_dbfs": -11.0,
-        "clipped_samples": 0,
-        "dc_offset_max": 5.17e-06,
-        "start_abs": 0.0,
-        "end_abs": 0.0
-      },
-      "runtime": [
-        "outputs/runtime/card_pickup_02.ogg",
-        "outputs/runtime/card_pickup_02.m4a"
-      ]
-    },
-    {
-      "file": "outputs/sfx/card_pickup_03.wav",
-      "event": "card_pickup",
-      "use": "all card games: card or stack lifted",
-      "channels": 1,
-      "seconds": 0.31,
-      "peak_dbfs": -11,
-      "max_rms50ms_dbfs": -23.5,
-      "validation": {
-        "peak_dbfs": -11.0,
-        "clipped_samples": 0,
-        "dc_offset_max": 7.05e-06,
-        "start_abs": 0.0,
-        "end_abs": 0.0
-      },
-      "runtime": [
-        "outputs/runtime/card_pickup_03.ogg",
-        "outputs/runtime/card_pickup_03.m4a"
-      ]
-    },
-    {
-      "file": "outputs/sfx/card_pickup_04.wav",
-      "event": "card_pickup",
-      "use": "all card games: card or stack lifted",
-      "channels": 1,
-      "seconds": 0.31,
-      "peak_dbfs": -11,
-      "max_rms50ms_dbfs": -27.6,
-      "validation": {
-        "peak_dbfs": -11.0,
-        "clipped_samples": 0,
-        "dc_offset_max": 7.26e-07,
-        "start_abs": 0.0,
-        "end_abs": 0.0
-      },
-      "runtime": [
-        "outputs/runtime/card_pickup_04.ogg",
-        "outputs/runtime/card_pickup_04.m4a"
-      ]
-    },
-    {
-      "file": "outputs/sfx/card_place_01.wav",
-      "event": "card_place",
-      "use": "all: card dropped on tableau/free cell",
-      "channels": 1,
-      "seconds": 0.45,
-      "peak_dbfs": -11,
-      "max_rms50ms_dbfs": -24.9,
-      "validation": {
-        "peak_dbfs": -11.0,
-        "clipped_samples": 0,
-        "dc_offset_max": 5.22e-06,
-        "start_abs": 0.0,
-        "end_abs": 0.0
-      },
-      "runtime": [
-        "outputs/runtime/card_place_01.ogg",
-        "outputs/runtime/card_place_01.m4a"
-      ]
-    },
-    {
-      "file": "outputs/sfx/card_place_02.wav",
-      "event": "card_place",
-      "use": "all: card dropped on tableau/free cell",
-      "channels": 1,
-      "seconds": 0.45,
-      "peak_dbfs": -11,
-      "max_rms50ms_dbfs": -24.8,
-      "validation": {
-        "peak_dbfs": -11.0,
+        "peak_dbfs": -20.0,
         "clipped_samples": 0,
         "dc_offset_max": 1.6e-06,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 15360,
+          "alignment_offset": 0,
+          "snr_db": 30.72,
+          "true_peak_dbtp": -20.0
+        }
       },
       "runtime": [
-        "outputs/runtime/card_place_02.ogg",
-        "outputs/runtime/card_place_02.m4a"
-      ]
+        "card_deal_02.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card dealt to the table",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
     },
     {
-      "file": "outputs/sfx/card_place_03.wav",
+      "file": "authoring/playsuite_music sfx: card_deal_03.wav",
+      "event": "card_deal",
+      "use": "all: one card dealt (fire per card, ~40-70 ms apart)",
+      "channels": 2,
+      "seconds": 0.3,
+      "peak_dbfs": -20.0,
+      "validation": {
+        "peak_dbfs": -20.0,
+        "clipped_samples": 0,
+        "dc_offset_max": 1.23e-06,
+        "start_abs": 0.0,
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 15360,
+          "alignment_offset": 0,
+          "snr_db": 30.04,
+          "true_peak_dbtp": -20.05
+        }
+      },
+      "runtime": [
+        "card_deal_03.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card dealt to the table",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
+    },
+    {
+      "file": "authoring/playsuite_music sfx: card_deal_04.wav",
+      "event": "card_deal",
+      "use": "all: one card dealt (fire per card, ~40-70 ms apart)",
+      "channels": 2,
+      "seconds": 0.3,
+      "peak_dbfs": -20.0,
+      "validation": {
+        "peak_dbfs": -20.0,
+        "clipped_samples": 0,
+        "dc_offset_max": 1.04e-06,
+        "start_abs": 0.0,
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 15360,
+          "alignment_offset": 0,
+          "snr_db": 24.73,
+          "true_peak_dbtp": -20.03
+        }
+      },
+      "runtime": [
+        "card_deal_04.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card dealt to the table",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
+    },
+    {
+      "file": "authoring/playsuite_music sfx: card_flip_01.wav",
+      "event": "card_flip",
+      "use": "Klondike/Spider: face-down card turned up; Klondike stock draw",
+      "channels": 2,
+      "seconds": 0.34,
+      "peak_dbfs": -20.5,
+      "validation": {
+        "peak_dbfs": -20.5,
+        "clipped_samples": 0,
+        "dc_offset_max": 3.11e-06,
+        "start_abs": 0.0,
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 16384,
+          "alignment_offset": 0,
+          "snr_db": 28.56,
+          "true_peak_dbtp": -20.55
+        }
+      },
+      "runtime": [
+        "card_flip_01.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card turned over",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
+    },
+    {
+      "file": "authoring/playsuite_music sfx: card_flip_02.wav",
+      "event": "card_flip",
+      "use": "Klondike/Spider: face-down card turned up; Klondike stock draw",
+      "channels": 2,
+      "seconds": 0.34,
+      "peak_dbfs": -20.5,
+      "validation": {
+        "peak_dbfs": -20.5,
+        "clipped_samples": 0,
+        "dc_offset_max": 3e-07,
+        "start_abs": 0.0,
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 16384,
+          "alignment_offset": 0,
+          "snr_db": 26.79,
+          "true_peak_dbtp": -20.46
+        }
+      },
+      "runtime": [
+        "card_flip_02.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card turned over",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
+    },
+    {
+      "file": "authoring/playsuite_music sfx: card_flip_03.wav",
+      "event": "card_flip",
+      "use": "Klondike/Spider: face-down card turned up; Klondike stock draw",
+      "channels": 2,
+      "seconds": 0.34,
+      "peak_dbfs": -20.5,
+      "validation": {
+        "peak_dbfs": -20.5,
+        "clipped_samples": 0,
+        "dc_offset_max": 2.92e-06,
+        "start_abs": 0.0,
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 16384,
+          "alignment_offset": 0,
+          "snr_db": 30.01,
+          "true_peak_dbtp": -20.46
+        }
+      },
+      "runtime": [
+        "card_flip_03.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card turned over",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
+    },
+    {
+      "file": "authoring/playsuite_music sfx: card_flip_04.wav",
+      "event": "card_flip",
+      "use": "Klondike/Spider: face-down card turned up; Klondike stock draw",
+      "channels": 2,
+      "seconds": 0.34,
+      "peak_dbfs": -20.5,
+      "validation": {
+        "peak_dbfs": -20.5,
+        "clipped_samples": 0,
+        "dc_offset_max": 6.8e-07,
+        "start_abs": 0.0,
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 16384,
+          "alignment_offset": 0,
+          "snr_db": 33.03,
+          "true_peak_dbtp": -20.48
+        }
+      },
+      "runtime": [
+        "card_flip_04.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card turned over",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
+    },
+    {
+      "file": "authoring/playsuite_music sfx: card_foundation_01.wav",
+      "event": "card_foundation",
+      "use": "valid foundation move (Klondike/FreeCell), completed run removed (Spider), trick taken (Hearts); use 01..04 ascending for consecutive moves",
+      "channels": 2,
+      "seconds": 0.42,
+      "peak_dbfs": -15.5,
+      "validation": {
+        "peak_dbfs": -15.5,
+        "clipped_samples": 0,
+        "dc_offset_max": 3.33e-06,
+        "start_abs": 0.0,
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 20480,
+          "alignment_offset": 0,
+          "snr_db": 32.13,
+          "true_peak_dbtp": -15.5
+        }
+      },
+      "runtime": [
+        "card_foundation_01.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card squared onto a pile",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
+    },
+    {
+      "file": "authoring/playsuite_music sfx: card_foundation_02.wav",
+      "event": "card_foundation",
+      "use": "valid foundation move (Klondike/FreeCell), completed run removed (Spider), trick taken (Hearts); use 01..04 ascending for consecutive moves",
+      "channels": 2,
+      "seconds": 0.42,
+      "peak_dbfs": -15.5,
+      "validation": {
+        "peak_dbfs": -15.5,
+        "clipped_samples": 0,
+        "dc_offset_max": 2.1e-06,
+        "start_abs": 0.0,
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 20480,
+          "alignment_offset": 0,
+          "snr_db": 32.87,
+          "true_peak_dbtp": -15.44
+        }
+      },
+      "runtime": [
+        "card_foundation_02.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card squared onto a pile",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
+    },
+    {
+      "file": "authoring/playsuite_music sfx: card_foundation_03.wav",
+      "event": "card_foundation",
+      "use": "valid foundation move (Klondike/FreeCell), completed run removed (Spider), trick taken (Hearts); use 01..04 ascending for consecutive moves",
+      "channels": 2,
+      "seconds": 0.42,
+      "peak_dbfs": -15.5,
+      "validation": {
+        "peak_dbfs": -15.5,
+        "clipped_samples": 0,
+        "dc_offset_max": 1.25e-06,
+        "start_abs": 0.0,
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 20480,
+          "alignment_offset": 0,
+          "snr_db": 30.95,
+          "true_peak_dbtp": -15.36
+        }
+      },
+      "runtime": [
+        "card_foundation_03.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card squared onto a pile",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
+    },
+    {
+      "file": "authoring/playsuite_music sfx: card_foundation_04.wav",
+      "event": "card_foundation",
+      "use": "valid foundation move (Klondike/FreeCell), completed run removed (Spider), trick taken (Hearts); use 01..04 ascending for consecutive moves",
+      "channels": 2,
+      "seconds": 0.42,
+      "peak_dbfs": -15.5,
+      "validation": {
+        "peak_dbfs": -15.5,
+        "clipped_samples": 0,
+        "dc_offset_max": 4e-08,
+        "start_abs": 0.0,
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 20480,
+          "alignment_offset": 0,
+          "snr_db": 32.07,
+          "true_peak_dbtp": -15.63
+        }
+      },
+      "runtime": [
+        "card_foundation_04.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card squared onto a pile",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
+    },
+    {
+      "file": "authoring/playsuite_music sfx: card_pickup_01.wav",
+      "event": "card_pickup",
+      "use": "all card games: card or stack lifted",
+      "channels": 2,
+      "seconds": 0.32,
+      "peak_dbfs": -18.0,
+      "validation": {
+        "peak_dbfs": -18.0,
+        "clipped_samples": 0,
+        "dc_offset_max": 3e-08,
+        "start_abs": 0.0,
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 15360,
+          "alignment_offset": 0,
+          "snr_db": 22.04,
+          "true_peak_dbtp": -18.19
+        }
+      },
+      "runtime": [
+        "card_pickup_01.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card lifted from felt",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
+    },
+    {
+      "file": "authoring/playsuite_music sfx: card_pickup_02.wav",
+      "event": "card_pickup",
+      "use": "all card games: card or stack lifted",
+      "channels": 2,
+      "seconds": 0.32,
+      "peak_dbfs": -18.0,
+      "validation": {
+        "peak_dbfs": -18.0,
+        "clipped_samples": 0,
+        "dc_offset_max": 4e-08,
+        "start_abs": 0.0,
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 15360,
+          "alignment_offset": 0,
+          "snr_db": 23.22,
+          "true_peak_dbtp": -18.26
+        }
+      },
+      "runtime": [
+        "card_pickup_02.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card lifted from felt",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
+    },
+    {
+      "file": "authoring/playsuite_music sfx: card_pickup_03.wav",
+      "event": "card_pickup",
+      "use": "all card games: card or stack lifted",
+      "channels": 2,
+      "seconds": 0.32,
+      "peak_dbfs": -18.0,
+      "validation": {
+        "peak_dbfs": -18.0,
+        "clipped_samples": 0,
+        "dc_offset_max": 8e-08,
+        "start_abs": 0.0,
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 15360,
+          "alignment_offset": 0,
+          "snr_db": 26.05,
+          "true_peak_dbtp": -18.09
+        }
+      },
+      "runtime": [
+        "card_pickup_03.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card lifted from felt",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
+    },
+    {
+      "file": "authoring/playsuite_music sfx: card_pickup_04.wav",
+      "event": "card_pickup",
+      "use": "all card games: card or stack lifted",
+      "channels": 2,
+      "seconds": 0.32,
+      "peak_dbfs": -18.0,
+      "validation": {
+        "peak_dbfs": -18.0,
+        "clipped_samples": 0,
+        "dc_offset_max": 6e-08,
+        "start_abs": 0.0,
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 15360,
+          "alignment_offset": 0,
+          "snr_db": 23.59,
+          "true_peak_dbtp": -18.21
+        }
+      },
+      "runtime": [
+        "card_pickup_04.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card lifted from felt",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
+    },
+    {
+      "file": "authoring/playsuite_music sfx: card_place_01.wav",
       "event": "card_place",
       "use": "all: card dropped on tableau/free cell",
-      "channels": 1,
-      "seconds": 0.45,
-      "peak_dbfs": -11,
-      "max_rms50ms_dbfs": -22.7,
+      "channels": 2,
+      "seconds": 0.38,
+      "peak_dbfs": -20.0,
       "validation": {
-        "peak_dbfs": -11.0,
+        "peak_dbfs": -20.0,
         "clipped_samples": 0,
-        "dc_offset_max": 2.41e-06,
+        "dc_offset_max": 1e-06,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 18432,
+          "alignment_offset": 0,
+          "snr_db": 28.38,
+          "true_peak_dbtp": -20.22
+        }
       },
       "runtime": [
-        "outputs/runtime/card_place_03.ogg",
-        "outputs/runtime/card_place_03.m4a"
-      ]
+        "card_place_01.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card laid on felt",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
     },
     {
-      "file": "outputs/sfx/card_place_04.wav",
+      "file": "authoring/playsuite_music sfx: card_place_02.wav",
       "event": "card_place",
       "use": "all: card dropped on tableau/free cell",
-      "channels": 1,
-      "seconds": 0.45,
-      "peak_dbfs": -11,
-      "max_rms50ms_dbfs": -24.5,
+      "channels": 2,
+      "seconds": 0.38,
+      "peak_dbfs": -20.0,
       "validation": {
-        "peak_dbfs": -11.0,
+        "peak_dbfs": -20.0,
         "clipped_samples": 0,
-        "dc_offset_max": 2.45e-06,
+        "dc_offset_max": 3.23e-06,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 18432,
+          "alignment_offset": 0,
+          "snr_db": 32.46,
+          "true_peak_dbtp": -20.07
+        }
       },
       "runtime": [
-        "outputs/runtime/card_place_04.ogg",
-        "outputs/runtime/card_place_04.m4a"
-      ]
+        "card_place_02.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card laid on felt",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
     },
     {
-      "file": "outputs/sfx/card_shuffle_01.wav",
-      "event": "card_shuffle",
-      "use": "new game / redeal",
-      "channels": 1,
-      "seconds": 1.45,
-      "peak_dbfs": -11,
-      "max_rms50ms_dbfs": -25.5,
+      "file": "authoring/playsuite_music sfx: card_place_03.wav",
+      "event": "card_place",
+      "use": "all: card dropped on tableau/free cell",
+      "channels": 2,
+      "seconds": 0.38,
+      "peak_dbfs": -20.0,
       "validation": {
-        "peak_dbfs": -11.0,
+        "peak_dbfs": -20.0,
         "clipped_samples": 0,
-        "dc_offset_max": 7.34e-07,
+        "dc_offset_max": 6.7e-07,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 18432,
+          "alignment_offset": 0,
+          "snr_db": 33.34,
+          "true_peak_dbtp": -19.98
+        }
       },
       "runtime": [
-        "outputs/runtime/card_shuffle_01.ogg",
-        "outputs/runtime/card_shuffle_01.m4a"
-      ]
+        "card_place_03.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card laid on felt",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
     },
     {
-      "file": "outputs/sfx/card_shuffle_02.wav",
-      "event": "card_shuffle",
-      "use": "new game / redeal",
-      "channels": 1,
-      "seconds": 1.45,
-      "peak_dbfs": -11,
-      "max_rms50ms_dbfs": -22.5,
+      "file": "authoring/playsuite_music sfx: card_place_04.wav",
+      "event": "card_place",
+      "use": "all: card dropped on tableau/free cell",
+      "channels": 2,
+      "seconds": 0.38,
+      "peak_dbfs": -20.0,
       "validation": {
-        "peak_dbfs": -11.0,
+        "peak_dbfs": -20.0,
         "clipped_samples": 0,
-        "dc_offset_max": 9.86e-07,
+        "dc_offset_max": 8.3e-07,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 18432,
+          "alignment_offset": 0,
+          "snr_db": 30.27,
+          "true_peak_dbtp": -20.1
+        }
       },
       "runtime": [
-        "outputs/runtime/card_shuffle_02.ogg",
-        "outputs/runtime/card_shuffle_02.m4a"
-      ]
+        "card_place_04.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Card laid on felt",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
+    },
+    {
+      "file": "authoring/playsuite_music sfx: card_shuffle_01.wav",
+      "event": "card_shuffle",
+      "use": "new game / redeal",
+      "channels": 2,
+      "seconds": 1.45,
+      "peak_dbfs": -19.5,
+      "validation": {
+        "peak_dbfs": -19.5,
+        "clipped_samples": 0,
+        "dc_offset_max": 2.1e-07,
+        "start_abs": 0.0,
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 69632,
+          "alignment_offset": 0,
+          "snr_db": 24.61,
+          "true_peak_dbtp": -19.58
+        }
+      },
+      "runtime": [
+        "card_shuffle_01.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Riffle shuffle and bridge",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
+    },
+    {
+      "file": "authoring/playsuite_music sfx: card_shuffle_02.wav",
+      "event": "card_shuffle",
+      "use": "new game / redeal",
+      "channels": 2,
+      "seconds": 1.45,
+      "peak_dbfs": -19.5,
+      "validation": {
+        "peak_dbfs": -19.5,
+        "clipped_samples": 0,
+        "dc_offset_max": 3.3e-07,
+        "start_abs": 0.0,
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 69632,
+          "alignment_offset": 0,
+          "snr_db": 23.33,
+          "true_peak_dbtp": -19.55
+        }
+      },
+      "runtime": [
+        "card_shuffle_02.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Riffle shuffle and bridge",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master"
     },
     {
       "file": "outputs/sfx/puzzle_blocked_01.wav",
@@ -5145,6 +5321,28 @@
     "playsuite_v2": {
       "files_with_clipping": [],
       "replaced": [
+        "card_deal_01.m4a",
+        "card_deal_02.m4a",
+        "card_deal_03.m4a",
+        "card_deal_04.m4a",
+        "card_flip_01.m4a",
+        "card_flip_02.m4a",
+        "card_flip_03.m4a",
+        "card_flip_04.m4a",
+        "card_foundation_01.m4a",
+        "card_foundation_02.m4a",
+        "card_foundation_03.m4a",
+        "card_foundation_04.m4a",
+        "card_pickup_01.m4a",
+        "card_pickup_02.m4a",
+        "card_pickup_03.m4a",
+        "card_pickup_04.m4a",
+        "card_place_01.m4a",
+        "card_place_02.m4a",
+        "card_place_03.m4a",
+        "card_place_04.m4a",
+        "card_shuffle_01.m4a",
+        "card_shuffle_02.m4a",
         "music_freecell_loop.m4a",
         "music_gems_loop.m4a",
         "music_hearts_loop.m4a",

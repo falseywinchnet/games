@@ -3,6 +3,7 @@
 #include "carpet.hpp"
 #include "gui_forms/window.hpp"
 #include "presentation.hpp"
+#include "solitaire_solver.hpp"
 #include <algorithm>
 #include <cmath>
 #include <fstream>
@@ -21,6 +22,104 @@ gf::Rect enlarged(gf::Rect r, double n) {
 const char* audio_name(Kind kind) {
     const char* names[] = {"solitaire", "spider", "freecell", "hearts"};
     return names[static_cast<int>(kind)];
+}
+// The finish of a real playing card, as a translucent layer for the printed artwork: a fine
+// air-cushion dimple texture lit from the upper left, a rolled edge that catches the light,
+// and the falloff of a lamp over the table. The artwork's card is a 360 x 504 image whose
+// rounded rectangle starts 2 px in with an 18 px corner radius.
+std::vector<std::byte> card_finish(int w, int h) {
+    std::vector<std::byte> out(static_cast<std::size_t>(w) * h * 4);
+    const double s = w / 360.0;
+    const double inset = 2.4 * s, radius = 18 * s;
+    const double half_w = w * .5 - inset, half_h = h * .5 - inset;
+    // Signed distance to the card's rounded outline (negative inside).
+    struct Outline {
+        double half_w, half_h, radius, cx, cy;
+        double operator()(double x, double y) const {
+            const double qx = std::abs(x - cx) - (half_w - radius),
+                         qy = std::abs(y - cy) - (half_h - radius);
+            const double ox = std::max(qx, 0.0), oy = std::max(qy, 0.0);
+            return std::hypot(ox, oy) + std::min(std::max(qx, qy), 0.0) - radius;
+        }
+    };
+    const Outline outline{half_w, half_h, radius, w * .5, h * .5};
+    // Dimples on a hexagonal lattice, a few device pixels apart, each a little different.
+    const double pitch = std::clamp(w / 64.0, 2.6, 4.2), row_h = pitch * .866;
+    struct Dimples {
+        double pitch, row_h;
+        double operator()(double x, double y) const {
+            const int row = static_cast<int>(std::floor(y / row_h));
+            double depth = 0;
+            for (int r = row - 1; r <= row + 1; ++r) {
+                const double shift = (r & 1) ? pitch * .5 : 0;
+                const int col = static_cast<int>(std::floor((x - shift) / pitch));
+                for (int c = col - 1; c <= col + 1; ++c) {
+                    std::uint32_t k = static_cast<std::uint32_t>(r * 73856093) ^
+                                      static_cast<std::uint32_t>(c * 19349663);
+                    k = (k ^ (k >> 13)) * 0x5bd1e995U;
+                    const double jitter = ((k >> 8) & 255) / 255.0;
+                    const double cx = c * pitch + shift + pitch * .5 + (jitter - .5) * pitch * .2,
+                                 cy = r * row_h + row_h * .5;
+                    const double d2 =
+                        ((x - cx) * (x - cx) + (y - cy) * (y - cy)) / (pitch * pitch * .2);
+                    if (d2 < 1)
+                        depth -= (1 - d2) * (1 - d2) * (.75 + .5 * jitter);
+                }
+            }
+            return depth;
+        }
+    };
+    const Dimples dimples{pitch, row_h};
+    const double lx = -.5, ly = -.7; // toward the lamp, in the card plane
+    const double rim = std::max(1.6, 3.2 * s);
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x) {
+            const double px = x + .5, py = y + .5;
+            const double d = outline(px, py);
+            const double cover = std::clamp(.5 - d, 0.0, 1.0);
+            if (cover <= 0)
+                continue;
+            double light = 0, dark = 0;
+            // Texture: slope of the dimpled surface toward the lamp.
+            const double gx = dimples(px + .5, py) - dimples(px - .5, py),
+                         gy = dimples(px, py + .5) - dimples(px, py - .5);
+            const double facing = -(gx * lx + gy * ly) * 2.2;
+            if (facing > 0)
+                light += std::min(.1, facing * .1);
+            else
+                dark += std::min(.06, -facing * .06);
+            // Rolled edge: the outline's outward normal, lit or shaded.
+            const double depth_in = -d;
+            if (depth_in < rim) {
+                const double nx = outline(px + .5, py) - outline(px - .5, py),
+                             ny = outline(px, py + .5) - outline(px, py - .5);
+                const double toward = nx * lx + ny * ly;
+                const double band = 1 - depth_in / rim;
+                if (toward > 0)
+                    light += .42 * toward * band * band;
+                else
+                    dark += .3 * -toward * band * band;
+            }
+            // Lamp: brighter toward the upper left, a soft gloss band, a little shade below.
+            const double u = px / w, v = py / h, diagonal = u * .45 + v * .55;
+            light += .08 * (1 - diagonal) * (1 - diagonal) +
+                     .05 * std::exp(-std::pow((u + v - .62) / .16, 2));
+            dark += .045 * diagonal * diagonal * diagonal;
+            light = std::min(light, .6);
+            dark = std::min(dark, .5);
+            // White light composited over dark shade, premultiplied.
+            const double alpha = (light + dark * (1 - light)) * cover;
+            const double white = light * cover * 255;
+            const std::size_t n = (static_cast<std::size_t>(y) * w + x) * 4;
+            out[n] = out[n + 1] = out[n + 2] = static_cast<std::byte>(std::lround(white));
+            out[n + 3] = static_cast<std::byte>(std::lround(alpha * 255));
+        }
+    return out;
+}
+std::string upper(std::string s) {
+    for (char& c : s)
+        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    return s;
 }
 gf::ImageId load_image(gf::Window& window, const std::string& name) {
     std::ifstream file(asset_directory() + "/" + name, std::ios::binary | std::ios::ate);
@@ -42,7 +141,8 @@ Table::Table(gf::StableId id) : Control(std::move(id)) {
                         "Space deals, Z undoes, F1 opens help.");
     next_seed_ =
         static_cast<std::uint32_t>(std::chrono::system_clock::now().time_since_epoch().count());
-    game.deal(Kind::solitaire, next_seed_);
+    load_levels();
+    game.deal(Kind::solitaire, deal_seed(Kind::solitaire, 1));
     if (load_cabinet(cabinet_path(), cabinet_)) {
         game = cabinet_.games[cabinet_.active];
         back_ = cabinet_.back;
@@ -123,6 +223,10 @@ void Table::on_detaching_from_window(gf::Window& window) noexcept {
         static_cast<void>(window.remove_image(felt_));
     if (shadow_.value)
         static_cast<void>(window.remove_image(shadow_));
+    if (finish_.value)
+        static_cast<void>(window.remove_image(finish_));
+    finish_ = {};
+    finish_width_ = finish_height_ = 0;
     music_play("", false);
 }
 void Table::arrange(gf::Rect bounds) {
@@ -142,6 +246,26 @@ void Table::arrange(gf::Rect bounds) {
     set_child_layout(buttons_[21],
                      {popup_.x + popup_.width - 140, popup_.y + popup_.height - 48, 110, 30});
     layout_cards(false);
+    refresh_finish();
+}
+void Table::refresh_finish() {
+    gf::Window* window = attached_window();
+    if (!window)
+        return;
+    const double scale = std::max(1.0, (*window).scale());
+    const int w = std::max(8, static_cast<int>(std::lround(card_w_ * scale)));
+    const int h = std::max(8, static_cast<int>(std::lround(card_w_ * 1.4 * scale)));
+    if (finish_.value && w == finish_width_ && h == finish_height_)
+        return;
+    const std::vector<std::byte> pixels = card_finish(w, h);
+    gf::ImageLoadResult result =
+        finish_.value ? (*window).replace_bgra32_premultiplied(finish_, w, h, w * 4, pixels, *this)
+                      : (*window).load_bgra32_premultiplied(w, h, w * 4, pixels);
+    if (result) {
+        finish_ = result.image;
+        finish_width_ = w;
+        finish_height_ = h;
+    }
 }
 void Table::layout_cards(bool animate) {
     gf::Rect bounds = client_rectangle();
@@ -453,13 +577,19 @@ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
         face_up = turn < .5 ? s.prior_up : s.card.up;
     }
     double shadow_scale = r.width / 360.0;
-    p.draw_image(shadow_, {r.x - 40 * shadow_scale, r.y - 40 * shadow_scale, 440 * shadow_scale,
-                           584 * shadow_scale});
+    // A card in the hand rides higher: its shadow falls further and softer.
+    const bool lifted = dragging_ && s.pile == selection_ && s.index >= selected_index_;
+    const double drop = lifted ? r.width * .07 : 0, grow = lifted ? 1.06 : 1;
+    p.draw_image(shadow_,
+                 {r.x - 40 * shadow_scale * grow + drop * .6, r.y - 40 * shadow_scale * grow + drop,
+                  440 * shadow_scale * grow, 584 * shadow_scale * grow});
     if (selected) {
         p.fill_rounded_rect(enlarged(r, 4), 9, gf::Color::rgba(248, 220, 119));
         p.draw_box_shadow(r, 7, {0, 0}, 9, 3, gf::Color::rgba(255, 220, 103, 100));
     }
     p.draw_image(face_up ? faces_[s.card.suit * 13 + s.card.rank - 1] : backs_[back_], r);
+    if (finish_.value)
+        p.draw_image(finish_, r);
     if (game.state.kind == Kind::hearts && s.pile == 0 && !game.state.passing &&
         !game.legal_heart(0, s.index)) {
         p.fill_rounded_rect(r, 6, gf::Color::rgba(24, 67, 50, 70));
@@ -494,12 +624,15 @@ void Table::on_paint(gf::Painter& p, gf::Rect) {
             }
         }
         if (game.state.kind == Kind::freecell) {
-            draw_text(p, slots_[16].x, slots_[16].y - 7, "FREE CELLS", 11, cream);
+            draw_text(p, slots_[16].x, slots_[16].y - 7, "FREE CELLS  ·  " + upper(level_name()),
+                      11, cream);
             draw_text(p, slots_[10].x, slots_[10].y - 7, "FOUNDATIONS", 11, cream);
         }
         if (game.state.kind == Kind::solitaire) {
             draw_text(p, slots_[14].x, slots_[14].y - 7,
-                      "DRAW " + std::to_string(game.state.draw_count), 11, cream);
+                      "DRAW " + std::to_string(game.state.draw_count) + "  ·  " +
+                          upper(level_name()),
+                      11, cream);
             draw_text(p, slots_[10].x, slots_[10].y - 7, "FOUNDATIONS", 11, cream);
             if (game.state.piles[14].empty())
                 draw_text(p, slots_[14].x + card_w_ * .2, slots_[14].y + card_h_ * .32, "Redeal",
@@ -510,16 +643,15 @@ void Table::on_paint(gf::Painter& p, gf::Rect) {
                       std::to_string(game.state.completed) + " / 8 runs home", 18, cream);
             draw_text(p, slots_[0].x, kTop + 26,
                       std::to_string(game.state.spider_suits) + " suit  ·  " +
-                          std::to_string(game.state.piles[14].size() / 10) + " deals left",
+                          std::to_string(game.state.piles[14].size() / 10) + " deals left  ·  " +
+                          level_name(),
                       13, muted);
         }
     } else {
-        const char* names[] = {"You", "West", "North", "East"};
         double xs[] = {b.width * .5 - 90, 34, b.width * .5 - 90, b.width - 190};
         double ys[] = {b.height - 49, b.height * .38, kTop + 22, b.height * .38};
         for (int i = 0; i < 4; ++i) {
-            std::string name = names[i];
-            draw_text(p, xs[i], ys[i], name, 17, cream);
+            draw_text(p, xs[i], ys[i], hearts_name(game.state, i), 17, cream);
             if (i > 0) {
                 draw_text(p, xs[i], ys[i] + 26,
                           std::to_string(game.state.piles[i].size()) + " cards", 12, muted);
@@ -723,7 +855,9 @@ void Table::draw_panel(gf::Painter& p) {
     else
         text =
             "Avoid penalty cards: every heart is 1 point and the queen of spades is 13. Lowest "
-            "score wins when someone reaches 100. Three computer opponents play locally.\n\nPass "
+            "score wins when someone reaches 100. Three computer opponents, named for US "
+            "presidents, watch what is played and guess at the hands they cannot see. Each hand "
+            "one of them is sharp and remembers every card, and one is forgetful.\n\nPass "
             "three cards left, then right, then across; every fourth hand has no pass. The two of "
             "clubs leads the first trick. Follow suit if possible. The highest card of the led "
             "suit wins; aces are high.\n\nHearts may lead only after a heart has been discarded, "
@@ -785,9 +919,47 @@ void Table::open_panel(int panel) {
             (*attached_window()).request_focus(panel ? buttons_[9] : shared_from_this()));
     invalidate(gf::Dirty::paint);
 }
+void Table::load_levels() {
+    // A fresh install starts each table at a different place.
+    for (int k = 0; k < 3; ++k)
+        picks_[k] = (next_seed_ >> (k * 5)) % 9973;
+    std::ifstream file(cabinet_path().parent_path() / "card-levels.txt");
+    int version = 0;
+    std::array<int, 3> levels{};
+    std::array<std::uint32_t, 3> picks{};
+    if (!(file >> version) || version != 1)
+        return;
+    for (int k = 0; k < 3; ++k)
+        if (!(file >> levels[k] >> picks[k]) || levels[k] < 0 || levels[k] > 2)
+            return;
+    levels_ = levels;
+    picks_ = picks;
+}
+void Table::save_levels() const {
+    std::error_code error;
+    std::filesystem::create_directories(cabinet_path().parent_path(), error);
+    std::ofstream file(cabinet_path().parent_path() / "card-levels.txt");
+    file << 1;
+    for (int k = 0; k < 3; ++k)
+        file << ' ' << levels_[k] << ' ' << picks_[k];
+    file << '\n';
+}
+std::uint32_t Table::deal_seed(Kind kind, int option) {
+    if (kind == Kind::hearts)
+        return ++next_seed_;
+    const int k = static_cast<int>(kind);
+    const std::uint32_t seed = graded_seed(kind, normalized_option(kind, option),
+                                           static_cast<Difficulty>(levels_[k]), picks_[k]++);
+    save_levels();
+    return seed;
+}
+std::string Table::level_name() const {
+    const int k = static_cast<int>(game.state.kind);
+    return k < 3 ? difficulty_name(static_cast<Difficulty>(levels_[k])) : "";
+}
 void Table::new_game(Kind kind) {
     int option = kind == Kind::spider ? game.state.spider_suits : game.state.draw_count;
-    game.deal(kind, ++next_seed_, option);
+    game.deal(kind, deal_seed(kind, option), option);
     dealing_ = true;
     cabinet_.result_recorded[static_cast<int>(kind)] = false;
     selection_ = -1;
@@ -862,6 +1034,8 @@ std::vector<GameCommand> Table::commands() const {
         list.push_back({"deal", game.state.spider_suits == 1   ? "One suit"
                                 : game.state.spider_suits == 2 ? "Two suits"
                                                                : "Four suits"});
+    if (game.state.kind != Kind::hearts)
+        list.push_back({"level", "Next: " + level_name()});
     list.push_back({"options", "Options", true, panel_ == 2});
     list.push_back({"help", "Help", true, panel_ == 1});
     list.push_back({"scores", "Top scores", true, panel_ == 3});
@@ -878,6 +1052,17 @@ void Table::run_command(std::string_view id) {
     else if (id == "deal") {
         open_panel(0);
         action(*buttons_[14]);
+    } else if (id == "level" && game.state.kind != Kind::hearts) {
+        const int k = static_cast<int>(game.state.kind);
+        levels_[k] = (levels_[k] + 1) % 3;
+        save_levels();
+        // An untouched deal is replaced at once; otherwise the level waits for the next deal.
+        if (game.history.empty() && !game.state.over) {
+            open_panel(0);
+            new_game(game.state.kind);
+        } else
+            game.message = "Your next deal will be " + level_name() + ".";
+        invalidate(gf::Dirty::paint);
     } else if (id == "options")
         panel_ == 2 ? open_panel(0) : action(*buttons_[8]);
     else if (id == "help")
@@ -909,16 +1094,32 @@ void Table::action(gf::ButtonBase& button) {
                                    "; this is a legal suggestion.";
             }
         } else {
-            Move m = game.hint();
-            if (m.from >= 0) {
+            // Follow a winning line when the solver finds one quickly; otherwise suggest any
+            // legal move.
+            std::vector<SolverStep> line;
+            const SolveReport plan = solve_state(game.state, 60000, &line);
+            Move m = plan.solved && !line.empty() && !line.front().draw ? line.front().move
+                                                                        : game.hint();
+            if (plan.solved && !line.empty() && line.front().draw) {
+                selection_ = selected_index_ = -1;
+                hover_ = keyboard_slot_ = 14;
+                game.message = game.state.kind == Kind::spider
+                                   ? "Deal a new row: the winning line goes through the stock."
+                                   : "Turn the stock: the winning line goes through it.";
+            } else if (m.from >= 0) {
                 selection_ = m.from;
                 selected_index_ = m.index;
                 hover_ = m.to;
                 keyboard_slot_ = m.to;
                 game.message =
-                    "The highlighted card has a legal destination. Choose where to place it.";
+                    plan.solved ? "This move keeps a winning line open."
+                    : plan.exhausted
+                        ? "No winning line is left from here; undo may help. This move is legal."
+                        : "The highlighted card has a legal destination. Choose where to place it.";
             } else
-                game.message = "No tableau move found. Try the stock, undo, or a new deal.";
+                game.message = plan.exhausted
+                                   ? "No winning line is left from here. Try undo or a new deal."
+                                   : "No tableau move found. Try the stock, undo, or a new deal.";
         }
         invalidate(gf::Dirty::paint);
     }

@@ -1,4 +1,5 @@
 // playsuite_music: renders PlaySuite music loops and stingers.
+//   playsuite_music sfx <out_dir> [id ...]        render the card handling sounds
 //   playsuite_music render <out_dir> [id ...]     render WAV masters (+ .f32 reference, .json
 //   report) playsuite_music list                          list song ids playsuite_music lint
 //   harmonic self-check (sustained semitone clashes) playsuite_music analyse <decoded.f32>
@@ -13,6 +14,10 @@
 #include <fstream>
 #include <iostream>
 #include <set>
+
+namespace ps {
+int renderCardSfx(const std::string& out, const std::set<std::string>& want);
+}
 
 static const char* noteName(int m) {
     static const char* n[12] = {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
@@ -109,6 +114,11 @@ int main(int argc, char** argv) {
                                         std::atoi(argv[5]) != 0)
                       << "\n";
             return 0;
+        }
+        if (cmd == "sfx" && argc >= 3) {
+            std::filesystem::create_directories(argv[2]);
+            std::set<std::string> want(argv + 3, argv + argc);
+            return renderCardSfx(argv[2], want) > 0 ? 0 : 1;
         }
         std::vector<SongFactory> songs = allSongs();
         if (cmd == "list") {
