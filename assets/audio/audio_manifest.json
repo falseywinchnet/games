@@ -1,12 +1,234 @@
 {
-  "generated_by": "Original Neo synthesis; two delivered batches",
+  "generated_by": "Original Neo synthesis; two delivered batches. Eleven loops and fourteen stingers replaced by the PlaySuite C++ synthesizer (authoring/playsuite_music)",
   "sample_rate": 48000,
   "music": [
     {
       "id": "menu",
-      "title": "Shuffle Lounge (Menu)",
-      "file": "outputs/music/music_menu_loop.wav",
-      "format": "WAV PCM 24-bit",
+      "title": "Come On In! (PlaySuite Menu)",
+      "file": "authoring/playsuite_music render: music_menu_loop.wav",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+      "sample_rate": 48000,
+      "channels": 2,
+      "samples": 3896384,
+      "seconds": 81.175,
+      "bpm": 136.003,
+      "meter": "4/4",
+      "bars": 46,
+      "samples_per_beat": 21176,
+      "loop_start_sample": 0,
+      "loop_end_sample_exclusive": 3896384,
+      "wav_smpl_chunk": false,
+      "sections": [
+        [
+          "intro_fanfare",
+          4
+        ],
+        [
+          "A1",
+          8
+        ],
+        [
+          "A2",
+          8
+        ],
+        [
+          "B_call_response",
+          8
+        ],
+        [
+          "A3_brass",
+          8
+        ],
+        [
+          "A4_key_up",
+          8
+        ],
+        [
+          "link",
+          2
+        ]
+      ],
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -3.7,
+      "validation": {
+        "peak_dbfs": -3.75,
+        "clipped_samples": 0,
+        "dc_offset_max": 2.5e-07,
+        "loop_seam_jump": 0.090155,
+        "loop_seam_jump_percentile": 99.3,
+        "loop_seam_d2_percentile": 99.6,
+        "loop_seam_rms_step_db": 5.54,
+        "circular_tail_residual": 0.0,
+        "decoded_aac": {
+          "frames": 3901440,
+          "alignment_offset": 0,
+          "snr_db": 24.76,
+          "true_peak_dbtp": -4.09,
+          "seam": {
+            "jump": 0.070027,
+            "jump_percentile": 98.4,
+            "d2_percentile": 99.7,
+            "rms_step_db": 5.5
+          }
+        }
+      },
+      "runtime": [
+        "music_menu_loop.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "loop_metadata_basis": "Decoded PCM trimmed to loop_end_sample_exclusive; the AAC carries a short circular wrap after the loop"
+    },
+    {
+      "id": "klondike",
+      "title": "Porch Light Patience (Klondike)",
+      "file": "authoring/playsuite_music render: music_klondike_loop.wav",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+      "sample_rate": 48000,
+      "channels": 2,
+      "samples": 4608000,
+      "seconds": 96.0,
+      "bpm": 90.0,
+      "meter": "4/4",
+      "bars": 36,
+      "samples_per_beat": 32000,
+      "loop_start_sample": 0,
+      "loop_end_sample_exclusive": 4608000,
+      "wav_smpl_chunk": false,
+      "sections": [
+        [
+          "intro_vamp",
+          4
+        ],
+        [
+          "A1_piano",
+          8
+        ],
+        [
+          "A2_piano",
+          8
+        ],
+        [
+          "B_bridge",
+          8
+        ],
+        [
+          "A3_vibes",
+          8
+        ]
+      ],
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -1.9,
+      "validation": {
+        "peak_dbfs": -2.0,
+        "clipped_samples": 0,
+        "dc_offset_max": 1.93e-06,
+        "loop_seam_jump": 0.023057,
+        "loop_seam_jump_percentile": 88.6,
+        "loop_seam_d2_percentile": 83.3,
+        "loop_seam_rms_step_db": 9.31,
+        "circular_tail_residual": 0.0,
+        "decoded_aac": {
+          "frames": 4612096,
+          "alignment_offset": 0,
+          "snr_db": 30.17,
+          "true_peak_dbtp": -1.96,
+          "seam": {
+            "jump": 0.020564,
+            "jump_percentile": 86.0,
+            "d2_percentile": 81.4,
+            "rms_step_db": 9.36
+          }
+        }
+      },
+      "runtime": [
+        "music_klondike_loop.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "loop_metadata_basis": "Decoded PCM trimmed to loop_end_sample_exclusive; the AAC carries a short circular wrap after the loop"
+    },
+    {
+      "id": "spider",
+      "title": "Eight Legs, Light Feet (Spider)",
+      "file": "authoring/playsuite_music render: music_spider_loop.wav",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+      "sample_rate": 48000,
+      "channels": 2,
+      "samples": 4608000,
+      "seconds": 96.0,
+      "bpm": 100.0,
+      "meter": "4/4",
+      "bars": 40,
+      "samples_per_beat": 28800,
+      "loop_start_sample": 0,
+      "loop_end_sample_exclusive": 4608000,
+      "wav_smpl_chunk": false,
+      "sections": [
+        [
+          "intro_ostinato",
+          4
+        ],
+        [
+          "A1_clarinet",
+          8
+        ],
+        [
+          "A2_clarinet",
+          8
+        ],
+        [
+          "B_major_glock",
+          8
+        ],
+        [
+          "A3_tutti",
+          8
+        ],
+        [
+          "tag",
+          4
+        ]
+      ],
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -4.9,
+      "validation": {
+        "peak_dbfs": -4.91,
+        "clipped_samples": 0,
+        "dc_offset_max": 2.5e-07,
+        "loop_seam_jump": 0.000342,
+        "loop_seam_jump_percentile": 7.8,
+        "loop_seam_d2_percentile": 34.0,
+        "loop_seam_rms_step_db": 25.25,
+        "circular_tail_residual": 0.0,
+        "decoded_aac": {
+          "frames": 4612096,
+          "alignment_offset": 0,
+          "snr_db": 34.35,
+          "true_peak_dbtp": -4.84,
+          "seam": {
+            "jump": 0.000149,
+            "jump_percentile": 3.4,
+            "d2_percentile": 42.3,
+            "rms_step_db": 25.26
+          }
+        }
+      },
+      "runtime": [
+        "music_spider_loop.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "loop_metadata_basis": "Decoded PCM trimmed to loop_end_sample_exclusive; the AAC carries a short circular wrap after the loop"
+    },
+    {
+      "id": "freecell",
+      "title": "Clear Columns (FreeCell)",
+      "file": "authoring/playsuite_music render: music_freecell_loop.wav",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
       "sample_rate": 48000,
       "channels": 2,
       "samples": 4388608,
@@ -17,300 +239,126 @@
       "samples_per_beat": 34286,
       "loop_start_sample": 0,
       "loop_end_sample_exclusive": 4388608,
-      "wav_smpl_chunk": true,
+      "wav_smpl_chunk": false,
       "sections": [
         [
-          "A1",
+          "A1_piano",
           8
         ],
         [
-          "A2",
+          "B_minor",
           8
         ],
         [
-          "B",
+          "A2_strings_melody",
           8
         ],
         [
-          "A3",
+          "C_development",
           8
         ]
       ],
-      "lufs_integrated": -20.0,
-      "true_peak_dbtp": -5.2,
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -2.5,
       "validation": {
-        "peak_dbfs": -5.24,
+        "peak_dbfs": -2.64,
         "clipped_samples": 0,
-        "dc_offset_max": 3.07e-10,
-        "loop_seam_jump": 0.000525,
-        "loop_seam_jump_percentile": 1.3,
-        "loop_seam_rms_step_db": 4.17,
-        "loop_seam_click_ratio": 0.026
+        "dc_offset_max": 1.1e-07,
+        "loop_seam_jump": 0.003325,
+        "loop_seam_jump_percentile": 36.9,
+        "loop_seam_d2_percentile": 92.0,
+        "loop_seam_rms_step_db": 12.44,
+        "circular_tail_residual": 0.0,
+        "decoded_aac": {
+          "frames": 4392960,
+          "alignment_offset": 0,
+          "snr_db": 36.84,
+          "true_peak_dbtp": -2.57,
+          "seam": {
+            "jump": 0.010413,
+            "jump_percentile": 78.4,
+            "d2_percentile": 96.6,
+            "rms_step_db": 12.37
+          }
+        }
       },
       "runtime": [
-        "outputs/runtime/music_menu_loop.ogg",
-        "outputs/runtime/music_menu_loop.m4a"
-      ]
-    },
-    {
-      "id": "klondike",
-      "title": "Sunny Porch (Klondike)",
-      "file": "outputs/music/music_klondike_loop.wav",
-      "format": "WAV PCM 24-bit",
-      "sample_rate": 48000,
-      "channels": 2,
-      "samples": 6582784,
-      "seconds": 137.141,
-      "bpm": 112.0012,
-      "meter": "4/4",
-      "bars": 64,
-      "samples_per_beat": 25714,
-      "loop_start_sample": 0,
-      "loop_end_sample_exclusive": 6582784,
-      "wav_smpl_chunk": true,
-      "sections": [
-        [
-          "intro",
-          4
-        ],
-        [
-          "A1",
-          8
-        ],
-        [
-          "A2",
-          8
-        ],
-        [
-          "B",
-          8
-        ],
-        [
-          "A3",
-          8
-        ],
-        [
-          "C",
-          8
-        ],
-        [
-          "B2",
-          8
-        ],
-        [
-          "A4",
-          8
-        ],
-        [
-          "tag",
-          4
-        ]
+        "music_freecell_loop.m4a"
       ],
-      "lufs_integrated": -20.0,
-      "true_peak_dbtp": -4.4,
-      "validation": {
-        "peak_dbfs": -4.62,
-        "clipped_samples": 0,
-        "dc_offset_max": 7.18e-10,
-        "loop_seam_jump": 0.000933,
-        "loop_seam_jump_percentile": 5.2,
-        "loop_seam_rms_step_db": 12.37,
-        "loop_seam_click_ratio": 0.025
-      },
-      "runtime": [
-        "outputs/runtime/music_klondike_loop.ogg",
-        "outputs/runtime/music_klondike_loop.m4a"
-      ]
-    },
-    {
-      "id": "spider",
-      "title": "Tiptoe Web (Spider)",
-      "file": "outputs/music/music_spider_loop.wav",
-      "format": "WAV PCM 24-bit",
-      "sample_rate": 48000,
-      "channels": 2,
-      "samples": 5857680,
-      "seconds": 122.035,
-      "bpm": 117.9989,
-      "meter": "4/4",
-      "bars": 60,
-      "samples_per_beat": 24407,
-      "loop_start_sample": 0,
-      "loop_end_sample_exclusive": 5857680,
-      "wav_smpl_chunk": true,
-      "sections": [
-        [
-          "intro",
-          4
-        ],
-        [
-          "A1",
-          8
-        ],
-        [
-          "A2",
-          8
-        ],
-        [
-          "B",
-          8
-        ],
-        [
-          "A3",
-          8
-        ],
-        [
-          "C",
-          8
-        ],
-        [
-          "B2",
-          8
-        ],
-        [
-          "A4",
-          8
-        ]
-      ],
-      "lufs_integrated": -20.0,
-      "true_peak_dbtp": -4.1,
-      "validation": {
-        "peak_dbfs": -4.17,
-        "clipped_samples": 0,
-        "dc_offset_max": 1.99e-08,
-        "loop_seam_jump": 0.00227,
-        "loop_seam_jump_percentile": 30.8,
-        "loop_seam_rms_step_db": 1.65,
-        "loop_seam_click_ratio": 0.951
-      },
-      "runtime": [
-        "outputs/runtime/music_spider_loop.ogg",
-        "outputs/runtime/music_spider_loop.m4a"
-      ]
-    },
-    {
-      "id": "freecell",
-      "title": "Clear Thinking (FreeCell)",
-      "file": "outputs/music/music_freecell_loop.wav",
-      "format": "WAV PCM 24-bit",
-      "sample_rate": 48000,
-      "channels": 2,
-      "samples": 6912000,
-      "seconds": 144.0,
-      "bpm": 100.0,
-      "meter": "4/4",
-      "bars": 60,
-      "samples_per_beat": 28800,
-      "loop_start_sample": 0,
-      "loop_end_sample_exclusive": 6912000,
-      "wav_smpl_chunk": true,
-      "sections": [
-        [
-          "intro",
-          4
-        ],
-        [
-          "A1",
-          8
-        ],
-        [
-          "A2",
-          8
-        ],
-        [
-          "B",
-          8
-        ],
-        [
-          "A3",
-          8
-        ],
-        [
-          "C",
-          8
-        ],
-        [
-          "B2",
-          8
-        ],
-        [
-          "A4",
-          8
-        ]
-      ],
-      "lufs_integrated": -20.0,
-      "true_peak_dbtp": -4.4,
-      "validation": {
-        "peak_dbfs": -4.46,
-        "clipped_samples": 0,
-        "dc_offset_max": 1.46e-09,
-        "loop_seam_jump": 0.000775,
-        "loop_seam_jump_percentile": 7.9,
-        "loop_seam_rms_step_db": 4.11,
-        "loop_seam_click_ratio": 0.048
-      },
-      "runtime": [
-        "outputs/runtime/music_freecell_loop.ogg",
-        "outputs/runtime/music_freecell_loop.m4a"
-      ]
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "loop_metadata_basis": "Decoded PCM trimmed to loop_end_sample_exclusive; the AAC carries a short circular wrap after the loop"
     },
     {
       "id": "hearts",
-      "title": "Parlour Waltz (Hearts)",
-      "file": "outputs/music/music_hearts_loop.wav",
-      "format": "WAV PCM 24-bit",
+      "title": "Passing Three (Hearts)",
+      "file": "authoring/playsuite_music render: music_hearts_loop.wav",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
       "sample_rate": 48000,
       "channels": 2,
-      "samples": 4838400,
-      "seconds": 100.8,
-      "bpm": 150.0,
-      "meter": "3/4",
-      "bars": 84,
-      "samples_per_beat": 19200,
+      "samples": 3770208,
+      "seconds": 78.546,
+      "bpm": 109.9992,
+      "meter": "4/4",
+      "bars": 36,
+      "samples_per_beat": 26182,
       "loop_start_sample": 0,
-      "loop_end_sample_exclusive": 4838400,
-      "wav_smpl_chunk": true,
+      "loop_end_sample_exclusive": 3770208,
+      "wav_smpl_chunk": false,
       "sections": [
         [
-          "intro",
+          "intro_vamp",
           4
         ],
         [
-          "A1",
-          16
+          "A1_trumpet",
+          8
         ],
         [
-          "B",
-          16
+          "A2_trumpet_clarinet",
+          8
         ],
         [
-          "A2",
-          16
-        ],
-        [
-          "C",
-          16
+          "B_bridge",
+          8
         ],
         [
           "A3",
-          16
+          8
         ]
       ],
-      "lufs_integrated": -20.0,
-      "true_peak_dbtp": -7.6,
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -4.9,
       "validation": {
-        "peak_dbfs": -7.72,
+        "peak_dbfs": -5.03,
         "clipped_samples": 0,
-        "dc_offset_max": 2.06e-11,
-        "loop_seam_jump": 0.00328,
-        "loop_seam_jump_percentile": 32.0,
-        "loop_seam_rms_step_db": 3.88,
-        "loop_seam_click_ratio": 0.043
+        "dc_offset_max": 1.37e-06,
+        "loop_seam_jump": 0.005011,
+        "loop_seam_jump_percentile": 41.9,
+        "loop_seam_d2_percentile": 69.5,
+        "loop_seam_rms_step_db": 13.32,
+        "circular_tail_residual": 0.0,
+        "decoded_aac": {
+          "frames": 3774464,
+          "alignment_offset": 0,
+          "snr_db": 31.98,
+          "true_peak_dbtp": -4.99,
+          "seam": {
+            "jump": 0.008011,
+            "jump_percentile": 57.4,
+            "d2_percentile": 75.5,
+            "rms_step_db": 13.39
+          }
+        }
       },
       "runtime": [
-        "outputs/runtime/music_hearts_loop.ogg",
-        "outputs/runtime/music_hearts_loop.m4a"
-      ]
+        "music_hearts_loop.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "loop_metadata_basis": "Decoded PCM trimmed to loop_end_sample_exclusive; the AAC carries a short circular wrap after the loop"
     },
     {
       "id": "puzzle_main",
@@ -434,21 +482,21 @@
     },
     {
       "id": "gems",
-      "title": "Prism Parade (Gems)",
-      "batch": 2,
-      "file": "outputs/runtime/music_gems_loop.m4a",
-      "format": "AAC in M4A; alternative Ogg Opus supplied",
+      "title": "Prism Pop (Gems)",
+      "batch": "playsuite-v2",
+      "file": "authoring/playsuite_music render: music_gems_loop.wav",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
       "sample_rate": 48000,
       "channels": 2,
-      "samples": 5076656,
-      "seconds": 105.764,
-      "bpm": 117.9989,
+      "samples": 4459392,
+      "seconds": 92.904,
+      "bpm": 123.999,
       "meter": "4/4",
-      "bars": 52,
-      "samples_per_beat": 24407,
+      "bars": 48,
+      "samples_per_beat": 23226,
       "loop_start_sample": 0,
-      "loop_end_sample_exclusive": 5076656,
-      "wav_smpl_chunk": true,
+      "loop_end_sample_exclusive": 4459392,
+      "wav_smpl_chunk": false,
       "sections": [
         [
           "intro",
@@ -459,51 +507,63 @@
           8
         ],
         [
+          "B_build",
+          8
+        ],
+        [
+          "C_chorus",
+          8
+        ],
+        [
           "A2",
           8
         ],
         [
-          "B",
+          "C2_chorus",
           8
         ],
         [
-          "C",
-          8
-        ],
-        [
-          "B2",
-          8
-        ],
-        [
-          "A3",
-          8
+          "outro",
+          4
         ]
       ],
-      "lufs_integrated": -20.0,
-      "true_peak_dbtp": -6.8,
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -2.0,
       "validation": {
-        "peak_dbfs": -6.82,
+        "peak_dbfs": -2.57,
         "clipped_samples": 0,
-        "dc_offset_max": 1.78e-11,
-        "loop_seam_jump": 0.00109,
-        "loop_seam_jump_percentile": 5.7,
-        "loop_seam_rms_step_db": 8.25,
-        "loop_seam_click_ratio": 0.014
+        "dc_offset_max": 6e-08,
+        "loop_seam_jump": 0.001421,
+        "loop_seam_jump_percentile": 10.3,
+        "loop_seam_d2_percentile": 27.8,
+        "loop_seam_rms_step_db": 15.42,
+        "circular_tail_residual": 0.0,
+        "decoded_aac": {
+          "frames": 4463616,
+          "alignment_offset": 0,
+          "snr_db": 24.49,
+          "true_peak_dbtp": -2.03,
+          "seam": {
+            "jump": 0.005535,
+            "jump_percentile": 34.2,
+            "d2_percentile": 51.4,
+            "rms_step_db": 15.41
+          }
+        }
       },
       "runtime": [
-        "outputs/runtime/music_gems_loop.ogg",
-        "outputs/runtime/music_gems_loop.m4a"
+        "music_gems_loop.m4a"
       ],
-      "wav_master_on_neo": "/Users/ultimussecundai/Documents/Codex/2026-09-30/sol/outputs/audio-batch-02/outputs/music/music_gems_loop.wav",
-      "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling",
-      "loop_metadata_basis": "Decoded PCM matching master after trimming codec priming/padding; do not loop rounded seconds"
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "loop_metadata_basis": "Decoded PCM trimmed to loop_end_sample_exclusive; the AAC carries a short circular wrap after the loop",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10"
     },
     {
       "id": "sudoku_day",
-      "title": "Quiet Grid \u2014 Day (Sudoku)",
-      "batch": 2,
-      "file": "outputs/runtime/music_sudoku_day_loop.m4a",
-      "format": "AAC in M4A; alternative Ogg Opus supplied",
+      "title": "Morning Grid (Sudoku Day)",
+      "batch": "playsuite-v2",
+      "file": "authoring/playsuite_music render: music_sudoku_day_loop.wav",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
       "sample_rate": 48000,
       "channels": 2,
       "samples": 4850560,
@@ -514,14 +574,10 @@
       "samples_per_beat": 37895,
       "loop_start_sample": 0,
       "loop_end_sample_exclusive": 4850560,
-      "wav_smpl_chunk": true,
+      "wav_smpl_chunk": false,
       "sections": [
         [
           "A1",
-          8
-        ],
-        [
-          "A2",
           8
         ],
         [
@@ -529,35 +585,51 @@
           8
         ],
         [
-          "A3",
+          "A2",
+          8
+        ],
+        [
+          "C",
           8
         ]
       ],
-      "lufs_integrated": -20.0,
-      "true_peak_dbtp": -5.0,
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -2.1,
       "validation": {
-        "peak_dbfs": -4.96,
+        "peak_dbfs": -2.16,
         "clipped_samples": 0,
-        "dc_offset_max": 1.94e-09,
-        "loop_seam_jump": 0.00821,
-        "loop_seam_jump_percentile": 76.5,
-        "loop_seam_rms_step_db": 11.05,
-        "loop_seam_click_ratio": 0.289
+        "dc_offset_max": 5e-08,
+        "loop_seam_jump": 0.005676,
+        "loop_seam_jump_percentile": 62.8,
+        "loop_seam_d2_percentile": 82.4,
+        "loop_seam_rms_step_db": 4.65,
+        "circular_tail_residual": 3.6e-06,
+        "decoded_aac": {
+          "frames": 4854784,
+          "alignment_offset": 0,
+          "snr_db": 44.25,
+          "true_peak_dbtp": -2.07,
+          "seam": {
+            "jump": 0.005892,
+            "jump_percentile": 64.2,
+            "d2_percentile": 82.9,
+            "rms_step_db": 4.66
+          }
+        }
       },
       "runtime": [
-        "outputs/runtime/music_sudoku_day_loop.ogg",
-        "outputs/runtime/music_sudoku_day_loop.m4a"
+        "music_sudoku_day_loop.m4a"
       ],
-      "wav_master_on_neo": "/Users/ultimussecundai/Documents/Codex/2026-09-30/sol/outputs/audio-batch-02/outputs/music/music_sudoku_day_loop.wav",
-      "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling",
-      "loop_metadata_basis": "Decoded PCM matching master after trimming codec priming/padding; do not loop rounded seconds"
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "loop_metadata_basis": "Decoded PCM trimmed to loop_end_sample_exclusive; the AAC carries a short circular wrap after the loop",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10"
     },
     {
       "id": "sudoku_night",
-      "title": "Quiet Grid \u2014 Night (Sudoku)",
-      "batch": 2,
-      "file": "outputs/runtime/music_sudoku_night_loop.m4a",
-      "format": "AAC in M4A; alternative Ogg Opus supplied",
+      "title": "Midnight Grid (Sudoku Night)",
+      "batch": "playsuite-v2",
+      "file": "authoring/playsuite_music render: music_sudoku_night_loop.wav",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
       "sample_rate": 48000,
       "channels": 2,
       "samples": 5421184,
@@ -568,14 +640,10 @@
       "samples_per_beat": 42353,
       "loop_start_sample": 0,
       "loop_end_sample_exclusive": 5421184,
-      "wav_smpl_chunk": true,
+      "wav_smpl_chunk": false,
       "sections": [
         [
           "A1",
-          8
-        ],
-        [
-          "A2",
           8
         ],
         [
@@ -583,148 +651,184 @@
           8
         ],
         [
-          "A3",
-          8
-        ]
-      ],
-      "lufs_integrated": -20.0,
-      "true_peak_dbtp": -7.3,
-      "validation": {
-        "peak_dbfs": -7.32,
-        "clipped_samples": 0,
-        "dc_offset_max": 8.8e-12,
-        "loop_seam_jump": 0.00408,
-        "loop_seam_jump_percentile": 68.6,
-        "loop_seam_rms_step_db": 7.67,
-        "loop_seam_click_ratio": 0.041
-      },
-      "runtime": [
-        "outputs/runtime/music_sudoku_night_loop.ogg",
-        "outputs/runtime/music_sudoku_night_loop.m4a"
-      ],
-      "wav_master_on_neo": "/Users/ultimussecundai/Documents/Codex/2026-09-30/sol/outputs/audio-batch-02/outputs/music/music_sudoku_night_loop.wav",
-      "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling",
-      "loop_metadata_basis": "Decoded PCM matching master after trimming codec priming/padding; do not loop rounded seconds"
-    },
-    {
-      "id": "nature_cube",
-      "title": "Mirror Meadow (Nature Cube)",
-      "batch": 2,
-      "file": "outputs/runtime/music_nature_cube_loop.m4a",
-      "format": "AAC in M4A; alternative Ogg Opus supplied",
-      "sample_rate": 48000,
-      "channels": 2,
-      "samples": 5236320,
-      "seconds": 109.09,
-      "bpm": 66.0006,
-      "meter": "3/4",
-      "bars": 40,
-      "samples_per_beat": 43636,
-      "loop_start_sample": 0,
-      "loop_end_sample_exclusive": 5236320,
-      "wav_smpl_chunk": true,
-      "sections": [
-        [
-          "A1",
-          8
-        ],
-        [
           "A2",
-          8
-        ],
-        [
-          "B",
           8
         ],
         [
           "C",
           8
+        ]
+      ],
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -4.2,
+      "validation": {
+        "peak_dbfs": -4.19,
+        "clipped_samples": 0,
+        "dc_offset_max": 1e-08,
+        "loop_seam_jump": 0.005729,
+        "loop_seam_jump_percentile": 64.9,
+        "loop_seam_d2_percentile": 66.4,
+        "loop_seam_rms_step_db": 1.89,
+        "circular_tail_residual": 1.57e-05,
+        "decoded_aac": {
+          "frames": 5426176,
+          "alignment_offset": 0,
+          "snr_db": 44.3,
+          "true_peak_dbtp": -4.21,
+          "seam": {
+            "jump": 0.007404,
+            "jump_percentile": 74.6,
+            "d2_percentile": 86.1,
+            "rms_step_db": 1.91
+          }
+        }
+      },
+      "runtime": [
+        "music_sudoku_night_loop.m4a"
+      ],
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "loop_metadata_basis": "Decoded PCM trimmed to loop_end_sample_exclusive; the AAC carries a short circular wrap after the loop",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10"
+    },
+    {
+      "id": "nature_cube",
+      "title": "Still Water, Turning Glass (Nature Cube)",
+      "batch": "playsuite-v2",
+      "file": "authoring/playsuite_music render: music_nature_cube_loop.wav",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+      "sample_rate": 48000,
+      "channels": 2,
+      "samples": 5120000,
+      "seconds": 106.667,
+      "bpm": 72.0,
+      "meter": "4/4",
+      "bars": 32,
+      "samples_per_beat": 40000,
+      "loop_start_sample": 0,
+      "loop_end_sample_exclusive": 5120000,
+      "wav_smpl_chunk": false,
+      "sections": [
+        [
+          "A1_harp_droplets",
+          8
         ],
         [
-          "A3",
+          "B_kalimba_choir",
+          8
+        ],
+        [
+          "A2_flute",
+          8
+        ],
+        [
+          "C_flute",
           8
         ]
       ],
-      "lufs_integrated": -20.0,
-      "true_peak_dbtp": -3.9,
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -6.1,
       "validation": {
-        "peak_dbfs": -4.17,
+        "peak_dbfs": -6.14,
         "clipped_samples": 0,
-        "dc_offset_max": 6.15e-09,
-        "loop_seam_jump": 0.00396,
-        "loop_seam_jump_percentile": 39.2,
-        "loop_seam_rms_step_db": 9.58,
-        "loop_seam_click_ratio": 0.009
+        "dc_offset_max": 2e-08,
+        "loop_seam_jump": 0.008683,
+        "loop_seam_jump_percentile": 67.9,
+        "loop_seam_d2_percentile": 65.4,
+        "loop_seam_rms_step_db": 0.22,
+        "circular_tail_residual": 7.2e-06,
+        "decoded_aac": {
+          "frames": 5124096,
+          "alignment_offset": 0,
+          "snr_db": 35.44,
+          "true_peak_dbtp": -6.17,
+          "seam": {
+            "jump": 0.00554,
+            "jump_percentile": 48.9,
+            "d2_percentile": 93.4,
+            "rms_step_db": 0.23
+          }
+        }
       },
       "runtime": [
-        "outputs/runtime/music_nature_cube_loop.ogg",
-        "outputs/runtime/music_nature_cube_loop.m4a"
+        "music_nature_cube_loop.m4a"
       ],
-      "wav_master_on_neo": "/Users/ultimussecundai/Documents/Codex/2026-09-30/sol/outputs/audio-batch-02/outputs/music/music_nature_cube_loop.wav",
-      "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling",
-      "loop_metadata_basis": "Decoded PCM matching master after trimming codec priming/padding; do not loop rounded seconds"
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "loop_metadata_basis": "Decoded PCM trimmed to loop_end_sample_exclusive; the AAC carries a short circular wrap after the loop",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10"
     },
     {
       "id": "untangle",
-      "title": "Slow Unknotting (Untangle)",
-      "batch": 2,
-      "file": "outputs/runtime/music_untangle_loop.m4a",
-      "format": "AAC in M4A; alternative Ogg Opus supplied",
+      "title": "Rubber Band Shuffle (Untangle)",
+      "batch": "playsuite-v2",
+      "file": "authoring/playsuite_music render: music_untangle_loop.wav",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
       "sample_rate": 48000,
       "channels": 2,
-      "samples": 5632000,
-      "seconds": 117.333,
-      "bpm": 90.0,
+      "samples": 4873792,
+      "seconds": 101.537,
+      "bpm": 104.0012,
       "meter": "4/4",
       "bars": 44,
-      "samples_per_beat": 32000,
+      "samples_per_beat": 27692,
       "loop_start_sample": 0,
-      "loop_end_sample_exclusive": 5632000,
-      "wav_smpl_chunk": true,
+      "loop_end_sample_exclusive": 4873792,
+      "wav_smpl_chunk": false,
       "sections": [
         [
           "intro",
           4
         ],
         [
-          "K1",
+          "A1_pizz",
           8
         ],
         [
-          "K2",
+          "A2_marimba",
           8
         ],
         [
-          "R1",
+          "B_whistle",
           8
         ],
         [
-          "R2",
+          "C_breakdown",
           8
         ],
         [
-          "R3",
+          "A3_tutti",
           8
         ]
       ],
-      "lufs_integrated": -20.0,
-      "true_peak_dbtp": -5.9,
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -1.9,
       "validation": {
-        "peak_dbfs": -5.92,
+        "peak_dbfs": -2.0,
         "clipped_samples": 0,
-        "dc_offset_max": 6.94e-12,
-        "loop_seam_jump": 0.00252,
-        "loop_seam_jump_percentile": 31.3,
-        "loop_seam_rms_step_db": 5.98,
-        "loop_seam_click_ratio": 0.077
+        "dc_offset_max": 3.45e-06,
+        "loop_seam_jump": 0.004474,
+        "loop_seam_jump_percentile": 49.0,
+        "loop_seam_d2_percentile": 32.0,
+        "loop_seam_rms_step_db": 15.61,
+        "circular_tail_residual": 0.0,
+        "decoded_aac": {
+          "frames": 4878336,
+          "alignment_offset": 0,
+          "snr_db": 33.57,
+          "true_peak_dbtp": -1.94,
+          "seam": {
+            "jump": 0.004696,
+            "jump_percentile": 50.6,
+            "d2_percentile": 47.3,
+            "rms_step_db": 15.58
+          }
+        }
       },
       "runtime": [
-        "outputs/runtime/music_untangle_loop.ogg",
-        "outputs/runtime/music_untangle_loop.m4a"
+        "music_untangle_loop.m4a"
       ],
-      "wav_master_on_neo": "/Users/ultimussecundai/Documents/Codex/2026-09-30/sol/outputs/audio-batch-02/outputs/music/music_untangle_loop.wav",
-      "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling",
-      "loop_metadata_basis": "Decoded PCM matching master after trimming codec priming/padding; do not loop rounded seconds"
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "loop_metadata_basis": "Decoded PCM trimmed to loop_end_sample_exclusive; the AAC carries a short circular wrap after the loop",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10"
     },
     {
       "id": "atom_probe",
@@ -918,40 +1022,40 @@
     },
     {
       "id": "puzzle_solve",
-      "title": "Toy Workshop (Puzzle Solve)",
-      "batch": 2,
-      "file": "outputs/runtime/music_puzzle_solve_loop.m4a",
-      "format": "AAC in M4A; alternative Ogg Opus supplied",
+      "title": "Tangram Funk (Puzzle Solve)",
+      "batch": "playsuite-v2",
+      "file": "authoring/playsuite_music render: music_puzzle_solve_loop.wav",
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
       "sample_rate": 48000,
       "channels": 2,
-      "samples": 4969360,
-      "seconds": 103.528,
-      "bpm": 102.0011,
+      "samples": 5280000,
+      "seconds": 110.0,
+      "bpm": 96.0,
       "meter": "4/4",
       "bars": 44,
-      "samples_per_beat": 28235,
+      "samples_per_beat": 30000,
       "loop_start_sample": 0,
-      "loop_end_sample_exclusive": 4969360,
-      "wav_smpl_chunk": true,
+      "loop_end_sample_exclusive": 5280000,
+      "wav_smpl_chunk": false,
       "sections": [
         [
-          "intro",
+          "intro_clav",
           4
         ],
         [
-          "A1",
+          "A1_vibes",
           8
         ],
         [
-          "A2",
+          "A2_vibes",
           8
         ],
         [
-          "B",
+          "B_steps",
           8
         ],
         [
-          "C",
+          "C_geometry",
           8
         ],
         [
@@ -959,24 +1063,36 @@
           8
         ]
       ],
-      "lufs_integrated": -20.0,
-      "true_peak_dbtp": -4.8,
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -2.3,
       "validation": {
-        "peak_dbfs": -4.78,
+        "peak_dbfs": -2.33,
         "clipped_samples": 0,
-        "dc_offset_max": 2.92e-09,
-        "loop_seam_jump": 0.038,
-        "loop_seam_jump_percentile": 99.4,
-        "loop_seam_rms_step_db": 11.52,
-        "loop_seam_click_ratio": 0.643
+        "dc_offset_max": 1.12e-06,
+        "loop_seam_jump": 0.006421,
+        "loop_seam_jump_percentile": 46.7,
+        "loop_seam_d2_percentile": 55.4,
+        "loop_seam_rms_step_db": 19.15,
+        "circular_tail_residual": 0.0,
+        "decoded_aac": {
+          "frames": 5284864,
+          "alignment_offset": 0,
+          "snr_db": 28.95,
+          "true_peak_dbtp": -2.36,
+          "seam": {
+            "jump": 0.009706,
+            "jump_percentile": 60.9,
+            "d2_percentile": 71.5,
+            "rms_step_db": 19.22
+          }
+        }
       },
       "runtime": [
-        "outputs/runtime/music_puzzle_solve_loop.ogg",
-        "outputs/runtime/music_puzzle_solve_loop.m4a"
+        "music_puzzle_solve_loop.m4a"
       ],
-      "wav_master_on_neo": "/Users/ultimussecundai/Documents/Codex/2026-09-30/sol/outputs/audio-batch-02/outputs/music/music_puzzle_solve_loop.wav",
-      "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling",
-      "loop_metadata_basis": "Decoded PCM matching master after trimming codec priming/padding; do not loop rounded seconds"
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "loop_metadata_basis": "Decoded PCM trimmed to loop_end_sample_exclusive; the AAC carries a short circular wrap after the loop",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10"
     },
     {
       "id": "sticks_stones",
@@ -1043,61 +1159,94 @@
   ],
   "stingers": [
     {
-      "file": "outputs/music/stinger_win_freecell.wav",
+      "file": "authoring/playsuite_music render: stinger_win_freecell.wav",
       "event": "freecell win",
       "channels": 2,
-      "seconds": 4.035,
-      "lufs_integrated": -17.9,
-      "true_peak_dbtp": -6.0,
+      "seconds": 4.9,
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -5.0,
       "validation": {
-        "peak_dbfs": -6.0,
+        "peak_dbfs": -5.02,
         "clipped_samples": 0,
-        "dc_offset_max": 2.63e-05,
+        "dc_offset_max": 1.29e-06,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 235520,
+          "alignment_offset": 0,
+          "snr_db": 32.28,
+          "true_peak_dbtp": -4.98
+        }
       },
       "runtime": [
-        "outputs/runtime/stinger_win_freecell.ogg",
-        "outputs/runtime/stinger_win_freecell.m4a"
-      ]
+        "stinger_win_freecell.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "FreeCell win",
+      "samples": 235200,
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)"
     },
     {
-      "file": "outputs/music/stinger_win_hearts.wav",
+      "file": "authoring/playsuite_music render: stinger_win_hearts.wav",
       "event": "hearts win",
       "channels": 2,
-      "seconds": 3.945,
-      "lufs_integrated": -18.3,
-      "true_peak_dbtp": -6.0,
+      "seconds": 4.9,
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -3.9,
       "validation": {
-        "peak_dbfs": -6.0,
+        "peak_dbfs": -3.93,
         "clipped_samples": 0,
-        "dc_offset_max": 2.24e-05,
+        "dc_offset_max": 3.32e-06,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 235520,
+          "alignment_offset": 0,
+          "snr_db": 36.77,
+          "true_peak_dbtp": -4.1
+        }
       },
       "runtime": [
-        "outputs/runtime/stinger_win_hearts.ogg",
-        "outputs/runtime/stinger_win_hearts.m4a"
-      ]
+        "stinger_win_hearts.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Hearts win",
+      "samples": 235200,
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)"
     },
     {
-      "file": "outputs/music/stinger_win_klondike.wav",
+      "file": "authoring/playsuite_music render: stinger_win_klondike.wav",
       "event": "klondike win",
       "channels": 2,
-      "seconds": 4.093,
-      "lufs_integrated": -19.6,
-      "true_peak_dbtp": -5.9,
+      "seconds": 4.9,
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -2.0,
       "validation": {
-        "peak_dbfs": -6.0,
+        "peak_dbfs": -2.0,
         "clipped_samples": 0,
-        "dc_offset_max": 1.23e-05,
+        "dc_offset_max": 8.01e-06,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 235520,
+          "alignment_offset": 0,
+          "snr_db": 35.18,
+          "true_peak_dbtp": -1.98
+        }
       },
       "runtime": [
-        "outputs/runtime/stinger_win_klondike.ogg",
-        "outputs/runtime/stinger_win_klondike.m4a"
-      ]
+        "stinger_win_klondike.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Klondike win",
+      "samples": 235200,
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)"
     },
     {
       "file": "outputs/music/stinger_win_menu.wav",
@@ -1138,23 +1287,34 @@
       ]
     },
     {
-      "file": "outputs/music/stinger_win_spider.wav",
+      "file": "authoring/playsuite_music render: stinger_win_spider.wav",
       "event": "spider win",
       "channels": 2,
-      "seconds": 3.897,
-      "lufs_integrated": -17.4,
-      "true_peak_dbtp": -6.0,
+      "seconds": 4.9,
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -4.5,
       "validation": {
-        "peak_dbfs": -6.0,
+        "peak_dbfs": -4.55,
         "clipped_samples": 0,
-        "dc_offset_max": 3.96e-06,
+        "dc_offset_max": 3.32e-06,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 235520,
+          "alignment_offset": 0,
+          "snr_db": 29.67,
+          "true_peak_dbtp": -4.56
+        }
       },
       "runtime": [
-        "outputs/runtime/stinger_win_spider.ogg",
-        "outputs/runtime/stinger_win_spider.m4a"
-      ]
+        "stinger_win_spider.m4a"
+      ],
+      "batch": "playsuite-v2",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Spider win",
+      "samples": 235200,
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)"
     },
     {
       "file": "outputs/runtime/stinger_topscore_atom_probe.m4a",
@@ -1203,73 +1363,94 @@
       "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling"
     },
     {
-      "file": "outputs/runtime/stinger_topscore_gems.m4a",
-      "batch": 2,
+      "file": "authoring/playsuite_music render: stinger_topscore_gems.wav",
+      "batch": "playsuite-v2",
       "event": "top score / name-entry window: gems",
       "channels": 2,
-      "seconds": 4.399,
-      "lufs_integrated": -17.6,
-      "true_peak_dbtp": -6.0,
+      "seconds": 4.9,
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -5.7,
       "validation": {
-        "peak_dbfs": -6.0,
+        "peak_dbfs": -5.8,
         "clipped_samples": 0,
-        "dc_offset_max": 8.9e-06,
+        "dc_offset_max": 2.47e-06,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 235520,
+          "alignment_offset": 0,
+          "snr_db": 22.59,
+          "true_peak_dbtp": -5.69
+        }
       },
       "runtime": [
-        "outputs/runtime/stinger_topscore_gems.ogg",
-        "outputs/runtime/stinger_topscore_gems.m4a"
+        "stinger_topscore_gems.m4a"
       ],
-      "wav_master_on_neo": "/Users/ultimussecundai/Documents/Codex/2026-09-30/sol/outputs/audio-batch-02/outputs/music/stinger_topscore_gems.wav",
-      "format": "AAC in M4A; alternative Ogg Opus supplied",
-      "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling"
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Gems top score",
+      "samples": 235200
     },
     {
-      "file": "outputs/runtime/stinger_topscore_nature_cube.m4a",
-      "batch": 2,
+      "file": "authoring/playsuite_music render: stinger_topscore_nature_cube.wav",
+      "batch": "playsuite-v2",
       "event": "top score / name-entry window: nature_cube",
       "channels": 2,
-      "seconds": 3.871,
-      "lufs_integrated": -17.9,
-      "true_peak_dbtp": -6.0,
+      "seconds": 4.9,
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -8.5,
       "validation": {
-        "peak_dbfs": -6.0,
+        "peak_dbfs": -8.51,
         "clipped_samples": 0,
-        "dc_offset_max": 4.68e-05,
+        "dc_offset_max": 1.1e-07,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 235520,
+          "alignment_offset": 0,
+          "snr_db": 41.49,
+          "true_peak_dbtp": -8.5
+        }
       },
       "runtime": [
-        "outputs/runtime/stinger_topscore_nature_cube.ogg",
-        "outputs/runtime/stinger_topscore_nature_cube.m4a"
+        "stinger_topscore_nature_cube.m4a"
       ],
-      "wav_master_on_neo": "/Users/ultimussecundai/Documents/Codex/2026-09-30/sol/outputs/audio-batch-02/outputs/music/stinger_topscore_nature_cube.wav",
-      "format": "AAC in M4A; alternative Ogg Opus supplied",
-      "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling"
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Nature Cube top score",
+      "samples": 235200
     },
     {
-      "file": "outputs/runtime/stinger_topscore_puzzle_solve.m4a",
-      "batch": 2,
+      "file": "authoring/playsuite_music render: stinger_topscore_puzzle_solve.wav",
+      "batch": "playsuite-v2",
       "event": "top score / name-entry window: puzzle_solve",
       "channels": 2,
-      "seconds": 3.853,
-      "lufs_integrated": -19.9,
-      "true_peak_dbtp": -6.0,
+      "seconds": 4.9,
+      "lufs_integrated": -18.1,
+      "true_peak_dbtp": -1.9,
       "validation": {
-        "peak_dbfs": -6.0,
+        "peak_dbfs": -2.0,
         "clipped_samples": 0,
-        "dc_offset_max": 4.99e-06,
+        "dc_offset_max": 1.71e-06,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 235520,
+          "alignment_offset": 0,
+          "snr_db": 29.39,
+          "true_peak_dbtp": -1.92
+        }
       },
       "runtime": [
-        "outputs/runtime/stinger_topscore_puzzle_solve.ogg",
-        "outputs/runtime/stinger_topscore_puzzle_solve.m4a"
+        "stinger_topscore_puzzle_solve.m4a"
       ],
-      "wav_master_on_neo": "/Users/ultimussecundai/Documents/Codex/2026-09-30/sol/outputs/audio-batch-02/outputs/music/stinger_topscore_puzzle_solve.wav",
-      "format": "AAC in M4A; alternative Ogg Opus supplied",
-      "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling"
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Puzzle Solve top score",
+      "samples": 235200
     },
     {
       "file": "outputs/runtime/stinger_topscore_sticks_stones.m4a",
@@ -1295,27 +1476,34 @@
       "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling"
     },
     {
-      "file": "outputs/runtime/stinger_topscore_sudoku.m4a",
-      "batch": 2,
+      "file": "authoring/playsuite_music render: stinger_topscore_sudoku.wav",
+      "batch": "playsuite-v2",
       "event": "top score / name-entry window: sudoku",
       "channels": 2,
-      "seconds": 4.362,
-      "lufs_integrated": -17.6,
-      "true_peak_dbtp": -6.0,
+      "seconds": 4.9,
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -4.5,
       "validation": {
-        "peak_dbfs": -6.0,
+        "peak_dbfs": -4.47,
         "clipped_samples": 0,
-        "dc_offset_max": 1.18e-05,
+        "dc_offset_max": 2.5e-06,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 235520,
+          "alignment_offset": 0,
+          "snr_db": 34.16,
+          "true_peak_dbtp": -4.48
+        }
       },
       "runtime": [
-        "outputs/runtime/stinger_topscore_sudoku.ogg",
-        "outputs/runtime/stinger_topscore_sudoku.m4a"
+        "stinger_topscore_sudoku.m4a"
       ],
-      "wav_master_on_neo": "/Users/ultimussecundai/Documents/Codex/2026-09-30/sol/outputs/audio-batch-02/outputs/music/stinger_topscore_sudoku.wav",
-      "format": "AAC in M4A; alternative Ogg Opus supplied",
-      "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling"
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Sudoku top score",
+      "samples": 235200
     },
     {
       "file": "outputs/runtime/stinger_topscore_switchbox.m4a",
@@ -1341,27 +1529,34 @@
       "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling"
     },
     {
-      "file": "outputs/runtime/stinger_topscore_untangle.m4a",
-      "batch": 2,
+      "file": "authoring/playsuite_music render: stinger_topscore_untangle.wav",
+      "batch": "playsuite-v2",
       "event": "top score / name-entry window: untangle",
       "channels": 2,
-      "seconds": 3.871,
-      "lufs_integrated": -18.7,
-      "true_peak_dbtp": -6.0,
+      "seconds": 4.367,
+      "lufs_integrated": -18.1,
+      "true_peak_dbtp": -2.0,
       "validation": {
-        "peak_dbfs": -6.0,
+        "peak_dbfs": -2.0,
         "clipped_samples": 0,
-        "dc_offset_max": 4.22e-05,
+        "dc_offset_max": 9.85e-06,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 209920,
+          "alignment_offset": 0,
+          "snr_db": 29.58,
+          "true_peak_dbtp": -2.12
+        }
       },
       "runtime": [
-        "outputs/runtime/stinger_topscore_untangle.ogg",
-        "outputs/runtime/stinger_topscore_untangle.m4a"
+        "stinger_topscore_untangle.m4a"
       ],
-      "wav_master_on_neo": "/Users/ultimussecundai/Documents/Codex/2026-09-30/sol/outputs/audio-batch-02/outputs/music/stinger_topscore_untangle.wav",
-      "format": "AAC in M4A; alternative Ogg Opus supplied",
-      "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling"
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Untangle top score",
+      "samples": 209637
     },
     {
       "file": "outputs/runtime/stinger_win_atom_probe.m4a",
@@ -1410,73 +1605,94 @@
       "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling"
     },
     {
-      "file": "outputs/runtime/stinger_win_gems.m4a",
-      "batch": 2,
+      "file": "authoring/playsuite_music render: stinger_win_gems.wav",
+      "batch": "playsuite-v2",
       "event": "win: gems",
       "channels": 2,
-      "seconds": 4.592,
-      "lufs_integrated": -18.7,
-      "true_peak_dbtp": -6.0,
+      "seconds": 4.9,
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -3.7,
       "validation": {
-        "peak_dbfs": -6.0,
+        "peak_dbfs": -3.89,
         "clipped_samples": 0,
-        "dc_offset_max": 9.45e-06,
+        "dc_offset_max": 1.61e-06,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 235520,
+          "alignment_offset": 0,
+          "snr_db": 25.3,
+          "true_peak_dbtp": -3.71
+        }
       },
       "runtime": [
-        "outputs/runtime/stinger_win_gems.ogg",
-        "outputs/runtime/stinger_win_gems.m4a"
+        "stinger_win_gems.m4a"
       ],
-      "wav_master_on_neo": "/Users/ultimussecundai/Documents/Codex/2026-09-30/sol/outputs/audio-batch-02/outputs/music/stinger_win_gems.wav",
-      "format": "AAC in M4A; alternative Ogg Opus supplied",
-      "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling"
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Gems win",
+      "samples": 235200
     },
     {
-      "file": "outputs/runtime/stinger_win_nature_cube.m4a",
-      "batch": 2,
+      "file": "authoring/playsuite_music render: stinger_win_nature_cube.wav",
+      "batch": "playsuite-v2",
       "event": "win: nature_cube",
       "channels": 2,
-      "seconds": 4.035,
-      "lufs_integrated": -18.4,
-      "true_peak_dbtp": -6.0,
+      "seconds": 4.9,
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -9.1,
       "validation": {
-        "peak_dbfs": -6.0,
+        "peak_dbfs": -9.14,
         "clipped_samples": 0,
-        "dc_offset_max": 3.49e-05,
+        "dc_offset_max": 1.7e-06,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 235520,
+          "alignment_offset": 0,
+          "snr_db": 33.01,
+          "true_peak_dbtp": -9.09
+        }
       },
       "runtime": [
-        "outputs/runtime/stinger_win_nature_cube.ogg",
-        "outputs/runtime/stinger_win_nature_cube.m4a"
+        "stinger_win_nature_cube.m4a"
       ],
-      "wav_master_on_neo": "/Users/ultimussecundai/Documents/Codex/2026-09-30/sol/outputs/audio-batch-02/outputs/music/stinger_win_nature_cube.wav",
-      "format": "AAC in M4A; alternative Ogg Opus supplied",
-      "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling"
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Nature Cube win",
+      "samples": 235200
     },
     {
-      "file": "outputs/runtime/stinger_win_puzzle_solve.m4a",
-      "batch": 2,
+      "file": "authoring/playsuite_music render: stinger_win_puzzle_solve.wav",
+      "batch": "playsuite-v2",
       "event": "win: puzzle_solve",
       "channels": 2,
-      "seconds": 4.042,
-      "lufs_integrated": -19.1,
-      "true_peak_dbtp": -5.9,
+      "seconds": 4.9,
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -2.3,
       "validation": {
-        "peak_dbfs": -6.0,
+        "peak_dbfs": -2.33,
         "clipped_samples": 0,
-        "dc_offset_max": 7.36e-06,
+        "dc_offset_max": 1.86e-06,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 235520,
+          "alignment_offset": 0,
+          "snr_db": 32.96,
+          "true_peak_dbtp": -2.44
+        }
       },
       "runtime": [
-        "outputs/runtime/stinger_win_puzzle_solve.ogg",
-        "outputs/runtime/stinger_win_puzzle_solve.m4a"
+        "stinger_win_puzzle_solve.m4a"
       ],
-      "wav_master_on_neo": "/Users/ultimussecundai/Documents/Codex/2026-09-30/sol/outputs/audio-batch-02/outputs/music/stinger_win_puzzle_solve.wav",
-      "format": "AAC in M4A; alternative Ogg Opus supplied",
-      "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling"
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Puzzle Solve win",
+      "samples": 235200
     },
     {
       "file": "outputs/runtime/stinger_win_sticks_stones.m4a",
@@ -1502,27 +1718,34 @@
       "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling"
     },
     {
-      "file": "outputs/runtime/stinger_win_sudoku.m4a",
-      "batch": 2,
+      "file": "authoring/playsuite_music render: stinger_win_sudoku.wav",
+      "batch": "playsuite-v2",
       "event": "win: sudoku",
       "channels": 2,
-      "seconds": 4.541,
-      "lufs_integrated": -18.2,
-      "true_peak_dbtp": -5.9,
+      "seconds": 4.9,
+      "lufs_integrated": -18.1,
+      "true_peak_dbtp": -5.3,
       "validation": {
-        "peak_dbfs": -6.0,
+        "peak_dbfs": -5.28,
         "clipped_samples": 0,
-        "dc_offset_max": 1.2e-05,
+        "dc_offset_max": 1.63e-06,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 235520,
+          "alignment_offset": 0,
+          "snr_db": 33.91,
+          "true_peak_dbtp": -5.31
+        }
       },
       "runtime": [
-        "outputs/runtime/stinger_win_sudoku.ogg",
-        "outputs/runtime/stinger_win_sudoku.m4a"
+        "stinger_win_sudoku.m4a"
       ],
-      "wav_master_on_neo": "/Users/ultimussecundai/Documents/Codex/2026-09-30/sol/outputs/audio-batch-02/outputs/music/stinger_win_sudoku.wav",
-      "format": "AAC in M4A; alternative Ogg Opus supplied",
-      "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling"
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Sudoku win",
+      "samples": 235200
     },
     {
       "file": "outputs/runtime/stinger_win_switchbox.m4a",
@@ -1548,27 +1771,34 @@
       "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling"
     },
     {
-      "file": "outputs/runtime/stinger_win_untangle.m4a",
-      "batch": 2,
+      "file": "authoring/playsuite_music render: stinger_win_untangle.wav",
+      "batch": "playsuite-v2",
       "event": "win: untangle",
       "channels": 2,
-      "seconds": 4.048,
-      "lufs_integrated": -19.1,
-      "true_peak_dbtp": -5.9,
+      "seconds": 3.074,
+      "lufs_integrated": -18.0,
+      "true_peak_dbtp": -2.0,
       "validation": {
-        "peak_dbfs": -6.0,
+        "peak_dbfs": -2.0,
         "clipped_samples": 0,
-        "dc_offset_max": 3.3e-05,
+        "dc_offset_max": 1.97e-06,
         "start_abs": 0.0,
-        "end_abs": 0.0
+        "end_abs": 0.0,
+        "decoded_aac": {
+          "frames": 148480,
+          "alignment_offset": 0,
+          "snr_db": 42.98,
+          "true_peak_dbtp": -2.0
+        }
       },
       "runtime": [
-        "outputs/runtime/stinger_win_untangle.ogg",
-        "outputs/runtime/stinger_win_untangle.m4a"
+        "stinger_win_untangle.m4a"
       ],
-      "wav_master_on_neo": "/Users/ultimussecundai/Documents/Codex/2026-09-30/sol/outputs/audio-batch-02/outputs/music/stinger_win_untangle.wav",
-      "format": "AAC in M4A; alternative Ogg Opus supplied",
-      "measurement_basis": "Original WAV master; compressed playback requires codec delay/padding handling"
+      "format": "AAC-LC 256 kb/s in M4A from a 24-bit 48 kHz master",
+      "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
+      "producer": "PlaySuite C++ synthesizer (authoring/playsuite_music), 2026-10",
+      "title": "Untangle win",
+      "samples": 147544
     }
   ],
   "sfx": [
@@ -4911,6 +5141,36 @@
     },
     "batch_02": {
       "files_with_clipping": []
+    },
+    "playsuite_v2": {
+      "files_with_clipping": [],
+      "replaced": [
+        "music_freecell_loop.m4a",
+        "music_gems_loop.m4a",
+        "music_hearts_loop.m4a",
+        "music_klondike_loop.m4a",
+        "music_menu_loop.m4a",
+        "music_nature_cube_loop.m4a",
+        "music_puzzle_solve_loop.m4a",
+        "music_spider_loop.m4a",
+        "music_sudoku_day_loop.m4a",
+        "music_sudoku_night_loop.m4a",
+        "music_untangle_loop.m4a",
+        "stinger_topscore_gems.m4a",
+        "stinger_topscore_nature_cube.m4a",
+        "stinger_topscore_puzzle_solve.m4a",
+        "stinger_topscore_sudoku.m4a",
+        "stinger_topscore_untangle.m4a",
+        "stinger_win_freecell.m4a",
+        "stinger_win_gems.m4a",
+        "stinger_win_hearts.m4a",
+        "stinger_win_klondike.m4a",
+        "stinger_win_nature_cube.m4a",
+        "stinger_win_puzzle_solve.m4a",
+        "stinger_win_spider.m4a",
+        "stinger_win_sudoku.m4a",
+        "stinger_win_untangle.m4a"
+      ]
     }
   }
 }

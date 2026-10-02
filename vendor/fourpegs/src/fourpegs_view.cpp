@@ -53,7 +53,7 @@ FourPegsView::FourPegsView(gf::StableId id, Options opt) : Control(std::move(id)
     }
     set_accessible_name("Four Pegs. A composed gentleman has locked his plan behind a code of four pegs in six colours. "
                         "Name it in ten attempts. Drag or click pegs into the four sockets, then press Check. "
-                        "Keys: 1 to 6 place a peg, Backspace removes one, Enter checks. F1 help, T top scores, M music, S sound.");
+                        "Keys: 1 to 6 place a peg, Backspace removes one, Enter checks. N or F2 starts a new game. F1 help, T top scores, M music, S sound.");
     bool resumed = false;
     if (load_save(save_path(opt_.dev), save_) && save_.has_board && board_.restore(save_.board)) {
         resumed = true;
@@ -545,6 +545,7 @@ void FourPegsView::on_key(gf::KeyEvent& e) {
     if (k == K::enter || k == K::space) {
         if (panel_ == Panel::gameover) action("retry");
         else if (panel_ != Panel::none) open(Panel::none);
+        else if (board_.over()) action("new");
         else check();
         e.handled = true;
         return;
@@ -552,6 +553,7 @@ void FourPegsView::on_key(gf::KeyEvent& e) {
     if (k == K::escape) { if (panel_ != Panel::none) open(Panel::none); e.handled = true; return; }
     if (k == K::f1) { open(panel_ == Panel::help ? Panel::none : Panel::help); e.handled = true; return; }
     if (k == K::t) { open(panel_ == Panel::scores ? Panel::none : Panel::scores); e.handled = true; return; }
+    if (k == K::n || k == K::f2) { action(panel_ == Panel::gameover ? "retry" : "new"); e.handled = true; return; }
     if (k == K::m) { action("music"); e.handled = true; return; }
     if (k == K::s) { action("sound"); e.handled = true; return; }
 }
@@ -592,6 +594,8 @@ void FourPegsView::action(const std::string& id) {
 }
 
 void FourPegsView::open(Panel p) {
+    // A lost board has no play left; closing Help or Scores returns to its Game Over card.
+    if (p == Panel::none && board_.lost()) p = Panel::gameover;
     panel_ = p;
     pressed_.clear();
     layout_buttons();
@@ -625,11 +629,13 @@ void FourPegsView::layout_render_buttons() {
         x += w + 4;
     };
     if ((*rendering_).panel_ == Panel::none) {
-        add("new", "New game");
-        add("help", "Help");
-        add("scores", "Top scores");
-        add("music", (*rendering_).save_.settings.music ? "Music on" : "Music off");
-        add("sound", (*rendering_).save_.settings.sound ? "Sound on" : "Sound off");
+        if (!opt_.hosted) {
+            add("new", "New game");
+            add("help", "Help");
+            add("scores", "Top scores");
+            add("music", (*rendering_).save_.settings.music ? "Music on" : "Music off");
+            add("sound", (*rendering_).save_.settings.sound ? "Sound on" : "Sound off");
+        }
         return;
     }
     if ((*rendering_).panel_ == Panel::gameover) {
@@ -662,7 +668,9 @@ void FourPegsView::draw_sheet() {
     frame_.begin(); frame_.rect(x + .5, y + .5, w - 1, h - 1); frame_.stroke(kBrass, 1);
     frame_.begin(); frame_.rect(x + 2.5, y + 2.5, w - 5, h - 5); frame_.stroke(kBrassDark, 1);
     text("TEST SHEET", x + (w - text_w("TEST SHEET", 12, true)) / 2, y + 6, hex(0xE7D3A4), 12, true);
-    const int top = y + 24, rowh = std::max(16, (h - 52) / kTurns);
+    // Rows tighten (and pegs shrink) so all ten attempts fit in a short window.
+    const int top = y + 24, rowh = std::max(12, (h - 52) / kTurns);
+    const double peg = std::min(5.0, (rowh - 2) / 2.0);
     const int current = (*rendering_).board_.turns_used() + ((*rendering_).checking_ ? -1 : 0);
     for (int i = 0; i < kTurns; ++i) {
         const int ry = top + i * rowh;
@@ -674,11 +682,11 @@ void FourPegsView::draw_sheet() {
             const double cx = x + 30 + p * 14, cy = ry + rowh / 2.0 - 1;
             if (shown) {
                 const int c = (*rendering_).board_.rows()[static_cast<size_t>(i)].guess[static_cast<size_t>(p)];
-                frame_.fill_circle(cx, cy, 5.5, hex(0x000000, .6f));
-                frame_.fill_circle(cx, cy, 5, kPegCol[c]);
-                mini_symbol(frame_, c, cx, cy, 4, c == 5 ? hex(0x2A2030) : hex(0xFFFFFF, .9f));
+                frame_.fill_circle(cx, cy, peg + .5, hex(0x000000, .6f));
+                frame_.fill_circle(cx, cy, peg, kPegCol[c]);
+                mini_symbol(frame_, c, cx, cy, peg * .8, c == 5 ? hex(0x2A2030) : hex(0xFFFFFF, .9f));
             } else {
-                frame_.begin(); frame_.circle(cx, cy, 4.5); frame_.stroke(hex(0x4A3E50), 1);
+                frame_.begin(); frame_.circle(cx, cy, peg - .5); frame_.stroke(hex(0x4A3E50), 1);
             }
         }
         // pins: gold dots for exact, white rings for elsewhere
@@ -768,7 +776,7 @@ void FourPegsView::draw_panel() {
             line("Drag pegs into the four sockets, or click a peg to fill the next socket. Click a placed peg to remove it. Then press the red CHECK button.");
             line("Gold pins: a peg in exactly the right place. White rings: the right colour in the wrong place. The pins never say which peg.");
             line("Name the code within ten attempts and his plan is foiled. Every attempt is recorded on the test sheet. Fewer attempts make a better score.");
-            line("Keys: 1-6 place, Backspace removes, Enter checks.  T top scores  M music  S sound  F1 help", hex(0x6E5428), true, 10);
+            line("Keys: 1-6 place, Backspace removes, Enter checks.  N new game  T scores  M music  S sound  F1 help", hex(0x6E5428), true, 10);
             break;
         case Panel::scores:
             title("The Book of Guests");
@@ -840,6 +848,17 @@ void FourPegsView::capture_render_state() {
     state.pending_score_ = pending_score_;
     state.blackout_ = blackout_;
     state.t_ = t_;
+}
+
+void FourPegsView::host_command(const std::string& id) {
+    if (id == "new") { action("new"); return; }
+    const Panel wanted = id == "help" ? Panel::help : id == "scores" ? Panel::scores : Panel::none;
+    if (wanted == Panel::none || panel_ == Panel::name) return;
+    open(panel_ == wanted ? Panel::none : wanted);
+}
+
+std::string FourPegsView::host_panel() const {
+    return panel_ == Panel::help ? "help" : panel_ == Panel::scores ? "scores" : "";
 }
 
 }  // namespace fp

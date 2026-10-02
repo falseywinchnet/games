@@ -11,7 +11,7 @@ def main():
     parser.add_argument("installer", type=Path)
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="games-installer-test-") as scratch:
-        installed = Path(scratch) / "Games"
+        installed = Path(scratch) / "PlaySuite"
         native_directory = str(installed).replace("/", "\\")
         subprocess.run([str(args.installer.resolve()), "/S", "/D=" + native_directory], check=True, timeout=90)
         if not (installed / "games.exe").is_file():

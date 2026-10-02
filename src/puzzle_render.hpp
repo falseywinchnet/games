@@ -11,6 +11,7 @@ struct RasterVertex {
     double x = 0, y = 0, z = 0;
     PixelColor color;
     double u = -1, v = -1;
+    double env = 1; // how much of the environment reflection replaces the color
 };
 class PuzzleRaster {
   public:
@@ -22,6 +23,7 @@ class PuzzleRaster {
     void clear();
     void triangle(RasterVertex a, RasterVertex b, RasterVertex c, int id);
     void line(Point2 a, Point2 b, double width, PixelColor color, int id, double z = -10);
+    void line(Point2 a, Point2 b, double width, PixelColor color, int id, double za, double zb);
     void disc(Point2 center, double radius, PixelColor color, int id, double z = -10);
     void gem(Point2 center, double radius, int value, double angle, double glisten, int id);
     void cube(const PuzzleGame& game, double yaw, double pitch, int hover);

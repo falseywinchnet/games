@@ -1,10 +1,10 @@
 #include "gui_forms/window.hpp"
 #include "table.hpp"
+#include "test_paths.hpp"
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
-#include "test_paths.hpp"
 namespace gf = gui_forms;
 void require(bool condition, const char* message) {
     if (!condition)
@@ -17,9 +17,17 @@ void pointer(gf::Window& window, gf::PointerAction action, gf::Point point) {
     event.position = point;
     static_cast<void>(window.dispatch_pointer(event));
 }
+// Window position of a child button's center, so clicks follow the layout.
+gf::Point center_of(gf::Control& root, const std::string& id) {
+    for (const std::shared_ptr<gf::Control>& child : root.children())
+        if ((*child).stable_id().value() == id) {
+            const gf::Rect r = (*child).client_rectangle();
+            return (*child).point_to_window({r.width * .5, r.height * .5});
+        }
+    throw std::runtime_error("missing control " + id);
+}
 int main() {
-    std::filesystem::path scratch =
-        games_test::scratch_directory("games-ui-test-");
+    std::filesystem::path scratch = games_test::scratch_directory("games-ui-test-");
     games_test::isolate_saves(scratch);
     std::shared_ptr<games::Table> table =
         gf::make_control<games::Table>(gf::StableId("test.table"));
@@ -54,14 +62,18 @@ int main() {
             "newly clicked card drags immediately even when another card was selected");
     require((*table).game.undo(), "undo first-press drag fixture");
     // Give column zero a black six and column one a red seven, retaining every card.
-    auto expose = [&](int rank, int suit, int destination) {
-        for (auto& pile : (*table).game.state.piles)
-            for (auto& card : pile)
-                if (card.rank == rank && card.suit == suit) {
-                    std::swap(card, (*table).game.state.piles[destination].back());
-                    return;
-                }
+    struct ExposeCard {
+        games::Table& table;
+        void operator()(int rank, int suit, int destination) const {
+            for (std::vector<games::Card>& pile : table.game.state.piles)
+                for (games::Card& card : pile)
+                    if (card.rank == rank && card.suit == suit) {
+                        std::swap(card, table.game.state.piles[destination].back());
+                        return;
+                    }
+        }
     };
+    ExposeCard expose{*table};
     expose(6, 0, 0);
     expose(7, 1, 1);
     (*table).arrange({0, 0, 1180, 800});
@@ -115,14 +127,18 @@ int main() {
     static_cast<void>((*window).dispatch_key({gf::KeyAction::down, gf::PhysicalKey::h}));
     static_cast<void>((*window).dispatch_key({gf::KeyAction::down, gf::PhysicalKey::enter}));
     require((*table).game.state.over, "last legal move finishes the game");
+    // The win cascade plays first; a click skips straight to the result.
+    pointer(*window, gf::PointerAction::down, {590, 400});
+    pointer(*window, gf::PointerAction::up, {590, 400});
     std::shared_ptr<gf::TextBox> name;
     for (const std::shared_ptr<gf::Control>& child : (*table).children())
         if ((*child).stable_id().value() == "score.name")
             name = std::dynamic_pointer_cast<gf::TextBox>(child);
     require(name && (*name).visible(), "completion opens named score entry");
     (*name).set_text("Routing Ace");
-    pointer(*window, gf::PointerAction::down, {600, 254});
-    pointer(*window, gf::PointerAction::up, {600, 254});
+    const gf::Point save_name = center_of(*table, "action20");
+    pointer(*window, gf::PointerAction::down, save_name);
+    pointer(*window, gf::PointerAction::up, save_name);
     games::Cabinet saved;
     require(games::load_cabinet(games::cabinet_path(), saved), "completed game autosaved");
     require(saved.result_recorded[2] && saved.top_scores[5].size() == 1 &&
@@ -130,13 +146,14 @@ int main() {
             "named score saved");
     require(!(*name).visible(), "entry closes after submission");
     // Repeated clicks cannot create a duplicate score.
-    pointer(*window, gf::PointerAction::down, {600, 254});
-    pointer(*window, gf::PointerAction::up, {600, 254});
+    pointer(*window, gf::PointerAction::down, save_name);
+    pointer(*window, gf::PointerAction::up, save_name);
     require(games::load_cabinet(games::cabinet_path(), saved) && saved.top_scores[5].size() == 1,
             "duplicate score prevented");
     // New game from the result window immediately replaces the saved active table.
-    pointer(*window, gf::PointerAction::down, {837, 597});
-    pointer(*window, gf::PointerAction::up, {837, 597});
+    const gf::Point new_game = center_of(*table, "action21");
+    pointer(*window, gf::PointerAction::down, new_game);
+    pointer(*window, gf::PointerAction::up, new_game);
     require(games::load_cabinet(games::cabinet_path(), saved) && !saved.games[2].state.over &&
                 !saved.result_recorded[2] && saved.games[2].state.seed != 99,
             "new game immediately saved; result latch reset");

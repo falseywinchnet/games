@@ -3,10 +3,11 @@
 #include "gui_forms/controls/panel/text_box/text_box.hpp"
 #include "gui_forms/timer.hpp"
 #include "sudoku.hpp"
+#include "suite.hpp"
 #include <future>
 namespace games {
 namespace gf = gui_forms;
-class SudokuView final : public gf::Control {
+class SudokuView final : public gf::Control, public CommandSource {
   public:
     explicit SudokuView(gf::StableId id);
     static constexpr bool initialize_tree_after_construction = true;
@@ -18,6 +19,8 @@ class SudokuView final : public gf::Control {
     void on_key_bubble(gf::KeyEvent& event) override;
     void on_text_input(gf::TextInputEvent& event) override;
     void activate();
+    [[nodiscard]] std::vector<GameCommand> commands() const override;
+    void run_command(std::string_view id) override;
     Sudoku game;
 
   private:
@@ -41,6 +44,7 @@ class SudokuView final : public gf::Control {
     void edit(int digit, bool note);
     void panel(int kind);
     void persist();
+    void refresh_pad();
     void text(gf::Painter& p, double x, double y, const std::string& value, double size,
               gf::Color color);
 };

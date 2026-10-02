@@ -3,23 +3,68 @@
 #include "gui_forms/window.hpp"
 #include <fstream>
 namespace games {
+namespace {
+std::filesystem::path entry_path() {
+    return cabinet_path().parent_path() / "playsuite-entry.txt";
+}
+// Earlier versions remembered one of ten collection slots; card games shared slot 0.
+Entry from_old_slot(int slot, int card_kind) {
+    const Entry slots[] = {Entry::solitaire, Entry::sudoku, Entry::gems, Entry::cube,
+                           Entry::untangle,  Entry::atom,   Entry::pegs, Entry::switchbox,
+                           Entry::solve,     Entry::eggy};
+    if (slot == 0)
+        return static_cast<Entry>(std::clamp(card_kind, 0, 3));
+    return slots[std::clamp(slot, 0, 9)];
+}
+int puzzle_index(Entry entry) {
+    switch (entry) {
+    case Entry::gems:
+        return static_cast<int>(PuzzleKind::gems);
+    case Entry::cube:
+        return static_cast<int>(PuzzleKind::cube);
+    case Entry::untangle:
+        return static_cast<int>(PuzzleKind::untangle);
+    case Entry::solve:
+        return static_cast<int>(PuzzleKind::solve);
+    default:
+        return -1;
+    }
+}
+bool is_cards(Entry entry) {
+    return static_cast<int>(entry) <= static_cast<int>(Entry::hearts);
+}
+} // namespace
+
 Collection::Collection(gf::StableId id) : Control(std::move(id)) {
-    std::ifstream saved(cabinet_path().parent_path() / "current-game.txt");
-    int active = 0;
-    saved >> active;
-    if (saved && active >= 0 && active <= 9)
-        active_ = active;
-    else
-        choosing_ = true;
+    Cabinet cabinet;
+    const bool have_cabinet =
+        std::filesystem::exists(cabinet_path()) && load_cabinet(cabinet_path(), cabinet);
     if (!std::filesystem::exists(cabinet_path())) {
         Cabinet initial;
         initial.games[0].deal(Kind::solitaire, 1);
         initial.started[0] = true;
         save_cabinet(cabinet_path(), initial);
     }
-    selected_ = active_;
+    std::ifstream saved(entry_path());
+    int entry = -1, in_game = 0;
+    std::uint32_t opened = 0;
+    if (saved >> entry >> in_game >> opened && entry >= 0 && entry < entry_count) {
+        active_ = static_cast<Entry>(entry);
+        shelf_open_ = in_game == 0;
+        opened_ = opened;
+    } else {
+        // First PlaySuite start: keep the old selection, and open on the shelf.
+        std::ifstream old(cabinet_path().parent_path() / "current-game.txt");
+        int slot = 0;
+        if (old >> slot && slot >= 0 && slot <= 9) {
+            active_ = from_old_slot(slot, have_cabinet ? cabinet.active : 0);
+            opened_ = (1u << entry_count) - 1;
+        }
+        shelf_open_ = true;
+    }
     set_theme_override(games_theme(ButtonSkin::ivory));
 }
+Collection::~Collection() = default;
 void Collection::initialize_control_tree() {
     cards_ = gf::make_control<Table>(gf::StableId("collection.cards"));
     sudoku_ = gf::make_control<SudokuView>(gf::StableId("collection.sudoku"));
@@ -27,228 +72,290 @@ void Collection::initialize_control_tree() {
     add_child(sudoku_);
     eggy_ = gf::make_control<eggy::EggyView>(gf::StableId("collection.eggy"), eggy::Options{});
     add_child(eggy_);
-    switchbox_ = gf::make_control<sbx::SwitchboxView>(gf::StableId("switchbox.view"), sbx::Options{});
+    switchbox_ =
+        gf::make_control<sbx::SwitchboxView>(gf::StableId("switchbox.view"), sbx::Options{});
     add_child(switchbox_);
-    fourpegs_ = gf::make_control<fp::FourPegsView>(gf::StableId("fourpegs.view"), fp::Options{});
+    fp::Options pegs;
+    pegs.hosted = true;
+    fourpegs_ = gf::make_control<fp::FourPegsView>(gf::StableId("fourpegs.view"), pegs);
     add_child(fourpegs_);
-    atomprobe_ = gf::make_control<ap::AtomProbeView>(gf::StableId("atomprobe.view"), ap::Options{});
+    ap::Options atom;
+    atom.hosted = true;
+    atomprobe_ = gf::make_control<ap::AtomProbeView>(gf::StableId("atomprobe.view"), atom);
     add_child(atomprobe_);
-    for (int i = 0; i < 8; ++i) {
-        if (i == 3 || i == 4 || i == 5 || i == 7)
-            continue; // Atom Probe, Four Pegs and Switchbox have their own controls; Sticks & Stones is retired.
+    for (Entry e : {Entry::gems, Entry::cube, Entry::untangle, Entry::solve}) {
+        const int i = puzzle_index(e);
         puzzles_[i] = gf::make_control<PuzzleView>(
             gf::StableId("collection.puzzle." + std::to_string(i)), static_cast<PuzzleKind>(i));
         add_child(puzzles_[i]);
     }
-    library_ = gf::make_control<LibrarySurface>(gf::StableId("collection.library"));
-    add_child(library_);
-    for (int i = 0; i < 10; ++i) {
-        tiles_[i] = gf::make_control<GameTile>(gf::StableId("collection." + std::to_string(i)), i);
-        (*library_).add_child(tiles_[i]);
-        subscriptions_.push_back(
-            (*tiles_[i])
-                .clicked()
-                .subscribe(
-                    *this,
-                    gf::Delegate<gf::ButtonBase&>::bind<Collection, &Collection::choose>(*this)));
-    }
-    (*library_).selection = selected_;
-    (*tiles_[selected_]).set_selected(true);
-    play_ = gf::make_control<GameButton>(gf::StableId("collection.open"), "Play / Continue");
-    (*play_).set_skin(ButtonSkin::blue);
-    (*library_).add_child(play_);
-    subscriptions_.push_back((*play_).clicked().subscribe(
-        *this, gf::Delegate<gf::ButtonBase&>::bind<Collection, &Collection::open_selected>(*this)));
-    const char* groups[] = {"All games", "Card games", "Puzzles", "Long climb"};
-    for (int i = 0; i < 4; ++i) {
-        categories_[i] = gf::make_control<GameButton>(
-            gf::StableId("collection.category." + std::to_string(i)), groups[i]);
-        (*library_).add_child(categories_[i]);
-        subscriptions_.push_back(
-            (*categories_[i])
-                .clicked()
-                .subscribe(
-                    *this,
-                    gf::Delegate<gf::ButtonBase&>::bind<Collection, &Collection::category>(*this)));
-    }
-    (*categories_[0]).set_selected(true);
-    const char* labels[] = {"Collection", "Music on", "Sound on", "Full motion"};
-    for (int i = 0; i < 4; ++i) {
-        controls_[i] = gf::make_control<GameButton>(
-            gf::StableId("collection.command." + std::to_string(i)), labels[i]);
-        add_child(controls_[i]);
-        subscriptions_.push_back(
-            (*controls_[i])
-                .clicked()
-                .subscribe(
-                    *this,
-                    gf::Delegate<gf::ButtonBase&>::bind<Collection, &Collection::command>(*this)));
-    }
+    shelf_ = gf::make_control<ShelfView>(gf::StableId("collection.shelf"), sprites_);
+    add_child(shelf_);
+    (*shelf_).open = std::bind_front(&Collection::open_entry, this);
+    (*shelf_).toggle = std::bind_front(&Collection::toggle, this);
+    (*shelf_).select(active_);
+    capsule_ = gf::make_control<CommandCapsule>(gf::StableId("collection.capsule"), sprites_);
+    add_child(capsule_);
+    (*capsule_).back = std::bind_front(&Collection::show_shelf, this);
+    (*capsule_).command = std::bind_front(&Collection::run_command, this);
+    (*capsule_).toggle = std::bind_front(&Collection::toggle, this);
+    for (int i = 0; i < entry_count; ++i)
+        (*shelf_).set_progress(static_cast<Entry>(i), (opened_ >> i) & 1u);
+    if (is_cards(active_))
+        (*cards_).show_kind(static_cast<Kind>(active_));
     preferences();
     visibility();
+    refresh_commands();
 }
 void Collection::on_attached_to_window() {
-    audio_timer_ = std::make_unique<gf::Timer>(*attached_window(), std::chrono::milliseconds(16));
-    subscriptions_.push_back((*audio_timer_).tick().subscribe(
-        *this, gf::Delegate<>::bind<Collection, &Collection::poll_audio>(*this)));
-    (*audio_timer_).start();
+    timer_ = std::make_unique<gf::Timer>(*attached_window(), std::chrono::milliseconds(16));
+    subscriptions_.push_back((*timer_).tick().subscribe(
+        *this, gf::Delegate<>::bind<Collection, &Collection::tick>(*this)));
+    last_tick_ = std::chrono::steady_clock::now();
+    (*timer_).start();
 }
-void Collection::on_detaching_from_window(gf::Window&) noexcept {
-    if (audio_timer_) { (*audio_timer_).stop(); }
-    audio_timer_.reset();
+void Collection::on_detaching_from_window(gf::Window& window) noexcept {
+    if (timer_)
+        (*timer_).stop();
+    timer_.reset();
+    sprites_.release(window);
 }
-void Collection::poll_audio() { audio_poll(); }
+bool Collection::uses_rail(Entry entry) const {
+    // These games present their own live surfaces, which nothing may float above.
+    return entry == Entry::atom || entry == Entry::pegs || entry == Entry::switchbox ||
+           entry == Entry::eggy;
+}
+std::shared_ptr<gf::Control> Collection::view(Entry entry) const {
+    if (is_cards(entry))
+        return cards_;
+    switch (entry) {
+    case Entry::sudoku:
+        return sudoku_;
+    case Entry::atom:
+        return atomprobe_;
+    case Entry::pegs:
+        return fourpegs_;
+    case Entry::switchbox:
+        return switchbox_;
+    case Entry::eggy:
+        return eggy_;
+    default:
+        return puzzles_[static_cast<std::size_t>(puzzle_index(entry))];
+    }
+}
+CommandSource* Collection::source(Entry entry) const {
+    if (is_cards(entry))
+        return cards_.get();
+    if (entry == Entry::sudoku)
+        return sudoku_.get();
+    const int i = puzzle_index(entry);
+    return i >= 0 ? puzzles_[static_cast<std::size_t>(i)].get() : nullptr;
+}
+void Collection::tick() {
+    const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+    const double dt = std::clamp(std::chrono::duration<double>(now - last_tick_).count(), 0.0, .1);
+    last_tick_ = now;
+    audio_poll();
+    if (gf::Window* window = attached_window())
+        set_polygon_scale((*window).scale());
+    if (gf::Window* window = attached_window(); window && sprites_.update(*window)) {
+        (*shelf_).invalidate(gf::Dirty::paint);
+        for (const std::shared_ptr<gf::Control>& child : (*shelf_).children())
+            (*child).invalidate(gf::Dirty::paint);
+        (*capsule_).set_maximum_width(capsule_width_limit_);
+        (*capsule_).invalidate(gf::Dirty::paint);
+        invalidate(gf::Dirty::layout);
+    }
+    if (shelf_open_)
+        return;
+    const gf::Rect area{0, 0, client_rectangle().width, uses_rail(active_) ? rail_height : 60.0};
+    gf::Rect r = (*capsule_).placement(area);
+    // The placement includes the shadow margin, which doubles as a forgiving hover border.
+    const bool inside = pointer_.x >= r.x && pointer_.x <= r.x + r.width && pointer_.y >= r.y - 8 &&
+                        pointer_.y <= r.y + r.height;
+    if ((*capsule_).step(dt, inside, reduced_))
+        invalidate(gf::Dirty::layout);
+    refresh_ += dt;
+    if (refresh_ > .2) {
+        refresh_ = 0;
+        refresh_commands();
+    }
+}
+void Collection::on_pointer_preview(gf::PointerEvent& e) {
+    pointer_ = point_from_window(e.position);
+    if (e.action == gf::PointerAction::leave && (pointer_.x < 0 || pointer_.y < 0))
+        pointer_ = {-1000, -1000};
+    gf::Control::on_pointer_preview(e);
+}
+void Collection::on_key_preview(gf::KeyEvent& e) {
+    if (!shelf_open_ && e.action == gf::KeyAction::down && e.physical_key == gf::PhysicalKey::f2 &&
+        active_ != Entry::eggy && active_ != Entry::switchbox) {
+        run_command("new");
+        e.handled = true;
+        return;
+    }
+    gf::Control::on_key_preview(e);
+}
+void Collection::refresh_commands() {
+    const EntryInfo& info = entry_info(active_);
+    std::vector<GameCommand> commands;
+    if (CommandSource* s = source(active_))
+        commands = (*s).commands();
+    else if (active_ == Entry::pegs || active_ == Entry::atom) {
+        const std::string panel =
+            active_ == Entry::pegs ? (*fourpegs_).host_panel() : (*atomprobe_).host_panel();
+        commands = {{"new", active_ == Entry::pegs ? "New game" : "New box", true, false, true},
+                    {"help", "Help", true, panel == "help"},
+                    {"scores", "Top scores", true, panel == "scores"}};
+    }
+    (*capsule_).set_game(info.title, std::move(commands));
+}
+void Collection::run_command(const std::string& id) {
+    if (CommandSource* s = source(active_))
+        (*s).run_command(id);
+    else if (active_ == Entry::pegs)
+        (*fourpegs_).host_command(id);
+    else if (active_ == Entry::atom)
+        (*atomprobe_).host_command(id);
+    refresh_commands();
+    // Return keyboard focus to the game after a capsule click.
+    if (attached_window() && view(active_))
+        static_cast<void>((*attached_window()).request_focus(view(active_)));
+}
 void Collection::visibility() {
-    (*cards_).set_visible(!choosing_ && active_ == 0);
-    (*eggy_).set_visible(!choosing_ && active_ == 9);
-    (*switchbox_).set_visible(!choosing_ && active_ == 7);
-    (*fourpegs_).set_visible(!choosing_ && active_ == 6);
-    (*atomprobe_).set_visible(!choosing_ && active_ == 5);
-    (*sudoku_).set_visible(!choosing_ && active_ == 1);
-    for (int i = 0; i < 8; ++i)
-        if (puzzles_[i])
-            (*puzzles_[i]).set_visible(!choosing_ && active_ == i + 2);
-    (*library_).set_visible(choosing_);
-    (*controls_[0]).set_selected(choosing_);
+    for (const std::shared_ptr<gf::Control>& child : children())
+        if (child != shelf_ && child != capsule_)
+            (*child).set_visible(false);
+    if (!shelf_open_)
+        (*view(active_)).set_visible(true);
+    (*shelf_).set_visible(shelf_open_);
+    (*capsule_).set_visible(!shelf_open_);
     preferences();
+    invalidate(gf::Dirty::layout | gf::Dirty::paint);
 }
 void Collection::arrange(gf::Rect b) {
     arrange_self(b);
-    gf::Rect content{0, 52, b.width, b.height - 52};
-    set_child_layout(cards_, content);
-    set_child_layout(sudoku_, content);
-    set_child_layout(eggy_, content);
-    set_child_layout(switchbox_, content);
-    set_child_layout(fourpegs_, content);
-    set_child_layout(atomprobe_, content);
-    for (int i = 0; i < 8; ++i)
-        if (puzzles_[i])
-            set_child_layout(puzzles_[i], content);
-    set_child_layout(library_, content);
-    set_child_layout(controls_[0], {153, 9, 132, 33});
-    for (int i = 1; i < 4; ++i)
-        set_child_layout(controls_[i], {b.width - 367 + (i - 1) * 119.0, 9, 108, 33});
+    const gf::Rect full{0, 0, b.width, b.height};
+    const gf::Rect below{0, rail_height, b.width, std::max(0.0, b.height - rail_height)};
+    // Each view is laid out once per pass; live-surface games sit below the rail.
+    for (const std::shared_ptr<gf::Control>& child : children())
+        if (child != shelf_ && child != capsule_) {
+            const bool railed =
+                child == atomprobe_ || child == fourpegs_ || child == switchbox_ || child == eggy_;
+            set_child_layout(child, railed ? below : full);
+        }
+    set_child_layout(shelf_, full);
+    if (capsule_width_limit_ != b.width - 16) {
+        capsule_width_limit_ = b.width - 16;
+        (*capsule_).set_maximum_width(capsule_width_limit_);
+    }
+    const gf::Rect area{0, 0, b.width, uses_rail(active_) ? rail_height : 60.0};
+    gf::Rect placed = (*capsule_).placement(area);
+    // Over a live-surface game the capsule stays within the rail; nothing may overlap
+    // the game's presented surface.
+    if (!shelf_open_ && uses_rail(active_))
+        placed.height = std::min(placed.height, rail_height - placed.y);
+    set_child_layout(capsule_, placed);
 }
 void Collection::on_paint(gf::Painter& p, gf::Rect) {
-    gf::Rect b = client_rectangle();
-    const gf::GradientStop stops[] = {{0, gf::Color::rgba(254, 254, 251)},
-                                      {1, gf::Color::rgba(226, 231, 229)}};
-    p.fill_linear_gradient({0, 0, b.width, 52}, {0, 0}, {0, 52}, stops);
-    const gf::GradientStop brand[] = {{0, gf::Color::rgba(206, 227, 224)},
-                                      {1, gf::Color::rgba(221, 228, 238)}};
-    p.fill_linear_gradient({0, 0, 140, 51}, {0, 0}, {140, 51}, brand);
-    p.draw_text_utf8({24, 33}, "Games", {gf::FontRole::control, 26, 600, false, .1},
-                     gf::Color::rgba(52, 76, 87));
-    p.draw_line({140, 0}, {140, 51}, gf::Color::rgba(169, 184, 189), 1);
-    p.draw_line({0, 51}, {b.width, 51}, gf::Color::rgba(138, 154, 161), 1);
-    if (!choosing_)
-        p.draw_text_utf8({305, 32}, collection_title(active_),
-                         {gf::FontRole::content, 14, 400, false}, gf::Color::rgba(75, 90, 98));
+    if (shelf_open_ || !uses_rail(active_))
+        return;
+    // The rail above live-surface games: graphite with a gold hairline.
+    const gf::Rect b = client_rectangle();
+    fill_vertical(p, {0, 0, b.width, rail_height}, gf::Color::rgba(49, 58, 73),
+                  gf::Color::rgba(26, 31, 42));
+    p.draw_line({0, rail_height - 1}, {b.width, rail_height - 1},
+                gf::Color::rgba(255, 210, 122, 150), 1);
 }
 void Collection::preferences() {
     Cabinet cabinet;
     if (!load_cabinet(cabinet_path(), cabinet))
         return;
+    reduced_ = cabinet.reduced;
     (*eggy_).set_cabinet_preferences(cabinet.music, cabinet.sound, cabinet.reduced);
-    (*switchbox_).set_cabinet(!choosing_ && active_ == 7, cabinet.music, cabinet.sound, cabinet.reduced);
-    (*fourpegs_).set_cabinet(!choosing_ && active_ == 6, cabinet.music, cabinet.sound, cabinet.reduced);
-    (*atomprobe_).set_cabinet(!choosing_ && active_ == 5, cabinet.music, cabinet.sound, cabinet.reduced);
-    (*controls_[1]).set_text(cabinet.music ? "Music on" : "Music off");
-    (*controls_[2]).set_text(cabinet.sound ? "Sound on" : "Sound off");
-    (*controls_[3]).set_text(cabinet.reduced ? "Quiet motion" : "Full motion");
+    (*switchbox_)
+        .set_cabinet(!shelf_open_ && active_ == Entry::switchbox, cabinet.music, cabinet.sound,
+                     cabinet.reduced);
+    (*fourpegs_)
+        .set_cabinet(!shelf_open_ && active_ == Entry::pegs, cabinet.music, cabinet.sound,
+                     cabinet.reduced);
+    (*atomprobe_)
+        .set_cabinet(!shelf_open_ && active_ == Entry::atom, cabinet.music, cabinet.sound,
+                     cabinet.reduced);
+    (*shelf_).set_preferences(cabinet.music, cabinet.sound, cabinet.reduced);
+    (*capsule_).set_preferences(cabinet.music, cabinet.sound, cabinet.reduced);
 }
-void Collection::activate() {
-    preferences();
-    if (choosing_) {
-        Cabinet cabinet;
-        load_cabinet(cabinet_path(), cabinet);
-        music_play("menu", cabinet.music);
-        return;
-    }
-    if (active_ == 9) {
-        music_play("", false);
-        (*eggy_).activate();
-    } else if (active_ == 7) {
-        music_play("", false);
-        (*switchbox_).activate();
-    } else if (active_ == 6) {
-        music_play("", false);
-        (*fourpegs_).activate();
-    } else if (active_ == 5) {
-        music_play("", false);
-        (*atomprobe_).activate();
-    } else if (active_ == 0)
-        (*cards_).activate();
-    else if (active_ == 1)
-        (*sudoku_).activate();
-    else
-        (*puzzles_[active_ - 2]).activate();
-}
-void Collection::choose(gf::ButtonBase& button) {
-    selected_ = std::stoi(std::string(button.stable_id().value().substr(11)));
-    (*library_).selection = selected_;
-    for (int i = 0; i < 10; ++i)
-        if (tiles_[i])
-            (*tiles_[i]).set_selected(i == selected_);
-    (*library_).invalidate(gf::Dirty::paint);
-    const GameTile* tile = dynamic_cast<GameTile*>(&button);
-    if (tile && (*tile).open_requested())
-        start_selected();
-}
-void Collection::open_selected(gf::ButtonBase&) {
-    start_selected();
-}
-void Collection::category(gf::ButtonBase& button) {
-    int c = std::stoi(std::string(button.stable_id().value().substr(20)));
-    (*library_).category = c;
-    bool matches = c == 0 || (c == 1 && selected_ == 0) ||
-                   (c == 2 && selected_ > 0 && selected_ < 9) || (c == 3 && selected_ == 9);
-    if (!matches) {
-        selected_ = c == 1 ? 0 : c == 3 ? 9 : 1;
-        (*library_).selection = selected_;
-        for (int i = 0; i < 10; ++i)
-            if (tiles_[i])
-                (*tiles_[i]).set_selected(i == selected_);
-    }
-    for (int i = 0; i < 4; ++i)
-        (*categories_[i]).set_selected(i == c);
-    (*library_).invalidate(gf::Dirty::layout | gf::Dirty::paint);
-}
-void Collection::start_selected() {
-    active_ = selected_;
-    choosing_ = false;
-    visibility();
-    std::filesystem::path path = cabinet_path().parent_path() / "current-game.txt",
-                          temporary = path;
+void Collection::persist() const {
+    std::filesystem::path path = entry_path(), temporary = path;
     temporary += ".tmp";
     std::error_code error;
     std::filesystem::create_directories(path.parent_path(), error);
-    std::ofstream saved(temporary);
-    saved << active_ << '\n';
-    saved.close();
-    if (saved)
-        std::filesystem::rename(temporary, path, error);
-    activate();
-    invalidate(gf::Dirty::paint);
+    {
+        std::ofstream saved(temporary);
+        saved << static_cast<int>(active_) << ' ' << (shelf_open_ ? 0 : 1) << ' ' << opened_
+              << '\n';
+        if (!saved)
+            return;
+    }
+    std::filesystem::rename(temporary, path, error);
 }
-void Collection::command(gf::ButtonBase& button) {
-    std::string id(button.stable_id().value());
-    int index = std::stoi(id.substr(id.rfind('.') + 1));
-    if (index == 0) {
-        choosing_ = !choosing_;
-        visibility();
-        activate();
-        invalidate(gf::Dirty::paint);
+void Collection::activate() {
+    preferences();
+    if (shelf_open_) {
+        Cabinet cabinet;
+        load_cabinet(cabinet_path(), cabinet);
+        music_play("menu", cabinet.music);
+        (*shelf_).focus_selection();
         return;
     }
+    if (is_cards(active_)) {
+        (*cards_).show_kind(static_cast<Kind>(active_));
+        (*cards_).activate();
+    } else if (active_ == Entry::sudoku)
+        (*sudoku_).activate();
+    else if (active_ == Entry::eggy) {
+        music_play("", false);
+        (*eggy_).activate();
+    } else if (active_ == Entry::switchbox) {
+        music_play("", false);
+        (*switchbox_).activate();
+    } else if (active_ == Entry::pegs) {
+        music_play("", false);
+        (*fourpegs_).activate();
+    } else if (active_ == Entry::atom) {
+        music_play("", false);
+        (*atomprobe_).activate();
+    } else
+        (*puzzles_[static_cast<std::size_t>(puzzle_index(active_))]).activate();
+}
+void Collection::open_entry(Entry entry) {
+    active_ = entry;
+    shelf_open_ = false;
+    opened_ |= 1u << static_cast<int>(entry);
+    (*shelf_).select(entry);
+    (*shelf_).set_progress(entry, true);
+    (*capsule_).fold();
+    visibility();
+    refresh_commands();
+    persist();
+    activate();
+}
+void Collection::show_shelf() {
+    shelf_open_ = true;
+    (*shelf_).select(active_);
+    visibility();
+    persist();
+    activate();
+}
+void Collection::toggle(int which) {
     Cabinet cabinet;
     if (!load_cabinet(cabinet_path(), cabinet))
         return;
-    if (index == 1)
+    if (which == 0)
         cabinet.music = !cabinet.music;
-    if (index == 2)
+    if (which == 1)
         cabinet.sound = !cabinet.sound;
-    if (index == 3)
+    if (which == 2)
         cabinet.reduced = !cabinet.reduced;
     if (save_cabinet(cabinet_path(), cabinet)) {
         (*cards_).reload_preferences();

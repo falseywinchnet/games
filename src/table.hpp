@@ -4,6 +4,7 @@
 #include "gui_forms/controls/panel/text_box/text_box.hpp"
 #include "gui_forms/timer.hpp"
 #include "storage.hpp"
+#include "suite.hpp"
 #include <array>
 #include <chrono>
 namespace games {
@@ -15,7 +16,7 @@ struct Sprite {
     bool visible = false, prior_up = false, flipping = false, moving = false;
     double delay = 0, duration = .38, flip_progress = 1;
 };
-class Table final : public gf::Control {
+class Table final : public gf::Control, public CommandSource {
   public:
     explicit Table(gf::StableId id);
     static constexpr bool initialize_tree_after_construction = true;
@@ -30,6 +31,10 @@ class Table final : public gf::Control {
     Game game;
     void activate();
     void reload_preferences();
+    // Shows one of the four card games, resuming its saved deal.
+    void show_kind(Kind kind);
+    [[nodiscard]] std::vector<GameCommand> commands() const override;
+    void run_command(std::string_view id) override;
 
   private:
     Cabinet cabinet_;
@@ -77,5 +82,19 @@ class Table final : public gf::Control {
     int hit_card(gf::Point point) const;
     int hit_slot(gf::Point point) const;
     void request_tick();
+    struct Bouncer {
+        Card card;
+        double x = 0, y = 0, vx = 0, vy = 0, sample = 0;
+        std::array<gf::Point, 9> trail{};
+    };
+    std::vector<Bouncer> bouncers_;
+    std::vector<Card> launch_queue_;
+    std::array<bool, 104> launched_{};
+    bool cascading_ = false;
+    double launch_timer_ = 0;
+    std::chrono::steady_clock::time_point cascade_last_{};
+    void start_cascade();
+    void step_cascade();
+    void finish_cascade();
 };
 } // namespace games

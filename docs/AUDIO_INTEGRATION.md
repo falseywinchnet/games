@@ -13,3 +13,7 @@ Batch-one duplicate WAV masters on the M4 were removed only after explicit user 
 ## Eggy delivery
 
 The separate `game-eggy-01` handoff adds 44 AAC files and five seamless WAV ambience beds. These are copied unchanged into the same assets directory and played by Eggy's own engine, gated by the cabinet's Music/Sound masters and foreground visibility. The total runtime decode check now covers 236 files (the original 187 plus Eggy's 49). The exact 17-loop seam verification above applies to the two original cabinet audio batches; it is not an additional loop-seam claim for Eggy. See `EGGY_INTEGRATION.md` for package integrity and native integration details.
+
+## PlaySuite v2 music
+
+Eleven loops (menu, Klondike, Spider, FreeCell, Hearts, Sudoku day/night, Gems, Nature Cube, Untangle, Puzzle Solve) and fourteen win/top-score stingers were replaced in place, under the same names and loop-metadata scheme, by original music rendered with the C++ synthesizer in `authoring/playsuite_music` (see its README for rebuild steps, provenance and seam measurements). Their manifest entries are marked `"batch": "playsuite-v2"`. `tools/package_audio.py` would restore the earlier deliveries from `incoming/`; rerun `authoring/playsuite_music/integrate.py` afterwards if it is used.

@@ -17,7 +17,8 @@ add_library(vendor_game_ui STATIC
 target_link_libraries(vendor_game_ui PUBLIC eggy_core sbx_core fp_core ap_core
     game_audio_adapters game_text_frames GUIForms::Application)
 add_library(game_ui src/table.cpp src/presentation.cpp src/puzzle_view.cpp src/collection.cpp
-    src/sudoku_view.cpp vendor/paint/carpet.cpp vendor/paint/image.cpp)
+    src/sudoku_view.cpp src/suite.cpp src/text_sprites.cpp src/shelf.cpp src/capsule.cpp
+    vendor/paint/carpet.cpp vendor/paint/image.cpp)
 target_include_directories(game_ui PUBLIC src PRIVATE vendor/paint)
 target_link_libraries(game_ui PUBLIC game_rules game_raster sudoku_generator vendor_game_ui)
 if(NOT MSVC)
@@ -32,7 +33,7 @@ if(WIN32)
 endif()
 target_link_libraries(games PRIVATE game_ui)
 set_target_properties(games PROPERTIES
-    MACOSX_BUNDLE_BUNDLE_NAME "Games"
+    MACOSX_BUNDLE_BUNDLE_NAME "PlaySuite"
     MACOSX_BUNDLE_GUI_IDENTIFIER "org.rainstar.games"
     MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}")

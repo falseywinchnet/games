@@ -23,6 +23,7 @@ namespace gf = gui_forms;
 
 struct Options {
     bool dev = false;  // separate save file; AP_SCRIPT allowed
+    bool hosted = false;  // a host shell supplies New, Help, Top scores and the audio switches
 };
 
 class AtomProbeView final : public gf::Control {
@@ -40,6 +41,10 @@ public:
     // Cabinet hosting: the collection's master switches gate this game's own
     // music and sound; `foreground` is false while another game shows.
     void set_cabinet(bool foreground, bool music, bool sound, bool reduced_motion);
+    // Host commands: "new", "help" and "scores" toggle like the in-frame buttons.
+    void host_command(const std::string& id);
+    // "help", "scores" or "" for the panel a host should show as active.
+    [[nodiscard]] std::string host_panel() const;
 
 private:
     enum class Panel { none, help, scores, name };

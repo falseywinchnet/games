@@ -111,23 +111,23 @@
   },
   {
     "file": "music_freecell_loop.m4a",
-    "batch": 1,
-    "sha256": "aa57835db88db6a8649bd63548d18ed44824508649ba15753e5febfd6664c3ef"
+    "batch": "playsuite-v2",
+    "sha256": "08753377d8ff2dd4ecb2096f4345e440ba843360d6f8184850cb5c51d7543826"
   },
   {
     "file": "music_hearts_loop.m4a",
-    "batch": 1,
-    "sha256": "3642721032078fedf7f92fdc7be898c7bd9bcbbdce954c0e5e37f6163a042140"
+    "batch": "playsuite-v2",
+    "sha256": "de1462a6df1126d3d1f7be096da250d41cb5246ee8d519cb7ffd428addfacb21"
   },
   {
     "file": "music_klondike_loop.m4a",
-    "batch": 1,
-    "sha256": "24565eaa6622ac75ca00c195331f76a632801463377b6461a5defda2eafd8aad"
+    "batch": "playsuite-v2",
+    "sha256": "37025a1d9421404cc982f5c5590a9fdfc90d4be554fb75fc0e06c9347e850d28"
   },
   {
     "file": "music_menu_loop.m4a",
-    "batch": 1,
-    "sha256": "b6c3a545502fe3a12c158b629058c48ea64c6943e36f9cf910d65847bc65388b"
+    "batch": "playsuite-v2",
+    "sha256": "6ca4e041675281c6fa7aec3e20fb0b076a35161fbcd0d3b11d56021a9427d06e"
   },
   {
     "file": "music_puzzle_main_loop.m4a",
@@ -141,8 +141,8 @@
   },
   {
     "file": "music_spider_loop.m4a",
-    "batch": 1,
-    "sha256": "f1b69197ad1cc89bfb1f5fbe039f906a1dd001af3d3df85298e05a2cbc073159"
+    "batch": "playsuite-v2",
+    "sha256": "02105d516f21284e0f8097c0eba3738b522ec2a9062b8020ad3504258e51ae1f"
   },
   {
     "file": "puzzle_blocked_01.m4a",
@@ -216,18 +216,18 @@
   },
   {
     "file": "stinger_win_freecell.m4a",
-    "batch": 1,
-    "sha256": "5b00d3036148fb772d3aec651d7d7914ac718b9b06171e001d2c912ca2f98fbb"
+    "batch": "playsuite-v2",
+    "sha256": "937528c0f9f20fc91bcc758803cf0d0805cd3d3f680b34983adf4a7d3fe23dfb"
   },
   {
     "file": "stinger_win_hearts.m4a",
-    "batch": 1,
-    "sha256": "182b85de95a4c995bfbbfc09586181cdf7eaccd40ad2cfe24abdb9b765af8e73"
+    "batch": "playsuite-v2",
+    "sha256": "facf63929b162be70ac52f2a8e44e125bfe42d3a47807b72cb8910715fbe4884"
   },
   {
     "file": "stinger_win_klondike.m4a",
-    "batch": 1,
-    "sha256": "aba73e2ea1c7ccb57da945db8b31c02a2b286e9f1c9fe18803c747eb48b82927"
+    "batch": "playsuite-v2",
+    "sha256": "befcd03cbb6177795e7452d2a781da9abab3b993b18e58d7453aa8068e25d38a"
   },
   {
     "file": "stinger_win_menu.m4a",
@@ -241,8 +241,8 @@
   },
   {
     "file": "stinger_win_spider.m4a",
-    "batch": 1,
-    "sha256": "a6db7d90d0f3b4246209fa7458f542a8585ad7a9097d2d46b16fbccd54cef42f"
+    "batch": "playsuite-v2",
+    "sha256": "19b4572aa18402a4e27d2f9e9195efeade098ff135361c593ea7be6d2d71a4e6"
   },
   {
     "file": "ui_hint_01.m4a",
@@ -491,18 +491,18 @@
   },
   {
     "file": "music_gems_loop.m4a",
-    "batch": 2,
-    "sha256": "4393f6f13245e950d8344860c5c38951bf1ef717509a4866d59f967f82de7e0a"
+    "batch": "playsuite-v2",
+    "sha256": "9ca791e3e864935a008955abf05555513eb9cb1e6895670db604713644eb290d"
   },
   {
     "file": "music_nature_cube_loop.m4a",
-    "batch": 2,
-    "sha256": "75224eea3de4e5fe2efd703591960c1744c476896cca788298e739b917f32cdf"
+    "batch": "playsuite-v2",
+    "sha256": "611cdf65d5fedb7a29ad2126bbaddf36866c9e5250b07fd05470554058af3799"
   },
   {
     "file": "music_puzzle_solve_loop.m4a",
-    "batch": 2,
-    "sha256": "3e33cc4320b5b00d638d8840ca3b977588050e1f1af8c871baea53f5c0d196b6"
+    "batch": "playsuite-v2",
+    "sha256": "836c9c4b90782aa29d850698fc5d3c57e22a73225278fca7c596f9f989dbf40c"
   },
   {
     "file": "music_sticks_stones_loop.m4a",
@@ -511,13 +511,13 @@
   },
   {
     "file": "music_sudoku_day_loop.m4a",
-    "batch": 2,
-    "sha256": "feba367ebf1bd1db95ee487fdaa5f3ae5092f2eb5a0bcdd15fd43e93e9dcd20f"
+    "batch": "playsuite-v2",
+    "sha256": "18e23ff0ed0037b428ccb17f9812437d318dceed0caffb0c16eb331d8d0317b1"
   },
   {
     "file": "music_sudoku_night_loop.m4a",
-    "batch": 2,
-    "sha256": "5e9b6f3997efefa0d311e1de5f77ff72ae45c640c924cb3612ebf2b1b2a3fcd6"
+    "batch": "playsuite-v2",
+    "sha256": "33c284fa7c034b8c69a95138669adabfc762669b669adefeda2193bd63c79090"
   },
   {
     "file": "music_switchbox_loop.m4a",
@@ -526,8 +526,8 @@
   },
   {
     "file": "music_untangle_loop.m4a",
-    "batch": 2,
-    "sha256": "caf97465d0362f51d59e81e0de3712afd50a4f8ddd153867a2207b7949f25dd9"
+    "batch": "playsuite-v2",
+    "sha256": "037016b3c3be44deb258a0db38cbe6bb5c96cf8042ec6a03ebe439af31fafb4e"
   },
   {
     "file": "nature_cube_connect_01.m4a",
@@ -676,18 +676,18 @@
   },
   {
     "file": "stinger_topscore_gems.m4a",
-    "batch": 2,
-    "sha256": "007e320f1bbb41057293310bacc57bcc3d25e09a6def25bdaa5be72a4ccf310d"
+    "batch": "playsuite-v2",
+    "sha256": "231b73a8a3f70c82e90e31e3564c0530ad7a3388bca53327ad62c97ee99a1435"
   },
   {
     "file": "stinger_topscore_nature_cube.m4a",
-    "batch": 2,
-    "sha256": "cdee8a056ca794f7e3f069941e4664189381a998d0cb9c67ab75a05f76636de0"
+    "batch": "playsuite-v2",
+    "sha256": "f195f1ce62eac220374ef2926b7796ed02d650a92ea29b5f079485543f039a68"
   },
   {
     "file": "stinger_topscore_puzzle_solve.m4a",
-    "batch": 2,
-    "sha256": "b462256268e2e566238d74b4edf56d0d5b159312f9057ca2fa8e6344f23f41bc"
+    "batch": "playsuite-v2",
+    "sha256": "a60ac6142540bdb90be6b200cb4097268e9a3c20e2d4fe392a5d4a75caf0f887"
   },
   {
     "file": "stinger_topscore_sticks_stones.m4a",
@@ -696,8 +696,8 @@
   },
   {
     "file": "stinger_topscore_sudoku.m4a",
-    "batch": 2,
-    "sha256": "5c9041d60b23c1d08d6fe3eb114773450da46879f8dcacaf9980da4f73548706"
+    "batch": "playsuite-v2",
+    "sha256": "5c5d9af8aa364230333b249e634755ae7dcc26cef5e3f9d0fe0ee324fe82378b"
   },
   {
     "file": "stinger_topscore_switchbox.m4a",
@@ -706,8 +706,8 @@
   },
   {
     "file": "stinger_topscore_untangle.m4a",
-    "batch": 2,
-    "sha256": "d7cb715cdf92c225678d51d208f6b5fe8a5cd6f20ba4405190320b7a7b52dbc7"
+    "batch": "playsuite-v2",
+    "sha256": "f8bbd78e3c8e6083b7156a68e22bf75b2ba851675a1aedc0f0c7a5592b2679d3"
   },
   {
     "file": "stinger_win_atom_probe.m4a",
@@ -721,18 +721,18 @@
   },
   {
     "file": "stinger_win_gems.m4a",
-    "batch": 2,
-    "sha256": "74f9cf0fa4c58d54c02c976b08d6f0c575f2a815ced591c4c464d8da8a77f112"
+    "batch": "playsuite-v2",
+    "sha256": "5f97fb0b9f4dcb0c49f512dc1dd6fba7b639dc61508e1140acf2a27c0448b6ad"
   },
   {
     "file": "stinger_win_nature_cube.m4a",
-    "batch": 2,
-    "sha256": "05b9a67544afae2870bcfd1d4fdb54db594644369b859ae62af23cec540ea3c6"
+    "batch": "playsuite-v2",
+    "sha256": "f5cf96ee1258aa1b878de07d268e762ea25447e1efddb5ba4b2ee0218f232f00"
   },
   {
     "file": "stinger_win_puzzle_solve.m4a",
-    "batch": 2,
-    "sha256": "a141a3e11d2d1559f4588bc49d70d76d278b6195989f16c1ea3c26d5d00fe607"
+    "batch": "playsuite-v2",
+    "sha256": "0a3292a806410d5a8b7a0f812bae9e02f19d0b179fd29ebbc799b721e784d03b"
   },
   {
     "file": "stinger_win_sticks_stones.m4a",
@@ -741,8 +741,8 @@
   },
   {
     "file": "stinger_win_sudoku.m4a",
-    "batch": 2,
-    "sha256": "cf87c1ccd37744841d535168e7e86a40d1ac33220ccb587f95a253b2690fdf4a"
+    "batch": "playsuite-v2",
+    "sha256": "d3484625551c99b8d78aebeb5707a0f17566fe03a59f329dd1f9b8bdb5ed7269"
   },
   {
     "file": "stinger_win_switchbox.m4a",
@@ -751,8 +751,8 @@
   },
   {
     "file": "stinger_win_untangle.m4a",
-    "batch": 2,
-    "sha256": "dc1cacb7f024f6179c152eb911e6e40861b63d1a89806e273db73041ecb6f878"
+    "batch": "playsuite-v2",
+    "sha256": "762d5e67653423ce0797dc3e10191c228a1c38c4b5f2a18d38d691ca948a65b3"
   },
   {
     "file": "sudoku_box_complete.m4a",

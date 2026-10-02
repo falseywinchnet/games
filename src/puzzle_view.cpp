@@ -67,11 +67,12 @@ void PuzzleView::initialize_control_tree() {
                 .subscribe(
                     *this,
                     gf::Delegate<gf::ButtonBase&>::bind<PuzzleView, &PuzzleView::action>(*this)));
+        // New game, Help and Top scores run from the PlaySuite capsule.
         (*buttons_[i])
             .set_visible(
-                i < 3 ||
                 (i == 3 && (game.kind == PuzzleKind::pegs || game.kind == PuzzleKind::atom)) ||
-                ((i == 4 || i == 5) && game.kind == PuzzleKind::solve));
+                false); // Rotate and Flip live in the capsule; R, F and right click work while
+                        // dragging.
     }
     name_ = gf::make_control<gf::TextBox>(
         gf::StableId(std::string(puzzle_slug(game.kind)) + ".name"), game.player_name);
@@ -123,13 +124,10 @@ void PuzzleView::activate() {
 }
 void PuzzleView::arrange(gf::Rect b) {
     arrange_self(b);
-    set_child_layout(buttons_[0], {b.width - 367, 18, 108, 34});
-    set_child_layout(buttons_[1], {b.width - 247, 18, 80, 34});
-    set_child_layout(buttons_[2], {b.width - 155, 18, 128, 34});
     double reserve = game.kind == PuzzleKind::solve                                   ? 496.0
                      : game.kind == PuzzleKind::pegs || game.kind == PuzzleKind::atom ? 424.0
                                                                                       : 300.0;
-    double side = std::min({548.0, b.height - 155, b.width - reserve});
+    double side = std::max(140.0, std::min({548.0, b.height - 116, b.width - reserve}));
     board_ = {std::max(248.0, (b.width - side) * .5), 86, side, side};
     set_child_layout(buttons_[3],
                      {board_.x + board_.width + 37, board_.y + board_.height - 45, 128, 35});
@@ -137,30 +135,52 @@ void PuzzleView::arrange(gf::Rect b) {
                      {board_.x + board_.width + 26, board_.y + board_.height - 88, 87, 34});
     set_child_layout(buttons_[5],
                      {board_.x + board_.width + 122, board_.y + board_.height - 88, 77, 34});
+    if (game.kind == PuzzleKind::solve)
+        layout_solve(b);
+    if (game.kind == PuzzleKind::gems || game.kind == PuzzleKind::untangle) {
+        // Centered when narrow; with room, a legend card sits to the left.
+        const bool wide = b.width >= 900;
+        const double gside =
+            std::max(160.0, std::min({600.0, b.height - 104, b.width - (wide ? 560.0 : 48.0)}));
+        board_ = {wide ? std::max(264.0, (b.width - gside) * .5) : (b.width - gside) * .5,
+                  std::max(66.0, 62 + (b.height - 62 - 30 - gside) * .5), gside, gside};
+    }
     if (game.kind == PuzzleKind::pegs) {
         board_ = {24, 82, b.width - 332, b.height - 139};
         set_child_layout(buttons_[3],
                          {board_.x + board_.width - 151, board_.y + board_.height - 57, 124, 36});
         (*buttons_[3]).set_text("Check code");
     }
-    popup_ = {b.width * .5 - 320, 86, 640, std::min(530.0, b.height - 103)};
-    set_child_layout(buttons_[6], {popup_.x + 530, popup_.y + 17, 85, 32});
+    popup_ = {std::max(8.0, b.width * .5 - 320), 60, std::min(640.0, b.width - 16),
+              std::min(530.0, b.height - 70)};
+    set_child_layout(buttons_[6], {popup_.x + popup_.width - 110, popup_.y + 17, 85, 32});
     set_child_layout(name_, {popup_.x + 28, popup_.y + 110, 270, 34});
     set_child_layout(buttons_[7], {popup_.x + 310, popup_.y + 110, 110, 34});
-    set_child_layout(buttons_[8], {popup_.x + 490, popup_.y + popup_.height - 45, 122, 32});
+    set_child_layout(buttons_[8],
+                     {popup_.x + popup_.width - 150, popup_.y + popup_.height - 45, 122, 32});
     if (game.kind == PuzzleKind::gems || game.kind == PuzzleKind::cube) {
-        int w = static_cast<int>(board_.width * 1.5), h = static_cast<int>(board_.height * 1.5);
-        if (raster_.width != w || raster_.height != h)
-            raster_.resize(w, h);
+        fit_raster();
         render();
     }
 }
+// Renders at device resolution (at least 1.5x) so the image stays crisp on high-DPI screens.
+// While the cube is tilting it renders lighter, then sharpens once it settles.
+void PuzzleView::fit_raster() {
+    const double device = attached_window() ? (*attached_window()).scale() : 1.0;
+    double density = std::min(std::max(1.5, device), 1400.0 / std::max(1.0, board_.width));
+    if (coarse_)
+        density = std::min(density, 1.1);
+    const int w = std::max(2, static_cast<int>(board_.width * density)),
+              h = std::max(2, static_cast<int>(board_.height * density));
+    if (raster_.width != w || raster_.height != h)
+        raster_.resize(w, h);
+}
 void PuzzleView::text(gf::Painter& p, double x, double y, const std::string& s, double size,
                       gf::Color c) {
-    p.draw_text_utf8({x, y}, s,
-                     {size >= 18 ? gf::FontRole::control : gf::FontRole::content, size,
-                      static_cast<std::uint16_t>(size >= 18 ? 600 : 400), false},
-                     c);
+    p.draw_text_utf8(
+        {x, y}, s,
+        {gf::FontRole::content, size, static_cast<std::uint16_t>(size >= 18 ? 600 : 400), false},
+        c);
 }
 double PuzzleView::elapsed() const {
     return std::chrono::duration<double>(gf::FrameClock::now() - animation_start_).count();
@@ -220,7 +240,9 @@ void PuzzleView::render() {
             if (!value || radius < .5)
                 continue;
             if (falling) {
-                double ease = 1 - std::pow(1 - progress, 3);
+                // Ease out with a little overshoot, so gems settle like they have weight.
+                const double c1 = 1.4, c3 = c1 + 1, u = progress - 1;
+                double ease = 1 + c3 * u * u * u + c1 * u * u;
                 y = (origin[i] + (i / 8 - origin[i]) * ease + .5) * cell;
             }
             if (moving && (i == swap_a_ || i == swap_b_) && (t < .23 || invalid_swap_)) {
@@ -238,62 +260,412 @@ void PuzzleView::render() {
         }
     } else
         return;
+    // In-place updates must keep the registered dimensions; a resized raster replaces the image.
+    gf::Window& window = *attached_window();
     gf::ImageLoadResult result =
-        image_.value ? (*attached_window())
-                           .update_bgra32_premultiplied(image_, raster_.width, raster_.height,
-                                                        raster_.width * 4, raster_.pixels, *this)
-                     : (*attached_window())
-                           .load_bgra32_premultiplied(raster_.width, raster_.height,
-                                                      raster_.width * 4, raster_.pixels);
-    if (result)
+        !image_.value ? window.load_bgra32_premultiplied(raster_.width, raster_.height,
+                                                         raster_.width * 4, raster_.pixels)
+        : image_size_ ==
+                gf::Size{static_cast<double>(raster_.width), static_cast<double>(raster_.height)}
+            ? window.update_bgra32_premultiplied(image_, raster_.width, raster_.height,
+                                                 raster_.width * 4, raster_.pixels, *this)
+            : window.replace_bgra32_premultiplied(image_, raster_.width, raster_.height,
+                                                  raster_.width * 4, raster_.pixels, *this);
+    if (result) {
         image_ = result.image;
+        image_size_ = {static_cast<double>(raster_.width), static_cast<double>(raster_.height)};
+    }
+}
+namespace {
+gf::Color gem_color(int value) {
+    static const gf::Color colors[] = {
+        gf::Color::rgba(220, 230, 240), gf::Color::rgba(228, 49, 86),
+        gf::Color::rgba(59, 181, 255),  gf::Color::rgba(255, 182, 48),
+        gf::Color::rgba(126, 224, 111), gf::Color::rgba(168, 101, 249),
+        gf::Color::rgba(53, 220, 208),  gf::Color::rgba(244, 119, 44),
+        gf::Color::rgba(233, 127, 203)};
+    return colors[std::clamp(value % 16, 0, 8)];
+}
+double unit_random(std::uint32_t& state) {
+    state = state * 1664525u + 1013904223u;
+    return (state >> 8) / 16777216.0;
+}
+} // namespace
+// A cleared gem bursts into shards; a bomb sends out a shockwave, a star fires beams along
+// its row and column, a hypercube throws lightning to everything it clears. Deep cascades
+// earn a call-out. Effects live in cell units so they survive a resize.
+void PuzzleView::spawn_effects(const std::array<int, 96>& before, const std::array<int, 96>& after,
+                               int depth) {
+    if (reduced_)
+        return;
+    std::vector<int> cleared;
+    for (int i = 0; i < 64; ++i)
+        if (before[i] && before[i] != after[i])
+            cleared.push_back(i);
+    for (int i : cleared) {
+        const double cx = i % 8 + .5, cy = i / 8 + .5;
+        const gf::Color c = gem_color(before[i]);
+        effects_.push_back({GemEffect::ring, cx, cy, 0, 0, 0, .45, .55, c});
+        for (int k = 0; k < 9; ++k) {
+            const double a = unit_random(fx_seed_) * 6.2831853,
+                         speed = 2.2 + unit_random(fx_seed_) * 3.2;
+            effects_.push_back({GemEffect::shard, cx, cy, std::cos(a) * speed,
+                                std::sin(a) * speed - 1.6, unit_random(fx_seed_) * 6.28,
+                                .55 + unit_random(fx_seed_) * .35, .1 + unit_random(fx_seed_) * .08,
+                                c});
+        }
+        if (before[i] >= 16 && before[i] < 32) {
+            effects_.push_back({GemEffect::shock, cx, cy, 0, 0, 0, .6, 1.8, c});
+            shake_ = std::max(shake_, .5);
+        } else if (before[i] >= 32 && before[i] < 48) {
+            effects_.push_back({GemEffect::beam_row, cx, cy, 0, 0, 0, .55, .5, c});
+            effects_.push_back({GemEffect::beam_column, cx, cy, 0, 0, 0, .55, .5, c});
+        } else if (before[i] == 48) {
+            shake_ = std::max(shake_, .8);
+            for (int j : cleared)
+                if (j != i)
+                    effects_.push_back({GemEffect::bolt, cx, cy, j % 8 + .5 - cx, j / 8 + .5 - cy,
+                                        unit_random(fx_seed_) * 100, .5, 0, gem_color(before[j])});
+        }
+    }
+    if (depth >= 2 && !cleared.empty()) {
+        static const char* words[] = {"", "", "Nice!", "Great!", "Superb!", "Dazzling!"};
+        callout_ = words[std::min(depth, 5)];
+        callout_life_ = 1.1;
+    }
+}
+void PuzzleView::step_effects() {
+    const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+    const double dt = std::clamp(std::chrono::duration<double>(now - fx_clock_).count(), 0.0, .05);
+    fx_clock_ = now;
+    for (GemEffect& e : effects_) {
+        e.age += dt;
+        if (e.kind == GemEffect::shard) {
+            e.vy += 9.5 * dt;
+            e.x += e.vx * dt;
+            e.y += e.vy * dt;
+            e.spin += dt * 9;
+        }
+    }
+    struct ExpiredEffect {
+        bool operator()(const GemEffect& e) const {
+            return e.age >= e.life;
+        }
+    };
+    std::erase_if(effects_, ExpiredEffect{});
+    shake_ = std::max(0.0, shake_ - dt * 2.6);
+    callout_life_ = std::max(0.0, callout_life_ - dt);
 }
 void PuzzleView::paint_gems(gf::Painter& p) {
-    p.draw_box_shadow(board_, 16, {0, 8}, 24, 0, gf::Color::rgba(0, 0, 0, 100));
-    p.fill_rounded_rect(board_, 16, gf::Color::rgba(12, 22, 42));
-    double cell = board_.width / 8;
+    const gf::Rect b = client_rectangle();
+    // Velvet workspace under a jeweller's lamp.
+    p.fill_rect(b, gf::Color::rgba(26, 16, 44));
+    const gf::GradientStop lamp[] = {{0, gf::Color::rgba(86, 52, 128)},
+                                     {1, gf::Color::rgba(22, 12, 38)}};
+    p.fill_radial_gradient(b, {board_.x + board_.width * .5, board_.y + board_.height * .45},
+                           {b.width * .75, b.height * .85}, lamp);
+    const double cell = board_.width / 8;
+    const double t = std::chrono::duration<double>(gf::FrameClock::now() - clock_start_).count();
+    const gf::Point shake{shake_ > 0 ? std::sin(t * 61) * shake_ * cell * .08 : 0,
+                          shake_ > 0 ? std::cos(t * 47) * shake_ * cell * .08 : 0};
+    p.save();
+    p.translate(shake);
+    const gf::Rect tray{board_.x - 10, board_.y - 10, board_.width + 20, board_.height + 20};
+    p.draw_box_shadow(tray, 18, {0, 10}, 28, 0, gf::Color::rgba(0, 0, 0, 150));
+    const gf::GradientStop rim[] = {{0, gf::Color::rgba(250, 214, 140)},
+                                    {.5, gf::Color::rgba(178, 126, 52)},
+                                    {1, gf::Color::rgba(120, 78, 26)}};
+    p.save();
+    p.clip_rounded_rect(tray, 18);
+    p.fill_linear_gradient(tray, {tray.x, tray.y}, {tray.x + tray.width, tray.y + tray.height},
+                           rim);
+    p.restore();
+    p.fill_rounded_rect(board_, 12, gf::Color::rgba(14, 10, 30));
+    p.draw_inset_box_shadow(board_, 12, {0, 4}, 14, 0, gf::Color::rgba(0, 0, 0, 160));
     for (int i = 0; i < 64; ++i)
         if ((i / 8 + i % 8) % 2 == 0)
             p.fill_rounded_rect(
                 {board_.x + (i % 8) * cell + 2, board_.y + (i / 8) * cell + 2, cell - 4, cell - 4},
-                7, gf::Color::rgba(26, 41, 63));
+                cell * .16, gf::Color::rgba(44, 30, 74, 150));
+    if (hover_ >= 0 && hover_ < 64 && animation_duration_ <= 0)
+        p.fill_rounded_rect({board_.x + (hover_ % 8) * cell + 2, board_.y + (hover_ / 8) * cell + 2,
+                             cell - 4, cell - 4},
+                            cell * .16, gf::Color::rgba(255, 220, 150, 40));
     if (image_.value)
         p.draw_image(image_, board_);
-    text(p, 28, 113, "Match & cascade", 19, accent);
-    text(p, 28, 146, "Drag to swap neighbors.", 13, ink);
-    text(p, 28, 172, "Match 3 or more.", 13, muted);
-    text(p, 28, 222, "4 in a line → bomb", 13, ink);
-    text(p, 28, 250, "5 in a line → hypercube", 13, ink);
-    text(p, 28, 278, "T or L → star", 13, ink);
-    text(p, 28, 328, "Match bombs and stars", 13, muted);
-    text(p, 28, 351, "with their own color.", 13, muted);
-    text(p, 28, 398, std::to_string(game.gem_colors()) + " colors in play", 14, accent);
+    // Effects over the gems.
+    struct GemPosition {
+        gf::Rect board_;
+        double cell;
+        gf::Point operator()(double x, double y) const {
+            return gf::Point{board_.x + x * cell, board_.y + y * cell};
+        }
+    };
+    GemPosition at{board_, cell};
+    for (const GemEffect& e : effects_) {
+        const double k = std::clamp(e.age / e.life, 0.0, 1.0), fade = 1 - k;
+        const gf::Color c = e.color;
+        switch (e.kind) {
+        case GemEffect::shard: {
+            const gf::Point q = at(e.x, e.y);
+            const double r = e.size * cell * (1 - k * .5);
+            std::vector<gf::Point> tri;
+            for (int v = 0; v < 3; ++v)
+                tri.push_back(
+                    {q.x + std::cos(e.spin + v * 2.1) * r, q.y + std::sin(e.spin + v * 2.1) * r});
+            paint_polygon(
+                p, tri,
+                gf::Color::rgba(c.red, c.green, c.blue, static_cast<unsigned char>(240 * fade)));
+            break;
+        }
+        case GemEffect::ring: {
+            const gf::Point q = at(e.x, e.y);
+            const double r = cell * (.25 + e.size * k);
+            p.stroke_rounded_rect(
+                {q.x - r, q.y - r, 2 * r, 2 * r}, r,
+                gf::Color::rgba(255, 255, 255, static_cast<unsigned char>(200 * fade)),
+                2.5 * fade + .5);
+            break;
+        }
+        case GemEffect::shock: {
+            const gf::Point q = at(e.x, e.y);
+            const double r = cell * (.3 + e.size * k);
+            p.stroke_rounded_rect(
+                {q.x - r, q.y - r, 2 * r, 2 * r}, r,
+                gf::Color::rgba(255, 236, 190, static_cast<unsigned char>(230 * fade)),
+                cell * .12 * fade + 1);
+            const gf::GradientStop glow[] = {
+                {0, gf::Color::rgba(255, 240, 200, static_cast<unsigned char>(160 * fade))},
+                {1, gf::Color::rgba(255, 200, 120, 0)}};
+            p.fill_radial_gradient({q.x - r, q.y - r, 2 * r, 2 * r}, q, {r, r}, glow);
+            break;
+        }
+        case GemEffect::beam_row:
+        case GemEffect::beam_column: {
+            const bool row = e.kind == GemEffect::beam_row;
+            const gf::Point q = at(e.x, e.y);
+            const double half = cell * (.12 + .3 * fade);
+            const gf::Rect beam = row ? gf::Rect{board_.x, q.y - half, board_.width, half * 2}
+                                      : gf::Rect{q.x - half, board_.y, half * 2, board_.height};
+            const gf::GradientStop stops[] = {
+                {0, gf::Color::rgba(255, 255, 255, 0)},
+                {.5, gf::Color::rgba(255, 252, 230, static_cast<unsigned char>(230 * fade))},
+                {1, gf::Color::rgba(255, 255, 255, 0)}};
+            p.fill_linear_gradient(beam,
+                                   row ? gf::Point{beam.x, beam.y} : gf::Point{beam.x, beam.y},
+                                   row ? gf::Point{beam.x, beam.y + beam.height}
+                                       : gf::Point{beam.x + beam.width, beam.y},
+                                   stops);
+            break;
+        }
+        case GemEffect::bolt: {
+            // A jagged bolt from the hypercube to a cleared gem, re-jittered each frame.
+            std::uint32_t seed =
+                static_cast<std::uint32_t>(e.spin) + static_cast<std::uint32_t>(t * 20);
+            gf::Point prev = at(e.x, e.y);
+            for (int seg = 1; seg <= 6; ++seg) {
+                const double f = seg / 6.0;
+                gf::Point next = at(e.x + e.vx * f, e.y + e.vy * f);
+                if (seg < 6) {
+                    next.x += (unit_random(seed) - .5) * cell * .45;
+                    next.y += (unit_random(seed) - .5) * cell * .45;
+                }
+                p.draw_line(
+                    prev, next,
+                    gf::Color::rgba(c.red, c.green, c.blue, static_cast<unsigned char>(200 * fade)),
+                    4);
+                p.draw_line(prev, next,
+                            gf::Color::rgba(255, 255, 255, static_cast<unsigned char>(240 * fade)),
+                            1.6);
+                prev = next;
+            }
+            break;
+        }
+        }
+    }
+    p.restore();
+    if (callout_life_ > 0 && !callout_.empty()) {
+        const double k = 1 - callout_life_ / 1.1;
+        const gf::FontSpec f{gf::FontRole::content,
+                             std::min(44.0, cell * .8) *
+                                 (1 + .15 * std::sin(std::min(k * 5, 3.14159))),
+                             800, false, 1};
+        const gf::Size m = p.measure_text_utf8(callout_, f);
+        const double x = board_.x + (board_.width - m.width) * .5,
+                     y = board_.y + board_.height * (.48 - k * .12);
+        const unsigned char alpha =
+            static_cast<unsigned char>(255 * std::clamp(callout_life_ * 2.5, 0.0, 1.0));
+        for (const gf::Point o : {gf::Point{-2, 0}, gf::Point{2, 0}, gf::Point{0, -2},
+                                  gf::Point{0, 2}, gf::Point{2, 3}})
+            p.draw_text_utf8({x + o.x, y + o.y}, callout_, f, gf::Color::rgba(60, 20, 70, alpha));
+        p.draw_text_utf8({x, y}, callout_, f, gf::Color::rgba(255, 226, 140, alpha));
+    }
+    // Legend card (left), shown when there is room.
+    if (board_.x > 230) {
+        const gf::Rect card{std::max(14.0, board_.x - 250), board_.y, 214, 300};
+        p.draw_box_shadow(card, 8, {0, 4}, 12, 0, gf::Color::rgba(0, 0, 0, 110));
+        fill_vertical(p, card, gf::Color::rgba(58, 36, 92, 235), gf::Color::rgba(36, 22, 60, 235));
+        p.stroke_rounded_rect(card, 8, gf::Color::rgba(255, 210, 122, 90), 1);
+        const gf::FontSpec caps{gf::FontRole::content, 11, 700, false, 1.2};
+        p.draw_text_utf8({card.x + 14, card.y + 24}, "HOW GEMS WORK", caps,
+                         gf::Color::rgba(255, 222, 150));
+        const gf::FontSpec body{gf::FontRole::content, 13, 400, false};
+        const gf::Color ink2 = gf::Color::rgba(236, 226, 248),
+                        soft = gf::Color::rgba(190, 176, 214);
+        p.draw_text_utf8({card.x + 14, card.y + 52}, "Drag a gem onto a neighbor.", body, ink2);
+        p.draw_text_utf8({card.x + 14, card.y + 72}, "Line up three or more.", body, ink2);
+        const char* rows[][2] = {{"Four in a row", "makes a bomb"},
+                                 {"T or L shape", "makes a star"},
+                                 {"Five in a row", "makes a hypercube"}};
+        for (int i = 0; i < 3; ++i) {
+            p.draw_text_utf8({card.x + 14, card.y + 110 + i * 42}, rows[i][0],
+                             {gf::FontRole::content, 13, 700, false}, ink2);
+            p.draw_text_utf8({card.x + 14, card.y + 128 + i * 42}, rows[i][1], body, soft);
+        }
+        p.draw_text_utf8({card.x + 14, card.y + 250}, "Bombs and stars go off when", body, soft);
+        p.draw_text_utf8({card.x + 14, card.y + 268}, "matched with their own color.", body, soft);
+        p.draw_text_utf8({card.x + 14, card.y + 290},
+                         std::to_string(game.gem_colors()) + " colors in play",
+                         {gf::FontRole::content, 13, 700, false}, gf::Color::rgba(255, 222, 150));
+    }
 }
+double PuzzleView::untangle_radius() const {
+    return std::clamp(board_.width * .026, 11.0, 17.0);
+}
+namespace {
+double turn(Point2 a, Point2 b, Point2 c) {
+    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+bool segments_cross(Point2 p, Point2 q, Point2 r, Point2 s) {
+    return turn(p, q, r) * turn(p, q, s) < 0 && turn(r, s, p) * turn(r, s, q) < 0;
+}
+} // namespace
+// Untangle: a night-sky slate where crossing threads glow coral and clear ones aqua.
+// When the last crossing clears, the threads turn gold and a ripple runs outward.
 void PuzzleView::paint_untangle(gf::Painter& p) {
+    const gf::Rect b = client_rectangle();
+    p.fill_rect(b, gf::Color::rgba(10, 26, 36));
+    const gf::GradientStop sky[] = {{0, gf::Color::rgba(28, 74, 92)},
+                                    {1, gf::Color::rgba(8, 20, 30)}};
+    p.fill_radial_gradient(b, {board_.x + board_.width * .5, board_.y + board_.height * .4},
+                           {b.width * .7, b.height * .85}, sky);
+    const gf::Rect mat{board_.x - 14, board_.y - 14, board_.width + 28, board_.height + 28};
+    p.draw_box_shadow(mat, 16, {0, 8}, 26, 0, gf::Color::rgba(0, 0, 0, 140));
+    fill_vertical(p, mat, gf::Color::rgba(22, 46, 60), gf::Color::rgba(12, 28, 40));
+    p.stroke_rounded_rect(mat, 16, gf::Color::rgba(120, 220, 230, 60), 1);
+    for (int y = 1; y < 12; ++y)
+        for (int x = 1; x < 12; ++x)
+            p.fill_rect({board_.x + board_.width * x / 12 - .75,
+                         board_.y + board_.height * y / 12 - .75, 1.5, 1.5},
+                        gf::Color::rgba(140, 210, 220, 50));
     std::vector<Point2> positions = game.state.nodes;
     if (drag_ >= 0)
         positions[drag_] = drag_position_;
-    for (Edge e : game.state.edges) {
-        Point2 a = positions[e.a], b = positions[e.b];
-        p.draw_line({board_.x + a.x * board_.width, board_.y + a.y * board_.height},
-                    {board_.x + b.x * board_.width, board_.y + b.y * board_.height},
-                    gf::Color::rgba(112, 193, 214, 190), 2.3);
+    struct BoardPosition {
+        gf::Rect board_;
+        gf::Point operator()(Point2 q) const {
+            return gf::Point{board_.x + q.x * board_.width, board_.y + q.y * board_.height};
+        }
+    };
+    BoardPosition at{board_};
+    std::vector<bool> crossed(game.state.edges.size(), false);
+    int crossings = 0;
+    for (std::size_t i = 0; i < game.state.edges.size(); ++i)
+        for (std::size_t j = i + 1; j < game.state.edges.size(); ++j) {
+            const Edge e = game.state.edges[i], f = game.state.edges[j];
+            if (e.a == f.a || e.a == f.b || e.b == f.a || e.b == f.b)
+                continue;
+            if (segments_cross(positions[e.a], positions[e.b], positions[f.a], positions[f.b])) {
+                crossed[i] = crossed[j] = true;
+                ++crossings;
+            }
+        }
+    const double celebrate = game.state.won && animation_duration_ > 0
+                                 ? std::clamp(elapsed() / animation_duration_, 0.0, 1.0)
+                                 : -1;
+    const gf::Point center = at({.5, .5});
+    for (std::size_t i = 0; i < game.state.edges.size(); ++i) {
+        const Edge e = game.state.edges[i];
+        const gf::Point a = at(positions[e.a]), c = at(positions[e.b]);
+        gf::Color color =
+            crossed[i] ? gf::Color::rgba(240, 132, 120, 205) : gf::Color::rgba(110, 222, 236, 225);
+        if (game.state.won) {
+            // Gold spreads outward from the middle as the ripple passes.
+            const double d =
+                std::hypot((a.x + c.x) * .5 - center.x, (a.y + c.y) * .5 - center.y) / board_.width;
+            const double wave = celebrate < 0 ? 1 : std::clamp((celebrate * 1.6 - d) * 4, 0.0, 1.0);
+            color = mix_color(gf::Color::rgba(110, 222, 236, 210),
+                              gf::Color::rgba(255, 214, 110, 255), wave);
+        }
+        if (crossed[i])
+            p.draw_line(a, c, gf::Color::rgba(255, 90, 80, 28), 6);
+        else
+            p.draw_line(a, c, gf::Color::rgba(110, 222, 236, 40), 6);
+        p.draw_line(a, c, color, crossed[i] ? 1.8 : 2.4);
     }
-    for (int i = 0; i < 12; ++i) {
-        Point2 q = positions[i];
-        gf::Rect r{board_.x + q.x * board_.width - 14, board_.y + q.y * board_.height - 14, 28, 28};
-        p.draw_box_shadow(r, 14, {0, 3}, 10, 0, gf::Color::rgba(0, 0, 0, 100));
-        p.fill_rounded_rect(
-            r, 14, i == drag_ ? gf::Color::rgba(248, 210, 133) : gf::Color::rgba(183, 231, 226));
-        p.stroke_rounded_rect(r, 14, gf::Color::rgba(75, 137, 153), 2);
-        text(p, r.x + (i < 9 ? 10 : 6), r.y + 19, std::to_string(i + 1), 11,
-             gf::Color::rgba(32, 67, 80));
+    if (celebrate >= 0) {
+        const double r = board_.width * (.1 + celebrate * .8);
+        p.stroke_rounded_rect(
+            {center.x - r, center.y - r, 2 * r, 2 * r}, r,
+            gf::Color::rgba(255, 220, 140, static_cast<unsigned char>(200 * (1 - celebrate))), 3);
     }
-    text(p, 28, 119, "Untie the lines", 18, accent);
-    text(p, 28, 157, "Drag the pearl points.", 13, ink);
-    text(p, 28, 184, "No lines may cross.", 13, ink);
-    text(p, 28, 235, "Points need their", 13, muted);
-    text(p, 28, 258, "own breathing space.", 13, muted);
+    const double radius = untangle_radius();
+    for (int i = 0; i < static_cast<int>(positions.size()); ++i) {
+        const gf::Point q = at(positions[i]);
+        const bool held = i == drag_, hot = i == hover_;
+        const double r = radius * (held ? 1.18 : hot ? 1.08 : 1);
+        const gf::Rect pearl{q.x - r, q.y - r, 2 * r, 2 * r};
+        p.draw_box_shadow(pearl, r, {0, held ? 6.0 : 3.0}, held ? 14 : 8, 0,
+                          gf::Color::rgba(0, 0, 0, held ? 150 : 110));
+        const gf::GradientStop shine[] = {
+            {0, gf::Color::rgba(255, 255, 255)},
+            {.55, game.state.won ? gf::Color::rgba(255, 226, 150)
+                  : held         ? gf::Color::rgba(255, 220, 150)
+                                 : gf::Color::rgba(196, 238, 236)},
+            {1, game.state.won ? gf::Color::rgba(196, 140, 50) : gf::Color::rgba(88, 150, 162)}};
+        p.save();
+        p.clip_rounded_rect(pearl, r);
+        p.fill_radial_gradient(pearl, {q.x - r * .35, q.y - r * .4}, {r * 1.6, r * 1.6}, shine);
+        p.restore();
+        p.stroke_rounded_rect(pearl, r, gf::Color::rgba(30, 70, 84, 200), 1.2);
+        const std::string label = std::to_string(i + 1);
+        const gf::FontSpec f{gf::FontRole::content, std::max(9.0, r * .78), 700, false};
+        const gf::Size m = p.measure_text_utf8(label, f);
+        p.draw_text_utf8({q.x - m.width * .5, q.y + f.size * .36}, label, f,
+                         gf::Color::rgba(24, 56, 66));
+    }
+    // Status plaque under the board.
+    const std::string status = game.state.won
+                                   ? "Untangled in " + std::to_string(game.state.moves) + " moves"
+                               : crossings == 1 ? "1 crossing left"
+                                                : std::to_string(crossings) + " crossings left";
+    const gf::FontSpec sf{gf::FontRole::content, 14, 700, false};
+    const gf::Size sm = p.measure_text_utf8(status, sf);
+    p.draw_text_utf8({board_.x + (board_.width - sm.width) * .5, mat.y + mat.height + 20}, status,
+                     sf,
+                     game.state.won ? gf::Color::rgba(255, 220, 140)
+                     : crossings    ? gf::Color::rgba(255, 160, 150)
+                                    : gf::Color::rgba(150, 230, 236));
+    if (board_.x > 230) {
+        const gf::Rect card{std::max(14.0, board_.x - 250), board_.y, 214, 196};
+        p.draw_box_shadow(card, 8, {0, 4}, 12, 0, gf::Color::rgba(0, 0, 0, 110));
+        fill_vertical(p, card, gf::Color::rgba(26, 58, 72, 235), gf::Color::rgba(14, 34, 46, 235));
+        p.stroke_rounded_rect(card, 8, gf::Color::rgba(120, 220, 230, 70), 1);
+        const gf::FontSpec caps{gf::FontRole::content, 11, 700, false, 1.2};
+        p.draw_text_utf8({card.x + 14, card.y + 24}, "UNTIE THE THREADS", caps,
+                         gf::Color::rgba(150, 230, 236));
+        const gf::FontSpec body{gf::FontRole::content, 13, 400, false};
+        const gf::Color ink2 = gf::Color::rgba(222, 240, 244),
+                        soft = gf::Color::rgba(160, 196, 204);
+        p.draw_text_utf8({card.x + 14, card.y + 52}, "Drag the pearls so that", body, ink2);
+        p.draw_text_utf8({card.x + 14, card.y + 70}, "no two threads cross.", body, ink2);
+        p.draw_text_utf8({card.x + 14, card.y + 104}, "Coral threads are crossing.", body,
+                         gf::Color::rgba(255, 160, 150));
+        p.draw_text_utf8({card.x + 14, card.y + 122}, "Aqua threads are clear.", body,
+                         gf::Color::rgba(150, 230, 236));
+        p.draw_text_utf8({card.x + 14, card.y + 156}, "Give each pearl its own", body, soft);
+        p.draw_text_utf8({card.x + 14, card.y + 174}, "space; they may not touch.", body, soft);
+    }
 }
 static void draw_peg(gf::Painter& p, gf::Rect r, int value, bool selected = false) {
     p.fill_rounded_rect({r.x - 3, r.y - 1, r.width + 6, r.height + 7}, r.width / 2,
@@ -467,108 +839,386 @@ static std::array<std::pair<int, int>, 3> atom_vertices(PieceCell c) {
              {2 * c.x + corners[w][0], 2 * c.y + corners[w][1]},
              {2 * c.x + corners[(w + 1) % 4][0], 2 * c.y + corners[(w + 1) % 4][1]}}};
 }
-static void draw_polyform(gf::Painter& p, const std::vector<PieceCell>& shape, double x, double y,
-                          double unit, bool used = false,
-                          gf::Color edge = gf::Color::rgba(44, 65, 78), bool ghost = false) {
+namespace {
+const gf::Color solve_blue = gf::Color::rgba(46, 132, 222),
+                solve_gold = gf::Color::rgba(248, 199, 66);
+enum class PieceLook { placed, lifted, tray, used, ghost_ok, ghost_bad };
+// A piece is a union of quarter-square triangles. Its outer edges get a bevel: a light
+// line on edges facing up and left, a shaded line on edges facing down and right.
+void draw_piece(gf::Painter& p, const std::vector<PieceCell>& shape, double x, double y,
+                double unit, PieceLook look) {
     using Vertex = std::pair<int, int>;
-    std::map<std::pair<Vertex, Vertex>, int> edges;
-    for (const auto& c : shape) {
-        auto v = atom_vertices(c);
-        std::vector<gf::Point> points;
-        for (auto q : v)
-            points.push_back({x + q.first * unit * .5, y + q.second * unit * .5});
-        gf::Color color = used           ? gf::Color::rgba(115, 127, 136)
-                          : c.color == 1 ? gf::Color::rgba(47, 146, 221)
-                                         : gf::Color::rgba(250, 205, 75);
-        if (ghost)
-            color.alpha = 110;
-        paint_polygon(p, points, color);
-        for (int j = 0; j < 3; ++j) {
-            auto a = v[j], b = v[(j + 1) % 3];
-            if (b < a)
-                std::swap(a, b);
-            ++edges[{a, b}];
+    struct Edge {
+        Vertex a, b, inside;
+        int count = 0;
+    };
+    std::map<std::pair<Vertex, Vertex>, Edge> edges;
+    struct PiecePosition {
+        double x, y, unit;
+        gf::Point operator()(Vertex v) const {
+            return gf::Point{x + v.first * unit * .5, y + v.second * unit * .5};
+        }
+    };
+    PiecePosition at{x, y, unit};
+    const bool ghost = look == PieceLook::ghost_ok || look == PieceLook::ghost_bad;
+    if (look == PieceLook::placed || look == PieceLook::lifted) {
+        const double drop = look == PieceLook::lifted ? unit * .09 : unit * .03;
+        for (const PieceCell& c : shape) {
+            std::vector<gf::Point> pts;
+            for (Vertex v : atom_vertices(c))
+                pts.push_back({at(v).x + drop * .6, at(v).y + drop});
+            paint_polygon(p, pts, gf::Color::rgba(0, 0, 0, look == PieceLook::lifted ? 55 : 40),
+                          false);
         }
     }
-    for (auto [e, count] : edges)
-        if (count == 1)
-            p.draw_line({x + e.first.first * unit * .5, y + e.first.second * unit * .5},
-                        {x + e.second.first * unit * .5, y + e.second.second * unit * .5}, edge,
-                        ghost ? 2 : 1.4);
+    for (const PieceCell& c : shape) {
+        std::array<std::pair<int, int>, 3> v = atom_vertices(c);
+        std::vector<gf::Point> pts;
+        for (Vertex q : v)
+            pts.push_back(at(q));
+        gf::Color fill = c.color == 1 ? solve_blue : solve_gold;
+        if (look == PieceLook::used)
+            fill = gf::Color::rgba(fill.red, fill.green, fill.blue, 50);
+        if (look == PieceLook::ghost_ok)
+            fill = gf::Color::rgba(fill.red, fill.green, fill.blue, 120);
+        if (look == PieceLook::ghost_bad)
+            fill = gf::Color::rgba(214, 70, 74, 90);
+        paint_polygon(p, pts, fill, false);
+        for (int j = 0; j < 3; ++j) {
+            Vertex a = v[j], b = v[(j + 1) % 3], inside = v[(j + 2) % 3];
+            std::pair<Vertex, Vertex> key = a < b ? std::make_pair(a, b) : std::make_pair(b, a);
+            Edge& e = edges[key];
+            e.a = a;
+            e.b = b;
+            e.inside = inside;
+            ++e.count;
+        }
+    }
+    for (const std::pair<const std::pair<Vertex, Vertex>, Edge>& entry : edges) {
+        const Edge& e = entry.second;
+        if (e.count != 1)
+            continue;
+        const gf::Point a = at(e.a), b = at(e.b), in = at(e.inside);
+        if (ghost) {
+            p.draw_line(a, b,
+                        look == PieceLook::ghost_ok ? gf::Color::rgba(255, 255, 255, 230)
+                                                    : gf::Color::rgba(255, 210, 210, 230),
+                        2);
+            continue;
+        }
+        p.draw_line(a, b,
+                    look == PieceLook::used ? gf::Color::rgba(160, 180, 205, 90)
+                                            : gf::Color::rgba(26, 44, 72, 170),
+                    1.1);
+        if (look == PieceLook::used)
+            continue;
+        // Outward normal decides whether this edge catches the light.
+        double nx = b.y - a.y, ny = -(b.x - a.x);
+        const double length = std::hypot(nx, ny);
+        nx /= length;
+        ny /= length;
+        if ((in.x - a.x) * nx + (in.y - a.y) * ny > 0) {
+            nx = -nx;
+            ny = -ny;
+        }
+        const double inset = std::max(1.2, unit * .035);
+        const gf::Point ia{a.x - nx * inset, a.y - ny * inset},
+            ib{b.x - nx * inset, b.y - ny * inset};
+        const bool lit = nx * -.7 + ny * -.7 > .1;
+        if (lit)
+            p.draw_line(ia, ib, gf::Color::rgba(255, 255, 255, 105), 1.0);
+    }
+}
+void sparkle(gf::Painter& p, gf::Point c, double r, gf::Color color) {
+    paint_polygon(p,
+                  {{c.x, c.y - r},
+                   {c.x + r * .22, c.y - r * .22},
+                   {c.x + r, c.y},
+                   {c.x + r * .22, c.y + r * .22},
+                   {c.x, c.y + r},
+                   {c.x - r * .22, c.y + r * .22},
+                   {c.x - r, c.y},
+                   {c.x - r * .22, c.y - r * .22}},
+                  color);
+}
+} // namespace
+// Puzzle Solve: target picture on the left (or above the tray when narrow), the frame,
+// and a tray of the seven pieces. Everything scales with the window.
+void PuzzleView::layout_solve(gf::Rect b) {
+    const double top = 62, bottom = b.height - 26, gap = std::clamp(b.width * .02, 10.0, 22.0);
+    const double avail = std::max(120.0, bottom - top);
+    const bool wide = b.width >= 820;
+    const double column =
+        wide ? std::clamp(b.width * .19, 150.0, 230.0) : std::clamp(b.width * .34, 150.0, 240.0);
+    const double frame = 12;
+    double side = wide ? std::min(avail - 2 * frame, b.width - 2 * column - 4 * gap - 2 * frame)
+                       : std::min(avail - 2 * frame, b.width - column - 3 * gap - 2 * frame);
+    side = std::max(120.0, std::min(side, 620.0));
+    if (wide) {
+        const double total = column * 2 + side + 2 * frame + gap * 2;
+        const double x0 = (b.width - total) * .5;
+        target_ = {x0, top, column, std::min(avail, column * 1.32)};
+        board_ = {x0 + column + gap + frame, top + (avail - side) * .5, side, side};
+        tray_ = {board_.x + side + frame + gap, top, column, avail};
+    } else {
+        board_ = {gap + frame, top + (avail - side) * .5, side, side};
+        const double x = board_.x + side + frame + gap, w = b.width - x - gap;
+        target_ = {x, top, w, std::min(avail * .42, w * 1.05)};
+        tray_ = {x, target_.y + target_.height + 8, w, bottom - target_.y - target_.height - 8};
+    }
+    // Tray slots: two or three columns, sized to fit seven pieces.
+    cells_.clear();
+    const double inner_top = tray_.y + 26, inner_h = tray_.height - 26 - 22;
+    const int cols = tray_.width >= 210 && inner_h < tray_.width * 1.6 ? 3 : 2;
+    const int rows = (7 + cols - 1) / cols;
+    const double slot = std::min((tray_.width - 16) / cols, inner_h / rows);
+    const double ox = tray_.x + (tray_.width - slot * cols) * .5;
+    for (int piece = 0; piece < 7; ++piece)
+        cells_.push_back({ox + (piece % cols) * slot + 3, inner_top + (piece / cols) * slot + 3,
+                          slot - 6, slot - 6});
 }
 void PuzzleView::paint_solve(gf::Painter& p) {
-    double unit = board_.width / 4;
-    p.fill_rect(board_, gf::Color::rgba(231, 233, 225));
-    // Subtle registration dots are guides; there are no artificial square seams.
-    for (int y = 0; y <= 4; ++y)
-        for (int x = 0; x <= 4; ++x)
-            p.fill_rounded_rect({board_.x + x * unit - 1.5, board_.y + y * unit - 1.5, 3, 3}, 1.5,
-                                gf::Color::rgba(149, 160, 159));
+    const gf::Rect b = client_rectangle();
+    const double unit = board_.width / 4;
+    // Workspace: deep navy blotter under a soft lamp.
+    p.fill_rect(b, gf::Color::rgba(18, 26, 44));
+    const gf::GradientStop lamp[] = {{0, gf::Color::rgba(64, 92, 140, 255)},
+                                     {1, gf::Color::rgba(18, 26, 44, 255)}};
+    p.fill_radial_gradient(b, {board_.x + board_.width * .5, board_.y + board_.height * .4},
+                           {b.width * .7, b.height * .8}, lamp);
+    // Frame: gilded wood around an ivory card with a faint construction grid.
+    const double celebrate = game.state.won && animation_duration_ > 0
+                                 ? std::clamp(elapsed() / animation_duration_, 0.0, 1.0)
+                                 : -1;
+    const gf::Rect outer{board_.x - 12, board_.y - 12, board_.width + 24, board_.height + 24};
+    p.draw_box_shadow(outer, 6, {0, 8}, 22, 0, gf::Color::rgba(0, 0, 0, 140));
+    if (celebrate >= 0 || game.state.won)
+        p.draw_box_shadow(outer, 8, {0, 0}, 26, 4,
+                          gf::Color::rgba(255, 214, 120,
+                                          static_cast<unsigned char>(
+                                              game.state.won && celebrate < 0
+                                                  ? 90
+                                                  : 90 + 120 * std::sin(celebrate * 3.14159))));
+    const gf::GradientStop wood[] = {{0, gf::Color::rgba(222, 182, 104)},
+                                     {.5, gf::Color::rgba(176, 128, 58)},
+                                     {1, gf::Color::rgba(132, 88, 36)}};
+    p.fill_linear_gradient(outer, {outer.x, outer.y},
+                           {outer.x + outer.width, outer.y + outer.height}, wood);
+    p.stroke_rect(outer, gf::Color::rgba(90, 58, 22), 1);
+    p.stroke_rect({outer.x + 4, outer.y + 4, outer.width - 8, outer.height - 8},
+                  gf::Color::rgba(255, 232, 170, 160), 1);
+    p.fill_rect({board_.x - 2, board_.y - 2, board_.width + 4, board_.height + 4},
+                gf::Color::rgba(98, 66, 30));
+    fill_vertical(p, board_, gf::Color::rgba(250, 245, 232), gf::Color::rgba(236, 228, 208));
+    for (int i = 1; i < 4; ++i) {
+        p.draw_line({board_.x + i * unit, board_.y},
+                    {board_.x + i * unit, board_.y + board_.height},
+                    gf::Color::rgba(196, 184, 156, 110), 1);
+        p.draw_line({board_.x, board_.y + i * unit}, {board_.x + board_.width, board_.y + i * unit},
+                    gf::Color::rgba(196, 184, 156, 110), 1);
+    }
+    for (int k = 0; k <= 8; k += 2) {
+        p.draw_line({board_.x + k * unit * .5, board_.y}, {board_.x, board_.y + k * unit * .5},
+                    gf::Color::rgba(196, 184, 156, 45), 1);
+        p.draw_line({board_.x + board_.width - k * unit * .5, board_.y},
+                    {board_.x + board_.width, board_.y + k * unit * .5},
+                    gf::Color::rgba(196, 184, 156, 45), 1);
+    }
     for (int piece = 0; piece < 7; ++piece) {
+        if (piece == drag_)
+            continue;
         std::vector<PieceCell> shape;
         for (int i = 0; i < 64; ++i)
             if (game.state.grid[i] / 4 == piece + 1)
                 shape.push_back({(i / 4) % 4, i / 16, game.state.grid[i] % 4, i % 4});
-        draw_polyform(p, shape, board_.x, board_.y, unit, false,
-                      piece == selection_ ? accent : gf::Color::rgba(38, 64, 85));
+        if (!shape.empty())
+            draw_piece(p, shape, board_.x, board_.y, unit, PieceLook::placed);
     }
-    if (hover_ >= 0 && !game.state.over) {
-        auto shape = game.piece_cells(selection_, rotation_, flip_);
-        bool valid = true;
-        for (auto& c : shape) {
-            c.x += hover_ % 4;
-            c.y += hover_ / 4;
-            if (c.x >= 4 || c.y >= 4 ||
-                (game.state.grid[(c.y * 4 + c.x) * 4 + c.wedge] &&
-                 game.state.grid[(c.y * 4 + c.x) * 4 + c.wedge] / 4 != selection_ + 1))
-                valid = false;
+    if (drag_ >= 0 && !game.state.over && in_rect(board_, solve_pointer_)) {
+        int sx = 0, sy = 0;
+        const bool valid = solve_snap(sx, sy);
+        std::vector<PieceCell> shape = game.piece_cells(selection_, rotation_, flip_);
+        for (PieceCell& c : shape) {
+            c.x += sx;
+            c.y += sy;
         }
         p.save();
         p.clip_rect(board_);
-        draw_polyform(p, shape, board_.x, board_.y, unit, false,
-                      valid ? gf::Color::rgba(49, 137, 99) : gf::Color::rgba(204, 68, 72), true);
+        draw_piece(p, shape, board_.x, board_.y, unit,
+                   valid ? PieceLook::ghost_ok : PieceLook::ghost_bad);
         p.restore();
     }
-    p.stroke_rect(board_, gf::Color::rgba(144, 163, 169), 2);
-    text(p, 28, 121, "The target", 20, accent);
-    std::vector<PieceCell> target;
-    for (int i = 0; i < 64; ++i)
-        target.push_back({(i / 4) % 4, i / 16, game.state.secret[i], i % 4});
-    draw_polyform(p, target, 28, 143, 38);
-    text(p, 28, 330, "Seven diagonal pieces", 14, ink);
-    text(p, 28, 362, "Drag a piece into the frame.", 13, ink);
-    text(p, 28, 389, "R rotates. F reflects.", 13, ink);
-    text(p, 28, 430, "Match both shape and color.", 13, muted);
-    text(p, 28, 457, "Right click to lift a piece.", 13, muted);
-    cells_.clear();
-    double tx = board_.x + board_.width + 26, step = (board_.height - 112) / 4;
-    text(p, tx, board_.y - 12, "PIECES", 11, muted);
-    for (int piece = 0; piece < 7; ++piece) {
-        gf::Rect r{tx + (piece % 2) * 95, board_.y + (piece / 2) * step, 86, step - 8};
-        cells_.push_back(r);
+    // Target card.
+    const gf::Color label = gf::Color::rgba(255, 222, 150),
+                    muted_ink = gf::Color::rgba(176, 192, 220);
+    const gf::FontSpec caps{gf::FontRole::content, 11, 700, false, 1.2};
+    p.draw_box_shadow(target_, 6, {0, 4}, 12, 0, gf::Color::rgba(0, 0, 0, 110));
+    fill_vertical(p, target_, gf::Color::rgba(38, 52, 82), gf::Color::rgba(26, 36, 60));
+    p.stroke_rounded_rect(target_, 6, gf::Color::rgba(255, 210, 122, 90), 1);
+    p.draw_text_utf8({target_.x + 12, target_.y + 20}, "THE PICTURE", caps, label);
+    const double picture = std::min(target_.width - 24, target_.height - 62);
+    if (picture > 30) {
+        const gf::Rect pic{target_.x + (target_.width - picture) * .5, target_.y + 30, picture,
+                           picture};
+        p.fill_rect({pic.x - 3, pic.y - 3, pic.width + 6, pic.height + 6},
+                    gf::Color::rgba(250, 245, 232));
+        std::vector<PieceCell> target;
+        for (int i = 0; i < 64; ++i)
+            target.push_back({(i / 4) % 4, i / 16, game.state.secret[i], i % 4});
+        for (const PieceCell& c : target) {
+            std::vector<gf::Point> pts;
+            for (std::pair<int, int> v : atom_vertices(c))
+                pts.push_back({pic.x + v.first * picture / 8, pic.y + v.second * picture / 8});
+            paint_polygon(p, pts, c.color == 1 ? solve_blue : solve_gold, false);
+        }
+        int placed = 0;
+        for (int piece = 0; piece < 7; ++piece)
+            for (int i = 0; i < 64; ++i)
+                if (game.state.grid[i] / 4 == piece + 1) {
+                    ++placed;
+                    break;
+                }
+        const std::string progress =
+            game.state.won ? "Solved in " + std::to_string(game.state.moves) + " moves"
+                           : std::to_string(placed) + " of 7 pieces placed";
+        p.draw_text_utf8({target_.x + 12, pic.y + pic.height + 22}, progress,
+                         {gf::FontRole::content, 13, 600, false},
+                         game.state.won ? label : muted_ink);
+    }
+    // Tray.
+    p.draw_box_shadow(tray_, 6, {0, 4}, 12, 0, gf::Color::rgba(0, 0, 0, 110));
+    fill_vertical(p, tray_, gf::Color::rgba(38, 52, 82), gf::Color::rgba(26, 36, 60));
+    p.stroke_rounded_rect(tray_, 6, gf::Color::rgba(255, 210, 122, 90), 1);
+    p.draw_text_utf8({tray_.x + 12, tray_.y + 18}, "PIECES", caps, label);
+    for (int piece = 0; piece < 7 && piece < static_cast<int>(cells_.size()); ++piece) {
+        const gf::Rect r = cells_[static_cast<std::size_t>(piece)];
         bool used = false;
         for (int i = 0; i < 64; ++i)
             used = used || game.state.grid[i] / 4 == piece + 1;
-        p.fill_rounded_rect(r, 3,
-                            piece == selection_ ? gf::Color::rgba(76, 101, 117)
-                                                : gf::Color::rgba(37, 53, 68));
-        auto shape = game.piece_cells(piece, piece == selection_ ? rotation_ : 0,
-                                      piece == selection_ && flip_);
+        const bool chosen = piece == selection_;
+        p.fill_rounded_rect(
+            r, 5, chosen ? gf::Color::rgba(62, 84, 126) : gf::Color::rgba(16, 24, 42, 170));
+        p.draw_inset_box_shadow(r, 5, {0, 2}, 5, 0, gf::Color::rgba(0, 0, 0, 120));
+        if (chosen)
+            p.stroke_rounded_rect(r, 5, gf::Color::rgba(255, 210, 122), 1.5);
+        if (piece == drag_)
+            continue;
+        std::vector<PieceCell> shape =
+            game.piece_cells(piece, chosen ? rotation_ : piece_rotation_[piece],
+                             chosen ? flip_ : piece_flip_[piece]);
         int mx = 0, my = 0;
-        for (auto c : shape) {
+        for (const PieceCell& c : shape) {
             mx = std::max(mx, c.x + 1);
             my = std::max(my, c.y + 1);
         }
-        double u = std::min((r.width - 16) / mx, (r.height - 23) / my);
-        draw_polyform(p, shape, r.x + (r.width - mx * u) / 2, r.y + 6, u, used,
-                      gf::Color::rgba(195, 211, 213));
-        text(p, r.x + 6, r.y + r.height - 5, std::to_string(piece + 1) + (used ? "   placed" : ""),
-             11, muted);
-        if (piece == selection_)
-            p.stroke_rounded_rect(r, 3, accent, 1.5);
+        const double u = std::min((r.width - 14) / mx, (r.height - 14) / my);
+        draw_piece(p, shape, r.x + (r.width - mx * u) * .5, r.y + (r.height - my * u) * .5, u,
+                   used ? PieceLook::used : PieceLook::tray);
     }
-    text(p, tx, board_.y + board_.height - 29, "Piece " + std::to_string(selection_ + 1), 14,
-         accent);
+    p.draw_text_utf8({tray_.x + 12, tray_.y + tray_.height - 8},
+                     tray_.width > 200 ? "Drag to the frame · R turns · F flips"
+                                       : "R turns · F flips",
+                     {gf::FontRole::content, 11, 400, false}, muted_ink);
+    if (drag_ >= 0) {
+        // The lifted piece rides under the pointer at frame scale, above everything else.
+        std::vector<PieceCell> shape = game.piece_cells(selection_, rotation_, flip_);
+        draw_piece(p, shape, solve_pointer_.x - grab_.x * unit, solve_pointer_.y - grab_.y * unit,
+                   unit, PieceLook::lifted);
+    }
+    if (celebrate >= 0) {
+        // Sparkles drift around the frame while the solved picture glows.
+        for (int i = 0; i < 14; ++i) {
+            const double a = i * 2.39996 + celebrate * 2.2,
+                         rr = outer.width * (.52 + .06 * std::sin(i * 1.7 + celebrate * 6));
+            const gf::Point c{outer.x + outer.width * .5 + std::cos(a) * rr,
+                              outer.y + outer.height * .5 + std::sin(a) * rr};
+            const double life = std::sin(std::clamp(celebrate * 1.3 - i * .03, 0.0, 1.0) * 3.14159);
+            sparkle(p, c, 4 + 9 * life,
+                    gf::Color::rgba(255, 236, 170, static_cast<unsigned char>(220 * life)));
+        }
+        const gf::Rect banner{board_.x + board_.width * .5 - 110,
+                              board_.y + board_.height * .5 - 30, 220, 60};
+        p.draw_box_shadow(banner, 10, {0, 6}, 18, 0, gf::Color::rgba(0, 0, 0, 120));
+        paint_gloss(p, banner, 10, GlossTone::gold, {});
+        const gf::FontSpec big{gf::FontRole::content, 28, 700, false, .5};
+        const gf::Size m = p.measure_text_utf8("Solved!", big);
+        p.draw_text_utf8({banner.x + (banner.width - m.width) * .5, banner.y + 41}, "Solved!", big,
+                         gloss_ink(GlossTone::gold));
+    }
+}
+void PuzzleView::solve_select(int piece) {
+    if (piece == selection_)
+        return;
+    piece_rotation_[selection_] = rotation_;
+    piece_flip_[selection_] = flip_;
+    selection_ = piece;
+    rotation_ = piece_rotation_[piece];
+    flip_ = piece_flip_[piece];
+}
+void PuzzleView::solve_recenter() {
+    int mx = 0, my = 0;
+    for (const PieceCell& c : game.piece_cells(selection_, rotation_, flip_)) {
+        mx = std::max(mx, c.x + 1);
+        my = std::max(my, c.y + 1);
+    }
+    grab_ = {mx * .5, my * .5};
+}
+bool PuzzleView::solve_snap(int& x, int& y) const {
+    double unit = board_.width / 4;
+    x = static_cast<int>(std::lround((solve_pointer_.x - board_.x) / unit - grab_.x));
+    y = static_cast<int>(std::lround((solve_pointer_.y - board_.y) / unit - grab_.y));
+    for (const PieceCell& c : game.piece_cells(selection_, rotation_, flip_)) {
+        int xx = x + c.x, yy = y + c.y;
+        if (xx < 0 || yy < 0 || xx >= 4 || yy >= 4)
+            return false;
+        int value = game.state.grid[(yy * 4 + xx) * 4 + c.wedge];
+        if (value && value / 4 != selection_ + 1)
+            return false;
+    }
+    return true;
+}
+// Recovers the orientation and origin of a placed piece, then removes it so it can be carried.
+bool PuzzleView::solve_lift(int piece) {
+    std::vector<std::pair<int, int>> placed;
+    int minx = 10, miny = 10;
+    for (int i = 0; i < 64; ++i)
+        if (game.state.grid[i] / 4 == piece + 1) {
+            int x = (i / 4) % 4, y = i / 16;
+            placed.push_back({(y * 4 + x) * 4 + i % 4, 0});
+            minx = std::min(minx, x);
+            miny = std::min(miny, y);
+        }
+    if (placed.empty())
+        return false;
+    for (int orientation = 0; orientation < 8; ++orientation) {
+        std::vector<PieceCell> cells = game.piece_cells(piece, orientation % 4, orientation >= 4);
+        if (cells.size() != placed.size())
+            continue;
+        bool match = true;
+        for (const PieceCell& c : cells) {
+            int i = ((miny + c.y) * 4 + minx + c.x) * 4 + c.wedge;
+            if (minx + c.x >= 4 || miny + c.y >= 4 ||
+                game.state.grid[i] != (piece + 1) * 4 + c.color)
+                match = false;
+        }
+        if (!match)
+            continue;
+        if (!game.remove_piece(piece))
+            return false;
+        solve_select(piece);
+        rotation_ = orientation % 4;
+        flip_ = orientation >= 4;
+        lifted_ = true;
+        lift_x_ = minx;
+        lift_y_ = miny;
+        lift_rotation_ = rotation_;
+        lift_flip_ = flip_;
+        double unit = board_.width / 4;
+        grab_ = {(solve_pointer_.x - board_.x) / unit - minx,
+                 (solve_pointer_.y - board_.y) / unit - miny};
+        return true;
+    }
+    return false;
 }
 void PuzzleView::paint_sticks(gf::Painter& p) {
     std::vector<Point2> hex = PuzzleGame::hex_cells();
@@ -745,11 +1395,11 @@ void PuzzleView::paint_help(gf::Painter& p) {
                  "Click squares to mark exactly three atoms, then Submit your deduction.",
                  "The generator rejects boards with identical complete probe signatures."};
     else if (game.kind == PuzzleKind::solve)
-        lines = {"Reproduce the blue / yellow target using all seven geometric pieces.",
-                 "Triangles, a square, and a parallelogram carry blue / yellow artwork.",
-                 "Choose a piece on the right. Rotate / R turns it; Flip / F mirrors it.",
-                 "Click the large frame to place the piece with its top-left bounds there.",
-                 "Pieces cannot overlap. Right click a placed piece to lift it.",
+        lines = {"Rebuild the blue and yellow picture using all seven pieces.",
+                 "Drag a piece from the tray into the frame; it snaps into place.",
+                 "While dragging, R or a right click turns it and F mirrors it.",
+                 "Click the chosen piece in the tray to turn it before you drag.",
+                 "Drag placed pieces to move them. Right click one to return it.",
                  "The target is generated from an actual tiling, so a solution always exists.",
                  "An alternative arrangement with the same colors is also a solution."};
     else
@@ -766,7 +1416,7 @@ void PuzzleView::paint_help(gf::Painter& p) {
 void PuzzleView::on_paint(gf::Painter& p, gf::Rect) {
     gf::Rect b = client_rectangle();
     p.fill_rect(b, gf::Color::rgba(112, 126, 133));
-    if (game.kind != PuzzleKind::cube && game.kind != PuzzleKind::pegs) {
+    if (game.kind == PuzzleKind::atom || game.kind == PuzzleKind::sticks) {
         double heights[] = {350, 0, 225, 347, 319, 288, 390, 495};
         gf::Rect notes{14, 86, 224, heights[static_cast<int>(game.kind)]};
         p.fill_rounded_rect(notes, 8, gf::Color::rgba(8, 22, 33, 110));
@@ -803,9 +1453,8 @@ void PuzzleView::on_paint(gf::Painter& p, gf::Rect) {
         paint_solve(p);
     else if (game.kind == PuzzleKind::sticks)
         paint_sticks(p);
-    paint_heading(p, {0, 0, b.width, 68}, puzzle_title(game.kind), static_cast<int>(game.kind) + 2);
-    p.fill_rect({0, b.height - 43, b.width, 43}, gf::Color::rgba(17, 31, 45, 225));
-    text(p, 28, b.height - 16, game.message, 13, ink);
+    text(p, 17, b.height - 11, game.message, 13, gf::Color::rgba(0, 0, 0, 120));
+    text(p, 16, b.height - 12, game.message, 13, ink);
     if (!panel_)
         return;
     p.fill_rect(b, gf::Color::rgba(4, 12, 26, 175));
@@ -829,8 +1478,8 @@ void PuzzleView::on_paint(gf::Painter& p, gf::Rect) {
     for (std::size_t i = 0; i < game.scores.size(); ++i) {
         text(p, popup_.x + 28, popup_.y + 178 + i * 27, std::to_string(i + 1), 16, accent);
         text(p, popup_.x + 75, popup_.y + 178 + i * 27, game.scores[i].name, 16, ink);
-        text(p, popup_.x + 544, popup_.y + 178 + i * 27, std::to_string(game.scores[i].value), 16,
-             accent);
+        text(p, popup_.x + popup_.width - 96, popup_.y + 178 + i * 27,
+             std::to_string(game.scores[i].value), 16, accent);
     }
 }
 void PuzzleView::panel(int kind) {
@@ -857,6 +1506,14 @@ void PuzzleView::persist() {
 }
 void PuzzleView::changed(const std::string& effect) {
     persist();
+    if (game.state.over && game.state.won && game.kind != PuzzleKind::gems &&
+        animation_duration_ <= 0) {
+        // A short celebration plays before the Top scores card opens.
+        animation_start_ = gf::FrameClock::now();
+        animation_duration_ = reduced_ ? .6 : 2.2;
+        if (timer_)
+            (*timer_).start();
+    }
     if (game.state.over) {
         if (game.state.won)
             sound_play("stinger_" + std::string(game.qualifies() ? "topscore_" : "win_") +
@@ -883,12 +1540,38 @@ void PuzzleView::new_game() {
     selection_ = 0;
     rotation_ = 0;
     flip_ = false;
+    piece_rotation_.fill(0);
+    piece_flip_.fill(false);
+    lifted_ = false;
     set_pointer_capture(false);
     panel(0);
     persist();
     music_play(game.kind == PuzzleKind::cube ? "nature_cube" : puzzle_slug(game.kind), music_);
     sound_play("ui_new_game", sound_);
     render();
+}
+std::vector<GameCommand> PuzzleView::commands() const {
+    std::vector<GameCommand> list{{"new", "New game", true, false, true}};
+    if (game.kind == PuzzleKind::solve) {
+        list.push_back({"rotate", "Rotate", panel_ == 0 && !game.state.over});
+        list.push_back({"flip", "Flip", panel_ == 0 && !game.state.over, flip_});
+    }
+    list.push_back({"help", "Help", true, panel_ == 1});
+    list.push_back({"scores", "Top scores", true, panel_ == 2});
+    return list;
+}
+void PuzzleView::run_command(std::string_view id) {
+    if (id == "new")
+        action(*buttons_[0]);
+    else if (id == "help")
+        panel_ == 1 ? panel(0) : action(*buttons_[1]);
+    else if (id == "scores")
+        panel_ == 2 ? panel(0) : action(*buttons_[2]);
+    else if (id == "rotate")
+        action(*buttons_[4]);
+    else if (id == "flip")
+        action(*buttons_[5]);
+    invalidate(gf::Dirty::paint);
 }
 void PuzzleView::action(gf::ButtonBase& button) {
     std::string id(button.stable_id().value());
@@ -926,6 +1609,21 @@ void PuzzleView::action(gf::ButtonBase& button) {
         static_cast<void>((*attached_window()).request_focus(shared_from_this()));
     invalidate(gf::Dirty::paint);
 }
+std::optional<gf::Point> PuzzleView::cube_cell_point(int cell) const {
+    double sx = 0, sy = 0;
+    int count = 0;
+    for (int y = 0; y < raster_.height; ++y)
+        for (int x = 0; x < raster_.width; ++x)
+            if (raster_.ids[static_cast<std::size_t>(y * raster_.width + x)] == cell) {
+                sx += x + .5;
+                sy += y + .5;
+                ++count;
+            }
+    if (!count || raster_.width <= 1)
+        return std::nullopt;
+    return gf::Point{board_.x + sx / count / raster_.width * board_.width,
+                     board_.y + sy / count / raster_.height * board_.height};
+}
 int PuzzleView::hit(gf::Point p) const {
     if (game.kind == PuzzleKind::gems) {
         if (!in_rect(board_, p))
@@ -941,12 +1639,29 @@ int PuzzleView::hit(gf::Point p) const {
                            raster_.width - 1),
             y = std::clamp(static_cast<int>((p.y - board_.y) / board_.height * raster_.height), 0,
                            raster_.height - 1);
-        return raster_.ids[y * raster_.width + x];
+        if (raster_.ids[y * raster_.width + x] >= 0)
+            return raster_.ids[y * raster_.width + x];
+        // The grout between tiles belongs to the nearest tile, so presses never fall through.
+        const int reach = std::max(2, raster_.width / 90);
+        int best = -1, best_distance = reach * reach + 1;
+        for (int dy = -reach; dy <= reach; ++dy)
+            for (int dx = -reach; dx <= reach; ++dx) {
+                const int xx = x + dx, yy = y + dy;
+                if (xx < 0 || yy < 0 || xx >= raster_.width || yy >= raster_.height)
+                    continue;
+                const int id = raster_.ids[yy * raster_.width + xx];
+                if (id >= 0 && dx * dx + dy * dy < best_distance) {
+                    best = id;
+                    best_distance = dx * dx + dy * dy;
+                }
+            }
+        return best;
     }
     if (game.kind == PuzzleKind::untangle) {
         for (int i = 0; i < 12; ++i)
             if (std::hypot(p.x - board_.x - game.state.nodes[i].x * board_.width,
-                           p.y - board_.y - game.state.nodes[i].y * board_.height) < 22)
+                           p.y - board_.y - game.state.nodes[i].y * board_.height) <
+                untangle_radius() + 8)
                 return i;
         return -1;
     }
@@ -962,8 +1677,10 @@ void PuzzleView::tick() {
         return;
     }
     bool moving = false;
+    if (game.kind == PuzzleKind::gems)
+        step_effects();
     if (game.kind == PuzzleKind::gems && animation_duration_ > 0 && !invalid_swap_ &&
-        elapsed() >= .23 && !game.state.over) {
+        elapsed() >= .23) {
         int step = static_cast<int>((elapsed() - .23) / .24);
         if (step != cascade_step_ && step % 2 == 0 &&
             step + 1 < static_cast<int>(game.cascade_frames.size())) {
@@ -978,6 +1695,7 @@ void PuzzleView::tick() {
                                                : "gems_bomb";
             }
             sound_play(effect, sound_);
+            spawn_effects(before, after, depth);
         }
         cascade_step_ = step;
     }
@@ -996,11 +1714,19 @@ void PuzzleView::tick() {
             pitch_ += dy * .23;
             moving = true;
         }
+        if (coarse_ != moving) {
+            coarse_ = moving;
+            fit_raster();
+        }
     }
-    if (game.kind == PuzzleKind::gems && !reduced_ && !panel_)
+    if (game.kind == PuzzleKind::gems && ((!reduced_ && !panel_) || !effects_.empty()))
         moving = true;
     render();
-    invalidate(board_);
+    // Celebrations draw beyond the board, so the whole view repaints while they run.
+    if (animation_duration_ > 0 && game.kind != PuzzleKind::gems)
+        invalidate(gf::Dirty::paint);
+    else
+        invalidate(board_);
     if (!moving && timer_)
         (*timer_).stop();
 }
@@ -1020,15 +1746,10 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                 invalidate(gf::Dirty::paint);
             }
         }
-        if (game.kind == PuzzleKind::solve) {
-            int next = -1;
-            if (in_rect(board_, local_position))
-                next = static_cast<int>((local_position.y - board_.y) * 4 / board_.height) * 4 +
-                       static_cast<int>((local_position.x - board_.x) * 4 / board_.width);
-            if (next != hover_) {
-                hover_ = next;
-                invalidate(board_);
-            }
+        if (game.kind == PuzzleKind::solve && drag_ >= 0) {
+            solve_pointer_ = local_position;
+            invalidate(gf::Dirty::paint);
+            e.handled = true;
         }
 
         if (game.kind == PuzzleKind::gems) {
@@ -1039,6 +1760,10 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                     invalidate(board_);
                 }
             }
+        }
+        if (game.kind == PuzzleKind::untangle && drag_ < 0 && hover_ != cell) {
+            hover_ = cell;
+            invalidate(board_);
         }
         if (game.kind == PuzzleKind::untangle && drag_ >= 0) {
             drag_position_ = {
@@ -1056,12 +1781,30 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                 if (timer_)
                     (*timer_).start();
             }
-            if (tracing_ && cell >= 0 && game.cube_extend(cell))
-                changed("nature_cube_trace");
+            if (tracing_ && cell >= 0) {
+                bool extended = game.cube_extend(cell);
+                // A quick diagonal flick skips a cell; route through the free corner cell.
+                const int pair = game.state.stage - 1;
+                if (!extended && pair >= 0 && pair < 6 && !game.state.paths[pair].empty()) {
+                    const int back = game.state.paths[pair].back();
+                    for (int m = 0; m < 96 && !extended; ++m)
+                        if (PuzzleGame::cube_adjacent(back, m) &&
+                            PuzzleGame::cube_adjacent(m, cell)) {
+                            PuzzleGame trial = game;
+                            if (trial.cube_extend(m) && trial.cube_extend(cell)) {
+                                game = trial;
+                                extended = true;
+                            }
+                        }
+                }
+                if (extended)
+                    changed("nature_cube_trace");
+            }
             hover_ = cell;
             last_pointer_ = local_position;
-            render();
-            invalidate(board_);
+            // Rendering happens once per frame in tick(), however many moves arrive.
+            if (timer_)
+                (*timer_).start();
         }
         return;
     }
@@ -1120,29 +1863,67 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
             else if (cell >= 16 && game.probe(cell - 16))
                 changed("atom_probe_fire");
         } else if (game.kind == PuzzleKind::solve) {
-            if (cell >= 0) {
-                selection_ = cell;
-                rotation_ = 0;
-                flip_ = false;
+            solve_pointer_ = local_position;
+            const bool secondary = e.button == gf::PointerButton::secondary;
+            if (drag_ >= 0 && secondary) {
+                // Right click while carrying a piece turns it about its center.
+                rotation_ = (rotation_ + 1) % 4;
+                solve_recenter();
+                sound_play("puzzle_solve_rotate", sound_);
+            } else if (cell >= 0 && !secondary && !game.state.over) {
+                // Pressing the piece that is already chosen, without dragging, turns it.
+                tray_turn_ = cell == selection_;
+                press_point_ = local_position;
+                solve_select(cell);
+                for (int i = 0; i < 64; ++i)
+                    if (game.state.grid[i] / 4 == cell + 1) {
+                        game.remove_piece(cell);
+                        break;
+                    }
+                lifted_ = false;
+                solve_recenter();
                 sound_play("puzzle_solve_pickup", sound_);
                 drag_ = cell;
                 set_pointer_capture(true);
-            } else if (in_rect(board_, local_position)) {
-                int x = static_cast<int>((local_position.x - board_.x) * 4 / board_.width),
-                    y = static_cast<int>((local_position.y - board_.y) * 4 / board_.height);
-                if (e.button == gf::PointerButton::secondary) {
-                    double fx = (local_position.x - board_.x) * 4 / board_.width - x,
-                           fy = (local_position.y - board_.y) * 4 / board_.height - y;
-                    int wedge = fy < fx ? (fy < 1 - fx ? 0 : 1) : (fy < 1 - fx ? 3 : 2);
-                    int piece = game.state.grid[(y * 4 + x) * 4 + wedge] / 4 - 1;
+            } else if (in_rect(board_, local_position) && !game.state.over) {
+                int x = std::clamp(
+                        static_cast<int>((local_position.x - board_.x) * 4 / board_.width), 0, 3),
+                    y = std::clamp(
+                        static_cast<int>((local_position.y - board_.y) * 4 / board_.height), 0, 3);
+                double fx = (local_position.x - board_.x) * 4 / board_.width - x,
+                       fy = (local_position.y - board_.y) * 4 / board_.height - y;
+                int wedge = fy < fx ? (fy < 1 - fx ? 0 : 1) : (fy < 1 - fx ? 3 : 2);
+                int piece = game.state.grid[(y * 4 + x) * 4 + wedge] / 4 - 1;
+                if (piece >= 0 && secondary) {
+                    // Right click returns a placed piece to the tray.
                     if (game.remove_piece(piece)) {
-                        selection_ = piece;
+                        solve_select(piece);
                         changed("puzzle_solve_pickup");
                     }
-                } else if (game.place_piece(selection_, x, y, rotation_, flip_))
-                    changed("puzzle_solve_place");
-                else
-                    sound_play("puzzle_solve_no_fit", sound_);
+                } else if (piece >= 0 && solve_lift(piece)) {
+                    drag_ = piece;
+                    set_pointer_capture(true);
+                    sound_play("puzzle_solve_pickup", sound_);
+                } else if (piece < 0 && !secondary) {
+                    // Clicking empty frame space drops the selected piece there, kept inside the
+                    // frame.
+                    int mx = 0, my = 0;
+                    for (const PieceCell& c : game.piece_cells(selection_, rotation_, flip_)) {
+                        mx = std::max(mx, c.x + 1);
+                        my = std::max(my, c.y + 1);
+                    }
+                    double unit = board_.width / 4;
+                    int px = std::clamp(static_cast<int>(std::lround(
+                                            (local_position.x - board_.x) / unit - mx * .5)),
+                                        0, 4 - mx),
+                        py = std::clamp(static_cast<int>(std::lround(
+                                            (local_position.y - board_.y) / unit - my * .5)),
+                                        0, 4 - my);
+                    if (game.place_piece(selection_, px, py, rotation_, flip_))
+                        changed("puzzle_solve_place");
+                    else
+                        sound_play("puzzle_solve_no_fit", sound_);
+                }
             }
         } else if (game.kind == PuzzleKind::sticks) {
             if (cell >= 0 &&
@@ -1155,17 +1936,38 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
         e.handled = true;
     }
     if (e.action == gf::PointerAction::up) {
-        set_pointer_capture(false);
-        if (game.kind == PuzzleKind::solve && drag_ >= 0) {
+        if (!(game.kind == PuzzleKind::solve && drag_ >= 0 &&
+              e.button == gf::PointerButton::secondary))
+            set_pointer_capture(false);
+        if (game.kind == PuzzleKind::solve && drag_ >= 0 &&
+            e.button != gf::PointerButton::secondary) {
+            const int carried = drag_;
             drag_ = -1;
-            if (in_rect(board_, local_position)) {
-                int x = static_cast<int>((local_position.x - board_.x) * 4 / board_.width),
-                    y = static_cast<int>((local_position.y - board_.y) * 4 / board_.height);
-                if (game.place_piece(selection_, x, y, rotation_, flip_))
-                    changed("puzzle_solve_place");
-                else
+            solve_pointer_ = local_position;
+            int x = 0, y = 0;
+            const bool clicked = std::hypot(local_position.x - press_point_.x,
+                                            local_position.y - press_point_.y) < 5;
+            if (!lifted_ && clicked && carried >= 0 && carried < static_cast<int>(cells_.size()) &&
+                in_rect(cells_[static_cast<std::size_t>(carried)], local_position)) {
+                if (tray_turn_) {
+                    rotation_ = (rotation_ + 1) % 4;
+                    sound_play("puzzle_solve_rotate", sound_);
+                }
+                tray_turn_ = false;
+                invalidate(gf::Dirty::paint);
+            } else if (in_rect(board_, local_position) && solve_snap(x, y) &&
+                       game.place_piece(selection_, x, y, rotation_, flip_))
+                changed("puzzle_solve_place");
+            else {
+                // A piece carried from the frame and dropped nowhere useful goes back where it was.
+                if (lifted_ && in_rect(board_, local_position)) {
                     sound_play("puzzle_solve_no_fit", sound_);
+                    game.place_piece(selection_, lift_x_, lift_y_, lift_rotation_, lift_flip_);
+                }
+                persist();
             }
+            lifted_ = false;
+            invalidate(gf::Dirty::paint);
         }
         if (game.kind == PuzzleKind::cube) {
             tracing_ = false;
@@ -1212,11 +2014,15 @@ void PuzzleView::on_key(gf::KeyEvent& e) {
     }
     if (panel_)
         return;
-    if (e.physical_key == gf::PhysicalKey::r && game.kind == PuzzleKind::solve)
+    if (e.physical_key == gf::PhysicalKey::r && game.kind == PuzzleKind::solve) {
         rotation_ = (rotation_ + 1) % 4;
-    else if (e.physical_key == gf::PhysicalKey::f && game.kind == PuzzleKind::solve)
+        if (drag_ >= 0)
+            solve_recenter();
+    } else if (e.physical_key == gf::PhysicalKey::f && game.kind == PuzzleKind::solve) {
         flip_ = !flip_;
-    else if (e.physical_key == gf::PhysicalKey::left && game.kind == PuzzleKind::pegs)
+        if (drag_ >= 0)
+            solve_recenter();
+    } else if (e.physical_key == gf::PhysicalKey::left && game.kind == PuzzleKind::pegs)
         selection_ = (selection_ + 3) % 4;
     else if (e.physical_key == gf::PhysicalKey::right && game.kind == PuzzleKind::pegs)
         selection_ = (selection_ + 1) % 4;

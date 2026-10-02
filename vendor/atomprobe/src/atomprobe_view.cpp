@@ -462,7 +462,6 @@ void AtomProbeView::tick() {
     const double tx = mouse_in_ && pw_ > 0 ? mouse_x_ / pw_ * 2 - 1 : 0, ty = mouse_in_ && ph_ > 0 ? mouse_y_ / ph_ * 2 - 1 : 0;
     look_x_ += (tx - look_x_) * std::min(1.0, dt * 2);
     look_y_ += (ty - look_y_) * std::min(1.0, dt * 2);
-    ch_.look(cab_reduced_ ? 0 : look_x_, cab_reduced_ ? 0 : look_y_);
     // pending top score: the book opens a moment after the result
     if (pending_score_ > 0 && result_ && panel_ == Panel::none && message_t_ > 1.4) {
         if (qualifies(save_.scores, pending_score_)) { open(Panel::name); play("ap_stinger_topscore", .9f); audio_duck_music(1); }
@@ -487,6 +486,9 @@ void AtomProbeView::tick() {
             std::filesystem::path(games::asset_directory()) / "fonts", "BarlowCondensed");
     }
     if (!rendering_pending_) {
+        // The camera moves only between published frames. Label sizes follow the camera, so a
+        // camera that drifts while text is pending would request new masks forever (no frame).
+        ch_.look(cab_reduced_ ? 0 : look_x_, cab_reduced_ ? 0 : look_y_);
         capture_render_state();
     if (cab_reduced_) {
         ChamberState displayed = st_;
@@ -685,11 +687,13 @@ void AtomProbeView::layout_render_buttons() {
             (*rendering_).buttons_.push_back({id, label, x, y, w, bh});
             x += w + 4;
         };
-        add("new", "New box");
-        add("help", "Help");
-        add("scores", "Top scores");
-        add("music", (*rendering_).save_.settings.music ? "Music on" : "Music off");
-        add("sound", (*rendering_).save_.settings.sound ? "Sound on" : "Sound off");
+        if (!opt_.hosted) {
+            add("new", "New box");
+            add("help", "Help");
+            add("scores", "Top scores");
+            add("music", (*rendering_).save_.settings.music ? "Music on" : "Music off");
+            add("sound", (*rendering_).save_.settings.sound ? "Sound on" : "Sound off");
+        }
         if ((*rendering_).result_) {
             // over the console once the box is open
             double cx, cy;
@@ -727,7 +731,7 @@ void AtomProbeView::draw_overlay() {
         ch_.to_screen(Chamber::plate(p) + ch_.r.right() * .24, ex, ey);
         const std::string g = v.kind == 1 ? "H" : v.kind == 2 ? "R" : std::to_string(v.pair);
         // sized to the cap as the camera sees it
-        const double size = std::clamp(std::hypot(ex - x, ey - y) * (g.size() > 1 ? 1.9 : 2.5), 8.0, 18.0);
+        const double size = std::round(std::clamp(std::hypot(ex - x, ey - y) * (g.size() > 1 ? 1.9 : 2.5), 8.0, 18.0) * 2) / 2;
         const int w = text_w(g, size, true), h = text_h(g, size, true);
         text(g, static_cast<int>(std::lround(x - w / 2.0)), static_cast<int>(std::lround(y - h / 2.0)), kInk, size, true);
     }
@@ -869,6 +873,17 @@ void AtomProbeView::capture_render_state() {
     state.result_ = result_;
     state.pending_score_ = pending_score_;
     state.t_ = t_;
+}
+
+void AtomProbeView::host_command(const std::string& id) {
+    if (id == "new") { action("new"); return; }
+    const Panel wanted = id == "help" ? Panel::help : id == "scores" ? Panel::scores : Panel::none;
+    if (wanted == Panel::none || panel_ == Panel::name) return;
+    open(panel_ == wanted ? Panel::none : wanted);
+}
+
+std::string AtomProbeView::host_panel() const {
+    return panel_ == Panel::help ? "help" : panel_ == Panel::scores ? "scores" : "";
 }
 
 }  // namespace ap

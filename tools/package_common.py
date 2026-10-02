@@ -56,7 +56,7 @@ def copy_resources(build, toolkit, destination):
         raise RuntimeError("Pinned Vorbis source is missing its license notice")
     (notices / "stb_vorbis.txt").write_text(vorbis[start:], encoding="utf-8")
     (destination / "README.txt").write_text(
-        "Games\n\nA native collection of card games, puzzles and arcade scenes.\n"
+        "PlaySuite\n\nA native collection of card games, puzzles and arcade scenes.\n"
         "Choose a game and use Play / Continue. Each game has Help.\n"
         "Music, Sound and Motion in the collection are master controls.\n"
         "Saves are per-user and remain separate from this application folder.\n"

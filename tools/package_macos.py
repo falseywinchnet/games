@@ -32,7 +32,7 @@ def main():
     source_app = build / "games.app"
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    app = output / "Games.app"
+    app = output / "PlaySuite.app"
     shutil.copytree(source_app, app)
     executable = app / "Contents/MacOS/games"
     original_executable = source_app / "Contents/MacOS/games"
@@ -47,6 +47,7 @@ def main():
     plist_path = app / "Contents/Info.plist"
     plist = plistlib.loads(plist_path.read_bytes())
     plist["LSMinimumSystemVersion"] = "15.0"
+    plist["CFBundleDisplayName"] = "PlaySuite"
     plist_path.write_bytes(plistlib.dumps(plist))
 
     def expand(value, owner):
@@ -114,10 +115,10 @@ def main():
     write_manifest(resources, "macOS", "arm64")
     run(["codesign", "--force", "--deep", "--sign", "-", str(app)])
     run(["codesign", "--verify", "--deep", "--strict", str(app)])
-    stem = "games-" + project_version() + "-macos-arm64"
+    stem = "playsuite-" + project_version() + "-macos-arm64"
     run(["ditto", "-c", "-k", "--keepParent", str(app), str(output / (stem + ".zip"))])
     installer_root = output / "installer-root"
-    shutil.copytree(app, installer_root / "Games.app")
+    shutil.copytree(app, installer_root / "PlaySuite.app")
     components = output / "components.plist"
     run(["pkgbuild", "--analyze", "--root", str(installer_root), str(components)])
     records = plistlib.loads(components.read_bytes())

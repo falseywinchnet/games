@@ -16,19 +16,20 @@ SYSTEM = {"kernel32.dll", "user32.dll", "gdi32.dll", "advapi32.dll", "comdlg32.d
 
 
 def make_installer(bundle, output):
-    installer = output / ("games-" + project_version() + "-windows-x64-setup.exe")
+    installer = output / ("playsuite-" + project_version() + "-windows-x64-setup.exe")
     script = output / "games-installer.nsi"
-    lines = ['Unicode True', '!include "MUI2.nsh"', 'Name "Games"',
+    lines = ['Unicode True', '!include "MUI2.nsh"', 'Name "PlaySuite"',
              'OutFile "' + str(installer).replace("/", "\\") + '"', 'InstallDir "$LOCALAPPDATA\\Rainstar\\Games"',
              'RequestExecutionLevel user', '!insertmacro MUI_PAGE_WELCOME',
              '!insertmacro MUI_PAGE_DIRECTORY', '!insertmacro MUI_PAGE_INSTFILES',
              '!insertmacro MUI_PAGE_FINISH', '!insertmacro MUI_UNPAGE_CONFIRM',
              '!insertmacro MUI_UNPAGE_INSTFILES', '!insertmacro MUI_LANGUAGE "English"',
-             'Section "Games"', 'SetOutPath "$INSTDIR"', 'File /r "' + str(bundle / "*").replace("/", "\\") + '"',
+             'Section "PlaySuite"', 'SetOutPath "$INSTDIR"', 'File /r "' + str(bundle / "*").replace("/", "\\") + '"',
              'CreateDirectory "$SMPROGRAMS\\Rainstar"',
-             'CreateShortcut "$SMPROGRAMS\\Rainstar\\Games.lnk" "$INSTDIR\\games.exe"',
+             'Delete "$SMPROGRAMS\\Rainstar\\Games.lnk"',
+             'CreateShortcut "$SMPROGRAMS\\Rainstar\\PlaySuite.lnk" "$INSTDIR\\games.exe"',
              'WriteUninstaller "$INSTDIR\\Uninstall.exe"',
-             'WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\RainstarGames" "DisplayName" "Games"',
+             'WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\RainstarGames" "DisplayName" "PlaySuite"',
              'WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\RainstarGames" "UninstallString" \'$\\"$INSTDIR\\Uninstall.exe$\\"\'',
              'SectionEnd', 'Section "Uninstall"']
     directories = []
@@ -43,7 +44,8 @@ def make_installer(bundle, output):
     for relative in sorted(directories, key=len, reverse=True):
         lines.append('RMDir "$INSTDIR\\' + relative + '"')
     lines += ['Delete "$INSTDIR\\Uninstall.exe"', 'RMDir "$INSTDIR"',
-              'Delete "$SMPROGRAMS\\Rainstar\\Games.lnk"', 'RMDir "$SMPROGRAMS\\Rainstar"',
+              'Delete "$SMPROGRAMS\\Rainstar\\Games.lnk"',
+              'Delete "$SMPROGRAMS\\Rainstar\\PlaySuite.lnk"', 'RMDir "$SMPROGRAMS\\Rainstar"',
               'DeleteRegKey HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\RainstarGames"', 'SectionEnd']
     script.write_text("\n".join(lines) + "\n", encoding="utf-8")
     subprocess.run(["makensis", str(script)], check=True)
@@ -58,7 +60,7 @@ def main():
     parser.add_argument("--installer", action="store_true")
     args = parser.parse_args()
     output = args.output.resolve()
-    bundle = output / "Games"
+    bundle = output / "PlaySuite"
     bundle.mkdir(parents=True, exist_ok=False)
     executable = bundle / "games.exe"
     shutil.copy2(args.build / "games.exe", executable)
@@ -92,11 +94,11 @@ def main():
     for notice in (ROOT / "packaging/licenses").glob("*.txt"):
         shutil.copy2(notice, runtime_notices / notice.name)
     write_manifest(bundle, "Windows", "x64")
-    archive = output / ("games-" + project_version() + "-windows-x64.zip")
+    archive = output / ("playsuite-" + project_version() + "-windows-x64.zip")
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as compressed:
         for path in sorted(bundle.rglob("*")):
             if path.is_file():
-                compressed.write(path, "Games/" + path.relative_to(bundle).as_posix())
+                compressed.write(path, "PlaySuite/" + path.relative_to(bundle).as_posix())
     if args.installer:
         make_installer(bundle, output)
     print(archive)

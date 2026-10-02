@@ -1,10 +1,10 @@
 #include "collection.hpp"
 #include "gui_forms/window.hpp"
+#include "test_paths.hpp"
 #include <cassert>
 #include <filesystem>
 #include <iostream>
 #include <set>
-#include "test_paths.hpp"
 namespace gf = gui_forms;
 using namespace games;
 class NullPainter final : public gf::Painter {
@@ -55,8 +55,7 @@ static std::shared_ptr<gf::Button> button(gf::Control& root, const std::string& 
     return {};
 }
 int main() {
-    std::filesystem::path scratch =
-        games_test::scratch_directory("games-nested-ui-");
+    std::filesystem::path scratch = games_test::scratch_directory("games-nested-ui-");
     games_test::isolate_saves(scratch);
     Cabinet preferences;
     for (int i = 0; i < 4; ++i) {
@@ -103,7 +102,7 @@ int main() {
         assert((*view).game.grid.notes[0] == 1 && (*view).game.errors == 0);
         click(window, *view, {342, 122});
         assert((*view).game.grid.values[0] == 1 && (*view).game.errors == 1);
-        assert((*button(*view, "sudoku.1")).perform_click());
+        (*view).run_command("undo"); // Undo lives in the PlaySuite capsule.
         assert((*view).game.grid.values[0] == 0 && (*view).game.grid.notes[0] == 1 &&
                (*view).game.errors == 1);
         Sudoku restored;
@@ -137,9 +136,11 @@ int main() {
             }
             assert(found);
             point(window, *view, gf::PointerAction::down,
-                  {316 + (a % 8 + .5) * 68.5, 86 + (a / 8 + .5) * 68.5});
+                  {(*view).board().x + (a % 8 + .5) * (*view).board().width / 8,
+                   (*view).board().y + (a / 8 + .5) * (*view).board().height / 8});
             point(window, *view, gf::PointerAction::up,
-                  {316 + (b % 8 + .5) * 68.5, 86 + (b / 8 + .5) * 68.5});
+                  {(*view).board().x + (b % 8 + .5) * (*view).board().width / 8,
+                   (*view).board().y + (b / 8 + .5) * (*view).board().height / 8});
             assert(game.state.grid == before && game.state.moves == 0 &&
                    game.message.find("does not") != std::string::npos);
         }
@@ -157,21 +158,54 @@ int main() {
                    game.state.grid[2] == 2 && game.state.grid[3] == 3);
         }
         if (game.kind == PuzzleKind::atom) {
-            click(window, *view, {316 + 548 / 6.0 * 1.5, 86 + 548 / 6.0 * .5});
+            const gf::Rect board = (*view).board();
+            click(window, *view,
+                  {board.x + board.width / 6 * 1.5, board.y + board.height / 6 * .5});
             assert(game.state.moves == 1 && game.state.aux[0] != -99);
-            click(window, *view, {316 + 548 / 6.0 * 1.5, 86 + 548 / 6.0 * 1.5});
+            click(window, *view,
+                  {board.x + board.width / 6 * 1.5, board.y + board.height / 6 * 1.5});
             assert(game.state.grid[0] == 1);
         }
         if (game.kind == PuzzleKind::solve) {
-            click(window, *view, {326, 96});
+            click(window, *view, {(*view).board().x + 10, (*view).board().y + 10});
             int occupied = 0;
             for (int i = 0; i < 64; ++i)
                 occupied += game.state.grid[i] != 0;
             assert(occupied == static_cast<int>(game.piece_cells(0, 0, false).size()) &&
                    game.state.moves == 1);
         }
+        if (game.kind == PuzzleKind::cube) {
+            // Trace from a colored source onto a neighboring cell with real pointer events,
+            // including a step that folds across the cube's edge.
+            int source = -1, next = -1;
+            for (int c = 0; c < 96 && next < 0; ++c) {
+                if (!PuzzleGame::cube_playable(c) || !game.state.marks[c] ||
+                    !(*view).cube_cell_point(c))
+                    continue;
+                for (int n = 0; n < 96; ++n)
+                    if (PuzzleGame::cube_playable(n) && !game.state.marks[n] &&
+                        PuzzleGame::cube_adjacent(c, n) && (*view).cube_cell_point(n)) {
+                        source = c;
+                        next = n;
+                        break;
+                    }
+            }
+            assert(source >= 0 && next >= 0);
+            const gf::Point a = *(*view).cube_cell_point(source),
+                            b = *(*view).cube_cell_point(next);
+            point(window, *view, gf::PointerAction::down, a);
+            for (int k = 1; k <= 8; ++k)
+                point(window, *view, gf::PointerAction::move,
+                      {a.x + (b.x - a.x) * k / 8, a.y + (b.y - a.y) * k / 8});
+            point(window, *view, gf::PointerAction::up, b);
+            const int pair = game.cube_pair(source);
+            assert(pair > 0 && game.state.paths[pair - 1].size() == 2 &&
+                   game.state.paths[pair - 1][1] == next);
+        }
         if (game.kind == PuzzleKind::sticks) {
-            click(window, *view, {316 + 274, 86 + 274});
+            click(window, *view,
+                  {(*view).board().x + (*view).board().width / 2,
+                   (*view).board().y + (*view).board().height / 2});
             assert(game.state.grid[18] == 1);
         }
         assert(game.invariant());
@@ -196,75 +230,151 @@ int main() {
             }
     }
     {
-        auto collection = gf::make_control<Collection>(gf::StableId("collection"));
+        std::shared_ptr<Collection> collection =
+            gf::make_control<Collection>(gf::StableId("collection"));
         gf::Window window(collection, {1180, 800});
         window.perform_layout();
-        std::shared_ptr<gf::Control> library, eggy;
-        for (const auto& c : collection->children()) {
-            if (c->stable_id().value() == "collection.library")
-                library = c;
-            if (c->stable_id().value() == "collection.eggy")
-                eggy = c;
-        }
-        assert(library && eggy && library->visible() && !eggy->visible());
+        struct FindChild {
+
+            std::shared_ptr<gf::Control> operator()(gf::Control& root,
+                                                    const std::string& id) const {
+                for (const std::shared_ptr<gf::Control>& c : root.children())
+                    if ((*c).stable_id().value() == id)
+                        return c;
+                return {};
+            }
+        };
+        FindChild child{};
+        std::shared_ptr<gf::Control> shelf = child(*collection, "collection.shelf"),
+                                     capsule = child(*collection, "collection.capsule"),
+                                     eggy = child(*collection, "collection.eggy"),
+                                     cards = child(*collection, "collection.cards");
+        assert(shelf && capsule && eggy && cards);
+        assert((*shelf).visible() && !(*capsule).visible() && !(*eggy).visible());
+        // PlaySuite lists all thirteen games in one place, with no categories.
+        for (int i = 0; i < entry_count; ++i)
+            assert(button(*shelf, "shelf.box." + std::to_string(i)) &&
+                   (*button(*shelf, "shelf.box." + std::to_string(i))).visible());
+        assert(!button(*shelf, "collection.category.0"));
         assert(!std::filesystem::exists(scratch / "eggy-v1.txt"));
-        assert(button(*library, "collection.9")->perform_click());
-        assert(library->visible() && !eggy->visible()); // selection is separate from opening
-        assert(button(*library, "collection.open")->perform_click());
-        assert(!library->visible() && eggy->visible());
+        const std::string eggy_box = "shelf.box." + std::to_string(static_cast<int>(Entry::eggy));
+        assert((*button(*shelf, eggy_box)).perform_click());
+        assert((*shelf).visible() && !(*eggy).visible()); // selection is separate from opening
+        assert((*button(*shelf, eggy_box)).selected());
+        assert((*button(*shelf, "shelf.play")).perform_click());
+        window.perform_layout();
+        assert(!(*shelf).visible() && (*eggy).visible() && (*capsule).visible());
         assert(!std::filesystem::exists(scratch / "eggy-v1.txt"));
         click(window, *eggy, {200, 200}); // Begin the first climb, using nested coordinates.
-        assert(button(*collection, "collection.command.0")->perform_click());
-        assert(library->visible() && !eggy->visible());
+        assert((*button(*capsule, "capsule.back")).perform_click());
+        assert((*shelf).visible() && !(*eggy).visible() && !(*capsule).visible());
         eggy::SaveData restored;
         assert(eggy::load_save(scratch / "eggy-v1.txt", restored));
-        assert(button(*library, "collection.0")->perform_click());
-        assert(button(*library, "collection.0")->selected());
-        assert(button(*library, "collection.category.3")->perform_click());
-        window.perform_layout();
-        assert(button(*library, "collection.9")->visible());
-        assert(!button(*library, "collection.0")->visible());
-        assert(button(*library, "collection.9")->selected());
-        assert(button(*library, "collection.category.0")->perform_click());
-        window.perform_layout();
-        assert(button(*library, "collection.0")->visible());
-        std::shared_ptr<gf::Control> switchbox{};
-        for (const std::shared_ptr<gf::Control>& child : (*collection).children()) {
-            if ((*child).stable_id().value() == "switchbox.view") { switchbox = child; }
+        // Each card game is its own box and opens the shared table on that game.
+        for (Entry e : {Entry::spider, Entry::freecell, Entry::hearts, Entry::solitaire}) {
+            (*collection).open_entry(e);
+            window.perform_layout();
+            assert((*cards).visible() && !(*shelf).visible());
+            assert(static_cast<int>((*std::static_pointer_cast<Table>(cards)).game.state.kind) ==
+                   static_cast<int>(e));
+            assert(button(*capsule, "capsule.cmd.new") && button(*capsule, "capsule.cmd.undo"));
+            (*collection).show_shelf();
         }
-        assert(switchbox && !(*switchbox).visible());
-        bool clicked = (*button(*library, "collection.7")).perform_click();
-        assert(clicked && (*library).visible() && !(*switchbox).visible());
-        clicked = (*button(*library, "collection.open")).perform_click();
-        assert(clicked && !(*library).visible() && (*switchbox).visible());
-        clicked = (*button(*collection, "collection.command.0")).perform_click();
-        assert(clicked && (*library).visible() && !(*switchbox).visible());
-        std::shared_ptr<gf::Control> fourpegs{};
-        bool old_pegs_offered = false;
-        for (const std::shared_ptr<gf::Control>& child : (*collection).children()) {
-            if ((*child).stable_id().value() == "fourpegs.view") { fourpegs = child; }
-            if ((*child).stable_id().value() == "collection.puzzle.4") { old_pegs_offered = true; }
+        // Hovering opens the capsule; tests advance its opening directly.
+        struct OpenCapsule {
+            const std::shared_ptr<gf::Control>& capsule;
+            const std::shared_ptr<Collection>& collection;
+            gf::Window& window;
+            void operator()() const {
+                (*std::static_pointer_cast<CommandCapsule>(capsule)).step(1.0, true, true);
+                (*collection).invalidate(gf::Dirty::layout);
+                window.perform_layout();
+            }
+        };
+        OpenCapsule open_capsule{capsule, collection, window};
+        struct VisitGame {
+            const FindChild& child;
+            const std::shared_ptr<Collection>& collection;
+            const std::shared_ptr<gf::Control>& shelf;
+            gf::Window& window;
+            std::shared_ptr<gf::Control> operator()(Entry e, const std::string& id) const {
+                std::shared_ptr<gf::Control> view = child(*collection, id);
+                assert(view && !(*view).visible());
+                const std::string box = "shelf.box." + std::to_string(static_cast<int>(e));
+                assert((*button(*shelf, box)).perform_click());
+                assert((*shelf).visible() && !(*view).visible());
+                assert((*button(*shelf, "shelf.play")).perform_click());
+                window.perform_layout();
+                assert(!(*shelf).visible() && (*view).visible());
+                return view;
+            }
+        };
+        VisitGame visit{child, collection, shelf, window};
+        std::shared_ptr<gf::Control> switchbox = visit(Entry::switchbox, "switchbox.view");
+        assert((*button(*capsule, "capsule.back")).perform_click());
+        assert((*shelf).visible() && !(*switchbox).visible());
+        // The retired puzzle-view versions of Four Pegs and Atom Probe are never offered.
+        assert(!child(*collection, "collection.puzzle.4") &&
+               !child(*collection, "collection.puzzle.3"));
+        std::shared_ptr<gf::Control> fourpegs = visit(Entry::pegs, "fourpegs.view");
+        assert(!(*switchbox).visible());
+        // Capsule commands reach hosted games: Help opens and closes the game's own panel.
+        open_capsule();
+        assert((*button(*capsule, "capsule.cmd.help")).perform_click());
+        assert((*std::static_pointer_cast<fp::FourPegsView>(fourpegs)).host_panel() == "help");
+        assert((*button(*capsule, "capsule.cmd.help")).perform_click());
+        assert((*std::static_pointer_cast<fp::FourPegsView>(fourpegs)).host_panel().empty());
+        assert((*button(*capsule, "capsule.back")).perform_click());
+        assert((*shelf).visible() && !(*fourpegs).visible());
+        std::shared_ptr<gf::Control> atomprobe = visit(Entry::atom, "atomprobe.view");
+        assert(!(*fourpegs).visible());
+        open_capsule();
+        assert((*button(*capsule, "capsule.cmd.scores")).perform_click());
+        assert((*std::static_pointer_cast<ap::AtomProbeView>(atomprobe)).host_panel() == "scores");
+        assert((*button(*capsule, "capsule.back")).perform_click());
+        assert((*shelf).visible() && !(*atomprobe).visible());
+    }
+    {
+        // Reopening resumes where the player left: in a game, or on the shelf.
+        std::shared_ptr<Collection> collection =
+            gf::make_control<Collection>(gf::StableId("collection.resume"));
+        assert((*collection).shelf_open() && (*collection).active() == Entry::atom);
+        (*collection).open_entry(Entry::gems);
+    }
+    {
+        std::shared_ptr<Collection> collection =
+            gf::make_control<Collection>(gf::StableId("collection.resume2"));
+        assert(!(*collection).shelf_open() && (*collection).active() == Entry::gems);
+    }
+    {
+        // Every game must keep its commands usable at the supported minimum size.
+        std::shared_ptr<Collection> collection =
+            gf::make_control<Collection>(gf::StableId("collection.small"));
+        gf::Window window(collection, {600, 420});
+        std::shared_ptr<CommandCapsule> capsule;
+        for (const std::shared_ptr<gf::Control>& child : (*collection).children())
+            if ((*child).stable_id().value() == "collection.capsule")
+                capsule = std::static_pointer_cast<CommandCapsule>(child);
+        assert(capsule);
+        for (int i = 0; i < entry_count; ++i) {
+            (*collection).open_entry(static_cast<Entry>(i));
+            window.perform_layout();
+            (*capsule).step(1.0, true, true);
+            (*collection).invalidate(gf::Dirty::layout);
+            window.perform_layout();
+            const gf::Rect bounds = (*capsule).client_rectangle();
+            for (const std::shared_ptr<gf::Control>& child : (*capsule).children()) {
+                assert((*child).visible());
+                const gf::Rect rect = (*child).client_rectangle();
+                const gf::Point bottom = (*child).point_to_window({rect.width, rect.height});
+                const gf::Point top = (*child).point_to_window({0, 0});
+                const gf::Point parent_bottom =
+                    (*capsule).point_to_window({bounds.width, bounds.height});
+                assert(top.x >= 0 && top.y >= 0 && bottom.x <= 600 && bottom.y <= 420);
+                assert(bottom.y <= parent_bottom.y);
+            }
+            (*collection).show_shelf();
         }
-        assert(fourpegs && !(*fourpegs).visible() && !old_pegs_offered);
-        clicked = (*button(*library, "collection.6")).perform_click();
-        assert(clicked && (*library).visible() && !(*fourpegs).visible());
-        clicked = (*button(*library, "collection.open")).perform_click();
-        assert(clicked && !(*library).visible() && (*fourpegs).visible() && !(*switchbox).visible());
-        clicked = (*button(*collection, "collection.command.0")).perform_click();
-        assert(clicked && (*library).visible() && !(*fourpegs).visible());
-        std::shared_ptr<gf::Control> atomprobe{};
-        bool old_atom_offered = false;
-        for (const std::shared_ptr<gf::Control>& child : (*collection).children()) {
-            if ((*child).stable_id().value() == "atomprobe.view") { atomprobe = child; }
-            if ((*child).stable_id().value() == "collection.puzzle.3") { old_atom_offered = true; }
-        }
-        assert(atomprobe && !(*atomprobe).visible() && !old_atom_offered);
-        clicked = (*button(*library, "collection.5")).perform_click();
-        assert(clicked && (*library).visible() && !(*atomprobe).visible());
-        clicked = (*button(*library, "collection.open")).perform_click();
-        assert(clicked && !(*library).visible() && (*atomprobe).visible() && !(*fourpegs).visible());
-        clicked = (*button(*collection, "collection.command.0")).perform_click();
-        assert(clicked && (*library).visible() && !(*atomprobe).visible());
     }
     std::filesystem::remove_all(scratch);
     std::cout << "Nested card drag, Sudoku note/error/undo, Gems rejection, peg draft resume, "

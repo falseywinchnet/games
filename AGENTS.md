@@ -1,4 +1,6 @@
-# Games development
+# Games (PlaySuite) development
+
+The product is now named PlaySuite. Internal identifiers (the `games` executable and CMake project, the `Rainstar/Games` save folders, the Linux package id and the Windows uninstall key) keep their names so builds, saves and installs carry over. The shell is the shelf (`src/shelf.*`) plus the command capsule (`src/capsule.*`); games expose their commands through `CommandSource` (`src/suite.hpp`) or, for vendor views, `host_command`/`host_panel`. Toolkit gaps found during the rework are listed in `docs/TOOLKIT_REQUESTS.md` for the GUI.Forms owner. The window minimum is 600 × 420; check new layouts at that size.
 
 The complete application now builds from pinned GUI.Forms source using `GAMES_TOOLKIT_SOURCE_DIR` and prepared `GAMES_RUNTIME_ASSET_DIR`. Follow `docs/BUILDING.md` and `.github/workflows/applications.yml` for current native application and packaging commands. The full Windows profile passes 22 tests and a packaged native-window smoke; earlier subset commands below remain useful but are not the complete application recipe. Do not modify the shared toolkit checkout to fix application builds.
 
@@ -7,6 +9,14 @@ Preserve the complete current game collection and its behavior. Do not remove ga
 The user requires most reusable cross-platform capabilities needed by Games to become GUI.Forms enhancements so other applications benefit. Inspect existing toolkit APIs first. Coordinate additions with the GUI.Forms owner; keep game-specific rules, assets, and Sudoku generation policy in Games, using thin integration with shared services. Preserve existing frozen SDKs and unrelated active work. Validate a new SDK before adopting it here.
 
 On Shadow, use C:/Users/Shadow/games as the source checkout. Keep builds in a separate ignored build directory. Existing toolchains may be borrowed read-only; never overwrite another application's frozen SDK. Record the actual supported platform configure/build/test commands in this file as they are established. Keep compile parallelism at two jobs while sharing the host with other application work.
+
+The current Shadow development build is `.build/application-dev`, configured against `.build/text-source-7b260cf/gui_forms` and the prepared runtime `.build/runtime-playsuite`. That runtime includes the PlaySuite v2 music; `authoring/playsuite_music/README.md` describes how to rebuild it. Put `C:/Users/Shadow/plan-paint/build-deps/msys64/mingw64/bin` on PATH, then:
+
+```sh
+cmake -S . -B .build/application-dev -G Ninja -DCMAKE_BUILD_TYPE=Release -DGAMES_TOOLKIT_SOURCE_DIR=C:/Users/Shadow/games/.build/text-source-7b260cf/gui_forms -DGAMES_RUNTIME_ASSET_DIR=C:/Users/Shadow/games/.build/runtime-playsuite
+cmake --build .build/application-dev -j 2
+ctest --test-dir .build/application-dev --output-on-failure --timeout 180
+```
 
 Personal save data is not repository content. Preserve the GAMES_STATE_DIR override and isolate test saves. Original source fingerprint and macOS validation records describe the pre-port baseline; they do not establish Windows success. Complete native application, audio, Sudoku parity, storage, and packaged-launch validation before claiming the Windows port is complete.
 

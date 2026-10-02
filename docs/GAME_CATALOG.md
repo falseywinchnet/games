@@ -1,6 +1,6 @@
-# Games catalog
+# PlaySuite catalog
 
-Games is one native application with a shared card system and reusable 2D presentation infrastructure. The current playable implementation contains twelve games: four card games and eight additional games. Switchbox is owner-maintained and unavailable pending replacement; Sticks & Stones is retired. The chosen art direction is classic, rich, and tactile: green felt, cream cards, coordinated jewel-toned backs. These choices were confirmed by the user in this chat.
+PlaySuite (formerly Games) is one native application with a shared card system and reusable 2D presentation infrastructure. Each game, including each of the four card games, is its own box on the shelf; game commands live in the shared command capsule at the top of every game. The current playable implementation contains twelve games: four card games and eight additional games. Switchbox is owner-maintained and unavailable pending replacement; Sticks & Stones is retired. The chosen art direction is classic, rich, and tactile: green felt, cream cards, coordinated jewel-toned backs. These choices were confirmed by the user in this chat.
 
 ## Current card-game scope
 

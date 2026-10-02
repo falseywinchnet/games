@@ -22,7 +22,7 @@ def main():
                                 env=environment, capture_output=True, text=True, timeout=60, check=True)
         print(result.stdout)
         print(result.stderr)
-        if "Native Games window smoke passed" not in result.stdout:
+        if "Native PlaySuite window smoke passed" not in result.stdout:
             raise RuntimeError("Native host did not finish its scheduled close")
         receipts = [json.loads(line) for line in result.stdout.splitlines() if line.startswith('{')]
         receipts = [receipt for receipt in receipts if "window" in receipt]
