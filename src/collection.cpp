@@ -7,7 +7,7 @@ Collection::Collection(gf::StableId id) : Control(std::move(id)) {
     std::ifstream saved(cabinet_path().parent_path() / "current-game.txt");
     int active = 0;
     saved >> active;
-    if (saved && active >= 0 && active <= 9 && active != 7)
+    if (saved && active >= 0 && active <= 9)
         active_ = active;
     else
         choosing_ = true;
@@ -27,9 +27,15 @@ void Collection::initialize_control_tree() {
     add_child(sudoku_);
     eggy_ = gf::make_control<eggy::EggyView>(gf::StableId("collection.eggy"), eggy::Options{});
     add_child(eggy_);
+    switchbox_ = gf::make_control<sbx::SwitchboxView>(gf::StableId("switchbox.view"), sbx::Options{});
+    add_child(switchbox_);
+    fourpegs_ = gf::make_control<fp::FourPegsView>(gf::StableId("fourpegs.view"), fp::Options{});
+    add_child(fourpegs_);
+    atomprobe_ = gf::make_control<ap::AtomProbeView>(gf::StableId("atomprobe.view"), ap::Options{});
+    add_child(atomprobe_);
     for (int i = 0; i < 8; ++i) {
-        if (i == 5 || i == 7)
-            continue; // Switchbox is owner-maintained; Sticks & Stones is retired.
+        if (i == 3 || i == 4 || i == 5 || i == 7)
+            continue; // Atom Probe, Four Pegs and Switchbox have their own controls; Sticks & Stones is retired.
         puzzles_[i] = gf::make_control<PuzzleView>(
             gf::StableId("collection.puzzle." + std::to_string(i)), static_cast<PuzzleKind>(i));
         add_child(puzzles_[i]);
@@ -37,8 +43,6 @@ void Collection::initialize_control_tree() {
     library_ = gf::make_control<LibrarySurface>(gf::StableId("collection.library"));
     add_child(library_);
     for (int i = 0; i < 10; ++i) {
-        if (i == 7)
-            continue;
         tiles_[i] = gf::make_control<GameTile>(gf::StableId("collection." + std::to_string(i)), i);
         (*library_).add_child(tiles_[i]);
         subscriptions_.push_back(
@@ -83,15 +87,30 @@ void Collection::initialize_control_tree() {
     preferences();
     visibility();
 }
+void Collection::on_attached_to_window() {
+    audio_timer_ = std::make_unique<gf::Timer>(*attached_window(), std::chrono::milliseconds(16));
+    subscriptions_.push_back((*audio_timer_).tick().subscribe(
+        *this, gf::Delegate<>::bind<Collection, &Collection::poll_audio>(*this)));
+    (*audio_timer_).start();
+}
+void Collection::on_detaching_from_window(gf::Window&) noexcept {
+    if (audio_timer_) { (*audio_timer_).stop(); }
+    audio_timer_.reset();
+}
+void Collection::poll_audio() { audio_poll(); }
 void Collection::visibility() {
     (*cards_).set_visible(!choosing_ && active_ == 0);
     (*eggy_).set_visible(!choosing_ && active_ == 9);
+    (*switchbox_).set_visible(!choosing_ && active_ == 7);
+    (*fourpegs_).set_visible(!choosing_ && active_ == 6);
+    (*atomprobe_).set_visible(!choosing_ && active_ == 5);
     (*sudoku_).set_visible(!choosing_ && active_ == 1);
     for (int i = 0; i < 8; ++i)
         if (puzzles_[i])
             (*puzzles_[i]).set_visible(!choosing_ && active_ == i + 2);
     (*library_).set_visible(choosing_);
     (*controls_[0]).set_selected(choosing_);
+    preferences();
 }
 void Collection::arrange(gf::Rect b) {
     arrange_self(b);
@@ -99,6 +118,9 @@ void Collection::arrange(gf::Rect b) {
     set_child_layout(cards_, content);
     set_child_layout(sudoku_, content);
     set_child_layout(eggy_, content);
+    set_child_layout(switchbox_, content);
+    set_child_layout(fourpegs_, content);
+    set_child_layout(atomprobe_, content);
     for (int i = 0; i < 8; ++i)
         if (puzzles_[i])
             set_child_layout(puzzles_[i], content);
@@ -128,6 +150,9 @@ void Collection::preferences() {
     if (!load_cabinet(cabinet_path(), cabinet))
         return;
     (*eggy_).set_cabinet_preferences(cabinet.music, cabinet.sound, cabinet.reduced);
+    (*switchbox_).set_cabinet(!choosing_ && active_ == 7, cabinet.music, cabinet.sound, cabinet.reduced);
+    (*fourpegs_).set_cabinet(!choosing_ && active_ == 6, cabinet.music, cabinet.sound, cabinet.reduced);
+    (*atomprobe_).set_cabinet(!choosing_ && active_ == 5, cabinet.music, cabinet.sound, cabinet.reduced);
     (*controls_[1]).set_text(cabinet.music ? "Music on" : "Music off");
     (*controls_[2]).set_text(cabinet.sound ? "Sound on" : "Sound off");
     (*controls_[3]).set_text(cabinet.reduced ? "Quiet motion" : "Full motion");
@@ -143,6 +168,15 @@ void Collection::activate() {
     if (active_ == 9) {
         music_play("", false);
         (*eggy_).activate();
+    } else if (active_ == 7) {
+        music_play("", false);
+        (*switchbox_).activate();
+    } else if (active_ == 6) {
+        music_play("", false);
+        (*fourpegs_).activate();
+    } else if (active_ == 5) {
+        music_play("", false);
+        (*atomprobe_).activate();
     } else if (active_ == 0)
         (*cards_).activate();
     else if (active_ == 1)
@@ -157,8 +191,8 @@ void Collection::choose(gf::ButtonBase& button) {
         if (tiles_[i])
             (*tiles_[i]).set_selected(i == selected_);
     (*library_).invalidate(gf::Dirty::paint);
-    const auto* tile = dynamic_cast<GameTile*>(&button);
-    if (tile && tile->open_requested())
+    const GameTile* tile = dynamic_cast<GameTile*>(&button);
+    if (tile && (*tile).open_requested())
         start_selected();
 }
 void Collection::open_selected(gf::ButtonBase&) {

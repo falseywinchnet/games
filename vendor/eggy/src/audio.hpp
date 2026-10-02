@@ -15,7 +15,6 @@ void audio_stop();
 void audio_cabinet(bool foreground, bool music, bool sound);
 
 std::string asset_dir();
-double backing_scale();
 double wall_clock();   // unix seconds
 
 }  // namespace eggy

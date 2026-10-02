@@ -1,4 +1,5 @@
 #include "storage.hpp"
+#include "runtime_paths.hpp"
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
@@ -170,13 +171,6 @@ bool load_cabinet(const std::filesystem::path& path, Cabinet& destination) {
     return true;
 }
 std::filesystem::path cabinet_path() {
-    const char* override_directory = std::getenv("GAMES_STATE_DIR");
-    if (override_directory != nullptr)
-        return std::filesystem::path(override_directory) / "cabinet-v1.txt";
-    const char* home = std::getenv("HOME");
-    if (home == nullptr)
-        return {};
-    return std::filesystem::path(home) /
-           "Library/Application Support/Rainstar/Games/cabinet-v1.txt";
+    return state_directory() / "cabinet-v1.txt";
 }
 } // namespace games

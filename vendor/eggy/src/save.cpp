@@ -1,4 +1,5 @@
 #include "save.hpp"
+#include "runtime_paths.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -25,11 +26,7 @@ std::string clean_name(std::string n) {
 }  // namespace
 
 std::filesystem::path save_path(bool dev) {
-    if (const char* isolated = std::getenv("GAMES_STATE_DIR"))
-        return std::filesystem::path(isolated) / (dev ? "eggy-dev-v1.txt" : "eggy-v1.txt");
-    const char* home = std::getenv("HOME");
-    std::filesystem::path base = home ? home : ".";
-    base /= "Library/Application Support/Rainstar/Games";
+    std::filesystem::path base = games::state_directory();
     return base / (dev ? "eggy-dev-v1.txt" : "eggy-v1.txt");
 }
 

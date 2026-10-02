@@ -1,0 +1,91 @@
+name: Native portable text
+on:
+  push:
+    branches: [main, 'codex/**']
+    paths: ['src/text_requests.*', 'src/game_text.*', 'vendor/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', '.github/workflows/native-text.yml']
+  pull_request:
+    paths: ['src/text_requests.*', 'src/game_text.*', 'vendor/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', '.github/workflows/native-text.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: text-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  native-text:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2022
+            platform: windows-x64
+            shell: 'msys2 {0}'
+          - runner: macos-15
+            platform: macos-arm64
+            shell: bash
+          - runner: ubuntu-24.04
+            platform: linux-x64
+            shell: bash
+          - runner: ubuntu-24.04-arm
+            platform: linux-arm64
+            shell: bash
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch reviewed development text source
+        uses: actions/checkout@v4
+        with:
+          repository: falseywinchnet/file_manager
+          ref: 7b260cfb9f3267392e1470b0fcf4cd2497437819
+          path: toolkit
+          sparse-checkout: gui_forms
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja git
+      - name: Install macOS C++20 compiler and runtime
+        if: runner.os == 'macOS'
+        run: |
+          brew install ninja llvm@20
+          llvm_prefix="$(brew --prefix llvm@20)"
+          echo "CXX=$llvm_prefix/bin/clang++" >> "$GITHUB_ENV"
+          echo "CXXFLAGS=-nostdinc++ -isystem $llvm_prefix/include/c++/v1" >> "$GITHUB_ENV"
+          echo "LDFLAGS=-L$llvm_prefix/lib/c++ -Wl,-rpath,$llvm_prefix/lib/c++ -L$llvm_prefix/lib/unwind -Wl,-rpath,$llvm_prefix/lib/unwind -lunwind" >> "$GITHUB_ENV"
+      - name: Install Linux tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: Fetch pinned native text dependencies
+        run: |
+          sh toolkit/gui_forms/third_party/fetch_text_stack.sh
+          sh toolkit/gui_forms/third_party/fetch_linebreak.sh
+      - name: Configure public-API text consumer
+        run: >-
+          cmake -S tests/portable_text -B build/text -G Ninja
+          -DCMAKE_BUILD_TYPE=Release -DGAMES_TEST_VENDOR_FRAMES=ON -DGAMES_TEXT_SOURCE_DIR="$PWD/toolkit/gui_forms"
+      - name: Build native masks and Games adapters
+        run: cmake --build build/text --target text_request_tests text_native_consumer_tests game_text_frame_tests vendor_game_frame_tests --parallel 2
+      - name: Test lifecycle and actual native text
+        run: ctest --test-dir build/text --output-on-failure --timeout 120 --output-junit results.xml -R '^(text_request_lifecycle|text_native_consumer|game_text_frame_preparation|(fourpegs|atomprobe|switchbox|eggy)_native_frames)$'
+      - name: Render actual text previews
+        run: |
+          build/text/text_native_consumer_tests toolkit/gui_forms/assets/fonts build/text/previews
+          for game in fourpegs atomprobe switchbox eggy; do
+            build/text/vendor_game_frame_tests assets "$game" build/text/previews
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: text-checks-${{ matrix.platform }}
+          path: |
+            build/text/results.xml
+            build/text/Testing/Temporary/LastTest.log
+            build/text/previews/*
+          if-no-files-found: warn

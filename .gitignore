@@ -2,3 +2,8 @@
 .DS_Store
 /.build/
 /preserved-state/
+/astra/
+/dist/
+/.ccache/
+
+__pycache__/

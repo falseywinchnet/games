@@ -224,14 +224,14 @@ void paint_emblem(gf::Painter& p, gf::Rect r, int game) {
                 w * .145, colors[i]);
     } else if (game == 7) {
         p.fill_rounded_rect({x + w * .1, y + h * .3, w * .8, h * .5}, 5,
-                            gf::Color::rgba(165, 113, 85));
+                            gf::Color::rgba(235, 153, 187));
         p.stroke_rounded_rect({x + w * .1, y + h * .3, w * .8, h * .5}, 5,
-                              gf::Color::rgba(224, 179, 122), 1);
-        for (int i = 0; i < 3; ++i) {
-            p.fill_rounded_rect({x + w * (.22 + i * .23), y + h * .43, w * .13, h * .20}, 2,
+                              gf::Color::rgba(255, 210, 231), 1);
+        for (int i = 0; i < 6; ++i) {
+            p.fill_rounded_rect({x + w * (.16 + i * .12), y + h * .43, w * .08, h * .20}, 2,
                                 gf::Color::rgba(31, 54, 58));
             p.fill_rounded_rect(
-                {x + w * (.235 + i * .23), y + h * (i == 0 ? .44 : .54), w * .10, h * .06}, 1,
+                {x + w * (.17 + i * .12), y + h * (i == 0 ? .44 : .54), w * .06, h * .06}, 1,
                 accent);
         }
     } else if (game == 8) {
@@ -294,17 +294,19 @@ void GameTile::on_paint(gf::Painter& p, gf::Rect) {
         p.stroke_rect(
             r, selected() ? gf::Color::rgba(132, 170, 192) : gf::Color::rgba(213, 225, 230), 1);
     }
-    paint_emblem(p, {b.width / 2 - 28, 14, 56, 56}, game_);
+    const double emblem_size = std::clamp(b.height - 58.0, 24.0, 56.0);
+    paint_emblem(p, {b.width / 2 - emblem_size / 2, 14, emblem_size, emblem_size}, game_);
     gf::FontSpec f{gf::FontRole::content, 15, selected() ? std::uint16_t(600) : std::uint16_t(400),
                    false};
-    auto m = p.measure_text_utf8(text(), f);
-    p.draw_text_utf8({(b.width - m.width) / 2, 91}, text(), f, gf::Color::rgba(47, 65, 78));
+    const gf::Size m = p.measure_text_utf8(text(), f);
+    const double title_baseline = std::min(91.0, b.height - 27.0);
+    p.draw_text_utf8({(b.width - m.width) / 2, title_baseline}, text(), f, gf::Color::rgba(47, 65, 78));
     const char* types[] = {"4 card games",   "Number logic",    "Match three",  "Path puzzle",
-                           "Graph puzzle",   "Deduction",       "Codebreaking", "",
+                           "Graph puzzle",   "Deduction",       "Codebreaking", "Switch puzzle",
                            "Reconstruction", "An endless climb"};
     gf::FontSpec small{gf::FontRole::content, 12, 400, false};
-    auto sm = p.measure_text_utf8(types[game_], small);
-    p.draw_text_utf8({(b.width - sm.width) / 2, 111}, types[game_], small,
+    const gf::Size sm = p.measure_text_utf8(types[game_], small);
+    p.draw_text_utf8({(b.width - sm.width) / 2, title_baseline + 20}, types[game_], small,
                      gf::Color::rgba(113, 124, 132));
     if (focus_cue_visible())
         p.stroke_rect({5, 5, b.width - 10, b.height - 10}, gf::Color::rgba(84, 133, 169), 1);
@@ -313,20 +315,23 @@ LibrarySurface::LibrarySurface(gf::StableId id) : Control(std::move(id)) {}
 void LibrarySurface::arrange(gf::Rect b) {
     arrange_self(b);
     const double field = b.width - 470, tw = field / 3;
+    const int entries = category == 0 ? 10 : category == 2 ? 8 : 1;
+    const int rows = (entries + 2) / 3;
+    const double row_pitch = std::min(146.0, (b.height - 190) / rows);
     int index = 0;
-    for (const auto& child : children()) {
-        if (auto tile = std::dynamic_pointer_cast<GameTile>(child)) {
-            int g = tile->game_index();
+    for (const std::shared_ptr<gf::Control>& child : children()) {
+        if (std::shared_ptr<GameTile> tile = std::dynamic_pointer_cast<GameTile>(child)) {
+            int g = (*tile).game_index();
             bool shown = category == 0 || (category == 1 && g == 0) ||
                          (category == 2 && g > 0 && g < 9) || (category == 3 && g == 9);
-            tile->set_visible(shown);
+            (*tile).set_visible(shown);
             if (shown) {
                 set_child_layout(child,
-                                 {202 + (index % 3) * tw, 175.0 + (index / 3) * 146, tw - 10, 130});
+                                 {202 + (index % 3) * tw, 175.0 + (index / 3) * row_pitch, tw - 10, row_pitch - 10});
                 ++index;
             }
         } else {
-            std::string id(child->stable_id().value());
+            std::string id((*child).stable_id().value());
             if (id == "collection.open")
                 set_child_layout(child, {b.width - 234, b.height - 110, 204, 35});
             else if (id.find("collection.category.") == 0) {
@@ -377,20 +382,20 @@ void LibrarySurface::on_paint(gf::Painter& p, gf::Rect) {
         {"Reposition the points until", "every crossing is clear."},
         {"Send probes into the chamber.", "Deduce three hidden atoms."},
         {"Face the Curator's secret code.", "Four places. Ten attempts."},
-        {},
+        {"A girl guards six switches.", "Find the order that lights them all.", "Fewer flips make a better score."},
         {"Triangles, square, parallelogram.", "Rotate and reflect the pieces",
          "to reproduce a two-color target."},
         {"Eggy and the Very, Very", "Tall Mountain", "Help a little duckling climb.",
          "He carries on while you are away."}};
     int row = 0;
-    for (const auto& t : descriptions[selection])
+    for (const std::string& t : descriptions[selection])
         p.draw_text_utf8({b.width - 239, 386 + row++ * 24.0}, t,
                          {gf::FontRole::content, 14, 400, false}, muted);
     p.draw_line({b.width - 239, b.height - 145}, {b.width - 30, b.height - 145}, line, 1);
     p.draw_text_utf8({b.width - 239, b.height - 128}, "Progress saves automatically",
                      {gf::FontRole::content, 12, 400, false}, muted);
     p.fill_rect({0, b.height - 29, b.width, 29}, gf::Color::rgba(226, 230, 229));
-    p.draw_text_utf8({20, b.height - 10}, "12 games  ·  9 entries",
+    p.draw_text_utf8({20, b.height - 10}, "13 games  ·  10 entries",
                      {gf::FontRole::content, 12, 400, false}, ink);
     p.draw_text_utf8({b.width - 260, b.height - 10}, "Rainstar Games",
                      {gf::FontRole::content, 12, 400, false}, muted);

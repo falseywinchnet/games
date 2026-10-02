@@ -1,0 +1,3 @@
+LLVM 20.1.8 runtime license notices.
+Source: https://github.com/llvm/llvm-project/tree/llvmorg-20.1.8
+The macOS build uses Homebrew llvm@20; the compiler version is recorded in its build log.

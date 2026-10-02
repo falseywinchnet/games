@@ -1,13 +1,17 @@
-# Owner-maintained modules
+# Owner game replacements
 
-Switchbox is reserved for the user's implementation. **The owner's replacement has been delivered as `incoming/game-switchbox-01`** (2026-10-01). It is not integrated yet. Integrate that package into kind 5 / slot 7 by following its `INTEGRATION_HANDOFF.txt`, through a `vendor/switchbox` working copy; leave the incoming package unchanged. It uses a new save, `switchbox-v2.txt`, so the old `switchbox-v1.txt` below stays untouched. The rest of this section describes the removed predecessor.
+The delivered replacement sources are integrated through editable vendor copies. Their complete Windows application link, native interaction and release validation remain in progress. Do not treat the source integration or headless tests as a released application.
 
- The previous five-switch secret-order model, reset animation, painted character arm, input handling, help, and associated rule tests have been removed. The active collection does not construct or offer that view. No new Switchbox artwork or animation is being integrated by this task.
+| Incoming package | Working copy | Collection slot | Preserved enum | New save |
+| --- | --- | --- | --- | --- |
+| `game-atomprobe-01` | `vendor/atomprobe` | 5 | `PuzzleKind::atom` (3) | `atom_probe-v2.txt` |
+| `game-fourpegs-01` | `vendor/fourpegs` | 6 | `PuzzleKind::pegs` (4) | `four_pegs-v2.txt` |
+| `game-switchbox-01` | `vendor/switchbox` | 7 | Switchbox kind 5 | `switchbox-v2.txt` |
 
-Existing artwork (`assets/switchbox-girl.png`), delivered audio, and `switchbox-v1.txt` saves remain available. The historical numeric kind (5) and collection slot (7) remain reserved so existing unrelated game IDs do not move. No new logic is prescribed for the replacement. The shared native control, persistence, audio, and presentation interfaces can be used when the owner supplies the module.
+Keep each incoming package unchanged. Its `INTEGRATION_HANDOFF.txt`, validation record and fingerprints describe the delivered baseline. Keep every corresponding `-v1.txt` save untouched. Development saves use separate `-dev-v2.txt` names, and `GAMES_STATE_DIR` isolates tests.
 
-**Four Pegs has an owner replacement too**: `incoming/game-fourpegs-01` (2026-10-01), approved by the user and not yet integrated. It replaces the current Four Pegs view in slot 6 (`PuzzleKind::pegs`) with `fp::FourPegsView` through a `vendor/fourpegs` working copy; its `INTEGRATION_HANDOFF.txt` has the details. It saves to `four_pegs-v2.txt` and starts fresh; `four_pegs-v1.txt` is left untouched.
+Collection source selects `ap::AtomProbeView`, `fp::FourPegsView` and `sbx::SwitchboxView` in these slots. The predecessor Atom Probe and Four Pegs models remain available to legacy rule tests, but their old controls are not constructed in the collection. Sticks & Stones remains retired.
 
-**Atom Probe has an owner replacement too**: `incoming/game-atomprobe-01` (2026-10-01), approved by the user and not yet integrated. It replaces the current 4×4 Atom Probe in slot 5 (`PuzzleKind::atom`) with `ap::AtomProbeView`, a classic 8×8 Black Box with four atoms, through a `vendor/atomprobe` working copy; its `INTEGRATION_HANDOFF.txt` has the details. It saves to `atom_probe-v2.txt` and starts fresh; `atom_probe-v1.txt` is left untouched.
+The Windows development checks cover the replacement game rules, v2 storage and rendering previews. Atom Probe retains its complete eight-by-eight, four-atom deduction rules and reveal. Four Pegs retains its villain, narrative and code-breaking rules; its portable audio consumer verifies the actual score changes on musical bar boundaries through the shared GUI.Forms transport. Switchbox uses the shared window-owned cursor interaction API. These controls use LiveSurface presentation instead of separate platform presenters.
 
-Sticks & Stones is deprecated and is no longer constructed or offered by the collection. Its original numeric puzzle kind (7), files, and saves are retained. Its former collection slot (9) now opens the delivered Eggy control; no other active collection IDs changed. Eggy is integrated from `incoming/game-eggy-01` through the separate `vendor/eggy` cabinet copy.
+Shared prepared-text wrapping and monochrome masks remain required for the complete application. See [portable text requirements](PORTABLE_TEXT_REQUIREMENTS.md). Full UI linking, native sound listening, input and DPI checks, and independent platform packaging must pass before publishing release binaries. Build and subset-test commands are in the repository's `AGENTS.md`.

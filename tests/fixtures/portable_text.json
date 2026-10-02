@@ -1,0 +1,22 @@
+{
+  "status": "consumer-accepted inputs and scale policy; implementation and raster goldens pending",
+  "logical_units": "mask pixels before window device scale",
+  "cases": [
+    {"id": "atomprobe-help", "face": "BarlowCondensed-Regular.ttf", "size": 11.5, "wrap_width": 704, "text": "Four atoms hide in the fogged chamber. Click an emitter on the rim to fire a beam into the box, and watch where it comes out.", "expect": "all text retained; no line advance exceeds wrap width"},
+    {"id": "fourpegs-help", "face": "LibreBaskerville-Regular.ttf", "size": 11.5, "wrap_width": 664, "text": "He has locked his plan behind a code of four pegs, chosen from six colours. Colours may repeat.", "expect": "all text retained; no line advance exceeds wrap width"},
+    {"id": "fourpegs-threat", "face": "LibreBaskerville-Regular.ttf", "size": 14, "wrap_width": 280, "text": "Should you fail to name my code within ten attempts, I shall fold the Moon into a small paper swan, while a full orchestra plays.", "expect": "multiple complete lines; final period retained"},
+    {"id": "eggy-title", "face": "Cousine-Bold.ttf", "size": 14, "wrap_width": 0, "raster": "mono", "text": "EGGY", "expect": "one line; every coverage byte is 0 or 255"},
+    {"id": "switchbox-label", "face": "ComicNeue-Bold.ttf", "size": 16, "wrap_width": 0, "text": "Switchbox", "expect": "one complete line"},
+    {"id": "score-spaces", "face": "Cousine-Regular.ttf", "size": 12, "wrap_width": 0, "text": " 1.  RAINSTAR        9 points", "expect": "leading and repeated spaces preserved in advance"},
+    {"id": "explicit-lines", "face": "Carlito-Regular.ttf", "size": 12, "wrap_width": 300, "text": "First\r\n\r\nLast\n", "expect": "four logical lines, including middle and trailing empty lines"},
+    {"id": "empty", "face": "Carlito-Regular.ttf", "size": 12, "wrap_width": 300, "text": "", "expect": "no ink, zero advance"},
+    {"id": "long-word", "face": "Carlito-Regular.ttf", "size": 12, "wrap_width": 40, "text": "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "expect": "fallback breaks preserve all characters; no implicit hyphen or ellipsis"},
+    {"id": "combining", "face": "Carlito-Regular.ttf", "size": 12, "wrap_width": 8, "text": "e\u0301e\u0301", "expect": "each base and accent remain in the same shaping cluster"}
+  ],
+  "default_raster": "gray",
+  "device_scales_by_raster": {"gray": [1, 1.25, 1.5, 2], "mono": [1, 2, 3, 4]},
+  "refusal_cases": [
+    {"id": "fractional-mono", "face": "Cousine-Bold.ttf", "size": 14, "wrap_width": 0, "raster": "mono", "device_scales": [0.5, 1.25, 1.5], "text": "EGGY", "expect": "typed failure; caller-owned previous mask remains unchanged"}
+  ],
+  "same_input_invariants": ["identical logical line breaks at every device scale", "cache reuse preserves dimensions and coverage", "retained mask survives cache eviction"]
+}

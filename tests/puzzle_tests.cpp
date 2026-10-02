@@ -157,7 +157,8 @@ int main() {
             PuzzleGame game(static_cast<PuzzleKind>(k));
             game.deal(seed);
             assert(game.invariant());
-            std::filesystem::path path = "/tmp/rainstar-puzzle-test/" + std::to_string(k) + ".txt";
+            std::filesystem::path path = std::filesystem::temp_directory_path() /
+                                         ("rainstar-puzzle-test-" + std::to_string(k) + ".txt");
             assert(game.save(path));
             PuzzleGame restored(game.kind);
             assert(restored.load(path));

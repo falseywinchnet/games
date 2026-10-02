@@ -1,0 +1,17 @@
+{
+ "music": [
+  {
+   "id": "ap_music",
+   "bpm": 100,
+   "bars": 32,
+   "bar_samples": 115200,
+   "loop_end_sample_exclusive": 3686400,
+   "seconds": 76.8
+  }
+ ],
+ "stingers": [
+  "ap_stinger_win",
+  "ap_stinger_miss",
+  "ap_stinger_topscore"
+ ]
+}

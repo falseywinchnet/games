@@ -1,0 +1,135 @@
+name: Runtime assets and portable audio
+on:
+  push:
+    branches: [main, 'codex/**']
+    paths:
+      - 'assets/**'
+      - 'src/*audio*'
+      - 'src/pcm_player.*'
+      - 'tests/portable_audio/**'
+      - 'tests/*audio*'
+      - 'vendor/**/audio.cpp'
+      - 'tools/prepare_portable_assets.py'
+      - 'tools/verify_portable_assets.py'
+      - '.github/workflows/runtime-assets.yml'
+  pull_request:
+    paths:
+      - 'assets/**'
+      - 'src/*audio*'
+      - 'src/pcm_player.*'
+      - 'tests/portable_audio/**'
+      - 'tests/*audio*'
+      - 'vendor/**/audio.cpp'
+      - 'tools/*portable_assets.py'
+      - '.github/workflows/runtime-assets.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: assets-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        id: runtime-cache
+        with:
+          path: build/runtime-assets
+          key: runtime-v1-${{ hashFiles('assets/**', 'tools/prepare_portable_assets.py') }}
+      - name: Install authoring tools
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg python3-pil
+      - name: Prepare compact audio, fonts and artwork
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        run: /usr/bin/python3 tools/prepare_portable_assets.py --output build/runtime-assets --ffmpeg ffmpeg
+      - name: Verify complete runtime inventory
+        run: /usr/bin/python3 tools/verify_portable_assets.py --runtime build/runtime-assets
+      - name: Archive platform-independent data
+        run: tar -czf build/games-runtime-assets.tar.gz -C build/runtime-assets .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: games-runtime-data
+          path: build/games-runtime-assets.tar.gz
+          compression-level: 0
+          if-no-files-found: error
+
+  native-audio:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2022
+            platform: windows-x64
+            shell: 'msys2 {0}'
+          - runner: macos-15
+            platform: macos-arm64
+            shell: bash
+          - runner: ubuntu-24.04
+            platform: linux-x64
+            shell: bash
+          - runner: ubuntu-24.04-arm
+            platform: linux-arm64
+            shell: bash
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch reviewed development audio source
+        uses: actions/checkout@v4
+        with:
+          repository: falseywinchnet/file_manager
+          ref: c4e4d917f7f759d5dba4863ff5eae427cf7c201d
+          path: toolkit
+          sparse-checkout: gui_forms
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja git
+      - name: Install macOS C++20 compiler and runtime
+        if: runner.os == 'macOS'
+        run: |
+          brew install ninja llvm@20
+          llvm_prefix="$(brew --prefix llvm@20)"
+          echo "CXX=$llvm_prefix/bin/clang++" >> "$GITHUB_ENV"
+          echo "CXXFLAGS=-nostdinc++ -isystem $llvm_prefix/include/c++/v1" >> "$GITHUB_ENV"
+          echo "LDFLAGS=-L$llvm_prefix/lib/c++ -Wl,-rpath,$llvm_prefix/lib/c++ -L$llvm_prefix/lib/unwind -Wl,-rpath,$llvm_prefix/lib/unwind -lunwind" >> "$GITHUB_ENV"
+      - name: Install Linux tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - uses: actions/download-artifact@v4
+        with:
+          name: games-runtime-data
+          path: build/data
+      - name: Extract verified runtime data
+        run: |
+          mkdir -p build/runtime
+          tar -xzf build/data/games-runtime-assets.tar.gz -C build/runtime
+      - name: Configure source-only audio consumer tests
+        run: >-
+          cmake -S tests/portable_audio -B build/audio -G Ninja
+          -DCMAKE_BUILD_TYPE=Release -DGUI_FORMS_BUILD_TESTS=ON
+          -DGAMES_AUDIO_SOURCE_DIR="$PWD/toolkit/gui_forms"
+          -DGAMES_AUDIO_ASSET_DIR="$PWD/build/runtime"
+      - name: Build shared audio and game adapters
+        run: cmake --build build/audio --parallel 2
+      - name: Test decoded audio and sample-clock transitions
+        run: ctest --test-dir build/audio --output-on-failure --timeout 120 --output-junit results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audio-checks-${{ matrix.platform }}
+          path: |
+            build/audio/results.xml
+            build/audio/Testing/Temporary/LastTest.log
+          if-no-files-found: warn

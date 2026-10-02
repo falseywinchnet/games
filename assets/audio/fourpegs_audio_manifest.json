@@ -1,0 +1,33 @@
+{
+ "music": [
+  {
+   "id": "fp_music_t1",
+   "bpm": 116,
+   "bars": 32,
+   "bar_samples": 99310,
+   "loop_end_sample_exclusive": 3177931,
+   "seconds": 66.207
+  },
+  {
+   "id": "fp_music_t2",
+   "bpm": 128,
+   "bars": 32,
+   "bar_samples": 90000,
+   "loop_end_sample_exclusive": 2880000,
+   "seconds": 60.0
+  },
+  {
+   "id": "fp_music_t3",
+   "bpm": 144,
+   "bars": 32,
+   "bar_samples": 80000,
+   "loop_end_sample_exclusive": 2560000,
+   "seconds": 53.333
+  }
+ ],
+ "stingers": [
+  "fp_stinger_defeat",
+  "fp_stinger_triumph",
+  "fp_stinger_topscore"
+ ]
+}

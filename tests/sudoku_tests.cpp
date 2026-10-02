@@ -4,16 +4,16 @@
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
-#include <unistd.h>
+#include "test_paths.hpp"
 void require(bool condition, const char* message) {
     if (!condition)
         throw std::runtime_error(message);
 }
 int main(int argc, char** argv) {
     std::filesystem::path root =
-        std::filesystem::temp_directory_path() / ("sudoku-test-" + std::to_string(getpid()));
+        games_test::scratch_directory("sudoku-test-");
     for (int difficulty = 0; difficulty < 3; ++difficulty) {
-        games::SudokuJob job{games::asset_directory(),
+        games::SudokuJob job{GAMES_TEST_ASSET_DIR,
                              "native-integration-" + std::to_string(difficulty), difficulty};
         std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
         games::Sudoku game = job();

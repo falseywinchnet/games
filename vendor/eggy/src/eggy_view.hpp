@@ -1,8 +1,8 @@
 #pragma once
+#include "game_text.hpp"
 // The game as a GUI.Forms control: frame loop, input, HUD, speech, dialogs,
 // autosave, music. Rendering is published through a LiveSurface.
 #include "lines.hpp"
-#include "present.hpp"
 #include "save.hpp"
 #include "scene.hpp"
 
@@ -45,6 +45,23 @@ private:
     struct Button { std::string id, label; int x, y, w, h; };
     struct Bubble { std::string text; double age = 0, dur = 0; bool officer = false; int shown = 0; };
 
+    struct RenderState {
+        Sim sim_{1};
+        SaveData save_{};
+        Bubble bubble_{};
+        std::vector<Button> buttons_;
+        std::string banner_, name_entry_, pressed_;
+        Panel panel_ = Panel::title;
+        bool score_saved_ = false;
+        double away_m_ = 0, away_s_ = 0, banner_t_ = 0, t_ = 0;
+        double title_card_ = 0, wall_ = 0;
+    };
+    std::unique_ptr<RenderState> rendering_;
+    bool rendering_pending_ = false;
+    std::unique_ptr<games::GameText> game_text_;
+    void capture_render_state();
+    void layout_render_buttons();
+    void blit_title_mask(const games::TextImage& image, int x, int y, Col color, int scale);
     void cabinet_visibility(bool shown);
     bool cabinet_music_ = true, cabinet_sound_ = true, cabinet_reduced_ = false;
     Options opt_;
@@ -80,8 +97,6 @@ private:
     double title_card_ = 0;    // the "ELITE SPECIAL SOLDIER" banner timer
 
     bool direct_ = false;
-    NativePresenter presenter_;
-    std::vector<TextSprite> sprites_;
     void register_surface();
     void on_attached_to_window() override;
     void on_detaching_from_window(gf::Window& window) noexcept override;
@@ -113,10 +128,10 @@ private:
     void draw_button(const Button& b);
     struct HiText { std::string s; bool bold; double size; int wrap; int x, y; Col c; int big; };
     std::vector<HiText> texts_;
-    const Mask& tmask(const std::string& s, bool bold, double size, int wrap_game) const;
+    games::TextImage tmask(const std::string& s, bool bold, double size, int wrap_game);
     int text(const std::string& s, int x, int y, Col c, double size = 10, bool bold = false, int wrap = 0, int big = 1);
-    int text_w(const std::string& s, double size, bool bold, int big = 1) const;
-    int text_h(const std::string& s, double size, bool bold, int wrap = 0, int big = 1) const;
+    int text_w(const std::string& s, double size, bool bold, int big = 1);
+    int text_h(const std::string& s, double size, bool bold, int wrap = 0, int big = 1);
     void blit_texts(std::uint32_t* dst, size_t stride_px, double k);
 };
 
