@@ -1,7 +1,7 @@
 #include "fourpegs_view.hpp"
 
 #include "platform/audio.hpp"
-#include "platform/text.hpp"
+#include "runtime_paths.hpp"
 
 #include "gui_forms/surface_material.hpp"
 #include "gui_forms/window.hpp"
@@ -369,11 +369,11 @@ void FourPegsView::tick() {
     const auto pace = std::chrono::milliseconds(hidden || !shown || !cab_front_ ? 500 : front ? 33 : 100);
     if (timer_ && (*timer_).interval() != pace) (*timer_).set_interval(pace);
     if (hidden || !shown || lair_.r.rgb.empty() || frame_.px.empty()) return;
-    if (shake_ > 0 && !cab_reduced_) {
+    if (!rendering_pending_ && shake_ > 0 && !cab_reduced_) {
         lair_.r.target.x = std::sin(t_ * 70) * .03 * shake_;
         lair_.r.target.z = 2.0 + std::cos(t_ * 53) * .02 * shake_;
         lair_.r.set_camera();
-    } else if (lair_.r.target.x != 0 || lair_.r.target.z != 2.0) {
+    } else if (!rendering_pending_ && (lair_.r.target.x != 0 || lair_.r.target.z != 2.0)) {
         lair_.r.target.x = 0;
         lair_.r.target.z = 2.0;
         lair_.r.set_camera();
@@ -387,7 +387,15 @@ void FourPegsView::tick() {
         displayed.villain.breathe = 0;
         displayed.villain.cape_sway = 0;
     }
-    lair_.render(displayed, cab_reduced_ ? 0 : t_);
+    if (!game_text_) {
+        game_text_ = std::make_unique<games::GameText>(
+            std::filesystem::path(games::asset_directory()) / "fonts", "LibreBaskerville");
+    }
+    if (!rendering_pending_) {
+        capture_render_state();
+        lair_.render(displayed, cab_reduced_ ? 0 : t_);
+    }
+    (*game_text_).begin();
     compose();
     publish();
 }
@@ -401,7 +409,7 @@ void FourPegsView::publish() {
         if (surface_ && attached_window()) direct_ = (*attached_window()).queue_live_surface_presentation(shared_from_this(), surface_);
     }
     if (!surface_) return;
-    gf::LiveSurfaceWriteLease lease = surface_->try_acquire_write();
+    gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write();
     if (lease && static_cast<int>(lease.width()) == phys_w_ && static_cast<int>(lease.height()) == phys_h_) {
         std::span<std::byte> dst = lease.pixels();
         const size_t rb = lease.row_bytes();
@@ -418,10 +426,15 @@ void FourPegsView::publish() {
             for (int x = 0; x < phys_w_; ++x) o[x] = sr[xmap_[static_cast<size_t>(x)]];
         }
         blit_texts(reinterpret_cast<std::uint32_t*>(dst.data()), rb / 4, k);
-        static_cast<void>(lease.publish());
+        if (!(*game_text_).ready()) return;
+        const bool published = lease.publish();
+        if (published) {
+            buttons_ = (*rendering_).buttons_;
+            rendering_pending_ = false;
+        }
     }
     if (!direct_) invalidate(gf::Dirty::paint);
-    text_cache_trim();
+
 }
 
 // ------------------------------------------------------------------ input
@@ -585,53 +598,55 @@ void FourPegsView::open(Panel p) {
 }
 
 // ------------------------------------------------------------------ drawing
-const Mask& FourPegsView::tmask(const std::string& s, bool bold, double size, int wrap_game) const {
-    return text_mask(s, bold ? Font::speech_bold : Font::speech, size, wrap_game > 0 ? wrap_game * pixel_ : 0);
+games::TextImage FourPegsView::tmask(const std::string& s, bool bold, double size, int wrap_game) {
+    games::TextImage image = (*game_text_).get(s, bold, size,
+        wrap_game > 0 ? wrap_game * pixel_ : 0, bs_);
+    return image;
 }
 int FourPegsView::text(const std::string& s, int x, int y, Col c, double size, bool bold, int wrap) {
     texts_.push_back({s, bold, size, wrap, x, y, c});
     return text_w(s, size, bold);
 }
-int FourPegsView::text_w(const std::string& s, double size, bool bold) const {
+int FourPegsView::text_w(const std::string& s, double size, bool bold) {
     return static_cast<int>(std::ceil(tmask(s, bold, size, 0).w / static_cast<double>(pixel_)));
 }
-int FourPegsView::text_h(const std::string& s, double size, bool bold, int wrap) const {
+int FourPegsView::text_h(const std::string& s, double size, bool bold, int wrap) {
     return static_cast<int>(std::ceil(tmask(s, bold, size, wrap).h / static_cast<double>(pixel_)));
 }
 
-void FourPegsView::layout_buttons() {
-    buttons_.clear();
+void FourPegsView::layout_render_buttons() {
+    (*rendering_).buttons_.clear();
     if (pw_ <= 0) return;
     const int bh = 13, y = ph_ - bh - 5;
     int x = 6;
     auto add = [&](const std::string& id, const std::string& label) {
         const int w = text_w(label, 11, true) + 12;
-        buttons_.push_back({id, label, x, y, w, bh});
+        (*rendering_).buttons_.push_back({id, label, x, y, w, bh});
         x += w + 4;
     };
-    if (panel_ == Panel::none) {
+    if ((*rendering_).panel_ == Panel::none) {
         add("new", "New game");
         add("help", "Help");
         add("scores", "Top scores");
-        add("music", save_.settings.music ? "Music on" : "Music off");
-        add("sound", save_.settings.sound ? "Sound on" : "Sound off");
+        add("music", (*rendering_).save_.settings.music ? "Music on" : "Music off");
+        add("sound", (*rendering_).save_.settings.sound ? "Sound on" : "Sound off");
         return;
     }
-    if (panel_ == Panel::gameover) {
+    if ((*rendering_).panel_ == Panel::gameover) {
         const std::string label = "Try again";
         const int w = text_w(label, 14, true) + 30;
-        buttons_.push_back({"retry", label, (pw_ - w) / 2, ph_ * 3 / 4, w, 20});
+        (*rendering_).buttons_.push_back({"retry", label, (pw_ - w) / 2, ph_ * 3 / 4, w, 20});
         return;
     }
     const int ww = std::min(pw_ - 30, 300), wh = std::min(ph_ - 30, 220);
     const int wx = (pw_ - ww) / 2, wy = (ph_ - wh) / 2;
-    const std::string label = panel_ == Panel::name ? "Sign the book" : "Close";
+    const std::string label = (*rendering_).panel_ == Panel::name ? "Sign the book" : "Close";
     const int w = text_w(label, 11, true) + 16;
-    buttons_.push_back({panel_ == Panel::name ? "save_name" : "close", label, wx + ww - w - 10, wy + wh - 20, w, 14});
+    (*rendering_).buttons_.push_back({(*rendering_).panel_ == Panel::name ? "save_name" : "close", label, wx + ww - w - 10, wy + wh - 20, w, 14});
 }
 
 void FourPegsView::draw_button(const Button& b) {
-    const bool down = pressed_ == b.id, over = hover_ == b.id;
+    const bool down = (*rendering_).pressed_ == b.id, over = (*rendering_).hover_ == b.id;
     frame_.fill_rect(b.x + 1, b.y + 1, b.w, b.h, hex(0x000000, .4f));
     frame_.begin(); frame_.rect(b.x, b.y + (down ? 1 : 0), b.w, b.h); frame_.fill(over ? hex(0x2E2430) : kPanel);
     frame_.begin(); frame_.rect(b.x + .5, b.y + .5 + (down ? 1 : 0), b.w - 1, b.h - 1); frame_.stroke(over ? kBrass : kBrassDark, 1);
@@ -648,17 +663,17 @@ void FourPegsView::draw_sheet() {
     frame_.begin(); frame_.rect(x + 2.5, y + 2.5, w - 5, h - 5); frame_.stroke(kBrassDark, 1);
     text("TEST SHEET", x + (w - text_w("TEST SHEET", 12, true)) / 2, y + 6, hex(0xE7D3A4), 12, true);
     const int top = y + 24, rowh = std::max(16, (h - 52) / kTurns);
-    const int current = board_.turns_used() + (checking_ ? -1 : 0);
+    const int current = (*rendering_).board_.turns_used() + ((*rendering_).checking_ ? -1 : 0);
     for (int i = 0; i < kTurns; ++i) {
         const int ry = top + i * rowh;
-        const bool cur = i == current && !board_.over();
+        const bool cur = i == current && !(*rendering_).board_.over();
         if (cur) frame_.fill_rect(x + 4, ry - 1, w - 8, rowh - 2, hex(0x3A2C1E, .9f));
         text(std::to_string(i + 1), x + 7, ry + (rowh - 12) / 2, cur ? hex(0xF3DDA6) : hex(0x8E7C5C), 10, cur);
-        const bool shown = i < sheet_rows_;
+        const bool shown = i < (*rendering_).sheet_rows_;
         for (int p = 0; p < kPegs; ++p) {
             const double cx = x + 30 + p * 14, cy = ry + rowh / 2.0 - 1;
             if (shown) {
-                const int c = board_.rows()[static_cast<size_t>(i)].guess[static_cast<size_t>(p)];
+                const int c = (*rendering_).board_.rows()[static_cast<size_t>(i)].guess[static_cast<size_t>(p)];
                 frame_.fill_circle(cx, cy, 5.5, hex(0x000000, .6f));
                 frame_.fill_circle(cx, cy, 5, kPegCol[c]);
                 mini_symbol(frame_, c, cx, cy, 4, c == 5 ? hex(0x2A2030) : hex(0xFFFFFF, .9f));
@@ -667,7 +682,7 @@ void FourPegsView::draw_sheet() {
             }
         }
         // pins: gold dots for exact, white rings for elsewhere
-        const Score s = shown ? board_.rows()[static_cast<size_t>(i)].score : Score{};
+        const Score s = shown ? (*rendering_).board_.rows()[static_cast<size_t>(i)].score : Score{};
         for (int k = 0; k < kPegs; ++k) {
             const double px = x + 90 + (k % 2) * 7, py = ry + rowh / 2.0 - 4.5 + (k / 2) * 7;
             if (shown && k < s.exact) frame_.fill_circle(px, py, 2.6, hex(0xFFD24A));
@@ -684,20 +699,20 @@ void FourPegsView::draw_sheet() {
 }
 
 void FourPegsView::draw_bubble() {
-    if (say_text_.empty()) return;
+    if ((*rendering_).say_text_.empty()) return;
     // a calling card beside his head
     double hx, hy;
-    lair_.to_screen(villain_head_center(st_.villain) + V3{.55, 0, .35}, hx, hy);
+    lair_.to_screen(villain_head_center((*rendering_).st_.villain) + V3{.55, 0, .35}, hx, hy);
     const int wrap = 150;
     const double size = 13;
-    const std::string shown = say_text_.substr(0, static_cast<size_t>(std::max(1, say_shown_)));
-    const int tw = std::min(wrap, text_w(say_text_, size, false)), th = text_h(say_text_, size, false, wrap);
+    const std::string shown = (*rendering_).say_text_.substr(0, static_cast<size_t>(std::max(1, (*rendering_).say_shown_)));
+    const int tw = std::min(wrap, text_w((*rendering_).say_text_, size, false)), th = text_h((*rendering_).say_text_, size, false, wrap);
     const int bw = tw + 14, bh = th + 9;
     int bx = static_cast<int>(hx), by = static_cast<int>(hy - bh / 2.0);
     bx = std::clamp(bx, 6, pw_ - 124 - bw);
     by = std::clamp(by, 6, ph_ - bh - 30);
     double ax, ay;
-    lair_.to_screen(villain_head_center(st_.villain) + V3{.2, -.3, -.05}, ax, ay);
+    lair_.to_screen(villain_head_center((*rendering_).st_.villain) + V3{.2, -.3, -.05}, ax, ay);
     frame_.begin(); frame_.move(bx + 2, by + bh * .55); frame_.line(ax, ay); frame_.line(bx + 2, by + bh * .8); frame_.close(); frame_.fill(kCard);
     frame_.fill_rect(bx + 2, by + 2, bw, bh, hex(0x000000, .4f));
     frame_.fill_rect(bx, by, bw, bh, kCard);
@@ -709,11 +724,11 @@ void FourPegsView::draw_bubble() {
 void FourPegsView::draw_gameover() {
     frame_.fill_rect(0, 0, pw_, ph_, hex(0x050204));
     // a slow red pulse behind the words
-    const float pulse = static_cast<float>(.5 + .5 * std::sin(t_ * 1.5));
+    const float pulse = static_cast<float>(.5 + .5 * std::sin((*rendering_).t_ * 1.5));
     frame_.begin(); frame_.rect(0, 0, pw_, ph_); frame_.fill(Paint::rad(pw_ / 2.0, ph_ * .35, pw_ * .6, {{0, hex(0x5A0A12, .5f + .2f * pulse)}, {1, hex(0x050204, 0)}}));
     const std::string title = "GAME OVER";
     text(title, (pw_ - text_w(title, 34, true)) / 2, static_cast<int>(ph_ * .14), hex(0xE8303C), 34, true);
-    const std::string plan = actor_.plan();
+    const std::string plan = (*rendering_).plan_;
     const std::string what = "He went on to " + plan + ".";
     const int wrap = std::min(pw_ - 60, 320);
     text(what, (pw_ - std::min(wrap, text_w(what, 14, false))) / 2, static_cast<int>(ph_ * .34), hex(0xE7D8C0), 14, false, wrap);
@@ -721,18 +736,18 @@ void FourPegsView::draw_gameover() {
     const int cy = static_cast<int>(ph_ * .55);
     text(code, (pw_ - text_w(code, 12, false)) / 2, cy - 22, hex(0x9A8A78), 12, false);
     for (int i = 0; i < kPegs; ++i) {
-        const int c = board_.secret()[static_cast<size_t>(i)];
+        const int c = (*rendering_).board_.secret()[static_cast<size_t>(i)];
         const double x = pw_ / 2.0 + (i - 1.5) * 26, y = cy + 8;
         frame_.fill_circle(x, y, 10.5, hex(0x000000, .7f));
         frame_.fill_circle(x, y, 10, kPegCol[c]);
         mini_symbol(frame_, c, x, y, 8, c == 5 ? hex(0x2A2030) : hex(0xFFFFFF, .95f));
     }
-    for (const Button& b : buttons_) draw_button(b);
+    for (const Button& b : (*rendering_).buttons_) draw_button(b);
 }
 
 void FourPegsView::draw_panel() {
-    if (panel_ == Panel::none) return;
-    if (panel_ == Panel::gameover) { draw_gameover(); return; }
+    if ((*rendering_).panel_ == Panel::none) return;
+    if ((*rendering_).panel_ == Panel::gameover) { draw_gameover(); return; }
     frame_.fill_rect(0, 0, pw_, ph_, hex(0x000000, .45f));
     const int ww = std::min(pw_ - 30, 300), wh = std::min(ph_ - 30, 220);
     const int wx = (pw_ - ww) / 2, wy = (ph_ - wh) / 2;
@@ -746,7 +761,7 @@ void FourPegsView::draw_panel() {
         ly += text_h(t, size, bold, ww - 28) + 4;
     };
     auto title = [&](const std::string& t) { text(t, wx + (ww - text_w(t, 16, true)) / 2, wy + 10, kInk, 16, true); };
-    switch (panel_) {
+    switch ((*rendering_).panel_) {
         case Panel::help:
             title("Four Pegs");
             line("He has locked his plan behind a code of four pegs, chosen from six colours. Colours may repeat.");
@@ -757,9 +772,9 @@ void FourPegsView::draw_panel() {
             break;
         case Panel::scores:
             title("The Book of Guests");
-            if (save_.scores.empty()) line("No one has foiled him yet.", hex(0x6E5428));
-            for (size_t i = 0; i < save_.scores.size(); ++i) {
-                const TopScore& t = save_.scores[i];
+            if ((*rendering_).save_.scores.empty()) line("No one has foiled him yet.", hex(0x6E5428));
+            for (size_t i = 0; i < (*rendering_).save_.scores.size(); ++i) {
+                const TopScore& t = (*rendering_).save_.scores[i];
                 char buf[64];
                 std::snprintf(buf, sizeof buf, "%2zu.  %-14s  %d %s", i + 1, t.name.c_str(), t.guesses, t.guesses == 1 ? "attempt" : "attempts");
                 line(buf, i == 0 ? hex(0x6E5428) : kInk, i == 0, 11);
@@ -767,51 +782,64 @@ void FourPegsView::draw_panel() {
             break;
         case Panel::name:
             title("The Book of Guests");
-            line("You named his code in " + std::to_string(pending_score_) + (pending_score_ == 1 ? " attempt." : " attempts."), kInk, true, 13);
+            line("You named his code in " + std::to_string((*rendering_).pending_score_) + ((*rendering_).pending_score_ == 1 ? " attempt." : " attempts."), kInk, true, 13);
             line("He requests that you sign the book:");
-            line(name_entry_ + (std::sin(t_ * 6) > 0 ? "_" : " "), hex(0x6E5428), true, 15);
+            line((*rendering_).name_entry_ + (std::sin((*rendering_).t_ * 6) > 0 ? "_" : " "), hex(0x6E5428), true, 15);
             break;
         case Panel::none: case Panel::gameover: break;
     }
-    for (const Button& b : buttons_) draw_button(b);
+    for (const Button& b : (*rendering_).buttons_) draw_button(b);
 }
 
 void FourPegsView::compose() {
     texts_.clear();
+    layout_render_buttons();
     lair_.r.present(frame_, 1, 0, 0, true);
-    if (panel_ == Panel::gameover) { draw_panel(); return; }  // a full screen of its own: no text from the table beneath
+    if ((*rendering_).panel_ == Panel::gameover) { draw_panel(); return; }  // a full screen of its own: no text from the table beneath
     draw_sheet();
-    if (panel_ == Panel::none) for (const Button& b : buttons_) draw_button(b);
-    if (blackout_ <= 0) draw_bubble();
-    if (blackout_ > 0) frame_.fill_rect(0, 0, pw_, ph_, hex(0x050204, static_cast<float>(blackout_)));
+    if ((*rendering_).panel_ == Panel::none) for (const Button& b : (*rendering_).buttons_) draw_button(b);
+    if ((*rendering_).panel_ == Panel::none && (*rendering_).blackout_ <= 0) draw_bubble();
+    if ((*rendering_).blackout_ > 0) frame_.fill_rect(0, 0, pw_, ph_, hex(0x050204, static_cast<float>((*rendering_).blackout_)));
     draw_panel();
 }
 
 void FourPegsView::blit_texts(std::uint32_t* dst, size_t stride_px, double k) {
-    const int sc = std::max(1, static_cast<int>(std::lround(bs_)));
+    std::span<std::uint32_t> pixels(dst, stride_px * static_cast<std::size_t>(phys_h_));
     for (const HiText& h : texts_) {
-        const Mask& m = tmask(h.s, h.bold, h.size, h.wrap);
-        const int ox = static_cast<int>(h.x * k), oy = static_cast<int>(h.y * k);
-        const float pr = h.c.r * h.c.a, pg = h.c.g * h.c.a, pb = h.c.b * h.c.a;
-        for (int my = 0; my < m.h * sc; ++my) {
-            const int dy = oy + my;
-            if (dy < 0 || dy >= phys_h_) continue;
-            const std::uint8_t* srow = m.a.data() + static_cast<size_t>(my / sc) * m.w;
-            std::uint32_t* drow = dst + static_cast<size_t>(dy) * stride_px;
-            for (int mx = 0; mx < m.w * sc; ++mx) {
-                const int dx = ox + mx;
-                if (dx < 0 || dx >= phys_w_) continue;
-                const float cov = srow[mx / sc] * (1.f / 255.f);
-                if (cov <= 0) continue;
-                const std::uint32_t d = drow[dx];
-                const float a = h.c.a * cov, kk = 1 - a;
-                const auto ch = [&](int sh, float src) {
-                    return static_cast<std::uint32_t>(std::min(255.f, src * cov * 255 + static_cast<float>((d >> sh) & 255) * kk + .5f)) << sh;
-                };
-                drow[dx] = ch(0, pb) | ch(8, pg) | ch(16, pr) | (0xFFu << 24);
-            }
-        }
+        const games::TextImage image = tmask(h.s, h.bold, h.size, h.wrap);
+        games::blit_game_text(pixels, phys_w_, phys_h_, stride_px, image,
+            static_cast<int>(h.x * k), static_cast<int>(h.y * k),
+            h.c.r, h.c.g, h.c.b, h.c.a);
     }
+}
+
+void FourPegsView::layout_buttons() {
+    // New panel, size or settings invalidate a pending attempt, never the
+    // currently displayed pixels. Hit regions follow the next published frame.
+    rendering_pending_ = false;
+    buttons_.clear();
+    if (game_text_) (*game_text_).cancel();
+}
+
+void FourPegsView::capture_render_state() {
+    if (!rendering_) rendering_ = std::make_unique<RenderState>();
+    rendering_pending_ = true;
+    RenderState& state = *rendering_;
+    state.board_ = board_;
+    state.save_ = save_;
+    state.st_ = st_;
+    state.plan_ = actor_.plan();
+    state.say_text_ = say_text_;
+    state.say_shown_ = say_shown_;
+    state.name_entry_ = name_entry_;
+    state.pressed_ = pressed_;
+    state.hover_ = hover_;
+    state.panel_ = panel_;
+    state.checking_ = checking_;
+    state.sheet_rows_ = sheet_rows_;
+    state.pending_score_ = pending_score_;
+    state.blackout_ = blackout_;
+    state.t_ = t_;
 }
 
 }  // namespace fp

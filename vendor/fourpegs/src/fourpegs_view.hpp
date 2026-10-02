@@ -7,7 +7,7 @@
 #include "lair.hpp"
 #include "save.hpp"
 #include "vactor.hpp"
-#include "platform/text.hpp"
+#include "game_text.hpp"
 
 #include "gui_forms/basic_controls.hpp"
 #include "gui_forms/live_surface.hpp"
@@ -46,6 +46,24 @@ private:
     enum class Panel { none, help, scores, name, gameover };
     struct Button { std::string id, label; int x, y, w, h; };
     struct HiText { std::string s; bool bold; double size; int wrap; int x, y; Col c; };
+
+    // Pending rendering owns a stable copy; simulation and audio keep advancing.
+    struct RenderState {
+        Board board_{1};
+        SaveData save_{};
+        LairState st_{};
+        std::string plan_, say_text_, name_entry_, pressed_, hover_;
+        std::vector<Button> buttons_;
+        Panel panel_ = Panel::none;
+        bool checking_ = false;
+        int sheet_rows_ = 0, say_shown_ = 0, pending_score_ = 0;
+        double blackout_ = 0, t_ = 0;
+    };
+    std::unique_ptr<RenderState> rendering_;
+    bool rendering_pending_ = false;
+    std::unique_ptr<games::GameText> game_text_;
+    void capture_render_state();
+    void layout_render_buttons();
 
     Options opt_;
     SaveData save_;
@@ -128,10 +146,10 @@ private:
     void draw_bubble();
     void draw_panel();
     void draw_button(const Button& b);
-    const Mask& tmask(const std::string& s, bool bold, double size, int wrap_game) const;
+    games::TextImage tmask(const std::string& s, bool bold, double size, int wrap_game);
     int text(const std::string& s, int x, int y, Col c, double size = 11, bool bold = false, int wrap = 0);
-    int text_w(const std::string& s, double size, bool bold) const;
-    int text_h(const std::string& s, double size, bool bold, int wrap = 0) const;
+    int text_w(const std::string& s, double size, bool bold);
+    int text_h(const std::string& s, double size, bool bold, int wrap = 0);
     void blit_texts(std::uint32_t* dst, size_t stride_px, double k);
 };
 

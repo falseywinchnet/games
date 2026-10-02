@@ -29,3 +29,32 @@ add_executable(text_native_consumer_tests "${games_root}/tests/text_native_consu
 target_link_libraries(text_native_consumer_tests PRIVATE game_text_requests)
 add_test(NAME text_native_consumer COMMAND text_native_consumer_tests "${GAMES_TEXT_SOURCE_DIR}/assets/fonts")
 set_tests_properties(text_native_consumer PROPERTIES TIMEOUT 30)
+
+add_library(game_text_frames STATIC "${games_root}/src/game_text.cpp")
+target_link_libraries(game_text_frames PUBLIC game_text_requests)
+add_executable(game_text_frame_tests "${games_root}/tests/game_text_frame_tests.cpp")
+target_link_libraries(game_text_frame_tests PRIVATE game_text_frames)
+add_test(NAME game_text_frame_preparation COMMAND game_text_frame_tests "${GAMES_TEXT_SOURCE_DIR}/assets/fonts")
+set_tests_properties(game_text_frame_preparation PROPERTIES TIMEOUT 30)
+add_library(fourpegs_text_view_compile OBJECT "${games_root}/vendor/fourpegs/src/fourpegs_view.cpp")
+target_link_libraries(fourpegs_text_view_compile PRIVATE game_text_frames GUIForms::Controls)
+
+option(GAMES_TEST_FOURPEGS_FRAMES "Render complete Four Pegs frames with real portable services" OFF)
+if(GAMES_TEST_FOURPEGS_FRAMES)
+    set(GAMES_BUILD_APPLICATION OFF CACHE BOOL "" FORCE)
+    add_subdirectory("${games_root}" game_cores EXCLUDE_FROM_ALL)
+    set(GUI_FORMS_BUILD_AUDIO_LOOP_TRANSPORT ON CACHE BOOL "" FORCE)
+    include("${GAMES_TEXT_SOURCE_DIR}/cmake/Audio.cmake")
+    add_library(fourpegs_frame_audio STATIC
+        "${games_root}/src/audio_loader.cpp"
+        "${games_root}/src/pcm_player.cpp"
+        "${games_root}/src/fourpegs_audio.cpp"
+        "${games_root}/vendor/fourpegs/src/platform/audio.cpp")
+    target_include_directories(fourpegs_frame_audio PUBLIC "${games_root}/src")
+    target_link_libraries(fourpegs_frame_audio PUBLIC GUIForms::Audio game_paths)
+    add_executable(fourpegs_frame_tests "${games_root}/tests/fourpegs_frame_tests.cpp")
+    target_link_libraries(fourpegs_frame_tests PRIVATE fourpegs_text_view_compile
+        game_text_frames fp_core fourpegs_frame_audio GUIForms::Controls)
+    add_test(NAME fourpegs_native_frames COMMAND fourpegs_frame_tests "${games_root}/assets")
+    set_tests_properties(fourpegs_native_frames PROPERTIES TIMEOUT 45)
+endif()
