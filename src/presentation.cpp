@@ -319,19 +319,19 @@ void LibrarySurface::arrange(gf::Rect b) {
     const int rows = (entries + 2) / 3;
     const double row_pitch = std::min(146.0, (b.height - 190) / rows);
     int index = 0;
-    for (const auto& child : children()) {
-        if (auto tile = std::dynamic_pointer_cast<GameTile>(child)) {
-            int g = tile->game_index();
+    for (const std::shared_ptr<gf::Control>& child : children()) {
+        if (std::shared_ptr<GameTile> tile = std::dynamic_pointer_cast<GameTile>(child)) {
+            int g = (*tile).game_index();
             bool shown = category == 0 || (category == 1 && g == 0) ||
                          (category == 2 && g > 0 && g < 9) || (category == 3 && g == 9);
-            tile->set_visible(shown);
+            (*tile).set_visible(shown);
             if (shown) {
                 set_child_layout(child,
                                  {202 + (index % 3) * tw, 175.0 + (index / 3) * row_pitch, tw - 10, row_pitch - 10});
                 ++index;
             }
         } else {
-            std::string id(child->stable_id().value());
+            std::string id((*child).stable_id().value());
             if (id == "collection.open")
                 set_child_layout(child, {b.width - 234, b.height - 110, 204, 35});
             else if (id.find("collection.category.") == 0) {
@@ -388,7 +388,7 @@ void LibrarySurface::on_paint(gf::Painter& p, gf::Rect) {
         {"Eggy and the Very, Very", "Tall Mountain", "Help a little duckling climb.",
          "He carries on while you are away."}};
     int row = 0;
-    for (const auto& t : descriptions[selection])
+    for (const std::string& t : descriptions[selection])
         p.draw_text_utf8({b.width - 239, 386 + row++ * 24.0}, t,
                          {gf::FontRole::content, 14, 400, false}, muted);
     p.draw_line({b.width - 239, b.height - 145}, {b.width - 30, b.height - 145}, line, 1);
