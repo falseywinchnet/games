@@ -8,7 +8,7 @@ The collection uses the GUI.Forms File Manager house composition: a pearl comman
 
 The [Build installable Games workflow](https://github.com/falseywinchnet/games/actions/workflows/applications.yml) builds the complete collection on native Windows x64, macOS arm64, Linux x64 and Linux arm64 runners. Successful runs provide installers and portable archives. Version tags publish tested packages to [Releases](https://github.com/falseywinchnet/games/releases).
 
-The complete Windows application passes 22 tests and a packaged native-window launch with compiler paths removed. Consult each platform run for its current result. macOS packages target Apple silicon and macOS 15 or later and are signed ad hoc, without Developer ID notarization. Linux packages target Ubuntu 24.04 or compatible systems and require X11.
+The complete application passes all 22 tests on each of those four native platforms. The [validated application run](https://github.com/falseywinchnet/games/actions/runs/36953930003) also installs and launches the Windows, macOS and Linux packages with isolated saves. Download installers and portable archives from [the latest release](https://github.com/falseywinchnet/games/releases/latest). macOS packages target Apple silicon and macOS 15 or later and are signed ad hoc, without Developer ID notarization. Linux packages target Ubuntu 24.04 or compatible systems and require X11.
 
 Games links reviewed GUI.Forms source for native windows, portable text and compact audio; no development SDK is installed or exported. CMake fetches pinned QuickJS for offline Sudoku. No external JavaScript runtime or server is needed. FFmpeg and Pillow prepare release assets and are not runtime requirements. See [complete build instructions](docs/BUILDING.md).
 

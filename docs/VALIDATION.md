@@ -1,5 +1,9 @@
 # Current cross-platform validation
 
+The [complete application run](https://github.com/falseywinchnet/games/actions/runs/36953930003) passes all 22 tests independently on Windows x64, macOS arm64, Linux x64 and Linux arm64. Windows verifies the portable application, per-user installer, installed application and uninstaller. macOS verifies the bundled application and the PKG-installed copy at `/Applications/Games.app`, including required bundled fonts. Both Linux platforms install the generated DEB and launch its real X11 window under Xvfb. Every native smoke requires a presented collection frame and scheduled clean shutdown.
+
+The released dependency closure includes the required Windows and macOS runtimes; Linux's DEB declares its system dependencies. Package manifests record the Games commit and toolkit revision. Runtime data is verified against the complete source inventory before packaging. The touched startup and collection-layout C++ passes the house spelling checker; this does not certify unrelated legacy source style.
+
 The complete Windows Release application passes all 22 CTest cases, including replacement game rules and saves, cabinet routing, offline QuickJS Sudoku, all 298 compact audio files, Four Pegs bar transitions, and complete frames from all four vendor views. The packaged application launches and presents its collection with isolated saves and only Windows system directories in PATH. Its scheduled native close returns success.
 
 The [native text run](https://github.com/falseywinchnet/games/actions/runs/36950462158) passes all seven consumer and complete-frame tests on Windows x64, macOS arm64, Linux x64 and Linux arm64. Actual game/help frames at 100% and 150% have been inspected. Software-frame checks do not measure native presentation latency.
