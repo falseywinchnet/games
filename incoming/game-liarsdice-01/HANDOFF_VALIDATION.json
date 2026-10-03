@@ -1,0 +1,36 @@
+{
+ "package": "game-liarsdice-01",
+ "kind": "new game (new collection entry; replaces nothing)",
+ "clean_build_from_package": "ok (Release, arm64, GUI.Forms paint-port SDK copy on the Neo)",
+ "dice_tests": "PASS (rules; 32 fixed crew with unique kind-and-tell pairs; odds model 0.4407 vs simulated 0.4392; 1,500 crew matches; win rate by danger 0.293/0.331/0.370; tells on 53.9% of bluffs and 8.6% of honest bids; adaptation to a heavy bluffer; 479 distinct wager pitches; ledger round trip)",
+ "audio_files": 51,
+ "audio_decoded_afconvert": 51,
+ "aac_valid_frames_equal_manifest_loop_end": true,
+ "window_sizes_checked_live": [
+  "1100x760 (default)",
+  "600x370 (cabinet minimum less the rail)",
+  "640x900",
+  "800x500",
+  "1400x520",
+  "1600x1000"
+ ],
+ "behaviours_captured_in_app": [
+  "three wagers (cards, and tabs when small)",
+  "the crew bidding",
+  "your move with the composer",
+  "reveals with the running count",
+  "records",
+  "the logbook (paged when small)",
+  "help"
+ ],
+ "played_by_user": true,
+ "anomalies": [],
+ "not_verified": [
+  "the reveal's verdict line in its new two-row position (moved after the captures)",
+  "listening pass on the final renders (checks were numerical)",
+  "reduced motion (not implemented)",
+  "CPU measurement",
+  "cabinet integration",
+  "non-macOS platforms"
+ ]
+}
