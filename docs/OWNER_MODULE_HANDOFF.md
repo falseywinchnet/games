@@ -15,3 +15,16 @@ Collection source selects `ap::AtomProbeView`, `fp::FourPegsView` and `sbx::Swit
 The Windows development checks cover the replacement game rules, v2 storage and rendering previews. Atom Probe retains its complete eight-by-eight, four-atom deduction rules and reveal. Four Pegs retains its villain, narrative and code-breaking rules; its portable audio consumer verifies the actual score changes on musical bar boundaries through the shared GUI.Forms transport. Switchbox uses the shared window-owned cursor interaction API. These controls use LiveSurface presentation instead of separate platform presenters.
 
 Shared prepared-text wrapping and monochrome masks remain required for the complete application. See [portable text requirements](PORTABLE_TEXT_REQUIREMENTS.md). Full UI linking, native sound listening, input and DPI checks, and independent platform packaging must pass before publishing release binaries. Build and subset-test commands are in the repository's `AGENTS.md`.
+
+## New games awaiting integration
+
+Four new games from the owner's 2026-10-02 brief (Parrot's Table, Liar's Dice, Block the Pig, Koi-Koi, Spice Wars) are delivered as pristine packages. They replace nothing: each needs a new collection entry, except Koi-Koi, which joins the card shelf. Each package's `INTEGRATION_HANDOFF.txt` gives the control to host, the Windows seams, the save file and what was and wasn't verified.
+
+| Incoming package | Game | Namespace | Hosted control | Save |
+| --- | --- | --- | --- | --- |
+| `game-parrotstable-01` | The Parrot's Table (logic puzzle) | `pt` | `pt::TableView` | `parrots_table-v1.txt` |
+| `game-liarsdice-01` | Liar's Dice | `ld` | `ld::DiceView` | `liars_dice-v1.txt` |
+| `game-penthesheep-01` | Pen the Sheep (the hex trapping puzzle) | `sh` | `sh::SheepView` | `pen_the_sheep-v1.txt` |
+| `game-koikoi-01` | Koi-Koi, the fifth card game | `games::koi` rules, `kk` table | `kk::KoiView` | `koikoi-v1.txt` |
+
+Keep each package unchanged and work from vendor copies, as above. All four reflow from 600 x 370 points (the window minimum less the rail) to full screen. Koi-Koi's package carries verbatim copies of `vendor/paint` and of the card table's `card_finish`; link the cabinet's own `vendor/paint` instead of the copy. These packages' `platform/raster.cpp` includes a fix to `accumulate()` (an intermittent one-float overread); the Switchbox, Four Pegs and Atom Probe vendor copies predate it.
