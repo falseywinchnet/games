@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <mutex>
 
 namespace zc {
 
@@ -240,7 +241,7 @@ Rgb texel(Stone stone, int x, int y) {
 struct Library {
     Tex textures[kStoneCount];
     Col means[kStoneCount];
-    bool built[kStoneCount] = {false, false, false, false, false, false, false, false};
+    std::once_flag initialized[kStoneCount];
 };
 
 Library& library() {
@@ -271,7 +272,6 @@ void build(int k) {
     t.build_mips();
     const double n = static_cast<double>(kSize) * kSize;
     shelf.means[k] = Col{static_cast<float>(sum_r / n), static_cast<float>(sum_g / n), static_cast<float>(sum_b / n), 1};
-    shelf.built[k] = true;
 }
 
 }  // namespace
@@ -313,17 +313,13 @@ const Tex& arrow_texture() {
 
 const Tex& stone_texture(Stone stone) {
     const int k = static_cast<int>(stone);
-    if (!library().built[k]) {
-        build(k);
-    }
+    std::call_once(library().initialized[k], build, k);
     return library().textures[k];
 }
 
 Col stone_mean(Stone stone) {
     const int k = static_cast<int>(stone);
-    if (!library().built[k]) {
-        build(k);
-    }
+    std::call_once(library().initialized[k], build, k);
     return library().means[k];
 }
 

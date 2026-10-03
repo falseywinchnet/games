@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <map>
+#include <mutex>
 
 namespace zc {
 
@@ -359,13 +360,16 @@ Icosphere build_icosphere(int levels) {
     return sphere;
 }
 
+void initialize_icosphere(int levels, Icosphere* sphere) {
+    *sphere = build_icosphere(levels);
+}
+
 const Icosphere& icosphere(int levels) {
     static Icosphere cache[5];
-    static bool built[5] = {false, false, false, false, false};
-    if (!built[levels]) {
-        cache[levels] = build_icosphere(levels);
-        built[levels] = true;
-    }
+    static std::once_flag initialized[5];
+    // Rock generation starts on several workers. Publish each immutable mesh
+    // only after its vectors are fully built.
+    std::call_once(initialized[levels], initialize_icosphere, levels, &cache[levels]);
     return cache[levels];
 }
 

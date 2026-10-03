@@ -66,3 +66,19 @@ The 0.4 integrations and adapter boundaries are documented in docs/NEW_GAME_INTE
 Preserve demand-driven rendering and lazy game creation. See docs/PERFORMANCE.md
 for the idle profiling protocol and remaining toolkit boundaries. Do not trade
 away animation, image fidelity, game behavior or saved state to lower a metric.
+
+## Rock Stack startup caches
+
+Rock construction runs concurrently. Keep shared mesh and stone-texture caches
+immutable after synchronized initialization; do not serialize the whole rock
+factory or remove parallel generation. The cold-start test covers both mesh
+levels and compares concurrent results with serial construction.
+
+From the authoritative local checkout, validate on the M4 Mini with:
+
+```sh
+/Users/ultimussecundai/.local/bin/m4build -- sh -c \
+  '/opt/homebrew/bin/cmake -S . -B /tmp/games-rockstack -DCMAKE_BUILD_TYPE=Release -DGAMES_BUILD_APPLICATION=OFF && \
+   /opt/homebrew/bin/cmake --build /tmp/games-rockstack --target rockstack_cache_tests rockstack_rules_tests rockstack_physics_tests -j2 && \
+   /opt/homebrew/bin/ctest --test-dir /tmp/games-rockstack -R "^rockstack_" --output-on-failure --timeout 180'
+```
