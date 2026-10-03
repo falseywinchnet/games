@@ -1,0 +1,39 @@
+{
+ "package": "game-zenconstruction-01",
+ "kind": "new game (new collection entry; replaces nothing)",
+ "clean_build_from_package": "ok (Release, arm64, GUI.Forms paint-port SDK copy on the Neo)",
+ "zen_tests": "PASS (pour, woken heap holds, fetch/lower/release makes the foot, a second rock joins, unwinding, save and load, a loose rock tidied home)",
+ "phys_tests": "all correctness tests PASS; test 16 (timing budget, 1.5 ms mean for 75 awake rocks) FAILED under load average 15-20 (3.9 and 15 ms); about 1.7 ms when the machine was quiet",
+ "audio_files": 37,
+ "audio_decoded_afconvert": 37,
+ "aac_valid_frames_equal_manifest_loop_end": true,
+ "renderer_change": "banded multi-threaded fill and kept static shadows; output pixel-identical to the previous single-threaded renderer (0 of 371,631 pixels differ)",
+ "frame_times_ms_733x507": {
+  "camera_moving_before": 47,
+  "camera_moving_after": 20,
+  "camera_still_before": 33,
+  "camera_still_after": 12.6
+ },
+ "window_sizes_checked_live": [
+  "1100x760 (default)",
+  "600x370 (cabinet minimum less the rail)"
+ ],
+ "behaviours_captured_in_app": [
+  "new site poured",
+  "rock fetched and lifted",
+  "help",
+  "holding a rock in the small window"
+ ],
+ "played_by_user": true,
+ "anomalies": [
+  "capture runs on a heavily loaded machine: shots later than labelled; stray keystrokes reached the capture window (help and music switch)",
+  "screens/render_crane_duck_mina_slings.png is a headless render, not an app capture"
+ ],
+ "not_verified": [
+  "phys_tests test 16 timing budget",
+  "listening pass on the final creek mix and motor level",
+  "reduced motion (not implemented)",
+  "cabinet integration",
+  "non-macOS platforms"
+ ]
+}

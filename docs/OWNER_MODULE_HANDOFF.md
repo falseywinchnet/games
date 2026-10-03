@@ -28,3 +28,7 @@ Four new games from the owner's 2026-10-02 brief (Parrot's Table, Liar's Dice, B
 | `game-koikoi-01` | Koi-Koi, the fifth card game | `games::koi` rules, `kk` table | `kk::KoiView` | `koikoi-v1.txt` |
 
 Keep each package unchanged and work from vendor copies, as above. All four reflow from 600 x 370 points (the window minimum less the rail) to full screen. Koi-Koi's package carries verbatim copies of `vendor/paint` and of the card table's `card_finish`; link the cabinet's own `vendor/paint` instead of the copy. These packages' `platform/raster.cpp` includes a fix to `accumulate()` (an intermittent one-float overread); the Switchbox, Four Pegs and Atom Probe vendor copies predate it.
+
+### Zen Construction (delivered 2026-10-03)
+
+`incoming/game-zenconstruction-01` is a new game (a new collection entry; it replaces nothing): stacking river stones with a toy truck crane, with its own deterministic rigid-body engine (`phys/`, namespace `zc::phys`). Namespace `zc`; hosted control `zc::ZenView`; save `zen_construction-v1.txt`. It reflows from 600 x 370 points. Its audio adds one seam the other games don't have, a looping bed with eased gain and playback rate (`audio_bed`); see its `INTEGRATION_HANDOFF.txt`. Its renderer copy fills in bands on a small `std::thread` pool and keeps static shadows (pixel-identical output).
