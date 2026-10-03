@@ -21,7 +21,7 @@ def verify(source: Path, runtime: Path) -> dict:
     originals = {path.name: path for path in (source / "audio").iterdir()
                  if path.suffix.lower() in (".m4a", ".wav")}
     records = manifest["files"]
-    if len(records) != 298 or len(originals) != 298:
+    if len(records) != 392 or len(originals) != 392:
         raise ValueError("Incomplete source or runtime audio inventory")
     seen_sources: set[str] = set()
     seen_outputs: set[str] = set()
@@ -43,6 +43,17 @@ def verify(source: Path, runtime: Path) -> dict:
     actual_outputs = {path.name for path in audio.iterdir() if path.is_file()}
     if actual_outputs != seen_outputs | {"portable_manifest.json"}:
         raise ValueError("Runtime audio contains stale or unexpected files")
+    expected_cards = {f"hana_{i:02}.bgpix" for i in range(48)} | {"hana_back.bgpix", "card_shadow.bgpix"}
+    actual_cards = {path.name for path in (runtime / "cards").glob("*.bgpix")}
+    if actual_cards != expected_cards:
+        raise ValueError("Incomplete prepared hanafuda deck")
+    for name in expected_cards:
+        data = (runtime / "cards" / name).read_bytes()
+        if len(data) < 16 or data[:4] != b"BGPX":
+            raise ValueError("Invalid prepared card: " + name)
+        version, width, height = struct.unpack("<III", data[4:16])
+        if version != 1 or not 0 < width <= 4096 or not 0 < height <= 4096 or len(data) != 16 + width * height * 4:
+            raise ValueError("Truncated prepared card: " + name)
     source_fonts = source / "fonts"
     fonts = runtime / "fonts"
     for name in ("manifest.json", "ATTRIBUTION.md"):

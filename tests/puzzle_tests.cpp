@@ -228,14 +228,14 @@ int main() {
                 assert(game.piece_count() == 7);
                 int atoms = 0;
                 for (int p = 0; p < 7; ++p) {
-                    auto original = game.piece_cells(p, 0, false);
+                    std::vector<PieceCell> original = game.piece_cells(p, 0, false);
                     atoms += original.size();
                     for (int r = 0; r < 4; ++r)
                         for (bool f : {false, true})
                             assert(game.piece_cells(p, r, f).size() == original.size());
                 }
                 assert(atoms == 64);
-                for (const auto& w : game.state.solution_paths)
+                for (const std::vector<int>& w : game.state.solution_paths)
                     assert(game.place_piece(w[0], w[1], w[2], w[3], w[4]));
                 assert(game.state.won);
             }

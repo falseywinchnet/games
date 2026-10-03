@@ -37,6 +37,15 @@ const std::array<EntryInfo, entry_count> entries{{
      rgb(44, 110, 182), rgb(18, 50, 98), rgb(250, 205, 75)},
     {"Eggy", "A long climb", "Help a duckling climb a very, very tall mountain.", rgb(222, 140, 36),
      rgb(138, 70, 16), rgb(255, 238, 170)},
+    {"Koi-Koi", "Hanafuda", "Match the months, collect sets, and choose when to risk another turn.",
+     rgb(148, 46, 38), rgb(62, 24, 24), rgb(255, 218, 138)},
+    {"The Parrot's Table", "Deduction",
+     "Question the parrots, test their stories, and name the culprit.", rgb(34, 122, 85),
+     rgb(12, 52, 40), rgb(244, 216, 104)},
+    {"Liar's Dice", "Bluffing", "Read the crew, raise the bid, or call their bluff.",
+     rgb(38, 80, 112), rgb(12, 30, 50), rgb(230, 186, 100)},
+    {"Pen the Sheep", "Pasture puzzle", "Place fences before a clever sheep finds its way out.",
+     rgb(95, 146, 64), rgb(34, 66, 28), rgb(255, 238, 176)},
 }};
 void disc(gf::Painter& p, double cx, double cy, double r, gf::Color c) {
     p.fill_rounded_rect({cx - r, cy - r, 2 * r, 2 * r}, r, c);
@@ -227,6 +236,7 @@ void paint_glyph(gf::Painter& p, gf::Rect r, Glyph glyph, gf::Color ink, bool cr
 }
 void paint_entry_emblem(gf::Painter& p, gf::Rect r, Entry entry) {
     const double x = r.x, y = r.y, w = r.width, h = r.height;
+    const double cx = x + w * .5, cy = y + h * .5, s = std::min(w, h);
     switch (entry) {
     case Entry::solitaire:
         paint_card_back(p, {x + w * .08, y + h * .14, w * .5, h * .7}, rgb(150, 34, 54));
@@ -416,6 +426,50 @@ void paint_entry_emblem(gf::Painter& p, gf::Rect r, Entry entry) {
             blue);
         break;
     }
+    case Entry::koikoi: {
+        const gf::Rect card{cx - s * .32, cy - s * .47, s * .64, s * .94};
+        p.fill_rounded_rect(card, s * .035, rgb(255, 243, 212));
+        disc(p, cx + s * .10, cy - s * .20, s * .17, rgb(197, 47, 36));
+        for (int i = 0; i < 3; ++i) {
+            const double x = cx - s * .19 + i * s * .16;
+            p.draw_line({x, cy + s * .37}, {x + s * .09, cy - s * .03}, rgb(36, 69, 46), s * .035);
+            disc(p, x + s * .08, cy - s * .02, s * .11, rgb(48, 100, 61));
+        }
+        break;
+    }
+    case Entry::parrots:
+        disc(p, cx, cy, s * .30, rgb(65, 161, 100));
+        disc(p, cx + s * .08, cy - s * .18, s * .24, rgb(224, 68, 46));
+        paint_polygon(p,
+                      {{cx + s * .22, cy - s * .15},
+                       {cx + s * .44, cy - s * .03},
+                       {cx + s * .17, cy + s * .05}},
+                      rgb(246, 201, 77));
+        disc(p, cx + s * .12, cy - s * .22, s * .04, rgb(22, 24, 26));
+        p.draw_line({cx - s * .12, cy + s * .24}, {cx - s * .27, cy + s * .48}, rgb(55, 130, 215),
+                    s * .12);
+        break;
+    case Entry::liarsdice:
+        p.fill_rounded_rect({cx - s * .34, cy - s * .34, s * .68, s * .68}, s * .08,
+                            rgb(248, 232, 195));
+        for (int i = -1; i <= 1; ++i)
+            disc(p, cx + i * s * .19, cy + i * s * .19, s * .055, rgb(36, 31, 31));
+        disc(p, cx - s * .19, cy + s * .19, s * .055, rgb(36, 31, 31));
+        disc(p, cx + s * .19, cy - s * .19, s * .055, rgb(36, 31, 31));
+        break;
+    case Entry::penthesheep:
+        for (int i = 0; i < 6; ++i) {
+            const double a = i * 6.283185307179586 / 6;
+            disc(p, cx + std::cos(a) * s * .20, cy + std::sin(a) * s * .15, s * .18,
+                 rgb(255, 247, 225));
+        }
+        disc(p, cx + s * .26, cy + s * .02, s * .15, rgb(66, 60, 54));
+        disc(p, cx + s * .30, cy - s * .01, s * .025, rgb(255, 250, 235));
+        p.draw_line({cx - s * .16, cy + s * .22}, {cx - s * .16, cy + s * .40}, rgb(66, 60, 54),
+                    s * .07);
+        p.draw_line({cx + s * .12, cy + s * .22}, {cx + s * .12, cy + s * .40}, rgb(66, 60, 54),
+                    s * .07);
+        break;
     case Entry::eggy:
         disc(p, x + w * .44, y + h * .62, w * .3, rgb(237, 199, 91));
         disc(p, x + w * .62, y + h * .38, w * .2, rgb(251, 221, 125));

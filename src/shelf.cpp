@@ -369,7 +369,7 @@ void ShelfView::on_paint(gf::Painter& p, gf::Rect) {
     sprites_.draw(p, {name.text, name.face, true, name.size, rgb(0, 0, 0, 160)}, {nx + 1, ny + 2});
     sprites_.draw(p, name, {nx, ny});
     if (!compact) {
-        SpriteSpec tag{"THIRTEEN GAMES  ·  CARDS, PUZZLES AND A VERY TALL MOUNTAIN",
+        SpriteSpec tag{"SEVENTEEN GAMES  ·  CARDS, PUZZLES AND A VERY TALL MOUNTAIN",
                        Face::condensed, false, 12, rgb(201, 176, 138)};
         sprites_.draw(p, tag, {nx + 2, ny + ns.height - 2});
     }

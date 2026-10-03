@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
         const std::string format = argv[2];
         require(format == "wav" || format == "ogg", "Supported fixture format");
         const std::filesystem::path audio = std::filesystem::path(argv[1]) / "audio";
-        const std::array<const char*, 21> names{"music_menu_loop",
+        const std::array<const char*, 27> names{"music_menu_loop",
                                                 "music_klondike_loop",
                                                 "music_spider_loop",
                                                 "music_freecell_loop",
@@ -38,11 +38,11 @@ int main(int argc, char** argv) {
                                                 "fp_music_t1",
                                                 "fp_music_t2",
                                                 "fp_music_t3",
-                                                "ap_music"};
-        const std::array<std::uint64_t, 21> frames{
+                                                "ap_music", "pt_music", "ld_music", "ld_music_tense", "sh_music", "sh_music_grass", "kk_music"};
+        const std::array<std::uint64_t, 27> frames{
             3896384, 4608000, 4608000, 4388608, 3770208, 4538144, 4369728,
             4459392, 4850560, 5421184, 5120000, 4873792, 5509504, 5172288,
-            4680000, 5280000, 5068800, 3177931, 2880000, 2560000, 3686400};
+            4680000, 5280000, 5068800, 3177931, 2880000, 2560000, 3686400, 2194272, 1570896, 1570896, 2304000, 3072000, 5585455};
         for (std::size_t i = 0; i < names.size(); ++i) {
             const std::string name = std::string(names[i]) + "." + format;
             gui_forms::AudioClipResult clip = format == "ogg"
@@ -98,9 +98,9 @@ int main(int argc, char** argv) {
             require(clip.status == gui_forms::AudioStatus::ok, "Full prepared audio decode");
             ++decoded;
         }
-        require(decoded == 298,
+        require(decoded == 392,
                 "Complete runtime batch including Switchbox, Four Pegs and Atom Probe");
-        std::cout << "Full audio decode: " << decoded << "/298 files.\n";
+        std::cout << "Full audio decode: " << decoded << "/392 files.\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

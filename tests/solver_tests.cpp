@@ -45,7 +45,7 @@ const Difficulty levels[] = {Difficulty::easy, Difficulty::medium, Difficulty::h
 } // namespace
 
 int main() {
-    auto start = std::chrono::steady_clock::now();
+    const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     require(std::string(difficulty_name(Difficulty::easy)) == "Easy", "names");
     require(normalized_option(Kind::solitaire, 2) == 1 && normalized_option(Kind::spider, 3) == 1 &&
                 normalized_option(Kind::spider, 4) == 4 &&

@@ -215,7 +215,7 @@ struct Replay {
         if (!game.move(m))
             return false;
         if (out)
-            out->push_back({false, m});
+            (*out).push_back({false, m});
         ++actions;
         return true;
     }
@@ -223,7 +223,7 @@ struct Replay {
         if (!game.draw())
             return false;
         if (out)
-            out->push_back({true, {}});
+            (*out).push_back({true, {}});
         ++actions;
         return true;
     }
@@ -410,7 +410,7 @@ struct Klondike {
                 if (s.t.len[a] && safe(s, s.t.top(a))) {
                     apply_raw(s, {T2F, u8(a), 0, 0, 0});
                     if (log)
-                        log->push_back({T2F, u8(a), 0, 0, 0});
+                        (*log).push_back({T2F, u8(a), 0, 0, 0});
                     any = true;
                 }
         }
@@ -449,12 +449,12 @@ struct Klondike {
         for (const Card& card : st.piles[15])
             s.talon[s.tn++] = code_of(card);
         s.tp = s.tn;
-        for (auto it = st.piles[14].rbegin(); it != st.piles[14].rend(); ++it)
+        for (Pile::const_reverse_iterator it = st.piles[14].rbegin(); it != st.piles[14].rend(); ++it)
             s.talon[s.tn++] = code_of(*it);
         return s;
     }
     bool emit(Replay& r, const S& s, const SMove& m) const {
-        const auto& piles = r.game.state.piles;
+        const std::array<Pile, 20>& piles = r.game.state.piles;
         switch (m.type) {
         case T2F: {
             Card c = piles[m.a].back();
@@ -646,7 +646,7 @@ struct FreeCellE {
                     SMove m{T2F, u8(a), 0, 0, 0};
                     apply_raw(s, m);
                     if (log)
-                        log->push_back(m);
+                        (*log).push_back(m);
                     any = true;
                 }
             for (int i = 0; i < 4; ++i)
@@ -654,7 +654,7 @@ struct FreeCellE {
                     SMove m{C2F, s.cell[i], 0, 0, 0};
                     apply_raw(s, m);
                     if (log)
-                        log->push_back(m);
+                        (*log).push_back(m);
                     any = true;
                     break;
                 }
@@ -714,7 +714,7 @@ struct FreeCellE {
         return -1;
     }
     bool emit(Replay& r, const S&, const SMove& m) const {
-        const auto& piles = r.game.state.piles;
+        const std::array<Pile, 20>& piles = r.game.state.piles;
         switch (m.type) {
         case T2F: {
             Card c = piles[m.a].back();
@@ -977,7 +977,9 @@ SearchOut beam_search(const E& e, typename E::S root, std::size_t width, long bu
         cands.clear();
         SeenSet local;
         std::uint32_t order = 0;
-        for (const auto& [s, ri] : level) {
+        for (const std::pair<S, std::int32_t>& item : level) {
+            const S& s = item.first;
+            const std::int32_t ri = item.second;
             if (out.nodes >= budget)
                 return out;
             ++out.nodes;
@@ -1176,14 +1178,14 @@ SolveReport solve_deal(Kind kind, int option, std::uint32_t seed, long node_budg
 // Scores a casual player's candidate move with the engine's own priorities.
 template <class Engine, class Position> struct CasualScore {
     Engine& e;
-    auto operator()(const Position& s, const SMove& m) const {
+    int operator()(const Position& s, const SMove& m) const {
         return e.casual(s, m);
     }
 };
 // FreeCell's casual player looks one move ahead.
 struct LookAhead {
     FreeCellE& e;
-    auto operator()(const FState& s, const SMove& m) const {
+    int operator()(const FState& s, const SMove& m) const {
         FState c = s;
         e.apply(c, m, nullptr);
         return 100000 - e.h(c);
@@ -1288,14 +1290,14 @@ const detail::DealTable* find_table(Kind kind, int option, Difficulty difficulty
 
 int graded_count(Kind kind, int option, Difficulty difficulty) {
     const detail::DealTable* t = find_table(kind, option, difficulty);
-    return t ? t->count : 0;
+    return t ? (*t).count : 0;
 }
 
 std::uint32_t graded_seed(Kind kind, int option, Difficulty difficulty, std::uint32_t pick) {
     const detail::DealTable* t = find_table(kind, option, difficulty);
-    if (!t || t->count <= 0)
+    if (!t || (*t).count <= 0)
         return pick + 1;
-    return t->seeds[pick % static_cast<std::uint32_t>(t->count)];
+    return (*t).seeds[pick % static_cast<std::uint32_t>((*t).count)];
 }
 
 } // namespace games

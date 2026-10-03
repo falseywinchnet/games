@@ -374,6 +374,30 @@ int main() {
         assert((*std::static_pointer_cast<ap::AtomProbeView>(atomprobe)).host_panel() == "scores");
         assert((*button(*capsule, "capsule.back")).perform_click());
         assert((*shelf).visible() && !(*atomprobe).visible());
+        for (Entry entry : {Entry::koikoi, Entry::parrots, Entry::liarsdice, Entry::penthesheep}) {
+            (*collection).open_entry(entry);
+            window.perform_layout();
+            open_capsule();
+            const std::string id = entry == Entry::koikoi ? "rules" : "help";
+            assert((*button(*capsule, "capsule.cmd." + id)).perform_click());
+            CommandSource* source = nullptr;
+            for (const std::shared_ptr<gf::Control>& candidate : (*collection).children())
+                if ((*candidate).visible()) {
+                    CommandSource* match = dynamic_cast<CommandSource*>(candidate.get());
+                    if (match) source = match;
+                }
+            assert(source);
+            bool checked = false;
+            for (const GameCommand& command : (*source).commands())
+                if (command.id == id) checked = command.checked;
+            assert(checked);
+            assert((*button(*capsule, "capsule.cmd." + id)).perform_click());
+            for (const GameCommand& command : (*source).commands())
+                if (command.id == id) assert(!command.checked);
+            assert((*button(*capsule, "capsule.back")).perform_click());
+        }
+        (*collection).open_entry(Entry::atom);
+        (*collection).show_shelf();
     }
     {
         // Reopening resumes where the player left: in a game, or on the shelf.

@@ -1,4 +1,16 @@
-# Current cross-platform validation
+# PlaySuite 0.4 validation
+
+The complete Windows build passes 31 CTest cases. The new rule suites cover Parrot deduction, Liar's Dice, generated Sheep meadows and Koi-Koi matches. Integration checks cover capsule commands, every game at a 600 × 420 window, 100%/150% live frames, compact board/help frames, all 392 decoded audio assets and real bar-aligned transitions for both Four Pegs and Liar's Dice. `python3 scripts/check-style.py` checks first-party source, tests and tools; vendor deliveries retain their upstream style.
+
+Rendered game and help output has been inspected, including all 48 new hanafuda faces at small size. Native Windows interaction exercised opening games, Koi-Koi month matching and score panels, and Sheep fence placement and undo. Test saves are isolated. These checks do not certify every playthrough, sustained presentation latency or the quality of every audio asset.
+
+The [application workflow](https://github.com/falseywinchnet/games/actions/workflows/applications.yml) validates Windows x64, macOS arm64, Linux x64 and Linux arm64 independently, including package installation and launch. A release is published only when all four native application jobs pass. Release assets and checksums are available on [Releases](https://github.com/falseywinchnet/games/releases). See [integration details](NEW_GAME_INTEGRATION.md) for adapters, save names and the text-cache compatibility limitation.
+
+The records below describe earlier releases and are not additional claims about 0.4.
+
+---
+
+# Earlier cross-platform validation
 
 The [complete application run](https://github.com/falseywinchnet/games/actions/runs/36953930003) passes all 22 tests independently on Windows x64, macOS arm64, Linux x64 and Linux arm64. Windows verifies the portable application, per-user installer, installed application and uninstaller. macOS verifies the bundled application and the PKG-installed copy at `/Applications/Games.app`, including required bundled fonts. Both Linux platforms install the generated DEB and launch its real X11 window under Xvfb. Every native smoke requires a presented collection frame and scheduled clean shutdown.
 

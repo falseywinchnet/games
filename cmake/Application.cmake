@@ -5,20 +5,24 @@ endif()
 add_library(game_audio_adapters STATIC
     src/audio_loader.cpp src/pcm_player.cpp src/scene_audio.cpp src/fourpegs_audio.cpp src/audio.cpp
     vendor/eggy/src/audio.cpp vendor/switchbox/src/platform/audio.cpp
-    vendor/fourpegs/src/platform/audio.cpp vendor/atomprobe/src/platform/audio.cpp)
+    vendor/fourpegs/src/platform/audio.cpp vendor/atomprobe/src/platform/audio.cpp
+    vendor/parrots/src/platform/audio.cpp vendor/liarsdice/src/platform/audio.cpp vendor/penthesheep/src/platform/audio.cpp vendor/koikoi/src/platform/audio.cpp)
 target_include_directories(game_audio_adapters PUBLIC src)
 target_link_libraries(game_audio_adapters PUBLIC GUIForms::Audio game_paths)
 add_library(game_text_frames STATIC src/text_requests.cpp src/game_text.cpp)
 target_include_directories(game_text_frames PUBLIC src)
 target_link_libraries(game_text_frames PUBLIC gui_forms_text_masks)
+add_library(game_felt STATIC vendor/paint/carpet.cpp vendor/paint/image.cpp)
 add_library(vendor_game_ui STATIC
     vendor/eggy/src/eggy_view.cpp vendor/switchbox/src/switchbox_view.cpp
-    vendor/fourpegs/src/fourpegs_view.cpp vendor/atomprobe/src/atomprobe_view.cpp)
+    vendor/fourpegs/src/fourpegs_view.cpp vendor/atomprobe/src/atomprobe_view.cpp
+    vendor/parrots/src/table_view.cpp vendor/parrots/src/platform/text.cpp vendor/parrots/src/platform/present.cpp vendor/liarsdice/src/dice_view.cpp vendor/liarsdice/src/platform/text.cpp vendor/liarsdice/src/platform/present.cpp vendor/penthesheep/src/sheep_view.cpp vendor/penthesheep/src/platform/text.cpp vendor/penthesheep/src/platform/present.cpp vendor/koikoi/src/koi_view.cpp vendor/koikoi/src/platform/text.cpp vendor/koikoi/src/platform/present.cpp
+    vendor/koikoi/src/card_finish.cpp vendor/koikoi/src/platform/image.cpp)
 target_link_libraries(vendor_game_ui PUBLIC eggy_core sbx_core fp_core ap_core
-    game_audio_adapters game_text_frames GUIForms::Application)
+    game_audio_adapters game_text_frames game_felt pt_core ld_core sh_core kk_core GUIForms::Application)
+target_compile_definitions(vendor_game_ui PRIVATE _USE_MATH_DEFINES)
 add_library(game_ui src/table.cpp src/presentation.cpp src/puzzle_view.cpp src/collection.cpp
-    src/sudoku_view.cpp src/suite.cpp src/text_sprites.cpp src/shelf.cpp src/capsule.cpp src/kitten.cpp
-    vendor/paint/carpet.cpp vendor/paint/image.cpp)
+    src/sudoku_view.cpp src/suite.cpp src/text_sprites.cpp src/shelf.cpp src/capsule.cpp src/kitten.cpp)
 target_include_directories(game_ui PUBLIC src PRIVATE vendor/paint)
 target_link_libraries(game_ui PUBLIC game_rules game_solver game_raster sudoku_generator vendor_game_ui)
 if(NOT MSVC)
@@ -81,8 +85,9 @@ add_executable(fourpegs_audio_tests tests/fourpegs_audio_tests.cpp)
 target_link_libraries(fourpegs_audio_tests PRIVATE game_audio_adapters)
 add_test(NAME fourpegs_bar_audio COMMAND fourpegs_audio_tests "${GAMES_RUNTIME_ASSET_DIR}")
 add_executable(vendor_game_frame_tests tests/vendor_game_frame_tests.cpp)
+target_compile_definitions(vendor_game_frame_tests PRIVATE GAMES_EXTENDED_VENDOR_FRAMES)
 target_link_libraries(vendor_game_frame_tests PRIVATE vendor_game_ui)
-foreach(game IN ITEMS fourpegs atomprobe switchbox eggy)
+foreach(game IN ITEMS fourpegs atomprobe switchbox eggy parrots liarsdice penthesheep koikoi)
     add_test(NAME ${game}_native_frames COMMAND vendor_game_frame_tests "${GAMES_RUNTIME_ASSET_DIR}" ${game})
     set_tests_properties(${game}_native_frames PROPERTIES TIMEOUT 45)
 endforeach()

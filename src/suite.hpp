@@ -22,8 +22,12 @@ enum class Entry : int {
     switchbox,
     solve,
     eggy,
+    koikoi,
+    parrots,
+    liarsdice,
+    penthesheep,
 };
-inline constexpr int entry_count = 13;
+inline constexpr int entry_count = 17;
 
 struct EntryInfo {
     const char* title;

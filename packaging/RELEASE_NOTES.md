@@ -1,6 +1,13 @@
-PlaySuite 0.3.0 brings a new boxed-game shelf and floating command bar to the complete thirteen-game collection. Every card game has its own shelf entry, and the window now resizes down to 600 × 420.
+PlaySuite 0.4.0 expands the collection to seventeen games, retaining the refined boxed-game shelf and shared command capsule.
 
-This release adds revised game presentation, the bouncing-card celebration, Gems effects, mirrored Nature Cube tiles and paths, clearer Puzzle Solve pieces, and new original music for the menu and ten game themes plus fourteen result stingers. Atom Probe, Four Pegs, Switchbox and Eggy remain integrated with portable text and compact audio.
+- Koi-Koi: twelve-month hanafuda matches, hints and sets, with 48 new traditional woodblock-style faces and clear month/type labels.
+- The Parrot's Table: question a cast of honest and lying parrots, mark contradictions and identify the culprit.
+- Liar's Dice: wagers, a varied opposing crew and an adaptive score whose arrangements change on authored bar boundaries.
+- Pen the Sheep: generated meadows, fence placement, undo, hints and earned stars.
+
+The incoming games now use portable GUI.Forms text, audio and live surfaces, shared music/sound/motion controls, and isolated game saves. Help and records integrate with the capsule. Hidden games pause and go silent; the capsule rail expands when commands wrap. The collection retains the latest graded patience deals, stronger Hearts opponents, puzzle difficulties and Untangle cat refinements.
+
+The release has 31 application tests, including all 392 compact audio files, sample-exact bar transitions, native-resolution game/help frames, 150% display scale and minimum-window command checks. No game-specific Apple frameworks or runtime image decoder are required.
 
 PlaySuite was previously named Games. Existing save locations and internal game identifiers are preserved.
 

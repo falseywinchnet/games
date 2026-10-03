@@ -882,7 +882,7 @@ std::vector<PieceCell> PuzzleGame::piece_cells(int piece, int rotation, bool fli
             {{4, 2}, {4, 4}, {2, 4}},         {{2, 2}, {3, 1}, {3, 3}},
             {{2, 2}, {3, 3}, {2, 4}, {1, 3}}, {{4, 0}, {4, 2}, {3, 3}, {3, 1}},
             {{0, 4}, {1, 3}, {2, 4}}};
-        const auto& poly = polygons[state.aux[48 + piece]];
+        const std::vector<Point2>& poly = polygons[state.aux[48 + piece]];
         const double dx[] = {.5, 5.0 / 6, .5, 1.0 / 6}, dy[] = {1.0 / 6, .5, 5.0 / 6, .5};
         std::vector<PieceCell> result;
         for (int y = 0; y < 4; ++y)
@@ -919,11 +919,11 @@ std::vector<PieceCell> PuzzleGame::piece_cells(int piece, int rotation, bool fli
                     result.push_back(c);
                 }
         int minx = 10, miny = 10;
-        for (const auto& c : result) {
+        for (const PieceCell& c : result) {
             minx = std::min(minx, c.x);
             miny = std::min(miny, c.y);
         }
-        for (auto& c : result) {
+        for (PieceCell& c : result) {
             c.x -= minx;
             c.y -= miny;
         }
@@ -965,18 +965,18 @@ std::vector<PieceCell> PuzzleGame::piece_cells(int piece, int rotation, bool fli
 bool PuzzleGame::place_piece(int piece, int x, int y, int rotation, bool flip) {
     if (state.over || piece < 0 || piece >= piece_count())
         return false;
-    auto cells = piece_cells(piece, rotation, flip);
+    std::vector<PieceCell> cells = piece_cells(piece, rotation, flip);
     int size = state.aux[95] == 3 ? 4 : 6, atoms = state.aux[95] == 3 ? 4 : 1;
     int minx = 10, miny = 10;
-    for (const auto& c : cells) {
+    for (const PieceCell& c : cells) {
         minx = std::min(minx, c.x);
         miny = std::min(miny, c.y);
     }
-    for (auto& c : cells) {
+    for (PieceCell& c : cells) {
         c.x -= minx;
         c.y -= miny;
     }
-    for (const auto& c : cells) {
+    for (const PieceCell& c : cells) {
         int xx = x + c.x, yy = y + c.y, i = (yy * size + xx) * atoms + c.wedge;
         if (xx < 0 || xx >= size || yy < 0 || yy >= size ||
             (state.grid[i] && state.grid[i] / 4 != piece + 1))
@@ -985,7 +985,7 @@ bool PuzzleGame::place_piece(int piece, int x, int y, int rotation, bool flip) {
     for (int i = 0; i < size * size * atoms; ++i)
         if (state.grid[i] / 4 == piece + 1)
             state.grid[i] = 0;
-    for (const auto& c : cells)
+    for (const PieceCell& c : cells)
         state.grid[((y + c.y) * size + x + c.x) * atoms + c.wedge] = (piece + 1) * 4 + c.color;
     ++state.moves;
     state.won = true;
@@ -1129,7 +1129,7 @@ bool PuzzleGame::invariant() const {
         witness.state.grid = {};
         witness.state.over = witness.state.won = false;
         std::set<int> pieces;
-        for (const auto& w : state.solution_paths) {
+        for (const std::vector<int>& w : state.solution_paths) {
             if (w.size() != 5 || !pieces.insert(w[0]).second || w[3] < 0 || w[3] > 3 || w[4] < 0 ||
                 w[4] > 1 || !witness.place_piece(w[0], w[1], w[2], w[3], w[4]))
                 return false;

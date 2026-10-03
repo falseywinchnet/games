@@ -63,10 +63,10 @@ int stats(Kind kind, int option, std::uint32_t first, int count) {
     double total_time = 0;
     for (int i = 0; i < count; ++i) {
         std::uint32_t seed = first + static_cast<std::uint32_t>(i);
-        auto t0 = Clock::now();
+        Clock::time_point t0 = Clock::now();
         bool g = greedy_wins(kind, option, seed);
         double tg = seconds_since(t0);
-        auto t1 = Clock::now();
+        Clock::time_point t1 = Clock::now();
         SolveReport r = solve_deal(kind, option, seed, budget);
         double ts = seconds_since(t1);
         total_time += tg + ts;
@@ -104,8 +104,8 @@ int stats(Kind kind, int option, std::uint32_t first, int count) {
     std::printf("non-greedy wins nodes p25 %ld p50 %ld p75 %ld\n",
                 percentile(nodes_nongreedy, 0.25), percentile(nodes_nongreedy, 0.5),
                 percentile(nodes_nongreedy, 0.75));
-    for (const auto& [w, n] : widths)
-        std::printf("solved at width %d: %d not casual, %d casual\n", w, n[0], n[1]);
+    for (const std::pair<const int, std::array<int, 2>>& item : widths)
+        std::printf("solved at width %d: %d not casual, %d casual\n", item.first, item.second[0], item.second[1]);
     std::printf("total %.1f s, %.1f ms per deal\n", total_time,
                 total_time * 1000 / std::max(1, count));
     return 0;
@@ -127,12 +127,12 @@ int generate(const char* path, int per_bucket, double minutes) {
         {Kind::spider, 1, "spider_1suit"},      {Kind::spider, 2, "spider_2suit"},
         {Kind::spider, 4, "spider_4suit"},      {Kind::freecell, 0, "freecell"}};
     std::string body, index, summary;
-    auto all_start = Clock::now();
+    Clock::time_point all_start = Clock::now();
     for (const Group& g : groups) {
         Bucket buckets[3];
         int scanned = 0, evaluated = 0, greedy = 0, solved = 0, exhausted = 0, unknown = 0;
         int sample_grades[3] = {};
-        auto t0 = Clock::now();
+        Clock::time_point t0 = Clock::now();
         double solve_seconds = 0;
         long solve_count = 0;
         for (std::uint32_t seed = 1;; ++seed) {
@@ -144,7 +144,7 @@ int generate(const char* path, int per_bucket, double minutes) {
             ++scanned;
             // Every seed is fully graded (this keeps the statistics unbiased); only
             // full buckets stop accepting.
-            auto ts = Clock::now();
+            Clock::time_point ts = Clock::now();
             DealGrade grade = grade_deal(g.kind, g.option, seed);
             if (!grade.greedy) {
                 solve_seconds += seconds_since(ts);
@@ -187,7 +187,7 @@ int generate(const char* path, int per_bucket, double minutes) {
         for (int d = 0; d < 3; ++d) {
             std::string array = std::string(g.name) + "_" + names[d];
             body += "const std::uint32_t " + array + "[] = {";
-            const auto& seeds = buckets[d].seeds;
+            const std::vector<std::uint32_t>& seeds = buckets[d].seeds;
             if (seeds.empty())
                 body += "0";
             for (std::size_t i = 0; i < seeds.size(); ++i) {

@@ -1,6 +1,8 @@
 # PlaySuite catalog
 
-PlaySuite (formerly Games) is one native application with a shared card system and reusable 2D presentation infrastructure. Each game, including each of the four card games, is its own box on the shelf; game commands live in the shared command capsule at the top of every game. The current playable implementation contains twelve games: four card games and eight additional games. Switchbox is owner-maintained and unavailable pending replacement; Sticks & Stones is retired. The chosen art direction is classic, rich, and tactile: green felt, cream cards, coordinated jewel-toned backs. These choices were confirmed by the user in this chat.
+PlaySuite contains seventeen playable games. Each has its own box on the shared shelf; the command capsule provides navigation and each game's supporting controls. Card games use green felt and cream cards; the hanafuda deck has original woodblock-style faces. Switchbox's replacement is integrated; Sticks & Stones is retired.
+
+The four newest games are described in [the integration guide](NEW_GAME_INTEGRATION.md): Koi-Koi (month matching and set collection), The Parrot's Table (truth/lie deduction), Liar's Dice (bidding and bluffing), and Pen the Sheep (generated fence-placement puzzles). They retain their delivered match scores, records, ledger and meadow progress respectively.
 
 ## Current card-game scope
 
@@ -31,7 +33,7 @@ Card and logic games have no running score HUD or lifetime statistics system. Eg
 | Four Pegs | Four-position code deduction with aggregate exact/wrong-position feedback and color plus symbol cues. Verify duplicate counting against an independent evaluator. | Playable: an original illustrated Curator opponent, a large perspective console, horizontal six-symbol palette, and a compact attempt record with 2×2 dark/light feedback. Repeated symbols are allowed; ten guesses. All 1,679,616 secret/guess pairs checked against an independent evaluator. |
 | Puzzle Solve | PicPax-inspired reconstruction: a small blue/yellow target image; rotate, flip, and place geometric pieces into a larger frame to reproduce it. Keep this separate from the Sokoban game and its audio. | Playable: a square frame reconstructed from seven diagonal pieces (five triangles, a rotated square, and a parallelogram), with attached blue/yellow artwork. Exact quarter-square triangles drive rotation, reflection, collision, target matching, fit preview, and construction-witness replay. |
 
-| Eggy and the Very, Very Tall Mountain | Host the delivered `eggy::EggyView`; preserve its own world, story, audio, saves, scores, and Core Animation presentation. | Integrated as Eggy in the collection. Arrows/WASD, Space, and mouse guidance; slower autopilot and offline progress; original title/base camp, weather, biomes, and summit ceremony. Shared audio/motion masters and immediate hide/silence on tab changes. |
+| Eggy and the Very, Very Tall Mountain | Host the delivered `eggy::EggyView`; preserve its own world, story, audio, saves, scores, and portable live-surface presentation. | Integrated as Eggy in the collection. Arrows/WASD, Space, and mouse guidance; slower autopilot and offline progress; original title/base camp, weather, biomes, and summit ceremony. Shared audio/motion masters and immediate hide/silence on tab changes. |
 
 Rendezvous Riders is explicitly excluded by the current user instruction. Checkers and Crossword below are historical possibilities, not additions to the newly selected deployment roster.
 
@@ -90,7 +92,7 @@ Before implementing: fix the movement and victory rules, choose the new original
 
 The user-authorized handoff came from “Build an offline Sudoku generator.” The replaceable M4 mirror was `/Users/joshuahkuttenkuler/Developer/CodexBuilds/sudoku-offline-f74d1316f7bd`. Its canonical engine, calibration, independent oracle/tests, and original reports are preserved under `vendor/sudoku/`. The engine SHA-256 is `e6c1324a58ab7ebe3521ede26cda78a179843ed86af47a7eb2a268438f0a642d`.
 
-The app uses JavaScriptCore in a background job; no server or external Node installation is required. The runtime adapter removes only ES-module export syntax and supplies a clock. Three native integration fixtures match the original Node engine exactly and pass the independent Algorithm X oracle and logical trace replay. Original warmed-Node benchmark timings are not native cold-start timings.
+The app uses pinned QuickJS in a background job; no server or external Node installation is required. The runtime adapter removes only ES-module export syntax and supplies a clock. Three native integration fixtures match the original Node engine exactly and pass the independent Algorithm X oracle and logical trace replay. Original warmed-Node benchmark timings are not native cold-start timings.
 
 ## Implemented rule details
 

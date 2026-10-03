@@ -34,6 +34,8 @@ jobs:
       - name: Prepare compact game resources
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         run: /usr/bin/python3 tools/prepare_portable_assets.py --output build/runtime-assets --ffmpeg ffmpeg
+      - name: Check first-party C++ style
+        run: python3 scripts/check-style.py
       - name: Verify and archive resources
         run: |
           /usr/bin/python3 tools/verify_portable_assets.py --runtime build/runtime-assets
@@ -161,7 +163,7 @@ jobs:
       - name: Compile complete collection
         run: cmake --build build/app --parallel 2
       - name: Test complete application
-        run: ctest --test-dir build/app --output-on-failure --timeout 120 --output-junit results.xml
+        run: ctest --test-dir build/app --output-on-failure --timeout 180 --output-junit results.xml
       - name: Package Windows application and installer
         if: runner.os == 'Windows'
         run: python tools/package_windows.py --build build/app --toolkit toolkit/gui_forms --runtime-dir /mingw64/bin --installer

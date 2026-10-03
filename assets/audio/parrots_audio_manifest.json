@@ -1,0 +1,16 @@
+{
+ "music": [
+  {
+   "id": "pt_music",
+   "bpm": 126,
+   "bars": 32,
+   "bar_samples": 68571,
+   "loop_end_sample_exclusive": 2194272,
+   "seconds": 45.714
+  }
+ ],
+ "stingers": [
+  "pt_stinger_win",
+  "pt_stinger_lose"
+ ]
+}

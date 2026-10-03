@@ -57,10 +57,10 @@ def copy_resources(build, toolkit, destination):
     (notices / "stb_vorbis.txt").write_text(vorbis[start:], encoding="utf-8")
     (destination / "README.txt").write_text(
         "PlaySuite\n\nA native collection of card games, puzzles and arcade scenes.\n"
-        "Choose a game and use Play / Continue. Each game has Help.\n"
+        "Click a box to play or continue. Each game has Help in its command capsule.\n"
         "Music, Sound and Motion in the collection are master controls.\n"
         "Saves are per-user and remain separate from this application folder.\n"
-        "The replacement games keep v2 saves and do not overwrite v1 saves.\n\n"
+        "Atom Probe, Four Pegs and Switchbox keep separate v2 saves; v1 saves remain intact.\n\n"
         "Source and release notes: https://github.com/falseywinchnet/games\n"
         "Font licenses accompany the fonts; other dependency notices are in licenses/.\n\n"
         "Author: Astra\nSponsor: Rainstar\n", encoding="utf-8")

@@ -89,6 +89,18 @@ void Collection::initialize_control_tree() {
             gf::StableId("collection.puzzle." + std::to_string(i)), static_cast<PuzzleKind>(i));
         add_child(puzzles_[i]);
     }
+    koikoi_ =
+        gf::make_control<kk::KoiView>(gf::StableId("koikoi.view"), kk::Options{.hosted = true});
+    add_child(koikoi_);
+    parrots_ =
+        gf::make_control<pt::TableView>(gf::StableId("parrots.view"), pt::Options{.hosted = true});
+    add_child(parrots_);
+    liarsdice_ =
+        gf::make_control<ld::DiceView>(gf::StableId("liarsdice.view"), ld::Options{.hosted = true});
+    add_child(liarsdice_);
+    penthesheep_ = gf::make_control<sh::SheepView>(gf::StableId("penthesheep.view"),
+                                                   sh::Options{.hosted = true});
+    add_child(penthesheep_);
     shelf_ = gf::make_control<ShelfView>(gf::StableId("collection.shelf"), sprites_);
     add_child(shelf_);
     (*shelf_).open = std::bind_front(&Collection::open_entry, this);
@@ -123,12 +135,21 @@ void Collection::on_detaching_from_window(gf::Window& window) noexcept {
 bool Collection::uses_rail(Entry entry) const {
     // These games present their own live surfaces, which nothing may float above.
     return entry == Entry::atom || entry == Entry::pegs || entry == Entry::switchbox ||
-           entry == Entry::eggy;
+           entry == Entry::eggy || entry == Entry::koikoi || entry == Entry::parrots ||
+           entry == Entry::liarsdice || entry == Entry::penthesheep;
 }
 std::shared_ptr<gf::Control> Collection::view(Entry entry) const {
     if (is_cards(entry))
         return cards_;
     switch (entry) {
+    case Entry::koikoi:
+        return koikoi_;
+    case Entry::parrots:
+        return parrots_;
+    case Entry::liarsdice:
+        return liarsdice_;
+    case Entry::penthesheep:
+        return penthesheep_;
     case Entry::sudoku:
         return sudoku_;
     case Entry::atom:
@@ -146,6 +167,14 @@ std::shared_ptr<gf::Control> Collection::view(Entry entry) const {
 CommandSource* Collection::source(Entry entry) const {
     if (is_cards(entry))
         return cards_.get();
+    if (entry == Entry::koikoi)
+        return koikoi_.get();
+    if (entry == Entry::parrots)
+        return parrots_.get();
+    if (entry == Entry::liarsdice)
+        return liarsdice_.get();
+    if (entry == Entry::penthesheep)
+        return penthesheep_.get();
     if (entry == Entry::sudoku)
         return sudoku_.get();
     const int i = puzzle_index(entry);
@@ -168,7 +197,8 @@ void Collection::tick() {
     }
     if (shelf_open_)
         return;
-    const gf::Rect area{0, 0, client_rectangle().width, uses_rail(active_) ? rail_height : 60.0};
+    const gf::Rect area{0, 0, client_rectangle().width,
+                        uses_rail(active_) ? current_rail_height_ : 60.0};
     gf::Rect r = (*capsule_).placement(area);
     // The placement includes the shadow margin, which doubles as a forgiving hover border.
     const bool inside = pointer_.x >= r.x && pointer_.x <= r.x + r.width && pointer_.y >= r.y - 8 &&
@@ -189,7 +219,8 @@ void Collection::on_pointer_preview(gf::PointerEvent& e) {
 }
 void Collection::on_key_preview(gf::KeyEvent& e) {
     if (!shelf_open_ && e.action == gf::KeyAction::down && e.physical_key == gf::PhysicalKey::f2 &&
-        active_ != Entry::eggy && active_ != Entry::switchbox) {
+        static_cast<int>(active_) <= static_cast<int>(Entry::solve) &&
+        active_ != Entry::switchbox) {
         run_command("new");
         e.handled = true;
         return;
@@ -236,25 +267,29 @@ void Collection::visibility() {
 void Collection::arrange(gf::Rect b) {
     arrange_self(b);
     const gf::Rect full{0, 0, b.width, b.height};
-    const gf::Rect below{0, rail_height, b.width, std::max(0.0, b.height - rail_height)};
-    // Each view is laid out once per pass; live-surface games sit below the rail.
-    for (const std::shared_ptr<gf::Control>& child : children())
-        if (child != shelf_ && child != capsule_) {
-            const bool railed =
-                child == atomprobe_ || child == fourpegs_ || child == switchbox_ || child == eggy_;
-            set_child_layout(child, railed ? below : full);
-        }
-    set_child_layout(shelf_, full);
     if (capsule_width_limit_ != b.width - 16) {
         capsule_width_limit_ = b.width - 16;
         (*capsule_).set_maximum_width(capsule_width_limit_);
     }
-    const gf::Rect area{0, 0, b.width, uses_rail(active_) ? rail_height : 60.0};
+    const gf::Rect capsule_bounds = (*capsule_).placement({0, 0, b.width, rail_height});
+    current_rail_height_ = std::max(rail_height, capsule_bounds.y + capsule_bounds.height);
+    const gf::Rect below{0, current_rail_height_, b.width,
+                         std::max(0.0, b.height - current_rail_height_)};
+    // Each view is laid out once per pass; live-surface games sit below the rail.
+    for (const std::shared_ptr<gf::Control>& child : children())
+        if (child != shelf_ && child != capsule_) {
+            const bool railed = child == atomprobe_ || child == fourpegs_ || child == switchbox_ ||
+                                child == eggy_ || child == koikoi_ || child == parrots_ ||
+                                child == liarsdice_ || child == penthesheep_;
+            set_child_layout(child, railed ? below : full);
+        }
+    set_child_layout(shelf_, full);
+    const gf::Rect area{0, 0, b.width, uses_rail(active_) ? current_rail_height_ : 60.0};
     gf::Rect placed = (*capsule_).placement(area);
     // Over a live-surface game the capsule stays within the rail; nothing may overlap
     // the game's presented surface.
     if (!shelf_open_ && uses_rail(active_))
-        placed.height = std::min(placed.height, rail_height - placed.y);
+        placed.height = std::min(placed.height, current_rail_height_ - placed.y);
     set_child_layout(capsule_, placed);
 }
 void Collection::on_paint(gf::Painter& p, gf::Rect) {
@@ -262,9 +297,9 @@ void Collection::on_paint(gf::Painter& p, gf::Rect) {
         return;
     // The rail above live-surface games: graphite with a gold hairline.
     const gf::Rect b = client_rectangle();
-    fill_vertical(p, {0, 0, b.width, rail_height}, gf::Color::rgba(49, 58, 73),
+    fill_vertical(p, {0, 0, b.width, current_rail_height_}, gf::Color::rgba(49, 58, 73),
                   gf::Color::rgba(26, 31, 42));
-    p.draw_line({0, rail_height - 1}, {b.width, rail_height - 1},
+    p.draw_line({0, current_rail_height_ - 1}, {b.width, current_rail_height_ - 1},
                 gf::Color::rgba(255, 210, 122, 150), 1);
 }
 void Collection::preferences() {
@@ -281,6 +316,16 @@ void Collection::preferences() {
                      cabinet.reduced);
     (*atomprobe_)
         .set_cabinet(!shelf_open_ && active_ == Entry::atom, cabinet.music, cabinet.sound,
+                     cabinet.reduced);
+    (*koikoi_).set_cabinet(!shelf_open_ && active_ == Entry::koikoi, cabinet.music, cabinet.sound,
+                           cabinet.reduced);
+    (*parrots_).set_cabinet(!shelf_open_ && active_ == Entry::parrots, cabinet.music, cabinet.sound,
+                            cabinet.reduced);
+    (*liarsdice_)
+        .set_cabinet(!shelf_open_ && active_ == Entry::liarsdice, cabinet.music, cabinet.sound,
+                     cabinet.reduced);
+    (*penthesheep_)
+        .set_cabinet(!shelf_open_ && active_ == Entry::penthesheep, cabinet.music, cabinet.sound,
                      cabinet.reduced);
     (*shelf_).set_preferences(cabinet.music, cabinet.sound, cabinet.reduced);
     (*capsule_).set_preferences(cabinet.music, cabinet.sound, cabinet.reduced);
@@ -325,6 +370,18 @@ void Collection::activate() {
     } else if (active_ == Entry::atom) {
         music_play("", false);
         (*atomprobe_).activate();
+    } else if (active_ == Entry::koikoi) {
+        music_play("", false);
+        (*koikoi_).activate();
+    } else if (active_ == Entry::parrots) {
+        music_play("", false);
+        (*parrots_).activate();
+    } else if (active_ == Entry::liarsdice) {
+        music_play("", false);
+        (*liarsdice_).activate();
+    } else if (active_ == Entry::penthesheep) {
+        music_play("", false);
+        (*penthesheep_).activate();
     } else
         (*puzzles_[static_cast<std::size_t>(puzzle_index(active_))]).activate();
 }

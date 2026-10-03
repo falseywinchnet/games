@@ -169,14 +169,14 @@ void accumulate(float* acc, int stride, int H, double x0, double y0, double x1, 
         const double dy = std::min(y + 1.0, y1) - std::max(static_cast<double>(y), y0);
         const double xnext = x + dxdy * dy;
         const double d = dy * dir;
-        const double xa = std::min(x, xnext), xb = std::max(x, xnext);
+        const double xa = std::clamp(std::min(x, xnext), 0.0, static_cast<double>(stride - 2)), xb = std::clamp(std::max(x, xnext), 0.0, static_cast<double>(stride - 2));
         const double x0f = std::floor(xa);
         const int x0i = static_cast<int>(x0f);
         const double x1c = std::ceil(xb);
         const int x1i = static_cast<int>(x1c);
         float* row = acc + static_cast<size_t>(y) * stride;
         if (x1i <= x0i + 1) {
-            const double xmf = 0.5 * (x + xnext) - x0f;
+            const double xmf = 0.5 * (xa + xb) - x0f;
             row[x0i] += static_cast<float>(d - d * xmf);
             row[x0i + 1] += static_cast<float>(d * xmf);
         } else {

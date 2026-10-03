@@ -1,15 +1,20 @@
 #pragma once
 #include "atomprobe_view.hpp"
 #include "capsule.hpp"
+#include "dice_view.hpp"
 #include "eggy_view.hpp"
 #include "fourpegs_view.hpp"
 #include "gui_forms/timer.hpp"
+#include "koi_view.hpp"
 #include "presentation.hpp"
 #include "puzzle_view.hpp"
+#include "sheep_view.hpp"
 #include "shelf.hpp"
 #include "sudoku_view.hpp"
 #include "switchbox_view.hpp"
 #include "table.hpp"
+#include "table_view.hpp"
+
 #include "text_sprites.hpp"
 namespace games {
 
@@ -48,6 +53,10 @@ class Collection final : public gf::Control {
     std::shared_ptr<sbx::SwitchboxView> switchbox_{};
     std::shared_ptr<fp::FourPegsView> fourpegs_{};
     std::shared_ptr<ap::AtomProbeView> atomprobe_{};
+    std::shared_ptr<kk::KoiView> koikoi_;
+    std::shared_ptr<pt::TableView> parrots_;
+    std::shared_ptr<ld::DiceView> liarsdice_;
+    std::shared_ptr<sh::SheepView> penthesheep_;
     std::vector<gf::SubscriptionToken> subscriptions_;
     std::unique_ptr<gf::Timer> timer_{};
     std::chrono::steady_clock::time_point last_tick_{};
@@ -57,6 +66,7 @@ class Collection final : public gf::Control {
     std::uint32_t opened_ = 0; // entries that have been played, for Play / Continue
     gf::Point pointer_{-1000, -1000};
     double capsule_width_limit_ = 0;
+    double current_rail_height_ = rail_height;
     void on_attached_to_window() override;
     void on_detaching_from_window(gf::Window& window) noexcept override;
     void tick();
