@@ -14,6 +14,7 @@
 #include "switchbox_view.hpp"
 #include "table.hpp"
 #include "table_view.hpp"
+#include "zen_view.hpp"
 
 #include "text_sprites.hpp"
 namespace games {
@@ -57,6 +58,7 @@ class Collection final : public gf::Control {
     std::shared_ptr<pt::TableView> parrots_;
     std::shared_ptr<ld::DiceView> liarsdice_;
     std::shared_ptr<sh::SheepView> penthesheep_;
+    std::shared_ptr<zc::ZenView> rockstack_;
     std::vector<gf::SubscriptionToken> subscriptions_;
     std::unique_ptr<gf::Timer> timer_{};
     std::chrono::steady_clock::time_point last_tick_{};

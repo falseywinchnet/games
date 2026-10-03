@@ -21,7 +21,7 @@ def verify(source: Path, runtime: Path) -> dict:
     originals = {path.name: path for path in (source / "audio").iterdir()
                  if path.suffix.lower() in (".m4a", ".wav")}
     records = manifest["files"]
-    if len(records) != 392 or len(originals) != 392:
+    if len(records) != 424 or len(originals) != 424:
         raise ValueError("Incomplete source or runtime audio inventory")
     seen_sources: set[str] = set()
     seen_outputs: set[str] = set()

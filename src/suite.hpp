@@ -26,8 +26,9 @@ enum class Entry : int {
     parrots,
     liarsdice,
     penthesheep,
+    rockstack,
 };
-inline constexpr int entry_count = 17;
+inline constexpr int entry_count = 18;
 
 struct EntryInfo {
     const char* title;

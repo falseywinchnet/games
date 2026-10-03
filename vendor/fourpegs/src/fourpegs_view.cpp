@@ -144,7 +144,10 @@ void FourPegsView::active_changed(bool active) {
 
 void FourPegsView::capture_changed(const gf::PointerCaptureChange& change) {
     const bool own = change.captured && change.control_id == runtime_id();
-    if (!own && mouse_down_) { cancel_drag(); }
+    // Window releases capture before delivering primary mouse-up. That release
+    // still belongs to our gesture; another owner, focus loss or deactivation
+    // cancels it instead.
+    if (change.captured && !own && mouse_down_) { cancel_drag(); }
 }
 
 void FourPegsView::activate() {
@@ -184,6 +187,7 @@ void FourPegsView::play(const std::string& name, float gain, float rate) {
 }
 
 void FourPegsView::new_game() {
+    selected_color_ = selected_slot_ = auto_slot_ = -1;
     board_.new_game();
     st_.console = ConsoleState{};
     st_.console.reboot = .01;
@@ -220,6 +224,7 @@ void FourPegsView::clear_slot(int slot) {
 void FourPegsView::check() {
     if (checking_ || board_.over() || panel_ != Panel::none) return;
     if (!board_.complete()) { play("fp_invalid", .6f); return; }
+    selected_color_ = selected_slot_ = auto_slot_ = -1;
     shown_ = board_.draft();
     const Score s = board_.submit();
     checking_ = true;
@@ -459,6 +464,7 @@ void FourPegsView::on_pointer(gf::PointerEvent& e) {
     };
     ConsoleState& cs = st_.console;
     if (e.action == gf::PointerAction::move) {
+        if (mouse_down_ && !has_pointer_capture()) cancel_drag();
         hover_ = hit();
         cs.hover_palette = panel_ == Panel::none ? lair_.pick_palette(mouse_x_, mouse_y_) : -1;
         cs.hover_socket = panel_ == Panel::none ? lair_.pick_socket(mouse_x_, mouse_y_) : -1;
@@ -495,6 +501,7 @@ void FourPegsView::on_pointer(gf::PointerEvent& e) {
         if (mouse_down_) {
             const int sk = lair_.pick_socket(mouse_x_, mouse_y_);
             if (dragging_) {
+                selected_color_ = selected_slot_ = auto_slot_ = -1;
                 // a drop: into a socket, or off the console to remove it
                 if (drag_from_ >= 0) {
                     if (sk >= 0 && sk != drag_from_) { const int c = drag_color_; clear_slot(drag_from_); place(sk, c); }
@@ -506,10 +513,29 @@ void FourPegsView::on_pointer(gf::PointerEvent& e) {
                 // a click: a palette peg fills the next empty socket; a filled socket empties; CHECK checks; he can be prodded
                 const int pc = lair_.pick_palette(mouse_x_, mouse_y_);
                 if (pc >= 0) {
-                    for (int i = 0; i < kPegs; ++i)
-                        if (board_.draft()[static_cast<size_t>(i)] < 0) { place(i, pc); break; }
-                } else if (sk >= 0 && board_.draft()[static_cast<size_t>(sk)] >= 0) {
-                    clear_slot(sk);
+                    selected_color_ = pc;
+                    auto_slot_ = -1;
+                    if (selected_slot_ >= 0) {
+                        place(selected_slot_, pc);
+                        selected_slot_ = -1;
+                        selected_color_ = -1;
+                    } else {
+                        for (int i = 0; i < kPegs; ++i)
+                            if (board_.draft()[static_cast<size_t>(i)] < 0) {
+                                place(i, pc);
+                                auto_slot_ = i;
+                                break;
+                            }
+                    }
+                } else if (sk >= 0) {
+                    if (selected_color_ >= 0) {
+                        if (auto_slot_ >= 0 && auto_slot_ != sk) clear_slot(auto_slot_);
+                        place(sk, selected_color_);
+                        selected_color_ = auto_slot_ = selected_slot_ = -1;
+                    } else {
+                        clear_slot(sk);
+                        selected_slot_ = sk;
+                    }
                 } else if (lair_.pick_check(mouse_x_, mouse_y_)) {
                     check();
                 } else if (lair_.pick_villain(mouse_x_, mouse_y_, st_.villain)) {

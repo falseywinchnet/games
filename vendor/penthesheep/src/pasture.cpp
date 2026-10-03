@@ -106,6 +106,7 @@ void hex_patch(R3D& r, V3 c, double rad, double height, Col top, Col side, const
 }  // namespace
 
 void Pasture::resize(int w, int h, int top_bar, int bottom_bar) {
+    land_valid_ = false;
     r.resize(w, h);
     w_ = w;
     h_ = h;
@@ -115,6 +116,7 @@ void Pasture::resize(int w, int h, int top_bar, int bottom_bar) {
 }
 
 void Pasture::frame(int size) {
+    land_valid_ = false;
     n_ = size;
     r.yaw = 0;
     r.pitch = .78;
@@ -161,11 +163,14 @@ int Pasture::pick(double sx, double sy) const {
     return best;
 }
 
-void Pasture::draw_land(double t) {
+void Pasture::draw_land(double t, bool animated) {
     // the sky, the hills, clouds drifting, birds far off
     const double far = 16;
+    if (!animated) {
     quad(r, {-40, far, -1}, {40, far, -1}, {40, far, 26}, {-40, far, 26}, &tx().sky, kWhite, static_cast<std::uint16_t>(unlit | no_fog));
     quad(r, {-40, far - .5, -1}, {40, far - .5, -1}, {40, far - .5, 5}, {-40, far - .5, 5}, &tx().hills, kWhite, static_cast<std::uint16_t>(cutout | unlit), 4, 1);
+    }
+    if (animated) {
     for (int k = 0; k < 6; ++k) {
         const double x = std::fmod(h01(k) * 60 + t * (.15 + .05 * k), 60.0) - 30;
         const double z = 6 + h01(k + 10) * 10, s = 2 + h01(k + 20) * 2.5;
@@ -177,6 +182,8 @@ void Pasture::draw_land(double t) {
         const double flap = std::sin(t * 8 + k) * .25;
         for (int s = -1; s <= 1; s += 2) quad(r, b, b + V3{s * .35, 0, .12 + flap}, b + V3{s * .35, 0, .1 + flap}, b + V3{0, 0, -.03}, nullptr, hex(0x3A3A40), static_cast<std::uint16_t>(unlit | double_sided));
     }
+    }
+    if (!animated) {
     // the field all around
     // (in tiles: one huge quad would warp, and reach behind the camera)
     for (int gy = 0; gy < 12; ++gy)
@@ -201,6 +208,9 @@ void Pasture::draw_land(double t) {
         const double x = side * (fx + .3 + h01(k + 70) * 1.5), y = -2 + h01(k + 80) * 5;
         part(r, sphere_mesh(10, 6), at(x, y, .15) * sc(.55, .45, .4), hex(0x5EA84E), .02);
     }
+    }
+    if (animated) {
+    const double fy = (n_ * kDY) / 2 + 1.2, fx = (n_ * kDX) / 2 + 1.2;
     // butterflies
     for (int k = 0; k < 4; ++k) {
         const double u = t * (.12 + .03 * k) + k * 1.7;
@@ -208,6 +218,7 @@ void Pasture::draw_land(double t) {
         const double flap = std::fabs(std::sin(t * 14 + k)) * .9;
         const Col wc = k % 2 ? hex(0xF8E060) : hex(0xF8F8F8);
         for (int s = -1; s <= 1; s += 2) quad(r, b, b + V3{s * .12 * std::cos(flap), .05, .12 * std::sin(flap)}, b + V3{s * .1 * std::cos(flap), -.08, .1 * std::sin(flap)}, b + V3{0, -.03, 0}, nullptr, wc, static_cast<std::uint16_t>(unlit | double_sided));
+    }
     }
 }
 
@@ -336,7 +347,16 @@ void Pasture::render(const PastureState& s, double t) {
     r.time = t;
     r.clear_depth();
     r.tris_drawn = 0;
-    draw_land(t);
+    if (!land_valid_ || land_rgb_.size() != r.rgb.size()) {
+        draw_land(t, false);
+        land_rgb_ = r.rgb;
+        land_depth_ = r.depth;
+        land_valid_ = true;
+    } else {
+        r.rgb = land_rgb_;
+        r.depth = land_depth_;
+    }
+    draw_land(t, true);
     draw_patches(s, t);
     draw_sheep(s.sheep, t);
     // stars of celebration rising round the penned sheep

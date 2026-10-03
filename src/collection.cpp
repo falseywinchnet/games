@@ -112,6 +112,8 @@ void Collection::ensure_view(Entry entry) {
     else if (entry == Entry::liarsdice)
         liarsdice_ = gf::make_control<ld::DiceView>(gf::StableId("liarsdice.view"),
                                                     ld::Options{.hosted = true});
+    else if (entry == Entry::rockstack)
+        rockstack_ = gf::make_control<zc::ZenView>(gf::StableId("rockstack.view"), zc::Options{.hosted = true});
     else if (entry == Entry::penthesheep)
         penthesheep_ = gf::make_control<sh::SheepView>(gf::StableId("penthesheep.view"),
                                                        sh::Options{.hosted = true});
@@ -144,7 +146,7 @@ bool Collection::uses_rail(Entry entry) const {
     // These games present their own live surfaces, which nothing may float above.
     return entry == Entry::atom || entry == Entry::pegs || entry == Entry::switchbox ||
            entry == Entry::eggy || entry == Entry::koikoi || entry == Entry::parrots ||
-           entry == Entry::liarsdice || entry == Entry::penthesheep;
+           entry == Entry::liarsdice || entry == Entry::penthesheep || entry == Entry::rockstack;
 }
 std::shared_ptr<gf::Control> Collection::view(Entry entry) const {
     if (is_cards(entry))
@@ -156,6 +158,8 @@ std::shared_ptr<gf::Control> Collection::view(Entry entry) const {
         return parrots_;
     case Entry::liarsdice:
         return liarsdice_;
+    case Entry::rockstack:
+        return rockstack_;
     case Entry::penthesheep:
         return penthesheep_;
     case Entry::sudoku:
@@ -181,6 +185,8 @@ CommandSource* Collection::source(Entry entry) const {
         return parrots_.get();
     if (entry == Entry::liarsdice)
         return liarsdice_.get();
+    if (entry == Entry::rockstack)
+        return rockstack_.get();
     if (entry == Entry::penthesheep)
         return penthesheep_.get();
     if (entry == Entry::sudoku)
@@ -306,7 +312,7 @@ void Collection::arrange(gf::Rect b) {
         if (child != shelf_ && child != capsule_ && (*child).visible()) {
             const bool railed = child == atomprobe_ || child == fourpegs_ || child == switchbox_ ||
                                 child == eggy_ || child == koikoi_ || child == parrots_ ||
-                                child == liarsdice_ || child == penthesheep_;
+                                child == liarsdice_ || child == penthesheep_ || child == rockstack_;
             set_child_layout(child, railed ? below : full);
         }
     set_child_layout(shelf_, full);
@@ -357,6 +363,8 @@ void Collection::preferences() {
         (*liarsdice_)
             .set_cabinet(!shelf_open_ && active_ == Entry::liarsdice, cabinet.music, cabinet.sound,
                          cabinet.reduced);
+    if (rockstack_)
+        (*rockstack_).set_cabinet(!shelf_open_ && active_ == Entry::rockstack, cabinet.music, cabinet.sound, cabinet.reduced);
     if (penthesheep_)
         (*penthesheep_)
             .set_cabinet(!shelf_open_ && active_ == Entry::penthesheep, cabinet.music,
@@ -414,6 +422,9 @@ void Collection::activate() {
     } else if (active_ == Entry::liarsdice) {
         music_play("", false);
         (*liarsdice_).activate();
+    } else if (active_ == Entry::rockstack) {
+        music_play("", false);
+        (*rockstack_).activate();
     } else if (active_ == Entry::penthesheep) {
         music_play("", false);
         (*penthesheep_).activate();

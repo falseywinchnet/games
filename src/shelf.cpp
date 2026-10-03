@@ -75,14 +75,6 @@ void ShelfBox::on_paint(gf::Painter& p, gf::Rect) {
                                      {1, with_alpha(info.accent, 0)}};
     p.fill_radial_gradient({center.x - emblem, center.y - emblem, emblem * 2, emblem * 2}, center,
                            {emblem * .95, emblem * .95}, glow);
-    // Top banner with the suite mark.
-    const double band = std::max(11.0, h * .1);
-    p.fill_rect({c.x, c.y, c.width, band}, mix_color(info.cover_bottom, rgb(0, 0, 0), .45));
-    p.draw_line({c.x, c.y + band}, {c.x + c.width, c.y + band}, with_alpha(info.accent, 200), 1);
-    SpriteSpec mark{"PLAYSUITE", Face::condensed, true, std::clamp(band * .62, 7.0, 12.0),
-                    info.accent};
-    gf::Size ms = sprites_.measure(mark);
-    sprites_.draw(p, mark, {c.x + (c.width - ms.width) * .5, c.y + (band - ms.height) * .5});
     paint_entry_emblem(p, {center.x - emblem * .5, center.y - emblem * .5, emblem, emblem}, entry_);
     // Title, condensed and uppercase, on a dark scrim so every cover reads.
     const double title_y = c.y + c.height * .7;
@@ -389,7 +381,7 @@ void ShelfView::on_paint(gf::Painter& p, gf::Rect) {
     sprites_.draw(p, {name.text, name.face, true, name.size, rgb(0, 0, 0, 160)}, {nx + 1, ny + 2});
     sprites_.draw(p, name, {nx, ny});
     if (!compact) {
-        SpriteSpec tag{"SEVENTEEN GAMES  ·  CARDS, PUZZLES AND A VERY TALL MOUNTAIN",
+        SpriteSpec tag{"EIGHTEEN GAMES  ·  CARDS, PUZZLES AND A VERY TALL MOUNTAIN",
                        Face::condensed, false, 12, rgb(201, 176, 138)};
         sprites_.draw(p, tag, {nx + 2, ny + ns.height - 2});
     }

@@ -62,7 +62,7 @@ def prepare_fonts(source: Path, destination: Path) -> None:
 
 def loop_bounds(source: Path) -> dict[str, int]:
     bounds: dict[str, int] = {}
-    for name in ("audio_manifest.json", "eggy_audio_manifest.json", "switchbox_audio_manifest.json", "fourpegs_audio_manifest.json", "atomprobe_audio_manifest.json", "parrots_audio_manifest.json", "dice_audio_manifest.json", "sheep_audio_manifest.json", "koikoi_audio_manifest.json"):
+    for name in ("audio_manifest.json", "eggy_audio_manifest.json", "switchbox_audio_manifest.json", "fourpegs_audio_manifest.json", "atomprobe_audio_manifest.json", "parrots_audio_manifest.json", "dice_audio_manifest.json", "sheep_audio_manifest.json", "koikoi_audio_manifest.json", "zen_audio_manifest.json"):
         manifest = json.loads((source / "audio" / name).read_text(encoding="utf-8"))
         for entry in manifest["music"]:
             if entry.get("loop_start_sample", 0) != 0:
@@ -155,8 +155,8 @@ def main() -> None:
         record = prepare_audio(options.ffmpeg, path, audio / (path.stem + extension),
                                bounds.get(path.stem, 0), options.audio_format)
         records.append(record)
-    if len(records) != 392:
-        raise ValueError("Expected all 392 source audio files")
+    if len(records) != 424:
+        raise ValueError("Expected all 424 source audio files")
     audio_format = "IEEE float32 LE" if options.audio_format == "pcm" else "Ogg Vorbis quality 6"
     manifest = {"sample_rate": 48000, "channels": 2, "format": audio_format, "files": records}
     (audio / "portable_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")

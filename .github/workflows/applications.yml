@@ -162,6 +162,9 @@ jobs:
             -DGUI_FORMS_SKIA_OUT="$PWD/toolkit/gui_forms/third_party/skia/out/games"
       - name: Compile complete collection
         run: cmake --build build/app --parallel 2
+      - name: Report Rock Stack stress benchmark
+        continue-on-error: true
+        run: ./build/app/rockstack_physics_tests performance
       - name: Test complete application
         run: ctest --test-dir build/app --output-on-failure --timeout 180 --output-junit results.xml
       - name: Package Windows application and installer

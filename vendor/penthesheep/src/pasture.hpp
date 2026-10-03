@@ -50,7 +50,9 @@ public:
 
 private:
     int w_ = 0, h_ = 0, top_ = 0, bottom_ = 0, n_ = 11;
-    void draw_land(double t);
+    void draw_land(double t, bool animated);
+    std::vector<float> land_rgb_, land_depth_;
+    bool land_valid_ = false;
     void draw_patches(const PastureState& s, double t);
     void draw_sheep(const SheepPose& p, double t);
     void draw_fence(const Meadow& m, int cell, V3 c, bool old, float ghost);

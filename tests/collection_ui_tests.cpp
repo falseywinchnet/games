@@ -379,7 +379,7 @@ int main() {
         assert((*std::static_pointer_cast<ap::AtomProbeView>(atomprobe)).host_panel() == "scores");
         assert((*button(*capsule, "capsule.back")).perform_click());
         assert((*shelf).visible() && !(*atomprobe).visible());
-        for (Entry entry : {Entry::koikoi, Entry::parrots, Entry::liarsdice, Entry::penthesheep}) {
+        for (Entry entry : {Entry::koikoi, Entry::parrots, Entry::liarsdice, Entry::penthesheep, Entry::rockstack}) {
             (*collection).open_entry(entry);
             window.perform_layout();
             open_capsule();

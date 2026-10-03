@@ -46,6 +46,8 @@ const std::array<EntryInfo, entry_count> entries{{
      rgb(38, 80, 112), rgb(12, 30, 50), rgb(230, 186, 100)},
     {"Pen the Sheep", "Pasture puzzle", "Place fences before a clever sheep finds its way out.",
      rgb(95, 146, 64), rgb(34, 66, 28), rgb(255, 238, 176)},
+    {"Rock Stack", "Stone construction", "Work a little crane to balance river stones beside a brook.",
+     rgb(130, 112, 80), rgb(50, 60, 44), rgb(255, 218, 110)},
 }};
 void disc(gf::Painter& p, double cx, double cy, double r, gf::Color c) {
     p.fill_rounded_rect({cx - r, cy - r, 2 * r, 2 * r}, r, c);
@@ -456,6 +458,14 @@ void paint_entry_emblem(gf::Painter& p, gf::Rect r, Entry entry) {
             disc(p, cx + i * s * .19, cy + i * s * .19, s * .055, rgb(36, 31, 31));
         disc(p, cx - s * .19, cy + s * .19, s * .055, rgb(36, 31, 31));
         disc(p, cx + s * .19, cy - s * .19, s * .055, rgb(36, 31, 31));
+        break;
+    case Entry::rockstack:
+        for (int level = 0; level < 4; ++level) {
+            const double rw = s * (.65 - level * .12);
+            p.fill_rounded_rect({cx - rw * .5, cy + s * .28 - level * s * .19,
+                                 rw, s * .17}, s * .07,
+                                rgb(182 + level * 12, 173 + level * 8, 148 + level * 10));
+        }
         break;
     case Entry::penthesheep:
         for (int i = 0; i < 6; ++i) {

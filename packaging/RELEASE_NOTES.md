@@ -1,3 +1,7 @@
+PlaySuite 0.4.3 adds Rock Stack as the eighteenth game, restores Four Pegs mouse placement and Check, removes redundant shelf branding, and shows Solitaire's accumulating waste pile. Sheep caches its static landscape to reduce repeated rendering.
+
+Rock Stack physics correctness checks remain required. Its stress benchmark is reported separately: the 1.5 ms target remains unmet (2.56 ms on the Windows development host). Further Gems and Untangle CPU optimization remains outstanding.
+
 PlaySuite 0.4.2 restores the command menu and the return-to-shelf control in Solitaire and other full-window games.
 
 The 0.4.1 lazy-loading change placed newly created games above the command capsule. Those games could cover the menu and intercept its mouse clicks. Games now stay behind the shelf and command capsule in both paint order and hit-testing.

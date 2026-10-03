@@ -46,6 +46,7 @@ public:
     void host_command(const std::string& id);
     // "help", "scores" or "" for the panel a host should show as active.
     [[nodiscard]] std::string host_panel() const;
+    [[nodiscard]] const Board& board() const { return board_; }
 
 private:
     enum class Panel { none, help, scores, name, gameover };
@@ -101,6 +102,7 @@ private:
     double mouse_x_ = 0, mouse_y_ = 0, down_x_ = 0, down_y_ = 0;
     bool mouse_in_ = false, mouse_down_ = false, dragging_ = false;
     int drag_color_ = -1, drag_from_ = -1;  // drag_from_: the socket it left, or -1 from the palette
+    int selected_color_ = -1, selected_slot_ = -1, auto_slot_ = -1;
 
     // speech
     std::string say_text_;

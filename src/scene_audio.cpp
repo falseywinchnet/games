@@ -19,7 +19,7 @@ void SceneAudio::music(const std::string& name, bool enabled) {
         front_started_ = true;
     } else if (music_on_ && !was_on) { player_.resume(front_); }
 }
-void SceneAudio::effects(const std::string& name, double gain, double rate, bool enabled) {
+void SceneAudio::effects(const std::string& name, double gain, double rate, bool enabled, double pan) {
     if (!enabled || !foreground_ || !master_sound_) { return; }
     std::size_t chosen = next_effect_;
     for (std::size_t offset = 0; offset < effect_names_.size(); ++offset) {
@@ -29,7 +29,7 @@ void SceneAudio::effects(const std::string& name, double gain, double rate, bool
     }
     effect_names_[chosen] = name;
     next_effect_ = (chosen + 1) % effect_names_.size();
-    player_.start(7 + chosen, name, false, std::clamp(gain, 0.0, 1.0), std::clamp(rate, .5, 2.0));
+    player_.start(7 + chosen, name, false, std::clamp(gain, 0.0, 1.0), std::clamp(rate, .5, 2.0), pan);
 }
 void SceneAudio::ambience(const std::array<double, 5>& values, bool enabled) {
     const std::array<const char*, 5> names{"eggy_amb_wind", "eggy_amb_brook", "eggy_amb_forest", "eggy_amb_rain", "eggy_amb_fire"};

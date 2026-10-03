@@ -1,0 +1,34 @@
+{
+ "music": [
+  {
+   "id": "zc_music",
+   "seconds": 64.0,
+   "loop_end_sample_exclusive": 3072000,
+   "bar_samples": 192000
+  },
+  {
+   "id": "zc_brook",
+   "seconds": 40.0,
+   "loop_end_sample_exclusive": 1920000
+  },
+  {
+   "id": "zc_rush",
+   "seconds": 37.0,
+   "loop_end_sample_exclusive": 1776000
+  },
+  {
+   "id": "zc_reeds",
+   "seconds": 53.0,
+   "loop_end_sample_exclusive": 2544000
+  }
+ ],
+ "beds": [
+  "zc_rush",
+  "zc_brook",
+  "zc_reeds",
+  "zc_motor"
+ ],
+ "stingers": [
+  "zc_best"
+ ]
+}

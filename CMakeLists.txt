@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(Games VERSION 0.4.2 LANGUAGES C CXX)
+project(Games VERSION 0.4.3 LANGUAGES C CXX)
 option(GAMES_BUILD_APPLICATION "Build the complete graphical game collection and UI tests" ON)
 enable_testing()
 set(CMAKE_CXX_STANDARD 20)
@@ -124,6 +124,31 @@ target_compile_definitions(kk_core PRIVATE _USE_MATH_DEFINES)
 add_executable(koikoi_rules_tests vendor/koikoi/tests/koikoi_tests.cpp)
 target_link_libraries(koikoi_rules_tests PRIVATE kk_core)
 add_test(NAME koikoi_rules COMMAND koikoi_rules_tests)
+add_library(zc_phys STATIC
+  vendor/zenconstruction/phys/hull.cpp vendor/zenconstruction/phys/collide.cpp
+  vendor/zenconstruction/phys/block_ldl.cpp vendor/zenconstruction/phys/solver.cpp
+  vendor/zenconstruction/phys/world.cpp)
+target_include_directories(zc_phys PUBLIC vendor/zenconstruction/phys)
+if(MSVC)
+  target_compile_options(zc_phys PUBLIC /fp:precise)
+else()
+  target_compile_options(zc_phys PUBLIC -ffp-contract=off)
+endif()
+add_library(zc_core STATIC
+  vendor/zenconstruction/src/platform/raster.cpp vendor/zenconstruction/src/platform/r3d.cpp
+  vendor/zenconstruction/src/platform/mesh.cpp vendor/zenconstruction/src/rocks.cpp
+  vendor/zenconstruction/src/run.cpp vendor/zenconstruction/src/site.cpp
+  vendor/zenconstruction/src/shapes.cpp vendor/zenconstruction/src/crane_model.cpp
+  vendor/zenconstruction/src/stones.cpp)
+target_include_directories(zc_core PUBLIC vendor/zenconstruction/src)
+target_link_libraries(zc_core PUBLIC zc_phys game_paths Threads::Threads)
+target_compile_definitions(zc_core PRIVATE _USE_MATH_DEFINES)
+add_executable(rockstack_rules_tests vendor/zenconstruction/tests/zen_tests.cpp)
+target_link_libraries(rockstack_rules_tests PRIVATE zc_core)
+add_test(NAME rockstack_rules COMMAND rockstack_rules_tests)
+add_executable(rockstack_physics_tests vendor/zenconstruction/phys/tests/phys_tests.cpp)
+target_link_libraries(rockstack_physics_tests PRIVATE zc_phys)
+add_test(NAME rockstack_physics COMMAND rockstack_physics_tests rest stack mass overhang incline drop hold setdown shove consequence wake load concave determinism robustness static restitution stable)
 if(GAMES_BUILD_APPLICATION)
   include(cmake/Application.cmake)
 endif()

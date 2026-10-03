@@ -98,9 +98,9 @@ int main(int argc, char** argv) {
             require(clip.status == gui_forms::AudioStatus::ok, "Full prepared audio decode");
             ++decoded;
         }
-        require(decoded == 392,
+        require(decoded == 424,
                 "Complete runtime batch including Switchbox, Four Pegs and Atom Probe");
-        std::cout << "Full audio decode: " << decoded << "/392 files.\n";
+        std::cout << "Full audio decode: " << decoded << "/424 files.\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

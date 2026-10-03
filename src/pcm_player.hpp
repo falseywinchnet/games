@@ -16,7 +16,9 @@ public:
 #ifdef GUI_FORMS_AUDIO_LOOP_TRANSPORT
     gui_forms::AudioLoopStatus loop_transport(gui_forms::AudioLoopTransport& output);
 #endif
-    void start(std::size_t slot, const std::string& name, bool loop, double gain, double rate = 1);
+    void start(std::size_t slot, const std::string& name, bool loop, double gain, double rate = 1,
+               double pan = 0);
+    void rate(std::size_t slot, double value);
     void gain(std::size_t slot, double value);
     void pause(std::size_t slot);
     void resume(std::size_t slot);
@@ -36,7 +38,7 @@ private:
         std::stop_source cancellation{};
         bool voice_ready{};
         bool loop{}, paused{};
-        double gain{1}, rate{1};
+        double gain{1}, rate{1}, pan{};
     };
     gui_forms::AudioEngine engine_{};
     std::array<Slot, slot_count> slots_{};

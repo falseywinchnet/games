@@ -629,6 +629,18 @@ void Table::on_paint(gf::Painter& p, gf::Rect) {
             draw_text(p, slots_[10].x, slots_[10].y - 7, "FOUNDATIONS", 11, cream);
         }
         if (game.state.kind == Kind::solitaire) {
+            // Earlier discards remain underneath the one/three-card fan.
+            // Only the top waste card participates in hit testing and moves.
+            const int buried = std::max(0, static_cast<int>(game.state.piles[15].size()) -
+                                              game.state.draw_count);
+            const int edges = std::min(8, buried);
+            for (int edge = edges; edge > 0; --edge) {
+                gf::Rect layer = slots_[15];
+                layer.x += edge * .7;
+                layer.y += edge * 1.2;
+                p.fill_rounded_rect(layer, 6, gf::Color::rgba(235, 232, 218));
+                p.stroke_rounded_rect(layer, 6, gf::Color::rgba(128, 128, 116), .7);
+            }
             draw_text(p, slots_[14].x, slots_[14].y - 7,
                       "DRAW " + std::to_string(game.state.draw_count) + "  ·  " +
                           upper(level_name()),

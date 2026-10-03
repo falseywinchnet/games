@@ -9,7 +9,7 @@ class SceneAudio final {
 public:
     explicit SceneAudio(bool offline = false) : player_(offline) {}
     void music(const std::string& name, bool enabled);
-    void effects(const std::string& name, double gain, double rate, bool enabled);
+    void effects(const std::string& name, double gain, double rate, bool enabled, double pan = 0);
     void ambience(const std::array<double, 5>& values, bool enabled);
     void cabinet(bool foreground, bool music, bool sound);
     void duck(double amount);
