@@ -432,9 +432,21 @@ int main() {
         for (int i = 0; i < entry_count; ++i) {
             (*collection).open_entry(static_cast<Entry>(i));
             window.perform_layout();
+            // Invoke through hit-testing, not perform_click(): a game painted
+            // above the capsule must not steal its Back button's pointer input.
+            const std::shared_ptr<gf::Button> back = button(*capsule, "capsule.back");
+            assert(back && (*back).visible());
+            gf::Rect back_bounds = (*back).client_rectangle();
+            click(window, *back, {back_bounds.width * .5, back_bounds.height * .5});
+            assert((*collection).shelf_open());
+            (*collection).open_entry(static_cast<Entry>(i));
+            window.perform_layout();
+            const gf::Point folded_back = (*back).point_to_window({0, 0});
             (*capsule).step(1.0, true, true);
             (*collection).invalidate(gf::Dirty::layout);
             window.perform_layout();
+            const gf::Point expanded_back = (*back).point_to_window({0, 0});
+            assert(folded_back.x == expanded_back.x && folded_back.y == expanded_back.y);
             const gf::Rect bounds = (*capsule).client_rectangle();
             for (const std::shared_ptr<gf::Control>& child : (*capsule).children()) {
                 assert((*child).visible());
@@ -446,7 +458,9 @@ int main() {
                 assert(top.x >= 0 && top.y >= 0 && bottom.x <= 600 && bottom.y <= 420);
                 assert(bottom.y <= parent_bottom.y);
             }
-            (*collection).show_shelf();
+            back_bounds = (*back).client_rectangle();
+            click(window, *back, {back_bounds.width * .5, back_bounds.height * .5});
+            assert((*collection).shelf_open());
         }
     }
     std::filesystem::remove_all(scratch);

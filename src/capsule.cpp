@@ -151,7 +151,9 @@ gf::Size CommandCapsule::pill_size() const {
 gf::Rect CommandCapsule::placement(gf::Rect area) const {
     const gf::Size pill = pill_size();
     const double w = pill.width, h = pill.height;
-    return {area.x + std::round((area.width - w) * .5) - kMargin, area.y + 6 - kMargin,
+    // Expansion must not move Back or the primary commands away from a
+    // pointer approaching them. Keep the same leading edge in both states.
+    return {area.x + 8 - kMargin, area.y + 6 - kMargin,
             std::ceil(w) + 2 * kMargin, std::ceil(h) + 2 * kMargin};
 }
 bool CommandCapsule::step(double dt, bool inside, bool reduced) {

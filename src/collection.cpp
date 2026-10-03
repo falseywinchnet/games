@@ -123,7 +123,9 @@ void Collection::ensure_view(Entry entry) {
     const std::shared_ptr<gf::Control> created = view(entry);
     (*created).set_visible(false);
     add_child(created);
-    static_cast<void>(set_child_index((*created).runtime_id(), 0));
+    // GUI.Forms follows WinForms: index zero is topmost. Keep lazy game
+    // creation behind the shelf and capsule for both painting and hit-testing.
+    static_cast<void>(set_child_index((*created).runtime_id(), children().size() - 1));
 }
 void Collection::on_attached_to_window() {
     timer_ = std::make_unique<gf::Timer>(*attached_window(), std::chrono::milliseconds(16));
