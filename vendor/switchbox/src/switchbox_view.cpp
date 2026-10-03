@@ -83,6 +83,15 @@ void SwitchboxView::activate() {
 }
 
 void SwitchboxView::set_cabinet(bool foreground, bool music, bool sound, bool reduced_motion) {
+    if (timer_) {
+        if (foreground) {
+            last_ = std::chrono::steady_clock::now();
+            (*timer_).start();
+        } else {
+            (*timer_).stop();
+        }
+    }
+
     cab_front_ = foreground;
     cab_music_ = music;
     cab_sound_ = sound;

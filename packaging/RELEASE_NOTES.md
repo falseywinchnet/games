@@ -1,13 +1,13 @@
-PlaySuite 0.4.0 expands the collection to seventeen games, retaining the refined boxed-game shelf and shared command capsule.
+PlaySuite 0.4.1 removes unnecessary idle work and initial resource allocation while retaining the seventeen-game collection and its artwork.
 
-- Koi-Koi: twelve-month hanafuda matches, hints and sets, with 48 new traditional woodblock-style faces and clear month/type labels.
-- The Parrot's Table: question a cast of honest and lying parrots, mark contradictions and identify the culprit.
-- Liar's Dice: wagers, a varied opposing crew and an adaptive score whose arrangements change on authored bar boundaries.
-- Pen the Sheep: generated meadows, fence placement, undo, hints and earned stars.
+- Games are created on their first visit. The shelf no longer loads every game's images and framebuffers at startup, and hidden games are not repeatedly laid out.
+- Shelf timers stop after animations and pending text/audio preparation complete. Hidden vendor game timers stop and resume with a fresh time origin. Eggy's background climbing remains intact.
+- A settled Koi-Koi table stops rendering and publishing frames. Card movement, computer turns, pulsing hints, banners and music fades still run when needed; input and resize wake the view again.
+- Eggy's text preparation snapshots only HUD values and speech coordinates instead of copying the complete simulation and mountain caches every frame. Exposed windows redraw their latest retained frame.
+- Runtime packages omit duplicate hanafuda source PNGs, saving about 14.9 MiB of installed data. The prepared pixel files are unchanged; artwork and audio fidelity are preserved.
+- A native profiling mode and Windows process-counter collector make idle CPU, memory and rendering activity reproducible with isolated saves. Regression tests cover hidden-game silence, resume, and static Koi-Koi scheduling.
 
-The incoming games now use portable GUI.Forms text, audio and live surfaces, shared music/sound/motion controls, and isolated game saves. Help and records integrate with the capsule. Hidden games pause and go silent; the capsule rail expands when commands wrap. The collection retains the latest graded patience deals, stronger Hearts opponents, puzzle difficulties and Untangle cat refinements.
-
-The release has 31 application tests, including all 392 compact audio files, sample-exact bar transitions, native-resolution game/help frames, 150% display scale and minimum-window command checks. No game-specific Apple frameworks or runtime image decoder are required.
+This is the first performance pass. Visited games still retain their render caches, animated scenes need further profiling, and the pinned Windows toolkit retains a periodic presentation clock for registered live surfaces. The implementation and measurement protocol are documented in docs/PERFORMANCE.md.
 
 PlaySuite was previously named Games. Existing save locations and internal game identifiers are preserved.
 

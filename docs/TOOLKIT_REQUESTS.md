@@ -14,6 +14,18 @@ AGENTS.md asks for reusable capabilities to become GUI.Forms enhancements, coord
 
 ## Host behavior found on Windows
 
+**Idle live-surface clock and registration lifecycle.** In pinned `7b260cf`,
+   the Windows host arms the periodic presentation clock
+   whenever `Window::has_live_surface_presentations()` is true. Registrations
+   retain the surface until the control is detached; the public API offers no
+   suspend/unregister token. Consequently a settled or hidden producer can stop
+   publishing but still leave host wakeups and framebuffer storage behind.
+   A publication-triggered wake, plus an explicit lifetime/suspension mechanism
+   that preserves the latest frame for exposure, would let Games retire idle
+   presentation work and hidden buffers without detaching game state. Games
+   currently stops producer timers and avoids repeated publication; it does not
+   modify this shared host policy.
+
 1. **Retained repaints hide directly presented live views until their next frame.** A full-window repaint (an expose, or `PrintWindow` during automated captures) redraws a direct-presented view from its retained `on_paint`, which is the game's fallback fill. The live pixels return only when the game publishes a new generation, so a game that publishes rarely can look blank after an expose. Automated screenshots must therefore copy from the screen. A fix would be for the retained repaint to composite each registered surface's latest published frame. In the transactional DIB mode, `present_live_surface_updates` also skips presenting while other damage is pending, which makes needless invalidation costly. The PlaySuite shell avoids it: for example, button setters return early when nothing changed.
 
 2. **Ordinary controls over a live view.** Only `PaintPlane::overlay` controls are subtracted from direct presentation. The repaint of an ordinary control that overlaps a live view overwrites live pixels until the next frame. The PlaySuite capsule therefore stays within the rail above the four live-surface games.

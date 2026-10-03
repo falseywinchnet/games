@@ -21,6 +21,8 @@ def prepare_image(source: Path, destination: Path) -> None:
 
 
 def prepare_cards(source: Path, destination: Path) -> None:
+    destination.mkdir(parents=True, exist_ok=True)
+    records = []
     for path in sorted(source.glob("*.png")):
         with Image.open(path) as original:
             image = original.convert("RGBA")
@@ -28,7 +30,18 @@ def prepare_cards(source: Path, destination: Path) -> None:
         for i in range(0, len(data), 4):
             r, g, b, a = data[i:i + 4]
             data[i:i + 4] = bytes(((b * a + 127) // 255, (g * a + 127) // 255, (r * a + 127) // 255, a))
-        (destination / path.with_suffix(".bgpix").name).write_bytes(b"BGPX" + struct.pack("<III", 1, *image.size) + data)
+        name = path.with_suffix(".bgpix").name
+        prepared = b"BGPX" + struct.pack("<III", 1, *image.size) + data
+        (destination / name).write_bytes(prepared)
+        records.append({"source": path.name, "source_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                        "file": name, "sha256": hashlib.sha256(prepared).hexdigest()})
+        # Older runtime directories carried both representations. Only prepared
+        # pixels are used by Koi-Koi; the original artwork stays in source control.
+        (destination / path.name).unlink(missing_ok=True)
+    (destination / "manifest.json").write_text(json.dumps(records, indent=2) + "\n", encoding="utf-8")
+    for path in source.iterdir():
+        if path.is_file() and path.suffix.lower() != ".png":
+            shutil.copy2(path, destination / path.name)
 
 
 def prepare_fonts(source: Path, destination: Path) -> None:
@@ -115,7 +128,7 @@ def main() -> None:
     output.mkdir(parents=True, exist_ok=True)
     prepare_fonts(source / "fonts", output / "fonts")
     for path in source.iterdir():
-        if path.name == "audio":
+        if path.name in ("audio", "cards", "fonts"):
             continue
         target = output / path.name
         if path.is_dir():

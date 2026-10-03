@@ -182,6 +182,7 @@ void ShelfView::launch(Entry entry) {
             open(entry);
         return;
     }
+    request_animation();
     launching_ = true;
     launch_t_ = 0;
     (*curtain_).entry = entry;
@@ -205,15 +206,30 @@ void ShelfView::on_detaching_from_window(gf::Window&) noexcept {
         (*timer_).stop();
     timer_.reset();
 }
+void ShelfView::request_animation() {
+    if (!timer_ || !visible())
+        return;
+    if (!(*timer_).enabled())
+        last_ = std::chrono::steady_clock::now();
+    (*timer_).start();
+}
+void ShelfView::on_pointer_preview(gf::PointerEvent& e) {
+    request_animation();
+    gf::Control::on_pointer_preview(e);
+}
 void ShelfView::tick() {
     const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
     const double dt = std::clamp(std::chrono::duration<double>(now - last_).count(), 0.0, .1);
     last_ = now;
-    if (!visible())
+    if (!visible()) {
+        if (timer_)
+            (*timer_).stop();
         return;
+    }
+    bool moving = launching_;
     Entry shown = selection_;
     for (const std::shared_ptr<ShelfBox>& box : boxes_) {
-        (*box).step(dt, reduced_);
+        moving = (*box).step(dt, reduced_) || moving;
         if ((*box).hot())
             shown = (*box).entry();
     }
@@ -233,9 +249,12 @@ void ShelfView::tick() {
                 open((*curtain_).entry);
         }
     }
+    if (!moving && timer_)
+        (*timer_).stop();
 }
 void ShelfView::set_preferences(bool music, bool sound, bool reduced) {
     reduced_ = reduced;
+    request_animation();
     (*switches_[0]).set_glyph(Glyph::music, !music);
     (*switches_[1]).set_glyph(Glyph::sound, !sound);
     (*switches_[2]).set_glyph(Glyph::motion, reduced);
@@ -249,6 +268,7 @@ void ShelfView::set_progress(Entry entry, bool started) {
         invalidate(gf::Dirty::paint);
 }
 void ShelfView::select(Entry entry) {
+    request_animation();
     selection_ = entry;
     shown_ = entry;
     for (const std::shared_ptr<ShelfBox>& box : boxes_)

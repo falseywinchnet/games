@@ -1015,6 +1015,15 @@ void TableView::blit_texts(std::uint32_t* dst, size_t stride_px, double k) {
 
 namespace pt {
 void TableView::set_cabinet(bool foreground, bool music, bool sound, bool reduced) {
+    if (timer_) {
+        if (foreground) {
+            last_ = std::chrono::steady_clock::now();
+            (*timer_).start();
+        } else {
+            (*timer_).stop();
+        }
+    }
+
     cab_front_ = foreground; cab_music_ = music; cab_sound_ = sound; cab_reduced_ = reduced;
     audio_cabinet(foreground, music, sound);
     if (!foreground) { pressed_.clear(); }

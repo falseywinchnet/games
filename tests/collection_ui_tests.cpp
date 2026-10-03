@@ -271,8 +271,9 @@ int main() {
                                      capsule = child(*collection, "collection.capsule"),
                                      eggy = child(*collection, "collection.eggy"),
                                      cards = child(*collection, "collection.cards");
-        assert(shelf && capsule && eggy && cards);
-        assert((*shelf).visible() && !(*capsule).visible() && !(*eggy).visible());
+        assert(shelf && capsule && !eggy && !cards);
+        assert((*collection).children().size() == 2);
+        assert((*shelf).visible() && !(*capsule).visible());
         // PlaySuite lists all thirteen games in one place, with no categories.
         for (int i = 0; i < entry_count; ++i)
             assert(button(*shelf, "shelf.box." + std::to_string(i)) &&
@@ -282,6 +283,8 @@ int main() {
         const std::string eggy_box = "shelf.box." + std::to_string(static_cast<int>(Entry::eggy));
         assert((*button(*shelf, eggy_box)).perform_click()); // one click opens the box
         assert((*button(*shelf, eggy_box)).selected());
+        eggy = child(*collection, "collection.eggy");
+        assert(eggy);
         window.perform_layout();
         assert(!(*shelf).visible() && (*eggy).visible() && (*capsule).visible());
         assert(!std::filesystem::exists(scratch / "eggy-v1.txt"));
@@ -293,6 +296,7 @@ int main() {
         // Each card game is its own box and opens the shared table on that game.
         for (Entry e : {Entry::spider, Entry::freecell, Entry::hearts, Entry::solitaire}) {
             (*collection).open_entry(e);
+            cards = child(*collection, "collection.cards");
             window.perform_layout();
             assert((*cards).visible() && !(*shelf).visible());
             assert(static_cast<int>((*std::static_pointer_cast<Table>(cards)).game.state.kind) ==
@@ -342,11 +346,12 @@ int main() {
             gf::Window& window;
             std::shared_ptr<gf::Control> operator()(Entry e, const std::string& id) const {
                 std::shared_ptr<gf::Control> view = child(*collection, id);
-                assert(view && !(*view).visible());
+                assert(!view || !(*view).visible());
                 const std::string box = "shelf.box." + std::to_string(static_cast<int>(e));
                 assert((*button(*shelf, box)).perform_click());
                 window.perform_layout();
-                assert(!(*shelf).visible() && (*view).visible());
+                view = child(*collection, id);
+                assert(view && !(*shelf).visible() && (*view).visible());
                 return view;
             }
         };
@@ -384,16 +389,19 @@ int main() {
             for (const std::shared_ptr<gf::Control>& candidate : (*collection).children())
                 if ((*candidate).visible()) {
                     CommandSource* match = dynamic_cast<CommandSource*>(candidate.get());
-                    if (match) source = match;
+                    if (match)
+                        source = match;
                 }
             assert(source);
             bool checked = false;
             for (const GameCommand& command : (*source).commands())
-                if (command.id == id) checked = command.checked;
+                if (command.id == id)
+                    checked = command.checked;
             assert(checked);
             assert((*button(*capsule, "capsule.cmd." + id)).perform_click());
             for (const GameCommand& command : (*source).commands())
-                if (command.id == id) assert(!command.checked);
+                if (command.id == id)
+                    assert(!command.checked);
             assert((*button(*capsule, "capsule.back")).perform_click());
         }
         (*collection).open_entry(Entry::atom);

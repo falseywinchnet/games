@@ -16,6 +16,7 @@ public:
     void tick(double dt);
     void stop();
     bool pending() const;
+    [[nodiscard]] bool needs_tick() const;
     gui_forms::AudioStatus status() const;
     gui_forms::AudioStatus render(std::span<float> samples);
 private:

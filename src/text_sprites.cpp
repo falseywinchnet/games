@@ -24,8 +24,8 @@ double TextSprites::draw(gf::Painter& p, const SpriteSpec& spec, gf::Point origi
                          {origin.x + s.ink.x, origin.y + s.ink.y, s.ink.width, s.ink.height});
         return s.width;
     }
-    if (!failed_)
-        wanted_.emplace(k, spec);
+    if (!failed_ && wanted_.emplace(k, spec).second && request_update)
+        request_update();
     // The host face stands in until the lettering is shaped.
     gf::FontSpec f{gf::FontRole::content, spec.size * (spec.face == Face::condensed ? .86 : .92),
                    static_cast<std::uint16_t>(spec.bold ? 700 : 400), false};
@@ -37,8 +37,8 @@ gf::Size TextSprites::measure(const SpriteSpec& spec) {
     std::map<std::string, Sprite>::const_iterator found = ready_.find(k);
     if (found != ready_.end())
         return {(*found).second.width, (*found).second.height};
-    if (!failed_)
-        wanted_.emplace(k, spec);
+    if (!failed_ && wanted_.emplace(k, spec).second && request_update)
+        request_update();
     const double per_char = spec.face == Face::condensed ? .43 : .58;
     return {static_cast<double>(spec.text.size()) * spec.size * per_char, spec.size * 1.2};
 }

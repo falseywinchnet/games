@@ -46,7 +46,13 @@ private:
     struct Bubble { std::string text; double age = 0, dur = 0; bool officer = false; int shown = 0; };
 
     struct RenderState {
-        Sim sim_{1};
+        // Freeze only the values used by the HUD while text shaping completes.
+        // Copying Sim here also copied the mountain cache, stars and path every frame.
+        double altitude = 0, breath = 1, refreshed = 0, sun = 0;
+        double bubble_x = 0, bubble_y = 0;
+        int stars_collected = 0;
+        bool finished = false, player_mode = false;
+        Biome biome = Biome::meadow;
         SaveData save_{};
         Bubble bubble_{};
         std::vector<Button> buttons_;

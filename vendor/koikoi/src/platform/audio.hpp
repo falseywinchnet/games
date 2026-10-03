@@ -13,6 +13,7 @@ void audio_music_on_bar(const std::string& track, bool enabled);
 void audio_sfx(const std::string& name, float gain = 1.f, float rate = 1.f, bool enabled = true);
 void audio_duck_music(float amount);                         // 0..1 temporary music dip (stingers)
 void audio_tick(double dt);
+bool audio_needs_tick();
 void audio_stop();
 
 std::string asset_dir();

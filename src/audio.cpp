@@ -65,4 +65,5 @@ void sound_play(const std::string& name, bool enabled) {
     player.start(slot + 2, mapped, false, 1);
 }
 void audio_poll() { player.tick(); }
+bool audio_pending() { return player.pending(); }
 }

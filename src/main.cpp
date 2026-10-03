@@ -1,11 +1,16 @@
 #include "collection.hpp"
 #include "gui_forms/application.hpp"
 #include "runtime_paths.hpp"
+#include <charconv>
 #include <iostream>
+#include <stdexcept>
 #include <string_view>
 struct SmokeState final {
     gui_forms::FrameRequestToken timer{};
     bool completed{};
+    bool profiling{};
+    bool sampling{};
+    int entry{-1};
 };
 struct SmokeClose final {
     std::weak_ptr<SmokeState> state;
@@ -18,15 +23,51 @@ struct SmokeClose final {
         }
     }
 };
+struct ProfileSample final {
+    std::weak_ptr<SmokeState> state;
+    gui_forms::Window* window{};
+    gui_forms::ApplicationWindowHandle handle;
+    std::weak_ptr<gui_forms::Control> owner;
+    void operator()(gui_forms::FrameTime) const {
+        const std::shared_ptr<SmokeState> live = state.lock();
+        if (!live)
+            return;
+        if (!(*live).sampling) {
+            (*live).sampling = true;
+            (*window).reset_activity_metrics();
+            std::cout << "PROFILE_BEGIN" << std::endl;
+            return;
+        }
+        std::cout << "PROFILE_END" << std::endl;
+        // Let the external collector read process counters before teardown.
+        const std::shared_ptr<gui_forms::Control> timer_owner = owner.lock();
+        if (!timer_owner)
+            return;
+        (*live).timer = (*window).schedule_ui_timer(
+            *timer_owner, std::chrono::seconds(1),
+            gui_forms::FrameClock::now() + std::chrono::seconds(1), SmokeClose{live, handle});
+    }
+};
 struct FocusTable final {
     std::weak_ptr<games::Collection> table;
     std::shared_ptr<SmokeState> smoke;
     void operator()(gui_forms::Window& window, gui_forms::ApplicationWindowHandle handle) const {
         std::shared_ptr<games::Collection> live = table.lock();
         if (live) {
+            if (smoke && (*smoke).profiling) {
+                if ((*smoke).entry >= 0)
+                    (*live).open_entry(static_cast<games::Entry>((*smoke).entry));
+                else
+                    (*live).show_shelf();
+            }
             static_cast<void>(window.request_focus(live));
             (*live).activate();
-            if (smoke) {
+            if (smoke && (*smoke).profiling) {
+                (*smoke).timer =
+                    window.schedule_ui_timer(*live, std::chrono::seconds(10),
+                                             gui_forms::FrameClock::now() + std::chrono::seconds(5),
+                                             ProfileSample{smoke, &window, handle, live});
+            } else if (smoke) {
                 (*smoke).timer =
                     window.schedule_ui_timer(*live, std::chrono::seconds(5),
                                              gui_forms::FrameClock::now() + std::chrono::seconds(5),
@@ -42,8 +83,18 @@ int main(int argc, char** argv) {
         }
         games::initialize_assets(argv[0]);
         const bool smoke_requested = argc == 2 && std::string_view(argv[1]) == "--smoke-test";
+        const bool profile_requested = argc == 3 && std::string_view(argv[1]) == "--profile-idle";
         std::shared_ptr<SmokeState> smoke =
-            smoke_requested ? std::make_shared<SmokeState>() : nullptr;
+            smoke_requested || profile_requested ? std::make_shared<SmokeState>() : nullptr;
+        if (profile_requested) {
+            (*smoke).profiling = true;
+            const std::string_view argument(argv[2]);
+            const std::from_chars_result parsed =
+                std::from_chars(argument.data(), argument.data() + argument.size(), (*smoke).entry);
+            if (parsed.ec != std::errc{} || parsed.ptr != argument.data() + argument.size() ||
+                (*smoke).entry < -1 || (*smoke).entry >= games::entry_count)
+                throw std::runtime_error("Profile entry must be -1 (shelf) or a game index 0..16");
+        }
         std::shared_ptr<games::Collection> table =
             gui_forms::make_control<games::Collection>(gui_forms::StableId("games.table"));
         std::unique_ptr<gui_forms::Window> window =

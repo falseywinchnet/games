@@ -1,6 +1,7 @@
 #pragma once
 #include "game_text.hpp"
 #include "gui_forms/basic_controls.hpp"
+#include <functional>
 #include <map>
 #include <memory>
 #include <string>
@@ -34,6 +35,7 @@ class TextSprites {
     bool update(gf::Window& window);
     [[nodiscard]] bool waiting() const;
     void release(gf::Window& window);
+    std::function<void()> request_update;
 
   private:
     struct Sprite {

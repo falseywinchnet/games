@@ -87,6 +87,22 @@ void SceneAudio::stop() {
     player_.shutdown(); wanted_.clear(); bed_started_.fill(false); music_gain_.fill(0);
     bed_gain_.fill(0); bed_target_.fill(0); front_started_ = false; music_on_ = false;
 }
+bool SceneAudio::needs_tick() const {
+    if (player_.pending())
+        return true;
+    if (!foreground_)
+        return false;
+    if (duck_ > 0)
+        return true;
+    const double level = .42 * (1 - .75 * duck_);
+    for (std::size_t i = 0; i < music_gain_.size(); ++i)
+        if (music_gain_[i] != (i == front_ && music_on_ ? level : 0))
+            return true;
+    for (std::size_t i = 0; i < bed_gain_.size(); ++i)
+        if (bed_started_[i] && std::abs(bed_gain_[i] - bed_target_[i]) > .0001)
+            return true;
+    return false;
+}
 bool SceneAudio::pending() const { const bool result = player_.pending(); return result; }
 gui_forms::AudioStatus SceneAudio::status() const {
     const gui_forms::AudioStatus result = player_.status(); return result;

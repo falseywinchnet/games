@@ -104,6 +104,9 @@ private:
     void on_attached_to_window() override;
     void on_detaching_from_window(gf::Window& window) noexcept override;
     void tick();
+    void request_frame();
+    bool visual_work() const;
+    bool render_dirty_ = true;
     void publish();
     // the game
     void new_match();

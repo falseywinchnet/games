@@ -70,6 +70,8 @@ class Collection final : public gf::Control {
     void on_attached_to_window() override;
     void on_detaching_from_window(gf::Window& window) noexcept override;
     void tick();
+    void wake();
+    void ensure_view(Entry entry);
     void visibility();
     void preferences();
     void persist() const;

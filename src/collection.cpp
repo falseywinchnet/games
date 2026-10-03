@@ -66,41 +66,7 @@ Collection::Collection(gf::StableId id) : Control(std::move(id)) {
 }
 Collection::~Collection() = default;
 void Collection::initialize_control_tree() {
-    cards_ = gf::make_control<Table>(gf::StableId("collection.cards"));
-    sudoku_ = gf::make_control<SudokuView>(gf::StableId("collection.sudoku"));
-    add_child(cards_);
-    add_child(sudoku_);
-    eggy_ = gf::make_control<eggy::EggyView>(gf::StableId("collection.eggy"), eggy::Options{});
-    add_child(eggy_);
-    switchbox_ =
-        gf::make_control<sbx::SwitchboxView>(gf::StableId("switchbox.view"), sbx::Options{});
-    add_child(switchbox_);
-    fp::Options pegs;
-    pegs.hosted = true;
-    fourpegs_ = gf::make_control<fp::FourPegsView>(gf::StableId("fourpegs.view"), pegs);
-    add_child(fourpegs_);
-    ap::Options atom;
-    atom.hosted = true;
-    atomprobe_ = gf::make_control<ap::AtomProbeView>(gf::StableId("atomprobe.view"), atom);
-    add_child(atomprobe_);
-    for (Entry e : {Entry::gems, Entry::cube, Entry::untangle, Entry::solve}) {
-        const int i = puzzle_index(e);
-        puzzles_[i] = gf::make_control<PuzzleView>(
-            gf::StableId("collection.puzzle." + std::to_string(i)), static_cast<PuzzleKind>(i));
-        add_child(puzzles_[i]);
-    }
-    koikoi_ =
-        gf::make_control<kk::KoiView>(gf::StableId("koikoi.view"), kk::Options{.hosted = true});
-    add_child(koikoi_);
-    parrots_ =
-        gf::make_control<pt::TableView>(gf::StableId("parrots.view"), pt::Options{.hosted = true});
-    add_child(parrots_);
-    liarsdice_ =
-        gf::make_control<ld::DiceView>(gf::StableId("liarsdice.view"), ld::Options{.hosted = true});
-    add_child(liarsdice_);
-    penthesheep_ = gf::make_control<sh::SheepView>(gf::StableId("penthesheep.view"),
-                                                   sh::Options{.hosted = true});
-    add_child(penthesheep_);
+    sprites_.request_update = std::bind_front(&Collection::wake, this);
     shelf_ = gf::make_control<ShelfView>(gf::StableId("collection.shelf"), sprites_);
     add_child(shelf_);
     (*shelf_).open = std::bind_front(&Collection::open_entry, this);
@@ -113,11 +79,51 @@ void Collection::initialize_control_tree() {
     (*capsule_).toggle = std::bind_front(&Collection::toggle, this);
     for (int i = 0; i < entry_count; ++i)
         (*shelf_).set_progress(static_cast<Entry>(i), (opened_ >> i) & 1u);
-    if (is_cards(active_))
-        (*cards_).show_kind(static_cast<Kind>(active_));
+    if (!shelf_open_)
+        ensure_view(active_);
     preferences();
     visibility();
     refresh_commands();
+}
+void Collection::ensure_view(Entry entry) {
+    if (view(entry))
+        return;
+    if (is_cards(entry))
+        cards_ = gf::make_control<Table>(gf::StableId("collection.cards"));
+    else if (entry == Entry::sudoku)
+        sudoku_ = gf::make_control<SudokuView>(gf::StableId("collection.sudoku"));
+    else if (entry == Entry::eggy)
+        eggy_ = gf::make_control<eggy::EggyView>(gf::StableId("collection.eggy"), eggy::Options{});
+    else if (entry == Entry::switchbox)
+        switchbox_ =
+            gf::make_control<sbx::SwitchboxView>(gf::StableId("switchbox.view"), sbx::Options{});
+    else if (entry == Entry::pegs)
+        fourpegs_ = gf::make_control<fp::FourPegsView>(gf::StableId("fourpegs.view"),
+                                                       fp::Options{.hosted = true});
+    else if (entry == Entry::atom)
+        atomprobe_ = gf::make_control<ap::AtomProbeView>(gf::StableId("atomprobe.view"),
+                                                         ap::Options{.hosted = true});
+    else if (entry == Entry::koikoi)
+        koikoi_ =
+            gf::make_control<kk::KoiView>(gf::StableId("koikoi.view"), kk::Options{.hosted = true});
+    else if (entry == Entry::parrots)
+        parrots_ = gf::make_control<pt::TableView>(gf::StableId("parrots.view"),
+                                                   pt::Options{.hosted = true});
+    else if (entry == Entry::liarsdice)
+        liarsdice_ = gf::make_control<ld::DiceView>(gf::StableId("liarsdice.view"),
+                                                    ld::Options{.hosted = true});
+    else if (entry == Entry::penthesheep)
+        penthesheep_ = gf::make_control<sh::SheepView>(gf::StableId("penthesheep.view"),
+                                                       sh::Options{.hosted = true});
+    else {
+        const int i = puzzle_index(entry);
+        puzzles_[i] = gf::make_control<PuzzleView>(
+            gf::StableId("collection.puzzle." + std::to_string(i)), static_cast<PuzzleKind>(i));
+    }
+    const std::shared_ptr<gf::Control> created = view(entry);
+    (*created).set_visible(false);
+    add_child(created);
+    static_cast<void>(set_child_index((*created).runtime_id(), 0));
 }
 void Collection::on_attached_to_window() {
     timer_ = std::make_unique<gf::Timer>(*attached_window(), std::chrono::milliseconds(16));
@@ -180,9 +186,15 @@ CommandSource* Collection::source(Entry entry) const {
     const int i = puzzle_index(entry);
     return i >= 0 ? puzzles_[static_cast<std::size_t>(i)].get() : nullptr;
 }
+void Collection::wake() {
+    if (!timer_)
+        return;
+    (*timer_).set_interval(std::chrono::milliseconds(16));
+    (*timer_).start();
+}
 void Collection::tick() {
     const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-    const double dt = std::clamp(std::chrono::duration<double>(now - last_tick_).count(), 0.0, .1);
+    const double dt = std::clamp(std::chrono::duration<double>(now - last_tick_).count(), 0.0, .25);
     last_tick_ = now;
     audio_poll();
     if (gf::Window* window = attached_window())
@@ -195,8 +207,11 @@ void Collection::tick() {
         (*capsule_).invalidate(gf::Dirty::paint);
         invalidate(gf::Dirty::layout);
     }
-    if (shelf_open_)
+    if (shelf_open_) {
+        if (timer_ && !sprites_.waiting() && !audio_pending())
+            (*timer_).stop();
         return;
+    }
     const gf::Rect area{0, 0, client_rectangle().width,
                         uses_rail(active_) ? current_rail_height_ : 60.0};
     gf::Rect r = (*capsule_).placement(area);
@@ -210,14 +225,21 @@ void Collection::tick() {
         refresh_ = 0;
         refresh_commands();
     }
+    // Commands can change after an asynchronous game action. Poll that cheap
+    // model at 5 Hz; only hover animation, text and audio preparation need 60 Hz.
+    if (timer_)
+        (*timer_).set_interval(std::chrono::milliseconds(
+            (*capsule_).unsettled(inside) || sprites_.waiting() || audio_pending() ? 16 : 200));
 }
 void Collection::on_pointer_preview(gf::PointerEvent& e) {
+    wake();
     pointer_ = point_from_window(e.position);
     if (e.action == gf::PointerAction::leave && (pointer_.x < 0 || pointer_.y < 0))
         pointer_ = {-1000, -1000};
     gf::Control::on_pointer_preview(e);
 }
 void Collection::on_key_preview(gf::KeyEvent& e) {
+    wake();
     if (!shelf_open_ && e.action == gf::KeyAction::down && e.physical_key == gf::PhysicalKey::f2 &&
         static_cast<int>(active_) <= static_cast<int>(Entry::solve) &&
         active_ != Entry::switchbox) {
@@ -228,6 +250,8 @@ void Collection::on_key_preview(gf::KeyEvent& e) {
     gf::Control::on_key_preview(e);
 }
 void Collection::refresh_commands() {
+    if (!view(active_))
+        return;
     const EntryInfo& info = entry_info(active_);
     std::vector<GameCommand> commands;
     if (CommandSource* s = source(active_))
@@ -277,7 +301,7 @@ void Collection::arrange(gf::Rect b) {
                          std::max(0.0, b.height - current_rail_height_)};
     // Each view is laid out once per pass; live-surface games sit below the rail.
     for (const std::shared_ptr<gf::Control>& child : children())
-        if (child != shelf_ && child != capsule_) {
+        if (child != shelf_ && child != capsule_ && (*child).visible()) {
             const bool railed = child == atomprobe_ || child == fourpegs_ || child == switchbox_ ||
                                 child == eggy_ || child == koikoi_ || child == parrots_ ||
                                 child == liarsdice_ || child == penthesheep_;
@@ -307,26 +331,34 @@ void Collection::preferences() {
     if (!load_cabinet(cabinet_path(), cabinet))
         return;
     reduced_ = cabinet.reduced;
-    (*eggy_).set_cabinet_preferences(cabinet.music, cabinet.sound, cabinet.reduced);
-    (*switchbox_)
-        .set_cabinet(!shelf_open_ && active_ == Entry::switchbox, cabinet.music, cabinet.sound,
-                     cabinet.reduced);
-    (*fourpegs_)
-        .set_cabinet(!shelf_open_ && active_ == Entry::pegs, cabinet.music, cabinet.sound,
-                     cabinet.reduced);
-    (*atomprobe_)
-        .set_cabinet(!shelf_open_ && active_ == Entry::atom, cabinet.music, cabinet.sound,
-                     cabinet.reduced);
-    (*koikoi_).set_cabinet(!shelf_open_ && active_ == Entry::koikoi, cabinet.music, cabinet.sound,
-                           cabinet.reduced);
-    (*parrots_).set_cabinet(!shelf_open_ && active_ == Entry::parrots, cabinet.music, cabinet.sound,
-                            cabinet.reduced);
-    (*liarsdice_)
-        .set_cabinet(!shelf_open_ && active_ == Entry::liarsdice, cabinet.music, cabinet.sound,
-                     cabinet.reduced);
-    (*penthesheep_)
-        .set_cabinet(!shelf_open_ && active_ == Entry::penthesheep, cabinet.music, cabinet.sound,
-                     cabinet.reduced);
+    if (eggy_)
+        (*eggy_).set_cabinet_preferences(cabinet.music, cabinet.sound, cabinet.reduced);
+    if (switchbox_)
+        (*switchbox_)
+            .set_cabinet(!shelf_open_ && active_ == Entry::switchbox, cabinet.music, cabinet.sound,
+                         cabinet.reduced);
+    if (fourpegs_)
+        (*fourpegs_)
+            .set_cabinet(!shelf_open_ && active_ == Entry::pegs, cabinet.music, cabinet.sound,
+                         cabinet.reduced);
+    if (atomprobe_)
+        (*atomprobe_)
+            .set_cabinet(!shelf_open_ && active_ == Entry::atom, cabinet.music, cabinet.sound,
+                         cabinet.reduced);
+    if (koikoi_)
+        (*koikoi_).set_cabinet(!shelf_open_ && active_ == Entry::koikoi, cabinet.music,
+                               cabinet.sound, cabinet.reduced);
+    if (parrots_)
+        (*parrots_).set_cabinet(!shelf_open_ && active_ == Entry::parrots, cabinet.music,
+                                cabinet.sound, cabinet.reduced);
+    if (liarsdice_)
+        (*liarsdice_)
+            .set_cabinet(!shelf_open_ && active_ == Entry::liarsdice, cabinet.music, cabinet.sound,
+                         cabinet.reduced);
+    if (penthesheep_)
+        (*penthesheep_)
+            .set_cabinet(!shelf_open_ && active_ == Entry::penthesheep, cabinet.music,
+                         cabinet.sound, cabinet.reduced);
     (*shelf_).set_preferences(cabinet.music, cabinet.sound, cabinet.reduced);
     (*capsule_).set_preferences(cabinet.music, cabinet.sound, cabinet.reduced);
 }
@@ -345,6 +377,7 @@ void Collection::persist() const {
     std::filesystem::rename(temporary, path, error);
 }
 void Collection::activate() {
+    wake();
     preferences();
     if (shelf_open_) {
         Cabinet cabinet;
@@ -386,6 +419,8 @@ void Collection::activate() {
         (*puzzles_[static_cast<std::size_t>(puzzle_index(active_))]).activate();
 }
 void Collection::open_entry(Entry entry) {
+    wake();
+    ensure_view(entry);
     active_ = entry;
     shelf_open_ = false;
     opened_ |= 1u << static_cast<int>(entry);
@@ -415,7 +450,8 @@ void Collection::toggle(int which) {
     if (which == 2)
         cabinet.reduced = !cabinet.reduced;
     if (save_cabinet(cabinet_path(), cabinet)) {
-        (*cards_).reload_preferences();
+        if (cards_)
+            (*cards_).reload_preferences();
         preferences();
         activate();
     }

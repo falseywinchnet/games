@@ -161,9 +161,9 @@ void EggyView::arrange(gf::Rect bounds) {
 
 void EggyView::on_paint(gf::Painter& p, gf::Rect) {
     const gf::Rect b = client_rectangle();
-    // With direct presentation the host composites the surface itself; drawing
-    // it here as well would blit every frame twice.
-    if (surface_ && !direct_) p.draw_live_surface(surface_, b);
+    // Retained repaints also need the latest frame (expose/capsule changes).
+    // Direct publications do not invalidate this control or repaint the tree.
+    if (surface_) p.draw_live_surface(surface_, b);
     else p.fill_rect(b, gf::Color::rgba(20, 30, 50));
 }
 
@@ -463,8 +463,8 @@ void EggyView::tick() {
             std::filesystem::path(games::asset_directory()) / "fonts", "Carlito");
     }
     if (!rendering_pending_) {
-        capture_render_state();
         if (!no_render) scene_.render(s, t_, dt);
+        capture_render_state();
     }
     (*game_text_).begin();
     compose();
@@ -816,7 +816,7 @@ void EggyView::draw_button(const Button& b) {
 }
 
 void EggyView::draw_hud() {
-    const Sim& s = (*rendering_).sim_;
+    const RenderState& s = *rendering_;
     // status panel: only what Eggy has achieved, never what remains
     const int x = 3, y = 3, w = 64, h = 25;
     frame_.fill_rect(x + 1, y + 1, w, h, hex(0x000000, .35f));
@@ -828,7 +828,7 @@ void EggyView::draw_hud() {
         text(v, x + 23, ly, vc, 10, true);
         ly += 5;
     };
-    row("ALTITUDE", with_commas(s.world.altitude_m(s.d.v)) + " m", hex(0xFFFFFF));
+    row("ALTITUDE", with_commas(s.altitude) + " m", hex(0xFFFFFF));
     row("STARS", std::to_string(s.stars_collected), kGoldT);
     row("CLIMBING", format_duration(std::max(0.0, (s.finished ? (*rendering_).save_.finish_seconds : (*rendering_).wall_ - (*rendering_).save_.start_wall))), hex(0xFFFFFF));
     text("BREATH", x + 3, ly, hex(0x9FB4D8), 10, false);
@@ -836,8 +836,8 @@ void EggyView::draw_hud() {
     frame_.fill_rect(bx, by, bw, bh, hex(0x000000, .6f));
     const int segs = 12;
     for (int i = 0; i < segs; ++i) {
-        if ((i + .5) / segs > s.d.breath) break;
-        const Col c = s.d.breath < .25 ? hex(0xFF6A4A) : s.d.refreshed > 0 ? hex(0x7FE3FF) : hex(0x7BE07A);
+        if ((i + .5) / segs > s.breath) break;
+        const Col c = s.breath < .25 ? hex(0xFF6A4A) : s.refreshed > 0 ? hex(0x7FE3FF) : hex(0x7BE07A);
         frame_.fill_rect(bx + 1 + i * 3, by + 1, 2, 1, c);
     }
     // mode badge
@@ -860,21 +860,15 @@ void EggyView::draw_hud() {
         text((*rendering_).banner_, (pw_ - bw2) / 2, 24, hex(0xFFF2C0, a), 12, true, 0, 2);
     }
     frame_.fill_rect(0, ph_ - 11, pw_, 11, hex(0x10182A, .8f));
-    text(std::string(biome_name(s.world.row(static_cast<std::int64_t>(s.d.v)).biome)) + (s.sun() < .2 ? "  -  night" : s.sun() < .6 ? "  -  twilight" : "  -  day"),
+    text(std::string(biome_name(s.biome)) + (s.sun < .2 ? "  -  night" : s.sun < .6 ? "  -  twilight" : "  -  day"),
          3, ph_ - 8, hex(0xD8E4FF), 10, false);
     for (const Button& b : (*rendering_).buttons_) draw_button(b);
 }
 
 void EggyView::draw_bubble() {
     if ((*rendering_).bubble_.text.empty()) return;
-    const Sim& s = (*rendering_).sim_;
-    double hx, hy;
-    if ((*rendering_).bubble_.officer) {
-        double z;
-        scene_.r.project({scene_.officer_u, scene_.officer_v, s.world.ground(scene_.officer_u, scene_.officer_v) + .5 / scene_.r.height_scale}, hx, hy, z);
-    } else {
-        scene_.duck_screen(s, hx, hy);
-    }
+    const RenderState& s = *rendering_;
+    const double hx = s.bubble_x, hy = s.bubble_y;
     const int wrap = 66;
     const std::string shown = (*rendering_).bubble_.text.substr(0, static_cast<size_t>(std::max(1, (*rendering_).bubble_.shown)));
     const int tw = std::min(wrap, text_w((*rendering_).bubble_.text, 11, false)), th = text_h((*rendering_).bubble_.text, 11, false, wrap);
@@ -897,7 +891,7 @@ void EggyView::draw_bubble() {
 
 void EggyView::draw_panel() {
     if ((*rendering_).panel_ == Panel::none) return;
-    const Sim& s = (*rendering_).sim_;
+    const RenderState& s = *rendering_;
     frame_.fill_rect(0, 0, pw_, ph_, hex(0x000010, (*rendering_).panel_ == Panel::title ? .25f : .45f));
     const int ww = std::min(pw_ - 12, 200), wh = std::min(ph_ - 12, 140);
     const int wx = (pw_ - ww) / 2, wy = (ph_ - wh) / 2;
@@ -958,7 +952,7 @@ void EggyView::draw_panel() {
         }
         case Panel::confirm:
             draw_window(wx, wy, ww, wh, "START A NEW CLIMB?");
-            line("Eggy has climbed " + with_commas(s.world.altitude_m(s.d.v)) + " m of this mountain.", kInk, true);
+            line("Eggy has climbed " + with_commas(s.altitude) + " m of this mountain.", kInk, true);
             line("Starting over abandons this climb. He will be fine. He will start climbing again immediately. He is like that.");
             break;
         case Panel::away:
@@ -1017,7 +1011,23 @@ void EggyView::capture_render_state() {
     if (!rendering_) rendering_ = std::make_unique<RenderState>();
     rendering_pending_ = true;
     RenderState& state = *rendering_;
-    state.sim_ = *sim_;
+    const Sim& simulation = *sim_;
+    state.altitude = simulation.world.altitude_m(simulation.d.v);
+    state.breath = simulation.d.breath;
+    state.refreshed = simulation.d.refreshed;
+    state.sun = simulation.sun();
+    state.biome = simulation.world.row(static_cast<std::int64_t>(simulation.d.v)).biome;
+    state.stars_collected = simulation.stars_collected;
+    state.finished = simulation.finished;
+    state.player_mode = simulation.player_mode;
+    if (bubble_.officer) {
+        double depth;
+        scene_.r.project({scene_.officer_u, scene_.officer_v,
+            simulation.world.ground(scene_.officer_u, scene_.officer_v) + .5 / scene_.r.height_scale},
+            state.bubble_x, state.bubble_y, depth);
+    } else {
+        scene_.duck_screen(simulation, state.bubble_x, state.bubble_y);
+    }
     state.wall_ = wall_clock();
     state.save_ = save_;
     state.bubble_ = bubble_;

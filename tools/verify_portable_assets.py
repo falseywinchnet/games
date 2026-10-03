@@ -47,6 +47,17 @@ def verify(source: Path, runtime: Path) -> dict:
     actual_cards = {path.name for path in (runtime / "cards").glob("*.bgpix")}
     if actual_cards != expected_cards:
         raise ValueError("Incomplete prepared hanafuda deck")
+    if any((runtime / "cards").glob("*.png")):
+        raise ValueError("Runtime cards contain redundant authoring PNGs")
+    card_records = json.loads((runtime / "cards/manifest.json").read_text(encoding="utf-8"))
+    if len(card_records) != len(expected_cards) or {record["file"] for record in card_records} != expected_cards:
+        raise ValueError("Incomplete card provenance inventory")
+    for record in card_records:
+        name = record["source"]
+        if Path(name).name != name or Path(name).with_suffix(".bgpix").name != record["file"]:
+            raise ValueError("Invalid source card name")
+        if digest(source / "cards" / name) != record["source_sha256"] or digest(runtime / "cards" / record["file"]) != record["sha256"]:
+            raise ValueError("Card provenance differs: " + name)
     for name in expected_cards:
         data = (runtime / "cards" / name).read_bytes()
         if len(data) < 16 or data[:4] != b"BGPX":
@@ -74,6 +85,8 @@ def verify(source: Path, runtime: Path) -> dict:
     for path in source.rglob("*"):
         if path.is_file() and path.relative_to(source).parts[0] != "audio":
             relative = path.relative_to(source)
+            if relative.parts[0] == "cards" and path.suffix.lower() == ".png":
+                continue  # Source and prepared fingerprints were verified above.
             if digest(path) != digest(runtime / relative):
                 raise ValueError("Missing or altered runtime resource: " + str(relative))
     if not (runtime / "sudoku/engine.js").is_file():

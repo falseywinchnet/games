@@ -16,6 +16,24 @@
 
 namespace {
 namespace gf = gui_forms;
+void set_foreground(gf::Control& view, bool foreground) {
+    if (fp::FourPegsView* game = dynamic_cast<fp::FourPegsView*>(&view))
+        (*game).set_cabinet(foreground, false, false, true);
+    else if (ap::AtomProbeView* game = dynamic_cast<ap::AtomProbeView*>(&view))
+        (*game).set_cabinet(foreground, false, false, true);
+    else if (sbx::SwitchboxView* game = dynamic_cast<sbx::SwitchboxView*>(&view))
+        (*game).set_cabinet(foreground, false, false, true);
+#ifdef GAMES_EXTENDED_VENDOR_FRAMES
+    else if (kk::KoiView* game = dynamic_cast<kk::KoiView*>(&view))
+        (*game).set_cabinet(foreground, false, false, true);
+    else if (pt::TableView* game = dynamic_cast<pt::TableView*>(&view))
+        (*game).set_cabinet(foreground, false, false, true);
+    else if (ld::DiceView* game = dynamic_cast<ld::DiceView*>(&view))
+        (*game).set_cabinet(foreground, false, false, true);
+    else if (sh::SheepView* game = dynamic_cast<sh::SheepView*>(&view))
+        (*game).set_cabinet(foreground, false, false, true);
+#endif
+}
 void require(const bool condition, const char* const message) {
     if (!condition) {
         throw std::runtime_error(message);
@@ -181,6 +199,19 @@ int main(const int argc, char** const argv) {
         gf::LiveSurfaceFrame help = advance(window, surface, before_help);
         write_frame(help, previews / (game + "-portable-help.ppm"));
         help = {};
+        if (game == "koikoi") {
+            const gf::FrameTime deadline = gf::FrameClock::now() + std::chrono::seconds(8);
+            while (window.next_wake() && gf::FrameClock::now() < deadline) {
+                static_cast<void>(window.poll_frame_schedule(gf::FrameClock::now()));
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+            require(!window.next_wake(), "Settled Koi-Koi stops its timer entirely");
+            const std::uint64_t settled = (*surface).snapshot().published_generation;
+            static_cast<void>(
+                window.poll_frame_schedule(gf::FrameClock::now() + std::chrono::seconds(1)));
+            require((*surface).snapshot().published_generation == settled,
+                    "Static Koi-Koi does not republish identical frames");
+        }
         window.set_scale(1.5);
         window.perform_layout();
         const std::uint64_t before_scale = (*surface).snapshot().published_generation;
@@ -205,7 +236,23 @@ int main(const int argc, char** const argv) {
             gf::LiveSurfaceFrame board = advance(window, surface, before_board);
             write_frame(board, previews / (game + "-portable-board-small.ppm"));
         }
-        std::cout << game << " real game, help, retained frame and 150% DPI passed\n";
+        if (game != "eggy") {
+            set_foreground(*view, false);
+            (*view).set_visible(false);
+            const std::uint64_t hidden = (*surface).snapshot().published_generation;
+            const std::uint64_t callbacks = window.metrics_snapshot().callbacks_emitted;
+            static_cast<void>(
+                window.poll_frame_schedule(gf::FrameClock::now() + std::chrono::seconds(2)));
+            require(window.metrics_snapshot().callbacks_emitted == callbacks,
+                    "Hidden game has no polling timer callbacks");
+            require((*surface).snapshot().published_generation == hidden,
+                    "Hidden game does not render or publish");
+            (*view).set_visible(true);
+            set_foreground(*view, true);
+            const gf::LiveSurfaceFrame resumed = advance(window, surface, hidden);
+            require(resumed.width() > 0, "Hidden game resumes without losing its surface");
+        }
+        std::cout << game << " game/help frames, idle lifecycle, retained frame and DPI passed\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

@@ -31,6 +31,9 @@ class CommandCapsule final : public gf::Control {
     [[nodiscard]] bool open() const {
         return open_ > .001;
     }
+    [[nodiscard]] bool unsettled(bool inside) const {
+        return open_ != (inside || pinned_ ? 1.0 : 0.0);
+    }
     void fold();
 
     std::function<void()> back;

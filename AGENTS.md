@@ -62,3 +62,7 @@ ctest --test-dir .build/portable-core --output-on-failure --timeout 120
 The `Native game core checks` workflow runs that profile on native Windows x64, macOS arm64, Linux x64 and Linux arm64 runners. Test reports and scene previews are diagnostic artifacts, not application packages.
 
 The 0.4 integrations and adapter boundaries are documented in docs/NEW_GAME_INTEGRATION.md. Run `python3 scripts/check-style.py` before publishing. New incoming packages remain unchanged; vendor copies are the integration surface.
+
+Preserve demand-driven rendering and lazy game creation. See docs/PERFORMANCE.md
+for the idle profiling protocol and remaining toolkit boundaries. Do not trade
+away animation, image fidelity, game behavior or saved state to lower a metric.

@@ -10,6 +10,13 @@ ROOT = Path(__file__).resolve().parents[1]
 TOOLKIT_REVISION = "7b260cfb9f3267392e1470b0fcf4cd2497437819"
 
 
+def runtime_exclusions(directory, names):
+    # Also handle incremental builds that still contain the old duplicate PNGs.
+    if Path(directory).name == "cards":
+        return [name for name in names if Path(name).suffix.lower() == ".png"]
+    return []
+
+
 def project_version():
     source = (ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
     match = re.search(r"project\(Games VERSION ([0-9.]+)", source)
@@ -23,7 +30,7 @@ def copy_resources(build, toolkit, destination):
     assets = build / "assets"
     if not assets.is_dir():
         assets = build / "games.app/Contents/Resources/assets"
-    shutil.copytree(assets, destination / "assets", dirs_exist_ok=True)
+    shutil.copytree(assets, destination / "assets", dirs_exist_ok=True, ignore=runtime_exclusions)
     shutil.copytree(toolkit / "assets/fonts", destination / "fonts", dirs_exist_ok=True)
     notices = destination / "licenses"
     notices.mkdir(exist_ok=True)

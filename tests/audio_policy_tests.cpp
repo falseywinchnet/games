@@ -84,12 +84,15 @@ void player_controls(const std::filesystem::path& audio) {
 }
 void scene_gates() {
     games::SceneAudio scene(true);
+    require(!scene.needs_tick(), "silent scene needs no polling");
     scene.music("tone", false);
     scene.tick(.1);
     require(scene.status() == gui_forms::AudioStatus::closed && !scene.pending(), "disabled music does not open engine or load");
     scene.music("tone", true);
+    require(scene.needs_tick(), "loading and fading music must keep the scheduler awake");
     settle(scene);
     for (unsigned i = 0; i < 12; ++i) { scene.tick(.25); }
+    require(!scene.needs_tick(), "steady music plays without UI polling");
     std::array<float, 512> samples{};
     const gui_forms::AudioStatus audible = scene.render(samples);
     require(audible == gui_forms::AudioStatus::ok && samples[0] > .01f, "enabled music fades in");
@@ -109,6 +112,7 @@ void scene_gates() {
     require(master_muted == gui_forms::AudioStatus::ok, "master mute render");
     require_silence(samples);
     scene.cabinet(false, true, true);
+    require(!scene.needs_tick(), "hidden audio needs no polling");
     require(scene.status() == gui_forms::AudioStatus::closed && !scene.pending(), "hidden scene releases audio");
     scene.effects("tone", 1, 1, true);
     scene.music("tone", true);

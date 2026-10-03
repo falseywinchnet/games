@@ -16,6 +16,7 @@ void audio_music(const std::string& track, bool enabled) { audio.music(track, en
 void audio_sfx(const std::string& name, float gain, float rate, bool enabled) { audio.effects(name, gain, rate, enabled); }
 void audio_duck_music(float amount) { audio.duck(amount); }
 void audio_tick(double dt) { audio.tick(dt); }
+bool audio_needs_tick() { return audio.needs_tick(); }
 void audio_stop() { audio.stop(); }
 void audio_cabinet(bool foreground, bool music, bool sound) { audio.cabinet(foreground, music, sound); }
 }

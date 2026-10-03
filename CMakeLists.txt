@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(Games VERSION 0.4.0 LANGUAGES C CXX)
+project(Games VERSION 0.4.1 LANGUAGES C CXX)
 option(GAMES_BUILD_APPLICATION "Build the complete graphical game collection and UI tests" ON)
 enable_testing()
 set(CMAKE_CXX_STANDARD 20)

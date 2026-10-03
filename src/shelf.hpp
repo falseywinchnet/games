@@ -50,6 +50,7 @@ class ShelfView final : public gf::Control {
     void arrange(gf::Rect bounds) override;
     void on_paint(gf::Painter& painter, gf::Rect damage) override;
     void on_key_bubble(gf::KeyEvent& e) override;
+    void on_pointer_preview(gf::PointerEvent& e) override;
     void select(Entry entry);
     [[nodiscard]] Entry selection() const {
         return selection_;
@@ -82,6 +83,7 @@ class ShelfView final : public gf::Control {
     void on_attached_to_window() override;
     void on_detaching_from_window(gf::Window& window) noexcept override;
     void tick();
+    void request_animation();
     void clicked_box(gf::ButtonBase& button);
     void clicked_switch(gf::ButtonBase& button);
 };

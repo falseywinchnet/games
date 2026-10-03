@@ -88,6 +88,9 @@ void KoiView::activate() {
 
 void KoiView::arrange(gf::Rect bounds) {
     arrange_self(bounds);
+    const double scale = attached_window() ? (*attached_window()).scale() : 1.0;
+    if (W_ == bounds.width && H_ == bounds.height && bs_ == scale && !frame_.px.empty()) return;
+    request_frame();
     W_ = bounds.width;
     H_ = bounds.height;
     bs_ = attached_window() ? (*attached_window()).scale() : 1.0;
@@ -548,8 +551,32 @@ void KoiView::run_script() {
     }
 }
 
+void KoiView::request_frame() {
+    render_dirty_ = true;
+    if (!timer_ || !visible() || !cab_front_) return;
+    if (!(*timer_).enabled()) last_ = std::chrono::steady_clock::now();
+    (*timer_).set_interval(std::chrono::milliseconds(16));
+    (*timer_).start();
+}
+
+bool KoiView::visual_work() const {
+    if (!banners_.empty() || !holds_.empty() || !script_.empty()) return true;
+    for (const Sprite& p : sp_)
+        if (!p.placed || p.x != p.tx || p.y != p.ty || p.s != p.ts || p.face != p.tface) return true;
+    if (panel_ == Panel::none) {
+        if (wait_ > 0 || auto_ || s_.phase == koi::Phase::draw) return true;
+        if (s_.turn == 1 && s_.phase != koi::Phase::round_over && s_.phase != koi::Phase::match_over) return true;
+    }
+    if (hint_ >= 0 || (s_.turn == 0 && s_.pending >= 0 && !s_.choices.empty())) return true;
+    if (s_.turn == 0 && s_.phase == koi::Phase::play && hover_card_ >= 0 &&
+        std::find(s_.hand[0].begin(), s_.hand[0].end(), hover_card_) != s_.hand[0].end())
+        return !koi::matches(s_, hover_card_).empty();
+    return false;
+}
+
 void KoiView::tick() {
-    if (!visible() || !cab_front_) { last_ = std::chrono::steady_clock::now(); return; }
+    if (!visible() || !cab_front_) { if (timer_) (*timer_).stop(); return; }
+    const bool was_moving = visual_work();
     const auto now = std::chrono::steady_clock::now();
     const double rdt = std::clamp(std::chrono::duration<double>(now - last_).count(), 0.0, .1);
     last_ = now;
@@ -566,6 +593,11 @@ void KoiView::tick() {
         p.y += (p.ty - p.y) * k;
         p.s += (p.ts - p.s) * k;
         p.face += (p.tface - p.face) * (cab_reduced_ ? 1.0 : std::min(1.0, dt * 7));
+        // Settle below a hundredth of a device pixel, keeping the exact destination.
+        if (std::abs(p.tx - p.x) * bs_ < .01) p.x = p.tx;
+        if (std::abs(p.ty - p.y) * bs_ < .01) p.y = p.ty;
+        if (std::abs(p.ts - p.s) * ch_ * bs_ < .01) p.s = p.ts;
+        if (std::abs(p.tface - p.face) * cw_ * bs_ < .01) p.face = p.tface;
     }
     for (Banner& b : banners_) b.age += dt;
     banners_.erase(std::remove_if(banners_.begin(), banners_.end(), [](const Banner& b) { return b.age > b.life; }), banners_.end());
@@ -583,8 +615,15 @@ void KoiView::tick() {
     if (timer_ && (*timer_).interval() != pace) (*timer_).set_interval(pace);
 
     if (hidden || !shown || frame_.px.empty()) return;
-    compose();
-    publish();
+    const bool moving = visual_work();
+    if (render_dirty_ || was_moving || moving) {
+        compose();
+        publish();
+    }
+    if (timer_ && !moving && !render_dirty_) {
+        if (dirty_ || audio_needs_tick()) (*timer_).set_interval(std::chrono::milliseconds(50));
+        else (*timer_).stop();
+    }
 }
 
 void KoiView::publish() {
@@ -601,7 +640,7 @@ void KoiView::publish() {
         std::span<std::byte> dst = lease.pixels();
         const size_t rb = lease.row_bytes();
         for (int y = 0; y < phys_h_; ++y) std::memcpy(dst.data() + static_cast<size_t>(y) * rb, frame_.px.data() + static_cast<size_t>(y) * phys_w_ * 4, static_cast<size_t>(phys_w_) * 4);
-        static_cast<void>(lease.publish());
+        if (lease.publish()) render_dirty_ = false;
     }
     if (!direct_) invalidate(gf::Dirty::paint);
     text_cache_trim();
@@ -617,10 +656,18 @@ void KoiView::on_pointer(gf::PointerEvent& e) {
             if (b.enabled && mx_ >= b.x && mx_ < b.x + b.w && my_ >= b.y && my_ < b.y + b.h) return b.id;
         return {};
     };
+    if (e.action != gf::PointerAction::move) request_frame();
+    if (e.action == gf::PointerAction::leave) {
+        if (hover_card_ >= 0 || !hover_btn_.empty()) request_frame();
+        hover_card_ = -1; hover_btn_.clear();
+    }
     if (e.action == gf::PointerAction::move) {
+        const std::string previous_button = hover_btn_;
+        const int previous_card = hover_card_;
         hover_btn_ = hit();
         const int c = panel_ == Panel::none && hover_btn_.empty() ? card_at(mx_, my_) : -1;
         hover_card_ = c;
+        if (previous_button != hover_btn_ || previous_card != c) request_frame();
         const bool mine = c >= 0 && s_.turn == 0 && ((s_.phase == koi::Phase::play && std::find(s_.hand[0].begin(), s_.hand[0].end(), c) != s_.hand[0].end()) ||
                                                       (s_.pending >= 0 && std::find(s_.choices.begin(), s_.choices.end(), c) != s_.choices.end()));
         set_cursor(!hover_btn_.empty() || mine ? gf::CursorKind::hand : gf::CursorKind::arrow);
@@ -649,6 +696,7 @@ void KoiView::on_pointer(gf::PointerEvent& e) {
 }
 
 void KoiView::on_key(gf::KeyEvent& e) {
+    if (!e.handled && e.action == gf::KeyAction::down) request_frame();
     if (e.handled || e.action != gf::KeyAction::down) return;
     using K = gf::PhysicalKey;
     const std::uint32_t k = e.physical_key;
@@ -1053,14 +1101,25 @@ void KoiView::compose() {
 
 namespace kk {
 void KoiView::set_cabinet(bool foreground, bool music, bool sound, bool reduced) {
+    if (timer_) {
+        if (foreground) {
+            last_ = std::chrono::steady_clock::now();
+            (*timer_).start();
+        } else {
+            (*timer_).stop();
+        }
+    }
+
     cab_front_ = foreground; cab_music_ = music; cab_sound_ = sound; cab_reduced_ = reduced;
     audio_cabinet(foreground, music, sound);
+    if (foreground) request_frame();
     if (!foreground) { pressed_.clear(); }
 }
 }
 
 namespace kk {
 void KoiView::layout_buttons() {
+    request_frame();
     layout_game_buttons();
     if (!opt_.hosted) return;
     for (std::size_t i = buttons_.size(); i > 0; --i) {
