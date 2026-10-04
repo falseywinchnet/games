@@ -203,11 +203,36 @@ class PublicationGate(unittest.TestCase):
             env = {"GITHUB_REPOSITORY": "owner/repo", "GITHUB_SHA": "abc", "GITHUB_REF": "refs/heads/main",
                    "RELEASE_VERSION": "0.5.9", "RELEASE_TAG": "v0.5.9"}
             with patch.dict(os.environ, env), patch.object(sys, "argv", ["publish", "--artifacts", directory]), \
-                 patch.object(publication, "gh", return_value="abc") as call, \
-                 patch.object(publication.subprocess, "run", return_value=types.SimpleNamespace(returncode=0, stdout='{"sha":"other"}', stderr="")):
+                 patch.object(publication, "gh", side_effect=lambda *args: "other" if args[1].endswith("/commits/v0.5.9") else "abc") as call, \
+                 patch.object(publication.subprocess, "run", return_value=types.SimpleNamespace(returncode=0, stdout='{"object":{"sha":"other","type":"commit"}}', stderr="")):
                 with self.assertRaisesRegex(ValueError, "different commit"):
                     publication.main()
                 self.assertFalse(any(args.args[0] == "release" for args in call.call_args_list))
+
+
+    def test_new_tag_uses_ref_lookup_and_publishes_complete_tested_set(self):
+        import publish_tested_release as publication
+        suffixes = ("windows-x64.zip", "windows-x64-setup.exe", "macos-arm64.zip", "macos-arm64.pkg",
+                    "linux-amd64.tar.gz", "linux-amd64.deb", "linux-arm64.tar.gz", "linux-arm64.deb")
+        with tempfile.TemporaryDirectory() as directory:
+            for suffix in suffixes:
+                (Path(directory) / ("playsuite-0.5.9-" + suffix)).write_bytes(b"fixture")
+            env = {"GITHUB_REPOSITORY": "owner/repo", "GITHUB_SHA": "abc", "GITHUB_REF": "refs/heads/main",
+                   "RELEASE_VERSION": "0.5.9", "RELEASE_TAG": "v0.5.9"}
+            missing = types.SimpleNamespace(returncode=1, stdout="", stderr="gh: Not Found (HTTP 404)")
+            with patch.dict(os.environ, env), patch.object(sys, "argv", ["publish", "--artifacts", directory]), \
+                 patch.object(publication, "gh", return_value="abc") as call, \
+                 patch.object(publication.subprocess, "run", return_value=missing) as probe:
+                publication.main()
+                self.assertEqual(probe.call_args_list[0].args[0],
+                                 ["gh", "api", "repos/owner/repo/git/ref/tags/v0.5.9"])
+                commands = [item.args for item in call.call_args_list]
+                self.assertTrue(any(command[:2] == ("release", "create") and "--draft" in command for command in commands))
+                upload = next(command for command in commands if command[:2] == ("release", "upload"))
+                self.assertEqual({Path(value).name for value in upload[6:]},
+                                 {"playsuite-0.5.9-" + suffix for suffix in suffixes} | {"SHA256SUMS.txt"})
+                self.assertTrue(any(command[:2] == ("release", "edit") and "--draft=false" in command for command in commands))
+                self.assertEqual(len((Path(directory) / "SHA256SUMS.txt").read_text().splitlines()), 8)
 
 
 if __name__ == "__main__":

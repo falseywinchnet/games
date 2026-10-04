@@ -55,10 +55,11 @@ def main():
     sums = args.artifacts / "SHA256SUMS.txt"
     sums.write_text("".join(hashlib.sha256(path.read_bytes()).hexdigest() + "  " + path.name + "\n" for path in files))
     files.append(sums)
-    # Resolve tags with the commits API, which peels annotated tags too.
-    probe = subprocess.run(["gh", "api", f"repos/{repo}/commits/{tag}"], text=True, capture_output=True)
+    # A missing ref is HTTP 404; the commits endpoint returns HTTP 422 for an
+    # unresolved name. Probe the ref, then peel annotated tags with commits.
+    probe = subprocess.run(["gh", "api", f"repos/{repo}/git/ref/tags/{tag}"], text=True, capture_output=True)
     if probe.returncode == 0:
-        if json.loads(probe.stdout)["sha"] != sha:
+        if gh("api", f"repos/{repo}/commits/{tag}", "--jq", ".sha") != sha:
             raise ValueError("Existing release tag points to an untested/different commit")
     elif "404" not in probe.stderr:
         raise RuntimeError("Cannot safely check release tag: " + probe.stderr)
