@@ -114,8 +114,9 @@ class PuzzleView final : public gf::Control, public CommandSource {
     void action(gf::ButtonBase& button);
     void tick();
     void render();
+    void request_render();
     void fit_raster();
-    bool coarse_ = false;
+    bool coarse_ = false, raster_dirty_ = false;
     void persist();
     void changed(const std::string& sound);
     void panel(int kind);

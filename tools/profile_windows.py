@@ -93,14 +93,17 @@ def main():
                 if process.returncode or before is None or after is None:
                     raise RuntimeError(f"Profile {entry} failed: {diagnostic}\n{''.join(lines)}")
                 elapsed = after[0] - before[0]
+                prefix = "PROFILE_METRICS "
+                sampled = [json.loads(line[len(prefix):]) for line in lines if line.startswith(prefix)]
                 report = {"entry": entry, "seconds": elapsed,
                           "cpu_seconds": after[1] - before[1],
                           "one_core_percent": 100 * (after[1] - before[1]) / elapsed,
                           "working_mib": after[2] / 1048576, "private_mib": after[3] / 1048576,
                           "metrics": [json.loads(line) for line in lines if line.startswith("{")],
+                          "sampled_metrics": sampled,
                           "stderr": diagnostic}
                 reports.append(report)
-                print(json.dumps({key: value for key, value in report.items() if key not in ("metrics", "stderr")}), flush=True)
+                print(json.dumps({key: value for key, value in report.items() if key not in ("metrics", "sampled_metrics", "stderr")}), flush=True)
                 args.output.write_text(json.dumps(reports, indent=2), encoding="utf-8")
 
 

@@ -187,6 +187,12 @@ jobs:
           python3 tools/smoke_package.py dist/PlaySuite.app/Contents/MacOS/games
           sudo /usr/sbin/installer -pkg dist/*.pkg -target /
           python3 tools/smoke_package.py /Applications/PlaySuite.app/Contents/MacOS/games
+      - name: Record macOS puzzle presentation costs
+        if: runner.os == 'macOS'
+        run: |
+          python3 tools/profile_presentation.py dist/PlaySuite.app/Contents/MacOS/games \
+            --assets build/runtime --state build/profile-state \
+            --output build/presentation-profile.json
       - name: Install and launch Linux package
         if: runner.os == 'Linux'
         run: |
@@ -210,6 +216,7 @@ jobs:
           path: |
             build/app/results.xml
             build/app/Testing/Temporary/LastTest.log
+            build/presentation-profile.json
           if-no-files-found: warn
   release:
     if: startsWith(github.ref, 'refs/tags/v')

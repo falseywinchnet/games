@@ -164,8 +164,10 @@ void PuzzleView::arrange(gf::Rect b) {
     set_child_layout(buttons_[8],
                      {popup_.x + popup_.width - 150, popup_.y + popup_.height - 45, 122, 32});
     if (game.kind == PuzzleKind::gems || game.kind == PuzzleKind::cube) {
+        const int old_width = raster_.width, old_height = raster_.height;
         fit_raster();
-        render();
+        if (old_width != raster_.width || old_height != raster_.height || !image_.value)
+            render();
     }
 }
 // Renders at device resolution (at least 1.5x) so the image stays crisp on high-DPI screens.
@@ -190,9 +192,15 @@ void PuzzleView::text(gf::Painter& p, double x, double y, const std::string& s, 
 double PuzzleView::elapsed() const {
     return std::chrono::duration<double>(gf::FrameClock::now() - animation_start_).count();
 }
+void PuzzleView::request_render() {
+    raster_dirty_ = true;
+    if (timer_)
+        (*timer_).start();
+}
 void PuzzleView::render() {
     if (!attached_window() || raster_.width <= 1)
         return;
+    raster_dirty_ = false;
     if (game.kind == PuzzleKind::cube)
         raster_.cube(game, yaw_, pitch_, hover_);
     else if (game.kind == PuzzleKind::gems) {
@@ -323,15 +331,16 @@ void PuzzleView::render() {
             }
     } else
         return;
-    // In-place updates must keep the registered dimensions; a resized raster replaces the image.
+    // Board pixels do not change the surrounding legend or command capsule.
+    // Patching keeps damage local; a resized raster still replaces the image.
     gf::Window& window = *attached_window();
     gf::ImageLoadResult result =
         !image_.value ? window.load_bgra32_premultiplied(raster_.width, raster_.height,
                                                          raster_.width * 4, raster_.pixels)
         : image_size_ ==
                 gf::Size{static_cast<double>(raster_.width), static_cast<double>(raster_.height)}
-            ? window.update_bgra32_premultiplied(image_, raster_.width, raster_.height,
-                                                 raster_.width * 4, raster_.pixels, *this)
+            ? window.patch_bgra32_premultiplied(image_, 0, 0, raster_.width, raster_.height,
+                                                raster_.width * 4, raster_.pixels, *this, board_)
             : window.replace_bgra32_premultiplied(image_, raster_.width, raster_.height,
                                                   raster_.width * 4, raster_.pixels, *this);
     if (result) {
@@ -1824,7 +1833,10 @@ void PuzzleView::changed(const std::string& effect) {
             panel(2);
     } else if (!effect.empty())
         sound_play(effect, sound_);
-    render();
+    if (game.kind == PuzzleKind::cube)
+        request_render();
+    else
+        render();
     invalidate(gf::Dirty::paint);
 }
 void PuzzleView::new_game() {
@@ -2122,6 +2134,7 @@ void PuzzleView::tick() {
         return;
     }
     bool moving = false;
+    const bool had_outer_effects = !effects_.empty() || shake_ > 0 || callout_life_ > 0;
     if (game.kind == PuzzleKind::gems) {
         step_effects();
         if (gem_spring_ >= 0) {
@@ -2174,10 +2187,12 @@ void PuzzleView::tick() {
             yaw_ += dx * .23;
             pitch_ += dy * .23;
             moving = true;
+            raster_dirty_ = true;
         }
         if (coarse_ != moving) {
             coarse_ = moving;
             fit_raster();
+            raster_dirty_ = true;
         }
     }
     if (game.kind == PuzzleKind::gems && ((!reduced_ && !panel_) || !effects_.empty()))
@@ -2189,9 +2204,11 @@ void PuzzleView::tick() {
         invalidate({board_.x - reach, board_.y - reach, board_.width + 2 * reach,
                     board_.height + 2 * reach});
     }
-    render();
+    if (game.kind != PuzzleKind::cube || raster_dirty_)
+        render();
     // Celebrations draw beyond the board, so the whole view repaints while they run.
-    if (animation_duration_ > 0 && game.kind != PuzzleKind::gems)
+    if ((animation_duration_ > 0 && game.kind != PuzzleKind::gems) || had_outer_effects ||
+        !effects_.empty() || shake_ > 0 || callout_life_ > 0)
         invalidate(gf::Dirty::paint);
     else
         invalidate(board_);
@@ -2226,7 +2243,7 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
             if (hover_ != cell) {
                 hover_ = cell;
                 if (reduced_) {
-                    render();
+                    request_render();
                     invalidate(board_);
                 }
             }
@@ -2273,6 +2290,8 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                 if (extended)
                     changed("nature_cube_trace");
             }
+            if (hover_ != cell)
+                raster_dirty_ = true;
             hover_ = cell;
             last_pointer_ = local_position;
             // Rendering happens once per frame in tick(), however many moves arrive.

@@ -58,7 +58,7 @@ class Table final : public gf::Control, public CommandSource {
     std::vector<int> pass_cards_;
     std::unique_ptr<gf::Timer> timer_;
     gf::FrameTime animation_start_{}, ai_due_{};
-    bool pointer_down_ = false, dealing_ = false;
+    bool pointer_down_ = false, dealing_ = false, waiting_ai_ = false;
     int keyboard_card_ = 0;
     int pending_from_ = -1, pending_index_ = -1, pending_to_ = -1;
     bool animating_ = false, dragging_ = false, reduced_ = false, sound_ = true, music_ = true;

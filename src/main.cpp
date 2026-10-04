@@ -10,6 +10,7 @@ struct SmokeState final {
     bool completed{};
     bool profiling{};
     bool sampling{};
+    gui_forms::FrameTime sample_start{};
     int entry{-1};
 };
 struct SmokeClose final {
@@ -34,10 +35,15 @@ struct ProfileSample final {
             return;
         if (!(*live).sampling) {
             (*live).sampling = true;
+            (*live).sample_start = gui_forms::FrameClock::now();
             (*window).reset_activity_metrics();
             std::cout << "PROFILE_BEGIN" << std::endl;
             return;
         }
+        const double seconds = std::chrono::duration<double>(
+            gui_forms::FrameClock::now() - (*live).sample_start).count();
+        std::cout << "PROFILE_METRICS {\"seconds\":" << seconds << ",\"window\":"
+                  << (*window).metrics_snapshot().to_json() << "}" << std::endl;
         std::cout << "PROFILE_END" << std::endl;
         // Let the external collector read process counters before teardown.
         const std::shared_ptr<gui_forms::Control> timer_owner = owner.lock();
@@ -93,7 +99,7 @@ int main(int argc, char** argv) {
                 std::from_chars(argument.data(), argument.data() + argument.size(), (*smoke).entry);
             if (parsed.ec != std::errc{} || parsed.ptr != argument.data() + argument.size() ||
                 (*smoke).entry < -1 || (*smoke).entry >= games::entry_count)
-                throw std::runtime_error("Profile entry must be -1 (shelf) or a game index 0..16");
+                throw std::runtime_error("Profile entry must be -1 (shelf) or a game index 0..17");
         }
         std::shared_ptr<games::Collection> table =
             gui_forms::make_control<games::Collection>(gui_forms::StableId("games.table"));

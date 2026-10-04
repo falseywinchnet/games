@@ -400,7 +400,12 @@ void Table::layout_cards(bool animate) {
     invalidate(gf::Dirty::paint);
 }
 void Table::request_tick() {
-    if (timer_ && !(*timer_).enabled())
+    if (!timer_)
+        return;
+    if (waiting_ai_) {
+        waiting_ai_ = false;
+        (*timer_).start_at(gf::FrameClock::now() + std::chrono::milliseconds(8));
+    } else if (!(*timer_).enabled())
         (*timer_).start();
 }
 void Table::reload_preferences() {
@@ -419,6 +424,7 @@ void Table::activate() {
         static_cast<void>((*attached_window()).request_focus(shared_from_this()));
 }
 void Table::tick() {
+    waiting_ai_ = false;
     if (!effectively_visible()) {
         if (timer_)
             (*timer_).stop();
@@ -465,8 +471,16 @@ void Table::tick() {
     }
     if (cascading_)
         step_cascade();
-    if (!animating_ && !cascading_ && (!ai || panel_ != 0))
-        (*timer_).stop();
+    if (!animating_ && !cascading_) {
+        if (!ai || panel_ != 0)
+            (*timer_).stop();
+        else {
+            // The next computer play already has a deadline. Do not poll it
+            // every eight milliseconds while the cards are at rest.
+            waiting_ai_ = true;
+            (*timer_).start_at(ai_due_);
+        }
+    }
 }
 // The classic finish: cards leap from the foundations one at a time, bounce along the
 // bottom of the table and leave a fading trail. Any click or key skips to the result.

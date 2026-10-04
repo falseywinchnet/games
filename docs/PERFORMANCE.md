@@ -6,6 +6,17 @@ of another display interval alone is not.
 
 ## Current implementation
 
+- Gems and Nature Cube update their registered board image with bounded damage.
+  Ordinary animation does not invalidate the surrounding legend and command
+  capsule. Gem effects that extend outside the board retain full repainting,
+  including the final cleanup frame. Unchanged layout reuses the board raster;
+  Cube tracing coalesces pointer bursts into the next animation frame.
+- Sudoku polls its generation worker without repainting the static waiting
+  screen. Completion still publishes the new puzzle and status; celebrations
+  retain their animation and final cleanup.
+- Hearts schedules the next computer play at its existing deadline when cards
+  are stationary, instead of checking it every eight milliseconds. Activity
+  wakes animation promptly; the authored pauses between plays are unchanged.
 - The collection creates a game on its first visit. The shelf does not construct
   all games, decode their artwork or allocate their framebuffers. Visited games
   retain their state for an exact return to the current position.
@@ -36,7 +47,7 @@ of another display interval alone is not.
 ## Reproducing measurements
 
 The native executable accepts `--profile-idle -1` for the shelf or
-`--profile-idle N` for persisted game entry `N` (0 through 16). It waits five
+`--profile-idle N` for persisted game entry `N` (0 through 17). It waits five
 seconds, emits `PROFILE_BEGIN`, resets window activity counters, waits ten more
 seconds, emits `PROFILE_END`, then closes normally one second later with native host
 metrics. The delay keeps teardown outside the external process-counter sample.
@@ -60,6 +71,16 @@ reported as a percentage of one logical core. Timed game events and decorative
 animation are active work, so a new deal is not necessarily an idle benchmark.
 Repeat measurements on a shared or virtual host; counters for unchanged paints,
 layouts, callbacks and surface publications explain more than one CPU reading.
+
+`tools/profile_presentation.py` runs the same native sampling interval on every
+platform and saves frame counts, total/average presentation cost and the slowest
+presentation. It uses the metrics snapshot taken at `PROFILE_END`, before the
+one-second process-counter grace period and teardown. These are presentation
+measurements, not process CPU percentages or end-to-end input latency. The macOS
+application workflow records Solitaire, Gems and Untangle in its check artifact;
+timing values are diagnostic and have no machine-speed pass threshold. Snapshot
+the isolated saves before comparing builds, since timed game events can change
+them. Keep motion preferences and audio settings identical between comparisons.
 
 Machine-specific reports and screenshots belong in ignored `astra/` directories.
 Native `vendor_game_frame_tests` verify that hidden games have no timer callbacks

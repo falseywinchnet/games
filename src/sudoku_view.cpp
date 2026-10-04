@@ -288,6 +288,7 @@ void SudokuView::new_game() {
         (*timer_).start();
 }
 void SudokuView::tick() {
+    const bool animated = !celebrated_.empty();
     if (busy_ && generation_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
         try {
             Sudoku result = generation_.get();
@@ -312,7 +313,11 @@ void SudokuView::tick() {
         celebrated_.clear();
     if (!busy_ && celebrated_.empty() && timer_)
         (*timer_).stop();
-    invalidate(board_);
+    // Generation runs on its worker. The waiting message is static; repaint
+    // only the celebration (including its last frame). panel() publishes a
+    // completed generation and its status text when the result arrives.
+    if (animated && effectively_visible())
+        invalidate(board_);
 }
 void SudokuView::persist() {
     if (!game.seed.empty() && !game.save(sudoku_path()))
