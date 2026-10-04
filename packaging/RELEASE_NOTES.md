@@ -1,11 +1,6 @@
-PlaySuite adds Catching Thieves and Maze 95 and makes the entire twenty-game collection discoverable from individual game folders.
-
-- Catching Thieves retains the full 243-puzzle pumpkin garden campaign, animated raccoons, seasonal scenery, undo, garden book and original rendering.
-- Maze 95 brings the complete first-person procedural maze game, including portals, ceiling flips, elevators, wandering encounters and a 46-item trophy shelf.
-- The shelf counts games automatically and scrolls with a native vertical scrollbar. Keyboard selection stays visible as the collection grows.
-- Every game's cover, help, factory and build registration now live with its module. Existing game IDs and saves are preserved; shelf state migrates from the old bitmask to an extensible list.
-- Game authors can test independent rules, launch a standalone native window with isolated saves, and run scripted native input before testing the hosted collection. Adding one game folder supplies registration, help and assets automatically.
-- Main-branch publication now assigns one version before building and releases the exact packages that passed all four native platform checks and packaged-launch tests.
+The game list and count above are generated from this revision's game folders.
+Each game supplies its own cover, player help and resources. The shelf scrolls as
+the collection grows, and permanent game IDs preserve existing saves.
 
 PlaySuite was previously named Games. Existing save locations and internal game identifiers are preserved.
 

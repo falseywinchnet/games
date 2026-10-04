@@ -11,11 +11,23 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import tempfile
+from game_catalog import discover
 from publication_version import validate
 
 
 def gh(*arguments):
     return subprocess.check_output(["gh", *arguments], text=True).strip()
+
+
+def release_notes(root, version, sha, repo):
+    games = discover(root)
+    lines = [f"PlaySuite {version} contains {len(games)} games.", "",
+             f"Built and tested from [commit `{sha[:12]}`](https://github.com/{repo}/commit/{sha}).",
+             "", "## Games", ""]
+    lines.extend(f"- **{game['title']}** — {game['blurb']}" for game in games)
+    lines.extend(["", (root / "packaging/RELEASE_NOTES.md").read_text(encoding="utf-8").strip(), ""])
+    return "\n".join(lines)
 
 
 def main():
@@ -67,8 +79,11 @@ def main():
             return
     else:
         # gh create refuses an existing release; permission/network errors fail closed.
-        gh("release", "create", tag, "--repo", repo, "--target", sha, "--draft",
-           "--title", "PlaySuite " + version, "--notes-file", "packaging/RELEASE_NOTES.md")
+        with tempfile.TemporaryDirectory(prefix="playsuite-release-") as directory:
+            notes = Path(directory) / "notes.md"
+            notes.write_text(release_notes(Path(__file__).resolve().parents[1], version, sha, repo), encoding="utf-8")
+            gh("release", "create", tag, "--repo", repo, "--target", sha, "--draft",
+               "--title", "PlaySuite " + version, "--notes-file", str(notes))
     gh("release", "upload", tag, "--repo", repo, "--clobber", *(str(path) for path in files))
     gh("release", "edit", tag, "--repo", repo, "--draft=false",
        "--latest=" + str(os.environ["GITHUB_REF"] == "refs/heads/main").lower())
