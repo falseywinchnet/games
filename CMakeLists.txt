@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(Games VERSION 0.4.7 LANGUAGES C CXX)
+project(Games VERSION 0.4.8 LANGUAGES C CXX)
 option(GAMES_BUILD_APPLICATION "Build the complete graphical game collection and UI tests" ON)
 enable_testing()
 set(CMAKE_CXX_STANDARD 20)
@@ -137,7 +137,7 @@ endif()
 add_library(zc_core STATIC
   vendor/zenconstruction/src/platform/raster.cpp vendor/zenconstruction/src/platform/r3d.cpp
   vendor/zenconstruction/src/platform/mesh.cpp vendor/zenconstruction/src/rocks.cpp
-  vendor/zenconstruction/src/run.cpp vendor/zenconstruction/src/site.cpp
+  vendor/zenconstruction/src/run.cpp vendor/zenconstruction/src/site.cpp vendor/zenconstruction/src/terrain.cpp
   vendor/zenconstruction/src/shapes.cpp vendor/zenconstruction/src/crane_model.cpp
   vendor/zenconstruction/src/stones.cpp)
 target_include_directories(zc_core PUBLIC vendor/zenconstruction/src)
@@ -149,6 +149,15 @@ add_test(NAME rockstack_rules COMMAND rockstack_rules_tests)
 add_executable(rockstack_cache_tests tests/rockstack_cache_tests.cpp)
 target_link_libraries(rockstack_cache_tests PRIVATE zc_core)
 add_test(NAME rockstack_cache COMMAND rockstack_cache_tests)
+add_executable(rockstack_worksite_tests tests/rockstack_worksite_tests.cpp)
+target_link_libraries(rockstack_worksite_tests PRIVATE zc_core)
+add_test(NAME rockstack_worksite COMMAND rockstack_worksite_tests)
+add_executable(rockstack_shadow_tests tests/rockstack_shadow_tests.cpp)
+target_include_directories(rockstack_shadow_tests PRIVATE vendor/zenconstruction/src/platform)
+target_link_libraries(rockstack_shadow_tests PRIVATE zc_core)
+add_test(NAME rockstack_shadow COMMAND rockstack_shadow_tests)
+add_executable(rockstack_site_preview EXCLUDE_FROM_ALL vendor/zenconstruction/tools/site_preview.cpp)
+target_link_libraries(rockstack_site_preview PRIVATE zc_core)
 add_executable(rockstack_physics_tests vendor/zenconstruction/phys/tests/phys_tests.cpp)
 target_link_libraries(rockstack_physics_tests PRIVATE zc_phys)
 add_test(NAME rockstack_physics COMMAND rockstack_physics_tests rest stack mass overhang incline drop hold setdown shove consequence wake load concave determinism robustness static restitution stable)

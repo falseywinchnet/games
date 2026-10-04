@@ -13,7 +13,7 @@ add_subdirectory(phys)
 # rocks, the site and the run: portable, no UI framework
 add_library(zc_core STATIC
   src/platform/raster.cpp src/platform/r3d.cpp src/platform/mesh.cpp
-  src/rocks.cpp src/run.cpp src/site.cpp src/shapes.cpp src/crane_model.cpp src/stones.cpp)
+  src/rocks.cpp src/run.cpp src/site.cpp src/terrain.cpp src/shapes.cpp src/crane_model.cpp src/stones.cpp)
 target_include_directories(zc_core PUBLIC src)
 target_link_libraries(zc_core PUBLIC zc_phys)
 target_compile_options(zc_core PRIVATE -Wall -Wextra -O2 -ffp-contract=off)

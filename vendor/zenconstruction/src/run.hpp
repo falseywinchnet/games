@@ -37,12 +37,17 @@ struct SiteLayout {
     double crane_pivot_height = 0.235;     // the boom's pivot above the ground
     double crane_reach = 1.30;             // horizontal reach of the hook from the base
     double crane_min_reach = 0.18;
+    double crane_heading = 1.05;          // face the bowl and pad within the safe slew arc
+    double crane_slew_limit = 1.8325957145940461; // 105 degrees either side; cab clearance
     phys::Vec3 hook_rest{0.02, -0.18, 0.46};
     // the brook: the water's near edge, far edge and surface
     double brook_near = 0.80, brook_far = 1.48, water_level = -0.06;
 };
 
 const SiteLayout& site_layout();
+phys::Vec3 crane_pivot();
+double crane_angle(phys::Vec3 point);     // relative to the chassis, in [-pi, pi]
+phys::Vec3 crane_reachable(phys::Vec3 point);
 
 enum class Place { bowl, stack, loose, held, flying };
 

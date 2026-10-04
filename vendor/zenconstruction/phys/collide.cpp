@@ -350,15 +350,16 @@ void collide_hulls(const WorldHull& hull_a, const WorldHull& hull_b, double marg
     }
 }
 
-void collide_ground(const WorldHull& hull, double ground_z, double margin, std::vector<ManifoldPoint>& out) {
+void collide_ground(const WorldHull& hull, double ground_z, const GroundSurface* surface, double margin, std::vector<ManifoldPoint>& out) {
     for (std::size_t v = 0; v < hull.vertices.size(); v += 1) {
         const Vec3 vertex = hull.vertices[v];
-        const double separation = vertex.z - ground_z;
+        const GroundSample ground = surface ? (*surface).sample(vertex.x, vertex.y) : GroundSample{ground_z, Vec3{0, 0, 1}};
+        const double separation = (vertex.z - ground.height) * ground.normal.z;
         if (separation < margin) {
             ManifoldPoint point;
             point.point_a = vertex;
-            point.point_b = Vec3{vertex.x, vertex.y, ground_z};
-            point.normal = Vec3{0, 0, 1};
+            point.point_b = vertex - ground.normal * separation;
+            point.normal = ground.normal;
             point.separation = separation;
             out.push_back(point);
         }

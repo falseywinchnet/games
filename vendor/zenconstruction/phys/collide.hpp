@@ -38,6 +38,6 @@ bool bounds_overlap(const WorldHull& a, const WorldHull& b, double margin);
 void collide_hulls(const WorldHull& a, const WorldHull& b, double margin, CollideScratch& scratch,
                    std::vector<ManifoldPoint>& out, double& separated_by);
 // Appends the contact points of a hull against the plane z = ground_z; the hull is side A.
-void collide_ground(const WorldHull& hull, double ground_z, double margin, std::vector<ManifoldPoint>& out);
+void collide_ground(const WorldHull& hull, double ground_z, const GroundSurface* surface, double margin, std::vector<ManifoldPoint>& out);
 
 }  // namespace zc::phys

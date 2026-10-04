@@ -738,7 +738,15 @@ void solve_frame(const WorldParams& params, const SolverParams& solver, std::vec
         for (int d = 0; d < 3; d += 1) {
             lift.ja[d * 6 + d] = 1;
         }
-        const Vec3 error = hold.target.p - body.position;
+        Vec3 error = hold.target.p - body.position;
+        if (hold.params.sling_length > 0) {
+            // A tilted sling takes up slack before pulling a grounded load.
+            // Retain unilateral lift and the existing force caps: contact and
+            // friction still decide whether it slides, tips, or lifts clear.
+            const double length = hold.params.sling_length;
+            const double sideways2 = error.x * error.x + error.y * error.y;
+            error.z += length - std::sqrt(std::max(0.0, length * length - sideways2));
+        }
         lift.vhat0 = bias_rate * error.x; lift.vhat1 = bias_rate * error.y; lift.vhat_n = bias_rate * error.z;
         lift.lambda_n = weight_impulse;       // feed-forward: a free-hanging rock does not droop
         lift.limit = hold.params.max_lateral * weight_impulse;

@@ -129,13 +129,13 @@ int main(int argc, char** argv) {
     std::printf("stack %d, height %.1f cm, crane mode %d\n", run.stack_count(), run.height() * 100, static_cast<int>(run.crane.mode));
     zc::Site site;
     if (std::getenv("ZC_FOCUS")) {
-        // close-ups: the duck, Mina, or the hook and its load
+        // close-ups: the duck, control cab, or hook and its load
         const std::string focus = std::getenv("ZC_FOCUS");
         const zc::M34& chassis = site.crane().setup().chassis;
         if (focus == "duck") {
             const zc::V3 p = chassis.apply(zc::V3{0.145, -0.036, 0.152});
             camera.target = zc::phys::Vec3{p.x, p.y, p.z};
-        } else if (focus == "mina") {
+        } else if (focus == "cab") {
             const zc::V3 pivot = chassis.apply(zc::V3{-0.06, 0, 0.17});
             const double slew = std::atan2(run.crane.hook.y - pivot.y, run.crane.hook.x - pivot.x);
             camera.target = zc::phys::Vec3{pivot.x + 0.021 * std::cos(slew) - 0.05 * std::sin(slew), pivot.y + 0.021 * std::sin(slew) + 0.05 * std::cos(slew), pivot.z};

@@ -1,12 +1,13 @@
-PlaySuite 0.4.7 converts Gems and Untangle to direct framebuffer presentation.
+PlaySuite 0.4.8 improves Rock Stack's crane, ground interaction and shadow rendering.
 
-- Both games publish device-sized, fully composed frames through GUI.Forms LiveSurface, using the same direct presentation path as the integrated vendor games.
-- Untangle caches its stationary background and yarn as pixels. Ordinary animation restores only affected areas before drawing the cat, knots, pegs and effects. Moving a peg updates the yarn and crossing geometry together.
-- Gems composes its transparent gem raster over cached board pixels, preserving filtering, glints, highlights, shadows, effects and text. Its private image storage updates in place during animation.
-- Native Windows DIB and Skia offscreen painters preserve each platform's existing artwork and fonts. Tests compare direct frames against full redraws at 100%, 125% and 200% scale, including narrow layouts and partial updates. Windows comparisons are exact; Skia permits a one-level channel rounding difference from clipped blending in at most 0.01% of pixels.
-- The command capsule remains above direct game frames. Help, H/F1, M, saved games, mouse controls and all eighteen games are retained. Exposing a window or closing help restores the latest frame; hidden games stop publishing.
+- Removes the redundant hovering Mina portrait and human operator model; the duck remains in the truck cab. Useful worksite feedback remains as compact status messages.
+- Limits turret swing to 105 degrees either side of the truck's heading, keeping the counterweight clear of the cab. The crane faces the working area so the whole bowl remains reachable. Automatic fetching and returns travel through the permitted sector.
+- Makes the surrounding bank, pad edge and riverbed participate in ground collision using the same terrain triangles as the drawing. Ground normals feed the existing contact and friction solver.
+- Lets a lowered, attached rock drag across the ground as sideways hook movement takes up the sling's slack. The gentle force caps remain in effect, and raising the line lifts the rock again.
+- Restores only the changed region of the shadow map and reduces the arithmetic and branching in the deferred shadow filter. Shadow resolution and filtering are unchanged. A local shadow-stage comparison was about twice as fast with identical output; this is not a claim that whole-game CPU is halved.
+- Adds regression coverage for ground contact, dragging and re-lifting, safe turret travel, and pixel-exact partial shadow restoration. Help explains the new behavior.
 
-Direct presentation removes repeated control-tree painting during ordinary animation. Gem raster generation and filtered composition still cost CPU; this change does not claim to eliminate all rendering cost. Each producer publishes a complete immutable frame, so skipped frames and rotating buffers remain correct. Rock Stack is unchanged in this release.
+Gems and Untangle retain their direct framebuffer presentation from 0.4.7. The validated GUI.Forms pin already includes the current relevant toolkit fixes and the native framebuffer factory required by macOS. All eighteen games and existing save locations are retained.
 
 PlaySuite was previously named Games. Existing save locations and internal game identifiers are preserved.
 

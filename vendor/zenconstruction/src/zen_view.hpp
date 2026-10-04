@@ -1,6 +1,6 @@
 #pragma once
 // The Zen Construction window: the worksite in software 3D, the crane under
-// the player's hands, Mina in the cab, the sites you've built, and saving.
+// the player's hands, the duck in the cab, the sites you've built, and saving.
 #include "run.hpp"
 #include "suite.hpp"
 #include "site.hpp"
@@ -97,7 +97,6 @@ private:
     double say_cooldown_ = 0;
     std::uint32_t lines_said_ = 0;
     bool told_controls_ = false, told_slack_ = false;
-    double blink_ = 0;
     // panels
     Panel panel_ = Panel::none;
     std::string name_entry_;
@@ -165,7 +164,6 @@ private:
     void present_scene();
     void draw_hud();
     void draw_height_marks();
-    void draw_portrait(double cx, double cy, double radius);
     void draw_panel();
     void draw_loading();
     void draw_buttons();

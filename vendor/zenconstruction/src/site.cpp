@@ -2,6 +2,7 @@
 
 #include "platform/mesh.hpp"
 #include "shapes.hpp"
+#include "terrain.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -17,40 +18,6 @@ constexpr double kFov = 0.70;   // radians, vertical
 constexpr double kRiffleX = 1.05;  // where the brook runs shallow and broken over stones
 
 // ---------------------------------------------------------------- small helpers
-
-double smoothstep(double a, double b, double x) {
-    const double t = std::min(1.0, std::max(0.0, (x - a) / (b - a)));
-    return t * t * (3 - 2 * t);
-}
-
-std::uint32_t hash2(int x, int y, std::uint32_t seed) {
-    std::uint32_t h = static_cast<std::uint32_t>(x) * 374761393u + static_cast<std::uint32_t>(y) * 668265263u + seed * 2246822519u;
-    h = (h ^ (h >> 13)) * 1274126177u;
-    return h ^ (h >> 16);
-}
-
-double hash_unit(int x, int y, std::uint32_t seed) {
-    return static_cast<double>(hash2(x, y, seed) & 0xffffu) / 65535.0;
-}
-
-// smooth value noise in [0, 1]
-double value_noise(double x, double y, std::uint32_t seed) {
-    const double fx = std::floor(x);
-    const double fy = std::floor(y);
-    const int ix = static_cast<int>(fx);
-    const int iy = static_cast<int>(fy);
-    const double tx = x - fx;
-    const double ty = y - fy;
-    const double u = tx * tx * (3 - 2 * tx);
-    const double v = ty * ty * (3 - 2 * ty);
-    const double a = hash_unit(ix, iy, seed);
-    const double b = hash_unit(ix + 1, iy, seed);
-    const double c = hash_unit(ix, iy + 1, seed);
-    const double d = hash_unit(ix + 1, iy + 1, seed);
-    const double top = a + (b - a) * u;
-    const double bottom = c + (d - c) * u;
-    return top + (bottom - top) * v;
-}
 
 std::uint32_t pack(double r, double g, double b, double a) {
     const int ri = static_cast<int>(std::lround(std::min(1.0, std::max(0.0, r)) * 255));
@@ -78,68 +45,6 @@ void add_triangle(std::vector<Vtx>& out, V3 a, V3 b, V3 c, Col colour, double te
         v.t = corners[k].y * tex_scale;
         out.push_back(v);
     }
-}
-
-// the bedrock ledge's outline: radius at angle a round the stack's spot
-double ledge_radius(double a) {
-    const double wobble = 0.16 * (value_noise(std::cos(a) * 1.8 + 5, std::sin(a) * 1.8 + 5, 401u) - 0.5) +
-                          0.06 * (value_noise(std::cos(a) * 5 + 9, std::sin(a) * 5 + 9, 403u) - 0.5);
-    return 0.44 * (1 + wobble);
-}
-
-bool on_ledge(double x, double y, double margin) {
-    const SiteLayout& layout = site_layout();
-    const double dx = x - layout.stack_centre.x;
-    const double dy = (y - layout.stack_centre.y) / 0.74;
-    const double a = std::atan2(dy, dx);
-    return std::sqrt(dx * dx + dy * dy) < ledge_radius(a) + margin;
-}
-
-// What a terrain patch is.
-enum class Terrain { bank, brook_bed, far_bank };
-
-// The bank: river gravel round the bedrock ledge, darker and dipping toward
-// the brook, rising into stony slopes away from the work.
-// The brook's banks wander. The near edge keeps its distance by the work
-// (it may only swing out a little there); both wander freely beyond.
-double brook_near_at(double x) {
-    const SiteLayout& layout = site_layout();
-    const double free = smoothstep(0.9, 2.0, std::abs(x));
-    return layout.brook_near + 0.025 * std::sin(x * 2.1 + 0.4) + 0.07 * free * std::sin(x * 0.85 + 1.3) + 0.03 * free * std::sin(x * 2.9 + 2.2);
-}
-
-double brook_far_at(double x) {
-    const SiteLayout& layout = site_layout();
-    return layout.brook_far + 0.08 * std::sin(x * 0.9 + 1.7) + 0.04 * std::sin(x * 2.3 + 0.5) + 0.015 * std::sin(x * 6.1);
-}
-
-double terrain_height(Terrain kind, double x, double y) {
-    const SiteLayout& layout = site_layout();
-    if (kind == Terrain::bank) {
-        const double fine = 0.010 * (value_noise(x * 7, y * 7, 3u) - 0.5) + 0.016 * (value_noise(x * 1.6, y * 1.6, 7u) - 0.5);
-        const double edge = brook_near_at(x);
-        // down to the waterline, then on under the water, below the bed
-        const double to_water = -0.075 * smoothstep(edge - 0.22, edge + 0.02, y) - 0.07 * smoothstep(edge, edge + 0.14, y);
-        const double dx = std::max(0.0, std::abs(x - 0.0) - 1.3);
-        const double dy = std::max(0.0, -0.75 - y);
-        const double away = std::sqrt(dx * dx + dy * dy);
-        // the slopes round the work flatten out toward the water
-        const double slopes = 0.30 * smoothstep(0.0, 1.6, away) * (0.7 + 0.6 * value_noise(x * 0.8, y * 0.8, 9u)) *
-                              (1 - smoothstep(brook_near_at(x) - 0.45, brook_near_at(x) - 0.05, y));
-        // under the bedrock ledge the gravel sits well below its top, so it never shows through
-        const double under = on_ledge(x, y, 0.08) ? -0.03 : 0.0;
-        return fine - 0.004 + to_water + slopes + under;
-    }
-    if (kind == Terrain::brook_bed) {
-        return layout.water_level - 0.07 + 0.025 * (value_noise(x * 4, y * 4, 5u) - 0.5);
-    }
-    // far bank: up from the water into a grassy slope
-    const double edge = brook_far_at(x);
-    // out of the water in a short lip, then up the grassy slope
-    const double lip = 0.05 * smoothstep(edge - 0.03, edge + 0.10, y);
-    const double rise = 0.24 * smoothstep(edge, edge + 1.4, y);
-    const double under = -0.09 * (1 - smoothstep(edge - 0.16, edge, y));
-    return layout.water_level - 0.025 + lip + rise + under + 0.06 * (value_noise(x * 0.9, y * 0.9, 13u) - 0.5) * smoothstep(edge + 0.1, edge + 0.6, y);
 }
 
 Col terrain_colour(Terrain kind, double x, double y) {
@@ -600,11 +505,8 @@ void Site::build_scenery() {
         std::vector<V3> rim;
         std::vector<V3> foot;
         for (int k = 0; k < around; k += 1) {
-            const double a = 2 * kPi * k / around;
-            const double radius = ledge_radius(a);
-            rim.push_back(V3{c.x + radius * std::cos(a), c.y + radius * std::sin(a) * 0.74, 0.0});
-            const double out = radius + 0.035 + 0.02 * hash_unit(k, 1, 409u);
-            foot.push_back(V3{c.x + out * std::cos(a), c.y + out * std::sin(a) * 0.74, -0.045});
+            rim.push_back(to_v3(ledge_rim(k)));
+            foot.push_back(to_v3(ledge_foot(k)));
         }
         const V3 middle{c.x, c.y, 0.0};
         for (int k = 0; k < around; k += 1) {
@@ -1211,7 +1113,7 @@ void Site::draw_rocks(const SceneState& state) {
 // The ground under a point: the bank's gravel, or the boulder the crane is
 // perched on where that's higher.
 double Site::ground_at(double x, double y) const {
-    double best = std::max(terrain_height(Terrain::bank, x, y), 0.0);
+    double best = (*worksite_ground()).sample(x, y).height;
     for (size_t k = 0; k + 2 < boulder_.size(); k += 3) {
         const V3 a = boulder_[k].p;
         const V3 b = boulder_[k + 1].p;
@@ -1237,7 +1139,7 @@ double Site::ground_at(double x, double y) const {
 // rock would.
 void Site::place_crane() {
     const SiteLayout& layout = site_layout();
-    const double heading = 0.78;
+    const double heading = site_layout().crane_heading;
     const double wheel_x[4] = {0.137, 0.137, -0.125, -0.125};
     const double wheel_y[4] = {0.085, -0.085, 0.085, -0.085};
     const double ch = std::cos(heading);

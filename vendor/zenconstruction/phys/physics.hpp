@@ -80,12 +80,22 @@ struct HoldParams {
     double ang_hertz = 2.0, ang_zeta = 1.0;        // and toward its target orientation
     double max_lift = 1.5;                         // wire tension cap, in units of the body's weight m g
     double max_lateral = 0.35;                     // horizontal force cap, in units of m g
+    double sling_length = 0.0;                     // optional hook-to-COM length; sideways travel takes up slack
     double max_torque = 0.35;                      // torque cap, in units of m g radius
 };
 struct HoldState {
     double tension = 0;                            // wire force / (m g) over the last frame: 1 hanging free, 0 slack
     Vec3 position_error;                           // target - actual centre of mass
     double lateral_force = 0;                      // horizontal hook force / (m g) over the last frame
+};
+
+// Immutable scene terrain. Sampling is allocation-free during the solve.
+struct GroundSample { double height; Vec3 normal; };
+class GroundSurface {
+public:
+    virtual ~GroundSurface() = default;
+    virtual GroundSample sample(double x, double y) const = 0;
+    virtual double raycast(Vec3 origin, Vec3 direction, double max_t) const = 0;
 };
 
 struct WorldParams {
@@ -101,6 +111,7 @@ struct WorldParams {
     double sleep_linear = 0.004, sleep_angular = 0.02;      // m/s, rad/s
     double sleep_time = 0.5;                       // s below both thresholds before an island sleeps
     double ground_z = 0.0, ground_friction = 0.9;
+    std::shared_ptr<const GroundSurface> ground_surface; // absent: the original infinite plane
     double restitution_threshold = 1.0;            // m/s; slower impacts never bounce
 };
 

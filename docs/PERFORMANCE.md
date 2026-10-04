@@ -150,7 +150,7 @@ presentation, not GPU rendering.
 | Parrots | Direct live surface | Redraws room, table, props and birds; publishes a complete surface | Room/table reuse must account for lamp state, bird placement and evidence props. |
 | Liar's Dice | Direct live surface | Redraws room, crew, table and effects; publishes a complete surface | Room reuse must account for tension, lighting and other animated room details. |
 | Pen the Sheep | Direct live surface | Restores cached land, draws animated land, patches and sheep; publishes a complete surface | Static land already has color/depth reuse. Remaining work includes patch geometry, animated scenery, composition and publication. |
-| Rock Stack | Direct live surface | Restores cached scenery, redraws shadows, rocks, crane and brook; publishes a complete surface | Camera-keyed scenery reuse exists. Quiet rendering is paced at about 10 Hz, but shadows and static objects are still redrawn; `Site::render` currently ignores its `still` argument. |
+| Rock Stack | Direct live surface | Restores cached scenery, redraws shadows, rocks, crane and brook; publishes a complete surface | Restores only the moving casters' previous shadow-map bounds. The deferred shadow pass composes camera/light transforms per band and uses a direct interior 2×2 filtered lookup. Quiet rendering remains paced at about 10 Hz; objects and brook animation still cost CPU. |
 
 Every production vendor publisher currently submits the complete surface.
 The pinned toolkit's direct presentation drain also derives its clip from the
@@ -181,3 +181,10 @@ The pinned Windows GUI.Forms host also keeps its presentation clock armed while
 a live surface is registered, even when it has no new generation. That residual
 wake policy belongs in the toolkit; see `TOOLKIT_REQUESTS.md`. These changes do
 not claim that the collection has reached its minimum possible CPU or memory use.
+
+Rock Stack's shadow regression compares partial restoration with a complete
+map rebuild as a caster moves, crosses map edges and disappears. It requires
+identical output. Run `rockstack_shadow_tests --bench` for the restore, cast and
+deferred-filter timing at 960×600; this is a shadow-stage benchmark, not a whole
+game CPU measurement. The optimization retains the 1024×1024 map and 2×2 filter,
+adds no per-pixel cache and does not reduce animation cadence.

@@ -2,8 +2,8 @@
 // The crane drawn: a yellow pressed-steel toy truck crane after the 1960s
 // mobile cranes, built up from rounded parts. A cab-over truck with deep-dish
 // hubs on lugged tyres, a duck at the wheel; outriggers down to the gravel
-// (one not quite); a slewing house with the operator's cab (Mina at the
-// levers), a winch drum, crank handles, stacks and a striped counterweight;
+// (one not quite); a slewing house with a control cab, a winch drum,
+// crank handles, stacks and a striped counterweight;
 // a telescoping boom whose foot section is black and punched with round
 // holes; a ram to luff it; the hoist line over the head sheave down to a
 // striped hook block. The truck never moves and is built once; the rest

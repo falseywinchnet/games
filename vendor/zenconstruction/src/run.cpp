@@ -1,4 +1,5 @@
 #include "run.hpp"
+#include "terrain.hpp"
 
 #include <algorithm>
 #include <thread>
@@ -91,6 +92,24 @@ const SiteLayout& site_layout() {
     return layout;
 }
 
+phys::Vec3 crane_pivot() {
+    const SiteLayout& layout = site_layout();
+    return layout.crane_base - phys::Vec3{0.06 * std::cos(layout.crane_heading), 0.06 * std::sin(layout.crane_heading), 0};
+}
+
+double crane_angle(phys::Vec3 point) {
+    const phys::Vec3 d = point - crane_pivot();
+    return std::remainder(std::atan2(d.y, d.x) - site_layout().crane_heading, 2 * kPi);
+}
+
+phys::Vec3 crane_reachable(phys::Vec3 point) {
+    const SiteLayout& layout = site_layout();
+    const phys::Vec3 pivot = crane_pivot();
+    const double radius = std::clamp(horizontal_distance(point, pivot), layout.crane_min_reach, layout.crane_reach);
+    const double angle = layout.crane_heading + std::clamp(crane_angle(point), -layout.crane_slew_limit, layout.crane_slew_limit);
+    return phys::Vec3{pivot.x + radius * std::cos(angle), pivot.y + radius * std::sin(angle), point.z};
+}
+
 double rock_top(const Rock& rock, const phys::Pose& pose) {
     double high = -1e9;
     const std::vector<phys::Vec3>& vertices = rock.shape.hulls[0].vertices;
@@ -118,6 +137,7 @@ Run::Run() {
 void Run::new_world() {
     phys::WorldParams params;
     params.ground_friction = 0.9;   // sand
+    params.ground_surface = worksite_ground();
     world_ = std::make_unique<phys::World>(params);
     add_bowl(*world_);
 }
@@ -344,6 +364,7 @@ void Run::pour(int first, int count) {
     random.state = seed_ * 2654435761u + static_cast<std::uint32_t>(first) * 97u + 13u;
     phys::WorldParams params;
     params.ground_friction = 0.9;
+    params.ground_surface = worksite_ground();
     // Thick enough to soak up a bounce, thin enough that a rock on a slope it
     // can't hold still slides (more drag and it creeps slower than `still_speed`
     // and would pass for resting).
@@ -765,6 +786,10 @@ bool Run::can_fetch(int index) const {
     if (state.body < 0) {
         return false;
     }
+    const phys::Vec3 position = (*world_).state(state.body).pose.p;
+    if (horizontal_distance(position, crane_reachable(position)) > 0.002) {
+        return false; // a fallen or restored rock beyond a mechanical stop
+    }
     // only a rock with nothing resting on it, in the bowl or on the stack: the
     // crane's wires lift at most one and a half times the rock's own weight
     for (size_t k = 0; k < covers_.size(); k += 1) {
@@ -943,12 +968,24 @@ double Run::travel_height() const {
 void Run::plan_path_to(phys::Vec3 goal) {
     crane.path.clear();
     crane.path_speed = kTravelSpeed;
+    goal = crane_reachable(goal);
     const double high = std::max(travel_height(), goal.z);
     const phys::Vec3 from = crane.attached ? crane.target.p : crane.hook;
     if (from.z < high - 0.005) {
         crane.path.push_back(phys::Vec3{from.x, from.y, high});
     }
-    crane.path.push_back(phys::Vec3{goal.x, goal.y, high});
+    // Travel through the permitted arc, never take a straight chord through
+    // the cab or wrap around the rear mechanical stop.
+    const phys::Vec3 pivot = crane_pivot();
+    const double a0 = crane_angle(from), a1 = crane_angle(goal);
+    const double r0 = horizontal_distance(from, pivot), r1 = horizontal_distance(goal, pivot);
+    const int segments = std::max(1, static_cast<int>(std::ceil(std::abs(a1 - a0) / 0.12)));
+    for (int k = 1; k <= segments; k += 1) {
+        const double t = static_cast<double>(k) / segments;
+        const double angle = site_layout().crane_heading + a0 + (a1 - a0) * t;
+        const double radius = r0 + (r1 - r0) * t;
+        crane.path.push_back(phys::Vec3{pivot.x + radius * std::cos(angle), pivot.y + radius * std::sin(angle), high});
+    }
     crane.path.push_back(goal);
 }
 
@@ -969,7 +1006,7 @@ void Run::follow_path(double dt) {
         crane.path.erase(crane.path.begin());
         return;
     }
-    at = at + gap * (stride / distance);
+    at = crane_reachable(at + gap * (stride / distance));
 }
 
 void Run::attach() {
@@ -1057,18 +1094,8 @@ void Run::cancel() {
 
 // keeps the hold target where the crane can reach and the wires can do something
 void Run::clamp_target() {
-    const SiteLayout& layout = site_layout();
     phys::Vec3& p = crane.target.p;
-    const double dx = p.x - layout.crane_base.x;
-    const double dy = p.y - layout.crane_base.y;
-    const double reach = std::sqrt(dx * dx + dy * dy);
-    if (reach > layout.crane_reach) {
-        p.x = layout.crane_base.x + dx * (layout.crane_reach / reach);
-        p.y = layout.crane_base.y + dy * (layout.crane_reach / reach);
-    } else if (reach < layout.crane_min_reach && reach > 1e-9) {
-        p.x = layout.crane_base.x + dx * (layout.crane_min_reach / reach);
-        p.y = layout.crane_base.y + dy * (layout.crane_min_reach / reach);
-    }
+    p = crane_reachable(p);
     p.z = std::min(p.z, 1.45);
     // lowering past the point where the wires go slack does nothing more
     const RockState& state = rocks[static_cast<size_t>(crane.rock)];
@@ -1088,7 +1115,7 @@ void Run::step_crane(const CraneInput& input, double camera_yaw, double camera_p
             const RockState& state = rocks[static_cast<size_t>(crane.rock)];
             const phys::Pose pose = world_->state(state.body).pose;
             phys::Vec3& goal = crane.path.back();
-            goal = phys::Vec3{pose.p.x, pose.p.y, rock_top(state.rock, pose) + crane.hang};
+            goal = crane_reachable(phys::Vec3{pose.p.x, pose.p.y, rock_top(state.rock, pose) + crane.hang});
         }
         follow_path(dt);
         if (crane.path.empty()) {
@@ -1131,7 +1158,9 @@ void Run::step_crane(const CraneInput& input, double camera_yaw, double camera_p
                 detach();
             } else {
                 crane.mode = CraneMode::steering;
-                world_->hold(held.body, crane.target, phys::HoldParams());   // the gentle grip for placing
+                phys::HoldParams gentle;
+                gentle.sling_length = rock_top(held.rock, crane.target) - crane.target.p.z + crane.hang;
+                world_->hold(held.body, crane.target, gentle);
             }
         }
     } else if (crane.mode == CraneMode::steering) {
@@ -1140,7 +1169,8 @@ void Run::step_crane(const CraneInput& input, double camera_yaw, double camera_p
         const double turn = input.fine ? 0.22 : 1.1;
         // the arrows work the crane as its operator does: up and down telescope
         // the boom out and in along its line, left and right swing it round
-        const phys::Vec3 out_from_crane{crane.target.p.x - layout.crane_base.x, crane.target.p.y - layout.crane_base.y, 0};
+        const phys::Vec3 pivot = crane_pivot();
+        const phys::Vec3 out_from_crane{crane.target.p.x - pivot.x, crane.target.p.y - pivot.y, 0};
         const phys::Vec3 boom_line = phys::length(out_from_crane) > 1e-6 ? phys::normalized(out_from_crane) : phys::Vec3{1, 0, 0};
         const phys::Vec3 swing_right{boom_line.y, -boom_line.x, 0};
         const phys::Vec3 wanted = swing_right * (input.right * speed) + boom_line * (input.forward * speed) + phys::Vec3{0, 0, input.up * lift};

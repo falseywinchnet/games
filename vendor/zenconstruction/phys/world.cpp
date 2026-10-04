@@ -314,7 +314,7 @@ void World::Impl::collide() {
                 const double friction = std::sqrt((*body_a.shape).friction * params.ground_friction);
                 for (std::size_t h = 0; h < body_a.world_hulls.size(); h += 1) {
                     points.clear();
-                    collide_ground(body_a.world_hulls[h], params.ground_z, margin, points);
+                    collide_ground(body_a.world_hulls[h], params.ground_z, params.ground_surface.get(), margin, points);
                     add_points(i, kGround, static_cast<std::int32_t>(h), 0, true, friction, (*body_a.shape).restitution);
                 }
             }
@@ -712,8 +712,9 @@ std::optional<std::pair<BodyId, double>> World::raycast(Vec3 origin, Vec3 dir, d
     const Impl& impl = *impl_;
     double best = max_t;
     BodyId hit = -2;
-    if (dir.z < 0) {
-        const double t = (impl.params.ground_z - origin.z) / dir.z;
+    if (impl.params.ground_surface || dir.z < 0) {
+        const double t = impl.params.ground_surface ? (*impl.params.ground_surface).raycast(origin, dir, best)
+                                                  : (impl.params.ground_z - origin.z) / dir.z;
         if (t >= 0 && t < best) {
             best = t;
             hit = kGround;

@@ -492,7 +492,7 @@ void ZenView::step_play(double dt) {
             ensure_near_mesh(state.rock);
         }
     }
-    // Mina's mood follows the work unless something just happened
+    // The duck's mood follows the work unless something just happened
     if (mood_time_ > 0) {
         mood_time_ -= dt;
     } else {
@@ -670,7 +670,6 @@ void ZenView::tick() {
         want_render_ = true;
     }
     say_cooldown_ = std::max(0.0, say_cooldown_ - dt);
-    blink_ += dt;
     if (!pressed_.empty() && pressed_ == "reset" && hover_button_ == "reset") {
         hold_reset_ += dt;
         want_render_ = true;
@@ -1257,7 +1256,7 @@ void ZenView::draw_loading() {
     rrect(x, y, w, h, 12, kPaper, kTimber, 2);
     text("Filling the bowl...", x + w / 2, y + 22, kInk, 18, 2, 0, 1);
     const int dots = static_cast<int>(t_ * 3) % 4;
-    text(std::string(static_cast<size_t>(dots), '.') + " Mina's tipping in fresh rocks " + std::string(static_cast<size_t>(dots), '.'), x + w / 2, y + 56,
+    text(std::string(static_cast<size_t>(dots), '.') + " Tipping in fresh rocks " + std::string(static_cast<size_t>(dots), '.'), x + w / 2, y + 56,
          hex(0x6A5A44), 12, 0, 0, 1);
 }
 
@@ -1318,27 +1317,18 @@ void ZenView::draw_hud() {
         text(company, 24, small ? 15 : 17, kInk, title, 2);
         text(line, 24, small ? 34 : 40, hex(0x5A4A36), small ? 11 : 12, 0);
     }
-    // Mina's portrait and what she says, bottom left
-    const double radius = small ? 30 : 42;
-    const double cx = 12 + radius;
-    const double cy = H_ - 12 - radius;
-    draw_portrait(cx, cy, radius);
+    // Short worksite feedback without a second character floating over it.
+    const double cy = H_ - (small ? 42 : 54);
     if (say_.age < say_.life && !say_.text.empty()) {
         const double fade = std::min(1.0, std::min(say_.age * 6, (say_.life - say_.age) * 3));
-        const double wrap = std::min(260.0, W_ - (cx + radius) - 140);
+        const double wrap = std::min(260.0, W_ - 170);
         const double size = small ? 11.5 : 13;
         const double tw = std::min(wrap, text_w(say_.text, size, 0));
         const double th = text_h(say_.text, size, 0, wrap);
-        const double bx = cx + radius + 12;
+        const double bx = 16;
         const double by = cy - th / 2 - 8;
         const float a = static_cast<float>(fade);
         rrect(bx, by, tw + 22, th + 16, 10, hex(0xFFFCF3, .95f * a), hex(0x8A6440, a), 1.2);
-        frame_.begin();
-        frame_.move((bx + 1) * bs_, (cy - 5) * bs_);
-        frame_.line((bx - 8) * bs_, cy * bs_);
-        frame_.line((bx + 1) * bs_, (cy + 5) * bs_);
-        frame_.close();
-        frame_.fill(hex(0xFFFCF3, .95f * a));
         text(say_.text, bx + 11, by + 8, Col{kInk.r, kInk.g, kInk.b, a}, size, 0, wrap);
     }
     // what the keys do now, and the slings' tension
@@ -1355,7 +1345,7 @@ void ZenView::draw_hud() {
         hint = "Lifting...";
     }
     const double hint_size = small ? 10.5 : 11.5;
-    const double hint_x = cx + radius + 14;
+    const double hint_x = 16;
     const double hint_wrap = W_ - hint_x - (crane.mode == CraneMode::steering ? 240 : 20);
     if (!hint.empty() && !(say_.age < say_.life)) {
         const double th = text_h(hint, hint_size, 0, hint_wrap);
@@ -1372,120 +1362,6 @@ void ZenView::draw_hud() {
     }
 }
 
-// Mina: a round portrait in the corner. Hard hat, dark bob, big eyes; her
-// face follows her mood.
-void ZenView::draw_portrait(double cx, double cy, double radius) {
-    frame_.save();
-    frame_.scale(bs_, bs_);
-    const double r = radius;
-    // the frame and the sky behind her
-    frame_.fill_circle(cx, cy, r + 3, kTimber);
-    frame_.fill_circle(cx, cy, r, hex(0xBFDCEB));
-    const double bob = mood_ == OperatorMood::cheering ? std::abs(std::sin(t_ * 9)) * r * 0.05 : 0.0;
-    const double fx = cx;
-    const double fy = cy + r * 0.12 - bob;
-    // shoulders in an orange hi-vis vest
-    frame_.begin();
-    frame_.ellipse(fx, cy + r * 0.95, r * 0.7, r * 0.42);
-    frame_.fill(hex(0xF08A24));
-    frame_.fill_rect(fx - r * 0.5, cy + r * 0.72, r, r * 0.07, hex(0xF2F0E0));
-    // hair behind
-    frame_.begin();
-    frame_.ellipse(fx, fy + r * 0.05, r * 0.5, r * 0.52);
-    frame_.fill(hex(0x4A2E2A));
-    // face
-    frame_.begin();
-    frame_.ellipse(fx, fy + r * 0.08, r * 0.42, r * 0.44);
-    frame_.fill(hex(0xFBDCC6));
-    // bangs
-    frame_.begin();
-    frame_.move(fx - r * 0.44, fy - r * 0.02);
-    frame_.quad(fx - r * 0.36, fy - r * 0.36, fx, fy - r * 0.34);
-    frame_.quad(fx + r * 0.36, fy - r * 0.36, fx + r * 0.44, fy - r * 0.02);
-    frame_.line(fx + r * 0.3, fy - r * 0.12);
-    frame_.line(fx + r * 0.16, fy - r * 0.02);
-    frame_.line(fx + r * 0.05, fy - r * 0.14);
-    frame_.line(fx - r * 0.1, fy - r * 0.02);
-    frame_.line(fx - r * 0.25, fy - r * 0.14);
-    frame_.line(fx - r * 0.34, fy - r * 0.02);
-    frame_.close();
-    frame_.fill(hex(0x4A2E2A));
-    // the hard hat
-    frame_.begin();
-    frame_.move(fx - r * 0.48, fy - r * 0.18);
-    frame_.cubic(fx - r * 0.46, fy - r * 0.62, fx + r * 0.46, fy - r * 0.62, fx + r * 0.48, fy - r * 0.18);
-    frame_.close();
-    frame_.fill(kYellow);
-    frame_.fill_rect(fx - r * 0.58, fy - r * 0.2, r * 1.16, r * 0.07, hex(0xE0A410));
-    frame_.fill_rect(fx - r * 0.05, fy - r * 0.58, r * 0.1, r * 0.4, hex(0xFFD24A));
-    // eyes: big and dark with a glint; they blink, and narrow when she concentrates
-    const double eye_y = fy + r * 0.1;
-    const bool blinking = std::fmod(blink_, 4.3) < 0.12;
-    const bool happy = mood_ == OperatorMood::cheering;
-    for (int side = -1; side <= 1; side += 2) {
-        const double ex = fx + side * r * 0.17;
-        if (blinking || happy) {
-            frame_.begin();
-            frame_.move(ex - r * 0.08, eye_y + (happy ? r * 0.02 : 0));
-            frame_.quad(ex, eye_y - (happy ? r * 0.08 : -r * 0.02), ex + r * 0.08, eye_y + (happy ? r * 0.02 : 0));
-            frame_.stroke(hex(0x3A2420), r * 0.035);
-        } else {
-            const double squint = mood_ == OperatorMood::focused ? 0.6 : 1.0;
-            frame_.begin();
-            frame_.ellipse(ex, eye_y, r * 0.075, r * 0.1 * squint);
-            frame_.fill(hex(0x3A2420));
-            frame_.fill_circle(ex - r * 0.025, eye_y - r * 0.035 * squint, r * 0.025, hex(0xFFFFFF));
-        }
-    }
-    // blush
-    frame_.fill_ellipse(fx - r * 0.27, fy + r * 0.24, r * 0.07, r * 0.035, hex(0xF29A9A, .6f));
-    frame_.fill_ellipse(fx + r * 0.27, fy + r * 0.24, r * 0.07, r * 0.035, hex(0xF29A9A, .6f));
-    // mouth
-    const double my = fy + r * 0.32;
-    frame_.begin();
-    if (mood_ == OperatorMood::cheering) {
-        frame_.move(fx - r * 0.1, my - r * 0.02);
-        frame_.quad(fx, my + r * 0.14, fx + r * 0.1, my - r * 0.02);
-        frame_.close();
-        frame_.fill(hex(0xB04040));
-    } else if (mood_ == OperatorMood::oops) {
-        frame_.ellipse(fx, my + r * 0.02, r * 0.05, r * 0.06);
-        frame_.fill(hex(0x8A3030));
-    } else if (mood_ == OperatorMood::worried) {
-        frame_.move(fx - r * 0.08, my + r * 0.02);
-        frame_.quad(fx - r * 0.04, my - r * 0.03, fx, my + r * 0.02);
-        frame_.quad(fx + r * 0.04, my + r * 0.06, fx + r * 0.08, my + r * 0.01);
-        frame_.stroke(hex(0x8A3030), r * 0.03);
-    } else if (mood_ == OperatorMood::focused) {
-        frame_.move(fx - r * 0.06, my + r * 0.01);
-        frame_.line(fx + r * 0.06, my + r * 0.01);
-        frame_.stroke(hex(0x8A3030), r * 0.03);
-        frame_.fill_circle(fx + r * 0.07, my + r * 0.02, r * 0.025, hex(0xE07070));   // the tip of her tongue
-    } else {
-        frame_.move(fx - r * 0.08, my);
-        frame_.quad(fx, my + r * 0.07, fx + r * 0.08, my);
-        frame_.stroke(hex(0x8A3030), r * 0.03);
-    }
-    // a bead of sweat when she's worried; sparkles when she cheers
-    if (mood_ == OperatorMood::worried || mood_ == OperatorMood::oops) {
-        frame_.begin();
-        frame_.move(fx + r * 0.42, fy - r * 0.12);
-        frame_.quad(fx + r * 0.36, fy, fx + r * 0.42, fy + r * 0.02);
-        frame_.quad(fx + r * 0.48, fy, fx + r * 0.42, fy - r * 0.12);
-        frame_.fill(hex(0x9ED4F2));
-    }
-    if (mood_ == OperatorMood::cheering) {
-        for (int k = 0; k < 3; k += 1) {
-            const double a = t_ * 2 + k * 2.1;
-            const double sxp = cx + std::cos(a) * r * 0.82;
-            const double syp = cy + std::sin(a) * r * 0.82;
-            frame_.stroke_line(sxp - r * 0.07, syp, sxp + r * 0.07, syp, hex(0xFFE070), r * 0.03);
-            frame_.stroke_line(sxp, syp - r * 0.07, sxp, syp + r * 0.07, hex(0xFFE070), r * 0.03);
-        }
-    }
-    frame_.restore();
-    text("Mina", cx, cy + radius - 4, hex(0xFFFFFF), compact() ? 9.5 : 10.5, 1, 0, 1);
-}
 
 void ZenView::draw_panel() {
     if (panel_ == Panel::none) {
@@ -1529,7 +1405,7 @@ void ZenView::draw_panel() {
     text("Rock Stack", x + w / 2, y + 14, kInk, 20, 2, 0, 1);
     const char* lines[] = {
         "Stack the rocks as tall as they'll stand. Your height is the top of the stack: the first rock you set down, and every rock resting on the ones below it.",
-        "Click a rock in the bowl and Mina's crane fetches it. The up and down arrows telescope the boom out and in, left and right swing it round; W and S pay the line out and in. Turn the rock with Q and E, tip it toward or away from the crane with R and F, roll it with Z and C. Hold Shift for fine work.",
+        "Click a rock in the bowl and the crane fetches it. The up and down arrows telescope the boom out and in, left and right swing it round; W and S pay the line out and in. Turn the rock with Q and E, tip it toward or away from the crane with R and F, roll it with Z and C. Hold Shift for fine work.",
         "Lower it slowly onto the stack: as it settles, the slings go slack. When they're slack and nothing moves, press Space to let go. B carries it back to the bowl.",
         "To take the stack apart, click its top rock. Rocks that fall are tidied back into the bowl. Drag to look around; scroll to zoom.",
         "Every site is saved. Sites lets you go back to one; Start over (hold it) puts every rock back in the bowl."};

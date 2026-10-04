@@ -1,5 +1,31 @@
 # zc::phys notes
 
+## Worksite ground and sling contact
+
+PlaySuite supplies an optional immutable `GroundSurface` to the world. The
+original infinite plane remains the default for physics consumers. The game
+indexes the rendered bank, ledge top and skirt, riverbed and far-bank triangles
+into XY cells once. Contact sampling visits a local cell without allocation or
+trigonometry; it supplies the actual surface normal to the existing friction
+and contact solver. Picking intersects the same triangles. This avoids adding
+thousands of static bodies to the all-pairs broad phase. Decorative pebbles and
+foliage remain scenery; the bowl and crane boulder retain their static hulls.
+
+An optional positive `HoldParams::sling_length` models the vertical take-up as
+the hook moves sideways from a grounded load. The effective vertical error adds
+`L - sqrt(max(0, L*L - horizontal_distance_squared))`. This unloads some ground
+friction as the sling tilts, so a lowered attached rock can drag rather than
+remaining pinned by its full weight. It retains unilateral vertical force,
+the gentle 0.35-weight lateral cap and the existing orientation spring. This
+is an extension of the game's spring hold, not a replacement cable simulator.
+The default zero length preserves the original hold behavior and its tests.
+
+`rockstack_worksite_tests` covers rendered ground correspondence, slope normals,
+set-down, sustained grounded dragging, penetration, force limits and subsequent
+lifting. It also checks the 105-degree chassis slew limits, full bowl access and
+automatic fetch/return travel. The renderer applies the same mechanical stop
+in chassis coordinates; travel waypoints go through the allowed sector.
+
 State on 2026-10-03: the engine core is ported from the JavaScript prototype
 (kept in `~/bfft/experiments/wrench_transport/`; this is the game's copy). The
 specification's sixteen acceptance tests and the prototype's feature checks are

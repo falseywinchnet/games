@@ -146,7 +146,27 @@ void R3D::shadow_begin(V3 centre, double radius, int size) {
     shadow_r_ = norm(cross(helper, shadow_sun_));
     shadow_u_ = cross(shadow_sun_, shadow_r_);
     shadow_scale_ = shadow_size_ / (2 * radius);
+    shadow_saved_.clear();
+    shadow_dirty_x1_ = shadow_dirty_y1_ = -1;
     shadows_on_ = false;
+}
+
+void R3D::shadow_save() {
+    shadow_saved_ = shadow_map_;
+    shadow_dirty_x1_ = shadow_dirty_y1_ = -1;
+}
+
+void R3D::shadow_restore() {
+    if (!shadow_saved()) return;
+    // Moving casters touch only a small part of the map. Restore those spans
+    // before the next frame, including the old location of a departing caster.
+    for (int y = shadow_dirty_y0_; y <= shadow_dirty_y1_; y += 1) {
+        const std::size_t row = static_cast<std::size_t>(y) * shadow_size_;
+        std::copy(shadow_saved_.begin() + row + shadow_dirty_x0_,
+                  shadow_saved_.begin() + row + shadow_dirty_x1_ + 1,
+                  shadow_map_.begin() + row + shadow_dirty_x0_);
+    }
+    shadow_dirty_x1_ = shadow_dirty_y1_ = -1;
 }
 
 // Rasterises casters into the map, keeping each texel's height toward the sun
@@ -167,6 +187,18 @@ void R3D::shadow_cast(const Vtx* verts, size_t count, const M34* model) {
         const int y1 = std::min(n - 1, static_cast<int>(std::floor(std::max({v[0], v[1], v[2]}) - .5)));
         if (y0 > y1) continue;
         if (std::max({u[0], u[1], u[2]}) < 0 || std::min({u[0], u[1], u[2]}) > n) continue;
+        const int x0 = std::max(0, static_cast<int>(std::ceil(std::min({u[0], u[1], u[2]}) - .5)));
+        const int x1 = std::min(n - 1, static_cast<int>(std::floor(std::max({u[0], u[1], u[2]}) - .5)));
+        if (x0 > x1) continue;
+        if (shadow_dirty_x1_ < 0) {
+            shadow_dirty_x0_ = x0; shadow_dirty_x1_ = x1;
+            shadow_dirty_y0_ = y0; shadow_dirty_y1_ = y1;
+        } else {
+            shadow_dirty_x0_ = std::min(shadow_dirty_x0_, x0);
+            shadow_dirty_x1_ = std::max(shadow_dirty_x1_, x1);
+            shadow_dirty_y0_ = std::min(shadow_dirty_y0_, y0);
+            shadow_dirty_y1_ = std::max(shadow_dirty_y1_, y1);
+        }
         // height as a plane over the map, filled a scanline span at a time
         const double inv = 1.0 / area;
         const double d1 = h[1] - h[0], d2 = h[2] - h[0];
@@ -206,20 +238,25 @@ void R3D::shadow_screen_pass(float sun_share) {
 }
 
 void R3D::shadow_band(float sun_share, int band0, int band1) {
+    // Compose camera -> world -> light once per band. The depth-dependent
+    // perspective factor is still evaluated per pixel, with the same 2x2 PCF.
+    const V3 world_r{R_.x, R_.y, R_.z / height_scale};
+    const V3 world_u{U_.x, U_.y, U_.z / height_scale};
+    const V3 world_f{F_.x, F_.y, F_.z / height_scale};
+    const V3 right{dot(world_r, shadow_r_) * shadow_scale_, dot(world_r, shadow_u_) * shadow_scale_, dot(world_r, shadow_sun_)};
+    const V3 up{dot(world_u, shadow_r_) * shadow_scale_, dot(world_u, shadow_u_) * shadow_scale_, dot(world_u, shadow_sun_)};
+    const V3 forward{dot(world_f, shadow_r_) * shadow_scale_, dot(world_f, shadow_u_) * shadow_scale_, dot(world_f, shadow_sun_)};
+    V3 origin;
+    shadow_coords(target, origin.x, origin.y, origin.z);
     for (int y = band0; y <= band1; ++y) {
+        const V3 row = up * (H * ay - (y + .5));
         for (int x = 0; x < W; ++x) {
             const size_t pi = static_cast<size_t>(y) * static_cast<size_t>(W) + static_cast<size_t>(x);
             const float z = depth[pi];
             if (z >= 1e29f) continue;
-            // undo the projection: the screen offset at this depth, then back to world space
-            const double k = persp > 0 ? persp / std::max(.05, persp + z) : 1.0;
-            const double dr = (x + .5 - W * ax) / (scale * k);
-            const double du = (H * ay - (y + .5)) / (scale * k);
-            const V3 d = R_ * dr + U_ * du + F_ * static_cast<double>(z);
-            const V3 world{target.x + d.x, target.y + d.y, (target.z * height_scale + d.z) / height_scale};
-            double u, v, h;
-            shadow_coords(world, u, v, h);
-            const float lit = shadow_lit(static_cast<float>(u), static_cast<float>(v), static_cast<float>(h));
+            const double factor = (persp > 0 ? std::max(.05, persp + z) / persp : 1.0) / scale;
+            const V3 light_point = origin + (right * (x + .5 - W * ax) + row) * factor + forward * static_cast<double>(z);
+            const float lit = shadow_lit(static_cast<float>(light_point.x), static_cast<float>(light_point.y), static_cast<float>(light_point.z));
             if (lit >= 1.f) continue;
             const float keep = 1.f - sun_share * shadow_darkness * (1.f - lit);
             float* o = rgb.data() + pi * 3;
@@ -231,16 +268,26 @@ void R3D::shadow_band(float sun_share, int band0, int band1) {
 // Share of the sun reaching a point (0 shadowed, 1 lit), from a 2x2 filtered lookup.
 float R3D::shadow_lit(float u, float v, float h) const {
     const int n = shadow_size_;
+    if (u <= -.5f || v <= -.5f || u >= n + .5f || v >= n + .5f) return 1.f;
     const float bias = static_cast<float>(1.6 / shadow_scale_);   // about 1.6 texels of height
     const float fu = u - .5f, fv = v - .5f;
     const int x0 = static_cast<int>(std::floor(fu)), y0 = static_cast<int>(std::floor(fv));
     const float ax = fu - static_cast<float>(x0), ay = fv - static_cast<float>(y0);
     float taps[4];
-    for (int k = 0; k < 4; ++k) {
-        const int x = x0 + (k & 1), y = y0 + (k >> 1);
-        if (x < 0 || y < 0 || x >= n || y >= n) { taps[k] = 1; continue; }
-        const float stored = shadow_map_[static_cast<size_t>(y) * static_cast<size_t>(n) + static_cast<size_t>(x)];
-        taps[k] = h + bias >= stored ? 1.f : 0.f;
+    if (x0 >= 0 && y0 >= 0 && x0 + 1 < n && y0 + 1 < n) {
+        const float* first = shadow_map_.data() + static_cast<std::size_t>(y0) * n + x0;
+        const float compare = h + bias;
+        taps[0] = compare >= first[0] ? 1.f : 0.f;
+        taps[1] = compare >= first[1] ? 1.f : 0.f;
+        taps[2] = compare >= first[n] ? 1.f : 0.f;
+        taps[3] = compare >= first[n + 1] ? 1.f : 0.f;
+    } else {
+        for (int k = 0; k < 4; ++k) {
+            const int x = x0 + (k & 1), y = y0 + (k >> 1);
+            if (x < 0 || y < 0 || x >= n || y >= n) { taps[k] = 1; continue; }
+            const float stored = shadow_map_[static_cast<size_t>(y) * static_cast<size_t>(n) + static_cast<size_t>(x)];
+            taps[k] = h + bias >= stored ? 1.f : 0.f;
+        }
     }
     const float top = taps[0] + (taps[1] - taps[0]) * ax;
     const float bottom = taps[2] + (taps[3] - taps[2]) * ax;

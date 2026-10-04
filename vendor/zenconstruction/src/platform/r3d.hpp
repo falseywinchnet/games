@@ -137,8 +137,8 @@ public:
     // Sun shadows that don't change: shadow_save() keeps the map as it stands
     // (the casters that stay put), shadow_restore() puts it back for a frame's
     // moving casters to be added to.
-    void shadow_save() { shadow_saved_ = shadow_map_; }
-    void shadow_restore() { shadow_map_ = shadow_saved_; }
+    void shadow_save();
+    void shadow_restore();
     bool shadow_saved() const { return !shadow_saved_.empty() && shadow_saved_.size() == shadow_map_.size(); }
 
     R3D() = default;
@@ -183,6 +183,8 @@ private:
     std::vector<float> shadow_map_;   // per texel: the nearest caster's height toward the sun
     V3 shadow_centre_{}, shadow_r_{}, shadow_u_{}, shadow_sun_{};
     double shadow_scale_ = 1;          // texels per world unit
+    int shadow_dirty_x0_ = 0, shadow_dirty_y0_ = 0;
+    int shadow_dirty_x1_ = -1, shadow_dirty_y1_ = -1;
     void shadow_coords(V3 p, double& u, double& v, double& h) const;
     float shadow_lit(float u, float v, float h) const;
     V3 R_{}, U_{}, F_{};

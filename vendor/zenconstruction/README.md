@@ -1,8 +1,8 @@
 # Zen Construction
 
 Stack river rocks as tall as they'll stand, with a little yellow toy crane on a
-rock bank by a brook. Mina works the levers; a rubber duck rides in the truck's
-cab. Score is the height of the stack. Every site is saved with its seed and
+rock bank by a brook. A rubber duck rides in the truck's cab; worksite feedback
+appears as short status messages. Score is the height of the stack. Every site is saved with its seed and
 its company's name on a sign, and you can flip between them.
 
 ## Layout
@@ -16,7 +16,8 @@ its company's name on a sign, and you can flip between them.
       stones.*       eight procedural stone textures
       run.*          the run: the bowl, the crane, the stack's rules, saves
       site.*         the worksite drawn (software 3D, sun shadows)
-      crane_model.*  the crane, the duck and Mina
+      terrain.*      shared rendered ground geometry and indexed collision surface
+      crane_model.*  the crane and the duck
       shapes.*       mesh builders
       zen_view.*     the window: input, camera, HUD, panels, sound
       platform/      the shared software renderer (raster, r3d, mesh) and

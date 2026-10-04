@@ -1,6 +1,7 @@
 #include "crane_model.hpp"
 
 #include "shapes.hpp"
+#include "run.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -29,13 +30,6 @@ const Col kDuck{1.00f, 0.86f, 0.18f, 1};
 const Col kDuckWing{0.97f, 0.78f, 0.12f, 1};
 const Col kBill{1.00f, 0.47f, 0.08f, 1};
 const Col kDuckHat{0.93f, 0.30f, 0.10f, 1};
-// Mina
-const Col kSkin{1.00f, 0.85f, 0.74f, 1};
-const Col kHair{0.30f, 0.18f, 0.24f, 1};
-const Col kEyes{0.22f, 0.12f, 0.28f, 1};
-const Col kOveralls{0.22f, 0.44f, 0.78f, 1};
-const Col kShirt{0.96f, 0.95f, 0.92f, 1};
-const Col kBlush{0.98f, 0.62f, 0.64f, 1};
 
 V3 at(const M34& frame, double x, double y, double z) {
     return frame.apply(V3{x, y, z});
@@ -529,8 +523,7 @@ void CraneModel::add_house(const M34& turret, const CranePose& pose, double hois
     }
 }
 
-// Mina in the operator's cab on the house's left: the cab itself, her seat,
-// her controls, and her.
+// The control cab on the house's left.
 void CraneModel::add_operator(const M34& turret, const CranePose& pose) {
     const double t = pose.time;
     add_rounded_box(paint, turret, V3{-0.004, 0.027, 0.110}, V3{0.068, 0.073, 0.141}, 0.004, 2, kPaint);
@@ -545,7 +538,7 @@ void CraneModel::add_operator(const M34& turret, const CranePose& pose) {
     pane(glass, turret, V3{0.0025, 0.0295, 0.141}, V3{0.059, 0, 0}, V3{0, 0, 0.048}, V3{0, -1, 0});
     pane(glass, turret, V3{-0.0015, 0.033, 0.141}, V3{0, 0.034, 0}, V3{0, 0, 0.048}, V3{-1, 0, 0});
     add_rod(matte, at(turret, 0.0662, 0.036, 0.1425), at(turret, 0.0662, 0.052, 0.1650), 0.0007, kBlackPaint, 3);
-    // a work lamp on the cab roof, looking where she does
+    // a work lamp on the cab roof, aimed along the boom
     {
         const M34 lamp = turret * M34::translate(0.060, 0.050, 0.203) * M34::rot_y(kPi / 2 + 0.25);
         const double lr[4] = {0.0, 0.0050, 0.0050, 0.0042};
@@ -563,7 +556,7 @@ void CraneModel::add_operator(const M34& turret, const CranePose& pose) {
     add_rounded_box(lamps, turret, V3{0.0560, 0.040, 0.1500}, V3{0.0580, 0.044, 0.1508}, 0.0003, 1, Col{0.40f, 0.95f, 0.50f, 1});
     add_rounded_box(lamps, turret, V3{0.0560, 0.056, 0.1500}, V3{0.0580, 0.060, 0.1508}, 0.0003, 1,
                     pose.moving ? Col{1.0f, 0.55f, 0.15f, 1} : Col{0.45f, 0.25f, 0.10f, 1});
-    // two levers, rocking while she works them
+    // two levers, rocking while the crane moves
     V3 knob[2];
     for (int k = 0; k < 2; k += 1) {
         const double y = 0.050 + (k == 0 ? -0.013 : 0.013);
@@ -573,69 +566,7 @@ void CraneModel::add_operator(const M34& turret, const CranePose& pose) {
         add_rod(paint, foot, knob[k], 0.0010, kChrome, 4);
         add_ellipsoid(paint, M34(), knob[k], V3{0.0022, 0.0022, 0.0022}, k == 0 ? kHookRed : kBlackPaint, 8, 5);
     }
-    // her: overalls, a white shirt, and her head turned to the work
-    const bool cheering = pose.mood == OperatorMood::cheering;
-    const bool fretting = pose.mood == OperatorMood::worried || pose.mood == OperatorMood::oops;
-    const double bob = cheering ? 0.003 * std::abs(std::sin(t * 8.0)) : 0.0006 * std::sin(t * 1.7);
-    add_ellipsoid(matte, turret, V3{0.019, 0.050, 0.1545 + bob}, V3{0.0072, 0.0085, 0.0105}, kOveralls, 10, 7);
-    add_ellipsoid(matte, turret, V3{0.027, 0.050, 0.1470}, V3{0.0085, 0.0080, 0.0035}, kOveralls, 8, 5);
-    add_ellipsoid(matte, turret, V3{0.0205, 0.050, 0.1625 + bob}, V3{0.0055, 0.0068, 0.0020}, kShirt, 8, 4);
-    // arms: to the levers, up in the air, or to her cheeks
-    for (int k = 0; k < 2; k += 1) {
-        const double side = k == 0 ? -1 : 1;
-        const V3 shoulder = at(turret, 0.019, 0.050 + side * 0.0088, 0.1600 + bob);
-        V3 hand = knob[k] + V3{0, 0, 0.0015};
-        if (cheering) {
-            hand = at(turret, 0.026 + 0.003 * std::sin(t * 8 + k), 0.050 + side * 0.016, 0.1845);
-        } else if (fretting) {
-            hand = at(turret, 0.0295, 0.050 + side * 0.0085, 0.1700);
-        }
-        const V3 elbow = (shoulder + hand) * 0.5 + at(turret, 0, side * 0.004, 0) - at(turret, 0, 0, 0) - V3{0, 0, 0.004};
-        add_rod(matte, shoulder, elbow, 0.0025, kShirt, 6);
-        add_rod(matte, elbow, hand, 0.0021, kSkin, 6);
-        add_ellipsoid(matte, M34(), hand, V3{0.0025, 0.0025, 0.0025}, kSkin, 6, 4);
-    }
-    // the head, watching the hook, a little nod now and then
-    double look = 0.12 * std::sin(t * 0.6);
-    double tilt = 0.0;
-    double nod = 0.06 + 0.05 * std::sin(t * 0.9);
-    if (pose.mood == OperatorMood::focused) {
-        nod = 0.18;
-        look = 0.04 * std::sin(t * 0.8);
-    } else if (pose.mood == OperatorMood::worried) {
-        tilt = 0.22;
-        look = 0.10 * std::sin(t * 5.0);
-    } else if (pose.mood == OperatorMood::oops) {
-        tilt = -0.25;
-        nod = -0.05;
-    } else if (cheering) {
-        nod = -0.12;
-        tilt = 0.15 * std::sin(t * 6.0);
-    }
-    const M34 head = turret * M34::translate(0.021, 0.050, 0.1735 + bob) * M34::rot_z(look) * M34::rot_x(tilt) * M34::rot_y(nod);
-    add_ellipsoid(matte, head, V3{0, 0, 0}, V3{0.0098, 0.0098, 0.0098}, kSkin, 12, 9);
-    add_mesh(matte, hemisphere_mesh(12, 5), head * M34::translate(-0.0008, 0, 0.0004) * M34::rot_y(-kPi / 2) * M34::scale(0.0104, 0.0106, 0.0104), kHair);
-    add_ellipsoid(matte, head, V3{0.0066, 0, 0.0050}, V3{0.0036, 0.0088, 0.0024}, kHair, 10, 5);
-    for (int side = -1; side <= 1; side += 2) {
-        // pigtails with yellow ties
-        const double swing = 0.0012 * std::sin(t * 2.2 + side);
-        add_ellipsoid(matte, head, V3{-0.0042 + swing, side * 0.0108, -0.0045}, V3{0.0034, 0.0030, 0.0075}, kHair, 8, 6);
-        add_ellipsoid(paint, head, V3{-0.0034, side * 0.0104, 0.0016}, V3{0.0018, 0.0018, 0.0018}, kPaint, 6, 4);
-        // big eyes with a highlight, and a blush
-        add_ellipsoid(paint, head, V3{0.0088, side * 0.0037, -0.0006}, V3{0.0010, 0.0021, 0.0029}, kEyes, 8, 6);
-        add_ellipsoid(lamps, head, V3{0.0097, side * 0.0031, 0.0006}, V3{0.0005, 0.0005, 0.0006}, Col{1, 1, 1, 1}, 4, 3);
-        add_ellipsoid(matte, head, V3{0.0085, side * 0.0062, -0.0040}, V3{0.0010, 0.0022, 0.0012}, kBlush, 6, 4);
-    }
-    if (cheering || pose.mood == OperatorMood::oops) {
-        add_ellipsoid(matte, head, V3{0.0094, 0, -0.0052}, V3{0.0010, 0.0022, 0.0015}, Col{0.55f, 0.18f, 0.22f, 1}, 8, 5);
-    } else {
-        add_ellipsoid(matte, head, V3{0.0095, 0, -0.0050}, V3{0.0006, 0.0018, 0.0006}, Col{0.78f, 0.36f, 0.38f, 1}, 6, 4);
-    }
-    // her hard hat: dome, brim, ridge
-    add_mesh(paint, hemisphere_mesh(12, 5), head * M34::translate(-0.0005, 0, 0.0030) * M34::scale(0.0112, 0.0110, 0.0088), kPaint);
-    add_mesh(paint, disc_mesh(12), head * M34::translate(0.0025, 0, 0.0032) * M34::scale(0.0138, 0.0122, 1), kPaint);
-    add_mesh(paint, disc_mesh(12), head * M34::translate(0.0025, 0, 0.0031) * M34::rot_x(kPi) * M34::scale(0.0138, 0.0122, 1), kPaintDeep);
-    add_rounded_box(paint, head, V3{-0.0085, -0.0012, 0.0098}, V3{0.0085, 0.0012, 0.0122}, 0.0008, 1, kPaint);
+
 }
 
 // ---------------------------------------------------------------- the hook
@@ -716,7 +647,11 @@ void CraneModel::build(const CranePose& pose) {
     // the house turns to face the hook
     const V3 hook = pose.hook;
     const V3 pivot = at(c, -0.06, 0, 0.165);
-    const double slew = std::atan2(hook.y - pivot.y, hook.x - pivot.x);
+    const double relative = std::remainder(std::atan2(hook.y - pivot.y, hook.x - pivot.x) - setup_.heading, 2 * kPi);
+    // A physical stop in chassis coordinates also covers its small terrain
+    // tilt and any externally restored hook position.
+    const double limit = site_layout().crane_slew_limit;
+    const double slew = setup_.heading + std::clamp(relative, -limit, limit);
     const M34 turret = c * M34::translate(-0.06, 0, 0) * M34::rot_z(slew - setup_.heading);
     const V3 root = at(turret, 0.012, 0, 0.165);
     const V3 forward{std::cos(slew), std::sin(slew), 0};
