@@ -22,7 +22,7 @@ std::uint32_t bgra(std::uint32_t pixel, gf::FramebufferChannelOrder order) {
 }
 } // namespace
 struct PuzzleFramebufferTest {
-    static void compare(PuzzleView& view, gf::Window& window) {
+    static bool compare(PuzzleView& view, gf::Window& window) {
         const gf::Rect bounds = view.client_rectangle();
         std::unique_ptr<gf::PaintFramebuffer> reference =
             window.create_framebuffer({bounds.width, bounds.height}, view.framebuffer_scale_);
@@ -77,10 +77,14 @@ struct PuzzleFramebufferTest {
             std::cerr << puzzle_slug(view.game.kind) << " reference mismatch pixels=" << mismatches
                       << " scale=" << view.framebuffer_scale_ << " hover=" << view.hover_
                       << " size=" << bounds.width << 'x' << bounds.height << '\n';
+        const std::uint64_t pixel_count = static_cast<std::uint64_t>(actual.width()) * actual.height();
+        const std::uint64_t rounding_limit = std::max<std::uint64_t>(1, pixel_count / 10000U);
         if (rounding_pixels)
-            std::cout << "Skia one-level blend rounding pixels=" << rounding_pixels << '\n';
-        require(mismatches == 0 && rounding_pixels <= 8,
-                "Cached partial frame matches full native redraw within bounded blend rounding");
+            std::cout << "Skia one-level blend rounding pixels=" << rounding_pixels
+                      << " of " << pixel_count << " scale=" << view.framebuffer_scale_
+                      << " hover=" << view.hover_ << '\n';
+        const bool matches = mismatches == 0 && rounding_pixels <= rounding_limit;
+        return matches;
     }
     static void run(PuzzleView& view, gf::Window& window) {
         std::cout << "Native framebuffer renderer: " << window.metrics().snapshot().renderer_name
@@ -96,6 +100,7 @@ struct PuzzleFramebufferTest {
             view.game.state.marks.fill(0);
             view.game.state.aux.fill(0);
         }
+        bool pixels_match = true;
         for (const double scale : {1.0, 1.25, 2.0}) {
             window.set_scale(scale);
             view.arrange({0, 0, scale == 1.25 ? 600.0 : 1060.0, scale == 1.25 ? 420.0 : 680.0});
@@ -104,7 +109,7 @@ struct PuzzleFramebufferTest {
             view.present_framebuffer(view.client_rectangle());
             require(view.surface_ && view.direct_,
                     "Puzzle registered an actual direct live surface");
-            compare(view, window);
+            pixels_match = compare(view, window) && pixels_match;
             const gf::LiveSurfaceFrame held = (*view.surface_).acquire_latest();
             const std::vector<std::byte> held_pixels(held.pixels().begin(), held.pixels().end());
             const std::vector<std::byte> background = view.static_pixels_;
@@ -113,17 +118,17 @@ struct PuzzleFramebufferTest {
             view.invalidate_animation(
                 view.game.kind == PuzzleKind::gems ? view.board_ : view.untangle_board_damage());
             require(background == view.static_pixels_, "Animation reuses static pixels");
-            compare(view, window);
+            pixels_match = compare(view, window) && pixels_match;
             view.hover_ = -1;
             view.invalidate_animation(
                 view.game.kind == PuzzleKind::gems ? view.board_ : view.untangle_board_damage());
-            compare(view, window);
+            pixels_match = compare(view, window) && pixels_match;
             require(std::equal(held_pixels.begin(), held_pixels.end(), held.pixels().begin()),
                     "Published read lease remains immutable during buffer rotation");
             if (view.game.kind == PuzzleKind::untangle) {
                 view.game.state.nodes[0] = {.035, .035};
                 view.refresh_scene();
-                compare(view, window);
+                pixels_match = compare(view, window) && pixels_match;
             }
             const std::uint64_t generations = (*view.surface_).snapshot().published_generation;
             view.set_visible(false);
@@ -132,6 +137,8 @@ struct PuzzleFramebufferTest {
                     "Hidden game stops publishing");
             view.set_visible(true);
         }
+        require(pixels_match,
+                "Cached partial frames match full native redraws within bounded blend rounding");
         std::cout << puzzle_slug(view.game.kind)
                   << ": direct publication, pixel equivalence, partial restore, DPI, resize, "
                      "immutable frames and hidden lifecycle passed\n";

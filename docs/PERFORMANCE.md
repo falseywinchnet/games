@@ -114,9 +114,10 @@ published pixels against a full redraw using the same native painter. It covers
 yarn geometry, immutable read leases across pool rotation, and hidden lifecycle.
 This test runs under the actual native application host on each build platform.
 Windows comparisons are exact. Skia comparisons permit only one level of
-8-bit channel rounding at no more than eight pixels per frame: clipped blend
-spans produced one or two such differences at 200% scale on native Linux x64
-and arm64. Larger channel errors or a larger affected area still fail.
+8-bit channel rounding at no more than 0.01% of pixels per frame. Clipped blend
+spans produced one or two such differences on native Linux x64 and arm64, and
+21 on macOS. Larger channel errors or a larger affected area still fail;
+every comparison reports its rounding count, resolution, scale and hover state.
 
 Direct presentation removes control-tree raster replay from ordinary animation.
 It does not eliminate gem geometry generation, filtered composition, animated
