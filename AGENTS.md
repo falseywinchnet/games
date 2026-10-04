@@ -10,7 +10,7 @@ The user requires most reusable cross-platform capabilities needed by Games to b
 
 On Shadow, use C:/Users/Shadow/games as the source checkout. Keep builds in a separate ignored build directory. Existing toolchains may be borrowed read-only; never overwrite another application's frozen SDK. Record the actual supported platform configure/build/test commands in this file as they are established. Keep compile parallelism at two jobs while sharing the host with other application work.
 
-The current Shadow development build is `.build/application-dev`, configured against the isolated `.build/toolkit-input-fairness/gui_forms` source at `80c35972fc0fd33007e374f6dc031a67fef39d5f` and the prepared runtime `.build/runtime-040`. That runtime includes the PlaySuite v2 music; `authoring/playsuite_music/README.md` describes how to rebuild it. Put `C:/Users/Shadow/plan-paint/build-deps/msys64/mingw64/bin` on PATH, then:
+The current Shadow development build is `.build/application-dev`, configured against the isolated `.build/toolkit-input-fairness/gui_forms` source at `d58f530ad5ceaa8f4ab1e5afdc12027aff90d16d` and the prepared runtime `.build/runtime-040`. That runtime includes the PlaySuite v2 music; `authoring/playsuite_music/README.md` describes how to rebuild it. Put `C:/Users/Shadow/plan-paint/build-deps/msys64/mingw64/bin` on PATH, then:
 
 ```sh
 cmake -S . -B .build/application-dev -G Ninja -DCMAKE_BUILD_TYPE=Release -DGAMES_TOOLKIT_SOURCE_DIR=C:/Users/Shadow/games/.build/toolkit-input-fairness/gui_forms -DGAMES_RUNTIME_ASSET_DIR=C:/Users/Shadow/games/.build/runtime-040

@@ -22,10 +22,10 @@ std::uint32_t bgra(std::uint32_t pixel, gf::FramebufferChannelOrder order) {
 }
 } // namespace
 struct PuzzleFramebufferTest {
-    static void compare(PuzzleView& view, gf::Painter& native) {
+    static void compare(PuzzleView& view, gf::Window& window) {
         const gf::Rect bounds = view.client_rectangle();
         std::unique_ptr<gf::PaintFramebuffer> reference =
-            native.create_framebuffer({bounds.width, bounds.height}, view.framebuffer_scale_);
+            window.create_framebuffer({bounds.width, bounds.height}, view.framebuffer_scale_);
         require(reference && (*reference).begin(view.frame_images_, bounds),
                 "Native reference framebuffer");
         gf::Painter& painter = (*reference).painter();
@@ -85,9 +85,7 @@ struct PuzzleFramebufferTest {
     static void run(PuzzleView& view, gf::Window& window) {
         std::cout << "Native framebuffer renderer: " << window.metrics().snapshot().renderer_name
                   << "; text provider=" << (window.text_metrics_provider() != nullptr) << '\n';
-        gf::Painter* native = dynamic_cast<gf::Painter*>(window.text_metrics_provider());
-        require(native != nullptr, "Native painter installed");
-        require(!(*native).create_framebuffer({1, 1}, std::numeric_limits<double>::infinity()),
+        require(!window.create_framebuffer({1, 1}, std::numeric_limits<double>::infinity()),
                 "Invalid scale rejected");
         view.game.deal(42);
         view.reduced_ = true;
@@ -106,7 +104,7 @@ struct PuzzleFramebufferTest {
             view.present_framebuffer(view.client_rectangle());
             require(view.surface_ && view.direct_,
                     "Puzzle registered an actual direct live surface");
-            compare(view, *native);
+            compare(view, window);
             const gf::LiveSurfaceFrame held = (*view.surface_).acquire_latest();
             const std::vector<std::byte> held_pixels(held.pixels().begin(), held.pixels().end());
             const std::vector<std::byte> background = view.static_pixels_;
@@ -115,17 +113,17 @@ struct PuzzleFramebufferTest {
             view.invalidate_animation(
                 view.game.kind == PuzzleKind::gems ? view.board_ : view.untangle_board_damage());
             require(background == view.static_pixels_, "Animation reuses static pixels");
-            compare(view, *native);
+            compare(view, window);
             view.hover_ = -1;
             view.invalidate_animation(
                 view.game.kind == PuzzleKind::gems ? view.board_ : view.untangle_board_damage());
-            compare(view, *native);
+            compare(view, window);
             require(std::equal(held_pixels.begin(), held_pixels.end(), held.pixels().begin()),
                     "Published read lease remains immutable during buffer rotation");
             if (view.game.kind == PuzzleKind::untangle) {
                 view.game.state.nodes[0] = {.035, .035};
                 view.refresh_scene();
-                compare(view, *native);
+                compare(view, window);
             }
             const std::uint64_t generations = (*view.surface_).snapshot().published_generation;
             view.set_visible(false);
@@ -163,6 +161,11 @@ int main(int argc, char** argv) {
             games_test::scratch_directory("playsuite-framebuffer-");
         games_test::isolate_saves(scratch);
         games::initialize_assets(argv[0]);
+        gui_forms::Window headless(
+            gui_forms::make_control<gui_forms::Control>(gui_forms::StableId("headless")),
+            gui_forms::Size{100, 100});
+        games::require(!headless.create_framebuffer({100, 100}, 1),
+                       "A headless window explicitly reports no native framebuffer");
         std::shared_ptr<games::Collection> collection =
             gui_forms::make_control<games::Collection>(gui_forms::StableId("fixture"));
         gui_forms::ApplicationWindowOptions options;

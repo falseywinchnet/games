@@ -113,6 +113,10 @@ published pixels against a full redraw using the same native painter. It covers
 100%, 125% and 200% scale, narrow/wide layout, partial hover restoration, changed
 yarn geometry, immutable read leases across pool rotation, and hidden lifecycle.
 This test runs under the actual native application host on each build platform.
+Windows comparisons are exact. Skia comparisons permit only one level of
+8-bit channel rounding at no more than eight pixels per frame: clipped blend
+spans produced one or two such differences at 200% scale on native Linux x64
+and arm64. Larger channel errors or a larger affected area still fail.
 
 Direct presentation removes control-tree raster replay from ordinary animation.
 It does not eliminate gem geometry generation, filtered composition, animated
@@ -123,7 +127,7 @@ expected during direct animation and must not be described as zero CPU.
 ### Rendering and presentation audit
 
 The following paths describe the current application. The native offscreen
-adapter is pinned at GUI.Forms revision `80c35972fc0fd33007e374f6dc031a67fef39d5f`.
+adapter is pinned at GUI.Forms revision `d58f530ad5ceaa8f4ab1e5afdc12027aff90d16d`.
 Direct presentation means a registered `LiveSurface` submitted through
 `Window::queue_live_surface_presentation`; merely owning a CPU pixel buffer
 does not establish that path. On the pinned Windows host, a surface matching

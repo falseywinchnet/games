@@ -85,8 +85,11 @@ across the eighteen-game collection. The per-game paths are recorded in
 
 ## Native offscreen adapter
 
-Games now pins `80c35972fc0fd33007e374f6dc031a67fef39d5f`, adding
-`Painter::create_framebuffer(Size, double)` and `PaintFramebuffer`. Native DIB and
+Games now pins `d58f530ad5ceaa8f4ab1e5afdc12027aff90d16d`, adding
+`Window::create_framebuffer(Size, double)`, the native painter factory, and
+`PaintFramebuffer`. Hosts explicitly register a borrowed framebuffer painter and
+clear it before teardown; consumers do not discover it through cross-library RTTI.
+Native DIB and
 Skia implementations preserve their renderer's drawing and registered fonts.
 The UI-thread-owned target retains writable premultiplied pixels, reports its
 BGRA/RGBA order and stride explicitly, and clips each begin/end pass. Unsupported

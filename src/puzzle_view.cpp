@@ -86,11 +86,10 @@ bool PuzzleView::prepare_framebuffer() {
     const gf::Size size{bounds.width, bounds.height};
     if (framebuffer_ && size == framebuffer_size_ && window.scale() == framebuffer_scale_)
         return true;
-    gf::Painter* native = dynamic_cast<gf::Painter*>(window.text_metrics_provider());
-    if (!native || size.width <= 0 || size.height <= 0)
+    if (size.width <= 0 || size.height <= 0)
         return false;
     std::unique_ptr<gf::PaintFramebuffer> replacement =
-        (*native).create_framebuffer(size, window.scale());
+        window.create_framebuffer(size, window.scale());
     if (!replacement)
         return false;
     gf::LiveSurfaceDescription description;

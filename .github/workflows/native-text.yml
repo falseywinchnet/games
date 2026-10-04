@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: falseywinchnet/file_manager
-          ref: 80c35972fc0fd33007e374f6dc031a67fef39d5f
+          ref: d58f530ad5ceaa8f4ab1e5afdc12027aff90d16d
           path: toolkit
           sparse-checkout: gui_forms
       - uses: msys2/setup-msys2@v2
