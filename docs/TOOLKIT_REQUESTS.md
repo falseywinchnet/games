@@ -34,6 +34,20 @@ AGENTS.md asks for reusable capabilities to become GUI.Forms enhancements, coord
 
 ## Animated rendering boundaries in the current pin
 
+The Windows adapter backport at `c3b9d10d0ed708da2527fcb2697b29b8b2cd9007`
+resolves input starvation during continuous rendering. Both native host loops
+alternate bounded input-first and ordinary message turns before presentation.
+The input turn includes posted keyboard/mouse messages and translated characters,
+which are not covered by `PM_QS_INPUT` alone. A native queue fixture checks their
+ordering through a posted render backlog, ordinary FIFO work and quit handling.
+
+The same backport includes the complete `BeginPaint` device-pixel update bounds
+when logical damage already exists. This prevents fractional damage edges from
+leaving stale lines on an opaque help document over animated content, and keeps
+native exposure damage from being omitted. The public toolkit interface is
+unchanged. These fixes do not implement retained pixels or faster filtered image
+composition; those requests below remain open.
+
 The following were verified in pinned revision
 `3f75e379213de972f78729a591594e70fe65a585` while auditing frequent updates
 across the eighteen-game collection. The per-game paths are recorded in

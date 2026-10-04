@@ -289,6 +289,10 @@ def check_wiring(manifest: dict, report: Report) -> None:
     report.require(rows == len(names), f"{rows} boxes described", f"src/suite.cpp describes {rows} boxes for {len(names)} entries")
     report.require(f"case Entry::{game_id}:" in suite, "the box has an emblem", "src/suite.cpp has no emblem case for the game")
     report.require(f"TODO({game_id})" not in suite, "the emblem is drawn", "the emblem in src/suite.cpp is still the placeholder (search for TODO)")
+    help_content = (REPO / "src" / "help_content.cpp").read_text(encoding="utf-8")
+    report.require(f"case Entry::{game_id}:" in help_content,
+                   "the shared help document has a game section",
+                   "src/help_content.cpp needs this game's goal, moves, ending and controls")
     collection = (REPO / "src" / "collection.cpp").read_text(encoding="utf-8")
     member = f"{game_id}_"
     points = {

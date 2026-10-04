@@ -1,11 +1,13 @@
-PlaySuite 0.4.4 fixes Rock Stack's concurrent startup-cache initialization and reduces repeated rendering and timer work in the older games.
+PlaySuite 0.4.5 brings the collection's instructions into one readable help document and improves input responsiveness during animation on Windows.
 
-- Rock Stack safely shares its mesh and stone-texture caches during parallel construction. Its cold-start regression test compares concurrent results with serial construction.
-- Gems and Nature Cube publish board-image changes with bounded damage, and unchanged layouts reuse the current raster. Cube tracing combines rapid pointer input into one render per animation frame.
-- Sudoku keeps its generation waiting screen still until the puzzle is ready. Hearts sleeps until the next computer-play deadline when its cards are at rest.
-- The Windows renderer reuses gradients and exact shadow coverage within fixed memory limits. Native pixel tests cover transparency, clipping, translation, resizing and cache eviction. This renderer change is specific to Windows; the game-side changes apply across platforms.
+- Open the paper-style help document with the plain `?` in the top-right corner, H or F1. Each game opens at its own instructions. Sections expand, text wraps, and the document scrolls down to the smallest supported window. H or Escape returns to the game.
+- M mutes or unmutes music throughout the collection, including while help is open. Text-entry fields retain their ordinary typing behavior. The shelf includes the dedication, agent credits and contact information.
+- Hosted games route their explanation panels into the shared document. Ordinary window repaints restore the latest vendor-game frame, including after help closes. The new-game kit teaches and checks the same integration.
+- Gems and Untangle retain static, animated and text drawing separately. Untangle reuses crossing geometry until a peg moves, and cat-only animation damages its old and new bounds. Dragging updates the yarn and peg together, including the full shadow margins.
+- The private Windows message loop gives input a bounded turn alongside posted callbacks, including input delivered as posted messages. Continuous render requests no longer take every turn ahead of clicks and keys. Animation remains enabled, and drawing still gets its own turn.
+- Windows repaints include the complete device-pixel update bounds. This fixes thin stale-pixel lines on the help sheet while animation continues behind it.
 
-All eighteen games, the restored command menus, Four Pegs mouse controls and Solitaire's accumulating waste pile are retained. Drawing quality, animations, game rules and save formats are unchanged.
+All eighteen games, their command menus, Four Pegs mouse controls and Solitaire's accumulating waste pile are retained. Drawing quality, animations, game rules and save formats are unchanged.
 
 Performance work continues: animated Gems and Untangle can still be CPU-bound, particularly on slower machines. Rock Stack's physics correctness tests pass; its separate 1.5 ms stress-performance target remains unmet and is not a release gate.
 

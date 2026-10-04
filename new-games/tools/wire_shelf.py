@@ -14,9 +14,9 @@ Each edit looks for a known anchor in the shell's source. If the shell has
 changed and an anchor is gone, the tool stops before writing anything and names
 the edit; make that one by hand from new-games/guide/08-on-the-shelf.md.
 
-It leaves three things to you: the emblem drawing in src/suite.cpp, the roster
-sentences in README.md and docs/GAME_CATALOG.md, and the version and release
-notes (the maintainer's).
+It leaves the emblem drawing in src/suite.cpp, instructions in src/help_content.cpp,
+and roster sentences in README.md and docs/GAME_CATALOG.md to you. Version and
+release notes belong to the maintainer.
 """
 from __future__ import annotations
 
@@ -239,7 +239,7 @@ def wire(game_id: str, edits: Edits) -> None:
         edits.problems.append("tests/collection_ui_tests.cpp: anchor not found for 'visit the game in the shell test'")
     elif f"Entry::{game_id}" not in loop.group(1):
         edits.put("tests/collection_ui_tests.cpp", text[:loop.end(1)] + f", Entry::{game_id}" + text[loop.end(1):],
-                  "open the game and its Help from the capsule in the shell test")
+                  "open the game and route its Help into the shared document in the shell test")
 
     # ---- Audio inventory: three places state the exact number of source sounds.
     count = len(kitlib.audio_sources())
@@ -298,7 +298,7 @@ def main() -> int:
             if path.read_text(encoding="utf-8") != text:
                 path.write_text(text, encoding="utf-8")
         print("\nStill yours to do: draw the emblem in src/suite.cpp (search for TODO), add the game to the roster")
-        print("sentences in README.md and docs/GAME_CATALOG.md, then run check_game.py.")
+        print("sentences in README.md and docs/GAME_CATALOG.md, write its section in src/help_content.cpp, then run check_game.py.")
     return 0
 
 

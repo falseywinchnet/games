@@ -1,3 +1,4 @@
+#include "help_route.hpp"
 #include "template_view.hpp"
 
 #include "platform/audio.hpp"
@@ -284,6 +285,9 @@ void TemplateView::cycle_size() {
 }
 
 void TemplateView::set_help(bool open) {
+    if (open && games::route_help(*this)) {
+        return;
+    }
     note_player();
     visual_.help = open;
     request_frame();

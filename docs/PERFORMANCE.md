@@ -104,6 +104,21 @@ Audio policy tests cover steady playback without UI polling.
 
 ## Remaining work
 
+### Retained puzzle scenes
+
+Gems and Untangle separate their static, animated and text drawing into retained
+controls. Animation invalidates the animated control; ordinary cat motion does
+not rebuild the stationary yarn and text commands. Untangle also reuses peg
+positions and crossing calculations until their geometry changes. Dragging
+updates the yarn and held peg together, and damage includes the full shadow
+extent plus the old and new animated bounds.
+
+These changes reduce command recording and geometry work, not all raster work.
+Intersecting static commands still replay through the painter. Native Windows
+comparisons showed lower Untangle frame cost but no meaningful improvement for
+Gems. Fast filtered image composition and retained pixels remain toolkit work;
+this release does not claim to complete framebuffer optimization.
+
 ### Rendering and presentation audit
 
 The following paths were checked against the application source and pinned

@@ -92,7 +92,7 @@ when there is nothing to undo). Keep the function cheap and free of side effects
 | a level control | "Next: Medium" | Cycles the difficulty or size for the *next* new game. An untouched game is replaced at once. |
 | the game's panels | "Meadows", "Crew", "Records" | Each opens a panel the game draws on its own surface. `checked` while open. |
 | `scores` | "Top scores" | When the game keeps a top-ten table. |
-| `help` | "Help" | **Required.** Opens the help card. `checked` while open. The shell's test clicks it. |
+| `help` | "Help" | Keep the command for standalone testing. In PlaySuite, the shell routes it to the shared help document and omits it from the capsule. |
 
 Rules:
 
@@ -108,11 +108,19 @@ Rules:
 
 ### Help
 
-Help is one card drawn over the game: a title and a few short paragraphs saying
-the goal, what a move is, how the game ends, and the keys. F1 opens it; Escape,
-Enter or a click closes it. It must be readable at 600 x 320, so choose its text
-size by fitting (the template does). Help may be funny. It is part of the game's
-voice.
+In PlaySuite, the shell owns one paper-style help document. The plain `?` in the
+top-right corner, H or F1 opens it at the active game's section. H or Escape closes
+it. M toggles the suite's music. Reserve H and M for those functions; a game's Hint
+action stays visible in its command menu.
+
+Write the game's goal, moves, ending and controls in `src/help_content.cpp`, under
+its `Entry` value. Keep the prose short and in the game's voice. The shared
+view wraps and scrolls the text at the minimum window size.
+
+The template's own help card remains a standalone/headless preview fallback.
+Its `set_help(true)` calls `games::route_help(*this)` first, so hosted games never
+open a second explanation panel. Actual game decisions, results and score entry
+remain on the game surface.
 
 ### Scores
 
@@ -130,9 +138,11 @@ lifetime totals.
 
 ## The rail and the surface
 
-A kit game draws its own pixels into a `LiveSurface`, and nothing may float over
-a live surface. So the shell reserves a slim rail, 50 points high, across the top
-of the window for the capsule, and lays the game out below it.
+A kit game draws its own pixels into a `LiveSurface`. The shell reserves a slim
+rail, 50 points high, across the top for the capsule, and lays the game out below
+it. The shared help document uses the toolkit overlay plane. Keep the template's
+`on_paint` surface replay: ordinary exposes must restore the latest complete
+frame even when no animation is publishing.
 
 - The window's minimum is 600 x 420 points, so your smallest normal surface is
   **600 x 370**.
@@ -176,7 +186,7 @@ to start.
 
 ## Keyboard
 
-- F1: Help. Escape: close the open panel.
+- H or F1: shared Help. M: master music. Escape: close the open panel.
 - Enter or Space: confirm, or continue after a result.
 - Z, U or Backspace: Undo, where there is one. N: new game, where that is safe.
 - Arrow keys move a visible cursor, so the game can be played without a mouse

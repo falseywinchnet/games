@@ -118,8 +118,15 @@ headless harness and do not ship.
 
 ### `tests/collection_ui_tests.cpp`
 
-Add `Entry::<id>` to the loop that opens each hosted game, opens the capsule and
-clicks its Help command. Your `help` command must then report `checked`.
+The minimum-size loop visits every `Entry`, clicks the corner `?`, checks painted
+help content, exercises H/M and scrolling, then returns through the capsule's Back
+control. The shared document must open without changing the game's own panel.
+
+### `src/help_content.cpp`
+
+Add a `case Entry::<id>` returning the game's instructions. Include the goal,
+legal moves, ending and input controls. `wire_shelf.py` leaves this authored prose
+to you; the gate rejects a wired game whose help section is missing.
 
 ### Audio inventory
 

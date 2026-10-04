@@ -125,8 +125,9 @@ Read [guide/08-on-the-shelf.md](guide/08-on-the-shelf.md).
 python3 new-games/tools/wire_shelf.py <id>
 ```
 
-Then draw the box emblem in `src/suite.cpp`, and add the game to the roster
-sentences in `README.md` and `docs/GAME_CATALOG.md`. Run `wire_shelf.py` again
+Then draw the box emblem in `src/suite.cpp`, write its instructions in the shared
+document in `src/help_content.cpp`, and add the game to the roster sentences in
+`README.md` and `docs/GAME_CATALOG.md`. Run `wire_shelf.py` again
 whenever you add a source file to `GAME.json` or a sound to `assets/audio/`.
 
 ### 8. Pass the gate
