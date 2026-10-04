@@ -151,7 +151,7 @@ int box_switches(const Level& level, const std::string& lurd) {
     return n;
 }
 
-GenResult generate(const GenParams& p, std::stop_token stop) {
+GenResult generate(const GenParams& p, CancellationToken stop) {
     GenResult res;
     Rng rng(p.seed);
     for (int attempt = 1; attempt <= p.attempts; ++attempt) {

@@ -9,7 +9,7 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
-#include <stop_token>
+#include "cancellation.hpp"
 #include <string>
 
 namespace {
@@ -100,7 +100,11 @@ void motion_checks() {
 void cancellation_checks() {
     ct::Level level;
     require(ct::Level::parse("#######\n#@ $ .#\n#######\n", level), "parse cancellation fixture");
-    std::stop_source cancellation; cancellation.request_stop();
+    ct::CancellationSource cancellation;
+    const ct::CancellationToken token=cancellation.get_token();
+    require(!token.stop_requested(), "fresh cancellation token permits search");
+    cancellation.request_stop();
+    require(token.stop_requested(), "existing token observes source cancellation");
     const ct::SolveResult cancelled = ct::solve(level, 2000000, cancellation.get_token());
     require(!cancelled.solved && cancelled.exhausted, "cancelled hint is unknown, never a false unsolvable result");
     ct::GenParams parameters;

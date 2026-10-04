@@ -8,7 +8,7 @@
 #include "level.hpp"
 
 #include <cstdint>
-#include <stop_token>
+#include "cancellation.hpp"
 
 namespace ct {
 
@@ -34,7 +34,7 @@ struct GenResult {
     int deepest = 0;                                    // the deepest backward search seen
 };
 
-GenResult generate(const GenParams& p, std::stop_token stop = {});
+GenResult generate(const GenParams& p, CancellationToken stop = {});
 
 // How often the solution switches from one pumpkin to another.
 int box_switches(const Level& level, const std::string& lurd);

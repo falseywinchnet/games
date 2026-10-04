@@ -66,7 +66,7 @@ std::string walk(const Level& lv, const std::vector<std::uint8_t>& occ, int a, i
 }
 }  // namespace
 
-SolveResult solve(const Board& board, long long node_limit, std::stop_token stop) {
+SolveResult solve(const Board& board, long long node_limit, CancellationToken stop) {
     const Level& lv = board.level();
     SolveResult res;
     const int N = lv.w * lv.h;
@@ -152,7 +152,7 @@ SolveResult solve(const Board& board, long long node_limit, std::stop_token stop
     return res;
 }
 
-SolveResult solve(const Level& level, long long node_limit, std::stop_token stop) {
+SolveResult solve(const Level& level, long long node_limit, CancellationToken stop) {
     Board b;
     if (!b.load(level)) return {};
     return solve(b, node_limit, stop);

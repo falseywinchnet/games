@@ -93,7 +93,7 @@ private:
     struct Worker {
         std::thread th;
         std::atomic<bool> done{false};
-        std::stop_source cancellation;
+        CancellationSource cancellation;
         std::mutex m;
         SolveResult solve;
         LevelEntry level;

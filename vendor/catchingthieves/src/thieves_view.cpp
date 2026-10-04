@@ -332,7 +332,7 @@ void ThievesView::generate_worker(Worker* worker, int tier, std::uint64_t seed) 
     parameters.w = tr.w; parameters.h = tr.h; parameters.boxes = tr.boxes;
     parameters.min_pushes = tr.min_pushes; parameters.reverse_budget = tr.budget;
     parameters.seed = seed;
-    const std::stop_token stop = (*worker).cancellation.get_token();
+    const CancellationToken stop = (*worker).cancellation.get_token();
     GenResult result = generate(parameters, stop);
     if (!result.ok && !stop.stop_requested()) {
         parameters.boxes = std::max(2, parameters.boxes - 1);

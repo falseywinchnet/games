@@ -6,7 +6,7 @@
 #include "level.hpp"
 
 #include <string>
-#include <stop_token>
+#include "cancellation.hpp"
 
 namespace ct {
 
@@ -19,7 +19,7 @@ struct SolveResult {
 };
 
 // From the board's current position. `node_limit` caps the search.
-SolveResult solve(const Board& board, long long node_limit = 2000000, std::stop_token stop = {});
-SolveResult solve(const Level& level, long long node_limit = 2000000, std::stop_token stop = {});
+SolveResult solve(const Board& board, long long node_limit = 2000000, CancellationToken stop = {});
+SolveResult solve(const Level& level, long long node_limit = 2000000, CancellationToken stop = {});
 
 }  // namespace ct
