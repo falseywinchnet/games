@@ -51,12 +51,18 @@ struct PuzzleFramebufferTest {
             const std::uint32_t* observed = reinterpret_cast<const std::uint32_t*>(
                 actual.pixels().data() + y * actual.row_bytes());
             for (std::uint32_t x = 0; x < actual.width(); ++x)
-                if (observed[x] != bgra(expected[x], (*reference).channel_order()))
+                if (observed[x] != bgra(expected[x], (*reference).channel_order())) {
+                    if (mismatches < 8)
+                        std::cerr << "pixel " << x << ',' << y << " expected=" << std::hex
+                                  << bgra(expected[x], (*reference).channel_order())
+                                  << " observed=" << observed[x] << std::dec << '\n';
                     ++mismatches;
+                }
         }
         if (mismatches)
             std::cerr << puzzle_slug(view.game.kind) << " reference mismatch pixels=" << mismatches
-                      << '\n';
+                      << " scale=" << view.framebuffer_scale_ << " hover=" << view.hover_
+                      << " size=" << bounds.width << 'x' << bounds.height << '\n';
         require(mismatches == 0,
                 "Cached partial frame equals a full native redraw pixel for pixel");
     }
