@@ -1,3 +1,4 @@
+#include "help_route.hpp"
 #include "runtime_paths.hpp"
 #include "koi_view.hpp"
 
@@ -711,6 +712,8 @@ void KoiView::on_key(gf::KeyEvent& e) {
 }
 
 void KoiView::action(const std::string& id) {
+    if ((id == "rules" || id == "sets") && games::route_help(*this, id))
+        return;
     play("kk_click", .4f);
     if (id == "rules") panel_ = Panel::rules;
     else if (id == "sets") panel_ = Panel::sets;

@@ -1,3 +1,4 @@
+#include "help_route.hpp"
 #include "eggy_view.hpp"
 
 #include "audio.hpp"
@@ -421,7 +422,7 @@ void EggyView::tick() {
     else music_hold_ = 0;
     std::string want = panel_ == Panel::title ? "eggy_title" : music_for(music_biome_);
     if (s.ceremony_t >= 0 || s.finished) want = "eggy_summit";
-    audio_music(want, save_.settings.music);
+    audio_music(want, opt_.hosted || save_.settings.music);
     {
         const SegmentInfo seg = s.world.segment_at(s.d.v);
         float water = 0;
@@ -615,6 +616,8 @@ void EggyView::new_climb() {
 
 // ------------------------------------------------------------------ UI
 void EggyView::open(Panel p) {
+    if (p == Panel::help && games::route_help(*this))
+        return;
     panel_ = p;
     pressed_.clear();
     layout_buttons();
@@ -633,10 +636,10 @@ void EggyView::layout_render_buttons() {
     if ((*rendering_).panel_ == Panel::none) {
         add_right("zoom_in", " + ");
         add_right("zoom_out", " - ");
-        add_right("music", (*rendering_).save_.settings.music ? "MUSIC ON" : "MUSIC OFF");
+        if (!opt_.hosted) add_right("music", (*rendering_).save_.settings.music ? "MUSIC ON" : "MUSIC OFF");
         add_right("sound", (*rendering_).save_.settings.sound ? "SOUND ON" : "SOUND OFF");
         add_right("scores", "TOP SCORES");
-        add_right("help", "HELP");
+        if (!opt_.hosted) add_right("help", "HELP");
         add_right("new", "NEW CLIMB");
         return;
     }

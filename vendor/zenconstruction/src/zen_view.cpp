@@ -1,3 +1,4 @@
+#include "help_route.hpp"
 #include "zen_view.hpp"
 #include "runtime_paths.hpp"
 
@@ -742,6 +743,8 @@ void ZenView::publish() {
 // ---------------------------------------------------------------- input
 
 void ZenView::action(const std::string& id) {
+    if (id == "help" && games::route_help(*this, id))
+        return;
     play("zc_click", .5f);
     if (id == "help") {
         panel_ = panel_ == Panel::help ? Panel::none : Panel::help;

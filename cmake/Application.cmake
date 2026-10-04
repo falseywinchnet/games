@@ -25,7 +25,8 @@ target_link_libraries(vendor_game_ui PUBLIC eggy_core sbx_core fp_core ap_core z
     game_audio_adapters game_text_frames game_felt pt_core ld_core sh_core kk_core GUIForms::Application)
 target_compile_definitions(vendor_game_ui PRIVATE _USE_MATH_DEFINES)
 add_library(game_ui src/table.cpp src/presentation.cpp src/puzzle_view.cpp src/collection.cpp
-    src/sudoku_view.cpp src/suite.cpp src/text_sprites.cpp src/shelf.cpp src/capsule.cpp src/kitten.cpp)
+    src/sudoku_view.cpp src/suite.cpp src/text_sprites.cpp src/shelf.cpp src/capsule.cpp src/kitten.cpp
+    src/help_book.cpp src/help_content.cpp)
 target_include_directories(game_ui PUBLIC src PRIVATE vendor/paint)
 target_link_libraries(game_ui PUBLIC game_rules game_solver game_raster sudoku_generator vendor_game_ui)
 if(NOT MSVC)

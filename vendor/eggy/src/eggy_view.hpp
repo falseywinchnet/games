@@ -20,6 +20,7 @@ namespace eggy {
 namespace gf = gui_forms;
 
 struct Options {
+    bool hosted = false; // the collection owns help and music preferences
     bool dev = false;          // separate save file, warp allowed
     double warp_v = -1;        // start at this row (dev)
     bool summit = false;       // warp next to the summit (dev)
@@ -28,6 +29,7 @@ struct Options {
 
 class EggyView final : public gf::Control {
 public:
+    bool editing_name() const { return panel_ == Panel::finale && !score_saved_; }
     EggyView(gf::StableId id, Options opt);
     static constexpr bool initialize_tree_after_construction = true;
     void initialize_control_tree() {}

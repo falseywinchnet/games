@@ -24,11 +24,13 @@ namespace sbx {
 namespace gf = gui_forms;
 
 struct Options {
+    bool hosted = false; // the collection owns help and music preferences
     bool dev = false;  // separate save file
 };
 
 class SwitchboxView final : public gf::Control {
 public:
+    bool editing_name() const { return panel_ == Panel::name; }
     SwitchboxView(gf::StableId id, Options opt);
     static constexpr bool initialize_tree_after_construction = true;
     void initialize_control_tree() {}

@@ -1,3 +1,4 @@
+#include "help_route.hpp"
 #include "runtime_paths.hpp"
 #include "sheep_view.hpp"
 
@@ -585,6 +586,8 @@ void SheepView::action(const std::string& id) {
 }
 
 void SheepView::open(Panel p) {
+    if (p == Panel::help && games::route_help(*this))
+        return;
     panel_ = p;
     pressed_.clear();
     layout_buttons();

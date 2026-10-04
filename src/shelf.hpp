@@ -65,6 +65,7 @@ class ShelfView final : public gf::Control {
     TextSprites& sprites_;
     std::array<std::shared_ptr<ShelfBox>, entry_count> boxes_{};
     std::shared_ptr<LaunchCurtain> curtain_;
+    std::shared_ptr<gf::Label> credits_;
     bool launching_ = false;
     double launch_t_ = 0;
     void launch(Entry entry);

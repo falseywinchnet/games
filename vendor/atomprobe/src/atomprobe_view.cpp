@@ -1,3 +1,4 @@
+#include "help_route.hpp"
 #include "atomprobe_view.hpp"
 
 #include "platform/audio.hpp"
@@ -176,7 +177,7 @@ void AtomProbeView::arrange(gf::Rect bounds) {
 
 void AtomProbeView::on_paint(gf::Painter& p, gf::Rect) {
     const gf::Rect b = client_rectangle();
-    if (surface_ && !direct_) p.draw_live_surface(surface_, b);
+    if (surface_) p.draw_live_surface(surface_, b);
     else p.fill_rect(b, gf::Color::rgba(6, 10, 14));
 }
 
@@ -477,7 +478,7 @@ void AtomProbeView::tick() {
         else pending_score_ = 0;
     }
     {
-        const bool on = save_.settings.music && cab_music_ && cab_front_;
+        const bool on = (opt_.hosted || save_.settings.music) && cab_music_ && cab_front_;
         audio_music(visible() && cab_front_ ? "ap_music" : "", on);
     }
     audio_tick(dt);
@@ -663,6 +664,8 @@ void AtomProbeView::action(const std::string& id) {
 }
 
 void AtomProbeView::open(Panel p) {
+    if (p == Panel::help && games::route_help(*this))
+        return;
     panel_ = p;
     pressed_.clear();
     layout_buttons();

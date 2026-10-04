@@ -1,6 +1,7 @@
 #include "sudoku_view.hpp"
 #include "audio.hpp"
 #include "gui_forms/window.hpp"
+#include "help_route.hpp"
 #include "presentation.hpp"
 #include "storage.hpp"
 #include "suite.hpp"
@@ -262,6 +263,8 @@ void SudokuView::on_paint(gf::Painter& p, gf::Rect) {
     }
 }
 void SudokuView::panel(int kind) {
+    if (kind == 1 && games::route_help(*this))
+        return;
     panel_ = kind;
     for (int i = 0; i < 17; ++i)
         (*buttons_[i]).set_enabled(!kind && !busy_);

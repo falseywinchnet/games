@@ -16,6 +16,25 @@
 
 namespace {
 namespace gf = gui_forms;
+class ExposurePainter final : public gf::Painter {
+  public:
+    std::shared_ptr<gf::LiveSurface> presented;
+    gf::Rect destination{};
+    void save() override {}
+    void restore() override {}
+    void translate(gf::Point) override {}
+    void clip_rect(gf::Rect) override {}
+    void fill_rect(gf::Rect, gf::Color) override {}
+    void stroke_rect(gf::Rect, gf::Color, double) override {}
+    void draw_line(gf::Point, gf::Point, gf::Color, double) override {}
+    void draw_text_utf8(gf::Point, std::string_view, gf::FontSpec, gf::Color) override {}
+    void draw_image(gf::ImageId, gf::Rect, double) override {}
+    void draw_live_surface(std::shared_ptr<gf::LiveSurface> surface, gf::Rect bounds,
+                           double) override {
+        presented = std::move(surface);
+        destination = bounds;
+    }
+};
 void set_foreground(gf::Control& view, bool foreground) {
     if (fp::FourPegsView* game = dynamic_cast<fp::FourPegsView*>(&view))
         (*game).set_cabinet(foreground, false, false, true);
@@ -168,6 +187,10 @@ int main(const int argc, char** const argv) {
 #endif
         require(first.width() == 1180 && first.height() == 800,
                 "Complete game frame has requested dimensions");
+        ExposurePainter exposure;
+        (*view).on_paint(exposure, (*view).client_rectangle());
+        require(exposure.presented == surface && exposure.destination == (*view).client_rectangle(),
+                "An ordinary expose replays the latest surface without waiting for publication");
         write_frame(first, previews / (game + "-portable-game.ppm"));
         const std::vector<std::byte> retained(first.pixels().begin(), first.pixels().end());
         const std::uint64_t initial = first.generation();

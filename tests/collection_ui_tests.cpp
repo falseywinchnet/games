@@ -9,6 +9,7 @@ namespace gf = gui_forms;
 using namespace games;
 class NullPainter final : public gf::Painter {
   public:
+    std::set<std::string> text_seen;
     void save() override {}
     void restore() override {}
     void translate(gf::Point) override {}
@@ -16,7 +17,9 @@ class NullPainter final : public gf::Painter {
     void fill_rect(gf::Rect, gf::Color) override {}
     void stroke_rect(gf::Rect, gf::Color, double) override {}
     void draw_line(gf::Point, gf::Point, gf::Color, double) override {}
-    void draw_text_utf8(gf::Point, std::string_view, gf::FontSpec, gf::Color) override {}
+    void draw_text_utf8(gf::Point, std::string_view text, gf::FontSpec, gf::Color) override {
+        text_seen.emplace(text);
+    }
     void draw_image(gf::ImageId, gf::Rect, double) override {}
 };
 class OffsetHost final : public gf::Control {
@@ -272,7 +275,7 @@ int main() {
                                      eggy = child(*collection, "collection.eggy"),
                                      cards = child(*collection, "collection.cards");
         assert(shelf && capsule && !eggy && !cards);
-        assert((*collection).children().size() == 2);
+        assert((*collection).children().size() == 4);
         assert((*shelf).visible() && !(*capsule).visible());
         // PlaySuite lists all thirteen games in one place, with no categories.
         for (int i = 0; i < entry_count; ++i)
@@ -364,11 +367,13 @@ int main() {
                !child(*collection, "collection.puzzle.3"));
         std::shared_ptr<gf::Control> fourpegs = visit(Entry::pegs, "fourpegs.view");
         assert(!(*switchbox).visible());
-        // Capsule commands reach hosted games: Help opens and closes the game's own panel.
+        // Hosted explanations open the shared document, not the game's former popup.
         open_capsule();
-        assert((*button(*capsule, "capsule.cmd.help")).perform_click());
-        assert((*std::static_pointer_cast<fp::FourPegsView>(fourpegs)).host_panel() == "help");
-        assert((*button(*capsule, "capsule.cmd.help")).perform_click());
+        assert(!button(*capsule, "capsule.cmd.help"));
+        (*std::static_pointer_cast<fp::FourPegsView>(fourpegs)).host_command("help");
+        assert((*collection).help_open());
+        assert(window.active_focus_scope_root() == child(*collection, "collection.help-book"));
+        (*collection).close_help();
         assert((*std::static_pointer_cast<fp::FourPegsView>(fourpegs)).host_panel().empty());
         assert((*button(*capsule, "capsule.back")).perform_click());
         assert((*shelf).visible() && !(*fourpegs).visible());
@@ -379,12 +384,13 @@ int main() {
         assert((*std::static_pointer_cast<ap::AtomProbeView>(atomprobe)).host_panel() == "scores");
         assert((*button(*capsule, "capsule.back")).perform_click());
         assert((*shelf).visible() && !(*atomprobe).visible());
-        for (Entry entry : {Entry::koikoi, Entry::parrots, Entry::liarsdice, Entry::penthesheep, Entry::rockstack}) {
+        for (Entry entry : {Entry::koikoi, Entry::parrots, Entry::liarsdice, Entry::penthesheep,
+                            Entry::rockstack}) {
             (*collection).open_entry(entry);
             window.perform_layout();
             open_capsule();
             const std::string id = entry == Entry::koikoi ? "rules" : "help";
-            assert((*button(*capsule, "capsule.cmd." + id)).perform_click());
+            assert(!button(*capsule, "capsule.cmd." + id));
             CommandSource* source = nullptr;
             for (const std::shared_ptr<gf::Control>& candidate : (*collection).children())
                 if ((*candidate).visible()) {
@@ -393,12 +399,9 @@ int main() {
                         source = match;
                 }
             assert(source);
-            bool checked = false;
-            for (const GameCommand& command : (*source).commands())
-                if (command.id == id)
-                    checked = command.checked;
-            assert(checked);
-            assert((*button(*capsule, "capsule.cmd." + id)).perform_click());
+            (*source).run_command(id);
+            assert((*collection).help_open());
+            (*collection).close_help();
             for (const GameCommand& command : (*source).commands())
                 if (command.id == id)
                     assert(!command.checked);
@@ -432,6 +435,52 @@ int main() {
         for (int i = 0; i < entry_count; ++i) {
             (*collection).open_entry(static_cast<Entry>(i));
             window.perform_layout();
+            // The same corner link and shortcuts work over every render path.
+            const std::shared_ptr<gf::Button> help = button(*collection, "collection.help");
+            assert(help && (*help).visible());
+            click(window, *help, {18, 18});
+            assert((*collection).help_open());
+            window.perform_layout();
+            painter.text_seen.clear();
+            static_cast<void>(window.paint(painter));
+            assert(painter.text_seen.contains("PlaySuite · Help"));
+            assert(painter.text_seen.contains(entry_info(static_cast<Entry>(i)).title));
+            assert(painter.text_seen.contains("×"));
+            std::shared_ptr<HelpPages> pages;
+            for (const std::shared_ptr<gf::Control>& child : (*collection).children())
+                if (std::dynamic_pointer_cast<HelpBook>(child))
+                    for (const std::shared_ptr<gf::Control>& page : (*child).children())
+                        if (std::dynamic_pointer_cast<HelpPages>(page))
+                            pages = std::static_pointer_cast<HelpPages>(page);
+            assert(pages);
+            gf::KeyEvent key;
+            key.physical_key = gf::PhysicalKey::page_down;
+            assert(window.dispatch_key(key));
+            window.perform_layout();
+            assert((*pages).scroll_position().y > 0);
+            key.physical_key = gf::PhysicalKey::page_up;
+            assert(window.dispatch_key(key));
+            window.perform_layout();
+            assert((*pages).scroll_position().y == 0);
+            key.physical_key = gf::PhysicalKey::m;
+            Cabinet before, after;
+            assert(load_cabinet(cabinet_path(), before));
+            assert(window.dispatch_key(key));
+            assert(load_cabinet(cabinet_path(), after) && after.music != before.music);
+            assert((*collection).help_open() && window.focus_scope_depth() == 1);
+            key.repeat = true;
+            assert(window.dispatch_key(key));
+            assert(load_cabinet(cabinet_path(), after) && after.music != before.music);
+            key.repeat = false;
+            assert(window.dispatch_key(key));
+            key.physical_key = gf::PhysicalKey::h;
+            assert(window.dispatch_key(key));
+            assert(!(*collection).help_open() && window.focus_scope_depth() == 0);
+            assert(window.dispatch_key(key));
+            assert((*collection).help_open());
+            key.physical_key = gf::PhysicalKey::escape;
+            assert(window.dispatch_key(key));
+            assert(!(*collection).help_open());
             // Invoke through hit-testing, not perform_click(): a game painted
             // above the capsule must not steal its Back button's pointer input.
             const std::shared_ptr<gf::Button> back = button(*capsule, "capsule.back");

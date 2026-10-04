@@ -1,3 +1,4 @@
+#include "help_route.hpp"
 #include "runtime_paths.hpp"
 #include "table_view.hpp"
 
@@ -673,6 +674,8 @@ void TableView::action(const std::string& id) {
 }
 
 void TableView::open(Panel p) {
+    if (p == Panel::help && games::route_help(*this))
+        return;
     panel_ = p;
     pressed_.clear();
     layout_buttons();

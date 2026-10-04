@@ -5,6 +5,8 @@
 #include "eggy_view.hpp"
 #include "fourpegs_view.hpp"
 #include "gui_forms/timer.hpp"
+#include "help_book.hpp"
+#include "help_route.hpp"
 #include "koi_view.hpp"
 #include "presentation.hpp"
 #include "puzzle_view.hpp"
@@ -21,7 +23,7 @@ namespace games {
 
 // The PlaySuite shell: the shelf of boxed games, every game view, and the command
 // capsule that floats over whichever game is open.
-class Collection final : public gf::Control {
+class Collection final : public gf::Control, public HelpHost {
   public:
     explicit Collection(gf::StableId id);
     ~Collection() override;
@@ -34,6 +36,11 @@ class Collection final : public gf::Control {
     void activate();
     void open_entry(Entry entry);
     void show_shelf();
+    void show_help(std::string_view topic = {}) override;
+    void close_help();
+    [[nodiscard]] bool help_open() const {
+        return help_ && (*help_).visible();
+    }
     [[nodiscard]] bool shelf_open() const {
         return shelf_open_;
     }
@@ -47,6 +54,9 @@ class Collection final : public gf::Control {
     TextSprites sprites_;
     std::shared_ptr<ShelfView> shelf_;
     std::shared_ptr<CommandCapsule> capsule_;
+    std::shared_ptr<HelpGlyph> help_link_;
+    std::shared_ptr<HelpBook> help_;
+    gf::FocusScopeId help_focus_{};
     std::shared_ptr<Table> cards_;
     std::shared_ptr<SudokuView> sudoku_;
     std::array<std::shared_ptr<PuzzleView>, 8> puzzles_{};
@@ -80,6 +90,7 @@ class Collection final : public gf::Control {
     void refresh_commands();
     void run_command(const std::string& id);
     void toggle(int which);
+    void clicked_help(gf::ButtonBase& button);
     [[nodiscard]] bool uses_rail(Entry entry) const;
     [[nodiscard]] std::shared_ptr<gf::Control> view(Entry entry) const;
     [[nodiscard]] CommandSource* source(Entry entry) const;

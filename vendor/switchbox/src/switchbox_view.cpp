@@ -1,3 +1,4 @@
+#include "help_route.hpp"
 #include "switchbox_view.hpp"
 
 #include "platform/audio.hpp"
@@ -157,7 +158,7 @@ void SwitchboxView::arrange(gf::Rect bounds) {
 
 void SwitchboxView::on_paint(gf::Painter& p, gf::Rect) {
     const gf::Rect b = client_rectangle();
-    if (surface_ && !direct_) p.draw_live_surface(surface_, b);
+    if (surface_) p.draw_live_surface(surface_, b);
     else p.fill_rect(b, gf::Color::rgba(251, 227, 230));
 }
 
@@ -299,7 +300,7 @@ void SwitchboxView::tick() {
         if (bubble_.age > bubble_.dur) bubble_ = Bubble{};
     }
     // one call per tick: switching tracks back and forth would restart the loop
-    audio_music(visible() && cab_front_ ? kMusic : "", save_.settings.music && cab_music_ && cab_front_);
+    audio_music(visible() && cab_front_ ? kMusic : "", (opt_.hosted || save_.settings.music) && cab_music_ && cab_front_);
     audio_tick(dt);
     save_t_ += dt;
     if (save_t_ > 10 || (dirty_ && save_t_ > 2)) { save_t_ = 0; persist(); }
@@ -580,6 +581,8 @@ void SwitchboxView::action(const std::string& id) {
 }
 
 void SwitchboxView::open(Panel p) {
+    if (p == Panel::help && games::route_help(*this))
+        return;
     panel_ = p;
     pressed_.clear();
     layout_buttons();
@@ -614,10 +617,10 @@ void SwitchboxView::layout_render_buttons() {
         x -= 3;
     };
     if ((*rendering_).panel_ == Panel::none) {
-        add_right("music", (*rendering_).save_.settings.music ? "Music on" : "Music off");
+        if (!opt_.hosted) add_right("music", (*rendering_).save_.settings.music ? "Music on" : "Music off");
         add_right("sound", (*rendering_).save_.settings.sound ? "Sound on" : "Sound off");
         add_right("scores", "Top scores");
-        add_right("help", "Help");
+        if (!opt_.hosted) add_right("help", "Help");
         return;
     }
     const int ww = std::min(pw_ - 20, 300), wh = std::min(ph_ - 20, 210);

@@ -1,6 +1,7 @@
 #include "puzzle_view.hpp"
 #include "audio.hpp"
 #include "gui_forms/window.hpp"
+#include "help_route.hpp"
 #include "presentation.hpp"
 #include "storage.hpp"
 #include <algorithm>
@@ -8,6 +9,52 @@
 #include <fstream>
 #include <map>
 namespace games {
+// Retain scenery, animation and foreground text independently, in authored order.
+// These controls own no input; all game interaction stays on PuzzleView.
+class PuzzleScenePart final : public gf::Control {
+  public:
+    PuzzleScenePart(gf::StableId id, PuzzleView& owner, int part)
+        : Control(std::move(id)), owner_(owner), part_(part) {
+        set_hit_test_transparent(true);
+    }
+    void on_paint(gf::Painter& painter, gf::Rect) override {
+        if (part_ == 0)
+            painter.fill_rect(client_rectangle(), gf::Color::rgba(112, 126, 133));
+        if (owner_.game.kind == PuzzleKind::gems)
+            owner_.paint_gems(painter, part_);
+        else
+            owner_.paint_untangle(painter, part_);
+        if (part_ == 2) {
+            const double height = client_rectangle().height;
+            owner_.text(painter, 17, height - 11, owner_.game.message, 13,
+                        gf::Color::rgba(0, 0, 0, 120));
+            owner_.text(painter, 16, height - 12, owner_.game.message, 13,
+                        gf::Color::rgba(231, 238, 247));
+        }
+    }
+
+  private:
+    PuzzleView& owner_;
+    int part_;
+};
+void PuzzleView::invalidate_scene() {
+    refresh_scene();
+    invalidate(gf::Dirty::paint);
+}
+void PuzzleView::refresh_scene() {
+    untangle_geometry_dirty_ = true;
+    for (const std::shared_ptr<gf::Control>& part : scene_parts_)
+        if (part) {
+            (*part).set_visible(panel_ == 0);
+            (*part).invalidate(gf::Dirty::paint);
+        }
+}
+void PuzzleView::invalidate_animation(gf::Rect damage) {
+    if (scene_parts_[1] && !panel_)
+        (*scene_parts_[1]).invalidate(damage);
+    else
+        invalidate(damage);
+}
 static const gf::Color ink = gf::Color::rgba(231, 238, 247), muted = gf::Color::rgba(154, 177, 198),
                        accent = gf::Color::rgba(119, 216, 229);
 static gf::Color peg_color(int n) {
@@ -57,6 +104,13 @@ std::filesystem::path PuzzleView::path() const {
                                                                                : "-v1.txt"));
 }
 void PuzzleView::initialize_control_tree() {
+    if (game.kind == PuzzleKind::gems || game.kind == PuzzleKind::untangle)
+        for (int i = 0; i < 3; ++i) {
+            scene_parts_[i] = gf::make_control<PuzzleScenePart>(
+                gf::StableId(std::string(puzzle_slug(game.kind)) + ".scene." + std::to_string(i)),
+                *this, i);
+            add_child(scene_parts_[i]);
+        }
     const char* labels[] = {"New game", "Help",  "Top scores", "Submit",  "Rotate",
                             "Flip",     "Close", "Save name",  "New game"};
     for (int i = 0; i < 9; ++i) {
@@ -108,6 +162,7 @@ void PuzzleView::on_detaching_from_window(gf::Window& window) noexcept {
             static_cast<void>(window.remove_image(id));
 }
 void PuzzleView::activate() {
+    refresh_scene();
     Cabinet preferences;
     if (load_cabinet(cabinet_path(), preferences)) {
         sound_ = preferences.sound;
@@ -123,10 +178,14 @@ void PuzzleView::activate() {
     if ((game.kind == PuzzleKind::gems || game.kind == PuzzleKind::untangle) && timer_)
         (*timer_).start();
     render();
-    invalidate(gf::Dirty::paint);
+    invalidate_scene();
 }
 void PuzzleView::arrange(gf::Rect b) {
     arrange_self(b);
+    for (const std::shared_ptr<gf::Control>& part : scene_parts_)
+        if (part)
+            set_child_layout(part, {0, 0, b.width, b.height});
+    untangle_geometry_dirty_ = true;
     double reserve = game.kind == PuzzleKind::solve                                   ? 496.0
                      : game.kind == PuzzleKind::pegs || game.kind == PuzzleKind::atom ? 424.0
                                                                                       : 300.0;
@@ -334,15 +393,16 @@ void PuzzleView::render() {
     // Board pixels do not change the surrounding legend or command capsule.
     // Patching keeps damage local; a resized raster still replaces the image.
     gf::Window& window = *attached_window();
+    gf::Control& consumer = scene_parts_[1] ? *scene_parts_[1] : *this;
     gf::ImageLoadResult result =
         !image_.value ? window.load_bgra32_premultiplied(raster_.width, raster_.height,
                                                          raster_.width * 4, raster_.pixels)
         : image_size_ ==
                 gf::Size{static_cast<double>(raster_.width), static_cast<double>(raster_.height)}
             ? window.patch_bgra32_premultiplied(image_, 0, 0, raster_.width, raster_.height,
-                                                raster_.width * 4, raster_.pixels, *this, board_)
+                                                raster_.width * 4, raster_.pixels, consumer, board_)
             : window.replace_bgra32_premultiplied(image_, raster_.width, raster_.height,
-                                                  raster_.width * 4, raster_.pixels, *this);
+                                                  raster_.width * 4, raster_.pixels, consumer);
     if (result) {
         image_ = result.image;
         image_size_ = {static_cast<double>(raster_.width), static_cast<double>(raster_.height)};
@@ -442,173 +502,181 @@ void PuzzleView::step_effects() {
     shake_ = std::max(0.0, shake_ - dt * 2.6);
     callout_life_ = std::max(0.0, callout_life_ - dt);
 }
-void PuzzleView::paint_gems(gf::Painter& p) {
+void PuzzleView::paint_gems(gf::Painter& p, int part) {
     const gf::Rect b = client_rectangle();
-    // Velvet workspace under a jeweller's lamp.
-    p.fill_rect(b, gf::Color::rgba(26, 16, 44));
-    const gf::GradientStop lamp[] = {{0, gf::Color::rgba(86, 52, 128)},
-                                     {1, gf::Color::rgba(22, 12, 38)}};
-    p.fill_radial_gradient(b, {board_.x + board_.width * .5, board_.y + board_.height * .45},
-                           {b.width * .75, b.height * .85}, lamp);
     const double cell = board_.width / 8;
     const double t = std::chrono::duration<double>(gf::FrameClock::now() - clock_start_).count();
     const gf::Point shake{shake_ > 0 ? std::sin(t * 61) * shake_ * cell * .08 : 0,
                           shake_ > 0 ? std::cos(t * 47) * shake_ * cell * .08 : 0};
+    if (part < 0 || part == 0) {
+        // Velvet workspace under a jeweller's lamp.
+        p.fill_rect(b, gf::Color::rgba(26, 16, 44));
+        const gf::GradientStop lamp[] = {{0, gf::Color::rgba(86, 52, 128)},
+                                         {1, gf::Color::rgba(22, 12, 38)}};
+        p.fill_radial_gradient(b, {board_.x + board_.width * .5, board_.y + board_.height * .45},
+                               {b.width * .75, b.height * .85}, lamp);
+    }
     p.save();
     p.translate(shake);
-    const gf::Rect tray{board_.x - 10, board_.y - 10, board_.width + 20, board_.height + 20};
-    p.draw_box_shadow(tray, 18, {0, 10}, 28, 0, gf::Color::rgba(0, 0, 0, 150));
-    const gf::GradientStop rim[] = {{0, gf::Color::rgba(250, 214, 140)},
-                                    {.5, gf::Color::rgba(178, 126, 52)},
-                                    {1, gf::Color::rgba(120, 78, 26)}};
-    p.save();
-    p.clip_rounded_rect(tray, 18);
-    p.fill_linear_gradient(tray, {tray.x, tray.y}, {tray.x + tray.width, tray.y + tray.height},
-                           rim);
-    p.restore();
-    p.fill_rounded_rect(board_, 12, gf::Color::rgba(14, 10, 30));
-    p.draw_inset_box_shadow(board_, 12, {0, 4}, 14, 0, gf::Color::rgba(0, 0, 0, 160));
-    for (int i = 0; i < 64; ++i)
-        if ((i / 8 + i % 8) % 2 == 0)
-            p.fill_rounded_rect(
-                {board_.x + (i % 8) * cell + 2, board_.y + (i / 8) * cell + 2, cell - 4, cell - 4},
-                cell * .16, gf::Color::rgba(44, 30, 74, 150));
-    if (hover_ >= 0 && hover_ < 64 && animation_duration_ <= 0)
-        p.fill_rounded_rect({board_.x + (hover_ % 8) * cell + 2, board_.y + (hover_ / 8) * cell + 2,
-                             cell - 4, cell - 4},
-                            cell * .16, gf::Color::rgba(255, 220, 150, 40));
-    if (gem_pick_ >= 0 && animation_duration_ <= 0) {
-        const double pulse = .5 + .5 * std::sin(t * 7);
-        const gf::Rect pick{board_.x + (gem_pick_ % 8) * cell + 1,
-                            board_.y + (gem_pick_ / 8) * cell + 1, cell - 2, cell - 2};
-        p.fill_rounded_rect(
-            pick, cell * .18,
-            gf::Color::rgba(255, 214, 120, static_cast<unsigned char>(50 + 40 * pulse)));
-        // The four neighbors it can trade places with.
-        for (const int d : {-8, 8, -1, 1}) {
-            const int n = gem_pick_ + d;
-            if (n < 0 || n >= 64 || ((d == 1 || d == -1) && n / 8 != gem_pick_ / 8))
-                continue;
-            p.fill_rounded_rect(
-                {board_.x + (n % 8) * cell + 4, board_.y + (n / 8) * cell + 4, cell - 8, cell - 8},
-                cell * .16, gf::Color::rgba(255, 230, 170, 26));
-        }
+    if (part < 0 || part == 0) {
+        const gf::Rect tray{board_.x - 10, board_.y - 10, board_.width + 20, board_.height + 20};
+        p.draw_box_shadow(tray, 18, {0, 10}, 28, 0, gf::Color::rgba(0, 0, 0, 150));
+        const gf::GradientStop rim[] = {{0, gf::Color::rgba(250, 214, 140)},
+                                        {.5, gf::Color::rgba(178, 126, 52)},
+                                        {1, gf::Color::rgba(120, 78, 26)}};
+        p.save();
+        p.clip_rounded_rect(tray, 18);
+        p.fill_linear_gradient(tray, {tray.x, tray.y}, {tray.x + tray.width, tray.y + tray.height},
+                               rim);
+        p.restore();
+        p.fill_rounded_rect(board_, 12, gf::Color::rgba(14, 10, 30));
+        p.draw_inset_box_shadow(board_, 12, {0, 4}, 14, 0, gf::Color::rgba(0, 0, 0, 160));
+        for (int i = 0; i < 64; ++i)
+            if ((i / 8 + i % 8) % 2 == 0)
+                p.fill_rounded_rect({board_.x + (i % 8) * cell + 2, board_.y + (i / 8) * cell + 2,
+                                     cell - 4, cell - 4},
+                                    cell * .16, gf::Color::rgba(44, 30, 74, 150));
     }
-    if (image_.value)
-        p.draw_image(image_, board_);
-    if (gem_pick_ >= 0 && animation_duration_ <= 0) {
-        const double pulse = .5 + .5 * std::sin(t * 7);
-        const gf::Rect pick{board_.x + (gem_pick_ % 8) * cell + 2,
-                            board_.y + (gem_pick_ / 8) * cell + 2, cell - 4, cell - 4};
-        p.stroke_rounded_rect(
-            pick, cell * .16,
-            gf::Color::rgba(255, 222, 140, static_cast<unsigned char>(150 + 100 * pulse)), 2.5);
-    }
-    // Effects over the gems.
-    struct GemPosition {
-        gf::Rect board_;
-        double cell;
-        gf::Point operator()(double x, double y) const {
-            return gf::Point{board_.x + x * cell, board_.y + y * cell};
-        }
-    };
-    GemPosition at{board_, cell};
-    for (const GemEffect& e : effects_) {
-        const double k = std::clamp(e.age / e.life, 0.0, 1.0), fade = 1 - k;
-        const gf::Color c = e.color;
-        switch (e.kind) {
-        case GemEffect::shard: {
-            const gf::Point q = at(e.x, e.y);
-            const double r = e.size * cell * (1 - k * .5);
-            std::vector<gf::Point> tri;
-            for (int v = 0; v < 3; ++v)
-                tri.push_back(
-                    {q.x + std::cos(e.spin + v * 2.1) * r, q.y + std::sin(e.spin + v * 2.1) * r});
-            paint_polygon(
-                p, tri,
-                gf::Color::rgba(c.red, c.green, c.blue, static_cast<unsigned char>(240 * fade)));
-            break;
-        }
-        case GemEffect::ring: {
-            const gf::Point q = at(e.x, e.y);
-            const double r = cell * (.25 + e.size * k);
-            p.stroke_rounded_rect(
-                {q.x - r, q.y - r, 2 * r, 2 * r}, r,
-                gf::Color::rgba(255, 255, 255, static_cast<unsigned char>(200 * fade)),
-                2.5 * fade + .5);
-            break;
-        }
-        case GemEffect::shock: {
-            const gf::Point q = at(e.x, e.y);
-            const double r = cell * (.3 + e.size * k);
-            p.stroke_rounded_rect(
-                {q.x - r, q.y - r, 2 * r, 2 * r}, r,
-                gf::Color::rgba(255, 236, 190, static_cast<unsigned char>(230 * fade)),
-                cell * .12 * fade + 1);
-            const gf::GradientStop glow[] = {
-                {0, gf::Color::rgba(255, 240, 200, static_cast<unsigned char>(160 * fade))},
-                {1, gf::Color::rgba(255, 200, 120, 0)}};
-            p.fill_radial_gradient({q.x - r, q.y - r, 2 * r, 2 * r}, q, {r, r}, glow);
-            break;
-        }
-        case GemEffect::beam_row:
-        case GemEffect::beam_column: {
-            const bool row = e.kind == GemEffect::beam_row;
-            const gf::Point q = at(e.x, e.y);
-            const double half = cell * (.12 + .3 * fade);
-            const gf::Rect beam = row ? gf::Rect{board_.x, q.y - half, board_.width, half * 2}
-                                      : gf::Rect{q.x - half, board_.y, half * 2, board_.height};
-            const gf::GradientStop stops[] = {
-                {0, gf::Color::rgba(255, 255, 255, 0)},
-                {.5, gf::Color::rgba(255, 252, 230, static_cast<unsigned char>(230 * fade))},
-                {1, gf::Color::rgba(255, 255, 255, 0)}};
-            p.fill_linear_gradient(beam,
-                                   row ? gf::Point{beam.x, beam.y} : gf::Point{beam.x, beam.y},
-                                   row ? gf::Point{beam.x, beam.y + beam.height}
-                                       : gf::Point{beam.x + beam.width, beam.y},
-                                   stops);
-            break;
-        }
-        case GemEffect::points: {
-            const gf::Point q = at(e.x, e.y);
-            const std::string label = "+" + std::to_string(static_cast<int>(e.size));
-            const gf::FontSpec f{gf::FontRole::content, std::clamp(cell * .42, 14.0, 26.0), 800,
-                                 false};
-            const gf::Size m = p.measure_text_utf8(label, f);
-            const unsigned char alpha = static_cast<unsigned char>(255 * std::min(1.0, fade * 2));
-            p.draw_text_utf8({q.x - m.width * .5 + 1.5, q.y + 2}, label, f,
-                             gf::Color::rgba(30, 10, 40, alpha));
-            p.draw_text_utf8({q.x - m.width * .5, q.y}, label, f,
-                             gf::Color::rgba(255, 244, 214, alpha));
-            break;
-        }
-        case GemEffect::bolt: {
-            // A jagged bolt from the hypercube to a cleared gem, re-jittered each frame.
-            std::uint32_t seed =
-                static_cast<std::uint32_t>(e.spin) + static_cast<std::uint32_t>(t * 20);
-            gf::Point prev = at(e.x, e.y);
-            for (int seg = 1; seg <= 6; ++seg) {
-                const double f = seg / 6.0;
-                gf::Point next = at(e.x + e.vx * f, e.y + e.vy * f);
-                if (seg < 6) {
-                    next.x += (unit_random(seed) - .5) * cell * .45;
-                    next.y += (unit_random(seed) - .5) * cell * .45;
-                }
-                p.draw_line(
-                    prev, next,
-                    gf::Color::rgba(c.red, c.green, c.blue, static_cast<unsigned char>(200 * fade)),
-                    4);
-                p.draw_line(prev, next,
-                            gf::Color::rgba(255, 255, 255, static_cast<unsigned char>(240 * fade)),
-                            1.6);
-                prev = next;
+    if (part < 0 || part == 1) {
+        if (hover_ >= 0 && hover_ < 64 && animation_duration_ <= 0)
+            p.fill_rounded_rect({board_.x + (hover_ % 8) * cell + 2,
+                                 board_.y + (hover_ / 8) * cell + 2, cell - 4, cell - 4},
+                                cell * .16, gf::Color::rgba(255, 220, 150, 40));
+        if (gem_pick_ >= 0 && animation_duration_ <= 0) {
+            const double pulse = .5 + .5 * std::sin(t * 7);
+            const gf::Rect pick{board_.x + (gem_pick_ % 8) * cell + 1,
+                                board_.y + (gem_pick_ / 8) * cell + 1, cell - 2, cell - 2};
+            p.fill_rounded_rect(
+                pick, cell * .18,
+                gf::Color::rgba(255, 214, 120, static_cast<unsigned char>(50 + 40 * pulse)));
+            // The four neighbors it can trade places with.
+            for (const int d : {-8, 8, -1, 1}) {
+                const int n = gem_pick_ + d;
+                if (n < 0 || n >= 64 || ((d == 1 || d == -1) && n / 8 != gem_pick_ / 8))
+                    continue;
+                p.fill_rounded_rect({board_.x + (n % 8) * cell + 4, board_.y + (n / 8) * cell + 4,
+                                     cell - 8, cell - 8},
+                                    cell * .16, gf::Color::rgba(255, 230, 170, 26));
             }
-            break;
         }
+        if (image_.value)
+            p.draw_image(image_, board_);
+        if (gem_pick_ >= 0 && animation_duration_ <= 0) {
+            const double pulse = .5 + .5 * std::sin(t * 7);
+            const gf::Rect pick{board_.x + (gem_pick_ % 8) * cell + 2,
+                                board_.y + (gem_pick_ / 8) * cell + 2, cell - 4, cell - 4};
+            p.stroke_rounded_rect(
+                pick, cell * .16,
+                gf::Color::rgba(255, 222, 140, static_cast<unsigned char>(150 + 100 * pulse)), 2.5);
+        }
+        // Effects over the gems.
+        struct GemPosition {
+            gf::Rect board_;
+            double cell;
+            gf::Point operator()(double x, double y) const {
+                return gf::Point{board_.x + x * cell, board_.y + y * cell};
+            }
+        };
+        GemPosition at{board_, cell};
+        for (const GemEffect& e : effects_) {
+            const double k = std::clamp(e.age / e.life, 0.0, 1.0), fade = 1 - k;
+            const gf::Color c = e.color;
+            switch (e.kind) {
+            case GemEffect::shard: {
+                const gf::Point q = at(e.x, e.y);
+                const double r = e.size * cell * (1 - k * .5);
+                std::vector<gf::Point> tri;
+                for (int v = 0; v < 3; ++v)
+                    tri.push_back({q.x + std::cos(e.spin + v * 2.1) * r,
+                                   q.y + std::sin(e.spin + v * 2.1) * r});
+                paint_polygon(p, tri,
+                              gf::Color::rgba(c.red, c.green, c.blue,
+                                              static_cast<unsigned char>(240 * fade)));
+                break;
+            }
+            case GemEffect::ring: {
+                const gf::Point q = at(e.x, e.y);
+                const double r = cell * (.25 + e.size * k);
+                p.stroke_rounded_rect(
+                    {q.x - r, q.y - r, 2 * r, 2 * r}, r,
+                    gf::Color::rgba(255, 255, 255, static_cast<unsigned char>(200 * fade)),
+                    2.5 * fade + .5);
+                break;
+            }
+            case GemEffect::shock: {
+                const gf::Point q = at(e.x, e.y);
+                const double r = cell * (.3 + e.size * k);
+                p.stroke_rounded_rect(
+                    {q.x - r, q.y - r, 2 * r, 2 * r}, r,
+                    gf::Color::rgba(255, 236, 190, static_cast<unsigned char>(230 * fade)),
+                    cell * .12 * fade + 1);
+                const gf::GradientStop glow[] = {
+                    {0, gf::Color::rgba(255, 240, 200, static_cast<unsigned char>(160 * fade))},
+                    {1, gf::Color::rgba(255, 200, 120, 0)}};
+                p.fill_radial_gradient({q.x - r, q.y - r, 2 * r, 2 * r}, q, {r, r}, glow);
+                break;
+            }
+            case GemEffect::beam_row:
+            case GemEffect::beam_column: {
+                const bool row = e.kind == GemEffect::beam_row;
+                const gf::Point q = at(e.x, e.y);
+                const double half = cell * (.12 + .3 * fade);
+                const gf::Rect beam = row ? gf::Rect{board_.x, q.y - half, board_.width, half * 2}
+                                          : gf::Rect{q.x - half, board_.y, half * 2, board_.height};
+                const gf::GradientStop stops[] = {
+                    {0, gf::Color::rgba(255, 255, 255, 0)},
+                    {.5, gf::Color::rgba(255, 252, 230, static_cast<unsigned char>(230 * fade))},
+                    {1, gf::Color::rgba(255, 255, 255, 0)}};
+                p.fill_linear_gradient(beam,
+                                       row ? gf::Point{beam.x, beam.y} : gf::Point{beam.x, beam.y},
+                                       row ? gf::Point{beam.x, beam.y + beam.height}
+                                           : gf::Point{beam.x + beam.width, beam.y},
+                                       stops);
+                break;
+            }
+            case GemEffect::points: {
+                const gf::Point q = at(e.x, e.y);
+                const std::string label = "+" + std::to_string(static_cast<int>(e.size));
+                const gf::FontSpec f{gf::FontRole::content, std::clamp(cell * .42, 14.0, 26.0), 800,
+                                     false};
+                const gf::Size m = p.measure_text_utf8(label, f);
+                const unsigned char alpha =
+                    static_cast<unsigned char>(255 * std::min(1.0, fade * 2));
+                p.draw_text_utf8({q.x - m.width * .5 + 1.5, q.y + 2}, label, f,
+                                 gf::Color::rgba(30, 10, 40, alpha));
+                p.draw_text_utf8({q.x - m.width * .5, q.y}, label, f,
+                                 gf::Color::rgba(255, 244, 214, alpha));
+                break;
+            }
+            case GemEffect::bolt: {
+                // A jagged bolt from the hypercube to a cleared gem, re-jittered each frame.
+                std::uint32_t seed =
+                    static_cast<std::uint32_t>(e.spin) + static_cast<std::uint32_t>(t * 20);
+                gf::Point prev = at(e.x, e.y);
+                for (int seg = 1; seg <= 6; ++seg) {
+                    const double f = seg / 6.0;
+                    gf::Point next = at(e.x + e.vx * f, e.y + e.vy * f);
+                    if (seg < 6) {
+                        next.x += (unit_random(seed) - .5) * cell * .45;
+                        next.y += (unit_random(seed) - .5) * cell * .45;
+                    }
+                    p.draw_line(prev, next,
+                                gf::Color::rgba(c.red, c.green, c.blue,
+                                                static_cast<unsigned char>(200 * fade)),
+                                4);
+                    p.draw_line(
+                        prev, next,
+                        gf::Color::rgba(255, 255, 255, static_cast<unsigned char>(240 * fade)),
+                        1.6);
+                    prev = next;
+                }
+                break;
+            }
+            }
         }
     }
     p.restore();
-    if (callout_life_ > 0 && !callout_.empty()) {
+    if ((part < 0 || part == 1) && callout_life_ > 0 && !callout_.empty()) {
         const double k = 1 - callout_life_ / 1.1;
         const gf::FontSpec f{gf::FontRole::content,
                              std::min(44.0, cell * .8) *
@@ -625,7 +693,7 @@ void PuzzleView::paint_gems(gf::Painter& p) {
         p.draw_text_utf8({x, y}, callout_, f, gf::Color::rgba(255, 226, 140, alpha));
     }
     // Legend card (left), shown when there is room.
-    if (board_.x > 230) {
+    if ((part < 0 || part == 2) && board_.x > 230) {
         const gf::Rect card{std::max(14.0, board_.x - 250), board_.y, 214, 300};
         p.draw_box_shadow(card, 8, {0, 4}, 12, 0, gf::Color::rgba(0, 0, 0, 110));
         fill_vertical(p, card, gf::Color::rgba(58, 36, 92, 235), gf::Color::rgba(36, 22, 60, 235));
@@ -659,96 +727,7 @@ double PuzzleView::untangle_radius() const {
 // Untangle: yarn tied to wooden pegs on a tufted cushion, watched by a cat. Each color of
 // yarn is its own layer; snags mark where a thread crosses its own color. When the last snag
 // clears, the yarn warms to gold, a ripple runs outward and the cat curls up in the web.
-void PuzzleView::paint_untangle(gf::Painter& p) {
-    const gf::Rect b = client_rectangle();
-    const double t = std::chrono::duration<double>(gf::FrameClock::now() - clock_start_).count();
-    // A warm wooden floor under a tufted velvet cushion.
-    fill_vertical(p, b, gf::Color::rgba(94, 60, 38), gf::Color::rgba(60, 36, 22));
-    for (double x = -40; x < b.width; x += 74) {
-        p.draw_line({x, 0}, {x, b.height}, gf::Color::rgba(40, 22, 12, 120), 2);
-        p.draw_line({x + 2, 0}, {x + 2, b.height}, gf::Color::rgba(160, 110, 70, 40), 1);
-    }
-    const gf::GradientStop lamp[] = {{0, gf::Color::rgba(255, 210, 150, 60)},
-                                     {1, gf::Color::rgba(0, 0, 0, 0)}};
-    p.fill_radial_gradient(b, {board_.x + board_.width * .5, board_.y + board_.height * .3},
-                           {b.width * .6, b.height * .7}, lamp);
-    const double pad = std::max(14.0, board_.width * .045);
-    const gf::Rect cushion{board_.x - pad, board_.y - pad, board_.width + 2 * pad,
-                           board_.height + 2 * pad};
-    p.draw_box_shadow(cushion, pad * 1.4, {0, 12}, 30, 0, gf::Color::rgba(20, 6, 10, 170));
-    p.save();
-    p.clip_rounded_rect(cushion, pad * 1.4);
-    const gf::GradientStop velvet[] = {{0, gf::Color::rgba(150, 62, 96)},
-                                       {.7, gf::Color::rgba(104, 36, 66)},
-                                       {1, gf::Color::rgba(70, 20, 44)}};
-    p.fill_radial_gradient(cushion,
-                           {cushion.x + cushion.width * .45, cushion.y + cushion.height * .4},
-                           {cushion.width * .75, cushion.height * .75}, velvet);
-    // Tufting: buttons on a diamond grid with soft creases between them.
-    const double pitch = board_.width / 4;
-    std::vector<gf::Point> tufts;
-    for (int row = 0; row <= 4; ++row)
-        for (int col = 0; col <= 4; ++col) {
-            const double x = board_.x + col * pitch + (row % 2 ? pitch * .5 : 0);
-            if (x > board_.x + board_.width + 1)
-                continue;
-            tufts.push_back({x, board_.y + row * pitch});
-        }
-    for (const gf::Point a : tufts)
-        for (const gf::Point c : tufts) {
-            const double dx = c.x - a.x, dy = c.y - a.y;
-            if (dy > 0 && std::abs(std::abs(dx) - pitch * .5) < 1 && std::abs(dy - pitch) < 1) {
-                p.draw_line(a, c, gf::Color::rgba(50, 10, 30, 70), 3);
-                p.draw_line({a.x + 1.5, a.y}, {c.x + 1.5, c.y}, gf::Color::rgba(220, 120, 160, 26),
-                            1.5);
-            }
-        }
-    for (const gf::Point a : tufts) {
-        const double r = std::max(3.0, board_.width * .011);
-        p.fill_rounded_rect({a.x - r * 1.8, a.y - r * 1.8, r * 3.6, r * 3.6}, r * 1.8,
-                            gf::Color::rgba(40, 6, 24, 60));
-        const gf::Rect button{a.x - r, a.y - r, 2 * r, 2 * r};
-        const gf::GradientStop shine[] = {{0, gf::Color::rgba(236, 150, 186)},
-                                          {1, gf::Color::rgba(92, 24, 54)}};
-        p.save();
-        p.clip_rounded_rect(button, r);
-        p.fill_radial_gradient(button, {a.x - r * .35, a.y - r * .4}, {r * 1.6, r * 1.6}, shine);
-        p.restore();
-    }
-    p.restore();
-    // Gold piping round the edge.
-    p.stroke_rounded_rect(cushion, pad * 1.4, gf::Color::rgba(120, 82, 30), 5);
-    p.stroke_rounded_rect(cushion, pad * 1.4, gf::Color::rgba(232, 190, 104), 2.4);
-    const int layers = game.untangle_layers();
-    const gf::Color yarn[] = {gf::Color::rgba(228, 76, 70), gf::Color::rgba(80, 136, 236),
-                              gf::Color::rgba(240, 190, 58)};
-    // A ball of the first yarn in the corner, the end of its thread trailing off.
-    if (cushion.x > 110) {
-        const double r = std::min(46.0, cushion.x * .2);
-        const gf::Point ball{cushion.x - r - 16, cushion.y + cushion.height - r};
-        const gf::GradientStop shade[] = {{0, gf::Color::rgba(20, 6, 10, 130)},
-                                          {1, gf::Color::rgba(20, 6, 10, 0)}};
-        p.fill_radial_gradient({ball.x - r * 1.3, ball.y + r * .5, r * 2.6, r * .9},
-                               {ball.x, ball.y + r * .92}, {r * 1.2, r * .4}, shade);
-        p.fill_rounded_rect({ball.x - r, ball.y - r, 2 * r, 2 * r}, r, yarn[0]);
-        for (int k = 0; k < 7; ++k) {
-            const double a = k * .45 - .6;
-            std::vector<gf::Point> arc;
-            for (int s = 0; s <= 12; ++s) {
-                const double u = -1.3 + s * 2.6 / 12;
-                arc.push_back({ball.x + std::cos(a) * r * .9 * std::sin(u) - std::sin(a) * r * .3,
-                               ball.y + std::sin(a) * r * .9 * std::sin(u) +
-                                   std::cos(a) * r * .9 * std::cos(u) * .35});
-            }
-            for (std::size_t s = 1; s < arc.size(); ++s)
-                p.draw_line(arc[s - 1], arc[s], mix_color(yarn[0], gf::Color::rgba(0, 0, 0), .28),
-                            1.6);
-        }
-        const gf::GradientStop gloss[] = {{0, gf::Color::rgba(255, 255, 255, 70)},
-                                          {1, gf::Color::rgba(255, 255, 255, 0)}};
-        p.fill_radial_gradient({ball.x - r, ball.y - r, 2 * r, 2 * r},
-                               {ball.x - r * .4, ball.y - r * .45}, {r, r}, gloss);
-    }
+bool PuzzleView::update_untangle_geometry() {
     std::vector<Point2> positions = game.state.nodes;
     if (swat_peg_ >= 0 && swat_peg_ < static_cast<int>(positions.size()) && swat_t_ < 1) {
         const double k = 1 - (1 - swat_t_) * (1 - swat_t_);
@@ -757,6 +736,18 @@ void PuzzleView::paint_untangle(gf::Painter& p) {
     }
     if (drag_ >= 0)
         positions[drag_] = drag_position_;
+    bool changed = untangle_geometry_dirty_ || positions.size() != untangle_positions_.size();
+    if (!changed)
+        for (std::size_t i = 0; i < positions.size(); ++i)
+            if (positions[i].x != untangle_positions_[i].x ||
+                positions[i].y != untangle_positions_[i].y) {
+                changed = true;
+                break;
+            }
+    if (!changed)
+        return false;
+    untangle_geometry_dirty_ = false;
+    untangle_positions_ = positions;
     struct BoardPosition {
         gf::Rect board_;
         gf::Point operator()(Point2 q) const {
@@ -781,184 +772,306 @@ void PuzzleView::paint_untangle(gf::Painter& p) {
                     snags.push_back(at({p0.x + s * (p1.x - p0.x), p0.y + s * (p1.y - p0.y)}));
                 }
             }
-    const int crossings = game.crossings();
+    untangle_crossed_ = std::move(crossed);
+    untangle_snags_ = std::move(snags);
+    untangle_crossings_ = game.crossings();
+    return true;
+}
+void PuzzleView::paint_untangle(gf::Painter& p, int part) {
+    const gf::Rect b = client_rectangle();
+    const double t = std::chrono::duration<double>(gf::FrameClock::now() - clock_start_).count();
+    const double pad = std::max(14.0, board_.width * .045);
+    const gf::Rect cushion{board_.x - pad, board_.y - pad, board_.width + 2 * pad,
+                           board_.height + 2 * pad};
+    const int layers = game.untangle_layers();
+    const gf::Color yarn[] = {gf::Color::rgba(228, 76, 70), gf::Color::rgba(80, 136, 236),
+                              gf::Color::rgba(240, 190, 58)};
+    if (part < 0 || part == 0) {
+        // A warm wooden floor under a tufted velvet cushion.
+        fill_vertical(p, b, gf::Color::rgba(94, 60, 38), gf::Color::rgba(60, 36, 22));
+        for (double x = -40; x < b.width; x += 74) {
+            p.draw_line({x, 0}, {x, b.height}, gf::Color::rgba(40, 22, 12, 120), 2);
+            p.draw_line({x + 2, 0}, {x + 2, b.height}, gf::Color::rgba(160, 110, 70, 40), 1);
+        }
+        const gf::GradientStop lamp[] = {{0, gf::Color::rgba(255, 210, 150, 60)},
+                                         {1, gf::Color::rgba(0, 0, 0, 0)}};
+        p.fill_radial_gradient(b, {board_.x + board_.width * .5, board_.y + board_.height * .3},
+                               {b.width * .6, b.height * .7}, lamp);
+        p.draw_box_shadow(cushion, pad * 1.4, {0, 12}, 30, 0, gf::Color::rgba(20, 6, 10, 170));
+        p.save();
+        p.clip_rounded_rect(cushion, pad * 1.4);
+        const gf::GradientStop velvet[] = {{0, gf::Color::rgba(150, 62, 96)},
+                                           {.7, gf::Color::rgba(104, 36, 66)},
+                                           {1, gf::Color::rgba(70, 20, 44)}};
+        p.fill_radial_gradient(cushion,
+                               {cushion.x + cushion.width * .45, cushion.y + cushion.height * .4},
+                               {cushion.width * .75, cushion.height * .75}, velvet);
+        // Tufting: buttons on a diamond grid with soft creases between them.
+        const double pitch = board_.width / 4;
+        std::vector<gf::Point> tufts;
+        for (int row = 0; row <= 4; ++row)
+            for (int col = 0; col <= 4; ++col) {
+                const double x = board_.x + col * pitch + (row % 2 ? pitch * .5 : 0);
+                if (x > board_.x + board_.width + 1)
+                    continue;
+                tufts.push_back({x, board_.y + row * pitch});
+            }
+        for (const gf::Point a : tufts)
+            for (const gf::Point c : tufts) {
+                const double dx = c.x - a.x, dy = c.y - a.y;
+                if (dy > 0 && std::abs(std::abs(dx) - pitch * .5) < 1 && std::abs(dy - pitch) < 1) {
+                    p.draw_line(a, c, gf::Color::rgba(50, 10, 30, 70), 3);
+                    p.draw_line({a.x + 1.5, a.y}, {c.x + 1.5, c.y},
+                                gf::Color::rgba(220, 120, 160, 26), 1.5);
+                }
+            }
+        for (const gf::Point a : tufts) {
+            const double r = std::max(3.0, board_.width * .011);
+            p.fill_rounded_rect({a.x - r * 1.8, a.y - r * 1.8, r * 3.6, r * 3.6}, r * 1.8,
+                                gf::Color::rgba(40, 6, 24, 60));
+            const gf::Rect button{a.x - r, a.y - r, 2 * r, 2 * r};
+            const gf::GradientStop shine[] = {{0, gf::Color::rgba(236, 150, 186)},
+                                              {1, gf::Color::rgba(92, 24, 54)}};
+            p.save();
+            p.clip_rounded_rect(button, r);
+            p.fill_radial_gradient(button, {a.x - r * .35, a.y - r * .4}, {r * 1.6, r * 1.6},
+                                   shine);
+            p.restore();
+        }
+        p.restore();
+        // Gold piping round the edge.
+        p.stroke_rounded_rect(cushion, pad * 1.4, gf::Color::rgba(120, 82, 30), 5);
+        p.stroke_rounded_rect(cushion, pad * 1.4, gf::Color::rgba(232, 190, 104), 2.4);
+        // A ball of the first yarn in the corner, the end of its thread trailing off.
+        if (cushion.x > 110) {
+            const double r = std::min(46.0, cushion.x * .2);
+            const gf::Point ball{cushion.x - r - 16, cushion.y + cushion.height - r};
+            const gf::GradientStop shade[] = {{0, gf::Color::rgba(20, 6, 10, 130)},
+                                              {1, gf::Color::rgba(20, 6, 10, 0)}};
+            p.fill_radial_gradient({ball.x - r * 1.3, ball.y + r * .5, r * 2.6, r * .9},
+                                   {ball.x, ball.y + r * .92}, {r * 1.2, r * .4}, shade);
+            p.fill_rounded_rect({ball.x - r, ball.y - r, 2 * r, 2 * r}, r, yarn[0]);
+            for (int k = 0; k < 7; ++k) {
+                const double a = k * .45 - .6;
+                std::vector<gf::Point> arc;
+                for (int s = 0; s <= 12; ++s) {
+                    const double u = -1.3 + s * 2.6 / 12;
+                    arc.push_back(
+                        {ball.x + std::cos(a) * r * .9 * std::sin(u) - std::sin(a) * r * .3,
+                         ball.y + std::sin(a) * r * .9 * std::sin(u) +
+                             std::cos(a) * r * .9 * std::cos(u) * .35});
+                }
+                for (std::size_t s = 1; s < arc.size(); ++s)
+                    p.draw_line(arc[s - 1], arc[s],
+                                mix_color(yarn[0], gf::Color::rgba(0, 0, 0), .28), 1.6);
+            }
+            const gf::GradientStop gloss[] = {{0, gf::Color::rgba(255, 255, 255, 70)},
+                                              {1, gf::Color::rgba(255, 255, 255, 0)}};
+            p.fill_radial_gradient({ball.x - r, ball.y - r, 2 * r, 2 * r},
+                                   {ball.x - r * .4, ball.y - r * .45}, {r, r}, gloss);
+        }
+    }
+    if (part <= 0)
+        static_cast<void>(update_untangle_geometry());
+    const std::vector<Point2>& positions = untangle_positions_;
+    const std::vector<bool>& crossed = untangle_crossed_;
+    const std::vector<gf::Point>& snags = untangle_snags_;
+    const int crossings = untangle_crossings_;
+    struct BoardPosition {
+        gf::Rect board_;
+        gf::Point operator()(Point2 q) const {
+            return {board_.x + q.x * board_.width, board_.y + q.y * board_.height};
+        }
+    };
+    const BoardPosition at{board_};
+    const int edge_count = static_cast<int>(game.state.edges.size());
     const double celebrate = game.state.won && animation_duration_ > 0
                                  ? std::clamp(elapsed() / animation_duration_, 0.0, 1.0)
                                  : -1;
     const gf::Point center = at({.5, .5});
     const double thread = std::clamp(board_.width * .0105, 3.0, 7.0);
-    // Threads, lowest color layer first, each a twisted strand of yarn.
-    for (int layer = 0; layer < layers; ++layer)
-        for (int i = 0; i < edge_count; ++i) {
-            if (game.untangle_layer(i) != layer)
-                continue;
-            const Edge e = game.state.edges[i];
-            const gf::Point a = at(positions[e.a]), c = at(positions[e.b]);
-            gf::Color color = yarn[layer];
-            if (game.state.won) {
-                // Gold spreads outward from the middle as the ripple passes.
-                const double d =
-                    std::hypot((a.x + c.x) * .5 - center.x, (a.y + c.y) * .5 - center.y) /
-                    board_.width;
-                const double wave =
-                    celebrate < 0 ? .35 : std::clamp((celebrate * 1.6 - d) * 4, 0.0, 1.0) * .7;
-                color = mix_color(color, gf::Color::rgba(255, 220, 120), wave);
-            }
-            const double w = crossed[i] ? thread * .85 : thread;
-            p.draw_line({a.x + 1, a.y + 2.5}, {c.x + 1, c.y + 2.5}, gf::Color::rgba(30, 4, 16, 70),
-                        w + 2);
-            p.draw_line(a, c, mix_color(color, gf::Color::rgba(0, 0, 0), .35), w + 1.6);
-            p.draw_line(a, c, color, w);
-            // The ply: short bright twists along the strand.
-            const double length = std::hypot(c.x - a.x, c.y - a.y);
-            if (length > 1) {
-                const double ux = (c.x - a.x) / length, uy = (c.y - a.y) / length;
-                const gf::Color ply = mix_color(color, gf::Color::rgba(255, 255, 255), .38);
-                for (double s = w; s < length - w * .5; s += w * 1.5) {
-                    const gf::Point q{a.x + ux * s, a.y + uy * s};
-                    p.draw_line(
-                        {q.x - ux * w * .35 - uy * w * .4, q.y - uy * w * .35 + ux * w * .4},
-                        {q.x + ux * w * .35 + uy * w * .4, q.y + uy * w * .35 - ux * w * .4}, ply,
-                        std::max(1.0, w * .3));
+    if (part < 0 || part == 0) {
+        // Threads, lowest color layer first, each a twisted strand of yarn.
+        for (int layer = 0; layer < layers; ++layer)
+            for (int i = 0; i < edge_count; ++i) {
+                if (game.untangle_layer(i) != layer)
+                    continue;
+                const Edge e = game.state.edges[i];
+                const gf::Point a = at(positions[e.a]), c = at(positions[e.b]);
+                gf::Color color = yarn[layer];
+                if (game.state.won) {
+                    // Gold spreads outward from the middle as the ripple passes.
+                    const double d =
+                        std::hypot((a.x + c.x) * .5 - center.x, (a.y + c.y) * .5 - center.y) /
+                        board_.width;
+                    const double wave =
+                        celebrate < 0 ? .35 : std::clamp((celebrate * 1.6 - d) * 4, 0.0, 1.0) * .7;
+                    color = mix_color(color, gf::Color::rgba(255, 220, 120), wave);
+                }
+                const double w = crossed[i] ? thread * .85 : thread;
+                p.draw_line({a.x + 1, a.y + 2.5}, {c.x + 1, c.y + 2.5},
+                            gf::Color::rgba(30, 4, 16, 70), w + 2);
+                p.draw_line(a, c, mix_color(color, gf::Color::rgba(0, 0, 0), .35), w + 1.6);
+                p.draw_line(a, c, color, w);
+                // The ply: short bright twists along the strand.
+                const double length = std::hypot(c.x - a.x, c.y - a.y);
+                if (length > 1) {
+                    const double ux = (c.x - a.x) / length, uy = (c.y - a.y) / length;
+                    const gf::Color ply = mix_color(color, gf::Color::rgba(255, 255, 255), .38);
+                    for (double s = w; s < length - w * .5; s += w * 1.5) {
+                        const gf::Point q{a.x + ux * s, a.y + uy * s};
+                        p.draw_line(
+                            {q.x - ux * w * .35 - uy * w * .4, q.y - uy * w * .35 + ux * w * .4},
+                            {q.x + ux * w * .35 + uy * w * .4, q.y + uy * w * .35 - ux * w * .4},
+                            ply, std::max(1.0, w * .3));
+                    }
                 }
             }
+    }
+    if (part < 0 || part == 1) {
+        // Snags where same-colored threads cross, pulsing gently.
+        for (const gf::Point q : snags) {
+            // A small knot with a soft pulsing halo.
+            const double r = thread * (.9 + .15 * std::sin(t * 5));
+            p.fill_rounded_rect({q.x - r * 2, q.y - r * 2, r * 4, r * 4}, r * 2,
+                                gf::Color::rgba(255, 236, 200, 46));
+            p.fill_rounded_rect({q.x - r, q.y - r, 2 * r, 2 * r}, r,
+                                gf::Color::rgba(70, 14, 24, 230));
+            p.stroke_rounded_rect({q.x - r, q.y - r, 2 * r, 2 * r}, r,
+                                  gf::Color::rgba(255, 226, 190, 220), 1.2);
         }
-    // Snags where same-colored threads cross, pulsing gently.
-    for (const gf::Point q : snags) {
-        // A small knot with a soft pulsing halo.
-        const double r = thread * (.9 + .15 * std::sin(t * 5));
-        p.fill_rounded_rect({q.x - r * 2, q.y - r * 2, r * 4, r * 4}, r * 2,
-                            gf::Color::rgba(255, 236, 200, 46));
-        p.fill_rounded_rect({q.x - r, q.y - r, 2 * r, 2 * r}, r, gf::Color::rgba(70, 14, 24, 230));
-        p.stroke_rounded_rect({q.x - r, q.y - r, 2 * r, 2 * r}, r,
-                              gf::Color::rgba(255, 226, 190, 220), 1.2);
-    }
-    if (celebrate >= 0) {
-        const double r = board_.width * (.1 + celebrate * .8);
-        p.stroke_rounded_rect(
-            {center.x - r, center.y - r, 2 * r, 2 * r}, r,
-            gf::Color::rgba(255, 220, 140, static_cast<unsigned char>(200 * (1 - celebrate))), 3);
-    }
-    const double radius = untangle_radius();
-    struct PegPainter {
-        gf::Painter& p;
-        double radius, t;
-        void operator()(const PuzzleGame& game, int i, gf::Point q, bool held, bool hot,
-                        double jiggle) const {
-            q.x += jiggle;
-            const double r = radius * (held ? 1.2 : hot ? 1.1 : 1);
-            const gf::Rect head{q.x - r, q.y - r, 2 * r, 2 * r};
-            p.draw_box_shadow(head, r, {0, held ? 7.0 : 3.0}, held ? 14 : 7, 0,
-                              gf::Color::rgba(30, 4, 16, held ? 150 : 110));
-            const bool frozen = game.untangle_frozen(i);
-            const gf::GradientStop wood[] = {{0, gf::Color::rgba(252, 226, 180)},
-                                             {.6, gf::Color::rgba(206, 150, 92)},
-                                             {1, gf::Color::rgba(122, 76, 40)}};
-            const gf::GradientStop ice[] = {{0, gf::Color::rgba(250, 254, 255)},
-                                            {.6, gf::Color::rgba(176, 218, 246)},
-                                            {1, gf::Color::rgba(92, 146, 204)}};
-            p.save();
-            p.clip_rounded_rect(head, r);
-            p.fill_radial_gradient(head, {q.x - r * .35, q.y - r * .4}, {r * 1.6, r * 1.6},
-                                   frozen ? ice : wood);
-            p.restore();
+        if (celebrate >= 0) {
+            const double r = board_.width * (.1 + celebrate * .8);
             p.stroke_rounded_rect(
-                head, r, frozen ? gf::Color::rgba(60, 110, 170) : gf::Color::rgba(90, 52, 26), 1.3);
-            if (frozen) {
-                // A frost star, slowly glinting.
-                for (int k = 0; k < 3; ++k) {
-                    const double a = k * 1.0472 + t * .2;
-                    p.draw_line({q.x - std::cos(a) * r * .6, q.y - std::sin(a) * r * .6},
-                                {q.x + std::cos(a) * r * .6, q.y + std::sin(a) * r * .6},
-                                gf::Color::rgba(255, 255, 255, 230), 1.4);
-                }
-                const double glint = .5 + .5 * std::sin(t * 3 + i);
+                {center.x - r, center.y - r, 2 * r, 2 * r}, r,
+                gf::Color::rgba(255, 220, 140, static_cast<unsigned char>(200 * (1 - celebrate))),
+                3);
+        }
+        const double radius = untangle_radius();
+        struct PegPainter {
+            gf::Painter& p;
+            double radius, t;
+            void operator()(const PuzzleGame& game, int i, gf::Point q, bool held, bool hot,
+                            double jiggle) const {
+                q.x += jiggle;
+                const double r = radius * (held ? 1.2 : hot ? 1.1 : 1);
+                const gf::Rect head{q.x - r, q.y - r, 2 * r, 2 * r};
+                p.draw_box_shadow(head, r, {0, held ? 7.0 : 3.0}, held ? 14 : 7, 0,
+                                  gf::Color::rgba(30, 4, 16, held ? 150 : 110));
+                const bool frozen = game.untangle_frozen(i);
+                const gf::GradientStop wood[] = {{0, gf::Color::rgba(252, 226, 180)},
+                                                 {.6, gf::Color::rgba(206, 150, 92)},
+                                                 {1, gf::Color::rgba(122, 76, 40)}};
+                const gf::GradientStop ice[] = {{0, gf::Color::rgba(250, 254, 255)},
+                                                {.6, gf::Color::rgba(176, 218, 246)},
+                                                {1, gf::Color::rgba(92, 146, 204)}};
+                p.save();
+                p.clip_rounded_rect(head, r);
+                p.fill_radial_gradient(head, {q.x - r * .35, q.y - r * .4}, {r * 1.6, r * 1.6},
+                                       frozen ? ice : wood);
+                p.restore();
                 p.stroke_rounded_rect(
-                    {q.x - r - 3, q.y - r - 3, 2 * r + 6, 2 * r + 6}, r + 3,
-                    gf::Color::rgba(200, 236, 255, static_cast<unsigned char>(60 + 90 * glint)),
-                    1.5);
-            } else {
-                // The brass pin the yarn is tied to.
-                const double pin = r * .32;
-                p.fill_rounded_rect({q.x - pin, q.y - pin, 2 * pin, 2 * pin}, pin,
-                                    gf::Color::rgba(118, 84, 30));
-                p.fill_rounded_rect({q.x - pin * .55, q.y - pin * .7, pin, pin}, pin * .5,
-                                    gf::Color::rgba(255, 228, 150));
+                    head, r, frozen ? gf::Color::rgba(60, 110, 170) : gf::Color::rgba(90, 52, 26),
+                    1.3);
+                if (frozen) {
+                    // A frost star, slowly glinting.
+                    for (int k = 0; k < 3; ++k) {
+                        const double a = k * 1.0472 + t * .2;
+                        p.draw_line({q.x - std::cos(a) * r * .6, q.y - std::sin(a) * r * .6},
+                                    {q.x + std::cos(a) * r * .6, q.y + std::sin(a) * r * .6},
+                                    gf::Color::rgba(255, 255, 255, 230), 1.4);
+                    }
+                    const double glint = .5 + .5 * std::sin(t * 3 + i);
+                    p.stroke_rounded_rect(
+                        {q.x - r - 3, q.y - r - 3, 2 * r + 6, 2 * r + 6}, r + 3,
+                        gf::Color::rgba(200, 236, 255, static_cast<unsigned char>(60 + 90 * glint)),
+                        1.5);
+                } else {
+                    // The brass pin the yarn is tied to.
+                    const double pin = r * .32;
+                    p.fill_rounded_rect({q.x - pin, q.y - pin, 2 * pin, 2 * pin}, pin,
+                                        gf::Color::rgba(118, 84, 30));
+                    p.fill_rounded_rect({q.x - pin * .55, q.y - pin * .7, pin, pin}, pin * .5,
+                                        gf::Color::rgba(255, 228, 150));
+                }
+                if (hot && !held)
+                    p.stroke_rounded_rect({q.x - r - 4, q.y - r - 4, 2 * r + 8, 2 * r + 8}, r + 4,
+                                          gf::Color::rgba(255, 232, 170, 150), 2);
             }
-            if (hot && !held)
-                p.stroke_rounded_rect({q.x - r - 4, q.y - r - 4, 2 * r + 8, 2 * r + 8}, r + 4,
-                                      gf::Color::rgba(255, 232, 170, 150), 2);
+        };
+        const PegPainter peg{p, radius, t};
+        for (int i = 0; i < static_cast<int>(positions.size()); ++i)
+            if (i != drag_) {
+                const double jiggle =
+                    i == frozen_nudge_ && frozen_nudge_t_ < .45
+                        ? std::sin(frozen_nudge_t_ * 50) * 3 * (1 - frozen_nudge_t_ / .45)
+                        : 0;
+                peg(game, i, at(positions[i]), false, i == hover_, jiggle);
+            }
+        // Thaw puffs: little bursts of frost melting away.
+        for (const ThawPuff& puff : puffs_) {
+            const double k = std::clamp(puff.age / .8, 0.0, 1.0);
+            const gf::Point q = at(puff.at);
+            const double r = radius * (1.2 + k * 2.2);
+            p.stroke_rounded_rect(
+                {q.x - r, q.y - r, 2 * r, 2 * r}, r,
+                gf::Color::rgba(210, 240, 255, static_cast<unsigned char>(220 * (1 - k))),
+                2.5 * (1 - k) + .5);
+            for (int s = 0; s < 6; ++s) {
+                const double a = s * 1.0472 + .3;
+                p.fill_rounded_rect(
+                    {q.x + std::cos(a) * r - 2, q.y + std::sin(a) * r - 2, 4, 4}, 2,
+                    gf::Color::rgba(230, 248, 255, static_cast<unsigned char>(240 * (1 - k))));
+            }
         }
-    };
-    const PegPainter peg{p, radius, t};
-    for (int i = 0; i < static_cast<int>(positions.size()); ++i)
-        if (i != drag_) {
-            const double jiggle =
-                i == frozen_nudge_ && frozen_nudge_t_ < .45
-                    ? std::sin(frozen_nudge_t_ * 50) * 3 * (1 - frozen_nudge_t_ / .45)
-                    : 0;
-            peg(game, i, at(positions[i]), false, i == hover_, jiggle);
-        }
-    // Thaw puffs: little bursts of frost melting away.
-    for (const ThawPuff& puff : puffs_) {
-        const double k = std::clamp(puff.age / .8, 0.0, 1.0);
-        const gf::Point q = at(puff.at);
-        const double r = radius * (1.2 + k * 2.2);
-        p.stroke_rounded_rect(
-            {q.x - r, q.y - r, 2 * r, 2 * r}, r,
-            gf::Color::rgba(210, 240, 255, static_cast<unsigned char>(220 * (1 - k))),
-            2.5 * (1 - k) + .5);
-        for (int s = 0; s < 6; ++s) {
-            const double a = s * 1.0472 + .3;
-            p.fill_rounded_rect(
-                {q.x + std::cos(a) * r - 2, q.y + std::sin(a) * r - 2, 4, 4}, 2,
-                gf::Color::rgba(230, 248, 255, static_cast<unsigned char>(240 * (1 - k))));
-        }
+        kitten_.paint(p, board_);
+        if (drag_ >= 0)
+            peg(game, drag_, at(positions[drag_]), true, true, 0);
     }
-    kitten_.paint(p, board_);
-    if (drag_ >= 0)
-        peg(game, drag_, at(positions[drag_]), true, true, 0);
-    // Status line under the cushion.
-    const char* levels[] = {"Easy", "Medium", "Hard"};
-    const std::string status = game.state.won
-                                   ? "Untangled in " + std::to_string(game.state.moves) + " moves"
-                               : crossings == 1 ? "1 tangle left"
-                                                : std::to_string(crossings) + " tangles left";
-    const gf::FontSpec sf{gf::FontRole::content, 14, 700, false};
-    const std::string line = status + "   ·   " + levels[std::clamp(game.state.aux[94], 0, 2)];
-    const gf::Size sm = p.measure_text_utf8(line, sf);
-    p.draw_text_utf8(
-        {board_.x + (board_.width - sm.width) * .5, cushion.y + cushion.height + 24}, line, sf,
-        game.state.won ? gf::Color::rgba(255, 224, 150) : gf::Color::rgba(255, 236, 214));
-    if (board_.x > 236) {
-        const gf::Rect card{std::max(14.0, board_.x - pad - 240), board_.y, 214, 250};
-        p.draw_box_shadow(card, 8, {0, 4}, 12, 0, gf::Color::rgba(0, 0, 0, 110));
-        fill_vertical(p, card, gf::Color::rgba(252, 242, 222, 245),
-                      gf::Color::rgba(236, 220, 192, 245));
-        p.stroke_rounded_rect(card, 8, gf::Color::rgba(150, 100, 60, 120), 1);
-        const gf::FontSpec caps{gf::FontRole::content, 11, 700, false, 1.2};
-        p.draw_text_utf8({card.x + 14, card.y + 24}, "TIDY THE YARN", caps,
-                         gf::Color::rgba(150, 60, 70));
-        const gf::FontSpec body{gf::FontRole::content, 13, 400, false};
-        const gf::Color ink2 = gf::Color::rgba(70, 44, 30), soft = gf::Color::rgba(124, 92, 66);
-        p.draw_text_utf8({card.x + 14, card.y + 50}, "Drag the pegs until no", body, ink2);
-        p.draw_text_utf8({card.x + 14, card.y + 68}, "thread crosses its own color.", body, ink2);
-        double y = card.y + 98;
-        if (layers > 1) {
-            p.draw_text_utf8({card.x + 14, y}, "Different colors may cross.", body, soft);
-            for (int k = 0; k < layers; ++k)
-                p.draw_line({card.x + 14 + k * 30.0, y + 14}, {card.x + 38 + k * 30.0, y + 14},
-                            yarn[k], 5);
-            y += 40;
+    if (part < 0 || part == 2) {
+        // Status line under the cushion.
+        const char* levels[] = {"Easy", "Medium", "Hard"};
+        const std::string status =
+            game.state.won   ? "Untangled in " + std::to_string(game.state.moves) + " moves"
+            : crossings == 1 ? "1 tangle left"
+                             : std::to_string(crossings) + " tangles left";
+        const gf::FontSpec sf{gf::FontRole::content, 14, 700, false};
+        const std::string line = status + "   ·   " + levels[std::clamp(game.state.aux[94], 0, 2)];
+        const gf::Size sm = p.measure_text_utf8(line, sf);
+        p.draw_text_utf8(
+            {board_.x + (board_.width - sm.width) * .5, cushion.y + cushion.height + 24}, line, sf,
+            game.state.won ? gf::Color::rgba(255, 224, 150) : gf::Color::rgba(255, 236, 214));
+        if (board_.x > 236) {
+            const gf::Rect card{std::max(14.0, board_.x - pad - 240), board_.y, 214, 250};
+            p.draw_box_shadow(card, 8, {0, 4}, 12, 0, gf::Color::rgba(0, 0, 0, 110));
+            fill_vertical(p, card, gf::Color::rgba(252, 242, 222, 245),
+                          gf::Color::rgba(236, 220, 192, 245));
+            p.stroke_rounded_rect(card, 8, gf::Color::rgba(150, 100, 60, 120), 1);
+            const gf::FontSpec caps{gf::FontRole::content, 11, 700, false, 1.2};
+            p.draw_text_utf8({card.x + 14, card.y + 24}, "TIDY THE YARN", caps,
+                             gf::Color::rgba(150, 60, 70));
+            const gf::FontSpec body{gf::FontRole::content, 13, 400, false};
+            const gf::Color ink2 = gf::Color::rgba(70, 44, 30), soft = gf::Color::rgba(124, 92, 66);
+            p.draw_text_utf8({card.x + 14, card.y + 50}, "Drag the pegs until no", body, ink2);
+            p.draw_text_utf8({card.x + 14, card.y + 68}, "thread crosses its own color.", body,
+                             ink2);
+            double y = card.y + 98;
+            if (layers > 1) {
+                p.draw_text_utf8({card.x + 14, y}, "Different colors may cross.", body, soft);
+                for (int k = 0; k < layers; ++k)
+                    p.draw_line({card.x + 14 + k * 30.0, y + 14}, {card.x + 38 + k * 30.0, y + 14},
+                                yarn[k], 5);
+                y += 40;
+            }
+            if (game.state.aux[94] > 0) {
+                p.draw_text_utf8({card.x + 14, y}, "Frosted pegs stay put until", body, soft);
+                p.draw_text_utf8({card.x + 14, y + 18}, "all their threads are clear.", body, soft);
+                y += 46;
+            }
+            p.draw_text_utf8({card.x + 14, y}, "Click the cat to shoo it.", body, soft);
+            if (game.state.aux[94] > 0)
+                p.draw_text_utf8({card.x + 14, y + 18}, "Leave it idle and it swats.", body, soft);
         }
-        if (game.state.aux[94] > 0) {
-            p.draw_text_utf8({card.x + 14, y}, "Frosted pegs stay put until", body, soft);
-            p.draw_text_utf8({card.x + 14, y + 18}, "all their threads are clear.", body, soft);
-            y += 46;
-        }
-        p.draw_text_utf8({card.x + 14, y}, "Click the cat to shoo it.", body, soft);
-        if (game.state.aux[94] > 0)
-            p.draw_text_utf8({card.x + 14, y + 18}, "Leave it idle and it swats.", body, soft);
     }
 }
 static void draw_peg(gf::Painter& p, gf::Rect r, int value, bool selected = false) {
@@ -1710,6 +1823,8 @@ void PuzzleView::paint_help(gf::Painter& p) {
         text(p, popup_.x + 28, popup_.y + 94 + i * 42, lines[i], 14, ink);
 }
 void PuzzleView::on_paint(gf::Painter& p, gf::Rect) {
+    if (scene_parts_[0] && !panel_)
+        return;
     gf::Rect b = client_rectangle();
     p.fill_rect(b, gf::Color::rgba(112, 126, 133));
     if (game.kind == PuzzleKind::atom || game.kind == PuzzleKind::sticks) {
@@ -1789,7 +1904,10 @@ void PuzzleView::on_paint(gf::Painter& p, gf::Rect) {
     }
 }
 void PuzzleView::panel(int kind) {
+    if (kind == 1 && games::route_help(*this))
+        return;
     panel_ = kind;
+    refresh_scene();
     for (int i = 0; i < 6; ++i)
         (*buttons_[i]).set_enabled(!kind);
     (*buttons_[6]).set_visible(kind != 0);
@@ -1801,7 +1919,7 @@ void PuzzleView::panel(int kind) {
     if (attached_window())
         static_cast<void>(
             (*attached_window()).request_focus(kind ? buttons_[6] : shared_from_this()));
-    invalidate(gf::Dirty::paint);
+    invalidate_scene();
 }
 void PuzzleView::persist() {
     if (game.kind == PuzzleKind::pegs)
@@ -1812,6 +1930,7 @@ void PuzzleView::persist() {
 }
 void PuzzleView::changed(const std::string& effect) {
     persist();
+    refresh_scene();
     if (game.state.over && game.state.won && game.kind != PuzzleKind::gems &&
         animation_duration_ <= 0) {
         // A short celebration plays before the Top scores card opens.
@@ -1837,7 +1956,7 @@ void PuzzleView::changed(const std::string& effect) {
         request_render();
     else
         render();
-    invalidate(gf::Dirty::paint);
+    invalidate_scene();
 }
 void PuzzleView::new_game() {
     game.deal(
@@ -1911,7 +2030,7 @@ void PuzzleView::run_command(std::string_view id) {
                                                          : "Hard") +
                            ".";
     }
-    invalidate(gf::Dirty::paint);
+    invalidate_scene();
 }
 void PuzzleView::action(gf::ButtonBase& button) {
     std::string id(button.stable_id().value());
@@ -1947,7 +2066,7 @@ void PuzzleView::action(gf::ButtonBase& button) {
     }
     if (!panel_ && attached_window())
         static_cast<void>((*attached_window()).request_focus(shared_from_this()));
-    invalidate(gf::Dirty::paint);
+    invalidate_scene();
 }
 std::optional<gf::Point> PuzzleView::cube_cell_point(int cell) const {
     double sx = 0, sy = 0;
@@ -2127,6 +2246,34 @@ void PuzzleView::untangle_released(const std::array<int, 96>& marks_before) {
             sound_play("untangle_edges_clear", sound_);
         }
 }
+gf::Rect PuzzleView::untangle_board_damage() const {
+    // Held heads grow by 20%; the shadow reaches three blur radii plus its offset.
+    const double margin = untangle_radius() * 1.2 + 14 * 3 + 7 + 2;
+    return {board_.x - margin, board_.y - margin, board_.width + margin * 2,
+            board_.height + margin * 2};
+}
+gf::Rect PuzzleView::untangle_animation_bounds() const {
+    gf::Rect damage = kitten_.paint_bounds(board_);
+    const double knot = std::clamp(board_.width * .0105, 3.0, 7.0) * 2.1 + 2;
+    for (const gf::Point point : untangle_snags_)
+        damage = gf::Rect::united(damage, {point.x - knot, point.y - knot, knot * 2, knot * 2});
+    const double peg = untangle_radius() + 28;
+    for (std::size_t i = 0; i < untangle_positions_.size(); ++i)
+        if (game.untangle_frozen(static_cast<int>(i)) ||
+            (static_cast<int>(i) == frozen_nudge_ && frozen_nudge_t_ < .45)) {
+            const Point2 at = untangle_positions_[i];
+            const gf::Point point{board_.x + at.x * board_.width, board_.y + at.y * board_.height};
+            damage = gf::Rect::united(damage, {point.x - peg, point.y - peg, peg * 2, peg * 2});
+        }
+    const double puff_radius = untangle_radius() * 3.4 + 4;
+    for (const ThawPuff& puff : puffs_) {
+        const gf::Point point{board_.x + puff.at.x * board_.width,
+                              board_.y + puff.at.y * board_.height};
+        damage = gf::Rect::united(damage, {point.x - puff_radius, point.y - puff_radius,
+                                           puff_radius * 2, puff_radius * 2});
+    }
+    return damage;
+}
 void PuzzleView::tick() {
     if (!effectively_visible()) {
         if (timer_)
@@ -2134,6 +2281,11 @@ void PuzzleView::tick() {
         return;
     }
     bool moving = false;
+    const gf::Rect old_untangle_damage =
+        game.kind == PuzzleKind::untangle ? untangle_animation_bounds() : gf::Rect{};
+    const bool was_celebrating =
+        game.kind == PuzzleKind::untangle && game.state.won && animation_duration_ > 0;
+    const bool was_shaking = shake_ > 0;
     const bool had_outer_effects = !effects_.empty() || shake_ > 0 || callout_life_ > 0;
     if (game.kind == PuzzleKind::gems) {
         step_effects();
@@ -2200,18 +2352,32 @@ void PuzzleView::tick() {
     if (game.kind == PuzzleKind::untangle) {
         untangle_step();
         moving = !panel_ || !puffs_.empty();
-        const double reach = board_.width * .14;
-        invalidate({board_.x - reach, board_.y - reach, board_.width + 2 * reach,
-                    board_.height + 2 * reach});
+        const bool geometry_changed = update_untangle_geometry();
+        if (geometry_changed || animation_duration_ > 0 || was_celebrating) {
+            // A moved peg changes its incident threads and their crossing appearance.
+            // The still scene keeps its retained yarn commands on ordinary cat frames.
+            (*scene_parts_[0]).invalidate(untangle_board_damage());
+            (*scene_parts_[2]).invalidate(gf::Dirty::paint);
+            invalidate_animation(was_celebrating ? client_rectangle() : untangle_board_damage());
+        }
+        invalidate_animation(gf::Rect::united(old_untangle_damage, untangle_animation_bounds()));
     }
     if (game.kind != PuzzleKind::cube || raster_dirty_)
         render();
     // Celebrations draw beyond the board, so the whole view repaints while they run.
-    if ((animation_duration_ > 0 && game.kind != PuzzleKind::gems) || had_outer_effects ||
-        !effects_.empty() || shake_ > 0 || callout_life_ > 0)
-        invalidate(gf::Dirty::paint);
-    else
-        invalidate(board_);
+    if (game.kind == PuzzleKind::gems) {
+        if (was_shaking || shake_ > 0)
+            (*scene_parts_[0]).invalidate(gf::Dirty::paint);
+        invalidate_animation(had_outer_effects || !effects_.empty() || shake_ > 0 ||
+                                     callout_life_ > 0
+                                 ? client_rectangle()
+                                 : board_);
+    } else if (game.kind != PuzzleKind::untangle) {
+        if (animation_duration_ > 0)
+            invalidate_scene();
+        else
+            invalidate_animation(board_);
+    }
     if (!moving && timer_)
         (*timer_).stop();
 }
@@ -2228,12 +2394,12 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                     next = 100 + i;
             if (next != hover_) {
                 hover_ = next;
-                invalidate(gf::Dirty::paint);
+                invalidate_scene();
             }
         }
         if (game.kind == PuzzleKind::solve && drag_ >= 0) {
             solve_pointer_ = local_position;
-            invalidate(gf::Dirty::paint);
+            invalidate_scene();
             e.handled = true;
         }
 
@@ -2244,7 +2410,7 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                 hover_ = cell;
                 if (reduced_) {
                     request_render();
-                    invalidate(board_);
+                    invalidate_animation(board_);
                 }
             }
         }
@@ -2252,13 +2418,18 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
             pointer_seen_ = local_position;
         if (game.kind == PuzzleKind::untangle && drag_ < 0 && hover_ != cell) {
             hover_ = cell;
-            invalidate(board_);
+            invalidate_animation(untangle_board_damage());
         }
         if (game.kind == PuzzleKind::untangle && drag_ >= 0) {
             drag_position_ = {
                 std::clamp((local_position.x - board_.x) / board_.width, .035, .965),
                 std::clamp((local_position.y - board_.y) / board_.height, .035, .965)};
-            invalidate(board_);
+            // Keep yarn and heads in the same input frame, even before the next timer tick.
+            if (update_untangle_geometry()) {
+                (*scene_parts_[0]).invalidate(untangle_board_damage());
+                (*scene_parts_[2]).invalidate(gf::Dirty::paint);
+            }
+            invalidate_animation(untangle_board_damage());
         }
         if (game.kind == PuzzleKind::cube) {
             if (!tracing_) {
@@ -2454,7 +2625,7 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
             if (cell >= 37 && cell < 44)
                 palette_ = cell - 36;
         }
-        invalidate(gf::Dirty::paint);
+        invalidate_scene();
         e.handled = true;
     }
     if (e.action == gf::PointerAction::up) {
@@ -2476,7 +2647,7 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                     sound_play("puzzle_solve_rotate", sound_);
                 }
                 tray_turn_ = false;
-                invalidate(gf::Dirty::paint);
+                invalidate_scene();
             } else if (in_rect(board_, local_position) && solve_snap(x, y) &&
                        game.place_piece(selection_, x, y, rotation_, flip_))
                 changed("puzzle_solve_place");
@@ -2489,7 +2660,7 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                 persist();
             }
             lifted_ = false;
-            invalidate(gf::Dirty::paint);
+            invalidate_scene();
         }
         if (game.kind == PuzzleKind::cube) {
             tracing_ = false;
@@ -2528,7 +2699,7 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                 gem_pick_ = gem_pick_ == from ? -1 : from;
                 if (gem_pick_ >= 0)
                     sound_play("gems_hover", sound_);
-                invalidate(gf::Dirty::paint);
+                invalidate_scene();
             }
             if (timer_)
                 (*timer_).start();
@@ -2566,7 +2737,7 @@ void PuzzleView::on_key(gf::KeyEvent& e) {
         action(*buttons_[3]);
     else
         return;
-    invalidate(gf::Dirty::paint);
+    invalidate_scene();
     e.handled = true;
 }
 void PuzzleView::on_text_input(gf::TextInputEvent& e) {
@@ -2587,6 +2758,6 @@ void PuzzleView::on_text_input(gf::TextInputEvent& e) {
     else
         return;
     e.handled = true;
-    invalidate(gf::Dirty::paint);
+    invalidate_scene();
 }
 } // namespace games

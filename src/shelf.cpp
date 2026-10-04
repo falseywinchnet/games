@@ -1,5 +1,6 @@
 #include "shelf.hpp"
 #include "gui_forms/window.hpp"
+#include "help_content.hpp"
 #include "presentation.hpp"
 #include <algorithm>
 #include <cctype>
@@ -132,6 +133,15 @@ ShelfView::ShelfView(gf::StableId id, TextSprites& sprites)
     set_focusable(false);
 }
 void ShelfView::initialize_control_tree() {
+    credits_ = gf::make_control<gf::Label>(
+        gf::StableId("shelf.credits"),
+        std::string(dedication) + "\n" + std::string(creators) +
+            "\nAuthor: Astra  ·  Sponsor: Rainstar  ·  Contact: " + std::string(contact));
+    (*credits_).set_font({gf::FontRole::content, 13, 400, false});
+    (*credits_).set_foreground(gf::Color::rgba(236, 219, 185));
+    (*credits_).set_text_wrapping(gf::TextWrapping::word);
+    (*credits_).set_alignment(gf::HorizontalAlignment::center);
+    add_child(credits_);
     for (int i = 0; i < entry_count; ++i) {
         boxes_[i] = gf::make_control<ShelfBox>(gf::StableId("shelf.box." + std::to_string(i)),
                                                static_cast<Entry>(i), sprites_);
@@ -312,7 +322,10 @@ void ShelfView::arrange(gf::Rect bounds) {
     const double w = bounds.width, h = bounds.height;
     const bool compact = h < 520 || w < 760;
     header_ = {0, 0, w, compact ? 54.0 : 76.0};
-    ticket_ = {0, h - (compact ? 74.0 : 96.0), w, compact ? 74.0 : 96.0};
+    const double credits_height = (*credits_).measure({w - 32, 10000}).height;
+    set_child_layout(credits_, {16, h - credits_height - 10, w - 32, credits_height});
+    const double footer = credits_height + 20;
+    ticket_ = {0, h - footer - (compact ? 74.0 : 96.0), w, compact ? 74.0 : 96.0};
     const double top = header_.height + 12, bottom = ticket_.y - 4, margin = compact ? 14 : 28;
     const double area_w = w - 2 * margin, area_h = std::max(60.0, bottom - top);
     // Choose the row count that gives the largest boxes that fit both ways.
@@ -352,7 +365,7 @@ void ShelfView::arrange(gf::Rect bounds) {
     set_child_layout(curtain_, {0, 0, w, h});
     const double sw = compact ? 34 : 38;
     for (int i = 0; i < 3; ++i)
-        set_child_layout(switches_[i], {w - (3 - i) * (sw + 6) - (compact ? 10 : 22),
+        set_child_layout(switches_[i], {w - (3 - i) * (sw + 6) - (compact ? 10 : 22) - 44,
                                         (header_.height - sw) * .5, sw, sw});
 }
 void ShelfView::on_paint(gf::Painter& p, gf::Rect) {

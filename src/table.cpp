@@ -2,6 +2,7 @@
 #include "audio.hpp"
 #include "carpet.hpp"
 #include "gui_forms/window.hpp"
+#include "help_route.hpp"
 #include "presentation.hpp"
 #include "solitaire_solver.hpp"
 #include <algorithm>
@@ -645,8 +646,8 @@ void Table::on_paint(gf::Painter& p, gf::Rect) {
         if (game.state.kind == Kind::solitaire) {
             // Earlier discards remain underneath the one/three-card fan.
             // Only the top waste card participates in hit testing and moves.
-            const int buried = std::max(0, static_cast<int>(game.state.piles[15].size()) -
-                                              game.state.draw_count);
+            const int buried =
+                std::max(0, static_cast<int>(game.state.piles[15].size()) - game.state.draw_count);
             const int edges = std::min(8, buried);
             for (int edge = edges; edge > 0; --edge) {
                 gf::Rect layer = slots_[15];
@@ -920,6 +921,8 @@ void Table::draw_panel(gf::Painter& p) {
     }
 }
 void Table::open_panel(int panel) {
+    if (panel == 1 && games::route_help(*this))
+        return;
     panel_ = panel;
     pointer_down_ = false;
     dragging_ = false;

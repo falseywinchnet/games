@@ -18,6 +18,13 @@ of another display interval alone is not.
   capsule. Gem effects that extend outside the board retain full repainting,
   including the final cleanup frame. Unchanged layout reuses the board raster;
   Cube tracing coalesces pointer bursts into the next animation frame.
+- Gems and Untangle retain scenery, animation and foreground text as separate
+  control chunks. Ordinary animation rebuilds only its own chunk. Untangle caches
+  crossing geometry until a peg moves; a quiet board damages the cat's old and
+  new bounds instead of the whole cushion. Dragging updates yarn and pegs together,
+  with shadow margins outside the board. Celebration damage includes its final
+  cleanup. This retains drawing commands, not rendered pixels: host replay and
+  image composition are still measured bottlenecks.
 - Sudoku polls its generation worker without repainting the static waiting
   screen. Completion still publishes the new puzzle and status; celebrations
   retain their animation and final cleanup.
@@ -96,6 +103,51 @@ The collection test verifies lazy creation and still visits the complete roster.
 Audio policy tests cover steady playback without UI polling.
 
 ## Remaining work
+
+### Rendering and presentation audit
+
+The following paths were checked against the application source and pinned
+GUI.Forms revision `3f75e379213de972f78729a591594e70fe65a585`.
+Direct presentation means a registered `LiveSurface` submitted through
+`Window::queue_live_surface_presentation`; merely owning a CPU pixel buffer
+does not establish that path. On the pinned Windows host, a surface matching
+its destination's physical dimensions uses clipped row copies. This is CPU
+presentation, not GPU rendering.
+
+| Games | Presentation | Work while animated | Existing reuse and next boundary |
+| --- | --- | --- | --- |
+| Gems | Registered BGRA image, sampled by `draw_image` | Rebuilds the board raster, including every breathing/glinting gem | Board damage excludes normal shell updates. The image still passes through sampling and composition; a transparent board is not interchangeable with an opaque direct surface. |
+| Nature Cube | Registered BGRA image, sampled by `draw_image` | Renders when its orientation or other raster state changes | Reuses the settled raster and coalesces pointer motion. Rotation still incurs image sampling. |
+| Untangle | Retained GUI.Forms drawing commands | Cat, knots, frozen pegs and effects animate | Retaining commands avoids recording them again, but does not retain their rendered pixels. Static yarn and background commands still replay where their controls intersect damage. |
+| Solitaire, Spider, FreeCell, Hearts | Drawing commands and card images | Moving cards invalidate their old and new bounds; celebrations are broader | Settled animation timers stop; Hearts wakes for the next computer play. A damaged table still records its combined drawing commands and samples overlapping card images. |
+| Sudoku, Solve | Drawing commands | Input feedback and celebrations | Event-driven while settled. These do not need continuous framebuffer publication. |
+| Eggy | Direct live surface | Renders the moving scene and publishes a complete surface | Existing sky reuse, small scene raster and duplicate-row expansion; hidden rendering is suppressed. Camera motion changes much of the view. |
+| Switchbox | Direct live surface | Redraws room, box, switches, actor and effects; publishes a complete surface | Static room/box rendering is a candidate for color/depth reuse, with state and camera invalidation. |
+| Four Pegs | Direct live surface | Redraws room, actor, desk and effects; publishes a complete surface | Room reuse must account for camera shake and changing doom lighting. |
+| Atom Probe | Direct live surface | Redraws chamber, console, atoms, fog, glass and bloom; publishes a complete surface | Transparent passes and bloom spread changes beyond object bounds; cache only stages with explicit dependencies. |
+| Koi-Koi | Direct live surface | Composes and publishes the complete surface while cards, highlights or banners change | Stops its timer after visual, save and audio-transition work settles. Active animation could restore and repaint old/new card bounds. |
+| Parrots | Direct live surface | Redraws room, table, props and birds; publishes a complete surface | Room/table reuse must account for lamp state, bird placement and evidence props. |
+| Liar's Dice | Direct live surface | Redraws room, crew, table and effects; publishes a complete surface | Room reuse must account for tension, lighting and other animated room details. |
+| Pen the Sheep | Direct live surface | Restores cached land, draws animated land, patches and sheep; publishes a complete surface | Static land already has color/depth reuse. Remaining work includes patch geometry, animated scenery, composition and publication. |
+| Rock Stack | Direct live surface | Restores cached scenery, redraws shadows, rocks, crane and brook; publishes a complete surface | Camera-keyed scenery reuse exists. Quiet rendering is paced at about 10 Hz, but shadows and static objects are still redrawn; `Site::render` currently ignores its `still` argument. |
+
+Every production vendor publisher currently submits the complete surface.
+The pinned toolkit's direct presentation drain also derives its clip from the
+visible control, rather than the published frame's damage rectangle. Passing
+a smaller rectangle to `publish` alone therefore does not establish partial
+native presentation. Toolkit support must preserve correctness when generations
+are skipped, buffers rotate, the window is exposed, or overlays move.
+
+The Windows live-surface copy path also does not provide the same alpha blending
+and filtering as ordinary image drawing. Moving Gems to it requires either
+correct shared premultiplied composition or a fully composed opaque board.
+Replacing that path without these semantics would change the artwork.
+
+Use native presentation counters together with process CPU. A low direct-copy
+time can coexist with expensive software scene rendering before publication.
+Conversely, a settled-game sample cannot establish the cost of dragging, dealing,
+rotating or celebrating; measure those interactions separately. Platform source
+inspection does not replace a native measurement on that platform.
 
 Visited games currently retain their render caches as well as their game state.
 Reducing those retained caches needs explicit lifecycle handling so returning to

@@ -26,8 +26,45 @@ AGENTS.md asks for reusable capabilities to become GUI.Forms enhancements, coord
    currently stops producer timers and avoids repeated publication; it does not
    modify this shared host policy.
 
-1. **Retained repaints hide directly presented live views until their next frame.** A full-window repaint (an expose, or `PrintWindow` during automated captures) redraws a direct-presented view from its retained `on_paint`, which is the game's fallback fill. The live pixels return only when the game publishes a new generation, so a game that publishes rarely can look blank after an expose. Automated screenshots must therefore copy from the screen. A fix would be for the retained repaint to composite each registered surface's latest published frame. In the transactional DIB mode, `present_live_surface_updates` also skips presenting while other damage is pending, which makes needless invalidation costly. The PlaySuite shell avoids it: for example, button setters return early when nothing changed.
+1. **Retained repaints hide directly presented live views until their next frame.** A full-window repaint (an expose, or `PrintWindow` during automated captures) redraws a direct-presented view from its retained `on_paint`, which is the game's fallback fill. The live pixels return only when the game publishes a new generation, so a game that publishes rarely can look blank after an expose. Automated screenshots must therefore copy from the screen. A fix would be for the retained repaint to composite each registered surface's latest published frame. In the transactional DIB mode, `present_live_surface_updates` also skips presenting while other damage is pending, which makes needless invalidation costly. The PlaySuite shell avoids it: for example, button setters return early when nothing changed. Each integrated vendor view now also records `draw_live_surface` during ordinary painting so an expose or the help document can restore the latest complete frame without waiting for another publication.
 
 2. **Ordinary controls over a live view.** Only `PaintPlane::overlay` controls are subtracted from direct presentation. The repaint of an ordinary control that overlaps a live view overwrites live pixels until the next frame. The PlaySuite capsule therefore stays within the rail above the four live-surface games.
 
 3. **Letter spacing drops characters.** With `FontSpec::letter_spacing` above zero, the Win32 DIB text path dropped or overlapped spaces, periods and digits. Examples: "Welcome back. Your…" rendered as "Welcome backYour", and "MISTAKES 0" overlapped. Games now uses letter spacing only on static uppercase captions.
+
+## Animated rendering boundaries in the current pin
+
+The following were verified in pinned revision
+`3f75e379213de972f78729a591594e70fe65a585` while auditing frequent updates
+across the eighteen-game collection. The per-game paths are recorded in
+`PERFORMANCE.md`.
+
+1. **Damage propagation for direct live surfaces.** Producers can publish a
+   damage rectangle, but `Window::take_live_surface_presentations` uses the
+   control's visible bounds for changed generations. Carrying conservative
+   damage through to native presentation needs to cover skipped generations,
+   rotating buffer contents, scale changes, exposure and overlay removal.
+   Simply applying the newest frame's rectangle would lose updates when a
+   consumer skips an intermediate frame.
+
+2. **Fast premultiplied image/surface composition.** Gems and Nature Cube use
+   transparent, supersampled CPU rasters with ordinary image drawing. The
+   Windows direct surface path uses copy semantics and cannot preserve that
+   composition by substitution. A shared fast sampling/blending path, or an
+   offscreen `Painter` that can produce an opaque composed board, would avoid
+   application copies of toolkit rendering code. Preserve filtering, alpha,
+   clipping, fractional translation and display scale.
+
+3. **Retained pixels or command bounds during replay.** Separating static and
+   animated controls retains recording, but intersecting chunks still replay
+   every command through the painter. Untangle's stationary yarn contains many
+   short line segments; even a smaller cat damage rectangle incurs their replay
+   overhead. Reusable pixel retention or conservative command culling must
+   preserve painter save/restore, transforms, clips, stroke extents and shadows.
+
+4. **Comparable presentation metrics.** Window `frames_presented` and its
+   duration counter cover retained painting; direct surface copies have separate
+   host `live_presentations` counters. The current application sampling boundary
+   resets only the former. Exposing/resetting both at the same boundary would
+   permit comparable native measurements without counting startup and teardown
+   in one path. Zero retained paints does not mean a live-surface game is idle.

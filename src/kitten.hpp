@@ -32,6 +32,7 @@ class Kitten {
     // Advances the cat; a returned peg index means it has just knocked that peg to `to`.
     Swat step(double dt, const Scene& scene);
     void paint(gf::Painter& p, gf::Rect board) const;
+    [[nodiscard]] gf::Rect paint_bounds(gf::Rect board) const;
     [[nodiscard]] bool hit(Point2 at) const;
     // A click on the cat sends it scampering off.
     void shoo();

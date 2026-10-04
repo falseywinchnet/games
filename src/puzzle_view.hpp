@@ -10,6 +10,7 @@
 #include <optional>
 namespace games {
 namespace gf = gui_forms;
+class PuzzleScenePart;
 class PuzzleView final : public gf::Control, public CommandSource {
   public:
     PuzzleView(gf::StableId id, PuzzleKind kind);
@@ -32,6 +33,19 @@ class PuzzleView final : public gf::Control, public CommandSource {
     PuzzleGame game;
 
   private:
+    friend class PuzzleScenePart;
+    std::array<std::shared_ptr<gf::Control>, 3> scene_parts_;
+    void refresh_scene();
+    void invalidate_scene();
+    void invalidate_animation(gf::Rect damage);
+    bool update_untangle_geometry();
+    [[nodiscard]] gf::Rect untangle_animation_bounds() const;
+    [[nodiscard]] gf::Rect untangle_board_damage() const;
+    std::vector<Point2> untangle_positions_;
+    std::vector<bool> untangle_crossed_;
+    std::vector<gf::Point> untangle_snags_;
+    bool untangle_geometry_dirty_ = true;
+    int untangle_crossings_ = 0;
     std::array<std::shared_ptr<gf::Button>, 9> buttons_;
     std::shared_ptr<gf::TextBox> name_;
     std::vector<gf::SubscriptionToken> subscriptions_;
@@ -122,8 +136,8 @@ class PuzzleView final : public gf::Control, public CommandSource {
     void panel(int kind);
     void new_game();
     void text(gf::Painter&, double, double, const std::string&, double, gf::Color);
-    void paint_gems(gf::Painter&);
-    void paint_untangle(gf::Painter&);
+    void paint_gems(gf::Painter&, int part = -1);
+    void paint_untangle(gf::Painter&, int part = -1);
     void paint_pegs(gf::Painter&);
     void paint_atoms(gf::Painter&);
     void paint_solve(gf::Painter&);

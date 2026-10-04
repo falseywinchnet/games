@@ -77,6 +77,20 @@ void Collection::initialize_control_tree() {
     (*capsule_).back = std::bind_front(&Collection::show_shelf, this);
     (*capsule_).command = std::bind_front(&Collection::run_command, this);
     (*capsule_).toggle = std::bind_front(&Collection::toggle, this);
+    help_link_ = gf::make_control<HelpGlyph>(gf::StableId("collection.help"), "?");
+    (*help_link_).set_accessible_name("PlaySuite help (H)");
+    (*help_link_).set_paint_plane(gf::PaintPlane::overlay);
+    subscriptions_.push_back(
+        (*help_link_)
+            .clicked()
+            .subscribe(
+                *this,
+                gf::Delegate<gf::ButtonBase&>::bind<Collection, &Collection::clicked_help>(*this)));
+    help_ = gf::make_control<HelpBook>(gf::StableId("collection.help-book"));
+    (*help_).close = std::bind_front(&Collection::close_help, this);
+    (*help_).set_visible(false);
+    add_child(help_link_);
+    add_child(help_);
     for (int i = 0; i < entry_count; ++i)
         (*shelf_).set_progress(static_cast<Entry>(i), (opened_ >> i) & 1u);
     if (!shelf_open_)
@@ -93,10 +107,11 @@ void Collection::ensure_view(Entry entry) {
     else if (entry == Entry::sudoku)
         sudoku_ = gf::make_control<SudokuView>(gf::StableId("collection.sudoku"));
     else if (entry == Entry::eggy)
-        eggy_ = gf::make_control<eggy::EggyView>(gf::StableId("collection.eggy"), eggy::Options{});
+        eggy_ = gf::make_control<eggy::EggyView>(gf::StableId("collection.eggy"),
+                                                 eggy::Options{.hosted = true});
     else if (entry == Entry::switchbox)
-        switchbox_ =
-            gf::make_control<sbx::SwitchboxView>(gf::StableId("switchbox.view"), sbx::Options{});
+        switchbox_ = gf::make_control<sbx::SwitchboxView>(gf::StableId("switchbox.view"),
+                                                          sbx::Options{.hosted = true});
     else if (entry == Entry::pegs)
         fourpegs_ = gf::make_control<fp::FourPegsView>(gf::StableId("fourpegs.view"),
                                                        fp::Options{.hosted = true});
@@ -113,7 +128,8 @@ void Collection::ensure_view(Entry entry) {
         liarsdice_ = gf::make_control<ld::DiceView>(gf::StableId("liarsdice.view"),
                                                     ld::Options{.hosted = true});
     else if (entry == Entry::rockstack)
-        rockstack_ = gf::make_control<zc::ZenView>(gf::StableId("rockstack.view"), zc::Options{.hosted = true});
+        rockstack_ = gf::make_control<zc::ZenView>(gf::StableId("rockstack.view"),
+                                                   zc::Options{.hosted = true});
     else if (entry == Entry::penthesheep)
         penthesheep_ = gf::make_control<sh::SheepView>(gf::StableId("penthesheep.view"),
                                                        sh::Options{.hosted = true});
@@ -220,7 +236,7 @@ void Collection::tick() {
             (*timer_).stop();
         return;
     }
-    const gf::Rect area{0, 0, client_rectangle().width,
+    const gf::Rect area{0, 0, client_rectangle().width - 48,
                         uses_rail(active_) ? current_rail_height_ : 60.0};
     gf::Rect r = (*capsule_).placement(area);
     // The placement includes the shadow margin, which doubles as a forgiving hover border.
@@ -240,6 +256,14 @@ void Collection::tick() {
             (*capsule_).unsettled(inside) || sprites_.waiting() || audio_pending() ? 16 : 200));
 }
 void Collection::on_pointer_preview(gf::PointerEvent& e) {
+    if (help_open()) {
+        const gf::Point local = (*help_).point_from_window(e.position);
+        const gf::Rect paper = (*help_).client_rectangle();
+        if (local.x < 0 || local.y < 0 || local.x >= paper.width || local.y >= paper.height) {
+            e.handled = true;
+            return;
+        }
+    }
     wake();
     pointer_ = point_from_window(e.position);
     if (e.action == gf::PointerAction::leave && (pointer_.x < 0 || pointer_.y < 0))
@@ -248,6 +272,34 @@ void Collection::on_pointer_preview(gf::PointerEvent& e) {
 }
 void Collection::on_key_preview(gf::KeyEvent& e) {
     wake();
+    const std::shared_ptr<gf::Control> focus =
+        attached_window() ? (*attached_window()).focused_control() : nullptr;
+    const bool entering_text = dynamic_cast<gf::TextBox*>(focus.get()) != nullptr ||
+                               (!help_open() && !shelf_open_ &&
+                                ((active_ == Entry::eggy && (*eggy_).editing_name()) ||
+                                 (active_ == Entry::switchbox && (*switchbox_).editing_name()) ||
+                                 (active_ == Entry::pegs && (*fourpegs_).editing_name()) ||
+                                 (active_ == Entry::atom && (*atomprobe_).editing_name())));
+    if (e.action == gf::KeyAction::down && e.modifiers == gf::Modifier::none &&
+        (!entering_text || e.physical_key == gf::PhysicalKey::f1)) {
+        const bool help_key =
+            e.physical_key == gf::PhysicalKey::h || e.physical_key == gf::PhysicalKey::f1;
+        if (help_key || e.physical_key == gf::PhysicalKey::m ||
+            (help_open() && e.physical_key == gf::PhysicalKey::escape)) {
+            if (!e.repeat) {
+                if (e.physical_key == gf::PhysicalKey::m)
+                    toggle(0);
+                else if (help_open())
+                    close_help();
+                else
+                    show_help();
+            }
+            e.handled = true;
+            return;
+        }
+    }
+    if (help_open())
+        return;
     if (!shelf_open_ && e.action == gf::KeyAction::down && e.physical_key == gf::PhysicalKey::f2 &&
         static_cast<int>(active_) <= static_cast<int>(Entry::solve) &&
         active_ != Entry::switchbox) {
@@ -271,9 +323,19 @@ void Collection::refresh_commands() {
                     {"help", "Help", true, panel == "help"},
                     {"scores", "Top scores", true, panel == "scores"}};
     }
+    struct Explanation {
+        bool operator()(const GameCommand& command) const {
+            return command.id == "help" || command.id == "rules" || command.id == "sets";
+        }
+    };
+    std::erase_if(commands, Explanation{});
     (*capsule_).set_game(info.title, std::move(commands));
 }
 void Collection::run_command(const std::string& id) {
+    if (id == "help" || id == "rules" || id == "sets") {
+        show_help(id);
+        return;
+    }
     if (CommandSource* s = source(active_))
         (*s).run_command(id);
     else if (active_ == Entry::pegs)
@@ -287,7 +349,7 @@ void Collection::run_command(const std::string& id) {
 }
 void Collection::visibility() {
     for (const std::shared_ptr<gf::Control>& child : children())
-        if (child != shelf_ && child != capsule_)
+        if (child != shelf_ && child != capsule_ && child != help_ && child != help_link_)
             (*child).set_visible(false);
     if (!shelf_open_)
         (*view(active_)).set_visible(true);
@@ -299,30 +361,34 @@ void Collection::visibility() {
 void Collection::arrange(gf::Rect b) {
     arrange_self(b);
     const gf::Rect full{0, 0, b.width, b.height};
-    if (capsule_width_limit_ != b.width - 16) {
-        capsule_width_limit_ = b.width - 16;
+    if (capsule_width_limit_ != b.width - 64) {
+        capsule_width_limit_ = b.width - 64;
         (*capsule_).set_maximum_width(capsule_width_limit_);
     }
-    const gf::Rect capsule_bounds = (*capsule_).placement({0, 0, b.width, rail_height});
+    const gf::Rect capsule_bounds = (*capsule_).placement({0, 0, b.width - 48, rail_height});
     current_rail_height_ = std::max(rail_height, capsule_bounds.y + capsule_bounds.height);
     const gf::Rect below{0, current_rail_height_, b.width,
                          std::max(0.0, b.height - current_rail_height_)};
     // Each view is laid out once per pass; live-surface games sit below the rail.
     for (const std::shared_ptr<gf::Control>& child : children())
-        if (child != shelf_ && child != capsule_ && (*child).visible()) {
+        if (child != shelf_ && child != capsule_ && child != help_ && child != help_link_ &&
+            (*child).visible()) {
             const bool railed = child == atomprobe_ || child == fourpegs_ || child == switchbox_ ||
                                 child == eggy_ || child == koikoi_ || child == parrots_ ||
                                 child == liarsdice_ || child == penthesheep_ || child == rockstack_;
             set_child_layout(child, railed ? below : full);
         }
     set_child_layout(shelf_, full);
-    const gf::Rect area{0, 0, b.width, uses_rail(active_) ? current_rail_height_ : 60.0};
+    const gf::Rect area{0, 0, b.width - 48, uses_rail(active_) ? current_rail_height_ : 60.0};
     gf::Rect placed = (*capsule_).placement(area);
     // Over a live-surface game the capsule stays within the rail; nothing may overlap
     // the game's presented surface.
     if (!shelf_open_ && uses_rail(active_))
         placed.height = std::min(placed.height, current_rail_height_ - placed.y);
     set_child_layout(capsule_, placed);
+    set_child_layout(help_link_, {b.width - 44, 7, 36, 36});
+    const double paper_width = std::min(780.0, b.width - 32);
+    set_child_layout(help_, {b.width - paper_width - 16, 16, paper_width, b.height - 32});
 }
 void Collection::on_paint(gf::Painter& p, gf::Rect) {
     if (shelf_open_ || !uses_rail(active_))
@@ -364,7 +430,9 @@ void Collection::preferences() {
             .set_cabinet(!shelf_open_ && active_ == Entry::liarsdice, cabinet.music, cabinet.sound,
                          cabinet.reduced);
     if (rockstack_)
-        (*rockstack_).set_cabinet(!shelf_open_ && active_ == Entry::rockstack, cabinet.music, cabinet.sound, cabinet.reduced);
+        (*rockstack_)
+            .set_cabinet(!shelf_open_ && active_ == Entry::rockstack, cabinet.music, cabinet.sound,
+                         cabinet.reduced);
     if (penthesheep_)
         (*penthesheep_)
             .set_cabinet(!shelf_open_ && active_ == Entry::penthesheep, cabinet.music,
@@ -432,6 +500,7 @@ void Collection::activate() {
         (*puzzles_[static_cast<std::size_t>(puzzle_index(active_))]).activate();
 }
 void Collection::open_entry(Entry entry) {
+    close_help();
     wake();
     ensure_view(entry);
     active_ = entry;
@@ -446,6 +515,7 @@ void Collection::open_entry(Entry entry) {
     activate();
 }
 void Collection::show_shelf() {
+    close_help();
     shelf_open_ = true;
     (*shelf_).select(active_);
     visibility();
@@ -466,7 +536,38 @@ void Collection::toggle(int which) {
         if (cards_)
             (*cards_).reload_preferences();
         preferences();
-        activate();
+        // Music changes must not take keyboard focus out of the help document.
+        if (help_open()) {
+            if (shelf_open_)
+                music_play("menu", cabinet.music);
+            else if (is_cards(active_))
+                (*cards_).activate();
+            else if (active_ == Entry::sudoku)
+                (*sudoku_).activate();
+            else if (puzzle_index(active_) >= 0)
+                (*puzzles_[static_cast<std::size_t>(puzzle_index(active_))]).activate();
+        } else
+            activate();
     }
+}
+void Collection::clicked_help(gf::ButtonBase&) {
+    show_help();
+}
+void Collection::show_help(std::string_view topic) {
+    const bool was_open = help_open();
+    (*help_).select(shelf_open_ ? -1 : static_cast<int>(active_), topic);
+    (*help_).set_visible(true);
+    if (!was_open && attached_window())
+        help_focus_ = (*attached_window()).begin_focus_scope(help_);
+    invalidate(gf::Dirty::layout | gf::Dirty::paint);
+}
+void Collection::close_help() {
+    if (!help_open())
+        return;
+    if (attached_window() && help_focus_)
+        static_cast<void>((*attached_window()).end_focus_scope(help_focus_));
+    help_focus_ = {};
+    (*help_).set_visible(false);
+    invalidate(gf::Dirty::paint);
 }
 } // namespace games

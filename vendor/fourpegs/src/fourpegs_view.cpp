@@ -1,3 +1,4 @@
+#include "help_route.hpp"
 #include "fourpegs_view.hpp"
 
 #include "platform/audio.hpp"
@@ -177,7 +178,7 @@ void FourPegsView::arrange(gf::Rect bounds) {
 
 void FourPegsView::on_paint(gf::Painter& p, gf::Rect) {
     const gf::Rect b = client_rectangle();
-    if (surface_ && !direct_) p.draw_live_surface(surface_, b);
+    if (surface_) p.draw_live_surface(surface_, b);
     else p.fill_rect(b, gf::Color::rgba(26, 14, 30));
 }
 
@@ -309,7 +310,7 @@ void FourPegsView::doom_tick(double dt) {
 
 // The score follows the turns left; a change cuts over on the next bar line.
 void FourPegsView::music_tick() {
-    const bool on = save_.settings.music && cab_music_ && cab_front_;
+    const bool on = (opt_.hosted || save_.settings.music) && cab_music_ && cab_front_;
     const bool silent = panel_ == Panel::gameover || blackout_ > 0;
     audio_music_on_bar(visible() && cab_front_ && !silent ? kTier[doom_t_ >= 0 ? 3 : tier_] : "", on);
     st_.console.alarm += ((tier_ == 3 ? 1.0 : tier_ == 2 ? .3 : 0.0) - st_.console.alarm) * .05;
@@ -629,6 +630,8 @@ void FourPegsView::action(const std::string& id) {
 }
 
 void FourPegsView::open(Panel p) {
+    if (p == Panel::help && games::route_help(*this))
+        return;
     // A lost board has no play left; closing Help or Scores returns to its Game Over card.
     if (p == Panel::none && board_.lost()) p = Panel::gameover;
     panel_ = p;

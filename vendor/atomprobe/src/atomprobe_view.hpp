@@ -28,6 +28,7 @@ struct Options {
 
 class AtomProbeView final : public gf::Control {
 public:
+    bool editing_name() const { return panel_ == Panel::name; }
     AtomProbeView(gf::StableId id, Options opt);
     static constexpr bool initialize_tree_after_construction = true;
     void initialize_control_tree() {}

@@ -282,6 +282,12 @@ Kitten::Swat Kitten::step(double dt, const Scene& scene) {
     }
     return swat;
 }
+gf::Rect Kitten::paint_bounds(gf::Rect board) const {
+    const double unit = std::max(2.2, board.width * .0145);
+    // Includes the tail, ears, shadow, extended swatting paw and drifting Zs.
+    return {board.x + at_.x * board.width - 10 * unit, board.y + at_.y * board.height - 13 * unit,
+            20 * unit, 18 * unit};
+}
 void Kitten::paint(gf::Painter& p, gf::Rect board) const {
     const double unit = std::max(2.2, board.width * .0145);
     const gf::Point ground{board.x + at_.x * board.width, board.y + at_.y * board.height};
