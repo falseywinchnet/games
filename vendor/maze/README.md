@@ -1,5 +1,9 @@
 # Maze 95
 
+Portable PlaySuite module, permanent entry ID 19. Its factory, cover, help,
+build rules and assets live in this folder. See [HANDOFF.md](HANDOFF.md) for current
+integration evidence and limitations.
+
 The 3D maze from 1995, as a game, by way of a dead shopping mall's vaporwave
 and Encarta Mind Maze's castle full of chance meetings.
 
@@ -49,12 +53,13 @@ The in-game "Who's who" lists every source. No trademarks are used: the rewards 
 ## Play
 
 ```sh
-open build/Maze95.app
+games --game maze
+games --game maze --standalone --dev --script vendor/maze/tests/native.script
 ```
 
 - **Keys:** Up / W walks forward, Down / S steps back, Left and Right turn.
 - **Mouse:** the left and right thirds of the view turn, the middle walks, and the bottom middle steps back.
-- **Panels:** T trophy shelf, M music, F1 help (which also has Restart, Who's who, and the music and sound switches).
+- **Panels:** T trophy shelf, H or F1 help. The capsule provides Restart and Who's who. Hosted audio uses the suite masters; standalone help retains its audio switches.
 
 Saves go to `~/Library/Application Support/Rainstar/Games/maze-v1.txt`
 (`GAMES_STATE_DIR` overrides the folder). The save holds the maze you're on (each is rebuilt from its seed), the shelf, and tallies.
@@ -67,16 +72,24 @@ With `--dev` (a separate save), `MZ_SCRIPT="0.3:lvl12,0.8:ok,1:auto"` replays in
 - `auto` walks the best route, re-planned each step around the marble and visitors; `auto<k>` walks only k steps of it
 - `shelf`, `help` and `credits` open those panels
 
-`MZ_PRINT_WID=1` prints the window id.
+The shared native runner also supports keyboard, pointer, resize and full-window
+frame capture. Its finite scripts are described in `new-games/AGENTS.md`.
 
 ## Build
 
+From the repository root, test the core independently:
+
 ```sh
-cmake -S . -B build -DCMAKE_PREFIX_PATH=$PWD/../eggy/sdk && cmake --build build -j 8
-ctest --test-dir build      # 120 mazes proven, doors and flips and portals that matter, the elevator, 36 marble sessions, saves
-./build/preview view|rewards|posters|cast out.ppm ...   # headless stills: a first-person view, and contact sheets
-python3 audio_src/mall_music.py && python3 audio_src/make_sfx.py
+cmake -S vendor/maze -B .build/new-games/maze -DCMAKE_BUILD_TYPE=Release
+cmake --build .build/new-games/maze --parallel 2
+ctest --test-dir .build/new-games/maze --output-on-failure
 ```
+
+Build the shared native host using the repository's `docs/BUILDING.md` and root
+`AGENTS.md`; it supplies both standalone and hosted play. The headless preview
+executable is `maze_preview`. Authoring audio sources stay in `audio_src/` and
+render into this module's `assets/audio/`. Adding the complete folder to `vendor/`
+is its registration; no shell or release-version edits are required.
 
 ## How it works
 
@@ -89,7 +102,7 @@ python3 audio_src/mall_music.py && python3 audio_src/make_sfx.py
 | Painted surfaces (brick, carpets, ceilings, doors, pads, posters, the snail's paints) | `textures.*` |
 | The 46 rewards, and the cast with their lines and sources | `rewards.*`, `cast.*` |
 | Window, chrome, briefing, speech, win, trophy shelf, help, credits, autosave | `maze_view.*`, `save.*` |
-| Shared platform (text, audio, presenter; copied from the other games, namespace `mz`) | `platform/` |
+| Portable raster, GUI.Forms text masks and scene audio, namespace `mz` | `platform/` |
 
 All audio is synthesized (`audio_src/`):
 
@@ -100,7 +113,10 @@ All audio is synthesized (`audio_src/`):
 - A start-up chime and a win jingle.
 - Effects: steps on carpet, turns, bumps, locks, pads, grinding doors, the flip, bulbs, the elevator and its ding, portals, the marble's rumble, knock and thud, appearances and poofs.
 
-## Measured
+## Original delivery measurements
+
+These measurements describe the original supplied package. Current port checks
+and inspected native captures are recorded in `HANDOFF.md`.
 
 - Tests:
   - 120 mazes over three runs are generated and proven, each one's best route replays to the reward, and the same seed builds the same maze.
@@ -111,9 +127,9 @@ All audio is synthesized (`audio_src/`):
 - Rendering takes about 1–3 ms a frame at the game's 366×253.
 - The music's AAC decodes to exactly its loop length.
 
-## Not yet verified
+## Current validation boundaries
 
-- **Listening:** nobody has heard any of the audio.
-- **By hand:** play so far was driven by script.
-- **Reduced motion:** not implemented. The flip's roll and the elevator ride move the camera.
-- **Cabinet integration and other platforms:** not done.
+The portable module, shared capsule/help, master switches and reduced motion are
+implemented. Native automation and inspected captures are documented in
+`HANDOFF.md`. Human listening and subjective long-session play remain unverified;
+cross-platform release validation is performed by the suite's publication workflow.

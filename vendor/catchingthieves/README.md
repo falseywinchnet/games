@@ -1,5 +1,9 @@
 # Catching Thieves
 
+Portable PlaySuite module, permanent entry ID 18. Its factory, cover, help,
+build rules and assets live in this folder. See [HANDOFF.md](HANDOFF.md) for current
+integration evidence and limitations.
+
 A gang of raccoon bandits is raiding the bear's vegetable garden from their
 burrows. They pop up to taunt him: blowing raspberries, juggling stolen
 carrots, waving them about and crunching them, dancing, pointing and laughing.
@@ -39,12 +43,13 @@ pumpkins hop, and the raccoons wave white flags from underneath ("We give up!").
 ## Play
 
 ```sh
-open build/CatchingThieves.app
+games --game catchingthieves
+games --game catchingthieves --standalone --dev --script vendor/catchingthieves/tests/native.script
 ```
 
 - **Walk:** arrow keys or WASD. Walking into a pumpkin pushes it.
 - **Click:** a square to walk there, or a pumpkin beside the bear to push it.
-- **Keys:** Z (or Backspace) undo, R start over, H hint, L the garden book, Enter the next garden, M music, F1 help.
+- **Keys:** Z (or Backspace) undo, R start over, H or F1 help, L the garden book, Enter the next garden. Use the capsule for Hint and the hosted audio masters.
 - **Hints:** a hint marks the next push of a best solution with marching chevrons.
   - Instant when your garden still lies on the level's recorded best solution.
   - Otherwise the solver thinks it through on a worker thread while the bear strokes his chin.
@@ -64,17 +69,24 @@ With `--dev` (a separate save), `CT_SCRIPT="0.5:lvl40,1.5:sol"` replays inputs:
 - `lvl<k>` opens garden k, `end<t>` an endless garden of tier t
 - `map`, `help` and `close` open and close the panels
 
-`CT_PRINT_WID=1` prints the window id.
+The shared native runner also supports keyboard, pointer, resize and full-window
+frame capture. Its finite scripts are described in `new-games/AGENTS.md`.
 
 ## Build
 
+From the repository root, test the core independently:
+
 ```sh
-cmake -S . -B build -DCMAKE_PREFIX_PATH=$PWD/../eggy/sdk && cmake --build build -j 8
-ctest --test-dir build                            # rules, solver, stuck check, generator, the whole campaign, saves
-./build/levelgen campaign assets/levels/campaign.txt 30   # rebuild the campaign (deterministic; about 3 minutes)
-./build/preview cast|garden out.ppm ...           # headless stills of the cast and of a garden
-python3 audio_src/garden_music.py && python3 audio_src/make_sfx.py   # the score, stingers and effects
+cmake -S vendor/catchingthieves -B .build/new-games/catchingthieves -DCMAKE_BUILD_TYPE=Release
+cmake --build .build/new-games/catchingthieves --parallel 2
+ctest --test-dir .build/new-games/catchingthieves --output-on-failure
 ```
+
+Build the shared native host using the repository's `docs/BUILDING.md` and root
+`AGENTS.md`; it supplies both standalone and hosted play. The headless preview
+executable is `ct_preview`. Authoring audio sources stay in `audio_src/` and
+render into this module's `assets/audio/`. Adding the complete folder to `vendor/`
+is its registration; no shell or release-version edits are required.
 
 ## How it works
 
@@ -101,7 +113,10 @@ All audio is synthesized (`audio_src/`):
 - Stingers for a garden cleared, a pumpkin stuck (the sad trombone) and the whole book.
 - Effects: steps, pushes with a little "hup", the trap thunk, pops and ducks, muffled grumbling, a raspberry, a carrot crunch, the raccoons' laugh, and more.
 
-## Measured
+## Original delivery measurements
+
+These measurements describe the original supplied package. Current port checks
+and inspected native captures are recorded in `HANDOFF.md`.
 
 - Tests: 228 stuck positions met in random play, every one confirmed unsolvable by the solver.
   - All 243 campaign solutions replay to a win in exactly their par.
@@ -110,9 +125,9 @@ All audio is synthesized (`audio_src/`):
 - Solving the hardest night gardens from scratch takes up to about 4.4 s; hints along the recorded solution are instant.
 - Music: each loop's AAC decodes to exactly its manifest length; levels are even and nothing clips.
 
-## Not yet verified
+## Current validation boundaries
 
-- **Listening:** nobody has heard the score, the stingers or the effects.
-- **By hand:** everything so far was driven by script.
-- **Reduced motion:** not implemented.
-- **Cabinet integration and other platforms:** not done.
+The portable module, shared capsule/help, master switches and reduced motion are
+implemented. Native automation and inspected captures are documented in
+`HANDOFF.md`. Human listening and subjective long-session play remain unverified;
+cross-platform release validation is performed by the suite's publication workflow.
