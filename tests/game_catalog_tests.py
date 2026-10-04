@@ -52,15 +52,15 @@ class CatalogTests(unittest.TestCase):
                     module="module.cpp", cover="cover.cpp", help="help.md",
                     build="build.cmake", ui_sources=[], audio_sources=[], libraries=[])
         for filename in ("module.cpp", "cover.cpp", "build.cmake"):
-            (directory / filename).write_text("// fixture\n")
-        (directory / "help.md").write_text('Complete help; more rules follow.\n\nUnicode: sheep — garden.\n')
+            (directory / filename).write_text("// fixture\n", encoding="utf-8")
+        (directory / "help.md").write_text('Complete help; more rules follow.\n\nUnicode: sheep — garden.\n', encoding="utf-8")
         data.update(overrides)
         self.save(directory, data)
         return directory, data
 
     @staticmethod
     def save(directory, data):
-        (directory / "GAME.json").write_text(json.dumps(data))
+        (directory / "GAME.json").write_text(json.dumps(data), encoding="utf-8")
 
     def test_sparse_ids_and_numeric_order(self):
         self.module("last", 2147483647)
@@ -68,7 +68,7 @@ class CatalogTests(unittest.TestCase):
         self.module("first", 3)
         games = catalog.generate(self.root, self.output)
         self.assertEqual([g["entry_id"] for g in games], [3, 4097, 2147483647])
-        header = (self.output / "game_entries.hpp").read_text()
+        header = (self.output / "game_entries.hpp").read_text(encoding="utf-8")
         self.assertIn("entry_count = 3", header)
         self.assertIn("first = 3", header)
         self.assertIn("middle = 4097", header)
@@ -81,23 +81,23 @@ class CatalogTests(unittest.TestCase):
             self.module(f"game_{index:02}", index * 19 + 5)
         games = catalog.generate(self.root, self.output)
         self.assertEqual(len(games), 40)
-        self.assertIn("entry_count = 40", (self.output / "game_entries.hpp").read_text())
+        self.assertIn("entry_count = 40", (self.output / "game_entries.hpp").read_text(encoding="utf-8"))
 
     def test_add_remove_and_restore_folder_only(self):
         first, data = self.module("first", 0)
         catalog.generate(self.root, self.output)
-        before = (self.output / "game_entries.hpp").read_text()
+        before = (self.output / "game_entries.hpp").read_text(encoding="utf-8")
         second, data = self.module("second", 137)
         catalog.generate(self.root, self.output)
-        self.assertIn("second = 137", (self.output / "game_entries.hpp").read_text())
+        self.assertIn("second = 137", (self.output / "game_entries.hpp").read_text(encoding="utf-8"))
         removed = self.root / "second.saved"
         shutil.move(second, removed)
         catalog.generate(self.root, self.output)
-        self.assertEqual((self.output / "game_entries.hpp").read_text(), before)
+        self.assertEqual((self.output / "game_entries.hpp").read_text(encoding="utf-8"), before)
         shutil.move(removed, second)
         catalog.generate(self.root, self.output)
-        self.assertIn("second = 137", (self.output / "game_entries.hpp").read_text())
-        self.assertEqual(json.loads((first / "GAME.json").read_text())["entry_id"], 0)
+        self.assertIn("second = 137", (self.output / "game_entries.hpp").read_text(encoding="utf-8"))
+        self.assertEqual(json.loads((first / "GAME.json").read_text(encoding="utf-8"))["entry_id"], 0)
 
     def test_external_module_and_idempotent_generation(self):
         self.module("local", 0)
@@ -106,8 +106,8 @@ class CatalogTests(unittest.TestCase):
         shutil.move(external, destination)
         games = catalog.generate(self.root, self.output, [destination, destination])
         self.assertEqual([g["id"] for g in games], ["local", "external"])
-        cmake = (self.output / "game_modules.cmake").read_text()
-        self.assertIn(str(destination / "module.cpp"), cmake)
+        cmake = (self.output / "game_modules.cmake").read_text(encoding="utf-8")
+        self.assertIn((destination / "module.cpp").as_posix(), cmake)
         stamps = {p.name: p.stat().st_mtime_ns for p in self.output.iterdir()}
         catalog.generate(self.root, self.output, [destination])
         self.assertEqual(stamps, {p.name: p.stat().st_mtime_ns for p in self.output.iterdir()})
@@ -163,41 +163,42 @@ class CatalogTests(unittest.TestCase):
     def test_escaped_paths_and_cmake_interpolation_rejected(self):
         directory, original = self.module()
         outside = directory.parent / "outside.cpp"
-        outside.write_text("fixture")
+        outside.write_text("fixture", encoding="utf-8")
         (directory / "linked.cpp").symlink_to(outside)
         for filename in ("../outside.cpp", str(outside), "linked.cpp", 'odd"name.cpp',
                          "dollar$name.cpp", "semi;name.cpp", "line\nname.cpp"):
             with self.subTest(filename=filename):
-                if not filename.startswith("/") and "/" not in filename and filename != "linked.cpp":
-                    (directory / filename).write_text("fixture")
                 self.save(directory, dict(original, module=filename))
-                with self.assertRaises(ValueError):
+                # Invalid spelling is rejected before filesystem access, including
+                # names that the Windows filesystem cannot represent at all.
+                expected = "escapes its folder" if filename in ("../outside.cpp", "linked.cpp") else "invalid file path"
+                with self.assertRaisesRegex(ValueError, expected):
                     catalog.generate(self.root, self.output)
 
     def test_assets_and_sources_are_module_local(self):
         directory, data = self.module()
         (directory / "assets").mkdir()
-        (directory / "view.cpp").write_text("fixture")
-        (directory / "audio.cpp").write_text("fixture")
+        (directory / "view.cpp").write_text("fixture", encoding="utf-8")
+        (directory / "audio.cpp").write_text("fixture", encoding="utf-8")
         data.update(ui_sources=["view.cpp"], audio_sources=["audio.cpp"])
         self.save(directory, data)
         games = catalog.generate(self.root, self.output)
         self.assertEqual(games[0]["assets"], "assets")
-        cmake = (self.output / "game_modules.cmake").read_text()
-        self.assertIn(str(directory / "view.cpp"), cmake)
-        self.assertIn(str(directory / "audio.cpp"), cmake)
+        cmake = (self.output / "game_modules.cmake").read_text(encoding="utf-8")
+        self.assertIn((directory / "view.cpp").as_posix(), cmake)
+        self.assertIn((directory / "audio.cpp").as_posix(), cmake)
 
     def test_extra_topics_and_complete_text(self):
         directory, data = self.module()
         text = 'A full paragraph; after the semicolon.\n\nA "quoted" second paragraph — finished.'
-        (directory / "sets.md").write_text(text + "\n")
+        (directory / "sets.md").write_text(text + "\n", encoding="utf-8")
         data["help_topics"] = [dict(id="sets", title="The sets", file="sets.md")]
         self.save(directory, data)
         catalog.generate(self.root, self.output)
-        cpp = (self.output / "game_registry.cpp").read_text()
+        cpp = (self.output / "game_registry.cpp").read_text(encoding="utf-8")
         self.assertIn(json.dumps(text, ensure_ascii=False), cpp)
-        self.assertIn(json.dumps((directory / "help.md").read_text().strip(), ensure_ascii=False), cpp)
-        self.assertIn(str(directory / "sets.md"), (self.output / "game_modules.cmake").read_text())
+        self.assertIn(json.dumps((directory / "help.md").read_text(encoding="utf-8").strip(), ensure_ascii=False), cpp)
+        self.assertIn((directory / "sets.md").as_posix(), (self.output / "game_modules.cmake").read_text(encoding="utf-8"))
 
     def test_invalid_topics(self):
         directory, original = self.module()
@@ -215,7 +216,7 @@ class CatalogTests(unittest.TestCase):
         directory, data = self.module()
         for payload in ("{broken", "[]", "null", "42"):
             with self.subTest(payload=payload):
-                (directory / "GAME.json").write_text(payload)
+                (directory / "GAME.json").write_text(payload, encoding="utf-8")
                 with self.assertRaises(ValueError):
                     catalog.discover(self.root)
 
@@ -225,7 +226,7 @@ class CatalogTests(unittest.TestCase):
             with self.subTest(game=name):
                 self.assertIn(name, actual)
                 game = actual[name]
-                text = (game["directory"] / game["help"]).read_text().strip()
+                text = (game["directory"] / game["help"]).read_text(encoding="utf-8").strip()
                 self.assertEqual(hashlib.sha256(text.encode()).hexdigest(), expected)
         self.assertEqual(len(ORIGINAL_HELP), 18)
 
