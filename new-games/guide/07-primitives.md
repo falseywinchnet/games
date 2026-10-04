@@ -39,8 +39,10 @@ canvas.restore();
 - `global_alpha` fades everything drawn while it is set; `additive` adds light.
 - `draw_mask(mask, x, y, colour, scale)` blends an alpha mask in device pixels
   (this is how text is drawn; an integer `scale` gives chunky pixel text).
-- `draw_canvas(source, x, y, opacity)` copies another canvas. Use it for a cached
-  static layer.
+- `draw_canvas(source, x, y, opacity)` blends another canvas over this one, pixel
+  by pixel. Use it for a layer with transparency. For an opaque full-frame
+  backdrop of the same size, assign the pixel vector instead
+  (`frame.px = backdrop.px`), which is a plain copy.
 
 `begin()` starts a new path; a path is filled or stroked once. Paths are in user
 space; masks and canvas copies are in device pixels and ignore the transform.
@@ -133,7 +135,7 @@ Development only; never linked into the application.
 | File | What it gives you |
 |---|---|
 | `headless_text.hpp` | The PlaySuite fonts rasterised to masks with no toolkit, so previews show real type |
-| `png_writer.hpp` | `kit::write_png(path, w, h, canvas.px)` |
+| `png_writer.hpp` | `kit::write_png(path, w, h, canvas.px)`. Pixels are stored uncompressed; run `tools/shrink_png.py` on pictures you keep |
 | `view_contract_test.hpp` | The hosted-view contract as one reusable test |
 | `third_party/stb_truetype.h` | The font rasteriser behind `headless_text` (public domain / MIT) |
 
@@ -156,7 +158,7 @@ record the source in `HANDOFF.md`. Take the newest copy; older ones lack fixes.
 | Speech lines and typewriter text | `vendor/switchbox/src/platform/lines.*` | Line pools and reveal timing |
 | Felt and cloth | `vendor/paint/carpet.*`, `image.*` | Fibre-rendered felt (`paint::render_carpet_tile`), under its own MIT license. This one is linked once by the suite; use it through `paint::` as `vendor/koikoi` does, do not copy it. |
 | Card finish | `vendor/koikoi/src/card_finish.*` | The lit, slightly raised card look |
-| Rigid-body physics | `vendor/zenconstruction/phys/` | Convex hulls, friction, sleeping, deterministic. Read `PHYSICS_SPEC.md` and `NOTES.md` first. |
+| Rigid-body physics | `vendor/zenconstruction/phys/` | Convex hulls, friction, sleeping, deterministic. Read `vendor/zenconstruction/PHYSICS_SPEC.md` and `phys/NOTES.md` first. |
 | Hex-grid puzzle generation with a proving solver | `vendor/penthesheep/src/field.*` | The pattern for "generate, then prove solvable" |
 | Deduction puzzle generation | `vendor/parrots/src/logic.*` | Generating a logic puzzle and checking its solution |
 | Sound synthesis | `vendor/zenconstruction/audio_src/engine/synth.py` | Plucks, mallets, pads, flutes, percussion, a loop mixer and a reverb (NumPy). The template's `make_sfx.py` is the no-dependency starting point. |

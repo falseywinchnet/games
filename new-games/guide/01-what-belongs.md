@@ -65,6 +65,13 @@ as "kind of clichéd".
 information is found by the rules, never by luck the player cannot reason about.
 Sound and animation must not leak a secret.
 
+In a game of chance, fair means the luck is honest: dice and deals come from the
+seed and are never adjusted for or against the player, and a computer opponent
+sees only what a person in its seat would. A round of dice need not be winnable.
+Where it is cheap to prove that a deal can be won, offer only those (the patience
+games deal only verified winnable games); decide this with the person and say
+which you chose in the brief.
+
 **Is the difficulty the player's choice?** The shelf prefers difficulty the
 player sets for themselves by how they play (Rock Stack's bowl of fifty stones
 lets you build an easy stack or an absurd one) over a ladder of ever harder
@@ -93,7 +100,9 @@ utility. A puzzle with a character watching is a game.
 What these characters share:
 
 - **They react.** To a good move, a bad one, a long pause, a repeated mistake.
-  Reactions escalate: the tenth failure is not greeted like the first.
+  Reactions escalate: the tenth failure is not greeted like the first. A
+  reaction to a pause is one remark and then quiet, scheduled as a single wake
+  (see [performance](05-performance.md)); a character does not fidget forever.
 - **They have many lines.** A character with six lines is a recording by the
   second game. Write pools large enough, or generate lines from parts, so "the
   same logic never reads the same way twice."

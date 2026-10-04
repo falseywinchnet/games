@@ -24,8 +24,17 @@ they say it is right. This loop is the main part of the work, and it is where
 these games got good.
 
 **Save the pictures you looked at** in `vendor/<id>/screens/`, named for what
-they show (`mid_game_1100x760.png`, `help_600x370.png`). At least one must be at
-600 x 370. Do not save a picture you did not look at.
+they show and their size (`mid-1100x760.png`, `help-600x370.png`). At least one
+must be at 600 x 370. Do not save a picture you did not look at. Then compress
+them; the harness writes them uncompressed:
+
+```sh
+python3 new-games/tools/shrink_png.py vendor/<id>/screens
+```
+
+A very large picture may be scaled down by whatever shows it to you, and the
+scaling can add banding or blur that is not in the file. Judge fine detail at
+moderate sizes, or crop.
 
 **Run the gate.**
 

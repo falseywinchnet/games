@@ -132,7 +132,8 @@ def wire(game_id: str, edits: Edits) -> None:
 
     # ---- src/suite.cpp: the box (title, kind, blurb, colours) and its emblem.
     cover = manifest["cover"]
-    row = (f'    {{"{cpp_string(manifest["title"])}", "{cpp_string(manifest["kind"])}", "{cpp_string(manifest["blurb"])}",\n'
+    row = (f'    {{"{cpp_string(manifest["title"])}", "{cpp_string(manifest["kind"])}",\n'
+           f'     "{cpp_string(manifest["blurb"])}",\n'
            f'     rgb({cover["top"][0]}, {cover["top"][1]}, {cover["top"][2]}), rgb({cover["bottom"][0]}, {cover["bottom"][1]}, {cover["bottom"][2]}), '
            f'rgb({cover["accent"][0]}, {cover["accent"][1]}, {cover["accent"][2]})}},\n')
     text = edits.text("src/suite.cpp")
@@ -208,7 +209,6 @@ def wire(game_id: str, edits: Edits) -> None:
     core = " ".join(f"{vendor}/{source}" for source in manifest["core_sources"])
     block = (f"add_library({ns}_core STATIC {core})\n"
              f"target_include_directories({ns}_core PUBLIC {vendor}/src)\n"
-             f"target_link_libraries({ns}_core PUBLIC game_paths)\n"
              f"target_compile_definitions({ns}_core PRIVATE _USE_MATH_DEFINES)\n")
     for index, test in enumerate(manifest["core_tests"]):
         suffix = "" if index == 0 else f"_{index + 1}"

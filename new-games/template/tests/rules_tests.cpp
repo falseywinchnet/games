@@ -5,6 +5,7 @@
 #include "save.hpp"
 #include "stage.hpp"
 
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -170,8 +171,10 @@ void test_save() {
     check(!tg::decode_session("side=4\nseed=abc\n", untouched), "a malformed number is refused");
     check(untouched.next_side == 3, "a refused load leaves the destination untouched");
 
+    // A folder of this run's own, so two runs at once cannot collide.
+    const long long stamp = std::chrono::steady_clock::now().time_since_epoch().count();
     const std::filesystem::path directory =
-        std::filesystem::temp_directory_path() / "tg-template-save-test";
+        std::filesystem::temp_directory_path() / ("tg-save-test-" + std::to_string(stamp));
     std::filesystem::remove_all(directory);
     const std::filesystem::path file = directory / "nested" / "template_game-dev-v1.txt";
     check(tg::write_save(file, body), "a save is written, creating its folder");
@@ -244,6 +247,21 @@ void test_settles() {
     check(!tg::advance(visual, board, 1.0 / 60, true), "and is then settled, with no easing");
 }
 
+// A reaction to a pause is one scheduled event, never a reason to keep ticking.
+void test_remark() {
+    tg::Board board = tg::new_game(4, 3);
+    tg::Visual visual;
+    tg::snap(visual, board);
+    check(tg::seconds_until_remark(visual, board, 0) == tg::remark_after_seconds, "the remark is due after the wait");
+    check(!tg::update_remark(visual, board, tg::remark_after_seconds - 1), "nothing is said early");
+    check(tg::update_remark(visual, board, tg::remark_after_seconds + .5), "the remark is made when due");
+    check(tg::seconds_until_remark(visual, board, 999) < 0, "and then nothing more is pending");
+    check(!tg::update_remark(visual, board, 999), "it is made once");
+    check(tg::note_input(visual) && !visual.remarked, "the player's next action withdraws it");
+    visual.help = true;
+    check(tg::seconds_until_remark(visual, board, 999) < 0, "no remark while help is open");
+}
+
 }  // namespace
 
 int main() {
@@ -253,10 +271,11 @@ int main() {
     test_save();
     test_layout();
     test_settles();
+    test_remark();
     if (failures > 0) {
         std::cerr << failures << " check(s) failed\n";
         return 1;
     }
-    std::cout << "template game rules, save, layout and settling passed\n";
+    std::cout << "Template Game: rules, save, layout, settling and timed remark passed\n";
     return 0;
 }

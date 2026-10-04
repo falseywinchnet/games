@@ -88,6 +88,29 @@ int pick_cell(const Layout& layout, int side, double x, double y) {
     return row * side + column;
 }
 
+bool note_input(Visual& visual) {
+    const bool changed = visual.remarked;
+    visual.remarked = false;
+    return changed;
+}
+
+double seconds_until_remark(const Visual& visual, const Board& board, double idle_seconds) {
+    if (visual.remarked || visual.help || solved(board)) {
+        return -1;
+    }
+    const double remaining = std::max(remark_after_seconds - idle_seconds, 0.0);
+    return remaining;
+}
+
+bool update_remark(Visual& visual, const Board& board, double idle_seconds) {
+    const double remaining = seconds_until_remark(visual, board, idle_seconds);
+    if (remaining != 0) {
+        return false;
+    }
+    visual.remarked = true;
+    return true;
+}
+
 void snap(Visual& visual, const Board& board) {
     visual.glow.assign(board.lit.size(), 0);
     for (std::size_t index = 0; index < board.lit.size(); ++index) {

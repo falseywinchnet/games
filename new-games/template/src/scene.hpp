@@ -12,8 +12,8 @@
 
 namespace tg {
 
-// `scale` is device pixels per point. The canvas must already be
-// ceil(layout.width * scale) by ceil(layout.height * scale).
+// `scale` is device pixels per point. The canvas must already be sized to the
+// surface in device pixels (the layout's size times the scale, rounded).
 void draw_scene(Canvas& canvas, double scale, const Layout& layout, const Board& board,
                 const Visual& visual);
 

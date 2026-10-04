@@ -96,6 +96,9 @@ def check_structure(directory: Path, manifest: dict, report: Report) -> None:
         report.require(len(screens) >= 2 and any("600x370" in path.name for path in screens),
                        f"{len(screens)} screenshots, one at 600x370",
                        "screens/ needs at least two PNGs you have looked at, one with 600x370 in its name")
+        heavy = [path.name for path in screens if path.stat().st_size > 700 * 1024]
+        report.require(not heavy, "screenshots are compressed",
+                       f"{len(heavy)} screenshots are over 700 KiB; run python3 new-games/tools/shrink_png.py vendor/{manifest['id']}/screens")
 
 
 def check_style(directory: Path, manifest: dict, report: Report) -> None:
@@ -183,8 +186,9 @@ def check_contract(directory: Path, manifest: dict, report: Report) -> None:
                    "set_cabinet(foreground, music, sound, reduced)", "the view needs set_cabinet(bool foreground, bool music, bool sound, bool reduced)")
     report.require("void activate()" in text, "activate()", "the view needs activate()")
     report.require('"help"' in text, 'a "help" command', 'the view needs a command with the id "help"')
-    report.require(re.search(r"true\s*\}\s*\)", text) is not None or "primary" in text, "a primary command",
-                   "mark one command primary (the fifth field of GameCommand)")
+    primary = re.search(r'\{\s*"[a-z_]+"\s*,[^{};]*,\s*true\s*\}', text) or re.search(r"\.primary\s*=\s*true", text)
+    report.require(primary is not None, "a primary command",
+                   "mark one command primary: the fifth field of GameCommand, e.g. {\"new\", \"New game\", true, false, true}")
     report.require("games::state_directory()" in text, "saves under games::state_directory()",
                    "resolve the save path with games::state_directory(); do not build a path from HOME")
     report.require(manifest["save_file"] in text, f"saves to {manifest['save_file']}", f"{manifest['save_file']} does not appear in the view")
@@ -195,8 +199,12 @@ def check_contract(directory: Path, manifest: dict, report: Report) -> None:
     report.require(".scale()" in text, "device scale taken from the attached window", "take the device scale from attached_window()")
     report.require("reduced" in text, "the Motion switch is consumed", "the view ignores the reduced-motion flag")
     if manifest["id"] != "templategame":
-        report.require("TEMPLATEGAME" not in text and "Template Game" not in text, "no template names left in the view",
-                       "template names remain in the view")
+        everything = "\n".join(path.read_text(encoding="utf-8") for path in authored_sources(directory, manifest))
+        leftovers = [phrase for phrase in ("TEMPLATEGAME", "Template Game", "TEMPLATE GAME", "Light every lamp",
+                                           "lamps still dark", "Every board here can be lit")
+                     if phrase in everything]
+        report.require(not leftovers, "no template wording left in the game",
+                       "the template's own wording remains: " + ", ".join(leftovers))
         save_text = "".join(path.read_text(encoding="utf-8") for path in (directory / "src").glob("save.*"))
         report.require("TEMPLATEGAME" not in save_text, "the save magic is the game's own", "the save magic is still the template's")
 
@@ -224,7 +232,8 @@ def check_assets(directory: Path, manifest: dict, report: Report) -> None:
     big = [f"{path.name} ({path.stat().st_size // 1024} KiB)" for path in mine if path.stat().st_size > 3 * 1024 * 1024]
     if big:
         report.warn("large sound sources (music belongs in .m4a, effects in short .wav): " + ", ".join(big))
-    view_text = "\n".join((directory / item).read_text(encoding="utf-8") for item in manifest["ui_sources"])
+    view_text = "\n".join(path.read_text(encoding="utf-8") for path in authored_sources(directory, manifest)
+                          if "src" in path.relative_to(directory).parts)
     view_text = re.sub(r"//[^\n]*", "", view_text)
     named = set(re.findall(r'"(%s[a-z0-9_]+)"' % re.escape(prefix), view_text)) if prefix else set()
     stems = {path.stem for path in mine}

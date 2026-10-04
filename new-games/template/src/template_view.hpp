@@ -63,6 +63,7 @@ private:
     std::unique_ptr<gf::Timer> timer_;
     std::vector<gf::SubscriptionToken> subscriptions_;
     std::chrono::steady_clock::time_point last_tick_{};
+    std::chrono::steady_clock::time_point last_input_{};  // for the waiting remark
     double scale_ = 1;        // device pixels per point
     int device_width_ = 0;    // the surface, in device pixels
     int device_height_ = 0;
@@ -77,6 +78,7 @@ private:
     void on_detaching_from_window(gf::Window& window) noexcept override;
     void tick();
     void request_frame();
+    void note_player();
     void publish();
     void play(const std::string& name, float gain, float rate);
     void sync_music();

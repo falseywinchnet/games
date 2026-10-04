@@ -4,7 +4,9 @@ You are an AI model working with a person who has a game idea. This file is the
 whole procedure for turning that idea into a game on the PlaySuite shelf, delivered
 as a pull request. It is written for any model (Claude, Codex or another) and
 assumes only a fresh clone of this repository, CMake 3.25 or later, a C++20
-compiler, Python 3 and git.
+compiler, Python 3 and git. Two steps use the network once each: fetching the
+toolkit's headers for the syntax check, and the repository's own configure, which
+downloads one pinned dependency.
 
 Read this file to the end before you start. Read each guide when its step tells
 you to; they are short, and the rules in them are checked.
@@ -41,10 +43,17 @@ would fit. The person decides.
 Do not start building on a first description. The owner of this collection works
 the same way: discuss, settle, then begin.
 
+If the person cannot be reached, make each choice you would have brought to them,
+list those choices in the brief under "Decided without the person" and again in
+`HANDOFF.md`, and keep them easy to reverse.
+
 ### 2. Write the brief
 
-Read [guide/02-the-brief.md](guide/02-the-brief.md). Agree on a name, an id and a
-namespace, then create the game:
+Read [guide/02-the-brief.md](guide/02-the-brief.md). The brief covers the menu,
+the look and the sound, so read [guide/04-the-shell.md](guide/04-the-shell.md) and
+[guide/06-look-sound-words.md](guide/06-look-sound-words.md) now as well. Agree on
+a name, an id and a namespace, then create the game (the title is at most 28
+characters, the kind 24, the blurb 90):
 
 ```sh
 python3 new-games/tools/new_game.py --id tidepools --namespace tp --title "Tide Pools" \
@@ -87,6 +96,9 @@ every state the game has: the start, mid-game, each ending, every panel.
 Look at every picture you render. Then show the person. Expect several rounds;
 that is the work, and it is where the game becomes good.
 
+`<ns>_preview box.png 0 0 1 box` draws a mock of the game's box on the shelf.
+Prototype the emblem there (`draw_emblem` in `tools/preview.cpp`) before step 7.
+
 ### 5. Build the view
 
 Read [guide/04-the-shell.md](guide/04-the-shell.md) and
@@ -125,18 +137,19 @@ python3 new-games/tools/check_game.py <id> --fetch-toolkit
 
 Fix every FAIL. For each WARN, either fix it or record the decision in
 `HANDOFF.md`. Then build and run the repository's portable-core profile once, as
-its CI will:
+its CI will, and the repository's own style check:
 
 ```sh
 cmake -S . -B .build/portable-core -DCMAKE_BUILD_TYPE=Release -DGAMES_BUILD_APPLICATION=OFF
 cmake --build .build/portable-core --parallel 2
 ctest --test-dir .build/portable-core --output-on-failure --timeout 120
+python3 scripts/check-style.py
 ```
 
 ### 9. Deliver
 
 Read [guide/09-deliver.md](guide/09-deliver.md). Save the screenshots you looked
-at into `vendor/<id>/screens/`, write `vendor/<id>/HANDOFF.md` honestly, and
+at into `vendor/<id>/screens/` and compress them with `tools/shrink_png.py`, write `vendor/<id>/HANDOFF.md` honestly, and
 commit on a branch. **Push and open the pull request only when the person says
 to.** After CI builds the application, download the build, and tell the person
 how to play their game in it.

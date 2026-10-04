@@ -78,10 +78,13 @@ std::string status_right(const Board& board) {
     return text;
 }
 
-std::string message_line(const Board& board) {
+std::string message_line(const Board& board, const Visual& visual) {
     if (solved(board)) {
         const std::string count = std::to_string(board.moves.size());
         return "All lit in " + count + ". Click or press Enter for another board.";
+    }
+    if (visual.remarked) {
+        return "No hurry. Every board here can be lit.";
     }
     const int dark = board.side * board.side - lit_count(board);
     if (dark == 1) {
@@ -179,7 +182,7 @@ void draw_scene(Canvas& canvas, double scale, const Layout& layout, const Board&
 
     const Col message_color = mix(cream, glass_lit, static_cast<float>(visual.won));
     const double message_y = layout.message.y + (layout.message.h - layout.type) * .5;
-    static_cast<void>(words(canvas, scale, message_line(board), Font::speech, layout.type,
+    static_cast<void>(words(canvas, scale, message_line(board, visual), Font::speech, layout.type,
                             layout.width * .5, message_y, message_color, Align::centre, 0));
 
     if (visual.help) {

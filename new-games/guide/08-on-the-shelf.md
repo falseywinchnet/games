@@ -17,9 +17,12 @@ Three things remain for you:
 1. **Draw the emblem.** In `src/suite.cpp`, find `TODO(<id>)` in
    `paint_entry_emblem` and replace the placeholder. See
    [the shell](04-the-shell.md) for what an emblem is.
-2. **Add the game to the roster sentences** at the top of `README.md` and
-   `docs/GAME_CATALOG.md`, and give it a section in the catalog like the others:
-   the rules in a paragraph, how boards are generated, what is saved.
+2. **Add the game where the documents list the games**: the opening sentence of
+   `README.md`, the opening of `docs/GAME_CATALOG.md`, and a paragraph for it
+   under "Implemented rule details" in the catalog (the rules, how boards are
+   generated, what is saved). Those lists can lag behind the shelf; if the count
+   you find is already wrong, correct it while you are there and say so in
+   `HANDOFF.md`.
 3. **Leave the version and `packaging/RELEASE_NOTES.md` alone.** Releases are the
    maintainer's. Put a proposed release-note sentence in your `HANDOFF.md`.
 

@@ -47,6 +47,18 @@ For this to work, animation must actually end:
 - Timed events (a computer opponent thinking, a banner that leaves after two
   seconds) keep the timer running only until they fire.
 
+**Reacting to a pause.** A character who remarks on a long silence does not need
+a running timer to notice it. The view records when the player last did
+something, and once the picture has settled it sets the timer's interval to the
+time remaining and sleeps: one wake, twenty-five seconds later, no frames in
+between. The template does this for its waiting remark (`seconds_until_remark`,
+`update_remark` and `note_player`); in a real window, twenty-eight untouched
+seconds cost one timer callback and one frame. After its remark the game
+schedules nothing. The contract test allows this: a settled game may hold one
+wake that is a second or more away. Keep such reactions to one or two remarks and
+then quiet. Do not put a countdown inside `advance()`; anything that makes it
+return true redraws at sixty frames a second.
+
 **Ambient motion** (a character breathing, water moving) keeps a game from ever
 settling. Prefer a character who moves when something happens and is still
 otherwise. If the game truly needs ambient life, give it a low cadence (10 to 15
@@ -108,7 +120,8 @@ Ways to get there, in the order to try them:
 
 1. **Draw the static part once.** Render the background, the board and anything
    that does not change into a canvas kept by the view, and start each frame by
-   copying it. Rebuild it on resize, scale change or a new game. Pen the Sheep
+   copying its pixels (`frame.px = backdrop.px` when the sizes match;
+   `draw_canvas` blends pixel by pixel and is for layers with transparency). Rebuild it on resize, scale change or a new game. Pen the Sheep
    caches its landscape this way; Rock Stack keeps the shadows of everything
    that is not moving.
 2. **Draw at lower resolution where the style allows.** The collection's 3D

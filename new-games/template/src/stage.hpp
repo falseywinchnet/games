@@ -51,7 +51,20 @@ struct Visual {
     int hover = -1;            // lamp under the pointer
     int cursor = -1;           // lamp chosen with the keyboard
     bool help = false;         // the help card is open
+    bool remarked = false;     // the waiting remark is showing
 };
+
+// A timed remark: when the player has done nothing for this long on an unsolved board,
+// the message line says something once. It is the pattern for any reaction to a pause.
+inline constexpr double remark_after_seconds = 25;
+// The player did something. Withdraws the remark; returns true when the picture changed.
+bool note_input(Visual& visual);
+// How long until the remark is due, given how long the player has been idle. Negative
+// when none is pending (already made, the board solved, or help open). The view uses
+// this to schedule one slow wake instead of ticking while it waits.
+[[nodiscard]] double seconds_until_remark(const Visual& visual, const Board& board, double idle_seconds);
+// Makes the remark if it is due. Returns true when the picture changed.
+[[nodiscard]] bool update_remark(Visual& visual, const Board& board, double idle_seconds);
 
 // Makes the visual state agree with a board at once (a new game, a load, reduced motion).
 void snap(Visual& visual, const Board& board);

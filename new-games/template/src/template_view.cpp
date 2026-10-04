@@ -43,6 +43,7 @@ TemplateView::TemplateView(gf::StableId id, Options options)
         session_.board = new_game(session_.next_side, seed_from_clock());
     }
     snap(visual_, session_.board);
+    last_input_ = std::chrono::steady_clock::now();
 }
 
 TemplateView::~TemplateView() = default;
@@ -88,6 +89,8 @@ void TemplateView::set_cabinet(bool foreground, bool music, bool sound, bool red
         }
         return;
     }
+    // Time spent behind the shelf is not time spent waiting on the player.
+    last_input_ = std::chrono::steady_clock::now();
     sync_music();
     request_frame();
 }
@@ -132,6 +135,14 @@ void TemplateView::request_frame() {
     (*timer_).start();
 }
 
+// The player did something: restart the wait for the timed remark.
+void TemplateView::note_player() {
+    last_input_ = std::chrono::steady_clock::now();
+    if (note_input(visual_)) {
+        request_frame();
+    }
+}
+
 void TemplateView::tick() {
     if (!visible() || !front_) {
         if (timer_) {
@@ -143,6 +154,10 @@ void TemplateView::tick() {
     const double elapsed = std::chrono::duration<double>(now - last_tick_).count();
     const double seconds = std::clamp(elapsed, 0.0, .1);
     last_tick_ = now;
+    const double idle = std::chrono::duration<double>(now - last_input_).count();
+    if (update_remark(visual_, session_.board, idle)) {
+        render_dirty_ = true;
+    }
     const bool moving = advance(visual_, session_.board, seconds, reduced_);
     audio_tick(seconds);
     if (render_dirty_ || moving) {
@@ -153,10 +168,15 @@ void TemplateView::tick() {
     if (moving || render_dirty_ || !timer_) {
         return;
     }
-    // Settled. Keep a slow tick only while a sound is still loading or fading;
-    // otherwise stop, and the game costs nothing until the next input.
+    // Settled. Keep a slow tick only while a sound is still loading or fading. If a
+    // timed remark is pending, sleep until exactly then: one wake, no frames between.
+    // Otherwise stop, and the game costs nothing until the next input.
+    const double wait = seconds_until_remark(visual_, session_.board, idle);
     if (audio_needs_tick()) {
         (*timer_).set_interval(std::chrono::milliseconds(50));
+    } else if (wait >= 0) {
+        const long long milliseconds = static_cast<long long>(std::ceil(wait * 1000)) + 20;
+        (*timer_).set_interval(std::chrono::milliseconds(milliseconds));
     } else {
         (*timer_).stop();
     }
@@ -213,6 +233,7 @@ void TemplateView::sync_music() {
 // ---------------------------------------------------------------- the game
 
 void TemplateView::press_cell(int cell) {
+    note_player();
     if (solved(session_.board)) {
         new_board();
         return;
@@ -231,6 +252,7 @@ void TemplateView::press_cell(int cell) {
 }
 
 void TemplateView::undo_press() {
+    note_player();
     if (solved(session_.board) || !undo(session_.board)) {
         return;
     }
@@ -240,6 +262,7 @@ void TemplateView::undo_press() {
 }
 
 void TemplateView::new_board() {
+    note_player();
     const int best = session_.next_side == session_.board.side ? session_.board.best : 0;
     session_.board = new_game(session_.next_side, seed_from_clock());
     session_.board.best = best;
@@ -261,6 +284,7 @@ void TemplateView::cycle_size() {
 }
 
 void TemplateView::set_help(bool open) {
+    note_player();
     visual_.help = open;
     request_frame();
 }
@@ -274,6 +298,7 @@ void TemplateView::move_cursor(int rows, int columns) {
         column = std::clamp(column + columns, 0, side - 1);
     }
     visual_.cursor = row * side + column;
+    note_player();
     request_frame();
 }
 

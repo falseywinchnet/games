@@ -14,11 +14,15 @@
 #include "gui_forms/window.hpp"
 
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -103,15 +107,27 @@ inline std::uint64_t contract_generation(const std::shared_ptr<gf::LiveSurface>&
     return generation;
 }
 
-// Lets opening animations finish. Returns true when the window has no wake scheduled.
+// Quiet: nothing is scheduled, or the only wake is a second or more away. A game may
+// hold one slow wake for a timed event (a character's remark after a long pause); it
+// may not keep ticking.
+inline bool contract_quiet(const gf::Window& window) {
+    const std::optional<gf::FrameTime> wake = window.next_wake();
+    if (!wake) {
+        return true;
+    }
+    const bool far = *wake - gf::FrameClock::now() >= std::chrono::milliseconds(900);
+    return far;
+}
+
+// Lets opening animations finish. Returns true once the window is quiet.
 inline bool contract_settle(gf::Window& window, double seconds) {
     const gf::FrameTime deadline =
         gf::FrameClock::now() + std::chrono::milliseconds(static_cast<long long>(seconds * 1000));
-    while (window.next_wake() && gf::FrameClock::now() < deadline) {
+    while (!contract_quiet(window) && gf::FrameClock::now() < deadline) {
         static_cast<void>(window.poll_frame_schedule(gf::FrameClock::now()));
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
-    const bool settled = !window.next_wake();
+    const bool settled = contract_quiet(window);
     return settled;
 }
 
@@ -210,9 +226,9 @@ int run_view_contract(const char* name, const ViewOptions& view_options, const C
         // 6. Idle: an untouched, settled game schedules nothing and republishes nothing.
         if (options.settles_when_untouched) {
             contract_require(contract_settle(window, options.settle_seconds),
-                             "an untouched game stops its timer once its picture has settled");
+                             "an untouched game stops ticking once its picture has settled");
             const std::uint64_t settled = contract_generation(surface);
-            static_cast<void>(window.poll_frame_schedule(gf::FrameClock::now() + std::chrono::seconds(1)));
+            static_cast<void>(window.poll_frame_schedule(gf::FrameClock::now() + std::chrono::milliseconds(800)));
             contract_require(contract_generation(surface) == settled,
                              "a settled game does not republish an unchanged frame");
             // ... and a command wakes it again.

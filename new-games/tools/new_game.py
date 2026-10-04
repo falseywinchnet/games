@@ -28,6 +28,7 @@ def substitute(text: str, names: dict[str, str]) -> str:
     text = text.replace("template_game", names["save_stem"])
     text = text.replace("TemplateGame", names["pascal"])
     text = text.replace("Template Game", names["title"])
+    text = text.replace("TEMPLATE GAME", names["title"].upper())
     text = text.replace("templategame", names["id"])
     text = text.replace("TG_", names["namespace"].upper() + "_")
     text = re.sub(r"\btg_", names["namespace"] + "_", text)
@@ -59,6 +60,8 @@ def main() -> int:
         return fail(f"{destination.relative_to(kitlib.REPO)} already exists")
     if not options.title.strip() or len(options.title) > 28:
         return fail("--title must be 1 to 28 characters (it has to fit a box)")
+    if len(options.blurb) > 90 or len(options.kind) > 24:
+        return fail("--blurb is at most 90 characters and --kind at most 24 (they are printed on the shelf)")
 
     names = {
         "id": options.id,
@@ -83,15 +86,18 @@ def main() -> int:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["kind"] = options.kind
     manifest["blurb"] = options.blurb or "TODO: one sentence that makes someone pick up the box."
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    written = json.dumps(manifest, indent=2)
+    # Keep the three colour triples on one line each, as in the template.
+    written = re.sub(r"\[\s*(\d+),\s*(\d+),\s*(\d+)\s*\]", r"[\1, \2, \3]", written)
+    manifest_path.write_text(written + "\n", encoding="utf-8")
 
     relative = destination.relative_to(kitlib.REPO)
     print(f"Created {relative}/ in namespace {options.namespace} (view {options.namespace}::{names['view_class']}).")
-    print("Next:")
-    print(f"  cmake -S {relative} -B .build/new-games/{options.id} && cmake --build .build/new-games/{options.id} -j 2")
+    print("It builds and passes its tests as it stands (the template's lamps puzzle under your names):")
+    print(f"  cmake -S {relative} -B .build/new-games/{options.id} && cmake --build .build/new-games/{options.id} --parallel 2")
     print(f"  ctest --test-dir .build/new-games/{options.id} --output-on-failure")
     print(f"  .build/new-games/{options.id}/{options.namespace}_preview .build/new-games/{options.id}/first.png 600 370")
-    print("Then follow new-games/AGENTS.md from step 3.")
+    print(f"Next: write the brief in {relative}/README.md and agree it with the person (new-games/AGENTS.md, step 2).")
     return 0
 
 

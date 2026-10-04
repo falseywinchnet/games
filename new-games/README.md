@@ -129,5 +129,5 @@ guide where that guide is needed.
 | [guide/09-deliver.md](guide/09-deliver.md) | Checking, the handoff and the pull request |
 | [guide/10-house-style.md](guide/10-house-style.md) | How the C++ is written |
 | `template/` | A complete small game to start from |
-| `tools/` | `new_game.py`, `wire_shelf.py`, `check_game.py` |
+| `tools/` | `new_game.py`, `wire_shelf.py`, `check_game.py`, `shrink_png.py` |
 | `kit/` | The headless harness: real fonts and PNG output with no window |

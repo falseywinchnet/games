@@ -170,7 +170,8 @@ your own.
 | Animation settles in bounded time and then reports "not moving" | Idle depends on it |
 | Reduced motion applies changes at once | |
 
-Tests must be deterministic and quick (the whole file under a few seconds). Do
-not assert on wall-clock time: Rock Stack's timing test failed on a busy machine
+A new game's tests must be deterministic and quick: the whole file in a few
+seconds (some of the collection's older solver tests run longer; do not add to
+that). Do not assert on wall-clock time: Rock Stack's timing test failed on a busy machine
 and had to be moved out of the required set. Measure speed with a separate tool
 and report the numbers in `HANDOFF.md`.

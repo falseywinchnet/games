@@ -53,7 +53,9 @@ against the computer: how the opponent decides, and that it never cheats.
 
 **Look, sound and words.** The scene in a sentence. Four or five colours. The
 one animation that makes it feel alive. The music's mood and tempo in plain
-words. What a move sounds like. See [look, sound and words](06-look-sound-words.md).
+words (a game is expected to have music; if the first delivery has none, say so
+in the handoff). What a move sounds like. See
+[look, sound and words](06-look-sound-words.md).
 
 **Controls and commands.** What the mouse does. What the keyboard does (every
 game is fully playable from the keyboard where the game allows it). The
@@ -69,6 +71,8 @@ Three names are chosen once and then appear in code, saves and assets:
 | Name | Rules | Example |
 |---|---|---|
 | Title | At most 28 characters; fits a box; says what the game is, plainly | Tide Pools |
+| Kind | Two or three words under the title, at most 24 characters | Shore puzzle |
+| Blurb | One inviting sentence for the shelf ticket, at most 90 characters | |
 | Id | 3 to 20 lowercase letters and digits; the folder and the shelf entry | `tidepools` |
 | Namespace | 2 to 4 lowercase letters, not used by any other game | `tp` |
 

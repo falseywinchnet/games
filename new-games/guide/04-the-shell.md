@@ -35,8 +35,24 @@ Stack is four rounded stones. It must read at 40 pixels. It should be the game's
 character or its central object, in the game's colours. `wire_shelf.py` leaves a
 placeholder marked `TODO`, and the gate fails until you replace it.
 
-Look at the other boxes' colours in `src/suite.cpp` and choose a cover that is
-distinct from its neighbours on the shelf.
+Look at the other boxes' colours (the `entries` table at the top of
+`src/suite.cpp` lists every cover) and choose one that is distinct from the boxes
+beside it; a new game sits at the end of the shelf.
+
+You cannot run the shell here, so prototype the emblem with the canvas first:
+`draw_emblem` in the game's `tools/preview.cpp`, shown on mock boxes by
+`<ns>_preview box.png 0 0 1 box`. Then transcribe it. The calls correspond one to
+one:
+
+| Canvas (prototype) | Painter (in `src/suite.cpp`) |
+|---|---|
+| `canvas.fill_circle(x, y, r, colour)` | `disc(p, x, y, r, colour)` |
+| `canvas.begin(); canvas.rrect(x, y, w, h, r); canvas.fill(colour)` | `p.fill_rounded_rect({x, y, w, h}, r, colour)` |
+| `canvas.stroke_line(x0, y0, x1, y1, colour, width)` | `p.draw_line({x0, y0}, {x1, y1}, colour, width)` |
+| a closed path of straight lines, filled | `paint_polygon(p, {{x0, y0}, {x1, y1}, ...}, colour)` |
+| `tg::rgb(r, g, b)` | `rgb(r, g, b)` |
+
+Keep to those shapes in the prototype so nothing is lost in the transcription.
 
 ## The command capsule
 
@@ -100,6 +116,11 @@ voice.
 
 ### Scores
 
+A game does not need a score table; a single best, or stars per level, is often
+right. There is no shared top-ten helper for kit games yet: a game that wants the
+full table draws its own panel and name entry (Atom Probe's `scores` panel in
+`vendor/atomprobe` is the model).
+
 The collection's policy: running scores are not shown as statistics. When a game
 ends with a result worth keeping, it may enter a named, arcade-style top-ten for
 that game and rules profile; only the best ten are kept, and a saved latch stops
@@ -160,6 +181,10 @@ to start.
 - Z, U or Backspace: Undo, where there is one. N: new game, where that is safe.
 - Arrow keys move a visible cursor, so the game can be played without a mouse
   wherever its rules allow.
+- `gf::PhysicalKey` names letters, arrows, Enter, Space, Escape, Backspace and
+  the function keys. It has no names for the digit row; those are the HID usage
+  codes `0x1E` for 1 through `0x26` for 9, and `0x27` for 0, compared against
+  `event.physical_key` as Four Pegs and Switchbox do.
 - Set `event.handled = true` only for keys you used. Unhandled keys belong to
   the shell.
 - Keys act on the game's own directions, never the camera's: if a view can be
@@ -169,8 +194,13 @@ to start.
 
 - Set the hand cursor over anything clickable, the arrow elsewhere.
 - Show hover: the thing under the pointer should look ready.
-- A press that begins on a control and is released elsewhere does nothing.
-- The first press on a draggable thing starts the drag.
+- A button drawn on the surface acts on release, and a press that begins on it
+  and is released elsewhere does nothing.
+- A piece on the board (a lamp, a card, a tile) may act on the press itself, and
+  the first press on a draggable thing starts the drag.
+- A hidden surprise shows no hand cursor; that is what keeps it hidden.
+- The board stays the largest thing on the surface. At small sizes a character
+  gives way first: a bust instead of a figure, a corner instead of a side.
 - Targets are at least 36 points across at the smallest window.
 
 ## Accessibility
