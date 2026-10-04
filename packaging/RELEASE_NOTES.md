@@ -1,14 +1,13 @@
-PlaySuite 0.4.3 adds Rock Stack as the eighteenth game, restores Four Pegs mouse placement and Check, removes redundant shelf branding, and shows Solitaire's accumulating waste pile. Sheep caches its static landscape to reduce repeated rendering.
+PlaySuite 0.4.4 fixes Rock Stack's concurrent startup-cache initialization and reduces repeated rendering and timer work in the older games.
 
-Rock Stack physics correctness checks remain required. Its stress benchmark is reported separately: the 1.5 ms target remains unmet (2.56 ms on the Windows development host). Further Gems and Untangle CPU optimization remains outstanding.
+- Rock Stack safely shares its mesh and stone-texture caches during parallel construction. Its cold-start regression test compares concurrent results with serial construction.
+- Gems and Nature Cube publish board-image changes with bounded damage, and unchanged layouts reuse the current raster. Cube tracing combines rapid pointer input into one render per animation frame.
+- Sudoku keeps its generation waiting screen still until the puzzle is ready. Hearts sleeps until the next computer-play deadline when its cards are at rest.
+- The Windows renderer reuses gradients and exact shadow coverage within fixed memory limits. Native pixel tests cover transparency, clipping, translation, resizing and cache eviction. This renderer change is specific to Windows; the game-side changes apply across platforms.
 
-PlaySuite 0.4.2 restores the command menu and the return-to-shelf control in Solitaire and other full-window games.
+All eighteen games, the restored command menus, Four Pegs mouse controls and Solitaire's accumulating waste pile are retained. Drawing quality, animations, game rules and save formats are unchanged.
 
-The 0.4.1 lazy-loading change placed newly created games above the command capsule. Those games could cover the menu and intercept its mouse clicks. Games now stay behind the shelf and command capsule in both paint order and hit-testing.
-
-Regression tests click the visible Back control through the window input path in all seventeen games, with the menu both folded and expanded at the minimum window size. The idle CPU and memory improvements from 0.4.1 remain in place.
-
-The command capsule also keeps a fixed left edge while expanding, so Back and the primary commands no longer move away from the approaching pointer.
+Performance work continues: animated Gems and Untangle can still be CPU-bound, particularly on slower machines. Rock Stack's physics correctness tests pass; its separate 1.5 ms stress-performance target remains unmet and is not a release gate.
 
 PlaySuite was previously named Games. Existing save locations and internal game identifiers are preserved.
 

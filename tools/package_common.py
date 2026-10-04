@@ -7,7 +7,7 @@ import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-TOOLKIT_REVISION = "7b260cfb9f3267392e1470b0fcf4cd2497437819"
+TOOLKIT_REVISION = "3f75e379213de972f78729a591594e70fe65a585"
 
 
 def runtime_exclusions(directory, names):

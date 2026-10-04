@@ -1,6 +1,6 @@
 # Build the complete collection
 
-Use CMake 3.25 or later, Ninja and a C++20 compiler. The repository's `Build installable PlaySuite` workflow is the executable build recipe for each released platform. It checks out GUI.Forms at `7b260cfb9f3267392e1470b0fcf4cd2497437819`, fetches its pinned text dependencies, builds its CPU renderer where required, and prepares the game resources.
+Use CMake 3.25 or later, Ninja and a C++20 compiler. The repository's `Build installable PlaySuite` workflow is the executable build recipe for each released platform. It checks out GUI.Forms at `3f75e379213de972f78729a591594e70fe65a585`, fetches its pinned text dependencies, builds its CPU renderer where required, and prepares the game resources. This revision backports private Windows brush caches onto the previous `7b260cf` interface; it does not import later public API changes. The unchanged Skia dependency archive retains its existing cache key.
 
 The source integration uses public GUI.Forms APIs for native windows, input, presentation, text masks and audio. The selected development text and bar-transport APIs are source-only; an older installed SDK cannot replace this source dependency. Games does not install or export an SDK. Apple framework adaptation is confined to GUI.Forms; Games compiles its application and game adapters as C++.
 

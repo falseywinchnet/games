@@ -6,6 +6,13 @@ of another display interval alone is not.
 
 ## Current implementation
 
+- The Windows toolkit reuses sampled gradients and shadow coverage while
+  compositing against the current background and applying the current clip.
+  Gradient pixels remain bounded to 16 MiB per painter; exact shadow samples
+  add at most 4 MiB. The gradient entry limit accommodates Untangle's repeated
+  brush set without cyclic eviction. Native tests compare cached and uncached
+  pixels, including alpha, fractional translation, clipping and scale changes.
+  This optimization is specific to the Windows DIB renderer.
 - Gems and Nature Cube update their registered board image with bounded damage.
   Ordinary animation does not invalidate the surrounding legend and command
   capsule. Gem effects that extend outside the board retain full repainting,

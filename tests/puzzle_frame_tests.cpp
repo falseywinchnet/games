@@ -72,6 +72,63 @@ void check(games::PuzzleKind kind) {
                 "Cube publishes one raster for the latest pointer state");
     }
 }
+void gem_pointer(gf::Window& window, games::PuzzleView& view,
+                 gf::PointerAction action, int cell) {
+    const gf::Rect board = view.board();
+    gf::PointerEvent event;
+    event.action = action;
+    event.button = gf::PointerButton::primary;
+    event.position = view.point_to_window(
+        {board.x + (cell % 8 + .5) * board.width / 8,
+         board.y + (cell / 8 + .5) * board.height / 8});
+    static_cast<void>(window.dispatch_pointer(event));
+}
+void check_gems_input(bool drag) {
+    std::shared_ptr<games::PuzzleView> view =
+        gf::make_control<games::PuzzleView>(gf::StableId("gems-input"), games::PuzzleKind::gems);
+    (*view).game.deal(42);
+    games::PuzzleGame expected = (*view).game;
+    int from = -1, to = -1;
+    for (int cell = 0; cell < 64 && from < 0; ++cell)
+        for (int step : {1, 8}) {
+            const int neighbor = cell + step;
+            if (neighbor >= 64 || (step == 1 && cell / 8 != neighbor / 8))
+                continue;
+            games::PuzzleGame trial = (*view).game;
+            if (trial.gem_swap(cell, neighbor)) {
+                from = cell;
+                to = neighbor;
+                expected = trial;
+                break;
+            }
+        }
+    require(from >= 0, "Gems fixture has a legal matching swap");
+    gf::Window window(view, {1060, 680});
+    window.perform_layout();
+    (*view).activate();
+    PaintSink painter;
+    flush(window, painter);
+    // Exercise the animated path; the older collection test uses reduced motion.
+    static_cast<void>(window.poll_frame_schedule(gf::FrameClock::now() +
+                                                std::chrono::milliseconds(30)));
+    flush(window, painter);
+    gem_pointer(window, *view, gf::PointerAction::down, from);
+    if (drag)
+        gem_pointer(window, *view, gf::PointerAction::move, to);
+    else {
+        gem_pointer(window, *view, gf::PointerAction::up, from);
+        gem_pointer(window, *view, gf::PointerAction::down, to);
+    }
+    gem_pointer(window, *view, gf::PointerAction::up, to);
+    require((*view).game.state.moves == 1 && (*view).game.state.score == expected.state.score &&
+                (*view).game.state.grid == expected.state.grid,
+            "Animated Gems accepts a legal pointer swap with the correct cascade");
+    require(!window.take_damage().empty(), "Successful Gems input schedules visible feedback");
+    games::PuzzleGame saved(games::PuzzleKind::gems);
+    require(saved.load(games::cabinet_path().parent_path() / "gems-v1.txt") &&
+                saved.state.moves == 1 && saved.state.grid == expected.state.grid,
+            "Legal pointer swap persists the resulting board");
+}
 void check_hearts_deadline() {
     std::shared_ptr<games::Table> table =
         gf::make_control<games::Table>(gf::StableId("hearts"));
@@ -114,14 +171,17 @@ int main() {
             preferences.started[i] = true;
         }
         preferences.sound = preferences.music = false;
+        preferences.reduced = false;
         require(games::save_cabinet(games::cabinet_path(), preferences), "Save test preferences");
         check(games::PuzzleKind::gems);
         check(games::PuzzleKind::cube);
+        check_gems_input(false);
+        check_gems_input(true);
         preferences.reduced = true;
         require(games::save_cabinet(games::cabinet_path(), preferences), "Save reduced motion fixture");
         check_hearts_deadline();
         std::filesystem::remove_all(scratch);
-        std::cout << "Board damage, layout reuse, hidden rendering and input coalescing passed\n";
+        std::cout << "Board damage, layout reuse, hidden rendering, animated input and scheduling passed\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
