@@ -1,0 +1,38 @@
+{
+  "id": "templategame",
+  "namespace": "tg",
+  "title": "Template Game",
+  "kind": "Lamp puzzle",
+  "blurb": "The kit's placeholder: press lamps until the whole board is lit.",
+  "view_class": "TemplateView",
+  "view_header": "template_view.hpp",
+  "save_file": "template_game-v1.txt",
+  "cover": {
+    "top": [92, 66, 44],
+    "bottom": [36, 26, 19],
+    "accent": [255, 215, 122]
+  },
+  "core_sources": [
+    "src/platform/raster.cpp",
+    "src/rules.cpp",
+    "src/save.cpp",
+    "src/stage.cpp"
+  ],
+  "ui_sources": [
+    "src/template_view.cpp",
+    "src/scene.cpp",
+    "src/platform/text.cpp"
+  ],
+  "audio_adapter": "src/platform/audio.cpp",
+  "core_tests": [
+    "tests/rules_tests.cpp"
+  ],
+  "contract_test": "tests/view_contract_tests.cpp",
+  "borrowed": [
+    "src/platform/raster.cpp",
+    "src/platform/raster.hpp"
+  ],
+  "audio_prefix": "tg_",
+  "audio_manifest": "",
+  "settles_when_untouched": true
+}

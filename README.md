@@ -8,6 +8,10 @@ Card tables use Plan Paint's fiber-rendered billiard felt, original cream card f
 
 The [four new integrations](docs/NEW_GAME_INTEGRATION.md) use the same shelf, command capsule and master preferences. Koi-Koi includes 48 new traditional woodblock-style faces, with month and card-type labels.
 
+## Make a game for the shelf
+
+Anyone with an idea for a small game can build one with an AI model and offer it for the shelf. [new-games/](new-games/README.md) explains what kind of game belongs here and holds the whole kit: a template game, a headless harness that renders a game's frames without the application, the tools that put a box on the shelf, and the procedure a model follows ([new-games/AGENTS.md](new-games/AGENTS.md)).
+
 ## Build status and downloads
 
 The [Build installable PlaySuite workflow](https://github.com/falseywinchnet/games/actions/workflows/applications.yml) builds the complete collection on native Windows x64, macOS arm64, Linux x64 and Linux arm64 runners. Successful runs provide installers and portable archives. Version tags publish tested packages to [Releases](https://github.com/falseywinchnet/games/releases).
