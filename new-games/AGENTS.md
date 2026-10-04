@@ -10,6 +10,13 @@ and the behavior of every existing game. Follow the person's existing decisions
 and publication authorization; do not ask them to approve the same action again.
 Use [the house style](guide/10-house-style.md) for newly authored C++.
 
+**Routine author path: create the folder → build and dogfood that game → commit
+and push the folder to main. GitHub tests and publishes the revision.** The
+sections below describe game development, not extra release administration.
+Do not make an author maintain a roster, count, help index, asset list, version,
+platform build matrix, package, release notes or release tag. Do not require a
+pull request or a new approval when the owner already authorized direct publication.
+
 ## 1. Settle the idea and write the brief
 
 Read [what belongs](guide/01-what-belongs.md), [the brief](guide/02-the-brief.md)
@@ -121,25 +128,34 @@ python3 new-games/tools/wire_shelf.py <id>
 python3 new-games/tools/check_game.py <id> --fetch-toolkit --application <games-executable> --script /path/to/play.script
 ```
 
-Run the portable suite, full application tests and style check. Launch the hosted
-application with `--game <id> --dev --script /path/to/hosted.script`. Check that the
-box count, scrolling, cover, help and commands update from the folder. Visit old
-games, including their commands and saves. The generic catalog UI test visits all
-discovered modules; keep game-specific regression tests too.
+Launch the hosted application with `--game <id> --dev --script
+/path/to/hosted.script`. Check the new game's cover, help, commands and transitions
+between the game and shelf. Its local rules and view-contract tests remain the
+author's responsibility. GitHub runs the full suite, style, catalog and platform
+checks automatically; do not manually repeat that matrix for a folder-only game
+addition. Changes to shared infrastructure need focused regression testing of
+that infrastructure. The generic catalog UI test visits every discovered module.
 
 ## 6. Deliver and publish
 
-Read [delivery](guide/09-deliver.md). Fill in `HANDOFF.md`: VERIFIED with commands
-and results, NOT VERIFIED with real limits, DECISIONS with provenance and tradeoffs.
-Fix every gate failure; fix or explain warnings. Keep build output and personal
-saves out of git. A new game's commit normally changes only its folder.
+Keep `HANDOFF.md` brief: tests actually run, real limitations, and non-obvious
+provenance or design decisions. Do not copy CI logs or write a platform/release
+report. Fix gate failures and explain remaining warnings. Keep build output and
+personal saves out of git. A new game's commit normally changes only its folder.
 
-Push and open a pull request when authorized by the person, including prior
-instructions. Watch all platform checks and fix failures. The application workflow
-builds, tests and package-smokes Windows x64, macOS arm64, Linux x64 and Linux
-arm64. Once merged to main, the publication job releases those tested artifacts
-with one generated version and an immutable commit tag. Do not manually bump a
-version to add a game. Do not report a release until its publication succeeds.
+For the owner's authorized direct-write workflow, commit that folder and push to
+`main`; this automatically starts deployment. A feature-branch push alone does
+not deploy. Use a pull request only when requested or required by repository
+permissions, then merge it to trigger the same pipeline. See
+[delivery](guide/09-deliver.md) for the short command sequence.
+
+CI owns resource preparation, discovery, whole-suite regression tests, the four
+platform builds, installer launch checks, version selection, tagging and release
+publication. An author may hand off once pushed: say "submitted; automatic release
+is running" and link the workflow. No polling, artifact download or manual
+release work is part of routine game authorship. Return to fix a reported failure.
+If the person specifically requests confirmation of a published release, verify
+publication before claiming that outcome.
 
 ## Contracts to preserve
 

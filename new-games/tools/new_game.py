@@ -126,7 +126,8 @@ def main() -> int:
         print(f"Include the folder with -DGAMES_EXTRA_GAME_DIRS=\"{destination}\"; it needs no shell edits.")
     else:
         print("CMake discovers this folder on configure. No wire_shelf.py mutation is required.")
-    print(f"Next: write the brief in {relative}/README.md and agree it with the person (new-games/AGENTS.md, step 2).")
+    print(f"Next: build the requested game, record its brief in {relative}/README.md, and dogfood it standalone and hosted.")
+    print("When publication is authorized, commit the game folder and push to main. GitHub tests and publishes the next revision.")
     return 0
 
 

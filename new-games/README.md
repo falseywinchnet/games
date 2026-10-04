@@ -69,18 +69,18 @@ already on the shelf and examples of ideas that fit and ideas that don't.
    > Read `new-games/AGENTS.md`. I want to make a new game for the shelf.
    > Here's my idea: ...
 
-3. **Talk it through.** The model will ask you questions before it builds
-   anything: who is in the game, how a turn goes, what winning feels like. Answer
-   in your own words. You don't need to know anything about programming.
+3. **Talk it through.** Describe who is in the game, how a turn goes and what
+   winning feels like. The model asks about gaps that matter and starts from
+   decisions you have already made. You do not need to know programming.
 4. **Look at what it makes.** The model can show you pictures of the game at
    every stage, at the sizes the shelf uses. Say what's wrong. "The sheep faces
    the wrong way." "The help text is too small." "He isn't villainous enough."
    Plain complaints are the most useful thing you can give it.
-5. **Send it in.** When you're happy, the model packages the game as one new
-   folder containing its code, cover, help and assets, and opens a pull
-   request. The repository's build machines then compile the whole suite for
-   Windows, macOS and Linux, with your game in it, and you can download that
-   build and play it properly.
+5. **Publish the folder.** After testing the game locally, an authorized model
+   commits its one folder and pushes to `main`. GitHub automatically tests the
+   suite and publishes the next revision for Windows, macOS and Linux. There are
+   no registration or version edits, package-building steps or manual releases.
+   External contributors use a pull request; merging it starts the same pipeline.
 
 The model can compile the full application locally when the pinned toolkit and
 platform dependencies are available. Test the game in its own native window
@@ -101,7 +101,7 @@ make the game yours:
 
 ## What happens to your game
 
-The maintainer plays every submission and decides whether it goes on the shelf.
+For external submissions, the maintainer decides whether the game joins the shelf.
 Some good games will be turned down because they don't suit this particular
 collection. That is a judgment about the shelf, and the reasons will be given.
 
@@ -126,7 +126,7 @@ guide where that guide is needed.
 | [guide/06-look-sound-words.md](guide/06-look-sound-words.md) | Art, sound and writing |
 | [guide/07-primitives.md](guide/07-primitives.md) | The drawing, text, sound and 3D pieces you can borrow |
 | [guide/08-on-the-shelf.md](guide/08-on-the-shelf.md) | The folder contract and automatic discovery |
-| [guide/09-deliver.md](guide/09-deliver.md) | Checking, the handoff and the pull request |
+| [guide/09-deliver.md](guide/09-deliver.md) | One-folder push and automatic publication |
 | [guide/10-house-style.md](guide/10-house-style.md) | How the C++ is written |
 | `template/` | A complete small game to start from |
 | `tools/` | `new_game.py`, `wire_shelf.py`, `check_game.py`, `shrink_png.py` |
