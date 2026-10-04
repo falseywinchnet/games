@@ -21,6 +21,7 @@ SpriteSpec title_spec(const std::string& title) {
 CommandCapsule::CommandCapsule(gf::StableId id, TextSprites& sprites)
     : Control(std::move(id)), sprites_(sprites) {
     set_accessible_name("Game commands");
+    set_paint_plane(gf::PaintPlane::overlay);
 }
 void CommandCapsule::initialize_control_tree() {
     back_ = gf::make_control<SuiteButton>(gf::StableId("capsule.back"), "", GlossTone::smoke);
@@ -153,8 +154,8 @@ gf::Rect CommandCapsule::placement(gf::Rect area) const {
     const double w = pill.width, h = pill.height;
     // Expansion must not move Back or the primary commands away from a
     // pointer approaching them. Keep the same leading edge in both states.
-    return {area.x + 8 - kMargin, area.y + 6 - kMargin,
-            std::ceil(w) + 2 * kMargin, std::ceil(h) + 2 * kMargin};
+    return {area.x + 8 - kMargin, area.y + 6 - kMargin, std::ceil(w) + 2 * kMargin,
+            std::ceil(h) + 2 * kMargin};
 }
 bool CommandCapsule::step(double dt, bool inside, bool reduced) {
     if (inside || pinned_)
@@ -170,6 +171,8 @@ bool CommandCapsule::step(double dt, bool inside, bool reduced) {
     return true;
 }
 void CommandCapsule::arrange(gf::Rect bounds) {
+    for (const std::shared_ptr<gf::Control>& child : children())
+        (*child).set_paint_plane(gf::PaintPlane::overlay);
     arrange_self(bounds);
     layout_slots();
     // The pill, not the control bounds, decides what shows: a host may crop the shadow margin.

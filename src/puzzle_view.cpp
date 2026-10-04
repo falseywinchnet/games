@@ -6,6 +6,7 @@
 #include "storage.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <fstream>
 #include <map>
 namespace games {
@@ -18,6 +19,11 @@ class PuzzleScenePart final : public gf::Control {
         set_hit_test_transparent(true);
     }
     void on_paint(gf::Painter& painter, gf::Rect) override {
+        if (owner_.surface_) {
+            if (part_ == 0)
+                painter.draw_live_surface(owner_.surface_, client_rectangle());
+            return;
+        }
         if (part_ == 0)
             painter.fill_rect(client_rectangle(), gf::Color::rgba(112, 126, 133));
         if (owner_.game.kind == PuzzleKind::gems)
@@ -39,21 +45,160 @@ class PuzzleScenePart final : public gf::Control {
 };
 void PuzzleView::invalidate_scene() {
     refresh_scene();
-    invalidate(gf::Dirty::paint);
+    if (!surface_ || panel_)
+        invalidate(gf::Dirty::paint);
 }
 void PuzzleView::refresh_scene() {
     untangle_geometry_dirty_ = true;
-    for (const std::shared_ptr<gf::Control>& part : scene_parts_)
-        if (part) {
-            (*part).set_visible(panel_ == 0);
-            (*part).invalidate(gf::Dirty::paint);
+    static_pixels_dirty_ = true;
+    if (!panel_)
+        static_cast<void>(prepare_framebuffer());
+    for (int index = 0; index < 3; ++index)
+        if (scene_parts_[index]) {
+            (*scene_parts_[index]).set_visible(panel_ == 0 && (!surface_ || index == 0));
+            if (!surface_)
+                (*scene_parts_[index]).invalidate(gf::Dirty::paint);
         }
+    if (surface_ && !panel_)
+        present_framebuffer(client_rectangle());
+}
+void PuzzleView::invalidate_static_scene() {
+    static_pixels_dirty_ = true;
+    if (!surface_) {
+        (*scene_parts_[0]).invalidate(untangle_board_damage());
+        (*scene_parts_[2]).invalidate(gf::Dirty::paint);
+    }
 }
 void PuzzleView::invalidate_animation(gf::Rect damage) {
-    if (scene_parts_[1] && !panel_)
+    if (!panel_ && prepare_framebuffer()) {
+        present_framebuffer(damage);
+    } else if (scene_parts_[1] && !panel_) {
         (*scene_parts_[1]).invalidate(damage);
-    else
+    } else {
         invalidate(damage);
+    }
+}
+bool PuzzleView::prepare_framebuffer() {
+    if (!scene_parts_[0] || !attached_window())
+        return false;
+    gf::Window& window = *attached_window();
+    const gf::Rect bounds = client_rectangle();
+    const gf::Size size{bounds.width, bounds.height};
+    if (framebuffer_ && size == framebuffer_size_ && window.scale() == framebuffer_scale_)
+        return true;
+    gf::Painter* native = dynamic_cast<gf::Painter*>(window.text_metrics_provider());
+    if (!native || size.width <= 0 || size.height <= 0)
+        return false;
+    std::unique_ptr<gf::PaintFramebuffer> replacement =
+        (*native).create_framebuffer(size, window.scale());
+    if (!replacement)
+        return false;
+    gf::LiveSurfaceDescription description;
+    description.width = (*replacement).width();
+    description.height = (*replacement).height();
+    if (surface_) {
+        if (!(*surface_).reconfigure(description))
+            return false;
+    } else {
+        surface_ = gf::LiveSurface::create(description);
+        if (!surface_)
+            return false;
+    }
+    framebuffer_ = std::move(replacement);
+    framebuffer_size_ = size;
+    framebuffer_scale_ = window.scale();
+    static_pixels_dirty_ = true;
+    static_pixels_.clear();
+    (*scene_parts_[1]).set_visible(false);
+    (*scene_parts_[2]).set_visible(false);
+    direct_ = window.queue_live_surface_presentation(scene_parts_[0], surface_);
+    if (game.kind == PuzzleKind::gems) {
+        render();
+        if (image_.value) {
+            static_cast<void>(window.remove_image(image_));
+            image_ = {};
+        }
+    }
+    return true;
+}
+void PuzzleView::present_framebuffer(gf::Rect damage) {
+    if (framebuffer_painting_ || panel_ || !prepare_framebuffer())
+        return;
+    gf::PaintFramebuffer& target = *framebuffer_;
+    const gf::Rect bounds = client_rectangle();
+    const bool rebuild = static_pixels_dirty_ || static_pixels_.empty();
+    if (rebuild)
+        damage = bounds;
+    damage = gf::Rect::intersection(damage, bounds);
+    if (damage.empty())
+        return;
+    // Restore and paint exactly the same physical pixels at fractional DPI.
+    const int left = std::max(0, static_cast<int>(std::floor(damage.x * framebuffer_scale_)));
+    const int top = std::max(0, static_cast<int>(std::floor(damage.y * framebuffer_scale_)));
+    const int right =
+        std::min(static_cast<int>(target.width()),
+                 static_cast<int>(std::ceil((damage.x + damage.width) * framebuffer_scale_)));
+    const int bottom =
+        std::min(static_cast<int>(target.height()),
+                 static_cast<int>(std::ceil((damage.y + damage.height) * framebuffer_scale_)));
+    damage = {left / framebuffer_scale_, top / framebuffer_scale_,
+              (right - left) / framebuffer_scale_, (bottom - top) / framebuffer_scale_};
+    if (!target.begin(frame_images_, damage))
+        return;
+    framebuffer_painting_ = true;
+    gf::Painter& painter = target.painter();
+    std::span<std::byte> pixels = target.pixels();
+    if (rebuild) {
+        painter.fill_rect(bounds, gf::Color::rgba(112, 126, 133));
+        if (game.kind == PuzzleKind::gems)
+            paint_gems(painter, 0);
+        else
+            paint_untangle(painter, 0);
+        target.end();
+        static_pixels_.assign(pixels.begin(), pixels.end());
+        static_pixels_dirty_ = false;
+        if (!target.begin(frame_images_, damage)) {
+            framebuffer_painting_ = false;
+            return;
+        }
+    } else {
+        for (int y = top; y < bottom; ++y) {
+            const std::size_t offset = static_cast<std::size_t>(y) * target.row_bytes() + left * 4U;
+            std::memcpy(pixels.data() + offset, static_pixels_.data() + offset,
+                        static_cast<std::size_t>(right - left) * 4U);
+        }
+    }
+    if (game.kind == PuzzleKind::gems) {
+        paint_gems(painter, 1);
+        paint_gems(painter, 2);
+    } else {
+        paint_untangle(painter, 1);
+        paint_untangle(painter, 2);
+    }
+    text(painter, 17, bounds.height - 11, game.message, 13, gf::Color::rgba(0, 0, 0, 120));
+    text(painter, 16, bounds.height - 12, game.message, 13, gf::Color::rgba(231, 238, 247));
+    target.end();
+    gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write();
+    if (lease) {
+        // Pool rotation and skipped generations require a complete candidate.
+        const bool rgba = target.channel_order() == gf::FramebufferChannelOrder::rgba;
+        for (std::uint32_t y = 0; y < target.height(); ++y) {
+            const std::uint32_t* source =
+                reinterpret_cast<const std::uint32_t*>(pixels.data() + y * target.row_bytes());
+            std::uint32_t* destination =
+                reinterpret_cast<std::uint32_t*>(lease.pixels().data() + y * lease.row_bytes());
+            for (std::uint32_t x = 0; x < target.width(); ++x) {
+                const std::uint32_t pixel = source[x];
+                destination[x] = 0xff000000U | (rgba ? ((pixel & 0xffU) << 16) | (pixel & 0xff00U) |
+                                                           ((pixel >> 16) & 0xffU)
+                                                     : pixel);
+            }
+        }
+        static_cast<void>(lease.publish(damage));
+        if (!direct_)
+            (*scene_parts_[0]).invalidate(damage);
+    }
+    framebuffer_painting_ = false;
 }
 static const gf::Color ink = gf::Color::rgba(231, 238, 247), muted = gf::Color::rgba(154, 177, 198),
                        accent = gf::Color::rgba(119, 216, 229);
@@ -154,6 +299,11 @@ void PuzzleView::on_attached_to_window() {
 }
 void PuzzleView::on_detaching_from_window(gf::Window& window) noexcept {
     persist();
+    framebuffer_.reset();
+    surface_.reset();
+    static_pixels_.clear();
+    frame_images_.clear();
+    frame_image_ = {};
     if (timer_)
         (*timer_).stop();
     timer_.reset();
@@ -186,6 +336,7 @@ void PuzzleView::arrange(gf::Rect b) {
         if (part)
             set_child_layout(part, {0, 0, b.width, b.height});
     untangle_geometry_dirty_ = true;
+    static_pixels_dirty_ = true;
     double reserve = game.kind == PuzzleKind::solve                                   ? 496.0
                      : game.kind == PuzzleKind::pegs || game.kind == PuzzleKind::atom ? 424.0
                                                                                       : 300.0;
@@ -225,9 +376,12 @@ void PuzzleView::arrange(gf::Rect b) {
     if (game.kind == PuzzleKind::gems || game.kind == PuzzleKind::cube) {
         const int old_width = raster_.width, old_height = raster_.height;
         fit_raster();
-        if (old_width != raster_.width || old_height != raster_.height || !image_.value)
+        if (old_width != raster_.width || old_height != raster_.height ||
+            (!image_.value && !frame_image_.value))
             render();
     }
+    if (surface_ && !panel_)
+        present_framebuffer(client_rectangle());
 }
 // Renders at device resolution (at least 1.5x) so the image stays crisp on high-DPI screens.
 // While the cube is tilting it renders lighter, then sharpens once it settles.
@@ -392,6 +546,21 @@ void PuzzleView::render() {
         return;
     // Board pixels do not change the surrounding legend or command capsule.
     // Patching keeps damage local; a resized raster still replaces the image.
+    if (framebuffer_ && game.kind == PuzzleKind::gems) {
+        gf::ImageLoadResult frame =
+            !frame_image_.value
+                ? frame_images_.load_bgra32_premultiplied(raster_.width, raster_.height,
+                                                          raster_.width * 4, raster_.pixels)
+                : frame_images_.update_bgra32_premultiplied(frame_image_, raster_.width,
+                                                            raster_.height, raster_.width * 4,
+                                                            raster_.pixels);
+        if (!frame && frame_image_.value)
+            frame = frame_images_.replace_bgra32_premultiplied(
+                frame_image_, raster_.width, raster_.height, raster_.width * 4, raster_.pixels);
+        if (frame)
+            frame_image_ = frame.image;
+        return;
+    }
     gf::Window& window = *attached_window();
     gf::Control& consumer = scene_parts_[1] ? *scene_parts_[1] : *this;
     gf::ImageLoadResult result =
@@ -559,8 +728,9 @@ void PuzzleView::paint_gems(gf::Painter& p, int part) {
                                     cell * .16, gf::Color::rgba(255, 230, 170, 26));
             }
         }
-        if (image_.value)
-            p.draw_image(image_, board_);
+        const gf::ImageId gem_image = framebuffer_painting_ ? frame_image_ : image_;
+        if (gem_image.value)
+            p.draw_image(gem_image, board_);
         if (gem_pick_ >= 0 && animation_duration_ <= 0) {
             const double pulse = .5 + .5 * std::sin(t * 7);
             const gf::Rect pick{board_.x + (gem_pick_ % 8) * cell + 2,
@@ -1826,56 +1996,63 @@ void PuzzleView::on_paint(gf::Painter& p, gf::Rect) {
     if (scene_parts_[0] && !panel_)
         return;
     gf::Rect b = client_rectangle();
-    p.fill_rect(b, gf::Color::rgba(112, 126, 133));
-    if (game.kind == PuzzleKind::atom || game.kind == PuzzleKind::sticks) {
-        double heights[] = {350, 0, 225, 347, 319, 288, 390, 495};
-        gf::Rect notes{14, 86, 224, heights[static_cast<int>(game.kind)]};
-        p.fill_rounded_rect(notes, 8, gf::Color::rgba(8, 22, 33, 110));
-        p.stroke_rounded_rect(notes, 8, gf::Color::rgba(126, 151, 158, 45), 1);
-        p.draw_line({28, 133}, {222, 133}, gf::Color::rgba(145, 174, 174, 65), 1);
-        if (game.kind == PuzzleKind::untangle || game.kind == PuzzleKind::solve) {
-            gf::Rect mat{board_.x - 10, board_.y - 10, board_.width + 20, board_.height + 20};
-            p.draw_box_shadow(mat, 13, {0, 5}, 20, 0, gf::Color::rgba(0, 8, 19, 110));
-            p.fill_rounded_rect(mat, 13, gf::Color::rgba(13, 30, 43));
-            p.stroke_rounded_rect(mat, 13, gf::Color::rgba(92, 121, 133, 90), 1);
-            p.draw_inset_box_shadow(mat, 13, {0, 3}, 8, 0, gf::Color::rgba(0, 5, 16, 100));
+    if (surface_) {
+        p.draw_live_surface(surface_, b);
+    } else {
+        p.fill_rect(b, gf::Color::rgba(112, 126, 133));
+        if (game.kind == PuzzleKind::atom || game.kind == PuzzleKind::sticks) {
+            double heights[] = {350, 0, 225, 347, 319, 288, 390, 495};
+            gf::Rect notes{14, 86, 224, heights[static_cast<int>(game.kind)]};
+            p.fill_rounded_rect(notes, 8, gf::Color::rgba(8, 22, 33, 110));
+            p.stroke_rounded_rect(notes, 8, gf::Color::rgba(126, 151, 158, 45), 1);
+            p.draw_line({28, 133}, {222, 133}, gf::Color::rgba(145, 174, 174, 65), 1);
+            if (game.kind == PuzzleKind::untangle || game.kind == PuzzleKind::solve) {
+                gf::Rect mat{board_.x - 10, board_.y - 10, board_.width + 20, board_.height + 20};
+                p.draw_box_shadow(mat, 13, {0, 5}, 20, 0, gf::Color::rgba(0, 8, 19, 110));
+                p.fill_rounded_rect(mat, 13, gf::Color::rgba(13, 30, 43));
+                p.stroke_rounded_rect(mat, 13, gf::Color::rgba(92, 121, 133, 90), 1);
+                p.draw_inset_box_shadow(mat, 13, {0, 3}, 8, 0, gf::Color::rgba(0, 5, 16, 100));
+            }
         }
+        if (game.kind == PuzzleKind::cube && nature_.value) {
+            p.draw_image(nature_, b);
+            p.fill_rect(b, gf::Color::rgba(8, 24, 24, 56));
+            p.fill_rounded_rect({15, 83, 235, 176}, 12, gf::Color::rgba(15, 38, 42, 190));
+            const char* levels[] = {"Easy", "Medium", "Hard"};
+            const int level = std::clamp(game.state.aux[94], 0, 2);
+            text(p, 28, 114, "Let each color find home", 17, ink);
+            text(p, 28, 145,
+                 std::string(levels[level]) + "  ·  " + std::to_string(game.cube_pairs()) +
+                     " pairs",
+                 13, ink);
+            text(p, 28, 174, "Trace from a colored square;", 13, ink);
+            text(p, 28, 203, level ? "paths go around the stones." : "paths may cross faces.", 13,
+                 ink);
+            if (game.cube_fill()) {
+                const int open = game.cube_open_tiles();
+                text(p, 28, 232,
+                     open ? "Fill every tile: " + std::to_string(open) + " left"
+                          : "Every tile filled",
+                     13, open ? gf::Color::rgba(255, 222, 150) : ink);
+            } else
+                text(p, 28, 232, "Move the mouse to tilt it.", 13, ink);
+            if (image_.value)
+                p.draw_image(image_, board_);
+        } else if (game.kind == PuzzleKind::gems)
+            paint_gems(p);
+        else if (game.kind == PuzzleKind::untangle)
+            paint_untangle(p);
+        else if (game.kind == PuzzleKind::pegs)
+            paint_pegs(p);
+        else if (game.kind == PuzzleKind::atom)
+            paint_atoms(p);
+        else if (game.kind == PuzzleKind::solve)
+            paint_solve(p);
+        else if (game.kind == PuzzleKind::sticks)
+            paint_sticks(p);
+        text(p, 17, b.height - 11, game.message, 13, gf::Color::rgba(0, 0, 0, 120));
+        text(p, 16, b.height - 12, game.message, 13, ink);
     }
-    if (game.kind == PuzzleKind::cube && nature_.value) {
-        p.draw_image(nature_, b);
-        p.fill_rect(b, gf::Color::rgba(8, 24, 24, 56));
-        p.fill_rounded_rect({15, 83, 235, 176}, 12, gf::Color::rgba(15, 38, 42, 190));
-        const char* levels[] = {"Easy", "Medium", "Hard"};
-        const int level = std::clamp(game.state.aux[94], 0, 2);
-        text(p, 28, 114, "Let each color find home", 17, ink);
-        text(p, 28, 145,
-             std::string(levels[level]) + "  ·  " + std::to_string(game.cube_pairs()) + " pairs",
-             13, ink);
-        text(p, 28, 174, "Trace from a colored square;", 13, ink);
-        text(p, 28, 203, level ? "paths go around the stones." : "paths may cross faces.", 13, ink);
-        if (game.cube_fill()) {
-            const int open = game.cube_open_tiles();
-            text(p, 28, 232,
-                 open ? "Fill every tile: " + std::to_string(open) + " left" : "Every tile filled",
-                 13, open ? gf::Color::rgba(255, 222, 150) : ink);
-        } else
-            text(p, 28, 232, "Move the mouse to tilt it.", 13, ink);
-        if (image_.value)
-            p.draw_image(image_, board_);
-    } else if (game.kind == PuzzleKind::gems)
-        paint_gems(p);
-    else if (game.kind == PuzzleKind::untangle)
-        paint_untangle(p);
-    else if (game.kind == PuzzleKind::pegs)
-        paint_pegs(p);
-    else if (game.kind == PuzzleKind::atom)
-        paint_atoms(p);
-    else if (game.kind == PuzzleKind::solve)
-        paint_solve(p);
-    else if (game.kind == PuzzleKind::sticks)
-        paint_sticks(p);
-    text(p, 17, b.height - 11, game.message, 13, gf::Color::rgba(0, 0, 0, 120));
-    text(p, 16, b.height - 12, game.message, 13, ink);
     if (!panel_)
         return;
     p.fill_rect(b, gf::Color::rgba(4, 12, 26, 175));
@@ -2356,8 +2533,7 @@ void PuzzleView::tick() {
         if (geometry_changed || animation_duration_ > 0 || was_celebrating) {
             // A moved peg changes its incident threads and their crossing appearance.
             // The still scene keeps its retained yarn commands on ordinary cat frames.
-            (*scene_parts_[0]).invalidate(untangle_board_damage());
-            (*scene_parts_[2]).invalidate(gf::Dirty::paint);
+            invalidate_static_scene();
             invalidate_animation(was_celebrating ? client_rectangle() : untangle_board_damage());
         }
         invalidate_animation(gf::Rect::united(old_untangle_damage, untangle_animation_bounds()));
@@ -2367,7 +2543,7 @@ void PuzzleView::tick() {
     // Celebrations draw beyond the board, so the whole view repaints while they run.
     if (game.kind == PuzzleKind::gems) {
         if (was_shaking || shake_ > 0)
-            (*scene_parts_[0]).invalidate(gf::Dirty::paint);
+            invalidate_static_scene();
         invalidate_animation(had_outer_effects || !effects_.empty() || shake_ > 0 ||
                                      callout_life_ > 0
                                  ? client_rectangle()
@@ -2426,8 +2602,7 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                 std::clamp((local_position.y - board_.y) / board_.height, .035, .965)};
             // Keep yarn and heads in the same input frame, even before the next timer tick.
             if (update_untangle_geometry()) {
-                (*scene_parts_[0]).invalidate(untangle_board_damage());
-                (*scene_parts_[2]).invalidate(gf::Dirty::paint);
+                invalidate_static_scene();
             }
             invalidate_animation(untangle_board_damage());
         }

@@ -82,3 +82,19 @@ across the eighteen-game collection. The per-game paths are recorded in
    resets only the former. Exposing/resetting both at the same boundary would
    permit comparable native measurements without counting startup and teardown
    in one path. Zero retained paints does not mean a live-surface game is idle.
+
+## Native offscreen adapter
+
+Games now pins `80c35972fc0fd33007e374f6dc031a67fef39d5f`, adding
+`Painter::create_framebuffer(Size, double)` and `PaintFramebuffer`. Native DIB and
+Skia implementations preserve their renderer's drawing and registered fonts.
+The UI-thread-owned target retains writable premultiplied pixels, reports its
+BGRA/RGBA order and stride explicitly, and clips each begin/end pass. Unsupported
+recording/headless painters return no target. Requested dimensions are bounded.
+
+Gems and Untangle use this facility to cache scenery pixels and publish complete
+opaque direct surfaces. This resolves their need for offscreen composition and
+static pixel retention without copying platform rendering code into Games.
+Faster image filtering and propagation of bounded damage through the native
+direct drain remain independent improvements. The adapter was developed in an
+isolated toolkit branch and raised with the toolkit owner for upstream adoption.

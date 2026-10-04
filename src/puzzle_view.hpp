@@ -1,6 +1,9 @@
 #pragma once
 #include "gui_forms/basic_controls.hpp"
 #include "gui_forms/controls/panel/text_box/text_box.hpp"
+#include "gui_forms/live_surface.hpp"
+#include "gui_forms/paint_framebuffer.hpp"
+#include "gui_forms/resources.hpp"
 #include "gui_forms/timer.hpp"
 #include "kitten.hpp"
 #include "puzzle_render.hpp"
@@ -34,8 +37,22 @@ class PuzzleView final : public gf::Control, public CommandSource {
 
   private:
     friend class PuzzleScenePart;
+    friend struct PuzzleFramebufferTest;
     std::array<std::shared_ptr<gf::Control>, 3> scene_parts_;
     void refresh_scene();
+    void invalidate_static_scene();
+    void present_framebuffer(gf::Rect damage);
+    bool prepare_framebuffer();
+    std::unique_ptr<gf::PaintFramebuffer> framebuffer_;
+    std::shared_ptr<gf::LiveSurface> surface_;
+    gf::ImageRegistry frame_images_;
+    gf::ImageId frame_image_{};
+    std::vector<std::byte> static_pixels_;
+    gf::Size framebuffer_size_{};
+    double framebuffer_scale_ = 0;
+    bool static_pixels_dirty_ = true;
+    bool direct_ = false;
+    bool framebuffer_painting_ = false;
     void invalidate_scene();
     void invalidate_animation(gf::Rect damage);
     bool update_untangle_geometry();

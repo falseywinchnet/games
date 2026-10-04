@@ -13,18 +13,20 @@ of another display interval alone is not.
   brush set without cyclic eviction. Native tests compare cached and uncached
   pixels, including alpha, fractional translation, clipping and scale changes.
   This optimization is specific to the Windows DIB renderer.
-- Gems and Nature Cube update their registered board image with bounded damage.
-  Ordinary animation does not invalidate the surrounding legend and command
-  capsule. Gem effects that extend outside the board retain full repainting,
-  including the final cleanup frame. Unchanged layout reuses the board raster;
-  Cube tracing coalesces pointer bursts into the next animation frame.
-- Gems and Untangle retain scenery, animation and foreground text as separate
-  control chunks. Ordinary animation rebuilds only its own chunk. Untangle caches
-  crossing geometry until a peg moves; a quiet board damages the cat's old and
-  new bounds instead of the whole cushion. Dragging updates yarn and pegs together,
-  with shadow margins outside the board. Celebration damage includes its final
-  cleanup. This retains drawing commands, not rendered pixels: host replay and
-  image composition are still measured bottlenecks.
+- Gems and Untangle publish opaque, device-sized `LiveSurface` frames through
+  direct presentation. A GUI.Forms `PaintFramebuffer` reuses the native Windows
+  DIB or Skia painter, including its fonts, filtering, blending and shadows.
+  Stationary scenery is cached as rendered pixels. Animation restores its old
+  and new bounds, draws the current objects and foreground, and publishes a
+  complete immutable frame. Untangle also retains crossing geometry until a
+  peg moves. Resize and DPI changes rebuild the buffers. Expose and help closure
+  draw the latest surface; hidden games stop publishing. Renderer-free tests
+  retain the ordinary command path as an explicit fallback.
+- Gems updates its private image registry in place while animating; only a
+  resize reallocates that raster. Transparent gems are composed over the cached
+  board before the opaque direct publication. Effects outside the board and
+  their final cleanup preserve broader damage. Nature Cube still uses ordinary
+  image drawing and coalesces tracing into its next animation frame.
 - Sudoku polls its generation worker without repainting the static waiting
   screen. Completion still publishes the new puzzle and status; celebrations
   retain their animation and final cleanup.
@@ -104,25 +106,24 @@ Audio policy tests cover steady playback without UI polling.
 
 ## Remaining work
 
-### Retained puzzle scenes
+### Direct puzzle framebuffers
 
-Gems and Untangle separate their static, animated and text drawing into retained
-controls. Animation invalidates the animated control; ordinary cat motion does
-not rebuild the stationary yarn and text commands. Untangle also reuses peg
-positions and crossing calculations until their geometry changes. Dragging
-updates the yarn and held peg together, and damage includes the full shadow
-extent plus the old and new animated bounds.
+The native `puzzle_native_framebuffers` test compares Gems and Untangle's
+published pixels against a full redraw using the same native painter. It covers
+100%, 125% and 200% scale, narrow/wide layout, partial hover restoration, changed
+yarn geometry, immutable read leases across pool rotation, and hidden lifecycle.
+This test runs under the actual native application host on each build platform.
 
-These changes reduce command recording and geometry work, not all raster work.
-Intersecting static commands still replay through the painter. Native Windows
-comparisons showed lower Untangle frame cost but no meaningful improvement for
-Gems. Fast filtered image composition and retained pixels remain toolkit work;
-this release does not claim to complete framebuffer optimization.
+Direct presentation removes control-tree raster replay from ordinary animation.
+It does not eliminate gem geometry generation, filtered composition, animated
+object drawing, or the final surface copy. Measure process CPU and direct host
+counters as well as retained paint counters. A zero retained-paint count is
+expected during direct animation and must not be described as zero CPU.
 
 ### Rendering and presentation audit
 
-The following paths were checked against the application source and pinned
-GUI.Forms revision `3f75e379213de972f78729a591594e70fe65a585`.
+The following paths describe the current application. The native offscreen
+adapter is pinned at GUI.Forms revision `80c35972fc0fd33007e374f6dc031a67fef39d5f`.
 Direct presentation means a registered `LiveSurface` submitted through
 `Window::queue_live_surface_presentation`; merely owning a CPU pixel buffer
 does not establish that path. On the pinned Windows host, a surface matching
@@ -131,9 +132,9 @@ presentation, not GPU rendering.
 
 | Games | Presentation | Work while animated | Existing reuse and next boundary |
 | --- | --- | --- | --- |
-| Gems | Registered BGRA image, sampled by `draw_image` | Rebuilds the board raster, including every breathing/glinting gem | Board damage excludes normal shell updates. The image still passes through sampling and composition; a transparent board is not interchangeable with an opaque direct surface. |
+| Gems | Direct live surface | Draws the animated gem raster and effects into an opaque native framebuffer | Cached board pixels are restored within damage; sampling and alpha composition happen offscreen. Gem raster generation and filtering remain significant costs. |
 | Nature Cube | Registered BGRA image, sampled by `draw_image` | Renders when its orientation or other raster state changes | Reuses the settled raster and coalesces pointer motion. Rotation still incurs image sampling. |
-| Untangle | Retained GUI.Forms drawing commands | Cat, knots, frozen pegs and effects animate | Retaining commands avoids recording them again, but does not retain their rendered pixels. Static yarn and background commands still replay where their controls intersect damage. |
+| Untangle | Direct live surface | Restores damaged scenery pixels and draws cat, knots, pegs and effects | Stationary yarn is cached as pixels; moving a peg rebuilds the scenery and crossing geometry. |
 | Solitaire, Spider, FreeCell, Hearts | Drawing commands and card images | Moving cards invalidate their old and new bounds; celebrations are broader | Settled animation timers stop; Hearts wakes for the next computer play. A damaged table still records its combined drawing commands and samples overlapping card images. |
 | Sudoku, Solve | Drawing commands | Input feedback and celebrations | Event-driven while settled. These do not need continuous framebuffer publication. |
 | Eggy | Direct live surface | Renders the moving scene and publishes a complete surface | Existing sky reuse, small scene raster and duplicate-row expansion; hidden rendering is suppressed. Camera motion changes much of the view. |
@@ -154,9 +155,9 @@ native presentation. Toolkit support must preserve correctness when generations
 are skipped, buffers rotate, the window is exposed, or overlays move.
 
 The Windows live-surface copy path also does not provide the same alpha blending
-and filtering as ordinary image drawing. Moving Gems to it requires either
-correct shared premultiplied composition or a fully composed opaque board.
-Replacing that path without these semantics would change the artwork.
+and filtering as ordinary image drawing. Gems now uses a fully composed opaque
+board produced by the same native offscreen painter. Nature Cube remains on the
+ordinary image path. Any future migration must preserve its composition.
 
 Use native presentation counters together with process CPU. A low direct-copy
 time can coexist with expensive software scene rendering before publication.

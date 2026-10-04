@@ -1,15 +1,12 @@
-PlaySuite 0.4.5 brings the collection's instructions into one readable help document and improves input responsiveness during animation on Windows.
+PlaySuite 0.4.6 converts Gems and Untangle to direct framebuffer presentation.
 
-- Open the paper-style help document with the plain `?` in the top-right corner, H or F1. Each game opens at its own instructions. Sections expand, text wraps, and the document scrolls down to the smallest supported window. H or Escape returns to the game.
-- M mutes or unmutes music throughout the collection, including while help is open. Text-entry fields retain their ordinary typing behavior. The shelf includes the dedication, agent credits and contact information.
-- Hosted games route their explanation panels into the shared document. Ordinary window repaints restore the latest vendor-game frame, including after help closes. The new-game kit teaches and checks the same integration.
-- Gems and Untangle retain static, animated and text drawing separately. Untangle reuses crossing geometry until a peg moves, and cat-only animation damages its old and new bounds. Dragging updates the yarn and peg together, including the full shadow margins.
-- The private Windows message loop gives input a bounded turn alongside posted callbacks, including input delivered as posted messages. Continuous render requests no longer take every turn ahead of clicks and keys. Animation remains enabled, and drawing still gets its own turn.
-- Windows repaints include the complete device-pixel update bounds. This fixes thin stale-pixel lines on the help sheet while animation continues behind it.
+- Both games publish device-sized, fully composed frames through GUI.Forms LiveSurface, using the same direct presentation path as the integrated vendor games.
+- Untangle caches its stationary background and yarn as pixels. Ordinary animation restores only affected areas before drawing the cat, knots, pegs and effects. Moving a peg updates the yarn and crossing geometry together.
+- Gems composes its transparent gem raster over cached board pixels, preserving filtering, glints, highlights, shadows, effects and text. Its private image storage updates in place during animation.
+- Native Windows DIB and Skia offscreen painters preserve each platform's existing artwork and fonts. Tests compare direct frames against full redraws pixel for pixel at 100%, 125% and 200% scale, including narrow layouts and partial updates.
+- The command capsule remains above direct game frames. Help, H/F1, M, saved games, mouse controls and all eighteen games are retained. Exposing a window or closing help restores the latest frame; hidden games stop publishing.
 
-All eighteen games, their command menus, Four Pegs mouse controls and Solitaire's accumulating waste pile are retained. Drawing quality, animations, game rules and save formats are unchanged.
-
-Performance work continues: animated Gems and Untangle can still be CPU-bound, particularly on slower machines. Rock Stack's physics correctness tests pass; its separate 1.5 ms stress-performance target remains unmet and is not a release gate.
+Direct presentation removes repeated control-tree painting during ordinary animation. Gem raster generation and filtered composition still cost CPU; this change does not claim to eliminate all rendering cost. Each producer publishes a complete immutable frame, so skipped frames and rotating buffers remain correct. Rock Stack is unchanged in this release.
 
 PlaySuite was previously named Games. Existing save locations and internal game identifiers are preserved.
 
