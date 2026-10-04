@@ -1,0 +1,176 @@
+#pragma once
+// The game as a GUI.Forms control: frame loop, input (arrows or WASD, or
+// click where the bear should go), undo, restart and hints, the campaign and
+// its map, the endless garden, speech bubbles, dialogs and autosave. The frame
+// is a small pixel-art image the compositor magnifies; text is drawn crisply on
+// top as cached layers.
+#include "garden.hpp"
+#include "level.hpp"
+#include "levelset.hpp"
+#include "save.hpp"
+#include "show.hpp"
+#include "solver.hpp"
+#include "suite.hpp"
+
+#include "gui_forms/basic_controls.hpp"
+#include "gui_forms/live_surface.hpp"
+#include "gui_forms/timer.hpp"
+
+#include <atomic>
+#include <chrono>
+#include <deque>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <vector>
+
+namespace ct {
+namespace gf = gui_forms;
+
+struct Options {
+    bool hosted = true;
+    bool dev = false;  // separate save file; CT_SCRIPT allowed
+};
+
+class ThievesView final : public gf::Control, public games::CommandSource {
+public:
+    ThievesView(gf::StableId id, Options opt);
+    ~ThievesView() override;
+    static constexpr bool initialize_tree_after_construction = true;
+    void initialize_control_tree() {}
+    void arrange(gf::Rect bounds) override;
+    void on_paint(gf::Painter& p, gf::Rect damage) override;
+    void on_pointer(gf::PointerEvent& e) override;
+    void on_key(gf::KeyEvent& e) override;
+    void on_key_bubble(gf::KeyEvent& e) override { on_key(e); }
+    void activate();
+    // Cabinet hosting: the collection's master switches gate this game's own
+    // music and sound; `foreground` is false while another game shows.
+    void set_cabinet(bool foreground, bool music, bool sound, bool reduced = false);
+    std::vector<games::GameCommand> commands() const override;
+    void run_command(std::string_view id) override;
+    // Only dev views accept scripted gameplay. No filesystem or arbitrary command access.
+    bool scripted_action(std::string_view code);
+    int campaign_size() const { return static_cast<int>(levels_.size()); }
+    int current_level() const { return save_.level; }
+    std::string move_history() const { return board_.history(); }
+    bool solved() const { return won_; }
+    bool reduced_motion() const { return cab_reduced_; }
+    std::uint64_t published_frames() const { return published_frames_; }
+    std::uint64_t timer_callbacks() const { return timer_callbacks_; }
+    bool controls_fit() const;
+
+private:
+    enum class Panel { none, help, map, menu };
+    struct Button { std::string id, label; int x, y, w, h; int style = 0; bool enabled = true; };
+    struct HiText { std::string s; int font; double size; int wrap; int x, y; Col c; };
+
+    Options opt_;
+    SaveData save_;
+    std::vector<LevelEntry> levels_;
+    LevelEntry current_;        // the garden in play (a campaign level, or the endless one)
+    Board board_;
+    Garden garden_;
+    Show show_;
+    Canvas frame_;
+    std::shared_ptr<gf::LiveSurface> surface_;
+    std::unique_ptr<gf::Timer> timer_;
+    std::vector<gf::SubscriptionToken> subs_;
+    std::chrono::steady_clock::time_point last_{};
+    double t_ = 0;
+    bool dirty_ = false;
+
+    std::deque<int> queue_;     // moves waiting for the bear
+    bool won_ = false;
+    bool waiting_endless_ = false;  // the next endless garden is still growing; enter it when ready
+    double won_t_ = 0;
+    bool stuck_ = false;
+    std::string message_;
+    double message_t_ = 99;
+
+    // hints and the endless garden come from worker threads
+    struct Worker {
+        std::thread th;
+        std::atomic<bool> done{false};
+        std::stop_source cancellation;
+        std::mutex m;
+        SolveResult solve;
+        LevelEntry level;
+    };
+    std::unique_ptr<Worker> hint_, gen_;
+    std::string hint_for_;      // the board history the hint was asked for
+    void start_hint();
+    void start_endless_gen(int tier);
+    void poll_workers();
+    void join(std::unique_ptr<Worker>& w);
+    static void generate_worker(Worker* worker, int tier, std::uint64_t seed);
+    static void hint_worker(Worker* worker, Board board);
+    void request_frame();
+    void commit_queued_moves();
+    std::string hit_button() const;
+    bool same_position(const Board& board) const;
+
+    double mouse_x_ = 0, mouse_y_ = 0;
+    bool mouse_in_ = false;
+    int hover_cell_ = -1;
+    Panel panel_ = Panel::none;
+    std::vector<Button> buttons_;
+    std::string pressed_, hover_;
+    bool cab_front_ = true, cab_music_ = true, cab_sound_ = true, cab_reduced_ = false;
+    bool render_dirty_ = true;
+    int map_section_ = 0;
+    std::uint64_t published_frames_ = 0, timer_callbacks_ = 0;
+    std::vector<std::pair<double, std::string>> script_;  // dev: CT_SCRIPT="t:code,..."
+
+    int pixel_ = 2;
+    double bs_ = 2;
+    int pw_ = 0, ph_ = 0, phys_w_ = 0, phys_h_ = 0, hud_w_ = 128;
+    std::vector<int> xmap_;
+    bool direct_ = false;
+
+    std::vector<HiText> texts_;
+
+    void on_attached_to_window() override;
+    void on_detaching_from_window(gf::Window& window) noexcept override;
+    void tick();
+    void publish();
+    // game
+    void load_campaign();
+    void enter(int index, const std::string& history = {});
+    void enter_endless(const LevelEntry& e, const std::string& history = {});
+    void begin_level();
+    void step(int dir);
+    void walk_to(int cell);
+    void undo();
+    void restart();
+    void next();
+    void after_move();
+    void finish();
+    bool section_open(const std::string& section) const;
+    int section_solved(const std::string& section) const;
+    int medal(int index) const;   // 0 none, 1 bronze, 2 silver, 3 gold
+    std::vector<int> path_to(int cell) const;
+    void say(const std::string& s, Col c = {1, 1, 1, 1});
+    void persist();
+    void play(const std::string& name, float gain = 1, float rate = 1);
+    void action(const std::string& id);
+    void open(Panel p);
+    void layout_buttons();
+    void run_script();
+    // drawing
+    void compose();
+    void draw_hud();
+    void draw_bubbles();
+    void draw_win_card();
+    void draw_panel();
+    void draw_map();
+    void draw_button(const Button& b);
+    const Mask& tmask(const std::string& s, int font, double size, int wrap_game) const;
+    int text(const std::string& s, int x, int y, Col c, double size = 11, int font = 0, int wrap = 0);
+    int text_w(const std::string& s, double size, int font) const;
+    int text_h(const std::string& s, double size, int font, int wrap = 0) const;
+    void blit_texts(std::uint32_t* dst, size_t stride_px, double k);
+};
+
+}  // namespace ct

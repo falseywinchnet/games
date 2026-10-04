@@ -12,6 +12,11 @@ vendor/<id>/
   README.md                 the brief
   HANDOFF.md                what was verified and what was not
   CMakeLists.txt            the game's own headless build
+  build.cmake              core, native and test targets used by discovery
+  module.cpp               the GameInstance factory
+  cover.cpp                the shelf emblem
+  help.md                  player instructions
+  assets/                  prefixed audio and game resources
   src/
     rules.hpp  rules.cpp    the game: pure, deterministic, no pixels
     save.hpp   save.cpp     the save envelope
@@ -31,9 +36,8 @@ vendor/<id>/
   screens/                  the pictures you looked at
 ```
 
-Sounds render into the repository's `assets/audio/` with the game's prefix. Those
-files, and the shelf edits made by `wire_shelf.py`, are the only parts of a game
-outside its folder.
+Sounds render into this game's `assets/audio/` with a unique prefix. Everything
+authored for the module stays in its folder; discovery supplies the shell wiring.
 
 ## Three layers
 
@@ -52,7 +56,7 @@ harness's. The same scene code draws the frame the player sees and the PNG you
 look at.
 
 **The view** (`<id>_view`) is the adapter between the game and PlaySuite. It is
-the only code you cannot run here, so it holds as little as possible: it
+tested in the native standalone and hosted windows. It holds little logic: it
 converts input to calls on the core, advances the stage, asks the scene for a
 frame and publishes it.
 
@@ -62,8 +66,8 @@ it is belongs to the scene. That a click reached it is the view.
 
 `GAME.json` lists which files are core (`core_sources`) and which are compiled
 only into the application (`ui_sources`, `audio_adapter`). When you add a file,
-add it to the right list and to `vendor/<id>/CMakeLists.txt`, then run
-`wire_shelf.py` again so the repository's build lists follow.
+add it to the right manifest list and the module-owned build targets. CMake
+regenerates the collection registry on configure. `wire_shelf.py` validates it.
 
 ## Standalone
 
@@ -166,7 +170,7 @@ your own.
 | Illegal moves are refused and change nothing | The view can pass anything |
 | Undo restores the exact position | |
 | Save round-trips; one flipped bit, a foreign file, an oversized file and an impossible position are all refused; a refused load leaves the game untouched | |
-| The layout stays on the surface and does not overlap itself, swept from below the minimum to a large display | You cannot resize a window here; the sweep does it for you |
+| The layout stays on the surface and does not overlap itself, swept from below the minimum to a large display | The sweep complements native window resizing |
 | Animation settles in bounded time and then reports "not moving" | Idle depends on it |
 | Reduced motion applies changes at once | |
 

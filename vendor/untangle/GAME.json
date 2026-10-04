@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "untangle",
+  "entry_id": 7,
+  "entry_name": "untangle",
+  "namespace": "ps_untangle",
+  "title": "Untangle",
+  "kind": "Graph puzzle",
+  "blurb": "Drag the points until no two lines cross.",
+  "colors": [
+    [
+      28,
+      132,
+      156
+    ],
+    [
+      12,
+      62,
+      76
+    ],
+    [
+      180,
+      240,
+      250
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [],
+  "audio_sources": [],
+  "libraries": [],
+  "rail": false
+}

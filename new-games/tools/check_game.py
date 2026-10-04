@@ -10,17 +10,20 @@ It reports FAIL (must be fixed), WARN (decide, and say so in HANDOFF.md) and ok.
 It exits non-zero on any FAIL. Passing does not mean the game is good; it means
 the game keeps the collection's rules. Whether it is good is checked by playing it.
 
-What this cannot do is build the PlaySuite window. The repository's CI does that
-on four platforms when the branch is pushed; see new-games/guide/09-deliver.md.
+The gate also configures the collection with this module. Pass --application (optionally --script)
+to exercise an already-built native standalone window with isolated saves.
+Release CI compiles and tests all modules on four platforms.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import kitlib
@@ -69,12 +72,13 @@ def authored_sources(directory: Path, manifest: dict) -> list[Path]:
         for path in sorted((directory / folder).rglob("*")):
             if path.suffix in kitlib.SOURCE_SUFFIXES and path not in borrowed:
                 files.append(path)
+    files.extend(path for path in sorted(directory.glob("*.cpp")) if path not in borrowed)
     return files
 
 
 def check_structure(directory: Path, manifest: dict, report: Report) -> None:
     print("Structure")
-    for name in ("GAME.json", "README.md", "HANDOFF.md", "CMakeLists.txt"):
+    for name in ("GAME.json", "README.md", "HANDOFF.md", "CMakeLists.txt", manifest.get("module", "module.cpp"), manifest.get("cover", "cover.cpp"), manifest.get("help", "help.md"), manifest.get("build", "build.cmake")):
         report.require((directory / name).is_file(), name, f"{name} is missing")
     for key in ("core_sources", "ui_sources", "core_tests"):
         for item in manifest.get(key, []):
@@ -137,14 +141,14 @@ FORBIDDEN_IN_CORE = (
 def check_portability(directory: Path, manifest: dict, report: Report) -> None:
     print("Standalone and portable")
     files = authored_sources(directory, manifest)
-    core = {directory / item for item in manifest["core_sources"]}
+    core = {directory / item for item in manifest.get("core_sources", [])}
     core |= {path.with_suffix(".hpp") for path in core}
     others = {name for name in kitlib.used_namespaces() if name not in (manifest["namespace"], "games", "kit", "gui_forms", "paint")}
     problems = 0
     for path in files:
         raw = path.read_text(encoding="utf-8")
         text = strip_comments_and_strings(raw)
-        relative = path.relative_to(REPO)
+        relative = kitlib.display_path(path)
         rules = FORBIDDEN_EVERYWHERE + (FORBIDDEN_IN_CORE if path in core else ())
         for expression, what in rules:
             # Include lines are matched on the raw text; the stripped text has no strings.
@@ -224,106 +228,46 @@ def check_documents(directory: Path, manifest: dict, report: Report) -> None:
 
 
 def check_assets(directory: Path, manifest: dict, report: Report) -> None:
-    print("Assets")
-    prefix = manifest.get("audio_prefix", "")
-    sources = kitlib.audio_sources()
-    mine = [path for path in sources if prefix and path.name.startswith(prefix)]
-    report.ok(f"{len(mine)} sound files named {prefix}* in assets/audio")
-    big = [f"{path.name} ({path.stat().st_size // 1024} KiB)" for path in mine if path.stat().st_size > 3 * 1024 * 1024]
-    if big:
-        report.warn("large sound sources (music belongs in .m4a, effects in short .wav): " + ", ".join(big))
-    view_text = "\n".join(path.read_text(encoding="utf-8") for path in authored_sources(directory, manifest)
-                          if "src" in path.relative_to(directory).parts)
-    view_text = re.sub(r"//[^\n]*", "", view_text)
-    named = set(re.findall(r'"(%s[a-z0-9_]+)"' % re.escape(prefix), view_text)) if prefix else set()
-    stems = {path.stem for path in mine}
-    missing = sorted(named - stems)
-    if missing and manifest["id"] != "templategame":
-        report.warn("the view plays sounds that have no file yet (they stay silent): " + ", ".join(missing))
-    unused = sorted(stems - named)
-    if unused:
-        report.warn("sound files the view never names: " + ", ".join(unused[:8]))
-    name = manifest.get("audio_manifest") or ""
-    if name:
-        path = REPO / "assets" / "audio" / name
-        if report.require(path.is_file(), f"assets/audio/{name}", f"assets/audio/{name} is missing"):
-            data = json.loads(path.read_text(encoding="utf-8"))
-            for entry in data.get("music", []):
-                good = entry.get("id") in stems and isinstance(entry.get("loop_end_sample_exclusive"), int)
-                report.require(good, f"music {entry.get('id')} has a file and a loop end",
-                               f"music entry {entry.get('id')}: needs a matching file and loop_end_sample_exclusive")
-    counts = set()
-    for relative, expression in (("tools/prepare_portable_assets.py", r"if len\(records\) != (\d+):"),
-                                 ("tools/verify_portable_assets.py", r"if len\(records\) != (\d+) or"),
-                                 ("tests/audio_tests.cpp", r"require\(decoded == (\d+),")):
-        match = re.search(expression, (REPO / relative).read_text(encoding="utf-8"))
-        counts.add(int(match.group(1)) if match else -1)
-    report.require(counts == {len(sources)}, f"audio inventory is {len(sources)} files in all three checks",
-                   f"assets/audio has {len(sources)} sounds but the checks expect {sorted(counts)}; run wire_shelf.py again")
-
-
-def check_wiring(manifest: dict, report: Report) -> None:
-    game_id = manifest["id"]
-    print("On the shelf")
-    names = kitlib.entry_names()
-    if game_id not in names:
-        if game_id == "templategame":
-            report.ok("the template is not a shelf entry")
-        else:
-            report.fail(f"Entry::{game_id} is not in src/suite.hpp; run new-games/tools/wire_shelf.py {game_id}")
+    print("Folder assets and producer loop metadata")
+    sys.path.insert(0, str(REPO / "tools"))
+    from prepare_portable_assets import asset_inventory
+    try:
+        inventory = asset_inventory(REPO / "assets", [directory])
+    except (ValueError, OSError) as error:
+        report.fail(str(error))
         return
-    for base in ("origin/main", "HEAD"):
-        upstream = run(["git", "-C", str(REPO), "show", f"{base}:src/suite.hpp"])
-        if upstream.returncode != 0:
-            continue
-        match = re.search(r"enum class Entry : int \{(.*?)\};", upstream.stdout, re.DOTALL)
-        before = [name.strip() for name in re.sub(r"//[^\n]*", "", match.group(1)).split(",") if name.strip()] if match else []
-        report.require(names[:len(before)] == before or game_id in before,
-                       f"existing entries keep their values (compared with {base})",
-                       "an existing Entry moved. Values are persisted in players' saves: append only.")
-        break
-    report.require(kitlib.entry_count() == len(names), f"entry_count is {len(names)}", "entry_count does not match the Entry enum")
-    suite = (REPO / "src" / "suite.cpp").read_text(encoding="utf-8")
-    table = suite[suite.find("entries{{"):suite.find("\n}};", suite.find("entries{{"))]
-    rows = len(re.findall(r'^\s*\{"', table, re.MULTILINE))
-    report.require(rows == len(names), f"{rows} boxes described", f"src/suite.cpp describes {rows} boxes for {len(names)} entries")
-    report.require(f"case Entry::{game_id}:" in suite, "the box has an emblem", "src/suite.cpp has no emblem case for the game")
-    report.require(f"TODO({game_id})" not in suite, "the emblem is drawn", "the emblem in src/suite.cpp is still the placeholder (search for TODO)")
-    help_content = (REPO / "src" / "help_content.cpp").read_text(encoding="utf-8")
-    report.require(f"case Entry::{game_id}:" in help_content,
-                   "the shared help document has a game section",
-                   "src/help_content.cpp needs this game's goal, moves, ending and controls")
-    collection = (REPO / "src" / "collection.cpp").read_text(encoding="utf-8")
-    member = f"{game_id}_"
-    points = {
-        "created on first visit": f"{member} = gf::make_control",
-        "under the rail": f"entry == Entry::{game_id} ||",
-        "returned by view()": f"        return {member};",
-        "commands offered": f"return {member}.get();",
-        "laid out below the rail": f"child == {member} ||",
-        "set_cabinet called": f"(*{member}).set_cabinet(",
-        "activated": f"(*{member}).activate();",
-    }
-    for what, needle in points.items():
-        report.require(needle in collection, f"collection: {what}", f"src/collection.cpp: missing '{what}'")
-    root = (REPO / "CMakeLists.txt").read_text(encoding="utf-8")
-    application = (REPO / "cmake" / "Application.cmake").read_text(encoding="utf-8")
-    marker = f"# >>> new-games: {game_id}"
-    report.require(marker in root, "core and rules tests are built", "CMakeLists.txt has no block for the game")
-    report.require(marker in application, "view and contract test are built", "cmake/Application.cmake has no block for the game")
-    for source in manifest["core_sources"]:
-        report.require(f"vendor/{game_id}/{source}" in root, f"core builds {source}", f"CMakeLists.txt does not build {source}; run wire_shelf.py again")
-    for source in manifest["ui_sources"]:
-        report.require(f"vendor/{game_id}/{source}" in application, f"shell builds {source}",
-                       f"cmake/Application.cmake does not build {source}; run wire_shelf.py again")
-    shell_test = (REPO / "tests" / "collection_ui_tests.cpp").read_text(encoding="utf-8")
-    report.require(f"Entry::{game_id}" in shell_test, "the shell test opens the game", "tests/collection_ui_tests.cpp does not visit the game")
-    shelf = (REPO / "src" / "shelf.cpp").read_text(encoding="utf-8")
-    report.require(f'"{kitlib.NUMBER_WORDS[len(names)]} GAMES ' in shelf, "the shelf sign counts the game",
-                   f"src/shelf.cpp: the sign should say {kitlib.NUMBER_WORDS[len(names)]} GAMES")
-    for relative in ("README.md", "docs/GAME_CATALOG.md"):
-        if manifest["title"] not in (REPO / relative).read_text(encoding="utf-8"):
-            report.warn(f"{relative} does not mention {manifest['title']} yet")
+    prefix = manifest.get("audio_prefix", manifest["id"] + "_")
+    mine = [entry for entry in inventory["audio"] if entry["source"].startswith(manifest["id"] + "/")]
+    report.ok(f"{len(mine)} module sounds; dynamic full inventory has {len(inventory['audio'])} audio files")
+    view_text = "\n".join(path.read_text(encoding="utf-8") for path in authored_sources(directory, manifest))
+    named = set(re.findall(r'"(%s[a-z0-9_]+)"' % re.escape(prefix), view_text))
+    stems = {entry["stem"] for entry in inventory["audio"]}
+    missing = sorted(named - stems)
+    if missing:
+        report.warn("sound cues without source files (silent): " + ", ".join(missing))
+    report.ok("all discovered music has sample-accurate loop metadata; manifests and filename collisions checked")
+
+
+def check_wiring(directory: Path, manifest: dict, report: Report) -> None:
+    print("Automatic module discovery")
+    try:
+        games = kitlib.catalog([directory], include_disabled=True)
+        module = next(game for game in games if game["directory"] == directory.resolve())
+    except (ValueError, OSError, StopIteration) as error:
+        report.fail("catalog validation: " + str(error))
+        return
+    report.require(module.get("enabled", True),
+                   f"{module['id']} discovered as permanent entry {module['entry_id']}",
+                   "module is disabled; its saved id remains reserved")
+    if directory.is_relative_to(REPO):
+        relative = (directory / "GAME.json").relative_to(REPO).as_posix()
+        previous = run(["git", "-C", str(REPO), "show", "HEAD:" + relative])
+        if previous.returncode == 0:
+            before = json.loads(previous.stdout)
+            if "entry_id" in before:
+                report.require(before["entry_id"] == module["entry_id"],
+                               "permanent saved-game id unchanged", "An existing module's permanent entry_id changed")
+    report.ok("cover, help, build and source files live in the game folder; no central edits required")
 
 
 def check_build(directory: Path, manifest: dict, report: Report) -> None:
@@ -332,7 +276,8 @@ def check_build(directory: Path, manifest: dict, report: Report) -> None:
         report.fail("cmake was not found; install CMake 3.25 or later")
         return
     build = REPO / ".build" / "new-games" / manifest["id"]
-    configure = run(["cmake", "-S", str(directory), "-B", str(build), "-DCMAKE_BUILD_TYPE=Release"])
+    configure = run(["cmake", "-S", str(directory), "-B", str(build), "-DCMAKE_BUILD_TYPE=Release",
+                     "-D" + manifest["namespace"].upper() + "_KIT_DIR=" + str(kitlib.KIT / "kit")])
     if not report.require(configure.returncode == 0, "configured", "cmake configure failed:\n" + configure.stdout[-1500:] + configure.stderr[-1500:]):
         return
     compiled = run(["cmake", "--build", str(build), "--parallel", "2"])
@@ -352,6 +297,42 @@ def check_build(directory: Path, manifest: dict, report: Report) -> None:
     seconds = re.search(r"Total Test time \(real\) =\s*([\d.]+)", tests.stdout)
     if seconds and float(seconds.group(1)) > 30:
         report.warn(f"the tests take {seconds.group(1)} s; the suite runs on four platforms, keep a game's tests under 30 s")
+
+
+def check_collection_build(directory: Path, manifest: dict, report: Report) -> None:
+    print("Collection configure with automatic module discovery")
+    build = REPO / ".build" / "new-games" / (manifest["id"] + "-collection")
+    configure = run(["cmake", "-S", str(REPO), "-B", str(build), "-DGAMES_BUILD_APPLICATION=OFF",
+                     "-DCMAKE_BUILD_TYPE=Release", "-DGAMES_EXTRA_GAME_DIRS=" + str(directory)])
+    if not report.require(configure.returncode == 0, "collection discovers and configures the module",
+                          "collection configure failed:\n" + (configure.stdout + configure.stderr)[-2500:]):
+        return
+    target = manifest.get("rules_target", manifest["id"] + "_rules_tests")
+    compiled = run(["cmake", "--build", str(build), "--target", target, "--parallel", "2"])
+    if not report.require(compiled.returncode == 0, "module builds inside the collection",
+                          "collection module build failed:\n" + (compiled.stdout + compiled.stderr)[-2500:]):
+        return
+    tests = run(["ctest", "--test-dir", str(build), "--output-on-failure", "--timeout", "120",
+                 "--no-tests=error", "-R", "^" + manifest["id"] + "_rules"])
+    report.require(tests.returncode == 0, "module rules pass in the collection build", "collection rules failed:\n" + tests.stdout[-2500:])
+
+
+def check_native(directory: Path, manifest: dict, report: Report, application: Path, script: Path | None) -> None:
+    print("Native standalone window and scripted input")
+    if not application.is_file() or (script is not None and not script.is_file()):
+        report.fail("--application and --script must name existing files")
+        return
+    with tempfile.TemporaryDirectory(prefix="playsuite-game-gate-") as state:
+        environment = dict(os.environ, GAMES_STATE_DIR=state)
+        command = [str(application.resolve()), "--game", manifest["id"], "--standalone", "--dev"]
+        command += ["--script", str(script.resolve())] if script else ["--smoke-test"]
+        try:
+            result = subprocess.run(command, cwd=directory, env=environment, capture_output=True, text=True, timeout=330)
+        except subprocess.TimeoutExpired:
+            report.fail("native script did not close the window within 330 seconds")
+            return
+        report.require(result.returncode == 0, "native standalone script completed with isolated development saves",
+                       "native standalone script failed:\n" + (result.stdout + result.stderr)[-2500:])
 
 
 def fetch_toolkit(report: Report) -> bool:
@@ -391,26 +372,26 @@ def check_syntax(directory: Path, manifest: dict, report: Report, fetch: bool) -
     if compiler is None:
         report.fail("no C++ compiler was found")
         return
-    game_id = manifest["id"]
+    sys.path.insert(0, str(REPO / "tools"))
+    from game_catalog import generate
+    generated = REPO / ".build" / "new-games" / (manifest["id"] + "-generated")
+    try:
+        generate(REPO, generated, [directory])
+    except ValueError as error:
+        report.fail(str(error))
+        return
     includes = ["-I", str(include), "-I", str(REPO / "src"), "-I", str(directory / "src"), "-I", str(kitlib.KIT / "kit")]
+    includes += ["-I", str(generated)]
     sources = [directory / item for item in manifest["ui_sources"]]
     sources += [directory / manifest["audio_adapter"], directory / manifest["contract_test"]]
-    shell: list[Path] = []
-    if game_id in kitlib.entry_names():
-        # The wired shell must still compile: it includes every game's view.
-        for other in sorted(kitlib.VENDOR.iterdir()):
-            for folder in ("src", "phys"):
-                if (other / folder).is_dir():
-                    includes += ["-I", str(other / folder)]
-        includes += ["-I", str(kitlib.VENDOR / "paint")]
-        shell = [REPO / "src" / "collection.cpp", REPO / "src" / "suite.cpp", REPO / "src" / "shelf.cpp"]
-    for source in sources + shell:
+    sources += [directory / manifest["module"], directory / manifest["cover"]]
+    for source in sources:
         result = run([compiler, "-std=c++20", "-fsyntax-only", "-Wall", "-Wextra", "-D_USE_MATH_DEFINES"] + includes + [str(source)])
         output = (result.stdout + result.stderr).strip()
-        relative = source.relative_to(REPO)
+        relative = kitlib.display_path(source)
         if result.returncode != 0:
             report.fail(f"{relative} does not compile:\n" + output[-2500:])
-        elif "warning:" in output and source not in shell:
+        elif "warning:" in output:
             report.fail(f"{relative} compiles with warnings:\n" + output[-1500:])
         else:
             report.ok(str(relative))
@@ -421,7 +402,11 @@ def main() -> int:
     parser.add_argument("id")
     parser.add_argument("--fetch-toolkit", action="store_true")
     parser.add_argument("--no-build", action="store_true")
+    parser.add_argument("--application", type=Path, help="already-built native games executable")
+    parser.add_argument("--script", type=Path, help="finite native runner input script")
     options = parser.parse_args()
+    if options.script and not options.application:
+        parser.error("--script requires --application")
     directory = kitlib.game_dir(options.id)
     if not directory.is_dir():
         print(f"check_game: {directory} does not exist", file=sys.stderr)
@@ -434,10 +419,15 @@ def main() -> int:
     check_contract(directory, manifest, report)
     check_documents(directory, manifest, report)
     check_assets(directory, manifest, report)
-    check_wiring(manifest, report)
+    check_wiring(directory, manifest, report)
     if not options.no_build:
         check_build(directory, manifest, report)
+        check_collection_build(directory, manifest, report)
     check_syntax(directory, manifest, report, options.fetch_toolkit)
+    if options.application:
+        check_native(directory, manifest, report, options.application, options.script)
+    else:
+        report.warn("native window not exercised here; pass --application (and optionally --script) after the full application build")
     print()
     if report.failures:
         print(f"{options.id}: {report.failures} FAIL, {report.warnings} WARN. Not ready.")

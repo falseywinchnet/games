@@ -1,0 +1,13 @@
+# Run with --game catchingthieves --standalone --dev --script <this-file>
+100 action close
+300 action sol
+4500 action map
+5000 action close
+5500 action lvl40
+5700 key up
+5900 key z
+6000 click 100 100
+6200 action sol
+9500 help
+10000 key escape
+11000 quit

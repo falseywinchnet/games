@@ -1,0 +1,21 @@
+if(NOT DEFINED PLAYSUITE_SOURCE_DIR)
+  set(PLAYSUITE_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
+endif()
+add_library(ap_core STATIC
+  ${GAME_MODULE_DIR}/src/platform/raster.cpp ${GAME_MODULE_DIR}/src/platform/r3d.cpp
+  ${GAME_MODULE_DIR}/src/platform/mesh.cpp ${GAME_MODULE_DIR}/src/box.cpp
+  ${GAME_MODULE_DIR}/src/chamber.cpp ${GAME_MODULE_DIR}/src/save.cpp)
+target_include_directories(ap_core PUBLIC ${GAME_MODULE_DIR}/src)
+target_link_libraries(ap_core PUBLIC game_paths Threads::Threads)
+target_compile_definitions(ap_core PRIVATE _USE_MATH_DEFINES)
+add_executable(atomprobe_rules_tests ${GAME_MODULE_DIR}/tests/box_tests.cpp)
+target_link_libraries(atomprobe_rules_tests PRIVATE ap_core)
+add_executable(atomprobe_preview ${GAME_MODULE_DIR}/tests/preview.cpp)
+target_link_libraries(atomprobe_preview PRIVATE ap_core)
+add_executable(atomprobe_storage_tests ${PLAYSUITE_SOURCE_DIR}/tests/atomprobe_storage_tests.cpp)
+target_link_libraries(atomprobe_storage_tests PRIVATE ap_core)
+add_test(NAME atomprobe_rules COMMAND atomprobe_rules_tests)
+add_test(NAME atomprobe_storage COMMAND atomprobe_storage_tests)
+target_compile_definitions(ap_core PRIVATE _USE_MATH_DEFINES)
+
+list(APPEND GAMES_NATIVE_FRAME_MODULES atomprobe)

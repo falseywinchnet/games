@@ -1,212 +1,160 @@
-# Building a new PlaySuite game
+# Building a PlaySuite game
 
-You are an AI model working with a person who has a game idea. This file is the
-whole procedure for turning that idea into a game on the PlaySuite shelf, delivered
-as a pull request. It is written for any model (Claude, Codex or another) and
-assumes only a fresh clone of this repository, CMake 3.25 or later, a C++20
-compiler, Python 3 and git. Two steps use the network once each: fetching the
-toolkit's headers for the syntax check, and the repository's own configure, which
-downloads one pinned dependency.
+Read the repository's root `AGENTS.md` and this procedure first. A game is one
+folder, `vendor/<id>/`. Its manifest, build rules, factory, cover, help, assets,
+tests and handoff live there. CMake discovers the folder. Adding a game requires
+no edits to the collection, shelf, shared help, asset inventory or release version.
 
-Read this file to the end before you start. Read each guide when its step tells
-you to; they are short, and the rules in them are checked.
+Preserve the person's objective, the game's complete rules and presentation,
+and the behavior of every existing game. Follow the person's existing decisions
+and publication authorization; do not ask them to approve the same action again.
+Use [the house style](guide/10-house-style.md) for newly authored C++.
 
-## What you can and cannot do here
+## 1. Settle the idea and write the brief
 
-You can do everything except compile the PlaySuite application itself. That build
-needs the GUI.Forms toolkit, its text stack and (on macOS and Linux) a Skia build;
-the repository's CI does it on four platforms when the branch is pushed.
+Read [what belongs](guide/01-what-belongs.md), [the brief](guide/02-the-brief.md)
+and [look, sound and words](guide/06-look-sound-words.md). Resolve material gaps
+with the person while doing independent work. A sufficiently detailed request
+already authorizes implementation. Keep optional choices reversible and record
+assumptions in the brief and handoff.
 
-So you work from four things, all available on a fresh clone:
-
-| You have | What it proves |
-|---|---|
-| The game's own headless build and tests (`vendor/<id>/CMakeLists.txt`) | The rules, the save, the layout at every window size, that animation settles |
-| `<ns>_preview`, which renders any state at any size to a PNG with the real fonts | What the game looks like. Open the PNGs and look at them. |
-| `check_game.py --fetch-toolkit`, which syntax-checks the view and the wired shell against the pinned GUI.Forms headers | That the hosted code compiles |
-| `tools/check_game.py`, the gate | That the collection's rules are kept |
-
-What that leaves unproven is how the game feels in the window: timing, sound
-levels, the pointer. You must say so in the handoff. Never write that something
-works when you only believe it does.
-
-## The procedure
-
-### 1. Decide whether it belongs, with the person
-
-Read [guide/01-what-belongs.md](guide/01-what-belongs.md). Then talk with the
-person before building anything. Ask about their idea until you could explain it
-to someone else, and tell them plainly if it runs against the shelf's taste: too
-long, too demanding, already covered, or a cliché. Offer the nearest version that
-would fit. The person decides.
-
-Do not start building on a first description. The owner of this collection works
-the same way: discuss, settle, then begin.
-
-If the person cannot be reached, make each choice you would have brought to them,
-list those choices in the brief under "Decided without the person" and again in
-`HANDOFF.md`, and keep them easy to reverse.
-
-### 2. Write the brief
-
-Read [guide/02-the-brief.md](guide/02-the-brief.md). The brief covers the menu,
-the look and the sound, so read [guide/04-the-shell.md](guide/04-the-shell.md) and
-[guide/06-look-sound-words.md](guide/06-look-sound-words.md) now as well. Agree on
-a name, an id and a namespace, then create the game (the title is at most 28
-characters, the kind 24, the blurb 90):
+Create the folder:
 
 ```sh
 python3 new-games/tools/new_game.py --id tidepools --namespace tp --title "Tide Pools" \
-    --kind "Shore puzzle" --blurb "One sentence that makes someone pick up the box."
+  --kind "Shore puzzle" --blurb "One sentence that makes someone pick up the box."
 ```
 
-This creates `vendor/<id>/` as a complete, building copy of the kit's template
-game under your names. Write the brief into `vendor/<id>/README.md` and show it to
-the person. Build nothing more until they agree with it.
+The tool assigns the next unused permanent `entry_id`, including disabled
+reservations. Never change an existing ID. Resolve a collision between concurrent
+new submissions before merging. IDs need not be contiguous and have no 32-game
+limit. Use `--directory /path/to/tidepools --entry-id 1001` to prototype outside
+the repository; add it to a local suite using `GAMES_EXTRA_GAME_DIRS`.
 
-### 3. Build the rules first
+Write `README.md` as the brief. Choose the name, rules, session length, artwork,
+characters, input, save semantics and sounds. Preserve an imported game's full
+behavior; document its provenance and intentional changes.
 
-Read [guide/03-anatomy.md](guide/03-anatomy.md) and
-[guide/10-house-style.md](guide/10-house-style.md).
+## 2. Prove the core independently
 
-Replace `src/rules.*` with your game, pure and deterministic, and its tests in
-`tests/rules_tests.cpp`. If the game generates puzzles, a test must prove every
-generated puzzle can be finished. Keep the save envelope in `src/save.*`.
+Read [anatomy](guide/03-anatomy.md). Keep rules deterministic, independent of
+GUI.Forms and operating-system APIs. Pass time and input as values. Prove
+solvability by replaying witnesses through the actual rules. Test saves, damaged
+input, outcomes, layout and animation transitions.
 
 ```sh
-cmake -S vendor/<id> -B .build/new-games/<id> && cmake --build .build/new-games/<id> --parallel 2
-ctest --test-dir .build/new-games/<id> --output-on-failure
+cmake -S vendor/<id> -B .build/new-games/<id> -DCMAKE_BUILD_TYPE=Release
+cmake --build .build/new-games/<id> --parallel 2
+ctest --test-dir .build/new-games/<id> --output-on-failure --timeout 120
 ```
 
-### 4. Build the picture
+For an external kit folder, supply `-D<NS>_KIT_DIR=<repo>/new-games/kit`.
+Run CPU-heavy builds through the root `AGENTS.md` host instructions when present.
 
-Read [guide/06-look-sound-words.md](guide/06-look-sound-words.md) and
-[guide/07-primitives.md](guide/07-primitives.md).
+## 3. Build and inspect the presentation
 
-Put layout and animation state in `src/stage.*` (pure, tested across every window
-size) and drawing in `src/scene.*`. Extend `tools/preview.cpp` so it can render
-every state the game has: the start, mid-game, each ending, every panel.
+Read [primitives](guide/07-primitives.md), [the shell](guide/04-the-shell.md)
+and [performance](guide/05-performance.md). Put state/layout below the GUI
+adapter. Keep the original renderer's detail, actors and animation when importing.
+Make previews of start, active play, every outcome and panel. Inspect them at
+1100 × 760, 600 × 370 and 600 × 320, and scales 1, 1.5 and 2. Keep the inspected
+PNG files in `screens/`, including a filename containing `600x370`.
+
+Implement `module.cpp` using `games::HostedGameInstance<View>` or a module-owned
+`GameInstance` adapter. The factory receives `ModuleContext` with `dev`, `hosted`
+and shared-engine storage. Implement the cover in `cover.cpp`, and full player
+instructions in `help.md`. Additional help sections belong in `help_topics` in
+`GAME.json`. Keep `build.cmake` and the manifest's source lists current.
+
+Generate audio into the game's `assets/audio/`; use unique prefixed names.
+Keep synthesis scripts in `audio_src/` and exact 48 kHz music loop bounds in an
+`*_audio_manifest.json`. Other resources go under the game's `assets/` tree.
+Packaging discovers them and installs resources under the game ID automatically.
+
+## 4. Exercise the actual standalone window
+
+A preview and syntax check do not prove native behavior. Build the full native
+application using [BUILDING.md](../docs/BUILDING.md) and the supported local host
+recipe in the root `AGENTS.md`. An external folder is included with
+`-DGAMES_EXTRA_GAME_DIRS=/absolute/path/to/tidepools` at configure time.
 
 ```sh
-.build/new-games/<id>/<ns>_preview shot.png 1100 760 1 mid
-.build/new-games/<id>/<ns>_preview small.png 600 370 1 mid
-.build/new-games/<id>/<ns>_preview help.png 600 320 2 help
+<games-executable> --list-games
+<games-executable> --game tidepools --standalone --dev
+<games-executable> --game tidepools --standalone --dev --script /path/to/play.script
 ```
 
-Look at every picture you render. Then show the person. Expect several rounds;
-that is the work, and it is where the game becomes good.
+`--dev` uses isolated temporary saves unless `GAMES_STATE_DIR` explicitly names a
+test directory. A finite script is chronological milliseconds followed by an
+operation; its final operation must be `quit`:
 
-`<ns>_preview box.png 0 0 1 box` draws a mock of the game's box on the shelf.
-Prototype the emblem there (`draw_emblem` in `tools/preview.cpp`) before step 7.
+```text
+100 key enter
+600 click 300 200
+1000 help
+1500 key escape
+2000 resize 600 420
+3000 quit
+```
 
-### 5. Build the view
+Operations are `key`, `click`, `resize`, `help`, `command <id>`, module-defined
+`action <value>`, `capture <file.ppm>` (the complete native renderer output), and
+`quit`. In hosted mode, `shelf` and `open <id>` exercise
+navigation. `resize` changes the toolkit client layout; manually resize the native
+window as well to verify the platform frame. Use `--help` for the current syntax.
+Scripts require `--dev`. Add explicit module actions for reproducible difficult
+states, and refuse them in production and while hidden.
 
-Read [guide/04-the-shell.md](guide/04-the-shell.md) and
-[guide/05-performance.md](guide/05-performance.md).
+Check keyboard, pointer, focus, timing, help, all dialogs, save/reopen, masters,
+minimum size and DPI. Run the native view-contract test. Observe sound quality by
+listening when possible; measurements alone do not establish that it sounds good.
+If native dependencies are unavailable, record exactly what is blocked. A native
+validation requirement remains open until tested locally or with a CI artifact.
 
-`src/<id>_view.*` is the only file that touches GUI.Forms and the shell. Keep the
-template's structure: input becomes moves, `request_frame()` wakes the timer, the
-timer stops when the picture has settled, `set_cabinet` silences and stops
-everything when the shelf is showing. Offer commands through `commands()` and
-`run_command()`. You cannot run this file here, so change its plumbing as little
-as you can and keep logic in the files you can test.
+## 5. Check the discovered suite
 
-### 6. Make the sounds
-
-All audio is synthesized from scripts kept in `vendor/<id>/audio_src/`. Render
-into `assets/audio/` with your prefix. A sound with no file stays silent, so this
-step can come late. See [guide/06-look-sound-words.md](guide/06-look-sound-words.md).
-
-### 7. Put it on the shelf
-
-Read [guide/08-on-the-shelf.md](guide/08-on-the-shelf.md).
+Read [on the shelf](guide/08-on-the-shelf.md). This command validates discovery;
+it does not edit files:
 
 ```sh
 python3 new-games/tools/wire_shelf.py <id>
+python3 new-games/tools/check_game.py <id> --fetch-toolkit --application <games-executable> --script /path/to/play.script
 ```
 
-Then draw the box emblem in `src/suite.cpp`, write its instructions in the shared
-document in `src/help_content.cpp`, and add the game to the roster sentences in
-`README.md` and `docs/GAME_CATALOG.md`. Run `wire_shelf.py` again
-whenever you add a source file to `GAME.json` or a sound to `assets/audio/`.
+Run the portable suite, full application tests and style check. Launch the hosted
+application with `--game <id> --dev --script /path/to/hosted.script`. Check that the
+box count, scrolling, cover, help and commands update from the folder. Visit old
+games, including their commands and saves. The generic catalog UI test visits all
+discovered modules; keep game-specific regression tests too.
 
-### 8. Pass the gate
+## 6. Deliver and publish
 
-```sh
-python3 new-games/tools/check_game.py <id> --fetch-toolkit
-```
+Read [delivery](guide/09-deliver.md). Fill in `HANDOFF.md`: VERIFIED with commands
+and results, NOT VERIFIED with real limits, DECISIONS with provenance and tradeoffs.
+Fix every gate failure; fix or explain warnings. Keep build output and personal
+saves out of git. A new game's commit normally changes only its folder.
 
-Fix every FAIL. For each WARN, either fix it or record the decision in
-`HANDOFF.md`. Then build and run the repository's portable-core profile once, as
-its CI will, and the repository's own style check:
+Push and open a pull request when authorized by the person, including prior
+instructions. Watch all platform checks and fix failures. The application workflow
+builds, tests and package-smokes Windows x64, macOS arm64, Linux x64 and Linux
+arm64. Once merged to main, the publication job releases those tested artifacts
+with one generated version and an immutable commit tag. Do not manually bump a
+version to add a game. Do not report a release until its publication succeeds.
 
-```sh
-cmake -S . -B .build/portable-core -DCMAKE_BUILD_TYPE=Release -DGAMES_BUILD_APPLICATION=OFF
-cmake --build .build/portable-core --parallel 2
-ctest --test-dir .build/portable-core --output-on-failure --timeout 120
-python3 scripts/check-style.py
-```
+## Contracts to preserve
 
-### 9. Deliver
-
-Read [guide/09-deliver.md](guide/09-deliver.md). Save the screenshots you looked
-at into `vendor/<id>/screens/` and compress them with `tools/shrink_png.py`, write `vendor/<id>/HANDOFF.md` honestly, and
-commit on a branch. **Push and open the pull request only when the person says
-to.** After CI builds the application, download the build, and tell the person
-how to play their game in it.
-
-## Rules that are not negotiable
-
-These are checked by the gate, by CI, or by the maintainer.
-
-1. **Standalone.** The game is one folder in one namespace. It includes nothing
-   from another game's folder and uses no other game's namespace. What you borrow,
-   you copy. It needs no network, no account, no other program, and no code that
-   exists for only one operating system.
-2. **Deterministic.** The same seed gives the same game on every platform. Use
-   the seeded integer generator pattern in the template's `rules.cpp`. Do not use
-   `rand`, `std::random_device`, library distributions, or fast-math.
-3. **Idle means idle.** A game nobody is touching schedules no timer and
-   publishes no frame. A game hidden behind the shelf does nothing at all.
-4. **It fits.** The layout reflows from 600 x 370 points (and survives 600 x 320)
-   to a full screen, at display scales of 1, 1.5 and 2.
-5. **It saves.** Every committed change is saved at once, in a versioned,
-   checksummed file, replaced atomically. Reopening resumes exactly. A damaged
-   save starts a fresh game without complaint.
-6. **The shell owns the menu.** Commands live in the capsule. Music, Sound and
-   Motion are the shell's master switches; the game obeys them.
-7. **Existing entries never move.** `Entry` values are persisted in players'
-   saves. Append only.
-8. **Nothing existing is weakened.** Do not remove a game, simplify one, disable a
-   test, or edit the toolkit to make something pass.
-9. **House style** for every file you write.
-10. **Everything is original or public domain.** No brand names, logos, or
-    characters and music that belong to someone else.
-11. **Report honestly.** `HANDOFF.md` separates what you verified from what you
-    did not.
-
-## Working with the person
-
-- Their plain complaints are specifications. "It feels janky" means find out
-  what is janky and fix it; do not explain why it is that way.
-- When they report a bug you cannot see in your picture, believe them and build
-  a way to see it (a marked test object, a labelled preview). They have been
-  right about this before.
-- Bring them decisions, with a recommendation, one at a time. Do not bring them
-  build output.
-- When they say the game is not finished, it is not finished. The collection's
-  bar is polish.
-- Use the name they chose, and use it everywhere from the start. A rename after
-  delivery touches the save file, the shelf entry and the audio prefix.
-
-## If something here is wrong
-
-The shell changes. If a tool's anchor is missing, a header has moved, or a guide
-disagrees with the source, the source wins: read `src/collection.cpp`,
-`src/suite.hpp` and the newest game under `vendor/`, do the step by hand, and
-note the mismatch in `HANDOFF.md` so the kit can be corrected.
-
-The repository's root `AGENTS.md` also applies to you. Where it speaks of
-`incoming/` packages and vendor copies, that describes games delivered from
-another machine for porting; a kit game is written portable from the start and
-lives only in `vendor/<id>/`.
+- One game folder and namespace; no dependency on another game's private files.
+  Existing shared card/puzzle engines are collection infrastructure.
+- No network, accounts or operating-system code inside game modules.
+- Stable IDs and save formats; committed progress persists immediately. Document
+  any original game's restart-at-level semantics accurately.
+- Settled scenes schedule no frames. Deliberate moving game actors may continue
+  while visible. Hidden games stop timers, workers and sound.
+- The shell owns hosted navigation, help and Music/Sound/Motion masters. Reduced
+  motion preserves game rules and meaningful actors.
+- Preserve all games, rendering quality and tests. Never simplify to make a port
+  or performance check pass. Request shared capabilities from GUI.Forms through
+  the established toolkit workflow.
+- Respect original/public-domain asset provenance and the repository license.
+- Reports describe observed evidence. A successful core test is not native UI,
+  auditory or cross-platform validation.

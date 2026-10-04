@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "gems",
+  "entry_id": 5,
+  "entry_name": "gems",
+  "namespace": "ps_gems",
+  "title": "Gems",
+  "kind": "Match three",
+  "blurb": "Swap jewels into rows. Set off bombs, stars and hypercubes.",
+  "colors": [
+    [
+      118,
+      46,
+      170
+    ],
+    [
+      52,
+      18,
+      86
+    ],
+    [
+      255,
+      190,
+      250
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [],
+  "audio_sources": [],
+  "libraries": [],
+  "rail": false
+}

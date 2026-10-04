@@ -4,7 +4,7 @@ PlaySuite's shell is the shelf (the main menu), the command capsule (the menu
 inside every game) and the collection that owns both. A game is a guest. This
 guide is what the shell gives a game and what it expects back.
 
-The source of truth is `src/suite.hpp`, `src/collection.cpp`, `src/capsule.hpp`
+The source of truth is `src/game_module.hpp`, `src/suite.hpp`, `src/collection.cpp`, `src/capsule.hpp`
 and `src/shelf.hpp`. If they disagree with this page, they are right.
 
 ## The shelf
@@ -14,17 +14,16 @@ manner of a 1990s games collection. There are no categories. One click opens a
 box with a short box-to-window transition; arrow keys choose a box and Enter
 opens it. A ticket describes the box under the pointer.
 
-Your game's box is made from five things in `GAME.json`, which `wire_shelf.py`
-writes into `src/suite.cpp`, and one thing you draw:
+Your game's box is generated from `GAME.json` and its own `cover.cpp`:
 
 | Field | Shown | Guidance |
 |---|---|---|
 | `title` | On the box, condensed capitals | At most 28 characters |
 | `kind` | Small line under the title | Two or three words: "Pasture puzzle", "Bluffing" |
 | `blurb` | The ticket | One sentence, at most 90 characters, an invitation: "Place fences before a clever sheep finds its way out." |
-| `cover.top`, `cover.bottom` | The box's vertical gradient | Two related colours from the game's own palette, dark enough that cream lettering reads |
-| `cover.accent` | Glow behind the emblem and trim | The game's brightest colour |
-| The emblem | The picture on the box | Drawn by you in `paint_entry_emblem` |
+| `colors[0]`, `colors[1]` | The box's vertical gradient | Two related colours from the game's own palette, dark enough that cream lettering reads |
+| `colors[2]` | Glow behind the emblem and trim | The game's brightest colour |
+| The emblem | The picture on the box | Drawn by you in the module's cover function |
 
 **The emblem** is painted with GUI.Forms `Painter` calls inside a square of size
 `s` centred at `(cx, cy)`. It is redrawn at every box size, so draw it from
@@ -32,19 +31,18 @@ proportions of `s`, with a few bold shapes: `disc(p, x, y, r, colour)`,
 `p.fill_rounded_rect`, `p.draw_line`, `paint_polygon`. Look at the existing
 cases for the level of detail: a sheep is six discs, a head and two legs; Rock
 Stack is four rounded stones. It must read at 40 pixels. It should be the game's
-character or its central object, in the game's colours. `wire_shelf.py` leaves a
-placeholder marked `TODO`, and the gate fails until you replace it.
+character or its central object, in the game's colours. Replace the template
+emblem in `cover.cpp` and inspect it on the actual shelf.
 
-Look at the other boxes' colours (the `entries` table at the top of
-`src/suite.cpp` lists every cover) and choose one that is distinct from the boxes
-beside it; a new game sits at the end of the shelf.
+Look at the other modules' `GAME.json` colours and choose a palette distinct
+from the neighboring boxes. The shelf orders games by permanent `entry_id`.
 
-You cannot run the shell here, so prototype the emblem with the canvas first:
+Prototype the emblem with the canvas, then inspect it in the native shell:
 `draw_emblem` in the game's `tools/preview.cpp`, shown on mock boxes by
 `<ns>_preview box.png 0 0 1 box`. Then transcribe it. The calls correspond one to
 one:
 
-| Canvas (prototype) | Painter (in `src/suite.cpp`) |
+| Canvas (prototype) | Painter (in `cover.cpp`) |
 |---|---|
 | `canvas.fill_circle(x, y, r, colour)` | `disc(p, x, y, r, colour)` |
 | `canvas.begin(); canvas.rrect(x, y, w, h, r); canvas.fill(colour)` | `p.fill_rounded_rect({x, y, w, h}, r, colour)` |
@@ -113,8 +111,7 @@ top-right corner, H or F1 opens it at the active game's section. H or Escape clo
 it. M toggles the suite's music. Reserve H and M for those functions; a game's Hint
 action stays visible in its command menu.
 
-Write the game's goal, moves, ending and controls in `src/help_content.cpp`, under
-its `Entry` value. Keep the prose short and in the game's voice. The shared
+Write the game's goal, moves, ending and controls in its `help.md`. Keep the prose short and in the game's voice. The shared
 view wraps and scrolls the text at the minimum window size.
 
 The template's own help card remains a standalone/headless preview fallback.

@@ -1,0 +1,19 @@
+add_library(mz_core STATIC
+ ${GAME_MODULE_DIR}/src/platform/raster.cpp ${GAME_MODULE_DIR}/src/soft3d.cpp
+ ${GAME_MODULE_DIR}/src/textures.cpp ${GAME_MODULE_DIR}/src/maze.cpp
+ ${GAME_MODULE_DIR}/src/world.cpp ${GAME_MODULE_DIR}/src/session.cpp
+ ${GAME_MODULE_DIR}/src/rewards.cpp ${GAME_MODULE_DIR}/src/cast.cpp ${GAME_MODULE_DIR}/src/save.cpp)
+target_include_directories(mz_core PUBLIC ${GAME_MODULE_DIR}/src)
+target_compile_definitions(mz_core PRIVATE _USE_MATH_DEFINES)
+add_executable(maze_rules_tests ${GAME_MODULE_DIR}/tests/maze_tests.cpp)
+target_link_libraries(maze_rules_tests PRIVATE mz_core)
+add_test(NAME maze_rules COMMAND maze_rules_tests)
+add_executable(maze_preview ${GAME_MODULE_DIR}/tests/preview.cpp)
+target_link_libraries(maze_preview PRIVATE mz_core)
+if(GAMES_BUILD_APPLICATION)
+  add_executable(maze_view_contract_tests ${GAME_MODULE_DIR}/tests/view_contract_tests.cpp)
+  target_include_directories(maze_view_contract_tests PRIVATE ${PROJECT_SOURCE_DIR}/new-games/kit)
+  target_link_libraries(maze_view_contract_tests PRIVATE vendor_game_ui)
+  add_test(NAME maze_view_contract COMMAND maze_view_contract_tests)
+  set_tests_properties(maze_view_contract PROPERTIES TIMEOUT 90 ENVIRONMENT "GAMES_ASSET_DIR=${GAMES_RUNTIME_ASSET_DIR}")
+endif()

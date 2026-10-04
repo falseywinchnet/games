@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -12,19 +13,13 @@ VENDOR = REPO / "vendor"
 
 # Names a game may not take as its namespace: C++ and shell names, and the kit's own.
 RESERVED_NAMESPACES = {"std", "gf", "games", "kit", "gui", "tg", "detail", "test"}
-NUMBER_WORDS = [
-    "ZERO", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN",
-    "ELEVEN", "TWELVE", "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN", "SEVENTEEN", "EIGHTEEN",
-    "NINETEEN", "TWENTY", "TWENTY-ONE", "TWENTY-TWO", "TWENTY-THREE", "TWENTY-FOUR",
-    "TWENTY-FIVE", "TWENTY-SIX", "TWENTY-SEVEN", "TWENTY-EIGHT", "TWENTY-NINE", "THIRTY",
-    "THIRTY-ONE",
-]
-# The shell records which games have been opened in a 32-bit mask.
-MAXIMUM_ENTRIES = 31
 SOURCE_SUFFIXES = (".cpp", ".hpp", ".h", ".cc", ".hh")
 
 
 def game_dir(game_id: str) -> Path:
+    candidate = Path(game_id).expanduser()
+    if candidate.is_dir():
+        return candidate.resolve()
     return TEMPLATE if game_id == "templategame" else VENDOR / game_id
 
 
@@ -52,22 +47,33 @@ def used_namespaces() -> dict[str, str]:
     return found
 
 
+def catalog(extra_dirs=(), include_disabled=False) -> list[dict]:
+    sys.path.insert(0, str(REPO / "tools"))
+    from game_catalog import discover
+    return discover(REPO, extra_dirs, include_disabled)
+
+
 def entry_names() -> list[str]:
-    """The persisted Entry enumerators in src/suite.hpp, in order."""
-    text = (REPO / "src" / "suite.hpp").read_text(encoding="utf-8")
-    match = re.search(r"enum class Entry : int \{(.*?)\};", text, re.DOTALL)
-    if not match:
-        raise SystemExit("src/suite.hpp: the Entry enum was not found")
-    body = re.sub(r"//[^\n]*", "", match.group(1))
-    return [name.strip() for name in body.split(",") if name.strip()]
+    return [game["id"] for game in catalog(include_disabled=True)]
 
 
 def entry_count() -> int:
-    text = (REPO / "src" / "suite.hpp").read_text(encoding="utf-8")
-    match = re.search(r"inline constexpr int entry_count = (\d+);", text)
-    if not match:
-        raise SystemExit("src/suite.hpp: entry_count was not found")
-    return int(match.group(1))
+    return len(catalog())
+
+
+def next_entry_id() -> int:
+    """Permanent ids are append-only; disabled reservations still count."""
+    value = max((game["entry_id"] for game in catalog(include_disabled=True)), default=-1) + 1
+    if value > 2147483647:
+        raise ValueError("The permanent entry-id range is exhausted")
+    return value
+
+
+def display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(REPO))
+    except ValueError:
+        return str(path)
 
 
 def pascal(text: str) -> str:
@@ -78,9 +84,10 @@ def snake(text: str) -> str:
     return "_".join(part.lower() for part in re.split(r"[^A-Za-z0-9]+", text) if part)
 
 
-def audio_sources() -> list[Path]:
-    directory = REPO / "assets" / "audio"
-    return sorted(p for p in directory.iterdir() if p.suffix.lower() in (".m4a", ".wav"))
+def audio_sources(extra_dirs=()) -> list[Path]:
+    sys.path.insert(0, str(REPO / "tools"))
+    from prepare_portable_assets import asset_inventory
+    return [entry["path"] for entry in asset_inventory(REPO / "assets", extra_dirs)["audio"]]
 
 
 def pinned_toolkit_commit() -> str:

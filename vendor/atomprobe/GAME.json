@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "id": "atomprobe",
+  "entry_id": 8,
+  "entry_name": "atom",
+  "namespace": "ap",
+  "title": "Atom Probe",
+  "kind": "Deduction",
+  "blurb": "Fire probes into the sealed box and find the hidden atoms.",
+  "colors": [
+    [
+      40,
+      56,
+      92
+    ],
+    [
+      12,
+      18,
+      38
+    ],
+    [
+      110,
+      232,
+      238
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [
+    "src/atomprobe_view.cpp"
+  ],
+  "audio_sources": [
+    "src/platform/audio.cpp"
+  ],
+  "libraries": [
+    "ap_core"
+  ],
+  "rail": true
+}

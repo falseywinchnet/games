@@ -1,8 +1,8 @@
 # PlaySuite catalog
 
-PlaySuite contains seventeen playable games. Each has its own box on the shared shelf; the command capsule provides navigation and each game's supporting controls. Card games use green felt and cream cards; the hanafuda deck has original woodblock-style faces. Switchbox's replacement is integrated; Sticks & Stones is retired.
+PlaySuite discovers its playable games from the module folders. `games --list-games` reports the complete built roster and permanent IDs. Each has its own box on the shared shelf; the command capsule provides navigation and each game's supporting controls. Card games use green felt and cream cards; the hanafuda deck has original woodblock-style faces. Switchbox's replacement is integrated; Sticks & Stones is retired.
 
-The four newest games are described in [the integration guide](NEW_GAME_INTEGRATION.md): Koi-Koi (month matching and set collection), The Parrot's Table (truth/lie deduction), Liar's Dice (bidding and bluffing), and Pen the Sheep (generated fence-placement puzzles). They retain their delivered match scores, records, ledger and meadow progress respectively.
+Four of the imported games are described in [the integration guide](NEW_GAME_INTEGRATION.md): Koi-Koi (month matching and set collection), The Parrot's Table (truth/lie deduction), Liar's Dice (bidding and bluffing), and Pen the Sheep (generated fence-placement puzzles). They retain their delivered match scores, records, ledger and meadow progress respectively.
 
 ## Current card-game scope
 
@@ -51,9 +51,13 @@ The recovered File Manager games planning index lists nine modules. Solitaire an
 
 Source: `/Users/joshuahkuttenkuler/Developer/Projects/gui-forms-investigation/source/file_manager/games/planning/README.md`, `CHARTER.md`, and `games/*.md`. The historical documents contain proposed rules and unresolved decisions; they do not establish those details as accepted final behavior.
 
-## Included in the deployed-package plan: Catching Thieves reference
+## Catching Thieves and Maze 95
 
-The user requested this addition through the coordinating chat `01a0f5c2-fdd4-7822-b80c-743377e48f50`. This is an inclusion and planning request. It does not interrupt the four card games or require immediate implementation of the puzzle.
+Catching Thieves is integrated from the complete delivered garden game: 243 campaign puzzles with replayed solutions, pumpkin pushing, burrows, raccoons, seasonal scenery, garden book, undo and saves. Its module owns the campaign and audio. Maze 95 retains its procedural first-person renderer, generated solvable mazes, portals, pads, ceiling flips, elevators, marble, snail, encounters and 46 rewards. The original Maze save resumes the current level at its entrance and retains collected rewards and totals. Both use the shared masters and help, stop when hidden, and support isolated native development scripts. Their folders contain the current instructions and validation records.
+
+## Historical Catching Thieves reference
+
+The user requested this addition through the coordinating chat `01a0f5c2-fdd4-7822-b80c-743377e48f50`. The following records the original planning request; the playable implementation above supersedes its planning status.
 
 ### User requirements
 

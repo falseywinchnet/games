@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "id": "eggy",
+  "entry_id": 12,
+  "entry_name": "eggy",
+  "namespace": "eggy",
+  "title": "Eggy",
+  "kind": "A long climb",
+  "blurb": "Help a duckling climb a very, very tall mountain.",
+  "colors": [
+    [
+      222,
+      140,
+      36
+    ],
+    [
+      138,
+      70,
+      16
+    ],
+    [
+      255,
+      238,
+      170
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [
+    "src/eggy_view.cpp"
+  ],
+  "audio_sources": [
+    "src/audio.cpp"
+  ],
+  "libraries": [
+    "eggy_core"
+  ],
+  "rail": true
+}

@@ -15,6 +15,15 @@ set(GUI_FORMS_BUILD_GALLERY OFF CACHE BOOL "" FORCE)
 set(GUI_FORMS_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 add_subdirectory("${GAMES_TEXT_SOURCE_DIR}" toolkit EXCLUDE_FROM_ALL)
 get_filename_component(games_root "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${games_root}/tools/game_catalog.py"
+    --root "${games_root}" --generate "${CMAKE_CURRENT_BINARY_DIR}/catalog"
+    RESULT_VARIABLE catalog_result ERROR_VARIABLE catalog_error OUTPUT_QUIET)
+if(NOT catalog_result EQUAL 0)
+    message(FATAL_ERROR "Game catalog: ${catalog_error}")
+endif()
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/catalog")
+
 add_library(game_text_requests STATIC "${games_root}/src/text_requests.cpp")
 target_include_directories(game_text_requests PUBLIC "${games_root}/src")
 target_compile_features(game_text_requests PUBLIC cxx_std_20)
@@ -61,6 +70,7 @@ if(GAMES_TEST_VENDOR_FRAMES)
     target_include_directories(fourpegs_frame_audio PUBLIC "${games_root}/src")
     target_link_libraries(fourpegs_frame_audio PUBLIC GUIForms::Audio game_paths)
     add_executable(vendor_game_frame_tests "${games_root}/tests/vendor_game_frame_tests.cpp")
+    target_compile_definitions(vendor_game_frame_tests PRIVATE GAMES_FRAME_fourpegs GAMES_FRAME_atomprobe GAMES_FRAME_switchbox GAMES_FRAME_eggy)
     target_link_libraries(vendor_game_frame_tests PRIVATE vendor_text_views
         game_text_frames fp_core ap_core sbx_core eggy_core fourpegs_frame_audio GUIForms::Controls)
     foreach(game IN ITEMS fourpegs atomprobe switchbox eggy)

@@ -1,23 +1,13 @@
 #pragma once
-#include "atomprobe_view.hpp"
 #include "capsule.hpp"
-#include "dice_view.hpp"
-#include "eggy_view.hpp"
-#include "fourpegs_view.hpp"
+#include "game_module.hpp"
 #include "gui_forms/timer.hpp"
+#include "gui_forms/window.hpp"
 #include "help_book.hpp"
 #include "help_route.hpp"
-#include "koi_view.hpp"
 #include "presentation.hpp"
-#include "puzzle_view.hpp"
-#include "sheep_view.hpp"
 #include "shelf.hpp"
-#include "sudoku_view.hpp"
-#include "switchbox_view.hpp"
-#include "table.hpp"
-#include "table_view.hpp"
-#include "zen_view.hpp"
-
+#include <set>
 #include "text_sprites.hpp"
 namespace games {
 
@@ -25,7 +15,7 @@ namespace games {
 // capsule that floats over whichever game is open.
 class Collection final : public gf::Control, public HelpHost {
   public:
-    explicit Collection(gf::StableId id);
+    explicit Collection(gf::StableId id, bool dev = false);
     ~Collection() override;
     static constexpr bool initialize_tree_after_construction = true;
     void initialize_control_tree();
@@ -38,6 +28,8 @@ class Collection final : public gf::Control, public HelpHost {
     void show_shelf();
     void show_help(std::string_view topic = {}) override;
     void close_help();
+    bool dispatch_action(std::string_view action) { return !shelf_open_ && (*games_.at(active_)).scripted_action(action); }
+    void dispatch_command(const std::string& id) { run_command(id); }
     [[nodiscard]] bool help_open() const {
         return help_ && (*help_).visible();
     }
@@ -57,25 +49,15 @@ class Collection final : public gf::Control, public HelpHost {
     std::shared_ptr<HelpGlyph> help_link_;
     std::shared_ptr<HelpBook> help_;
     gf::FocusScopeId help_focus_{};
-    std::shared_ptr<Table> cards_;
-    std::shared_ptr<SudokuView> sudoku_;
-    std::array<std::shared_ptr<PuzzleView>, 8> puzzles_{};
-    std::shared_ptr<eggy::EggyView> eggy_;
-    std::shared_ptr<sbx::SwitchboxView> switchbox_{};
-    std::shared_ptr<fp::FourPegsView> fourpegs_{};
-    std::shared_ptr<ap::AtomProbeView> atomprobe_{};
-    std::shared_ptr<kk::KoiView> koikoi_;
-    std::shared_ptr<pt::TableView> parrots_;
-    std::shared_ptr<ld::DiceView> liarsdice_;
-    std::shared_ptr<sh::SheepView> penthesheep_;
-    std::shared_ptr<zc::ZenView> rockstack_;
+    ModuleContext modules_;
+    std::map<Entry,std::unique_ptr<GameInstance>> games_;
     std::vector<gf::SubscriptionToken> subscriptions_;
     std::unique_ptr<gf::Timer> timer_{};
     std::chrono::steady_clock::time_point last_tick_{};
     double refresh_ = 0;
-    Entry active_ = Entry::solitaire;
+    Entry active_ = entries.front();
     bool shelf_open_ = true, reduced_ = false;
-    std::uint32_t opened_ = 0; // entries that have been played, for Play / Continue
+    std::set<int> opened_; // permanent IDs, including temporarily absent modules
     gf::Point pointer_{-1000, -1000};
     double capsule_width_limit_ = 0;
     double current_rail_height_ = rail_height;

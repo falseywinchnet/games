@@ -7,7 +7,7 @@
 //     state          start | mid | remark | solved | help | box   (default mid)
 //
 // "box" draws a mock of the game's box on the shelf at three sizes, so the emblem
-// and cover colours can be judged before they are transcribed into src/suite.cpp.
+// and cover colours can be judged alongside the native emblem in cover.cpp.
 #include "platform/text.hpp"
 #include "png_writer.hpp"
 #include "rules.hpp"
@@ -22,7 +22,7 @@
 
 namespace {
 
-// Keep these equal to "cover" in GAME.json.
+// Keep these equal to "colors" in GAME.json (top, bottom, accent).
 const tg::Col cover_top = tg::rgb(92, 66, 44);
 const tg::Col cover_bottom = tg::rgb(36, 26, 19);
 const tg::Col cover_accent = tg::rgb(255, 215, 122);

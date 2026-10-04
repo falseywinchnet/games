@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "id": "zenconstruction",
+  "entry_id": 17,
+  "entry_name": "rockstack",
+  "namespace": "zc",
+  "title": "Rock Stack",
+  "kind": "Stone construction",
+  "blurb": "Work a little crane to balance river stones beside a brook.",
+  "colors": [
+    [
+      130,
+      112,
+      80
+    ],
+    [
+      50,
+      60,
+      44
+    ],
+    [
+      255,
+      218,
+      110
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [
+    "src/zen_view.cpp",
+    "src/platform/text.cpp",
+    "src/platform/present.cpp"
+  ],
+  "audio_sources": [
+    "src/platform/audio.cpp"
+  ],
+  "libraries": [
+    "zc_core"
+  ],
+  "rail": true
+}

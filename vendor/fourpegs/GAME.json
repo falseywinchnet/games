@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "id": "fourpegs",
+  "entry_id": 9,
+  "entry_name": "pegs",
+  "namespace": "fp",
+  "title": "Four Pegs",
+  "kind": "Codebreaking",
+  "blurb": "Crack the Curator's four-peg code in ten tries.",
+  "colors": [
+    [
+      116,
+      32,
+      70
+    ],
+    [
+      46,
+      10,
+      28
+    ],
+    [
+      255,
+      210,
+      122
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [
+    "src/fourpegs_view.cpp"
+  ],
+  "audio_sources": [
+    "src/platform/audio.cpp"
+  ],
+  "libraries": [
+    "fp_core"
+  ],
+  "rail": true
+}

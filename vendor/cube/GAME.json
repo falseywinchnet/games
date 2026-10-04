@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "cube",
+  "entry_id": 6,
+  "entry_name": "cube",
+  "namespace": "ps_cube",
+  "title": "Nature Cube",
+  "kind": "Path puzzle",
+  "blurb": "Join each colored pair across three faces of a tilting glass cube.",
+  "colors": [
+    [
+      50,
+      134,
+      108
+    ],
+    [
+      20,
+      64,
+      56
+    ],
+    [
+      206,
+      244,
+      214
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [],
+  "audio_sources": [],
+  "libraries": [],
+  "rail": false
+}

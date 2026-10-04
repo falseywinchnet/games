@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "id": "penthesheep",
+  "entry_id": 16,
+  "entry_name": "penthesheep",
+  "namespace": "sh",
+  "title": "Pen the Sheep",
+  "kind": "Pasture puzzle",
+  "blurb": "Place fences before a clever sheep finds its way out.",
+  "colors": [
+    [
+      95,
+      146,
+      64
+    ],
+    [
+      34,
+      66,
+      28
+    ],
+    [
+      255,
+      238,
+      176
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [
+    "src/sheep_view.cpp",
+    "src/platform/text.cpp",
+    "src/platform/present.cpp"
+  ],
+  "audio_sources": [
+    "src/platform/audio.cpp"
+  ],
+  "libraries": [
+    "sh_core"
+  ],
+  "rail": true
+}

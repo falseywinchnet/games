@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "id": "koikoi",
+  "entry_id": 13,
+  "entry_name": "koikoi",
+  "namespace": "kk",
+  "title": "Koi-Koi",
+  "kind": "Hanafuda",
+  "blurb": "Match the months, collect sets, and choose when to risk another turn.",
+  "colors": [
+    [
+      148,
+      46,
+      38
+    ],
+    [
+      62,
+      24,
+      24
+    ],
+    [
+      255,
+      218,
+      138
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [
+    "src/koi_view.cpp",
+    "src/platform/text.cpp",
+    "src/platform/present.cpp",
+    "src/card_finish.cpp",
+    "src/platform/image.cpp"
+  ],
+  "audio_sources": [
+    "src/platform/audio.cpp"
+  ],
+  "libraries": [
+    "kk_core"
+  ],
+  "rail": true,
+  "help_topics": [
+    {
+      "id": "sets",
+      "title": "Koi-Koi \u2014 the sets",
+      "file": "help-sets.md"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "solitaire",
+  "entry_id": 0,
+  "entry_name": "solitaire",
+  "namespace": "ps_solitaire",
+  "title": "Solitaire",
+  "kind": "Klondike patience",
+  "blurb": "Build four suits from ace to king. Draw one card or three.",
+  "colors": [
+    [
+      36,
+      125,
+      84
+    ],
+    [
+      14,
+      61,
+      40
+    ],
+    [
+      242,
+      201,
+      104
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [],
+  "audio_sources": [],
+  "libraries": [],
+  "rail": false
+}
