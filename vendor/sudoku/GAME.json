@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "sudoku",
+  "entry_id": 4,
+  "entry_name": "sudoku",
+  "namespace": "ps_sudoku",
+  "title": "Sudoku",
+  "kind": "Number logic",
+  "blurb": "Fresh puzzles at three difficulties, with notes and a night mode.",
+  "colors": [
+    [
+      40,
+      92,
+      176
+    ],
+    [
+      18,
+      44,
+      96
+    ],
+    [
+      214,
+      232,
+      255
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [],
+  "audio_sources": [],
+  "libraries": [],
+  "rail": false
+}

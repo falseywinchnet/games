@@ -1,34 +1,12 @@
 #pragma once
 #include "gui_forms/basic_controls.hpp"
+#include "game_entries.hpp"
 #include <array>
 #include <string>
 #include <string_view>
 #include <vector>
 namespace games {
 namespace gf = gui_forms;
-
-// PlaySuite lists every game as its own box. Values are persisted; append only.
-enum class Entry : int {
-    solitaire,
-    spider,
-    freecell,
-    hearts,
-    sudoku,
-    gems,
-    cube,
-    untangle,
-    atom,
-    pegs,
-    switchbox,
-    solve,
-    eggy,
-    koikoi,
-    parrots,
-    liarsdice,
-    penthesheep,
-    rockstack,
-};
-inline constexpr int entry_count = 18;
 
 struct EntryInfo {
     const char* title;

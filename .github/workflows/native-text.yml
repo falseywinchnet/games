@@ -73,7 +73,7 @@ jobs:
       - name: Build native masks and Games adapters
         run: cmake --build build/text --target text_request_tests text_native_consumer_tests game_text_frame_tests vendor_game_frame_tests --parallel 2
       - name: Test lifecycle and actual native text
-        run: ctest --test-dir build/text --output-on-failure --timeout 120 --output-junit results.xml -R '^(text_request_lifecycle|text_native_consumer|game_text_frame_preparation|(fourpegs|atomprobe|switchbox|eggy)_native_frames)$'
+        run: ctest --test-dir build/text --output-on-failure --timeout 120 --output-junit results.xml -R '^(text_request_lifecycle|text_native_consumer|game_text_frame_preparation|.+_native_frames)$'
       - name: Render actual text previews
         run: |
           build/text/text_native_consumer_tests toolkit/gui_forms/assets/fonts build/text/previews

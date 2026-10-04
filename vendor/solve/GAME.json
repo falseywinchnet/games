@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "solve",
+  "entry_id": 11,
+  "entry_name": "solve",
+  "namespace": "ps_solve",
+  "title": "Puzzle Solve",
+  "kind": "Reconstruction",
+  "blurb": "Turn and flip seven pieces to rebuild the target picture.",
+  "colors": [
+    [
+      44,
+      110,
+      182
+    ],
+    [
+      18,
+      50,
+      98
+    ],
+    [
+      250,
+      205,
+      75
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [],
+  "audio_sources": [],
+  "libraries": [],
+  "rail": false
+}

@@ -1,4 +1,10 @@
 #include "collection.hpp"
+#include "table.hpp"
+#include "puzzle_view.hpp"
+#include "sudoku_view.hpp"
+#include "eggy_view.hpp"
+#include "fourpegs_view.hpp"
+#include "atomprobe_view.hpp"
 #include "gui_forms/window.hpp"
 #include "test_paths.hpp"
 #include <cassert>
@@ -52,9 +58,13 @@ static void click(gf::Window& window, gf::Control& view, gf::Point local,
     point(window, view, gf::PointerAction::up, local, button);
 }
 static std::shared_ptr<gf::Button> button(gf::Control& root, const std::string& id) {
-    for (const std::shared_ptr<gf::Control>& child : root.children())
+    for (const std::shared_ptr<gf::Control>& child : root.children()) {
         if ((*child).stable_id().value() == id)
             return std::dynamic_pointer_cast<gf::Button>(child);
+        const std::shared_ptr<gf::Button> nested = button(*child, id);
+        if (nested)
+            return nested;
+    }
     return {};
 }
 int main() {
@@ -278,9 +288,9 @@ int main() {
         assert((*collection).children().size() == 4);
         assert((*shelf).visible() && !(*capsule).visible());
         // PlaySuite lists all thirteen games in one place, with no categories.
-        for (int i = 0; i < entry_count; ++i)
-            assert(button(*shelf, "shelf.box." + std::to_string(i)) &&
-                   (*button(*shelf, "shelf.box." + std::to_string(i))).visible());
+        for (Entry entry : entries)
+            assert(button(*shelf, "shelf.box." + std::to_string(static_cast<int>(entry))) &&
+                   (*button(*shelf, "shelf.box." + std::to_string(static_cast<int>(entry)))).visible());
         assert(!button(*shelf, "collection.category.0"));
         assert(!std::filesystem::exists(scratch / "eggy-v1.txt"));
         const std::string eggy_box = "shelf.box." + std::to_string(static_cast<int>(Entry::eggy));
@@ -432,8 +442,8 @@ int main() {
             if ((*child).stable_id().value() == "collection.capsule")
                 capsule = std::static_pointer_cast<CommandCapsule>(child);
         assert(capsule);
-        for (int i = 0; i < entry_count; ++i) {
-            (*collection).open_entry(static_cast<Entry>(i));
+        for (Entry entry : entries) {
+            (*collection).open_entry(entry);
             window.perform_layout();
             // The same corner link and shortcuts work over every render path.
             const std::shared_ptr<gf::Button> help = button(*collection, "collection.help");
@@ -444,7 +454,7 @@ int main() {
             painter.text_seen.clear();
             static_cast<void>(window.paint(painter));
             assert(painter.text_seen.contains("PlaySuite · Help"));
-            assert(painter.text_seen.contains(entry_info(static_cast<Entry>(i)).title));
+            assert(painter.text_seen.contains(entry_info(entry).title));
             assert(painter.text_seen.contains("×"));
             std::shared_ptr<HelpPages> pages;
             for (const std::shared_ptr<gf::Control>& child : (*collection).children())
@@ -488,7 +498,7 @@ int main() {
             gf::Rect back_bounds = (*back).client_rectangle();
             click(window, *back, {back_bounds.width * .5, back_bounds.height * .5});
             assert((*collection).shelf_open());
-            (*collection).open_entry(static_cast<Entry>(i));
+            (*collection).open_entry(entry);
             window.perform_layout();
             const gf::Point folded_back = (*back).point_to_window({0, 0});
             (*capsule).step(1.0, true, true);

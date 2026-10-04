@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render this game's effects as 48 kHz stereo 16-bit WAV, with the standard library only.
 
-    python3 vendor/<id>/audio_src/make_sfx.py            writes into assets/audio/
+    python3 vendor/<id>/audio_src/make_sfx.py            writes into this game's assets/audio/
     python3 vendor/<id>/audio_src/make_sfx.py out_dir    writes somewhere else
 
 Deterministic: the same script gives the same bytes on every machine.
@@ -60,7 +60,7 @@ def deal(t):
 
 
 def main():
-    default = Path(__file__).resolve().parents[3] / "assets" / "audio"
+    default = Path(__file__).resolve().parents[1] / "assets" / "audio"
     out = Path(sys.argv[1]) if len(sys.argv) > 1 else default
     out.mkdir(parents=True, exist_ok=True)
     write(out / "tg_press.wav", render(0.16, press))

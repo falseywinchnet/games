@@ -1,5 +1,6 @@
 #include "help_book.hpp"
 #include "help_content.hpp"
+#include "game_module.hpp"
 #include "presentation.hpp"
 #include <algorithm>
 namespace games {
@@ -39,40 +40,55 @@ HelpPages::HelpPages(gf::StableId id) : ScrollableControl(std::move(id)) {
     set_auto_scroll(true);
     set_paint_plane(gf::PaintPlane::overlay);
 }
+void HelpPages::add_topic(int entry, std::string topic, std::string title,
+                          std::string_view body) {
+    const int index = static_cast<int>(topics_.size());
+    const std::string key = std::to_string(entry) + "." + (topic.empty() ? "rules" : topic);
+    std::shared_ptr<TopicHeading> heading =
+        gf::make_control<TopicHeading>(gf::StableId("help.topic." + key), std::move(title));
+    std::shared_ptr<gf::Label> label = gf::make_control<gf::Label>(
+        gf::StableId("help.body." + key), std::string(body));
+    (*label).set_font({gf::FontRole::content, 17, 400, false});
+    (*label).set_foreground(gf::Color::rgba(42, 38, 24));
+    (*label).set_text_wrapping(gf::TextWrapping::word);
+    (*label).set_visible(false);
+    (*heading).set_paint_plane(gf::PaintPlane::overlay);
+    (*label).set_paint_plane(gf::PaintPlane::overlay);
+    subscriptions_.push_back((*heading).clicked().subscribe(
+        *this, gf::Delegate<gf::ButtonBase&>::bind<HelpPages, &HelpPages::toggle>(*this)));
+    topics_.push_back({entry, std::move(topic)});
+    headings_.push_back(heading);
+    bodies_.push_back(label);
+    order_.push_back(index);
+    add_child(heading);
+    add_child(label);
+}
 void HelpPages::initialize_control_tree() {
-    for (int i = 0; i < entry_count + 3; ++i) {
-        const std::string title = i == 0             ? "Using PlaySuite"
-                                  : i <= entry_count ? entry_info(static_cast<Entry>(i - 1)).title
-                                  : i == entry_count + 1 ? "Koi-Koi — the sets"
-                                                         : "Dedication, credits and contact";
-        const std::string_view body = i == 0                 ? help_welcome
-                                      : i <= entry_count     ? help_text(static_cast<Entry>(i - 1))
-                                      : i == entry_count + 1 ? koi_sets
-                                                             : help_about;
-        std::shared_ptr<TopicHeading> heading =
-            gf::make_control<TopicHeading>(gf::StableId("help.topic." + std::to_string(i)), title);
-        std::shared_ptr<gf::Label> label = gf::make_control<gf::Label>(
-            gf::StableId("help.body." + std::to_string(i)), std::string(body));
-        (*label).set_font({gf::FontRole::content, 17, 400, false});
-        (*label).set_foreground(gf::Color::rgba(42, 38, 24));
-        (*label).set_text_wrapping(gf::TextWrapping::word);
-        (*label).set_visible(false);
-        (*heading).set_paint_plane(gf::PaintPlane::overlay);
-        (*label).set_paint_plane(gf::PaintPlane::overlay);
-        subscriptions_.push_back((*heading).clicked().subscribe(
-            *this, gf::Delegate<gf::ButtonBase&>::bind<HelpPages, &HelpPages::toggle>(*this)));
-        headings_.push_back(heading);
-        bodies_.push_back(label);
-        order_.push_back(i);
-        add_child(heading);
-        add_child(label);
+    add_topic(-1, "", "Using PlaySuite", help_welcome);
+    for (Entry entry : entries) {
+        const GameDescriptor& descriptor = game_descriptor(entry);
+        add_topic(static_cast<int>(entry), "", entry_info(entry).title, help_text(entry));
+        for (const HelpTopic& topic : descriptor.help_topics)
+            add_topic(static_cast<int>(entry), topic.id, topic.title, topic.text);
     }
+    add_topic(-1, "about", "Dedication, credits and contact", help_about());
 }
 void HelpPages::select(int entry, std::string_view topic) {
-    const int selected = topic == "sets"    ? entry_count + 1
-                         : topic == "about" ? entry_count + 2
-                         : entry < 0        ? 0
-                                            : entry + 1;
+    int selected = 0;
+    const bool about = topic == "about";
+    const std::string_view requested = topic == "rules" ? "" : topic;
+    // Missing modules and unknown topic ids fall back to their game's main help,
+    // then to the welcome page. Numeric Entry values are persistent identifiers.
+    for (std::size_t i = 0; i < topics_.size(); ++i) {
+        const TopicKey& key = topics_[i];
+        if (!about && key.entry == entry && key.topic.empty())
+            selected = static_cast<int>(i);
+        if ((about && key.entry == -1 && key.topic == "about") ||
+            (!about && key.entry == entry && key.topic == requested)) {
+            selected = static_cast<int>(i);
+            break;
+        }
+    }
     order_.clear();
     order_.push_back(selected);
     for (int i = 0; i < static_cast<int>(bodies_.size()); ++i) {

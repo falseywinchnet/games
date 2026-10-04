@@ -1,13 +1,27 @@
+#ifdef GAMES_FRAME_atomprobe
 #include "atomprobe_view.hpp"
-#include "eggy_view.hpp"
+#endif
+#ifdef GAMES_FRAME_fourpegs
 #include "fourpegs_view.hpp"
-#ifdef GAMES_EXTENDED_VENDOR_FRAMES
-#include "dice_view.hpp"
+#endif
+#ifdef GAMES_FRAME_switchbox
+#include "switchbox_view.hpp"
+#endif
+#ifdef GAMES_FRAME_eggy
+#include "eggy_view.hpp"
+#endif
+#ifdef GAMES_FRAME_koikoi
 #include "koi_view.hpp"
-#include "sheep_view.hpp"
+#endif
+#ifdef GAMES_FRAME_parrots
 #include "table_view.hpp"
 #endif
-#include "switchbox_view.hpp"
+#ifdef GAMES_FRAME_liarsdice
+#include "dice_view.hpp"
+#endif
+#ifdef GAMES_FRAME_penthesheep
+#include "sheep_view.hpp"
+#endif
 #include "test_paths.hpp"
 
 #include <fstream>
@@ -36,21 +50,26 @@ class ExposurePainter final : public gf::Painter {
     }
 };
 void set_foreground(gf::Control& view, bool foreground) {
-    if (fp::FourPegsView* game = dynamic_cast<fp::FourPegsView*>(&view))
-        (*game).set_cabinet(foreground, false, false, true);
-    else if (ap::AtomProbeView* game = dynamic_cast<ap::AtomProbeView*>(&view))
-        (*game).set_cabinet(foreground, false, false, true);
-    else if (sbx::SwitchboxView* game = dynamic_cast<sbx::SwitchboxView*>(&view))
-        (*game).set_cabinet(foreground, false, false, true);
-#ifdef GAMES_EXTENDED_VENDOR_FRAMES
-    else if (kk::KoiView* game = dynamic_cast<kk::KoiView*>(&view))
-        (*game).set_cabinet(foreground, false, false, true);
-    else if (pt::TableView* game = dynamic_cast<pt::TableView*>(&view))
-        (*game).set_cabinet(foreground, false, false, true);
-    else if (ld::DiceView* game = dynamic_cast<ld::DiceView*>(&view))
-        (*game).set_cabinet(foreground, false, false, true);
-    else if (sh::SheepView* game = dynamic_cast<sh::SheepView*>(&view))
-        (*game).set_cabinet(foreground, false, false, true);
+#ifdef GAMES_FRAME_fourpegs
+    if (fp::FourPegsView* game = dynamic_cast<fp::FourPegsView*>(&view)) (*game).set_cabinet(foreground,false,false,true);
+#endif
+#ifdef GAMES_FRAME_atomprobe
+    if (ap::AtomProbeView* game = dynamic_cast<ap::AtomProbeView*>(&view)) (*game).set_cabinet(foreground,false,false,true);
+#endif
+#ifdef GAMES_FRAME_switchbox
+    if (sbx::SwitchboxView* game = dynamic_cast<sbx::SwitchboxView*>(&view)) (*game).set_cabinet(foreground,false,false,true);
+#endif
+#ifdef GAMES_FRAME_koikoi
+    if (kk::KoiView* game = dynamic_cast<kk::KoiView*>(&view)) (*game).set_cabinet(foreground,false,false,true);
+#endif
+#ifdef GAMES_FRAME_parrots
+    if (pt::TableView* game = dynamic_cast<pt::TableView*>(&view)) (*game).set_cabinet(foreground,false,false,true);
+#endif
+#ifdef GAMES_FRAME_liarsdice
+    if (ld::DiceView* game = dynamic_cast<ld::DiceView*>(&view)) (*game).set_cabinet(foreground,false,false,true);
+#endif
+#ifdef GAMES_FRAME_penthesheep
+    if (sh::SheepView* game = dynamic_cast<sh::SheepView*>(&view)) (*game).set_cabinet(foreground,false,false,true);
 #endif
 }
 void require(const bool condition, const char* const message) {
@@ -117,60 +136,70 @@ int main(const int argc, char** const argv) {
         const std::filesystem::path previews = argc == 4 ? std::filesystem::path(argv[3]) : scratch;
         std::filesystem::create_directories(previews);
         std::shared_ptr<gf::Control> view{};
+#ifdef GAMES_FRAME_fourpegs
         if (game == "fourpegs") {
-            std::shared_ptr<fp::FourPegsView> control =
-                gf::make_control<fp::FourPegsView>(gf::StableId(game), fp::Options{.dev = true});
-            (*control).set_cabinet(true, false, false, true);
-            view = control;
-        } else if (game == "atomprobe") {
-            std::shared_ptr<ap::AtomProbeView> control =
-                gf::make_control<ap::AtomProbeView>(gf::StableId(game), ap::Options{.dev = true});
-            (*control).set_cabinet(true, false, false, true);
-            view = control;
-        } else if (game == "switchbox") {
-            std::shared_ptr<sbx::SwitchboxView> control =
-                gf::make_control<sbx::SwitchboxView>(gf::StableId(game), sbx::Options{.dev = true});
-            (*control).set_cabinet(true, false, false, true);
-            view = control;
-        } else if (game == "eggy") {
-            std::shared_ptr<eggy::EggyView> control =
-                gf::make_control<eggy::EggyView>(gf::StableId(game), eggy::Options{.dev = true});
-            (*control).set_cabinet_preferences(false, false, true);
-            view = control;
-        }
-#ifdef GAMES_EXTENDED_VENDOR_FRAMES
-        else if (game == "koikoi") {
-            std::shared_ptr<kk::KoiView> control = gf::make_control<kk::KoiView>(
-                gf::StableId(game), kk::Options{.hosted = true, .dev = true});
-            (*control).set_cabinet(true, false, false, true);
-            view = control;
-        } else if (game == "parrots") {
-            std::shared_ptr<pt::TableView> control = gf::make_control<pt::TableView>(
-                gf::StableId(game), pt::Options{.hosted = true, .dev = true});
-            (*control).set_cabinet(true, false, false, true);
-            view = control;
-        } else if (game == "liarsdice") {
-            std::shared_ptr<ld::DiceView> control = gf::make_control<ld::DiceView>(
-                gf::StableId(game), ld::Options{.hosted = true, .dev = true});
-            (*control).set_cabinet(true, false, false, true);
-            view = control;
-        } else if (game == "penthesheep") {
-            std::shared_ptr<sh::SheepView> control = gf::make_control<sh::SheepView>(
-                gf::StableId(game), sh::Options{.hosted = true, .dev = true});
-            (*control).set_cabinet(true, false, false, true);
-            view = control;
+            std::shared_ptr<fp::FourPegsView> control=gf::make_control<fp::FourPegsView>(gf::StableId(game),fp::Options{.dev=true});
+            (*control).set_cabinet(true,false,false,true);
+            view=control;
         }
 #endif
-        else {
-            throw std::runtime_error("Unknown game frame fixture");
+#ifdef GAMES_FRAME_atomprobe
+        if (game == "atomprobe") {
+            std::shared_ptr<ap::AtomProbeView> control=gf::make_control<ap::AtomProbeView>(gf::StableId(game),ap::Options{.dev=true});
+            (*control).set_cabinet(true,false,false,true);
+            view=control;
         }
+#endif
+#ifdef GAMES_FRAME_switchbox
+        if (game == "switchbox") {
+            std::shared_ptr<sbx::SwitchboxView> control=gf::make_control<sbx::SwitchboxView>(gf::StableId(game),sbx::Options{.dev=true});
+            (*control).set_cabinet(true,false,false,true);
+            view=control;
+        }
+#endif
+#ifdef GAMES_FRAME_eggy
+        if (game == "eggy") {
+            std::shared_ptr<eggy::EggyView> control=gf::make_control<eggy::EggyView>(gf::StableId(game),eggy::Options{.dev=true});
+            (*control).set_cabinet_preferences(false,false,true);
+            view=control;
+        }
+#endif
+#ifdef GAMES_FRAME_koikoi
+        if (game == "koikoi") {
+            std::shared_ptr<kk::KoiView> control=gf::make_control<kk::KoiView>(gf::StableId(game),kk::Options{.hosted=true,.dev=true});
+            (*control).set_cabinet(true,false,false,true);
+            view=control;
+        }
+#endif
+#ifdef GAMES_FRAME_parrots
+        if (game == "parrots") {
+            std::shared_ptr<pt::TableView> control=gf::make_control<pt::TableView>(gf::StableId(game),pt::Options{.hosted=true,.dev=true});
+            (*control).set_cabinet(true,false,false,true);
+            view=control;
+        }
+#endif
+#ifdef GAMES_FRAME_liarsdice
+        if (game == "liarsdice") {
+            std::shared_ptr<ld::DiceView> control=gf::make_control<ld::DiceView>(gf::StableId(game),ld::Options{.hosted=true,.dev=true});
+            (*control).set_cabinet(true,false,false,true);
+            view=control;
+        }
+#endif
+#ifdef GAMES_FRAME_penthesheep
+        if (game == "penthesheep") {
+            std::shared_ptr<sh::SheepView> control=gf::make_control<sh::SheepView>(gf::StableId(game),sh::Options{.hosted=true,.dev=true});
+            (*control).set_cabinet(true,false,false,true);
+            view=control;
+        }
+#endif
+        if (!view) throw std::runtime_error("Unknown game frame fixture");
         gf::Window window(view, {1180, 800});
         window.set_active(true);
         window.perform_layout();
         static_cast<void>(window.request_focus(view));
         std::shared_ptr<gf::LiveSurface> surface{};
         gf::LiveSurfaceFrame first = advance(window, surface, 0);
-#ifdef GAMES_EXTENDED_VENDOR_FRAMES
+#ifdef GAMES_FRAME_penthesheep
         if (game == "penthesheep") {
             const std::shared_ptr<sh::SheepView> sheep =
                 std::static_pointer_cast<sh::SheepView>(view);

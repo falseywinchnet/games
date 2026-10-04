@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "freecell",
+  "entry_id": 2,
+  "entry_name": "freecell",
+  "namespace": "ps_freecell",
+  "title": "FreeCell",
+  "kind": "Patience",
+  "blurb": "Four free cells and every card face up. Nearly every deal can be won.",
+  "colors": [
+    [
+      26,
+      124,
+      132
+    ],
+    [
+      10,
+      58,
+      64
+    ],
+    [
+      163,
+      234,
+      226
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [],
+  "audio_sources": [],
+  "libraries": [],
+  "rail": false
+}

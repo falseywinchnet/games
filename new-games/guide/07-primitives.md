@@ -107,9 +107,9 @@ music, add `assets/audio/<id>_audio_manifest.json` and name it in `GAME.json`
 ```
 
 `loop_end_sample_exclusive` is the loop's exact length in frames at 48 kHz; the
-asset preparation step trims to it so the loop closes without a click. Three
-checks in the repository state the exact number of sound files; `wire_shelf.py`
-updates them.
+asset preparation step trims to it so the loop closes without a click. The
+source and runtime inventories are generated from discovered module folders;
+no audio count is hard-coded.
 
 **More than this.** Music that changes on a bar line (Four Pegs, Liar's Dice) and
 looping beds whose volume and pitch follow the game (Rock Stack's brook and
@@ -175,7 +175,7 @@ Available to the view and to your emblem, through `suite.hpp`:
 
 - `games::CommandSource`, `games::GameCommand`: the capsule's menu.
 - `games::state_directory()`, `games::asset_directory()` (`runtime_paths.hpp`).
-- For the emblem in `src/suite.cpp`: `disc`, `fill_vertical`, `mix_color`,
+- For the emblem in your `cover.cpp` (helpers in `shelf_art.hpp`): `disc`, `fill_vertical`, `mix_color`,
   `with_alpha`, `paint_polygon` (`presentation.hpp`), and the `gf::Painter` calls
   `fill_rect`, `fill_rounded_rect`, `stroke_rounded_rect`, `draw_line`,
   `fill_linear_gradient`, `fill_radial_gradient`.

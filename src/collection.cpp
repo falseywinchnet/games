@@ -1,5 +1,8 @@
 #include "collection.hpp"
 #include "audio.hpp"
+#include "storage.hpp"
+#include "gui_forms/controls/panel/text_box/text_box.hpp"
+#include <sstream>
 #include "gui_forms/window.hpp"
 #include <fstream>
 namespace games {
@@ -9,33 +12,13 @@ std::filesystem::path entry_path() {
 }
 // Earlier versions remembered one of ten collection slots; card games shared slot 0.
 Entry from_old_slot(int slot, int card_kind) {
-    const Entry slots[] = {Entry::solitaire, Entry::sudoku, Entry::gems, Entry::cube,
-                           Entry::untangle,  Entry::atom,   Entry::pegs, Entry::switchbox,
-                           Entry::solve,     Entry::eggy};
-    if (slot == 0)
-        return static_cast<Entry>(std::clamp(card_kind, 0, 3));
-    return slots[std::clamp(slot, 0, 9)];
-}
-int puzzle_index(Entry entry) {
-    switch (entry) {
-    case Entry::gems:
-        return static_cast<int>(PuzzleKind::gems);
-    case Entry::cube:
-        return static_cast<int>(PuzzleKind::cube);
-    case Entry::untangle:
-        return static_cast<int>(PuzzleKind::untangle);
-    case Entry::solve:
-        return static_cast<int>(PuzzleKind::solve);
-    default:
-        return -1;
-    }
-}
-bool is_cards(Entry entry) {
-    return static_cast<int>(entry) <= static_cast<int>(Entry::hearts);
+    const int slots[] = {0,4,5,6,7,8,9,10,11,12};
+    return static_cast<Entry>(slot == 0 ? std::clamp(card_kind,0,3) : slots[std::clamp(slot,0,9)]);
 }
 } // namespace
 
-Collection::Collection(gf::StableId id) : Control(std::move(id)) {
+Collection::Collection(gf::StableId id, bool dev) : Control(std::move(id)) {
+    modules_.dev = dev;
     Cabinet cabinet;
     const bool have_cabinet =
         std::filesystem::exists(cabinet_path()) && load_cabinet(cabinet_path(), cabinet);
@@ -46,19 +29,35 @@ Collection::Collection(gf::StableId id) : Control(std::move(id)) {
         save_cabinet(cabinet_path(), initial);
     }
     std::ifstream saved(entry_path());
+    std::string marker;
     int entry = -1, in_game = 0;
-    std::uint32_t opened = 0;
-    if (saved >> entry >> in_game >> opened && entry >= 0 && entry < entry_count) {
+    bool restored = false;
+    if (saved >> marker) {
+        if (marker == "v2") {
+            if (saved >> entry >> in_game) {
+                int opened = -1;
+                while (saved >> opened) if (opened >= 0) opened_.insert(opened);
+                restored = true;
+            }
+        } else {
+            std::istringstream first(marker);
+            std::uint32_t mask = 0;
+            if (first >> entry && saved >> in_game >> mask) {
+                for (int i=0;i<32;++i) if ((mask >> i) & 1u) opened_.insert(i);
+                restored = true;
+            }
+        }
+    }
+    if (restored && valid_entry(static_cast<Entry>(entry))) {
         active_ = static_cast<Entry>(entry);
         shelf_open_ = in_game == 0;
-        opened_ = opened;
     } else {
-        // First PlaySuite start: keep the old selection, and open on the shelf.
         std::ifstream old(cabinet_path().parent_path() / "current-game.txt");
         int slot = 0;
-        if (old >> slot && slot >= 0 && slot <= 9) {
-            active_ = from_old_slot(slot, have_cabinet ? cabinet.active : 0);
-            opened_ = (1u << entry_count) - 1;
+        if (!restored && old >> slot && slot >= 0 && slot <= 9) {
+            const Entry previous = from_old_slot(slot, have_cabinet ? cabinet.active : 0);
+            if (valid_entry(previous)) active_ = previous;
+            for (int i=0;i<18;++i) opened_.insert(i);
         }
         shelf_open_ = true;
     }
@@ -91,8 +90,8 @@ void Collection::initialize_control_tree() {
     (*help_).set_visible(false);
     add_child(help_link_);
     add_child(help_);
-    for (int i = 0; i < entry_count; ++i)
-        (*shelf_).set_progress(static_cast<Entry>(i), (opened_ >> i) & 1u);
+    for (Entry entry : entries)
+        (*shelf_).set_progress(entry, opened_.contains(static_cast<int>(entry)));
     if (!shelf_open_)
         ensure_view(active_);
     preferences();
@@ -100,50 +99,16 @@ void Collection::initialize_control_tree() {
     refresh_commands();
 }
 void Collection::ensure_view(Entry entry) {
-    if (view(entry))
-        return;
-    if (is_cards(entry))
-        cards_ = gf::make_control<Table>(gf::StableId("collection.cards"));
-    else if (entry == Entry::sudoku)
-        sudoku_ = gf::make_control<SudokuView>(gf::StableId("collection.sudoku"));
-    else if (entry == Entry::eggy)
-        eggy_ = gf::make_control<eggy::EggyView>(gf::StableId("collection.eggy"),
-                                                 eggy::Options{.hosted = true});
-    else if (entry == Entry::switchbox)
-        switchbox_ = gf::make_control<sbx::SwitchboxView>(gf::StableId("switchbox.view"),
-                                                          sbx::Options{.hosted = true});
-    else if (entry == Entry::pegs)
-        fourpegs_ = gf::make_control<fp::FourPegsView>(gf::StableId("fourpegs.view"),
-                                                       fp::Options{.hosted = true});
-    else if (entry == Entry::atom)
-        atomprobe_ = gf::make_control<ap::AtomProbeView>(gf::StableId("atomprobe.view"),
-                                                         ap::Options{.hosted = true});
-    else if (entry == Entry::koikoi)
-        koikoi_ =
-            gf::make_control<kk::KoiView>(gf::StableId("koikoi.view"), kk::Options{.hosted = true});
-    else if (entry == Entry::parrots)
-        parrots_ = gf::make_control<pt::TableView>(gf::StableId("parrots.view"),
-                                                   pt::Options{.hosted = true});
-    else if (entry == Entry::liarsdice)
-        liarsdice_ = gf::make_control<ld::DiceView>(gf::StableId("liarsdice.view"),
-                                                    ld::Options{.hosted = true});
-    else if (entry == Entry::rockstack)
-        rockstack_ = gf::make_control<zc::ZenView>(gf::StableId("rockstack.view"),
-                                                   zc::Options{.hosted = true});
-    else if (entry == Entry::penthesheep)
-        penthesheep_ = gf::make_control<sh::SheepView>(gf::StableId("penthesheep.view"),
-                                                       sh::Options{.hosted = true});
-    else {
-        const int i = puzzle_index(entry);
-        puzzles_[i] = gf::make_control<PuzzleView>(
-            gf::StableId("collection.puzzle." + std::to_string(i)), static_cast<PuzzleKind>(i));
+    if (view(entry)) return;
+    std::unique_ptr<GameInstance> instance = game_descriptor(entry).create(modules_);
+    const std::shared_ptr<gf::Control> created = (*instance).control();
+    games_[entry] = std::move(instance);
+    // Card modules intentionally share a control and cabinet. Attach it only once.
+    if (std::find(children().begin(), children().end(), created) == children().end()) {
+        (*created).set_visible(false);
+        add_child(created);
+        static_cast<void>(set_child_index((*created).runtime_id(), children().size()-1));
     }
-    const std::shared_ptr<gf::Control> created = view(entry);
-    (*created).set_visible(false);
-    add_child(created);
-    // GUI.Forms follows WinForms: index zero is topmost. Keep lazy game
-    // creation behind the shelf and capsule for both painting and hit-testing.
-    static_cast<void>(set_child_index((*created).runtime_id(), children().size() - 1));
 }
 void Collection::on_attached_to_window() {
     timer_ = std::make_unique<gf::Timer>(*attached_window(), std::chrono::milliseconds(16));
@@ -158,57 +123,14 @@ void Collection::on_detaching_from_window(gf::Window& window) noexcept {
     timer_.reset();
     sprites_.release(window);
 }
-bool Collection::uses_rail(Entry entry) const {
-    // These games present their own live surfaces, which nothing may float above.
-    return entry == Entry::atom || entry == Entry::pegs || entry == Entry::switchbox ||
-           entry == Entry::eggy || entry == Entry::koikoi || entry == Entry::parrots ||
-           entry == Entry::liarsdice || entry == Entry::penthesheep || entry == Entry::rockstack;
-}
+bool Collection::uses_rail(Entry entry) const { return game_descriptor(entry).rail; }
 std::shared_ptr<gf::Control> Collection::view(Entry entry) const {
-    if (is_cards(entry))
-        return cards_;
-    switch (entry) {
-    case Entry::koikoi:
-        return koikoi_;
-    case Entry::parrots:
-        return parrots_;
-    case Entry::liarsdice:
-        return liarsdice_;
-    case Entry::rockstack:
-        return rockstack_;
-    case Entry::penthesheep:
-        return penthesheep_;
-    case Entry::sudoku:
-        return sudoku_;
-    case Entry::atom:
-        return atomprobe_;
-    case Entry::pegs:
-        return fourpegs_;
-    case Entry::switchbox:
-        return switchbox_;
-    case Entry::eggy:
-        return eggy_;
-    default:
-        return puzzles_[static_cast<std::size_t>(puzzle_index(entry))];
-    }
+    const std::map<Entry,std::unique_ptr<GameInstance>>::const_iterator found = games_.find(entry);
+    return found == games_.end() ? nullptr : (*(*found).second).control();
 }
 CommandSource* Collection::source(Entry entry) const {
-    if (is_cards(entry))
-        return cards_.get();
-    if (entry == Entry::koikoi)
-        return koikoi_.get();
-    if (entry == Entry::parrots)
-        return parrots_.get();
-    if (entry == Entry::liarsdice)
-        return liarsdice_.get();
-    if (entry == Entry::rockstack)
-        return rockstack_.get();
-    if (entry == Entry::penthesheep)
-        return penthesheep_.get();
-    if (entry == Entry::sudoku)
-        return sudoku_.get();
-    const int i = puzzle_index(entry);
-    return i >= 0 ? puzzles_[static_cast<std::size_t>(i)].get() : nullptr;
+    const std::map<Entry,std::unique_ptr<GameInstance>>::const_iterator found = games_.find(entry);
+    return found == games_.end() ? nullptr : (*found).second.get();
 }
 void Collection::wake() {
     if (!timer_)
@@ -275,11 +197,7 @@ void Collection::on_key_preview(gf::KeyEvent& e) {
     const std::shared_ptr<gf::Control> focus =
         attached_window() ? (*attached_window()).focused_control() : nullptr;
     const bool entering_text = dynamic_cast<gf::TextBox*>(focus.get()) != nullptr ||
-                               (!help_open() && !shelf_open_ &&
-                                ((active_ == Entry::eggy && (*eggy_).editing_name()) ||
-                                 (active_ == Entry::switchbox && (*switchbox_).editing_name()) ||
-                                 (active_ == Entry::pegs && (*fourpegs_).editing_name()) ||
-                                 (active_ == Entry::atom && (*atomprobe_).editing_name())));
+        (!help_open() && !shelf_open_ && (*games_.at(active_)).editing_name());
     if (e.action == gf::KeyAction::down && e.modifiers == gf::Modifier::none &&
         (!entering_text || e.physical_key == gf::PhysicalKey::f1)) {
         const bool help_key =
@@ -301,8 +219,7 @@ void Collection::on_key_preview(gf::KeyEvent& e) {
     if (help_open())
         return;
     if (!shelf_open_ && e.action == gf::KeyAction::down && e.physical_key == gf::PhysicalKey::f2 &&
-        static_cast<int>(active_) <= static_cast<int>(Entry::solve) &&
-        active_ != Entry::switchbox) {
+        source(active_)) {
         run_command("new");
         e.handled = true;
         return;
@@ -316,32 +233,25 @@ void Collection::refresh_commands() {
     std::vector<GameCommand> commands;
     if (CommandSource* s = source(active_))
         commands = (*s).commands();
-    else if (active_ == Entry::pegs || active_ == Entry::atom) {
-        const std::string panel =
-            active_ == Entry::pegs ? (*fourpegs_).host_panel() : (*atomprobe_).host_panel();
-        commands = {{"new", active_ == Entry::pegs ? "New game" : "New box", true, false, true},
-                    {"help", "Help", true, panel == "help"},
-                    {"scores", "Top scores", true, panel == "scores"}};
-    }
     struct Explanation {
+        const std::vector<HelpTopic>& topics;
         bool operator()(const GameCommand& command) const {
-            return command.id == "help" || command.id == "rules" || command.id == "sets";
+            for (const HelpTopic& topic : topics) if (command.id == topic.id) return true;
+            return command.id == "help" || command.id == "rules";
         }
     };
-    std::erase_if(commands, Explanation{});
+    std::erase_if(commands, Explanation{game_descriptor(active_).help_topics});
     (*capsule_).set_game(info.title, std::move(commands));
 }
 void Collection::run_command(const std::string& id) {
-    if (id == "help" || id == "rules" || id == "sets") {
+    bool explanation = id == "help" || id == "rules";
+    for (const HelpTopic& topic : game_descriptor(active_).help_topics) explanation = explanation || id == topic.id;
+    if (explanation) {
         show_help(id);
         return;
     }
     if (CommandSource* s = source(active_))
         (*s).run_command(id);
-    else if (active_ == Entry::pegs)
-        (*fourpegs_).host_command(id);
-    else if (active_ == Entry::atom)
-        (*atomprobe_).host_command(id);
     refresh_commands();
     // Return keyboard focus to the game after a capsule click.
     if (attached_window() && view(active_))
@@ -373,9 +283,7 @@ void Collection::arrange(gf::Rect b) {
     for (const std::shared_ptr<gf::Control>& child : children())
         if (child != shelf_ && child != capsule_ && child != help_ && child != help_link_ &&
             (*child).visible()) {
-            const bool railed = child == atomprobe_ || child == fourpegs_ || child == switchbox_ ||
-                                child == eggy_ || child == koikoi_ || child == parrots_ ||
-                                child == liarsdice_ || child == penthesheep_ || child == rockstack_;
+            const bool railed = uses_rail(active_);
             set_child_layout(child, railed ? below : full);
         }
     set_child_layout(shelf_, full);
@@ -405,38 +313,9 @@ void Collection::preferences() {
     if (!load_cabinet(cabinet_path(), cabinet))
         return;
     reduced_ = cabinet.reduced;
-    if (eggy_)
-        (*eggy_).set_cabinet_preferences(cabinet.music, cabinet.sound, cabinet.reduced);
-    if (switchbox_)
-        (*switchbox_)
-            .set_cabinet(!shelf_open_ && active_ == Entry::switchbox, cabinet.music, cabinet.sound,
-                         cabinet.reduced);
-    if (fourpegs_)
-        (*fourpegs_)
-            .set_cabinet(!shelf_open_ && active_ == Entry::pegs, cabinet.music, cabinet.sound,
-                         cabinet.reduced);
-    if (atomprobe_)
-        (*atomprobe_)
-            .set_cabinet(!shelf_open_ && active_ == Entry::atom, cabinet.music, cabinet.sound,
-                         cabinet.reduced);
-    if (koikoi_)
-        (*koikoi_).set_cabinet(!shelf_open_ && active_ == Entry::koikoi, cabinet.music,
-                               cabinet.sound, cabinet.reduced);
-    if (parrots_)
-        (*parrots_).set_cabinet(!shelf_open_ && active_ == Entry::parrots, cabinet.music,
-                                cabinet.sound, cabinet.reduced);
-    if (liarsdice_)
-        (*liarsdice_)
-            .set_cabinet(!shelf_open_ && active_ == Entry::liarsdice, cabinet.music, cabinet.sound,
-                         cabinet.reduced);
-    if (rockstack_)
-        (*rockstack_)
-            .set_cabinet(!shelf_open_ && active_ == Entry::rockstack, cabinet.music, cabinet.sound,
-                         cabinet.reduced);
-    if (penthesheep_)
-        (*penthesheep_)
-            .set_cabinet(!shelf_open_ && active_ == Entry::penthesheep, cabinet.music,
-                         cabinet.sound, cabinet.reduced);
+    for (const std::pair<const Entry,std::unique_ptr<GameInstance>>& game : games_)
+        (*game.second).preferences(!shelf_open_ && active_ == game.first,
+                                   cabinet.music,cabinet.sound,cabinet.reduced);
     (*shelf_).set_preferences(cabinet.music, cabinet.sound, cabinet.reduced);
     (*capsule_).set_preferences(cabinet.music, cabinet.sound, cabinet.reduced);
 }
@@ -447,8 +326,10 @@ void Collection::persist() const {
     std::filesystem::create_directories(path.parent_path(), error);
     {
         std::ofstream saved(temporary);
-        saved << static_cast<int>(active_) << ' ' << (shelf_open_ ? 0 : 1) << ' ' << opened_
-              << '\n';
+        saved << "v2 " << static_cast<int>(active_) << ' ' << (shelf_open_ ? 0 : 1);
+        for (int entry : opened_) saved << ' ' << entry;
+        saved << '\n';
+        saved.close();
         if (!saved)
             return;
     }
@@ -464,48 +345,17 @@ void Collection::activate() {
         (*shelf_).focus_selection();
         return;
     }
-    if (is_cards(active_)) {
-        (*cards_).show_kind(static_cast<Kind>(active_));
-        (*cards_).activate();
-    } else if (active_ == Entry::sudoku)
-        (*sudoku_).activate();
-    else if (active_ == Entry::eggy) {
-        music_play("", false);
-        (*eggy_).activate();
-    } else if (active_ == Entry::switchbox) {
-        music_play("", false);
-        (*switchbox_).activate();
-    } else if (active_ == Entry::pegs) {
-        music_play("", false);
-        (*fourpegs_).activate();
-    } else if (active_ == Entry::atom) {
-        music_play("", false);
-        (*atomprobe_).activate();
-    } else if (active_ == Entry::koikoi) {
-        music_play("", false);
-        (*koikoi_).activate();
-    } else if (active_ == Entry::parrots) {
-        music_play("", false);
-        (*parrots_).activate();
-    } else if (active_ == Entry::liarsdice) {
-        music_play("", false);
-        (*liarsdice_).activate();
-    } else if (active_ == Entry::rockstack) {
-        music_play("", false);
-        (*rockstack_).activate();
-    } else if (active_ == Entry::penthesheep) {
-        music_play("", false);
-        (*penthesheep_).activate();
-    } else
-        (*puzzles_[static_cast<std::size_t>(puzzle_index(active_))]).activate();
+    if (uses_rail(active_)) music_play("", false);
+    (*games_.at(active_)).activate();
 }
 void Collection::open_entry(Entry entry) {
+    if (!valid_entry(entry)) return;
     close_help();
     wake();
     ensure_view(entry);
     active_ = entry;
     shelf_open_ = false;
-    opened_ |= 1u << static_cast<int>(entry);
+    opened_.insert(static_cast<int>(entry));
     (*shelf_).select(entry);
     (*shelf_).set_progress(entry, true);
     (*capsule_).fold();
@@ -533,19 +383,13 @@ void Collection::toggle(int which) {
     if (which == 2)
         cabinet.reduced = !cabinet.reduced;
     if (save_cabinet(cabinet_path(), cabinet)) {
-        if (cards_)
-            (*cards_).reload_preferences();
         preferences();
         // Music changes must not take keyboard focus out of the help document.
         if (help_open()) {
             if (shelf_open_)
                 music_play("menu", cabinet.music);
-            else if (is_cards(active_))
-                (*cards_).activate();
-            else if (active_ == Entry::sudoku)
-                (*sudoku_).activate();
-            else if (puzzle_index(active_) >= 0)
-                (*puzzles_[static_cast<std::size_t>(puzzle_index(active_))]).activate();
+            else if (!uses_rail(active_))
+                (*games_.at(active_)).activate();
         } else
             activate();
     }

@@ -77,15 +77,15 @@ already on the shelf and examples of ideas that fit and ideas that don't.
    the wrong way." "The help text is too small." "He isn't villainous enough."
    Plain complaints are the most useful thing you can give it.
 5. **Send it in.** When you're happy, the model packages the game as one new
-   folder plus a handful of edits that put its box on the shelf, and opens a pull
+   folder containing its code, cover, help and assets, and opens a pull
    request. The repository's build machines then compile the whole suite for
    Windows, macOS and Linux, with your game in it, and you can download that
    build and play it properly.
 
-The one thing the model cannot do on your computer is compile the full PlaySuite
-application. That happens on the repository's build machines after you send the
-game in. Until then, the model works from its rule tests and from rendered
-pictures of the game, which is why your eyes on those pictures matter.
+The model can compile the full application locally when the pinned toolkit and
+platform dependencies are available. Test the game in its own native window
+first, then in the suite. The same folder supplies both. Pictures and rule tests
+remain useful, but playing exposes timing, pointer and sound problems they cannot.
 
 ## What you'll be asked to decide
 
@@ -125,7 +125,7 @@ guide where that guide is needed.
 | [guide/05-performance.md](guide/05-performance.md) | Doing no work when nothing changes |
 | [guide/06-look-sound-words.md](guide/06-look-sound-words.md) | Art, sound and writing |
 | [guide/07-primitives.md](guide/07-primitives.md) | The drawing, text, sound and 3D pieces you can borrow |
-| [guide/08-on-the-shelf.md](guide/08-on-the-shelf.md) | Every edit that puts the box on the shelf |
+| [guide/08-on-the-shelf.md](guide/08-on-the-shelf.md) | The folder contract and automatic discovery |
 | [guide/09-deliver.md](guide/09-deliver.md) | Checking, the handoff and the pull request |
 | [guide/10-house-style.md](guide/10-house-style.md) | How the C++ is written |
 | `template/` | A complete small game to start from |

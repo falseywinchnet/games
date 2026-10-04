@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "spider",
+  "entry_id": 1,
+  "entry_name": "spider",
+  "namespace": "ps_spider",
+  "title": "Spider",
+  "kind": "Patience",
+  "blurb": "Ten columns, one to four suits. Complete eight same-suit runs.",
+  "colors": [
+    [
+      52,
+      70,
+      150
+    ],
+    [
+      20,
+      28,
+      72
+    ],
+    [
+      176,
+      196,
+      255
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [],
+  "audio_sources": [],
+  "libraries": [],
+  "rail": false
+}

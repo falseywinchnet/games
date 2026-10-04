@@ -4,6 +4,8 @@
 #include <cmath>
 #include <filesystem>
 #include <iostream>
+#include <fstream>
+#include <vector>
 #include <stdexcept>
 #include <string>
 
@@ -18,31 +20,19 @@ int main(int argc, char** argv) {
         const std::string format = argv[2];
         require(format == "wav" || format == "ogg", "Supported fixture format");
         const std::filesystem::path audio = std::filesystem::path(argv[1]) / "audio";
-        const std::array<const char*, 27> names{"music_menu_loop",
-                                                "music_klondike_loop",
-                                                "music_spider_loop",
-                                                "music_freecell_loop",
-                                                "music_hearts_loop",
-                                                "music_puzzle_main_loop",
-                                                "music_puzzle_tiptoe_loop",
-                                                "music_gems_loop",
-                                                "music_sudoku_day_loop",
-                                                "music_sudoku_night_loop",
-                                                "music_nature_cube_loop",
-                                                "music_untangle_loop",
-                                                "music_atom_probe_loop",
-                                                "music_four_pegs_loop",
-                                                "music_switchbox_loop",
-                                                "music_puzzle_solve_loop",
-                                                "music_sticks_stones_loop",
-                                                "fp_music_t1",
-                                                "fp_music_t2",
-                                                "fp_music_t3",
-                                                "ap_music", "pt_music", "ld_music", "ld_music_tense", "sh_music", "sh_music_grass", "kk_music"};
-        const std::array<std::uint64_t, 27> frames{
-            3896384, 4608000, 4608000, 4388608, 3770208, 4538144, 4369728,
-            4459392, 4850560, 5421184, 5120000, 4873792, 5509504, 5172288,
-            4680000, 5280000, 5068800, 3177931, 2880000, 2560000, 3686400, 2194272, 1570896, 1570896, 2304000, 3072000, 5585455};
+        std::ifstream inventory(audio / "verification.tsv");
+        unsigned expected = 0;
+        require(bool(inventory >> expected) && expected > 0, "Verified audio inventory count");
+        std::vector<std::string> names;
+        std::vector<std::uint64_t> frames;
+        std::string stem;
+        std::uint64_t length = 0;
+        while (inventory >> stem >> length) {
+            require(length > 0, "Positive producer loop length");
+            names.push_back(stem);
+            frames.push_back(length);
+        }
+        require(inventory.eof() && !names.empty(), "Complete producer loop inventory");
         for (std::size_t i = 0; i < names.size(); ++i) {
             const std::string name = std::string(names[i]) + "." + format;
             gui_forms::AudioClipResult clip = format == "ogg"
@@ -98,9 +88,8 @@ int main(int argc, char** argv) {
             require(clip.status == gui_forms::AudioStatus::ok, "Full prepared audio decode");
             ++decoded;
         }
-        require(decoded == 424,
-                "Complete runtime batch including Switchbox, Four Pegs and Atom Probe");
-        std::cout << "Full audio decode: " << decoded << "/424 files.\n";
+        require(decoded == expected, "Complete verified runtime audio batch");
+        std::cout << "Full audio decode: " << decoded << "/" << expected << " files.\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

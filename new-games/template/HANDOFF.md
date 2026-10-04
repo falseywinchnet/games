@@ -36,6 +36,6 @@ differently.
 
 ## FILES OUTSIDE THIS FOLDER
 
-TODO: list them. Normally: the shell edits made by `wire_shelf.py`, the emblem in
-`src/suite.cpp`, sound files in `assets/audio/`, and the roster sentences in
-`README.md` and `docs/GAME_CATALOG.md`.
+None are required. `GAME.json`, `module.cpp`, `cover.cpp`, `help.md`, `build.cmake`,
+and `assets/` contain the integration. CMake discovers the folder and generates
+the registry in its build directory. Record any intentional exception here.

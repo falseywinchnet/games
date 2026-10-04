@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "id": "liarsdice",
+  "entry_id": 15,
+  "entry_name": "liarsdice",
+  "namespace": "ld",
+  "title": "Liar's Dice",
+  "kind": "Bluffing",
+  "blurb": "Read the crew, raise the bid, or call their bluff.",
+  "colors": [
+    [
+      38,
+      80,
+      112
+    ],
+    [
+      12,
+      30,
+      50
+    ],
+    [
+      230,
+      186,
+      100
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [
+    "src/dice_view.cpp",
+    "src/platform/text.cpp",
+    "src/platform/present.cpp"
+  ],
+  "audio_sources": [
+    "src/platform/audio.cpp"
+  ],
+  "libraries": [
+    "ld_core"
+  ],
+  "rail": true
+}

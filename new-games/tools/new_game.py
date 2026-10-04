@@ -5,7 +5,7 @@
 
 Creates vendor/<id>/ as a complete, building, tested game (the template's lamps
 puzzle under your names), ready for you to replace its rules, scene and words.
-It changes nothing else in the repository; wire_shelf.py does that later.
+It changes nothing else: CMake discovers the folder automatically.
 """
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ import json
 import re
 import shutil
 import sys
+from pathlib import Path
 
 import kitlib
 
@@ -36,6 +37,16 @@ def substitute(text: str, names: dict[str, str]) -> str:
     return text
 
 
+def substitute_json(value, names):
+    if isinstance(value, str):
+        return substitute(value, names)
+    if isinstance(value, list):
+        return [substitute_json(item, names) for item in value]
+    if isinstance(value, dict):
+        return {key: substitute_json(item, names) for key, item in value.items()}
+    return value
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--id", required=True, help="folder and shelf id: lowercase letters and digits, e.g. tidepools")
@@ -43,6 +54,8 @@ def main() -> int:
     parser.add_argument("--title", required=True, help='the name on the box, e.g. "Tide Pools"')
     parser.add_argument("--kind", default="Puzzle", help='two or three words under the title, e.g. "Shore puzzle"')
     parser.add_argument("--blurb", default="", help="one sentence for the shelf ticket")
+    parser.add_argument("--entry-id", type=int, help="permanent saved-game id; defaults to the next unreserved number")
+    parser.add_argument("--directory", type=Path, help="external destination folder instead of vendor/<id>")
     options = parser.parse_args()
 
     if not re.fullmatch(r"[a-z][a-z0-9]{2,19}", options.id):
@@ -55,10 +68,14 @@ def main() -> int:
         return fail(f"namespace '{options.namespace}' is already used ({where}); choose another")
     if options.id in kitlib.entry_names() or options.id in taken:
         return fail(f"'{options.id}' is already a shelf entry or a namespace; choose another id")
-    destination = kitlib.VENDOR / options.id
+    reservations = kitlib.catalog(include_disabled=True)
+    entry_id = options.entry_id if options.entry_id is not None else kitlib.next_entry_id()
+    if not 0 <= entry_id <= 2147483647 or any(game["entry_id"] == entry_id for game in reservations):
+        return fail("--entry-id must be an unused permanent integer from 0 to 2147483647")
+    destination = options.directory.expanduser().resolve() if options.directory else kitlib.VENDOR / options.id
     if destination.exists():
-        return fail(f"{destination.relative_to(kitlib.REPO)} already exists")
-    if not options.title.strip() or len(options.title) > 28:
+        return fail(f"{kitlib.display_path(destination)} already exists")
+    if not options.title.strip() or len(options.title) > 28 or any(ord(char) < 32 for char in options.title):
         return fail("--title must be 1 to 28 characters (it has to fit a box)")
     if len(options.blurb) > 90 or len(options.kind) > 24:
         return fail("--blurb is at most 90 characters and --kind at most 24 (they are printed on the shelf)")
@@ -77,13 +94,20 @@ def main() -> int:
     for path in sorted(destination.rglob("*")):
         if not path.is_file():
             continue
-        if path.suffix in TEXT_SUFFIXES:
-            path.write_text(substitute(path.read_text(encoding="utf-8"), names), encoding="utf-8")
+        if path.suffix == ".json":
+            data = substitute_json(json.loads(path.read_text(encoding="utf-8")), names)
+            path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        elif path.suffix in TEXT_SUFFIXES:
+            replacements = dict(names)
+            if path.suffix in (".cpp", ".hpp", ".cmake"):
+                replacements["title"] = json.dumps(names["title"], ensure_ascii=False)[1:-1]
+            path.write_text(substitute(path.read_text(encoding="utf-8"), replacements), encoding="utf-8")
         if "template_view" in path.name:
             path.rename(path.with_name(path.name.replace("template_view", names["view_file"])))
 
     manifest_path = destination / "GAME.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["entry_id"] = entry_id
     manifest["kind"] = options.kind
     manifest["blurb"] = options.blurb or "TODO: one sentence that makes someone pick up the box."
     written = json.dumps(manifest, indent=2)
@@ -91,12 +115,17 @@ def main() -> int:
     written = re.sub(r"\[\s*(\d+),\s*(\d+),\s*(\d+)\s*\]", r"[\1, \2, \3]", written)
     manifest_path.write_text(written + "\n", encoding="utf-8")
 
-    relative = destination.relative_to(kitlib.REPO)
+    relative = kitlib.display_path(destination)
     print(f"Created {relative}/ in namespace {options.namespace} (view {options.namespace}::{names['view_class']}).")
-    print("It builds and passes its tests as it stands (the template's lamps puzzle under your names):")
-    print(f"  cmake -S {relative} -B .build/new-games/{options.id} && cmake --build .build/new-games/{options.id} --parallel 2")
+    print(f"Permanent entry id: {entry_id}. Keep it unchanged, including when the game is disabled.")
+    print("The starter contains the template's lamps puzzle. Run its headless checks:")
+    print(f'  cmake -S "{relative}" -B .build/new-games/{options.id} -D{options.namespace.upper()}_KIT_DIR="{kitlib.KIT / "kit"}" && cmake --build .build/new-games/{options.id} --parallel 2')
     print(f"  ctest --test-dir .build/new-games/{options.id} --output-on-failure")
     print(f"  .build/new-games/{options.id}/{options.namespace}_preview .build/new-games/{options.id}/first.png 600 370")
+    if options.directory:
+        print(f"Include the folder with -DGAMES_EXTRA_GAME_DIRS=\"{destination}\"; it needs no shell edits.")
+    else:
+        print("CMake discovers this folder on configure. No wire_shelf.py mutation is required.")
     print(f"Next: write the brief in {relative}/README.md and agree it with the person (new-games/AGENTS.md, step 2).")
     return 0
 

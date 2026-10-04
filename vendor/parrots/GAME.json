@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "id": "parrots",
+  "entry_id": 14,
+  "entry_name": "parrots",
+  "namespace": "pt",
+  "title": "The Parrot's Table",
+  "kind": "Deduction",
+  "blurb": "Question the parrots, test their stories, and name the culprit.",
+  "colors": [
+    [
+      34,
+      122,
+      85
+    ],
+    [
+      12,
+      52,
+      40
+    ],
+    [
+      244,
+      216,
+      104
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [
+    "src/table_view.cpp",
+    "src/platform/text.cpp",
+    "src/platform/present.cpp"
+  ],
+  "audio_sources": [
+    "src/platform/audio.cpp"
+  ],
+  "libraries": [
+    "pt_core"
+  ],
+  "rail": true
+}

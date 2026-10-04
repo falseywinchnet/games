@@ -185,9 +185,11 @@ texture caches shared between workers without synchronization. If you must:
 
 ## Measuring in the application
 
-You cannot do this on a fresh clone; the maintainer can, and CI does part of it.
-The executable takes `--profile-idle N` (N is the game's `Entry` value, or -1
-for the shelf): it waits five seconds, samples ten, and reports CPU and window
-activity. `tools/profile_windows.py` wraps it. Say in `HANDOFF.md` that idle CPU
-in the application is unmeasured, and give the numbers you do have: frame time
-from your bench, test time, source audio size.
+Build the native application with the pinned toolkit using `docs/BUILDING.md`
+and the root host instructions. The executable takes `--profile-idle N` (N is
+the permanent game ID from `--list-games`, or -1 for the shelf): it waits five
+seconds, samples ten, and reports window activity. `tools/profile_windows.py`
+adds process CPU sampling. Measure visible, inactive and hidden states. Deliberate
+live actors are reported separately from settled scenes; do not delete animation
+to lower the metric. Record the actual command, build, state and numbers in
+`HANDOFF.md`; say what remains unmeasured.

@@ -1,0 +1,40 @@
+if(NOT DEFINED PLAYSUITE_SOURCE_DIR)
+  set(PLAYSUITE_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
+endif()
+add_library(zc_phys STATIC
+  ${GAME_MODULE_DIR}/phys/hull.cpp ${GAME_MODULE_DIR}/phys/collide.cpp
+  ${GAME_MODULE_DIR}/phys/block_ldl.cpp ${GAME_MODULE_DIR}/phys/solver.cpp
+  ${GAME_MODULE_DIR}/phys/world.cpp)
+target_include_directories(zc_phys PUBLIC ${GAME_MODULE_DIR}/phys)
+if(MSVC)
+  target_compile_options(zc_phys PUBLIC /fp:precise)
+else()
+  target_compile_options(zc_phys PUBLIC -ffp-contract=off)
+endif()
+add_library(zc_core STATIC
+  ${GAME_MODULE_DIR}/src/platform/raster.cpp ${GAME_MODULE_DIR}/src/platform/r3d.cpp
+  ${GAME_MODULE_DIR}/src/platform/mesh.cpp ${GAME_MODULE_DIR}/src/rocks.cpp
+  ${GAME_MODULE_DIR}/src/run.cpp ${GAME_MODULE_DIR}/src/site.cpp ${GAME_MODULE_DIR}/src/terrain.cpp
+  ${GAME_MODULE_DIR}/src/shapes.cpp ${GAME_MODULE_DIR}/src/crane_model.cpp
+  ${GAME_MODULE_DIR}/src/stones.cpp)
+target_include_directories(zc_core PUBLIC ${GAME_MODULE_DIR}/src)
+target_link_libraries(zc_core PUBLIC zc_phys game_paths Threads::Threads)
+target_compile_definitions(zc_core PRIVATE _USE_MATH_DEFINES)
+add_executable(rockstack_rules_tests ${GAME_MODULE_DIR}/tests/zen_tests.cpp)
+target_link_libraries(rockstack_rules_tests PRIVATE zc_core)
+add_test(NAME rockstack_rules COMMAND rockstack_rules_tests)
+add_executable(rockstack_cache_tests ${PLAYSUITE_SOURCE_DIR}/tests/rockstack_cache_tests.cpp)
+target_link_libraries(rockstack_cache_tests PRIVATE zc_core)
+add_test(NAME rockstack_cache COMMAND rockstack_cache_tests)
+add_executable(rockstack_worksite_tests ${PLAYSUITE_SOURCE_DIR}/tests/rockstack_worksite_tests.cpp)
+target_link_libraries(rockstack_worksite_tests PRIVATE zc_core)
+add_test(NAME rockstack_worksite COMMAND rockstack_worksite_tests)
+add_executable(rockstack_shadow_tests ${PLAYSUITE_SOURCE_DIR}/tests/rockstack_shadow_tests.cpp)
+target_include_directories(rockstack_shadow_tests PRIVATE ${GAME_MODULE_DIR}/src/platform)
+target_link_libraries(rockstack_shadow_tests PRIVATE zc_core)
+add_test(NAME rockstack_shadow COMMAND rockstack_shadow_tests)
+add_executable(rockstack_site_preview EXCLUDE_FROM_ALL ${GAME_MODULE_DIR}/tools/site_preview.cpp)
+target_link_libraries(rockstack_site_preview PRIVATE zc_core)
+add_executable(rockstack_physics_tests ${GAME_MODULE_DIR}/phys/tests/phys_tests.cpp)
+target_link_libraries(rockstack_physics_tests PRIVATE zc_phys)
+add_test(NAME rockstack_physics COMMAND rockstack_physics_tests rest stack mass overhang incline drop hold setdown shove consequence wake load concave determinism robustness static restitution stable)

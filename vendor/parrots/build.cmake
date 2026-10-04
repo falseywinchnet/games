@@ -1,0 +1,9 @@
+add_library(pt_core STATIC ${GAME_MODULE_DIR}/src/logic.cpp ${GAME_MODULE_DIR}/src/script.cpp ${GAME_MODULE_DIR}/src/birds.cpp ${GAME_MODULE_DIR}/src/parlor.cpp ${GAME_MODULE_DIR}/src/platform/raster.cpp ${GAME_MODULE_DIR}/src/platform/r3d.cpp ${GAME_MODULE_DIR}/src/platform/mesh.cpp)
+target_include_directories(pt_core PUBLIC ${GAME_MODULE_DIR}/src)
+target_link_libraries(pt_core PUBLIC game_paths Threads::Threads)
+target_compile_definitions(pt_core PRIVATE _USE_MATH_DEFINES)
+add_executable(parrots_rules_tests ${GAME_MODULE_DIR}/tests/logic_tests.cpp)
+target_link_libraries(parrots_rules_tests PRIVATE pt_core)
+add_test(NAME parrots_rules COMMAND parrots_rules_tests)
+
+list(APPEND GAMES_NATIVE_FRAME_MODULES parrots)

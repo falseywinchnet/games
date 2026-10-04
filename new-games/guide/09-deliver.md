@@ -1,7 +1,7 @@
 # Deliver
 
-A game is delivered as a pull request containing the game's folder, its sounds,
-and the shelf edits. This guide is the last stretch: checking, the handoff
+A game is delivered as a pull request containing the game's complete folder, including its sounds,
+cover, help and build rules. This guide is the last stretch: checking, the handoff
 record, and what happens after you push.
 
 ## Before you call it done
@@ -64,8 +64,7 @@ play the game without you. The template has the headings. The rule is simple:
 
 Under VERIFIED goes only what you ran or saw, with the command and its result.
 
-Under NOT VERIFIED goes everything else that matters. On a fresh clone this
-always includes:
+Under NOT VERIFIED goes everything else that matters. Include each of these when it was not actually checked:
 
 - The application was not built. The view was syntax-checked only; the hosted
   contract test has not run.
@@ -93,7 +92,7 @@ Work on a branch named for the game.
 
 ```sh
 git checkout -b game/<id>
-git add vendor/<id> assets/audio/<prefix>* src cmake CMakeLists.txt tests tools README.md docs/GAME_CATALOG.md
+git add vendor/<id>
 git status        # read it: nothing you did not mean to add
 git commit -m "Add <Title> to the shelf"
 ```
@@ -103,8 +102,8 @@ editor files. `.build/` is ignored already. Never commit a save file.
 
 ## Push when the person says so
 
-Pushing publishes the work. Ask the person first, in so many words, and wait for
-a yes. Then:
+Pushing publishes the work. Use the person's existing authorization; if none
+was given, prepare the complete reviewed result before requesting it. Then:
 
 ```sh
 git push -u origin game/<id>
@@ -140,8 +139,10 @@ before they run. When they finish:
    feels wrong in the hand. Push the fixes. Update `HANDOFF.md`, moving what has
    now been played into VERIFIED.
 
-The maintainer plays it too, decides whether it joins the shelf, and handles the
-version, the release notes and the release.
+The maintainer decides whether it joins the shelf. The main-branch application
+workflow selects a version, tests all four platforms, and publishes those exact
+packages only when all required checks pass. Adding a folder needs no manual
+version or central release-script edit. Verify publication before reporting it.
 
 ## If it is turned down
 

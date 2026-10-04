@@ -2,12 +2,13 @@
 from pathlib import Path
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-TOOLKIT_REVISION = "3f75e379213de972f78729a591594e70fe65a585"
+TOOLKIT_REVISION = "d58f530ad5ceaa8f4ab1e5afdc12027aff90d16d"
 
 
 def runtime_exclusions(directory, names):
@@ -18,14 +19,17 @@ def runtime_exclusions(directory, names):
 
 
 def project_version():
-    source = (ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
-    match = re.search(r"project\(Games VERSION ([0-9.]+)", source)
-    if not match:
-        raise RuntimeError("Games version is missing")
-    return match.group(1)
+    from publication_version import baseline, validate
+    version = os.environ.get("GAMES_RELEASE_VERSION") or baseline(ROOT)
+    validate(version)
+    return version
 
 
 def copy_resources(build, toolkit, destination):
+    cache = (build / "CMakeCache.txt").read_text(encoding="utf-8")
+    compiled_version = re.search(r"^CMAKE_PROJECT_VERSION:STATIC=(.+)$", cache, re.MULTILINE)
+    if not compiled_version or compiled_version.group(1) != project_version():
+        raise RuntimeError("Packaging version differs from the configured native application")
     destination.mkdir(parents=True, exist_ok=True)
     assets = build / "assets"
     if not assets.is_dir():

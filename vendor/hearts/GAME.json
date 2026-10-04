@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "hearts",
+  "entry_id": 3,
+  "entry_name": "hearts",
+  "namespace": "ps_hearts",
+  "title": "Hearts",
+  "kind": "Card table",
+  "blurb": "Three computer opponents. Pass, dodge the points, or shoot the moon.",
+  "colors": [
+    [
+      178,
+      38,
+      62
+    ],
+    [
+      88,
+      14,
+      30
+    ],
+    [
+      255,
+      196,
+      172
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [],
+  "audio_sources": [],
+  "libraries": [],
+  "rail": false
+}

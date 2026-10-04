@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "id": "maze",
+  "entry_id": 19,
+  "entry_name": "maze",
+  "namespace": "mz",
+  "title": "Maze 95",
+  "kind": "First-person maze",
+  "blurb": "Explore strange corridors, ceiling flips and encounters. Find the reward.",
+  "colors": [
+    [
+      204,
+      80,
+      168
+    ],
+    [
+      34,
+      42,
+      80
+    ],
+    [
+      64,
+      232,
+      224
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [
+    "src/maze_view.cpp",
+    "src/platform/text.cpp",
+    "src/save_path.cpp"
+  ],
+  "audio_sources": [
+    "src/platform/audio.cpp"
+  ],
+  "libraries": [
+    "mz_core"
+  ],
+  "rail": true,
+  "assets": "assets",
+  "audio_prefix": "mz_",
+  "view_header": "maze_view.hpp",
+  "view_class": "MazeView",
+  "save_file": "maze-v1.txt",
+  "core_sources": [
+    "src/platform/raster.cpp",
+    "src/soft3d.cpp",
+    "src/textures.cpp",
+    "src/maze.cpp",
+    "src/world.cpp",
+    "src/session.cpp",
+    "src/rewards.cpp",
+    "src/cast.cpp",
+    "src/save.cpp"
+  ],
+  "core_tests": [
+    "tests/maze_tests.cpp"
+  ],
+  "audio_adapter": "src/platform/audio.cpp",
+  "contract_test": "tests/view_contract_tests.cpp",
+  "settles_when_untouched": false,
+  "borrowed": [
+    "src/cast.cpp",
+    "src/cast.hpp",
+    "src/maze.cpp",
+    "src/maze.hpp",
+    "src/platform/raster.cpp",
+    "src/platform/raster.hpp",
+    "src/rewards.cpp",
+    "src/rewards.hpp",
+    "src/save.hpp",
+    "src/soft3d.cpp",
+    "src/soft3d.hpp",
+    "src/textures.cpp",
+    "src/textures.hpp",
+    "src/world.cpp",
+    "src/world.hpp",
+    "tests/maze_tests.cpp",
+    "tests/preview.cpp"
+  ]
+}

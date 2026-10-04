@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "id": "switchbox",
+  "entry_id": 10,
+  "entry_name": "switchbox",
+  "namespace": "sbx",
+  "title": "Switchbox",
+  "kind": "Switch puzzle",
+  "blurb": "Find the order that lights every switch.",
+  "colors": [
+    [
+      170,
+      60,
+      122
+    ],
+    [
+      80,
+      18,
+      56
+    ],
+    [
+      255,
+      228,
+      120
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [
+    "src/switchbox_view.cpp"
+  ],
+  "audio_sources": [
+    "src/platform/audio.cpp"
+  ],
+  "libraries": [
+    "sbx_core"
+  ],
+  "rail": true
+}

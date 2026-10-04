@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "id": "catchingthieves",
+  "entry_id": 18,
+  "namespace": "ct",
+  "title": "Catching Thieves",
+  "kind": "Garden puzzle",
+  "blurb": "Push pumpkins over the burrows before the cheeky raccoons raid your garden.",
+  "colors": [
+    [
+      80,
+      104,
+      42
+    ],
+    [
+      36,
+      53,
+      25
+    ],
+    [
+      240,
+      138,
+      36
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [
+    "src/thieves_view.cpp",
+    "src/platform/text.cpp",
+    "src/save_path.cpp"
+  ],
+  "audio_sources": [
+    "src/platform/audio.cpp"
+  ],
+  "libraries": [
+    "ct_core"
+  ],
+  "rail": true,
+  "assets": "assets",
+  "audio_prefix": "ct_",
+  "settles_when_untouched": false,
+  "view_header": "thieves_view.hpp",
+  "view_class": "ThievesView",
+  "save_file": "catching_thieves-v1.txt",
+  "core_sources": [
+    "src/platform/raster.cpp",
+    "src/platform/r3d.cpp",
+    "src/platform/mesh.cpp",
+    "src/level.cpp",
+    "src/solver.cpp",
+    "src/gen.cpp",
+    "src/levelset.cpp",
+    "src/critters.cpp",
+    "src/garden.cpp",
+    "src/show.cpp",
+    "src/save.cpp"
+  ],
+  "core_tests": [
+    "tests/thieves_tests.cpp",
+    "tests/core_contract_tests.cpp"
+  ],
+  "audio_adapter": "src/platform/audio.cpp",
+  "contract_test": "tests/view_contract_tests.cpp",
+  "audio_manifest": "assets/audio/thieves_audio_manifest.json",
+  "borrowed": [
+    "src/critters.cpp",
+    "src/critters.hpp",
+    "src/garden.cpp",
+    "src/garden.hpp",
+    "src/level.cpp",
+    "src/level.hpp",
+    "src/levelset.cpp",
+    "src/levelset.hpp",
+    "src/platform/mesh.cpp",
+    "src/platform/mesh.hpp",
+    "src/platform/r3d.cpp",
+    "src/platform/r3d.hpp",
+    "src/platform/raster.cpp",
+    "src/platform/raster.hpp",
+    "src/save.hpp",
+    "tools/levelgen.cpp"
+  ],
+  "rules_target": "ct_rules_tests"
+}

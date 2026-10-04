@@ -1,0 +1,32 @@
+{
+ "music": [
+  {
+   "id": "mz_music",
+   "bpm": 78,
+   "bars": 16,
+   "bar_samples": 147692,
+   "loop_end_sample_exclusive": 2363072,
+   "seconds": 49.231
+  },
+  {
+   "id": "mz_music_dark",
+   "bpm": 78,
+   "bars": 16,
+   "bar_samples": 147692,
+   "loop_end_sample_exclusive": 2363072,
+   "seconds": 49.231
+  },
+  {
+   "id": "mz_music_flip",
+   "bpm": 78,
+   "bars": 16,
+   "bar_samples": 147692,
+   "loop_end_sample_exclusive": 2363072,
+   "seconds": 49.231
+  }
+ ],
+ "stingers": [
+  "mz_stinger_win",
+  "mz_start"
+ ]
+}

@@ -7,11 +7,6 @@
   "view_class": "TemplateView",
   "view_header": "template_view.hpp",
   "save_file": "template_game-v1.txt",
-  "cover": {
-    "top": [92, 66, 44],
-    "bottom": [36, 26, 19],
-    "accent": [255, 215, 122]
-  },
   "core_sources": [
     "src/platform/raster.cpp",
     "src/rules.cpp",
@@ -34,5 +29,38 @@
   ],
   "audio_prefix": "tg_",
   "audio_manifest": "",
-  "settles_when_untouched": true
+  "settles_when_untouched": true,
+  "schema_version": 1,
+  "entry_id": 100000,
+  "entry_name": "templategame",
+  "enabled": true,
+  "rail": true,
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "help": "help.md",
+  "build": "build.cmake",
+  "colors": [
+    [
+      92,
+      66,
+      44
+    ],
+    [
+      36,
+      26,
+      19
+    ],
+    [
+      255,
+      215,
+      122
+    ]
+  ],
+  "audio_sources": [
+    "src/platform/audio.cpp"
+  ],
+  "libraries": [
+    "tg_core"
+  ],
+  "help_topics": []
 }

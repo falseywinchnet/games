@@ -61,7 +61,7 @@ ctest --test-dir .build/portable-core --output-on-failure --timeout 120
 
 The `Native game core checks` workflow runs that profile on native Windows x64, macOS arm64, Linux x64 and Linux arm64 runners. Test reports and scene previews are diagnostic artifacts, not application packages.
 
-New games are built with the kit in `new-games/`; a model starting one reads `new-games/AGENTS.md` first. Kit games are written portable from the start, live only in `vendor/<id>/`, and are wired onto the shelf by `new-games/tools/wire_shelf.py`; they have no `incoming/` package. `new-games/tools/check_game.py <id> --fetch-toolkit` is their gate, and each adds a `<id>_view_contract` application test.
+New games are built with the kit in `new-games/`; a model starting one reads `new-games/AGENTS.md` first. Kit games are written portable from the start, live only in `vendor/<id>/`, and are discovered automatically from `GAME.json`; `new-games/tools/wire_shelf.py` validates without changing files; they have no `incoming/` package. `new-games/tools/check_game.py <id> --fetch-toolkit` is their gate, and each adds a `<id>_view_contract` application test.
 
 The 0.4 integrations and adapter boundaries are documented in docs/NEW_GAME_INTEGRATION.md. Run `python3 scripts/check-style.py` before publishing. New incoming packages remain unchanged; vendor copies are the integration surface.
 
@@ -84,3 +84,47 @@ From the authoritative local checkout, validate on the M4 Mini with:
    /opt/homebrew/bin/cmake --build /tmp/games-rockstack --target rockstack_cache_tests rockstack_rules_tests rockstack_physics_tests -j2 && \
    /opt/homebrew/bin/ctest --test-dir /tmp/games-rockstack -R "^rockstack_" --output-on-failure --timeout 180'
 ```
+
+## Modular application checks on the M4 Mini
+
+The authoritative checkout is `/Users/ultimussecundai/Developer/playsuite-games`.
+Use `m4build` from this tree; it chooses the route with `m4host`. The remote mirror
+is disposable build input. Do not make source edits there. The current native
+build uses the reviewed toolkit at
+`/Users/joshuahkuttenkuler/Developer/PlaysuiteDependencies/toolkit-d58f530/gui_forms`,
+runtime assets at `.../PlaysuiteDependencies/runtime-modular`, and the verified
+Skia CPU output at
+`/Users/joshuahkuttenkuler/Developer/Projects/gui-forms-investigation/skia-cpu`.
+The development compiler is Homebrew LLVM 22.1.8; release CI retains LLVM 20.1.8.
+This developer build does not establish release packaging with a different LLVM.
+
+```sh
+/Users/ultimussecundai/.local/bin/m4build -- sh -c '
+  export PATH=/opt/homebrew/bin:$PATH
+  cmake --build .build/modular-app -j2 &&
+  ctest --test-dir .build/modular-app --output-on-failure --timeout 180'
+```
+
+For a fresh configure on that host, use the absolute directories above and:
+
+```sh
+export CC=/opt/homebrew/opt/llvm/bin/clang
+export CXX=/opt/homebrew/opt/llvm/bin/clang++ OBJCXX=/opt/homebrew/opt/llvm/bin/clang++
+export CXXFLAGS="-nostdinc++ -isystem /opt/homebrew/opt/llvm/include/c++/v1"
+export OBJCXXFLAGS="$CXXFLAGS"
+export LDFLAGS="-L/opt/homebrew/opt/llvm/lib/c++ -Wl,-rpath,/opt/homebrew/opt/llvm/lib/c++ -L/opt/homebrew/opt/llvm/lib/unwind -Wl,-rpath,/opt/homebrew/opt/llvm/lib/unwind -lunwind"
+cmake -S . -B .build/modular-app -DCMAKE_BUILD_TYPE=Release \
+  -DGAMES_TOOLKIT_SOURCE_DIR=/Users/joshuahkuttenkuler/Developer/PlaysuiteDependencies/toolkit-d58f530/gui_forms \
+  -DGAMES_RUNTIME_ASSET_DIR=/Users/joshuahkuttenkuler/Developer/PlaysuiteDependencies/runtime-modular \
+  -DGUI_FORMS_SKIA_PREBUILT=ON \
+  -DGUI_FORMS_SKIA_OUT=/Users/joshuahkuttenkuler/Developer/Projects/gui-forms-investigation/skia-cpu
+```
+
+The native executable is `.build/modular-app/games.app/Contents/MacOS/games`.
+Use `--list-games`, `--game catchingthieves --standalone --dev`, or
+`--game maze --dev --script <finite-script>` for isolated native validation.
+`GAMES_EXTRA_GAME_DIRS` allows a complete external game folder to be tested before
+copying it into `vendor/`. Clear that cache option after the experiment. Never
+commit fixture games or generated catalog files. Test module addition/removal,
+sparse permanent IDs, help, scrolling and old save migration without editing the
+shell. Run the full native suite after finalizing the catalog.
