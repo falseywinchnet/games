@@ -96,7 +96,7 @@ def collect(paths: list[str]) -> list[Path]:
 
 def main() -> int:
     parser: argparse.ArgumentParser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("paths", nargs="*", default=["src", "tests", "tools"])
+    parser.add_argument("paths", nargs="*", default=["src", "tests", "tools", "engines"])
     arguments: argparse.Namespace = parser.parse_args()
     paths: list[Path] = collect(arguments.paths)
     if not paths:

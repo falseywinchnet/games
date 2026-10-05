@@ -26,8 +26,72 @@ def cpp_identifier(value):
             and value not in CPP_KEYWORDS and '__' not in value)
 
 
+def discover_engines(root: Path) -> dict[str, dict]:
+    """Shared engines: engines/<id>/ENGINE.json. Collection infrastructure that several
+    games build on, discovered like games and validated before any game uses one."""
+    root = Path(root).resolve()
+    engines = {}
+    namespaces = {}
+    for path in sorted((root / 'engines').glob('*/ENGINE.json')):
+        def fail(message):
+            raise ValueError(f'{path}: {message}')
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            fail(str(error))
+        if not isinstance(data, dict):
+            fail('manifest must be a JSON object')
+        if type(data.get('schema_version')) is not int or data['schema_version'] != 1:
+            fail('schema_version must be 1')
+        for key in ('id', 'namespace'):
+            if not cpp_identifier(data.get(key)):
+                fail(f'{key} must be a nonreserved lowercase C++ identifier')
+        if data['id'] != path.parent.name:
+            fail('id must equal the folder name')
+        if data['namespace'] in ('std', 'games', 'gui_forms', 'kit', 'gf'):
+            fail('namespace is reserved by the application or toolkit')
+        if data['namespace'] in namespaces:
+            fail(f'duplicate namespace {data["namespace"]!r}, already used by {namespaces[data["namespace"]]}')
+        namespaces[data['namespace']] = path
+        for key in ('title', 'summary'):
+            if not isinstance(data.get(key), str) or not data[key].strip():
+                fail(f'{key} must be nonempty text')
+        def local(value, directory=False):
+            if (not isinstance(value, str) or not value or Path(value).is_absolute()
+                    or any(c in value for c in (';', '"', '$', '\\', '\n', '\r', '\0'))):
+                fail(f'invalid file path {value!r}')
+            candidate = (path.parent / value).resolve()
+            if not candidate.is_relative_to(path.parent):
+                fail(f'engine path escapes its folder: {value}')
+            if not (candidate.is_dir() if directory else candidate.is_file()):
+                fail(f'missing {value}')
+        local(data.get('build'))
+        for key in ('ui_sources', 'tests'):
+            data.setdefault(key, [])
+            if not isinstance(data[key], list):
+                fail(f'{key} must be a list')
+            for value in data[key]:
+                local(value)
+        for key in ('libraries', 'ui_libraries'):
+            data.setdefault(key, [])
+            if not isinstance(data[key], list) or any(not isinstance(v, str) or not IDENTIFIER.fullmatch(v) for v in data[key]):
+                fail(f'{key} must contain CMake target identifiers')
+        for key in ('source_directories', 'ui_directories'):
+            data.setdefault(key, [])
+            if not isinstance(data[key], list):
+                fail(f'{key} must be a list')
+            for value in data[key]:
+                local(value, True)
+        data['directory'] = path.parent
+        data['manifest_path'] = path
+        engines[data['id']] = data
+    return engines
+
+
 def discover(root: Path, extra_dirs=(), include_disabled=False) -> list[dict]:
     root = Path(root).resolve()
+    engines = discover_engines(root)
+    engine_namespaces = {e['namespace']: e['manifest_path'] for e in engines.values()}
     paths = set((root / 'vendor').glob('*/GAME.json'))
     paths.update(Path(d).resolve() / 'GAME.json' for d in extra_dirs)
     result = []
@@ -49,6 +113,15 @@ def discover(root: Path, extra_dirs=(), include_disabled=False) -> list[dict]:
                 fail(f'{key} must be a nonreserved lowercase C++ identifier')
         if data['namespace'] in ('std', 'games', 'gui_forms'):
             fail('namespace is reserved by the application or toolkit')
+        if data['namespace'] in engine_namespaces:
+            fail(f'namespace {data["namespace"]!r} belongs to the engine at {engine_namespaces[data["namespace"]]}')
+        data.setdefault('engines', [])
+        if (not isinstance(data['engines'], list) or any(not isinstance(e, str) for e in data['engines'])
+                or len(set(data['engines'])) != len(data['engines'])):
+            fail('engines must be a list of distinct engine ids')
+        for engine in data['engines']:
+            if engine not in engines:
+                fail(f'unknown engine {engine!r}; engines live in engines/<id>/ENGINE.json')
         if type(data.get('entry_id')) is not int or not 0 <= data['entry_id'] <= 2147483647:
             fail('entry_id must be a permanent integer from 0 to 2147483647')
         for key in used:
@@ -160,10 +233,29 @@ std::optional<Entry> find_entry(std::string_view id) {
 }
 }
 '''
+    engines = discover_engines(root)
+    used_engines = sorted({e for g in games for e in g['engines']})
     metadata = '# Generated discovery metadata; safe to include without creating build targets.\n'
     metadata += 'set(GAMES_MODULE_IDS ' + ' '.join(g['id'] for g in games) + ')\n'
+    metadata += 'set(GAMES_ENGINE_IDS ' + ' '.join(sorted(engines)) + ')\n'
     cmake = '# Generated from module folders; do not edit.\n'
     cmake += 'include("${CMAKE_CURRENT_LIST_DIR}/game_catalog_metadata.cmake")\n'
+    # Engines first: every engine builds and tests its core; games link to it.
+    for engine_id in sorted(engines):
+        e = engines[engine_id]
+        d = e['directory'].as_posix()
+        if any(c in d for c in (';', '"', '$', '\n')):
+            raise ValueError(f'unsupported CMake path: {d}')
+        metadata += f'set(GAMES_ENGINE_DIRECTORY_{engine_id} "{d}")\n'
+        cmake += f'set(ENGINE_DIR "{d}")\ninclude("{d}/{e["build"]}")\n'
+    # An engine's interface code is compiled once, and only when a game uses it.
+    for engine_id in used_engines:
+        e = engines[engine_id]
+        d = e['directory'].as_posix()
+        for value in e['ui_sources']:
+            cmake += f'list(APPEND GAMES_MODULE_UI "{d}/{value}")\n'
+        for value in e['ui_libraries']:
+            cmake += f'list(APPEND GAMES_MODULE_LIBRARIES {value})\n'
     for g in games:
         # This path is also the working directory for each module's included CMake.
         d = g['directory'].as_posix()
@@ -174,6 +266,7 @@ std::optional<Entry> find_entry(std::string_view id) {
             paths = ' '.join(f'"{d}/{value}"' for value in values)
             metadata += f'set(GAMES_MODULE_{key}_{g["id"]} {paths})\n'
         metadata += f'set(GAMES_MODULE_LIBRARIES_{g["id"]} ' + ' '.join(g['libraries']) + ')\n'
+        metadata += f'set(GAMES_MODULE_ENGINES_{g["id"]} ' + ' '.join(g['engines']) + ')\n'
         cmake += f'set(GAME_MODULE_DIR "{d}")\ninclude("{d}/{g["build"]}")\n'
         for variable,values in (('GAMES_MODULE_SOURCES',[g['module'],g['cover']]),('GAMES_MODULE_UI',g['ui_sources']),('GAMES_MODULE_AUDIO',g['audio_sources'])):
             for value in values:
@@ -199,6 +292,7 @@ def main():
     except ValueError as error:
         parser.exit(1,str(error)+'\n')
     for g in games:
-        print(f'{g["entry_id"]:6}  {g["id"]}'+(' (reserved)' if not g.get('enabled',True) else ''))
+        on = (' on ' + ', '.join(g['engines'])) if g.get('engines') else ''
+        print(f'{g["entry_id"]:6}  {g["id"]}'+(' (reserved)' if not g.get('enabled',True) else '')+on)
 if __name__=='__main__':
     main()

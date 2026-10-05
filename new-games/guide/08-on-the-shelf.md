@@ -26,6 +26,8 @@ option is also read-only. It never patches the shell.
 | `HANDOFF.md`, `screens/` | Honest validation evidence and inspected presentation |
 
 `ui_sources`, `audio_sources` and `libraries` are read from the manifest.
+`engines` lists the shared engines (`engines/<id>/`) the game builds on; they are
+validated and built before the games ([shared engines](11-shared-engines.md)).
 `help_topics` contains `{ "id": "sets", "title": "Card sets", "file": "help-sets.md" }`
 objects. `module`, `cover`, `help` and `build` name files within this folder.
 See the template for a complete manifest and factory.

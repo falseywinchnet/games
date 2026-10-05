@@ -67,6 +67,10 @@ Make previews of start, active play, every outcome and panel. Inspect them at
 1100 × 760, 600 × 370 and 600 × 320, and scales 1, 1.5 and 2. Keep the inspected
 PNG files in `screens/`, including a filename containing `600x370`.
 
+A game built on a shared engine (for example a living scene on `engines/ambient`)
+supplies the engine's data and interface instead of writing that machinery; read
+the engine's README and [shared engines](guide/11-shared-engines.md).
+
 Implement `module.cpp` using `games::HostedGameInstance<View>` or a module-owned
 `GameInstance` adapter. The factory receives `ModuleContext` with `dev`, `hosted`
 and shared-engine storage. Implement the cover in `cover.cpp`, and full player
@@ -160,7 +164,11 @@ publication before claiming that outcome.
 ## Contracts to preserve
 
 - One game folder and namespace; no dependency on another game's private files.
-  Existing shared card/puzzle engines are collection infrastructure.
+  Shared engines are collection infrastructure: the card/puzzle engines in `src/`,
+  and engines in `engines/<id>/` that a game declares in `GAME.json`
+  (`"engines": [...]`). Machinery anticipated for a series of games, or shared by
+  several, is promoted to an engine rather than copied into each; content stays in
+  the games. See [shared engines](guide/11-shared-engines.md).
 - No network, accounts or operating-system code inside game modules.
 - Stable IDs and save formats; committed progress persists immediately. Document
   any original game's restart-at-level semantics accurately.

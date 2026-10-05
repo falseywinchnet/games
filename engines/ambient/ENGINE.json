@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "ambient",
+  "namespace": "ambient",
+  "title": "Ambient scenes",
+  "summary": "Retained 3D scenes drawn on the processor alone: fixed scenery shaded once, foliage swaying in a current, creatures on analytic routes, and animated light, all inside a measured processor budget.",
+  "build": "build.cmake",
+  "libraries": [
+    "ambient_core"
+  ],
+  "ui_sources": [
+    "ui/ambient_view.cpp"
+  ],
+  "ui_libraries": [
+    "ambient_ui"
+  ],
+  "source_directories": [
+    "src"
+  ],
+  "ui_directories": [
+    "ui"
+  ],
+  "tests": [
+    "tests/ambient_tests.cpp"
+  ]
+}

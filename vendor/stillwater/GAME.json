@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "id": "stillwater",
+  "entry_id": 20,
+  "entry_name": "stillwater",
+  "namespace": "sw",
+  "title": "Stillwater",
+  "kind": "Living aquarium",
+  "blurb": "A planted tank of tetras in swaying grass: watch them, or tap the glass to scatter them.",
+  "colors": [
+    [
+      30,
+      78,
+      62
+    ],
+    [
+      9,
+      28,
+      22
+    ],
+    [
+      154,
+      214,
+      226
+    ]
+  ],
+  "engines": [
+    "ambient"
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [
+    "src/stillwater_view.cpp"
+  ],
+  "audio_sources": [],
+  "libraries": [
+    "sw_core"
+  ],
+  "rail": true,
+  "assets": "assets",
+  "audio_prefix": "sw_",
+  "audio_manifest": "assets/audio/stillwater_audio_manifest.json",
+  "settles_when_untouched": false,
+  "view_header": "stillwater_view.hpp",
+  "view_class": "StillwaterView",
+  "save_file": "stillwater-v1.txt",
+  "core_sources": [
+    "src/riverscape_look.cpp"
+  ],
+  "core_tests": [
+    "tests/stillwater_tests.cpp"
+  ],
+  "contract_test": "tests/view_contract_tests.cpp",
+  "borrowed": [],
+  "rules_target": "stillwater_rules_tests"
+}

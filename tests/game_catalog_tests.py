@@ -212,6 +212,61 @@ class CatalogTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     catalog.discover(self.root)
 
+    def engine(self, name="scenery", namespace="scenery", **overrides):
+        directory = self.root / "engines" / name
+        (directory / "ui").mkdir(parents=True)
+        for filename in ("build.cmake", "ui/view.cpp"):
+            (directory / filename).write_text("# fixture\n", encoding="utf-8")
+        data = dict(schema_version=1, id=name, namespace=namespace, title="Scenery",
+                    summary="Shared scenery machinery.", build="build.cmake",
+                    libraries=["scenery_core"], ui_sources=["ui/view.cpp"], ui_libraries=["scenery_ui"],
+                    ui_directories=["ui"])
+        data.update(overrides)
+        (directory / "ENGINE.json").write_text(json.dumps(data), encoding="utf-8")
+        return directory, data
+
+    def test_engines_build_first_and_their_interface_only_when_used(self):
+        engine, _ = self.engine()
+        self.module("plain", 1)
+        catalog.generate(self.root, self.output)
+        cmake = (self.output / "game_modules.cmake").read_text(encoding="utf-8")
+        self.assertIn(f'include("{(engine.resolve() / "build.cmake").as_posix()}")', cmake)
+        self.assertNotIn("ui/view.cpp", cmake, "an unused engine adds no interface code")
+        self.module("scene", 2, engines=["scenery"])
+        games = catalog.generate(self.root, self.output)
+        cmake = (self.output / "game_modules.cmake").read_text(encoding="utf-8")
+        self.assertLess(cmake.index("ENGINE_DIR"), cmake.index("GAME_MODULE_DIR"), "engines precede games")
+        self.assertEqual(cmake.count("ui/view.cpp"), 1)
+        self.assertIn("list(APPEND GAMES_MODULE_LIBRARIES scenery_ui)", cmake)
+        self.assertEqual([g["engines"] for g in games], [[], ["scenery"]])
+        metadata = (self.output / "game_catalog_metadata.cmake").read_text(encoding="utf-8")
+        self.assertIn("set(GAMES_ENGINE_IDS scenery)", metadata)
+        self.assertIn("set(GAMES_MODULE_ENGINES_scene scenery)", metadata)
+
+    def test_engine_errors(self):
+        self.engine()
+        self.module("scene", 2, engines=["missing"])
+        with self.assertRaisesRegex(ValueError, "unknown engine"):
+            catalog.discover(self.root)
+        shutil.rmtree(self.root / "vendor" / "scene")
+        self.module("scene", 2, namespace="scenery")
+        with self.assertRaisesRegex(ValueError, "belongs to the engine"):
+            catalog.discover(self.root)
+        shutil.rmtree(self.root / "vendor" / "scene")
+        self.module("scene", 2, engines=["scenery", "scenery"])
+        with self.assertRaisesRegex(ValueError, "distinct engine ids"):
+            catalog.discover(self.root)
+        shutil.rmtree(self.root / "vendor" / "scene")
+        self.module("scene", 2)
+        for change, message in (({"id": "other"}, "folder name"), ({"namespace": "games"}, "reserved"),
+                                ({"ui_sources": ["ui/missing.cpp"]}, "missing"),
+                                ({"build": "../escape.cmake"}, "escapes"), ({"summary": ""}, "summary")):
+            with self.subTest(change=change):
+                shutil.rmtree(self.root / "engines")
+                self.engine(**change)
+                with self.assertRaisesRegex(ValueError, message):
+                    catalog.discover(self.root)
+
     def test_malformed_manifest_has_actionable_error(self):
         directory, data = self.module()
         for payload in ("{broken", "[]", "null", "42"):

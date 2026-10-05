@@ -128,6 +128,15 @@ checksum, atomic replacement. See [anatomy](03-anatomy.md).
 `next_random(state)` is splitmix64: integer-only, identical everywhere. Derive
 separate streams by seeding separate states (seed, seed + 1, ...).
 
+## Shared engines (`engines/`)
+
+Some machinery is shared rather than copied: a game declares the engine in
+`GAME.json` and links its library. See [shared engines](11-shared-engines.md).
+
+| Engine | What it gives you |
+|---|---|
+| [`ambient`](../../engines/ambient/README.md) | Living 3D scenes on the processor alone: retained fixed scenery, foliage swaying in a current, creatures on routes with startles, animated light, a CPU budget governor, and a complete PlaySuite view (`AmbientView`) with pause, detail, help, taps and sound. A scene game supplies an archive and a `Look`. |
+
 ## The headless harness (`new-games/kit/`)
 
 Development only; never linked into the application.

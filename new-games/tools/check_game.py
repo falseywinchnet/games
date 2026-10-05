@@ -83,8 +83,13 @@ def check_structure(directory: Path, manifest: dict, report: Report) -> None:
     for key in ("core_sources", "ui_sources", "core_tests"):
         for item in manifest.get(key, []):
             report.require((directory / item).is_file(), f"{key}: {item}", f"{key} lists {item}, which does not exist")
-    for key in ("audio_adapter", "contract_test"):
+    # A game on a shared engine may have no audio adapter of its own: the engine plays its sounds.
+    required = ("contract_test",) if manifest.get("engines") and "audio_adapter" not in manifest else ("audio_adapter", "contract_test")
+    for key in required:
         report.require((directory / manifest.get(key, "?")).is_file(), f"{key}: {manifest.get(key)}", f"{key} file is missing")
+    for engine in manifest.get("engines", []):
+        report.require(engine in kitlib.engines(), f"built on the shared engine {engine}",
+                       f"GAME.json names engine {engine!r}, which is not in engines/")
     stray = [path.name for path in directory.rglob("*") if path.suffix in (".mm", ".m", ".swift", ".cs", ".js", ".dll", ".dylib", ".so", ".exe")]
     report.require(not stray, "no platform-specific or binary sources", "platform-specific or binary files: " + ", ".join(stray[:6]))
     report.require(re.fullmatch(r"[a-z0-9_]+-v\d+\.txt", manifest.get("save_file", "")) is not None,
@@ -143,7 +148,10 @@ def check_portability(directory: Path, manifest: dict, report: Report) -> None:
     files = authored_sources(directory, manifest)
     core = {directory / item for item in manifest.get("core_sources", [])}
     core |= {path.with_suffix(".hpp") for path in core}
-    others = {name for name in kitlib.used_namespaces() if name not in (manifest["namespace"], "games", "kit", "gui_forms", "paint")}
+    # A game may use the shared engines it declares in GAME.json, and no other game's code.
+    engine_namespaces = {kitlib.engines()[e]["namespace"] for e in manifest.get("engines", []) if e in kitlib.engines()}
+    others = {name for name in kitlib.used_namespaces()
+              if name not in (manifest["namespace"], "games", "kit", "gui_forms", "paint") and name not in engine_namespaces}
     problems = 0
     for path in files:
         raw = path.read_text(encoding="utf-8")
@@ -182,6 +190,12 @@ def check_portability(directory: Path, manifest: dict, report: Report) -> None:
 def check_contract(directory: Path, manifest: dict, report: Report) -> None:
     print("Shell contract (read from the view's source)")
     view_sources = [directory / item for item in manifest["ui_sources"]]
+    # A game on a shared engine inherits the engine's view: read that too.
+    for engine_id in manifest.get("engines", []):
+        engine = kitlib.engines().get(engine_id)
+        if engine is not None:
+            for item in engine.get("ui_sources", []):
+                view_sources += [engine["directory"] / item, (engine["directory"] / item).with_suffix(".hpp")]
     text = "\n".join(path.read_text(encoding="utf-8") for path in view_sources if path.is_file())
     header = directory / "src" / manifest["view_header"]
     text += header.read_text(encoding="utf-8") if header.is_file() else ""
@@ -382,8 +396,12 @@ def check_syntax(directory: Path, manifest: dict, report: Report, fetch: bool) -
         return
     includes = ["-I", str(include), "-I", str(REPO / "src"), "-I", str(directory / "src"), "-I", str(kitlib.KIT / "kit")]
     includes += ["-I", str(generated)]
+    for engine_directory in kitlib.engine_directories(manifest):
+        includes += ["-I", str(engine_directory)]
     sources = [directory / item for item in manifest["ui_sources"]]
-    sources += [directory / manifest["audio_adapter"], directory / manifest["contract_test"]]
+    if manifest.get("audio_adapter"):
+        sources.append(directory / manifest["audio_adapter"])
+    sources.append(directory / manifest["contract_test"])
     sources += [directory / manifest["module"], directory / manifest["cover"]]
     for source in sources:
         result = run([compiler, "-std=c++20", "-fsyntax-only", "-Wall", "-Wextra", "-D_USE_MATH_DEFINES"] + includes + [str(source)])

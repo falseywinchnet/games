@@ -12,6 +12,23 @@ AGENTS.md asks for reusable capabilities to become GUI.Forms enhancements, coord
 
 4. **Anti-aliased polygon and path fill on `Painter`.** Only `gui_drawing::GraphicsRecorder` has paths, and it is not drawable through `Painter`. Games fills polygons with device-row spans and blends the partly covered pixel at each span end. Tiled shapes need a hard-edged mode, or seams appear between them.
 
+5. **Scaled presentation of a small live surface, and no clear under an opaque one.**
+   Measured with Stillwater (`engines/ambient`) on the macOS Skia CPU host at
+   1060 x 680 points, scale 1, 20 frames a second: of 18 % of one core, about 6 %
+   is host work per presented frame (Skia clearing the window under the opaque
+   surface with `rect_memset32`, retained paint of the surface, Core Animation
+   submission), and the game spends a further share enlarging its 530 x 340 scene
+   to device pixels (`ambient::present_nearest`) only for the host to copy it again.
+   Both grow with device pixels, so a Retina window costs about four times as much
+   while the scene's own work stays the same. Two features would remove most of
+   it: (a) a live surface that may be smaller than its destination, presented
+   with nearest-pixel (or optionally linear) scaling by the host or compositor,
+   with a way to blend crisp device-resolution overlay pixels (or a second,
+   sparse overlay surface) for text; (b) skipping the background clear beneath a
+   control that declares an opaque live surface covering its bounds. The kit's
+   view contract currently requires device-sized frames, so (a) also needs a
+   contract revision.
+
 ## Host behavior found on Windows
 
 **Idle live-surface clock and registration lifecycle.** In pinned `7b260cf`,

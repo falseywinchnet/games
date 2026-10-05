@@ -10,6 +10,7 @@ REPO = Path(__file__).resolve().parents[2]
 KIT = REPO / "new-games"
 TEMPLATE = KIT / "template"
 VENDOR = REPO / "vendor"
+ENGINES = REPO / "engines"
 
 # Names a game may not take as its namespace: C++ and shell names, and the kit's own.
 RESERVED_NAMESPACES = {"std", "gf", "games", "kit", "gui", "tg", "detail", "test"}
@@ -34,7 +35,7 @@ def used_namespaces() -> dict[str, str]:
     """Top-level namespaces already taken, mapped to where they were found."""
     found: dict[str, str] = {}
     pattern = re.compile(r"^namespace\s+([a-z_][a-z0-9_]*)\s*\{", re.MULTILINE)
-    for root in (REPO / "src", VENDOR):
+    for root in (REPO / "src", VENDOR, ENGINES):
         for path in root.rglob("*"):
             if path.suffix not in SOURCE_SUFFIXES or "third_party" in path.parts:
                 continue
@@ -45,6 +46,26 @@ def used_namespaces() -> dict[str, str]:
             for match in pattern.finditer(text):
                 found.setdefault(match.group(1), str(path.relative_to(REPO)))
     return found
+
+
+def engines() -> dict[str, dict]:
+    """Shared engines (engines/<id>/ENGINE.json), by id."""
+    sys.path.insert(0, str(REPO / "tools"))
+    from game_catalog import discover_engines
+    return discover_engines(REPO)
+
+
+def engine_directories(manifest: dict) -> list[Path]:
+    """Include directories of the engines a game declares: sources, then interface code."""
+    found = engines()
+    result = []
+    for engine_id in manifest.get("engines", []):
+        engine = found.get(engine_id)
+        if engine is None:
+            raise SystemExit(f"GAME.json names engine {engine_id!r}, which is not in engines/")
+        for key in ("source_directories", "ui_directories"):
+            result += [engine["directory"] / value for value in engine.get(key, [])]
+    return result
 
 
 def catalog(extra_dirs=(), include_disabled=False) -> list[dict]:

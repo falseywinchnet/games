@@ -61,7 +61,7 @@ ctest --test-dir .build/portable-core --output-on-failure --timeout 120
 
 The `Native game core checks` workflow runs that profile on native Windows x64, macOS arm64, Linux x64 and Linux arm64 runners. Test reports and scene previews are diagnostic artifacts, not application packages.
 
-New games are built with the kit in `new-games/`; a model starting one reads `new-games/AGENTS.md` first. Kit games are written portable from the start, live only in `vendor/<id>/`, and are discovered automatically from `GAME.json`; `new-games/tools/wire_shelf.py` validates without changing files; they have no `incoming/` package. `new-games/tools/check_game.py <id> --fetch-toolkit` is their gate, and each adds a `<id>_view_contract` application test.
+New games are built with the kit in `new-games/`; a model starting one reads `new-games/AGENTS.md` first. Shared engines live in `engines/<id>/` (see `new-games/guide/11-shared-engines.md`); games declare them in `GAME.json`. `engines/ambient` draws living 3D scenes on the processor alone under a measured CPU budget; Stillwater is its first scene. Kit games are written portable from the start, live only in `vendor/<id>/`, and are discovered automatically from `GAME.json`; `new-games/tools/wire_shelf.py` validates without changing files; they have no `incoming/` package. `new-games/tools/check_game.py <id> --fetch-toolkit` is their gate, and each adds a `<id>_view_contract` application test.
 
 The 0.4 integrations and adapter boundaries are documented in docs/NEW_GAME_INTEGRATION.md. Run `python3 scripts/check-style.py` before publishing. New incoming packages remain unchanged; vendor copies are the integration surface.
 
