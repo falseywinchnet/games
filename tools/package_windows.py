@@ -16,15 +16,28 @@ SYSTEM = {"kernel32.dll", "user32.dll", "gdi32.dll", "advapi32.dll", "comdlg32.d
 
 
 def plugin_lines():
-    """MSYS2 NSIS 3.13 keeps its plugins in Plugins/unicode, where makensis does not
-    look for them; name that folder for its own target."""
+    """MSYS2 NSIS 3.13 installs its plugins in Plugins/unicode, where its makensis
+    finds none (it lists no plugin directories at all). Copy them to the folders
+    NSIS 3 searches and name the folder for every target, so whichever this build
+    of makensis uses, nsDialogs and the rest are found."""
     makensis = shutil.which("makensis")
     if makensis is None:
         return []
+    subprocess.run(["makensis", "-HDRINFO"], check=False)
     plugins = Path(makensis).resolve().parent.parent / "share" / "nsis" / "Plugins"
-    if (plugins / "x86-unicode" / "nsDialogs.dll").is_file() or not (plugins / "unicode" / "nsDialogs.dll").is_file():
+    source = plugins / "unicode"
+    if not (source / "nsDialogs.dll").is_file():
         return []
-    return ['!addplugindir "' + str(plugins / "unicode") + '"']
+    lines = []
+    for target in ("x86-unicode", "amd64-unicode"):
+        folder = plugins / target
+        if not (folder / "nsDialogs.dll").is_file():
+            folder.mkdir(exist_ok=True)
+            for plugin in source.glob("*.dll"):
+                shutil.copy2(plugin, folder / plugin.name)
+        lines.append('!addplugindir /' + target + ' "' + str(folder) + '"')
+    lines.append('!addplugindir "' + str(source) + '"')
+    return lines
 
 
 def make_installer(bundle, output):
