@@ -42,8 +42,8 @@ The game's mower is the live voice in `src/mower_voice.*`: a 90-degree V-twin on
 governor with a three-spindle deck, synthesized sample by sample (see
 `LIVE_VOICE.md`). It runs about 170 times faster than real time on one core.
 
-**Live.** Where the toolkit can play a generator (`GUI_FORMS_AUDIO_GENERATOR`, see
-`docs/toolkit-patches/gui_forms_audio_generator.patch`), the audio device pulls the
+**Live.** Where the toolkit can play a generator (`GUI_FORMS_AUDIO_GENERATOR`, in GUI.Forms
+since `63e7128`), the audio device pulls the
 voice directly. The scene posts two things to it: the key (`E`) and the grass under
 the deck. The engine is always asked for mowing speed (3600 rpm); the blades go in
 1.7 s after the key; the starter, the climb, the governor sagging in long grass and
