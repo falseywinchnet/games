@@ -1,5 +1,6 @@
 """Stage the PE import closure, portable archive and optional per-user installer."""
 import argparse
+import os
 from pathlib import Path
 import re
 import shutil
@@ -15,35 +16,24 @@ SYSTEM = {"kernel32.dll", "user32.dll", "gdi32.dll", "advapi32.dll", "comdlg32.d
           "crypt32.dll", "normaliz.dll"}
 
 
-def plugin_lines():
-    """MSYS2 NSIS 3.13 installs its plugins in Plugins/unicode, where its makensis
-    finds none (it lists no plugin directories at all). Copy them to the folders
-    NSIS 3 searches and name the folder for every target, so whichever this build
-    of makensis uses, nsDialogs and the rest are found."""
-    makensis = shutil.which("makensis")
-    if makensis is None:
-        return []
-    subprocess.run(["makensis", "-HDRINFO"], check=False)
-    plugins = Path(makensis).resolve().parent.parent / "share" / "nsis" / "Plugins"
-    source = plugins / "unicode"
-    if not (source / "nsDialogs.dll").is_file():
-        return []
-    lines = []
-    for target in ("x86-unicode", "amd64-unicode"):
-        folder = plugins / target
-        if not (folder / "nsDialogs.dll").is_file():
-            folder.mkdir(exist_ok=True)
-            for plugin in source.glob("*.dll"):
-                shutil.copy2(plugin, folder / plugin.name)
-        lines.append('!addplugindir /' + target + ' "' + str(folder) + '"')
-    lines.append('!addplugindir "' + str(source) + '"')
-    return lines
+def find_makensis():
+    """The official NSIS when the machine has it (GitHub's Windows image ships 3.10),
+    otherwise the one on PATH. MSYS2's NSIS 3.13 pairs 32-bit installer stubs with
+    64-bit plugins, so makensis rejects every plugin and MUI's pages cannot build."""
+    for root in (os.environ.get("NSIS_HOME", ""), os.environ.get("ProgramFiles(x86)", ""), os.environ.get("ProgramFiles", ""),
+                 "C:/Program Files (x86)", "C:/Program Files"):
+        if not root:
+            continue
+        for candidate in (Path(root) / "makensis.exe", Path(root) / "NSIS" / "makensis.exe"):
+            if candidate.is_file():
+                return str(candidate)
+    return "makensis"
 
 
 def make_installer(bundle, output):
     installer = output / ("playsuite-" + project_version() + "-windows-x64-setup.exe")
     script = output / "games-installer.nsi"
-    lines = ['Unicode True'] + plugin_lines() + ['!include "MUI2.nsh"', 'Name "PlaySuite"',
+    lines = ['Unicode True', '!include "MUI2.nsh"', 'Name "PlaySuite"',
              'OutFile "' + str(installer).replace("/", "\\") + '"', 'InstallDir "$LOCALAPPDATA\\Rainstar\\Games"',
              'RequestExecutionLevel user', '!insertmacro MUI_PAGE_WELCOME',
              '!insertmacro MUI_PAGE_DIRECTORY', '!insertmacro MUI_PAGE_INSTFILES',
@@ -73,7 +63,9 @@ def make_installer(bundle, output):
               'Delete "$SMPROGRAMS\\Rainstar\\PlaySuite.lnk"', 'RMDir "$SMPROGRAMS\\Rainstar"',
               'DeleteRegKey HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\RainstarGames"', 'SectionEnd']
     script.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    subprocess.run(["makensis", str(script)], check=True)
+    makensis = find_makensis()
+    print("Building the installer with", makensis, flush=True)
+    subprocess.run([makensis, str(script)], check=True)
 
 
 def main():
