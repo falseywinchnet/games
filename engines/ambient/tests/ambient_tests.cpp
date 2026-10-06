@@ -464,17 +464,18 @@ void test_presentation() {
 
     const int sw = 3;
     const int sh = 2;
-    const std::vector<std::uint32_t> scene{1, 2, 3, 4, 5, 6};
+    const std::vector<std::uint32_t> scene{1, 2, 3, 4, 5, 6};  // alpha 0: the copy must make them opaque
     std::vector<std::uint32_t> columns{};
     build_column_map(sw, 7, columns);
     std::vector<std::uint32_t> device(7 * 5, 0);
     present_nearest(scene.data(), sw, sh, columns, reinterpret_cast<std::byte*>(device.data()), 7 * 4, 7, 5);
-    require(device[0] == 1 && device[6] == 3 && device[34] == 6, "corners map to corners");
+    const std::uint32_t opaque = 0xFF000000U;
+    require(device[0] == (opaque | 1) && device[6] == (opaque | 3) && device[34] == (opaque | 6), "corners map to corners");
     for (int y = 0; y < 5; ++y)
         for (int x = 0; x < 7; ++x)
             require(device[static_cast<std::size_t>(y * 7 + x)] ==
-                        scene[static_cast<std::size_t>((y * sh / 5) * sw + x * sw / 7)],
-                    "nearest sampling");
+                        (opaque | scene[static_cast<std::size_t>((y * sh / 5) * sw + x * sw / 7)]),
+                    "nearest sampling, made opaque");
 }
 
 void test_settings() {

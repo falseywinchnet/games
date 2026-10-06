@@ -26,8 +26,8 @@ struct SceneSize {
 void build_column_map(int scene_width, int device_width, std::vector<std::uint32_t>& columns);
 
 // Enlarges `scene` (scene_width x scene_height, 0xAARRGGBB) to the device surface
-// with nearest-pixel sampling. Rows repeated from the previous device row are
-// copied whole. `destination` rows are `row_bytes` apart.
+// with nearest-pixel sampling, fully opaque (the live surface promises it). Rows
+// repeated from the previous device row are copied whole. `destination` rows are `row_bytes` apart.
 void present_nearest(const std::uint32_t* scene, int scene_width, int scene_height,
                      const std::vector<std::uint32_t>& columns, std::byte* destination, std::size_t row_bytes,
                      int device_width, int device_height);

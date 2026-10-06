@@ -219,6 +219,7 @@ void SceneView::arrange(gf::Rect bounds) {
         gf::LiveSurfaceDescription description;
         description.width = static_cast<std::uint32_t>(device_width_);
         description.height = static_cast<std::uint32_t>(device_height_);
+        description.opaque = true;  // every pixel is written opaque: the host may copy, not blend
         static_cast<void>((*surface_).reconfigure(description));
     }
     request_frame();
@@ -347,6 +348,7 @@ void SceneView::publish(const std::vector<std::uint32_t>* picture, int width, in
         gf::LiveSurfaceDescription description;
         description.width = static_cast<std::uint32_t>(device_width_);
         description.height = static_cast<std::uint32_t>(device_height_);
+        description.opaque = true;  // every pixel is written opaque: the host may copy, not blend
         surface_ = gf::LiveSurface::create(description);
         gf::Window* window = attached_window();
         if (surface_ && window != nullptr)

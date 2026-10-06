@@ -71,7 +71,7 @@ void present_nearest(const std::uint32_t* scene, int scene_width, int scene_heig
         const std::uint32_t* source = scene + static_cast<std::size_t>(source_row) * static_cast<std::size_t>(scene_width);
         std::uint32_t* out = reinterpret_cast<std::uint32_t*>(row);
         for (int x = 0; x < device_width; ++x)
-            out[x] = source[columns[static_cast<std::size_t>(x)]];
+            out[x] = source[columns[static_cast<std::size_t>(x)]] | 0xFF000000U;  // the surface is declared opaque
         previous_source = source_row;
         previous_row = row;
     }
