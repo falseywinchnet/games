@@ -103,8 +103,15 @@ def main():
     copy_resources(args.build, args.toolkit, bundle)
     runtime_notices = bundle / "licenses/runtime"
     runtime_notices.mkdir()
+    bundled = {path.name.lower() for path in bundle.iterdir()}
     for notice in (ROOT / "packaging/licenses").glob("*.txt"):
+        # GCC's runtime notices only when its runtime is shipped (a MINGW64 build)
+        if notice.name.startswith("GCC-") and not bundled & {"libstdc++-6.dll", "libgcc_s_seh-1.dll"}:
+            continue
         shutil.copy2(notice, runtime_notices / notice.name)
+    # LLVM's libc++ and libunwind (a CLANG64 build)
+    if bundled & {"libc++.dll", "libunwind.dll"}:
+        shutil.copytree(ROOT / "packaging/licenses/llvm", runtime_notices / "LLVM")
     write_manifest(bundle, "Windows", "x64")
     archive = output / ("playsuite-" + project_version() + "-windows-x64.zip")
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as compressed:
