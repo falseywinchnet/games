@@ -1,10 +1,11 @@
 // Stillwater's live voices rendered to 48 kHz 16-bit WAV, with the time they took.
 //
-//   sw_music_render shanty out.wav [seconds [seed]]   the band, as the game plays it
-//   sw_music_render loop out.wav [seconds [seed]]     a seamless shanty loop (the fallback
+//   sw_music_render band out.wav [seconds [seed]]   the band, as the game plays it
+//   sw_music_render band out.wav seconds seed part  one part alone (see IslandVoice::solo)
+//   sw_music_render loop out.wav [seconds [seed]]     a seamless loop of the band (the fallback
 //                                                     where the toolkit has no live voices)
 //   sw_music_render tank out.wav [seconds [seed]]     the tank's water
-#include "shanty_voice.hpp"
+#include "island_voice.hpp"
 #include "tank_voice.hpp"
 
 #include <algorithm>
@@ -21,7 +22,7 @@ namespace {
 
 constexpr int rate = 48000;
 // The level the game plays the band at (stillwater_view.cpp), so the loop matches it.
-constexpr double shanty_gain = 0.25;
+constexpr double band_gain = 0.25;
 
 bool write_wav(const char* path, const std::vector<float>& all) {
     std::FILE* file = std::fopen(path, "wb");
@@ -44,7 +45,7 @@ bool write_wav(const char* path, const std::vector<float>& all) {
 
 int main(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: %s shanty|loop|tank out.wav [seconds [seed]]\n", argv[0]);
+        std::fprintf(stderr, "usage: %s band|loop|tank out.wav [seconds [seed]]\n", argv[0]);
         return 2;
     }
     const bool tank = std::strcmp(argv[1], "tank") == 0;
@@ -55,7 +56,10 @@ int main(int argc, char** argv) {
     const double fade = loop ? 6.0 : 0.0;
     const std::size_t frames = static_cast<std::size_t>((seconds + fade) * rate);
     std::vector<float> all(frames * 2, 0.0F);
-    sw::ShantyVoice band(seed);
+    sw::IslandVoice band(seed);
+    // A sixth argument hears one part alone: 0 steel, 1 mallets, 2 ukulele, 3 bass, 4 shaker and bubbles.
+    if (argc > 5)
+        band.solo(std::atoi(argv[5]));
     sw::TankVoice water(seed);
     const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     // The device asks for 256 frames at a time; render in the same blocks.
@@ -66,7 +70,7 @@ int main(int argc, char** argv) {
         if (tank)
             water.render_add(part, 1.0);
         else
-            band.render_add(part, shanty_gain);
+            band.render_add(part, band_gain);
     }
     const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     if (loop) {

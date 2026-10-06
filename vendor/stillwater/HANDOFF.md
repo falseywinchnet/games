@@ -98,14 +98,18 @@ On the M4 Mac mini (`.build/mowing-app`, LLVM 22, Skia CPU), all 56 tests pass.
   level: RMS 0.067 vs 0.066) through `SoundDesk::live`, under the Sound master;
   the `sw_ambience` loop is the fallback bed. No saved setting held this, so no
   migration was needed (saves still hold paused and detail only).
-- **Music.** `src/shanty_voice.cpp`: a band improvising 6/8 shanties in D Dorian
-  (concertina tune and off-beat squeezes, fiddle answering or doubling an octave
-  up, bass fiddle on the beats, a stamping boot, a drone under slow verses, a small
-  room). Verses pick a progression, tempo (54-78), lead and motif; call and
-  response, question ending on A, answer on D. Through `SoundDesk::live_music`
-  (Music master, M). Renders 400-460x faster than real time. Fallback loop
-  `assets/audio/sw_shanty.m4a` (96 s, crossfaded) from `sw_music_render loop`.
-  Not listened to by a person yet.
+- **Music.** `src/island_voice.cpp` (2026-10-06, replacing the 6/8 shanty band at
+  the user's request for something like Bikini Bottom's 1950s Hawaiian library
+  music; the tunes are its own): lap steel (slides, slow vibrato, sixths), ukulele
+  (finger-shaped Karplus-Strong plucks through a two-resonance body, strum brush,
+  palm chunks, a hand position per section), upright bass (additive, finger thump),
+  vibraphone and marimba answers, shaker, bubbles; swung 4/4 at 84-100 on sixth,
+  major-seventh and dominant chains, sections joined by the II7-V7 vamp where the key
+  moves (C, F, G, Bb); spring reverb, tape wow and flutter, narrow band, nearly mono.
+  `sw_music_render band out.wav seconds seed part` solos a part. Through
+  `SoundDesk::live_music`. About 120x real time. Fallback loop
+  `assets/audio/sw_island.m4a` (96 s). The user listened and approved it after
+  the bass (a buzzy Karplus-Strong) and ukulele were rebuilt.
 - **Treasure chest** (`src/treasure.cpp`): planked wood with seams, iron straps,
   barrel lid open 35 degrees, a lumpy gold heap with a ruby, coins on the sand,
   three slow bubbles. Added to the archive on load through the engine's new

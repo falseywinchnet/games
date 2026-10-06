@@ -6,12 +6,12 @@
                irregularly so the loop does not tick like a clock
   sw_tap       a fingertip on the glass: damped glass resonances and a soft knock
 
-The game synthesizes both the water (src/tank_voice.cpp) and its shanties
-(src/shanty_voice.cpp) live where the toolkit plays generators; these clips are the
-fallback where it cannot. The shanty loop is rendered by the game's own band:
+The game synthesizes both the water (src/tank_voice.cpp) and its island band
+(src/island_voice.cpp) live where the toolkit plays generators; these clips are the
+fallback where it cannot. The band's loop is rendered by the game's own band:
 
-  sw_music_render loop audio_src/masters/sw_shanty.wav 96
-  afconvert -f m4af -d aac -b 160000 audio_src/masters/sw_shanty.wav assets/audio/sw_shanty.m4a
+  sw_music_render loop audio_src/masters/sw_island.wav 96
+  afconvert -f m4af -d aac -b 160000 audio_src/masters/sw_island.wav assets/audio/sw_island.m4a
 
 Ported from Stillwater's sound.cpp (make_ambience, make_glass_tap), lengthened and
 made seamless. Writes 48 kHz 16-bit WAV: the tap into ../assets/audio, the
@@ -33,7 +33,7 @@ HERE = Path(__file__).resolve().parent
 OUT = HERE.parent / "assets" / "audio"
 MASTERS = HERE / "masters"
 LOOP_SECONDS = 64
-SHANTY_SECONDS = 96  # sw_music_render loop ... 96
+ISLAND_SECONDS = 96  # sw_music_render loop ... 96
 TAU = 2 * np.pi
 
 
@@ -121,7 +121,7 @@ def main() -> None:
     encode(master, OUT / "sw_ambience.m4a")
     manifest = {
         "music": [{"id": "sw_ambience", "loop_end_sample_exclusive": len(loop), "seconds": len(loop) / SR},
-                  {"id": "sw_shanty", "loop_end_sample_exclusive": SHANTY_SECONDS * SR, "seconds": SHANTY_SECONDS}],
+                  {"id": "sw_island", "loop_end_sample_exclusive": ISLAND_SECONDS * SR, "seconds": ISLAND_SECONDS}],
         "stingers": [],
     }
     (OUT / "stillwater_audio_manifest.json").write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8")

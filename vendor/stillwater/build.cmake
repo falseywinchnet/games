@@ -3,7 +3,7 @@
 add_library(sw_core STATIC
   "${GAME_MODULE_DIR}/src/riverscape_look.cpp"
   "${GAME_MODULE_DIR}/src/treasure.cpp"
-  "${GAME_MODULE_DIR}/src/shanty_voice.cpp"
+  "${GAME_MODULE_DIR}/src/island_voice.cpp"
   "${GAME_MODULE_DIR}/src/tank_voice.cpp")
 target_include_directories(sw_core PUBLIC "${GAME_MODULE_DIR}/src")
 target_link_libraries(sw_core PUBLIC ambient_core)

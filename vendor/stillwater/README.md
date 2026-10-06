@@ -46,13 +46,14 @@ Sound is the tank itself: the filter's pump hum, moving water and an air stone's
 small bubbles, synthesized as it plays (`src/tank_voice.cpp`), and a glass tap. Both
 follow the Sound master (and the scene's Sound command).
 
-Music is a small band below decks making up sea shanties as it plays
-(`src/shanty_voice.cpp`): a concertina with the tune and the off-beat chords, a
-fiddle answering it or doubling it in a chorus, a bass fiddle and a stamping boot in
-a jaunty 6/8, and a low drone under the slow verses, all in D Dorian. It follows the
+Music is an island band on an old library record, making up lazy Hawaiian tunes as
+it plays (`src/island_voice.cpp`): a lap steel sliding into the melody (sometimes in
+sixths), a ukulele strumming the island rhythm, an upright bass, vibraphone and
+marimba answers, a shaker and a few bubbles, in a swung 4/4 on sixth and seventh
+chords joined by the II7-V7 vamp, through a spring reverb and a worn tape. It follows the
 Music master and M. Where the toolkit cannot play live voices, the same recipes are
 played from loops: `audio_src/make_audio.py` (the water) and `sw_music_render loop`
-(a 96-second shanty). A paused tank is silent.
+(96 seconds of the band). A paused tank is silent.
 
 ## Processor, not graphics card
 
