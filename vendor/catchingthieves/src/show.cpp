@@ -406,10 +406,17 @@ void Show::coon_update(int i, double dt, const Board& board) {
             if (c.t > .25) { c.state = Coon::hidden; c.t = 0; c.dur = 1.2 + rand01() * 3.5; cues.push_back({Cue::sound, "ct_duck", .4f}); }
             break;
     }
-    // the rise springs toward its target: quick pops, quicker ducks
+    // the rise springs toward its target: quick pops, quicker ducks. A stiff
+    // spring stepped explicitly is only stable for short steps, and a stalled
+    // frame (up to 0.4 s with a queued walk) launched raccoons into the air,
+    // so the spring is integrated in small fixed substeps.
     const double k = c.state == Coon::ducking ? 400 : 160, d = c.state == Coon::ducking ? 30 : 16;
-    c.rise_v += (k * (c.target - c.rise) - d * c.rise_v) * dt;
-    c.rise += c.rise_v * dt;
+    constexpr double kSpringStep = 1.0 / 240.0;
+    for (double left = dt; left > 0; left -= kSpringStep) {
+        const double h = std::min(left, kSpringStep);
+        c.rise_v += (k * (c.target - c.rise) - d * c.rise_v) * h;
+        c.rise += c.rise_v * h;
+    }
     if (c.state == Coon::trapped) c.rise = 0;
     p.rise = std::max(0.0, c.rise);
 }
@@ -475,7 +482,12 @@ void Show::settle(const Board& board) {
         st_.coons[i].pos = (*garden_).cell_pos(cell);
         st_.coons[i].rise = covered ? 0 : .65;
         st_.coons[i].face.mouth = CMouth::smirk;
+        // the springs start from the settled pose, so animation resumes without a jump
+        coons_[i].rise = st_.coons[i].rise;
         if (board.solved()) {
+            coons_[i].state = Coon::surrender;
+            coons_[i].t = 1;
+            coons_[i].rise = .85;
             st_.trapped[i] = 0;
             st_.coons[i].pos = st_.coons[i].pos + V3{0, -.42, 0};
             st_.coons[i].rise = .85;
