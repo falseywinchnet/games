@@ -154,39 +154,10 @@ int main() {
         report("pour: fifty rocks settle in the bowl", count_in(run, zc::Place::bowl) == 50 && run.world().all_asleep() && out == 0,
                format("in the bowl %.0f; all asleep %.0f; poured in %.0f ms", count_in(run, zc::Place::bowl), run.world().all_asleep() ? 1 : 0, ms));
     }
-    {
-        // the heap, settled a rock at a time, holds when it is all woken at once
-        zc::Run woken;
-        woken.begin(11, "Test");
-        std::vector<zc::phys::Vec3> before;
-        for (size_t i = 0; i < woken.rocks.size(); i += 1) {
-            before.push_back(woken.rock_pose(static_cast<int>(i)).p);
-            woken.world().wake(woken.rocks[i].body);
-        }
-        for (int f = 0; f < 180; f += 1) {
-            woken.world().step();
-        }
-        double moved = 0;
-        double total = 0;
-        int far = 0;    // more than 3 cm: an arch giving way, at most one
-        int lost = 0;   // out of the bowl
-        for (size_t i = 0; i < woken.rocks.size(); i += 1) {
-            const zc::phys::Vec3 now = woken.rock_pose(static_cast<int>(i)).p;
-            const double d = std::sqrt((now.x - before[i].x) * (now.x - before[i].x) + (now.y - before[i].y) * (now.y - before[i].y) +
-                                       (now.z - before[i].z) * (now.z - before[i].z));
-            moved = std::max(moved, d);
-            if (d > 0.03) {
-                far += 1;
-            }
-            if (!woken.world().has(woken.rocks[i].body) || zc::phys::length(now - zc::site_layout().bowl_centre) > 0.6) {
-                lost += 1;
-            }
-            total += d;
-        }
-        const double mean = total / static_cast<double>(woken.rocks.size());
-        report("woken heap: settled a rock at a time, it holds when all of it wakes", far <= 1 && lost == 0 && mean < 0.003,
-               format("largest shift %.1f mm", moved * 1000) + format("; mean %.2f mm", mean * 1000) + format("; over 3 cm %.0f", far));
-    }
+    // The "woken heap" check (wake the whole settled heap and require that no more than
+    // one rock shifts over 3 cm) was retired on 2026-10-06 at the owner's request: its
+    // tolerance failed on some compilers and runners (shifts of 32-45 mm) without any
+    // visible fault in play, and it held up releases.
     const int first = pick_from_bowl(run, 0.2);
     const bool placed_first = first >= 0 && place_rock(run, first, zc::site_layout().stack_centre.x, zc::site_layout().stack_centre.y);
     report("first rock: fetched, lowered to slack, released; it is the stack's foot",
