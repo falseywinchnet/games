@@ -22,6 +22,9 @@ enum Material : std::uint32_t {
     fish_fin = 12,
     fern = 13,
     pebble = 14,
+    // Added by Stillwater's treasure chest (treasure.hpp), not in the archive.
+    iron = 15,
+    gold = 16,
 };
 
 class RiverscapeLook final : public ambient::Look {

@@ -9,6 +9,8 @@
 #include "ambient_math.hpp"
 #include "archive.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <vector>
 
@@ -77,11 +79,27 @@ struct ClipVertex {
 };
 
 // Scans one projected triangle. `weights` maps each screen vertex back to the
-// original triangle's barycentric weights (identity when unclipped).
-template <typename Policy>
+// original triangle's barycentric weights. `Identity` promises they are the unit
+// weights (an unclipped triangle), so the mapping is skipped per pixel.
+template <typename Policy, bool Identity = false>
 void scan(Policy& policy, int width, int height, const ScreenPoint* s, const ClipVertex* weights, bool front) {
     constexpr float subpixel = 256.0F;
     const float limit = 4.0e6F;  // keeps 8-bit subpixel products inside 64 bits
+    // Most triangles of a detailed mesh seen small hold no pixel centre at all. Find
+    // those from the float bounds first, widened by more than the fixed-point
+    // rounding, so a triangle is only skipped when the exact test below would be empty.
+    {
+        const float min_x = std::min({s[0].x, s[1].x, s[2].x});
+        const float max_x = std::max({s[0].x, s[1].x, s[2].x});
+        const float min_y = std::min({s[0].y, s[1].y, s[2].y});
+        const float max_y = std::max({s[0].y, s[1].y, s[2].y});
+        constexpr float slack = 1.0F / 128.0F;
+        if (std::floor(max_x - 0.5F + slack) < std::ceil(min_x - 0.5F - slack) ||
+            std::floor(max_y - 0.5F + slack) < std::ceil(min_y - 0.5F - slack) || max_x + slack < 0.5F ||
+            max_y + slack < 0.5F || min_x - slack > static_cast<float>(width) - 0.5F ||
+            min_y - slack > static_cast<float>(height) - 0.5F)
+            return;
+    }
     std::int64_t fx[3]{};
     std::int64_t fy[3]{};
     for (int k = 0; k < 3; ++k) {
@@ -94,7 +112,8 @@ void scan(Policy& policy, int width, int height, const ScreenPoint* s, const Cli
     if (area == 0)
         return;
     int order[3] = {0, 1, 2};
-    if (area < 0) {
+    const bool swapped = area < 0;
+    if (swapped) {
         order[1] = 2;
         order[2] = 1;
     }
@@ -156,40 +175,73 @@ void scan(Policy& policy, int width, int height, const ScreenPoint* s, const Cli
     const ClipVertex& c0 = weights[order[0]];
     const ClipVertex& c1 = weights[order[1]];
     const ClipVertex& c2 = weights[order[2]];
+    const std::int64_t row_steps[3] = {step_x0, step_x1, step_x2};
+    const std::int64_t span_limit = static_cast<std::int64_t>(end_x - start_x) + 1;
     for (int y = start_y; y <= end_y; ++y) {
-        std::int64_t w0 = row0;
-        std::int64_t w1 = row1;
-        std::int64_t w2 = row2;
-        const float z_row = z_at_start + z_step_y * static_cast<float>(y - start_y);
-        for (int x = start_x; x <= end_x; ++x) {
-            if ((w0 | w1 | w2) >= 0) {
-                const float inverse_depth = z_row + z_step_x * static_cast<float>(x - start_x);
-                if (policy.test(x, y, inverse_depth)) {
-                    // Screen-space weights, perspective-corrected where the policy asks.
-                    const float l0 = static_cast<float>(w0 - bias0) * inverse_area;
-                    const float l1 = static_cast<float>(w1 - bias1) * inverse_area;
-                    const float l2 = static_cast<float>(w2 - bias2) * inverse_area;
-                    float p0 = l0;
-                    float p1 = l1;
-                    float p2 = l2;
-                    if constexpr (Policy::perspective) {
-                        const float inverse = 1.0F / inverse_depth;
-                        p0 = l0 * iz0 * inverse;
-                        p1 = l1 * iz1 * inverse;
-                        p2 = l2 * iz2 * inverse;
-                    }
-                    const Coverage coverage{x,
-                                            y,
-                                            inverse_depth,
-                                            p0 * c0.weight0 + p1 * c1.weight0 + p2 * c2.weight0,
-                                            p0 * c0.weight1 + p1 * c1.weight1 + p2 * c2.weight1,
-                                            p0 * c0.weight2 + p1 * c1.weight2 + p2 * c2.weight2};
-                    policy.cover(coverage, front);
-                }
+        // The row's covered run, solved from the three edge functions: an edge rising
+        // along x bounds the run on the left, a falling one on the right. Exact integer
+        // arithmetic, so it covers precisely the pixels the per-pixel test would; long
+        // thin triangles (grass) no longer pay for the empty part of their bounds.
+        const std::int64_t row_values[3] = {row0, row1, row2};
+        std::int64_t first = 0;
+        std::int64_t last = span_limit - 1;
+        for (int k = 0; k < 3; ++k) {
+            const std::int64_t w = row_values[k];
+            const std::int64_t s = row_steps[k];
+            if (s > 0) {
+                if (w < 0)
+                    first = std::max(first, std::min(span_limit, (-w + s - 1) / s));
+            } else if (s < 0) {
+                if (w < 0)
+                    last = -1;
+                else
+                    last = std::min(last, w / (-s));
+            } else if (w < 0) {
+                last = -1;
             }
-            w0 += step_x0;
-            w1 += step_x1;
-            w2 += step_x2;
+        }
+        if (first <= last) {
+            std::int64_t w0 = row0 + step_x0 * first;
+            std::int64_t w1 = row1 + step_x1 * first;
+            std::int64_t w2 = row2 + step_x2 * first;
+            const float z_row = z_at_start + z_step_y * static_cast<float>(y - start_y);
+            const int x_end = start_x + static_cast<int>(last);
+            for (int x = start_x + static_cast<int>(first); x <= x_end; ++x) {
+                if ((w0 | w1 | w2) >= 0) {
+                    const float inverse_depth = z_row + z_step_x * static_cast<float>(x - start_x);
+                    if (policy.test(x, y, inverse_depth)) {
+                        // Screen-space weights, perspective-corrected where the policy asks.
+                        const float l0 = static_cast<float>(w0 - bias0) * inverse_area;
+                        const float l1 = static_cast<float>(w1 - bias1) * inverse_area;
+                        const float l2 = static_cast<float>(w2 - bias2) * inverse_area;
+                        float p0 = l0;
+                        float p1 = l1;
+                        float p2 = l2;
+                        if constexpr (Policy::perspective) {
+                            const float inverse = 1.0F / inverse_depth;
+                            p0 = l0 * iz0 * inverse;
+                            p1 = l1 * iz1 * inverse;
+                            p2 = l2 * iz2 * inverse;
+                        }
+                        if constexpr (Identity) {
+                            // Screen order is the original order, or with the last two swapped.
+                            const Coverage coverage{x, y, inverse_depth, p0, swapped ? p2 : p1, swapped ? p1 : p2};
+                            policy.cover(coverage, front);
+                        } else {
+                            const Coverage coverage{x,
+                                                    y,
+                                                    inverse_depth,
+                                                    p0 * c0.weight0 + p1 * c1.weight0 + p2 * c2.weight0,
+                                                    p0 * c0.weight1 + p1 * c1.weight1 + p2 * c2.weight1,
+                                                    p0 * c0.weight2 + p1 * c1.weight2 + p2 * c2.weight2};
+                            policy.cover(coverage, front);
+                        }
+                    }
+                }
+                w0 += step_x0;
+                w1 += step_x1;
+                w2 += step_x2;
+            }
         }
         row0 += step_y0;
         row1 += step_y1;
@@ -252,6 +304,10 @@ void rasterize(Policy& policy, const Projection& projection, ViewPoint a, ViewPo
     const bool front = signed_area < 0;
     if (cull == Cull::back && !front)
         return;
+    if (count == 3) {
+        detail::scan<Policy, true>(policy, projection.width, projection.height, screen, polygon, front);
+        return;
+    }
     for (int k = 1; k + 1 < count; ++k) {
         const ScreenPoint fan[3] = {screen[0], screen[k], screen[k + 1]};
         const detail::ClipVertex weights[3] = {polygon[0], polygon[k], polygon[k + 1]};
@@ -270,7 +326,7 @@ void rasterize_projected(Policy& policy, const Projection& projection, ScreenPoi
         return;
     const ScreenPoint points[3] = {a, b, c};
     const detail::ClipVertex weights[3] = {{{}, 1, 0, 0}, {{}, 0, 1, 0}, {{}, 0, 0, 1}};
-    detail::scan(policy, projection.width, projection.height, points, weights, front);
+    detail::scan<Policy, true>(policy, projection.width, projection.height, points, weights, front);
 }
 
 // An orthographic light camera for shadow maps: world -> (u, v) in [0, 1] and depth

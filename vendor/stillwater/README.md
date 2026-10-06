@@ -9,7 +9,9 @@ A planted tank seen through the front glass. Tall grass leans and ripples in a s
 current; a mossy driftwood branch arches across the middle; dark boulders, gravel
 and pebbles sit on pale sand where light from the surface ripples. Sixteen silver
 tetras with blue sheen and red fins swim slow loops at different depths; two crabs
-shuffle on the sand; an air stone sends up a thin column of bubbles.
+shuffle on the sand; an air stone sends up a thin column of bubbles. A little
+treasure chest lies half sunk in the sand, its lid ajar over a heap of gold that
+glints as the light ripples across it, and now and then a bubble escapes from it.
 
 There are no rules, no score and nothing to lose. It serves the collection's fourth
 purpose more purely than any game on the shelf: something pleasant to glance at
@@ -23,7 +25,7 @@ beside real work, that asks for nothing and can be left at any moment.
 - **Pause / Resume** (Space or the capsule's primary command): the tank stops on the
   exact frame and costs nothing until resumed. Resuming continues from the same
   moment.
-- **Detail** (D or the capsule): Light, Balanced (default) or Fine, the size of the
+- **Detail** (Q or the capsule): Light, Balanced (default) or Fine, the size of the
   scene's pixels and the processor budget.
 - **Help** (F1 or H).
 
@@ -40,10 +42,17 @@ re-implemented for the processor. Sand, rock and wood use Poly Haven's CC0 maps.
 House look applies: the scene is drawn at one pixel per two points (Balanced) and
 enlarged exactly, like the collection's other 3D games. Fine draws smaller pixels.
 
-Sound: a 64-second seamless ambience (pump hum, moving water, an air stone's small
-bubbles), quiet beside the collection's music, and a glass tap. Both are
-synthesized (`audio_src/make_audio.py`); the ambience follows the Music master, the
-tap the Sound master. A paused tank is silent.
+Sound is the tank itself: the filter's pump hum, moving water and an air stone's
+small bubbles, synthesized as it plays (`src/tank_voice.cpp`), and a glass tap. Both
+follow the Sound master (and the scene's Sound command).
+
+Music is a small band below decks making up sea shanties as it plays
+(`src/shanty_voice.cpp`): a concertina with the tune and the off-beat chords, a
+fiddle answering it or doubling it in a chorus, a bass fiddle and a stamping boot in
+a jaunty 6/8, and a low drone under the slow verses, all in D Dorian. It follows the
+Music master and M. Where the toolkit cannot play live voices, the same recipes are
+played from loops: `audio_src/make_audio.py` (the water) and `sw_music_render loop`
+(a 96-second shanty). A paused tank is silent.
 
 ## Processor, not graphics card
 
@@ -61,6 +70,6 @@ frame with Metal; this port keeps the picture by doing less, not by drawing less
 
 ## Out of scope
 
-Feeding, fish behaviour beyond loops and escapes, moving the camera, editing the
+Feeding, opening the chest, fish behaviour beyond loops and escapes, moving the camera, editing the
 tank, and desktop-wallpaper placement (Stillwater's desktop mode) are not part of
 this game.

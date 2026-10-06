@@ -18,6 +18,11 @@ public:
 #endif
     void start(std::size_t slot, const std::string& name, bool loop, double gain, double rate = 1,
                double pan = 0);
+#ifdef GUI_FORMS_AUDIO_GENERATOR
+    // A live source in a slot, synthesized as it plays. It sounds until the slot is
+    // cleared; gain(), pause() and resume() apply, and a paused source is frozen.
+    void generate(std::size_t slot, std::shared_ptr<gui_forms::AudioGenerator> source, double gain);
+#endif
     void rate(std::size_t slot, double value);
     void gain(std::size_t slot, double value);
     void pause(std::size_t slot);

@@ -13,6 +13,7 @@
 #include "png_writer.hpp"
 #include "riverscape_look.hpp"
 #include "stage.hpp"
+#include "treasure.hpp"
 
 #include <chrono>
 #include <cstdio>
@@ -67,6 +68,8 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", error.c_str());
         return 1;
     }
+    // The game dresses the archive with its treasure chest as it loads; so does this.
+    sw::add_treasure(scene);
     const double load_ms = milliseconds_since(start);
 
     start = Clock::now();
@@ -88,6 +91,7 @@ int main(int argc, char** argv) {
     std::size_t settled = 0;
     for (const std::uint8_t flag : layer.settled)
         settled += flag;
+    const std::size_t foliage_triangles = layer.settled.size();
 
     ambient::Stage stage(scene, look, foliage);
     stage.adopt(std::move(layer));
@@ -121,7 +125,9 @@ int main(int argc, char** argv) {
     std::printf("load %.1f ms, look %.1f ms, shadow map %.1f ms, foliage %.1f ms, fixed layer %.1f ms\n", load_ms,
                 look_ms, shadow_ms, foliage_ms, fixed_ms);
     std::printf("foliage settled into the fixed layer: %zu of %zu triangles (threshold %.2f px)\n", settled,
-                layer.settled.size(), static_cast<double>(settle_pixels));
+                foliage_triangles, static_cast<double>(settle_pixels));
+    std::printf("foliage hidden behind the fixed layer however it sways: %llu triangles\n",
+                static_cast<unsigned long long>(stage.counters().hidden_triangles));
     std::printf("first sway %.1f ms, first compose %.1f ms\n", sway_ms, compose_ms);
     std::printf("steady: compose %.2f ms/frame, sway %.2f ms/update (%d), %.1f ms per second at 24 fps\n",
                 compose_mean, sway_count > 0 ? sway_total / sway_count : 0.0,

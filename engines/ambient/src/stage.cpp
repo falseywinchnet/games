@@ -174,7 +174,7 @@ template <typename Policy> void rasterize_flat(Policy& policy, int width, int he
                                                ScreenPoint c) {
     const ScreenPoint points[3] = {a, b, c};
     const detail::ClipVertex weights[3] = {{{}, 1, 0, 0}, {{}, 0, 1, 0}, {{}, 0, 0, 1}};
-    detail::scan(policy, width, height, points, weights, true);
+    detail::scan<Policy, true>(policy, width, height, points, weights, true);
 }
 
 Vec3 decode_normal(const std::int8_t* n) {
@@ -527,6 +527,7 @@ FixedLayer build_fixed_layer(const SceneData& scene, const Look& look, const Sha
             }
         }
     }
+    layer.hidden = hide_foliage(scene, foliage, display_projection, layer.depth, settled);
     layer.settled = std::move(settled);
     return layer;
 }
@@ -663,6 +664,96 @@ std::vector<std::uint8_t> settle_foliage(const SceneData& scene, const Foliage& 
     return settled;
 }
 
+std::vector<std::uint8_t> hide_foliage(const SceneData& scene, const Foliage& foliage, const Projection& projection,
+                                       const std::vector<float>& depth, const std::vector<std::uint8_t>& settled) {
+    const std::vector<SwayVertex>& vertices = scene.sway.vertices;
+    const std::vector<std::uint32_t>& indices = scene.sway.indices;
+    std::vector<std::uint8_t> hidden(indices.size() / 3, 0);
+    const int width = projection.width;
+    const int height = projection.height;
+    if (width <= 0 || height <= 0 || depth.size() != static_cast<std::size_t>(width) * static_cast<std::size_t>(height))
+        return hidden;
+    // Nearest fixed depth per 8 x 8 tile: the smallest reciprocal depth in it. A
+    // triangle is hidden when it is farther than the smallest over every tile it
+    // could touch, which is the same or stricter than testing each pixel.
+    constexpr int tile = 8;
+    const int tiles_x = (width + tile - 1) / tile;
+    const int tiles_y = (height + tile - 1) / tile;
+    std::vector<float> nearest(static_cast<std::size_t>(tiles_x) * static_cast<std::size_t>(tiles_y), 1e30F);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            float& slot = nearest[static_cast<std::size_t>(y / tile) * static_cast<std::size_t>(tiles_x) +
+                                  static_cast<std::size_t>(x / tile)];
+            slot = std::min(slot, depth[static_cast<std::size_t>(y) * static_cast<std::size_t>(width) +
+                                        static_cast<std::size_t>(x)]);
+        }
+    }
+    // Per vertex, everywhere the current can take it: its screen bounds and its
+    // nearest reciprocal depth. A vertex that could reach the near plane is never culled.
+    struct Bound {
+        float x0{};
+        float x1{};
+        float y0{};
+        float y1{};
+        float inverse_depth{};
+        bool usable{};
+    };
+    std::vector<Bound> bounds(vertices.size());
+    for (std::size_t index = 0; index < vertices.size(); ++index) {
+        const SwayVertex& source = vertices[index];
+        const Vec3 bend{source.bend[0] / 127.0F, source.bend[1] / 127.0F, source.bend[2] / 127.0F};
+        const float reach = foliage.reach[index] * length(bend) * 1.01F + 1e-4F;
+        const ViewPoint view = to_view(projection, position_of(source.position));
+        const float closest = view.depth - reach;
+        Bound& bound = bounds[index];
+        if (closest <= projection.near_plane * 2)
+            continue;
+        const ScreenPoint at = to_screen(projection, view);
+        const float lateral = std::sqrt(view.x * view.x + view.y * view.y);
+        const float radius = projection.focal * reach / closest * (1.0F + lateral / view.depth) + 1.0F;
+        bound.x0 = at.x - radius;
+        bound.x1 = at.x + radius;
+        bound.y0 = at.y - radius;
+        bound.y1 = at.y + radius;
+        bound.inverse_depth = 1.0F / closest;
+        bound.usable = true;
+    }
+    for (std::size_t t = 0; t < hidden.size(); ++t) {
+        if (t < settled.size() && settled[t] != 0)
+            continue;
+        const Bound& a = bounds[indices[t * 3]];
+        const Bound& b = bounds[indices[t * 3 + 1]];
+        const Bound& c = bounds[indices[t * 3 + 2]];
+        if (!a.usable || !b.usable || !c.usable)
+            continue;
+        const float x0 = std::min({a.x0, b.x0, c.x0});
+        const float x1 = std::max({a.x1, b.x1, c.x1});
+        const float y0 = std::min({a.y0, b.y0, c.y0});
+        const float y1 = std::max({a.y1, b.y1, c.y1});
+        if (x1 < 0 || y1 < 0 || x0 >= static_cast<float>(width) || y0 >= static_cast<float>(height)) {
+            hidden[t] = 1;  // off the picture wherever it sways
+            continue;
+        }
+        const float farthest = std::max({a.inverse_depth, b.inverse_depth, c.inverse_depth}) * 1.001F;
+        const int tx0 = std::max(0, static_cast<int>(std::floor(x0))) / tile;
+        const int tx1 = std::min(width - 1, static_cast<int>(std::ceil(x1))) / tile;
+        const int ty0 = std::max(0, static_cast<int>(std::floor(y0))) / tile;
+        const int ty1 = std::min(height - 1, static_cast<int>(std::ceil(y1))) / tile;
+        bool covered = true;
+        for (int ty = ty0; ty <= ty1 && covered; ++ty) {
+            for (int tx = tx0; tx <= tx1; ++tx) {
+                if (nearest[static_cast<std::size_t>(ty) * static_cast<std::size_t>(tiles_x) +
+                            static_cast<std::size_t>(tx)] <= farthest) {
+                    covered = false;
+                    break;
+                }
+            }
+        }
+        hidden[t] = covered ? 1 : 0;
+    }
+    return hidden;
+}
+
 // ------------------------------------------------------------------ the stage
 
 Stage::Stage(const SceneData& scene, const Look& look, const Foliage& foliage)
@@ -716,19 +807,30 @@ void Stage::adopt(FixedLayer layer) {
     fixed_ = std::move(layer);
     projection_ = make_projection(scene_.camera, fixed_.width, fixed_.height);
     const std::size_t pixels = static_cast<std::size_t>(fixed_.width) * static_cast<std::size_t>(fixed_.height);
-    sway_color_.assign(pixels, 0);
-    sway_depth_.assign(pixels, 0.0F);
+    for (int k = 0; k < 2; ++k) {
+        sway_color_[k].assign(pixels, 0);
+        sway_depth_[k].assign(pixels, 0.0F);
+        lit_pixels_[k].clear();
+        lit_pixels_[k].reserve(pixels);
+    }
+    shown_ = 0;
     frame_color_.assign(pixels, 0);
     frame_depth_.assign(pixels, 0.0F);
-    lit_pixels_.clear();
-    lit_pixels_.reserve(pixels);
+    fixed_lit_.resize(pixels);
+    for (std::size_t index = 0; index < pixels; ++index)
+        fixed_lit_[index] = fixed_.boost[index] != 0 ? 1 : 0;
     // Only foliage the fixed layer did not settle is redrawn on the sway cadence.
     const std::vector<std::uint32_t>& indices = scene_.sway.indices;
     moving_order_.clear();
+    std::uint64_t hidden = 0;
     std::vector<std::uint8_t> used(scene_.sway.vertices.size(), 0);
     for (const std::uint32_t triangle : foliage_.order) {
         if (triangle < fixed_.settled.size() && fixed_.settled[triangle] != 0)
             continue;
+        if (triangle < fixed_.hidden.size() && fixed_.hidden[triangle] != 0) {
+            ++hidden;
+            continue;
+        }
         moving_order_.push_back(triangle);
         for (std::size_t k = 0; k < 3; ++k)
             used[indices[static_cast<std::size_t>(triangle) * 3U + k]] = 1;
@@ -738,19 +840,31 @@ void Stage::adopt(FixedLayer layer) {
         if (used[index] != 0)
             moving_vertices_.push_back(static_cast<std::uint32_t>(index));
     }
+    counters_.hidden_triangles = hidden;
     ++counters_.fixed_builds;
 }
 
 void Stage::update_sway(double time) {
+    build_sway(time);
+    show_sway();
+}
+
+void Stage::show_sway() {
+    shown_ = 1 - shown_;
+}
+
+void Stage::build_sway(double time) {
     if (!ready())
         return;
+    const int target = 1 - shown_;
+    std::vector<std::uint32_t>& sway_color = sway_color_[target];
+    std::vector<float>& sway_depth = sway_depth_[target];
+    std::vector<std::uint32_t>& lit_pixels = lit_pixels_[target];
     const std::size_t pixels = fixed_.color.size();
-    std::memcpy(sway_color_.data(), fixed_.color.data(), pixels * sizeof(std::uint32_t));
-    std::memcpy(sway_depth_.data(), fixed_.depth.data(), pixels * sizeof(float));
+    std::memcpy(sway_color.data(), fixed_.color.data(), pixels * sizeof(std::uint32_t));
+    std::memcpy(sway_depth.data(), fixed_.depth.data(), pixels * sizeof(float));
     std::vector<std::uint8_t>& lit = lit_mask_;
-    lit.resize(pixels);
-    for (std::size_t index = 0; index < pixels; ++index)
-        lit[index] = fixed_.boost[index] != 0 ? 1 : 0;
+    lit = fixed_lit_;
 
     update_current_roots(scene_.sway_roots, time, roots_);
     const std::vector<SwayVertex>& vertices = scene_.sway.vertices;
@@ -773,8 +887,8 @@ void Stage::update_sway(double time) {
     }
     GouraudPolicy policy{};
     policy.width = fixed_.width;
-    policy.depth = sway_depth_.data();
-    policy.color = sway_color_.data();
+    policy.depth = sway_depth.data();
+    policy.color = sway_color.data();
     policy.lit = lit.data();
     const std::vector<std::uint32_t>& indices = scene_.sway.indices;
     for (const std::uint32_t triangle : moving_order_) {
@@ -790,10 +904,10 @@ void Stage::update_sway(double time) {
         else
             rasterize(policy, projection_, sway_view_[i0], sway_view_[i1], sway_view_[i2], Cull::none);
     }
-    lit_pixels_.clear();
+    lit_pixels.clear();
     for (std::size_t index = 0; index < pixels; ++index) {
         if (lit[index] != 0)
-            lit_pixels_.push_back(static_cast<std::uint32_t>(index));
+            lit_pixels.push_back(static_cast<std::uint32_t>(index));
     }
     counters_.sway_triangles += moving_order_.size();
     ++counters_.sway_updates;
@@ -802,11 +916,12 @@ void Stage::update_sway(double time) {
 void Stage::compose(double time, double light_time, const std::vector<Creature>& creatures) {
     if (!ready())
         return;
-    const std::size_t pixels = sway_color_.size();
-    std::memcpy(frame_color_.data(), sway_color_.data(), pixels * sizeof(std::uint32_t));
-    std::memcpy(frame_depth_.data(), sway_depth_.data(), pixels * sizeof(float));
+    const std::vector<std::uint32_t>& sway_color = sway_color_[shown_];
+    const std::size_t pixels = sway_color.size();
+    std::memcpy(frame_color_.data(), sway_color.data(), pixels * sizeof(std::uint32_t));
+    std::memcpy(frame_depth_.data(), sway_depth_[shown_].data(), pixels * sizeof(float));
     const float t = static_cast<float>(light_time);
-    for (const std::uint32_t index : lit_pixels_) {
+    for (const std::uint32_t index : lit_pixels_[shown_]) {
         const float strength = look_.animated_light(fixed_.light_position[index * 2U],
                                                     fixed_.light_position[index * 2U + 1U], t);
         if (strength <= 0.002F)
@@ -889,6 +1004,9 @@ void Stage::draw_actors(double time, const std::vector<Creature>& creatures) {
             out.normal = rotate_y(normalize(apply_linear(normal_transform, normal)), c, s);
             out.local = local;
             out.view = to_view(projection_, world);
+            out.in_front = out.view.depth >= projection_.near_plane;
+            if (out.in_front)
+                out.screen = to_screen(projection_, out.view);
         }
     }
     fragments_.clear();
@@ -907,9 +1025,15 @@ void Stage::draw_actors(double time, const std::vector<Creature>& creatures) {
         policy.part = static_cast<std::uint32_t>(p);
         for (std::size_t t = 0; t + 2 < mesh.indices.size(); t += 3) {
             policy.triangle = static_cast<std::uint32_t>(t / 3);
-            rasterize(policy, projection_, actor_vertices_[base + mesh.indices[t]].view,
-                      actor_vertices_[base + mesh.indices[t + 1]].view,
-                      actor_vertices_[base + mesh.indices[t + 2]].view, cull);
+            // Each vertex is shared by several triangles: project it once (above), and
+            // clip only the rare triangle that crosses the near plane.
+            const ActorVertexOut& a = actor_vertices_[base + mesh.indices[t]];
+            const ActorVertexOut& b = actor_vertices_[base + mesh.indices[t + 1]];
+            const ActorVertexOut& d = actor_vertices_[base + mesh.indices[t + 2]];
+            if (a.in_front && b.in_front && d.in_front)
+                rasterize_projected(policy, projection_, a.screen, b.screen, d.screen, cull);
+            else
+                rasterize(policy, projection_, a.view, b.view, d.view, cull);
         }
     }
     // Shade in scan order: a nearer fragment always comes after what it covers.

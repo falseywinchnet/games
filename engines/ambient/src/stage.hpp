@@ -107,6 +107,7 @@ struct FixedLayer {
     std::vector<std::uint32_t> boost{};      // 0x00RRGGBB animated light at full strength
     std::vector<float> light_position{};     // width * height * 2: world x, z where boost != 0
     std::vector<std::uint8_t> settled{};     // per foliage triangle: 1 when drawn here, at rest
+    std::vector<std::uint8_t> hidden{};      // per foliage triangle: 1 when this layer hides it however it sways
 };
 
 // Foliage data prepared once per scene and read-only afterwards, so a worker
@@ -125,12 +126,20 @@ struct Foliage {
 [[nodiscard]] std::vector<std::uint8_t> settle_foliage(const SceneData& scene, const Foliage& foliage,
                                                        const Projection& projection, float threshold_pixels);
 
+// Per foliage triangle: 1 when, wherever the current can carry it, every pixel it
+// could cover is already nearer in `depth` (a fixed layer's), so drawing it can change
+// nothing. Conservative: a triangle is kept unless that is certain.
+[[nodiscard]] std::vector<std::uint8_t> hide_foliage(const SceneData& scene, const Foliage& foliage,
+                                                     const Projection& projection, const std::vector<float>& depth,
+                                                     const std::vector<std::uint8_t>& settled);
+
 // Statistics for measurement and tests.
 struct StageCounters {
     std::uint64_t fixed_builds{};
     std::uint64_t sway_updates{};
     std::uint64_t frames{};
     std::uint64_t sway_triangles{};
+    std::uint64_t hidden_triangles{};  // foliage the current fixed layer hides
     std::uint64_t actor_fragments{};
 };
 
@@ -165,8 +174,14 @@ class Stage final {
     }
     // Takes ownership of a fixed layer built for the current camera.
     void adopt(FixedLayer layer);
-    // Rebuilds the sway layer for `time`.
+    // Rebuilds the sway layer for `time` and shows it.
     void update_sway(double time);
+    // The same in two steps, so the rebuild can run on a worker: build_sway draws into
+    // the hidden sway buffer while compose() keeps reading the shown one; show_sway
+    // (on the composing thread, with no build running) makes the new one current.
+    // Nothing else on the stage may be called during a build, except compose().
+    void build_sway(double time);
+    void show_sway();
     // Composes a frame: creatures and particles at `time`, the animated light at
     // `light_time` (held still under reduced motion). The sway layer must have been
     // updated at least once.
@@ -192,10 +207,13 @@ class Stage final {
     FixedLayer fixed_{};
     Projection projection_{};
     // Sway layer.
-    std::vector<std::uint32_t> sway_color_{};
-    std::vector<float> sway_depth_{};
+    // Two sway layers: one shown (read by compose), one being built.
+    std::vector<std::uint32_t> sway_color_[2]{};
+    std::vector<float> sway_depth_[2]{};
+    std::vector<std::uint32_t> lit_pixels_[2]{};  // pixels still taking animated light
+    int shown_{};
     std::vector<std::uint8_t> lit_mask_{};     // 1 where the fixed surface still shows
-    std::vector<std::uint32_t> lit_pixels_{};  // pixels still taking animated light
+    std::vector<std::uint8_t> fixed_lit_{};    // 1 where the fixed layer takes animated light
     std::vector<CurrentRoot> roots_{};
     std::vector<std::uint32_t> moving_order_{};     // foliage triangles redrawn, in draw order
     std::vector<std::uint32_t> moving_vertices_{};  // their vertices
@@ -209,6 +227,8 @@ class Stage final {
     // Creature workspace, reused every frame.
     struct ActorVertexOut {
         ViewPoint view{};
+        ScreenPoint screen{};  // projected once per frame, when in front of the near plane
+        bool in_front{};
         Vec3 world{};
         Vec3 normal{};
         Vec3 local{};

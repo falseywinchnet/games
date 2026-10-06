@@ -238,14 +238,30 @@ ambient::FixedShade RiverscapeLook::shade_fixed(const ambient::FixedSample& in, 
                                    ambient::scale(ambient::multiply(albedo, fill_color),
                                                   std::max(0.0F, ambient::dot(normal, fill_direction))));
     const float direct = std::max(0.0F, ambient::dot(normal, light_));
-    const float caustic = mapped ? std::max(normal.y, 0.0F) : 0.0F;
+    // The chest's iron and gold (treasure.hpp) are metals: they also catch the light
+    // as a highlight, and the gold glints where the rippling light crosses it.
+    const bool metal = material == iron || material == gold;
+    const float caustic = mapped || metal ? std::max(normal.y, 0.0F) : 0.0F;
     const Water water = water_at(eye_, in.world);
     const Vec3 base_term = ambient::add(ambient::multiply(base, water.transmission),
                                         ambient::scale(water_color(0.5F), water.fog));
     const Vec3 surface = ambient::multiply(albedo, water.transmission);
     const float lit = in.light_visibility * illumination_;
-    const Vec3 direct_term = ambient::scale(ambient::multiply(surface, sun_color), direct * lit);
-    const Vec3 focused = ambient::scale(ambient::multiply(surface, caustic_color), caustic * lit);
+    Vec3 direct_term = ambient::scale(ambient::multiply(surface, sun_color), direct * lit);
+    Vec3 focused = ambient::scale(ambient::multiply(surface, caustic_color), caustic * lit);
+    if (metal) {
+        const bool golden = material == gold;
+        const Vec3 view = ambient::normalize(ambient::subtract(eye_, in.world));
+        const Vec3 half = ambient::normalize(ambient::add(light_, view));
+        const float facing = std::max(ambient::dot(normal, half), 0.0F);
+        const float shine = std::pow(facing, golden ? 30.0F : 14.0F) * (golden ? 1.1F : 0.35F);
+        const Vec3 sheen = golden ? Vec3{1.0F, 0.66F, 0.18F} : Vec3{0.42F, 0.40F, 0.37F};
+        direct_term = ambient::add(direct_term,
+                                   ambient::scale(ambient::multiply(sheen, water.transmission), shine * lit));
+        if (golden)
+            focused = ambient::scale(ambient::multiply(ambient::multiply(sheen, water.transmission), caustic_color),
+                                     caustic * lit * 9.0F);
+    }
     ambient::FixedShade shade{};
     shade.color = display_aces(ambient::add(base_term, direct_term));
     if (caustic > 0 && lit > 0) {

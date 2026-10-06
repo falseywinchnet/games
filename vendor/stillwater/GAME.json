@@ -47,7 +47,10 @@
   "view_class": "StillwaterView",
   "save_file": "stillwater-v1.txt",
   "core_sources": [
-    "src/riverscape_look.cpp"
+    "src/riverscape_look.cpp",
+    "src/treasure.cpp",
+    "src/shanty_voice.cpp",
+    "src/tank_voice.cpp"
   ],
   "core_tests": [
     "tests/stillwater_tests.cpp"

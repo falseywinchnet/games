@@ -87,3 +87,88 @@ On the M4 Mac mini (macOS, LLVM 22, toolkit `d58f530`, Skia CPU), 2026-10-04:
   MIT (`assets/licenses/desktop-habitats-MIT.txt`). Material maps: Poly Haven,
   CC0. ACES fit: Three.js, MIT. Fish, crab and bubble motion, the audio and all
   code here are new or carried from Stillwater (same owner).
+
+## 2026-10-06: chest, shanties, sound routing, buffering and cost
+
+On the M4 Mac mini (`.build/mowing-app`, LLVM 22, Skia CPU), all 56 tests pass.
+
+- **Sound vs music.** The water ambience was played in the shell's music slot, so
+  the Music control silenced the tank. It is now sound: a live `TankVoice`
+  (`src/tank_voice.cpp`, the same recipe as `make_audio.py`, matched to the loop's
+  level: RMS 0.067 vs 0.066) through `SoundDesk::live`, under the Sound master;
+  the `sw_ambience` loop is the fallback bed. No saved setting held this, so no
+  migration was needed (saves still hold paused and detail only).
+- **Music.** `src/shanty_voice.cpp`: a band improvising 6/8 shanties in D Dorian
+  (concertina tune and off-beat squeezes, fiddle answering or doubling an octave
+  up, bass fiddle on the beats, a stamping boot, a drone under slow verses, a small
+  room). Verses pick a progression, tempo (54-78), lead and motif; call and
+  response, question ending on A, answer on D. Through `SoundDesk::live_music`
+  (Music master, M). Renders 400-460x faster than real time. Fallback loop
+  `assets/audio/sw_shanty.m4a` (96 s, crossfaded) from `sw_music_render loop`.
+  Not listened to by a person yet.
+- **Treasure chest** (`src/treasure.cpp`): planked wood with seams, iron straps,
+  barrel lid open 35 degrees, a lumpy gold heap with a ruby, coins on the sand,
+  three slow bubbles. Added to the archive on load through the engine's new
+  `SceneSetup::dress`; it is fixed scenery (about 1,000 triangles shaded once per
+  size), so a frame costs nothing extra. Gold and iron are new materials (15, 16)
+  with a highlight; the gold takes the rippling light, which makes it glint.
+- **Engine additions** (`engines/ambient`): `SceneSetup::music`, `dress`,
+  `live_ambience`, `live_music`; `Diorama` plays the ambience as a bed. Mowing's
+  `live_music`, Q and repeat handling are unchanged.
+
+### Buffering study
+
+`GAMES_SCENE_TRACE=1` makes a scene print its pacing when it closes. Measured with
+`--profile-idle 20` (10 s sample, 1060 x 618 window, scene 530 x 309, Balanced) and
+headless with `sw_preview` (590 x 380).
+
+Found:
+1. *Frame hitches from the foliage.* Every sway update (9 ms headless, up to ~25 ms
+   in the app) ran inside a frame on the UI thread: frame drawing averaged 12.9 ms,
+   max 37-40 ms, against 1.5 ms for a frame without it.
+2. *Timer phase resets.* Any change of the governed interval re-armed the timer from
+   the end of the tick's work, stretching that frame: interval max 93-137 ms at a
+   target of 83 ms.
+3. *Wasted foliage.* 80,000 of 118,000 redrawn foliage triangles drew no pixel; 34,000
+   of them are hidden by fixed scenery wherever they sway, or off the picture.
+4. *Actor vertices projected per triangle* (three divisions per triangle, not one per
+   vertex).
+5. *Audio.* A 64 s loop decodes to 24.6 MB of float PCM (plus a 16 MiB codec arena
+   while decoding); the live voices hold nothing and need about 0.25 % of a core
+   for both on the audio thread (256-frame device blocks). No lease misses (frames
+   drawn but not presented) were seen.
+6. *Host presentation on macOS* is a full retained paint per frame (no direct live
+   surface; Skia clears then draws the window): `docs/TOOLKIT_REQUESTS.md` item 5.
+   Not changed here.
+7. The app's own frame costs run 3-6x the headless timings (the window process is
+   scheduled at a lower performance level), so the governor holds Balanced at its
+   floors (12 frames, 3 sway updates a second) at this size.
+
+Changed:
+- Sway updates (after the first) run on a worker into a second sway buffer and are
+  shown with the next frame (`Stage::build_sway`/`show_sway`, double-buffered).
+- The timer is re-armed only when the interval changes by 2 ms or more, and then
+  from the tick's start (`Timer::start_at`).
+- `hide_foliage` drops, per fixed layer, foliage that cannot show (exact: pixel
+  comparison tests in `stillwater_rules`).
+- Scan conversion solves each row's covered span and rejects triangles holding no
+  pixel centre before fixed-point setup; actor vertices are projected once.
+- `sw_preview` printed the settled count after a move ("of 0"); fixed.
+
+| Measure | Before | After |
+|---|---|---|
+| Headless sway update | 9.09 ms | 7.9-8.1 ms |
+| Headless composed frame | 1.53 ms | 1.31 ms |
+| Headless scene work at 24 fps + 8 sway | 109 ms/s | 96 ms/s |
+| App frame drawing (UI thread), mean / max | 12.9 / 37-40 ms | 7.8 / 11-12 ms |
+| App frame interval max (target 83 ms) | 93-137 ms | 84.7 ms |
+| Process CPU, 10 s | 21.6-27.2 % | 28.2 % (same floor rates; noisy) |
+| Resident memory | 196 MiB | 201 MiB |
+
+Process CPU did not fall: the governor spends the budget it is given, and rates
+stayed at their floors in this window, so the gains appear as smooth frames and
+headroom. The original pre-chest build could not be swapped in for comparison;
+the HANDOFF's earlier 18.3 % (1060 x 680) is the older reference.
+
+Not yet done: listening to the shanties and the live water; Retina; why in-app
+compose is so much slower than headless (QoS); toolkit direct presentation on macOS.

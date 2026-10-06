@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "id": "mowingman",
+  "entry_id": 21,
+  "entry_name": "mowingman",
+  "namespace": "mm",
+  "title": "Mowing",
+  "kind": "Garden mowing",
+  "blurb": "Eggy mows the lawn on his own. Take the wheel, or catch a gnome peeking from the grass.",
+  "colors": [
+    [
+      86,
+      140,
+      52
+    ],
+    [
+      34,
+      64,
+      22
+    ],
+    [
+      242,
+      103,
+      34
+    ]
+  ],
+  "engines": [
+    "ambient",
+    "coverage"
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [
+    "src/mowing_view.cpp"
+  ],
+  "audio_sources": [],
+  "libraries": [
+    "mm_core"
+  ],
+  "rail": true,
+  "assets": "assets",
+  "audio_prefix": "mm_",
+  "audio_manifest": "assets/audio/mowingman_audio_manifest.json",
+  "settles_when_untouched": false,
+  "view_header": "mowing_view.hpp",
+  "view_class": "MowingView",
+  "save_file": "mowing_man-v1.txt",
+  "core_sources": [
+    "src/garden.cpp",
+    "src/sim.cpp",
+    "src/grass_art.cpp",
+    "src/lawn_art.cpp",
+    "src/mower_voice.cpp",
+    "src/chipper_voice.cpp",
+    "src/ambience_voice.cpp",
+    "src/banjo_voice.cpp",
+    "src/granny_voice.cpp",
+    "src/art.cpp",
+    "src/models_garden.cpp",
+    "src/models_figures.cpp",
+    "src/models_granny.cpp",
+    "src/models_gnome.cpp",
+    "src/models_mower.cpp",
+    "src/models_common.cpp",
+    "src/model3d.cpp",
+    "src/stones.cpp",
+    "src/models_shed.cpp",
+    "src/yard.cpp",
+    "src/platform/raster.cpp"
+  ],
+  "core_tests": [
+    "tests/mowing_tests.cpp"
+  ],
+  "contract_test": "tests/view_contract_tests.cpp",
+  "borrowed": [
+    "src/platform/raster.cpp",
+    "src/platform/raster.hpp"
+  ],
+  "rules_target": "mowingman_rules_tests"
+}

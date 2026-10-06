@@ -4,6 +4,11 @@
    "id": "sw_ambience",
    "loop_end_sample_exclusive": 3072000,
    "seconds": 64.0
+  },
+  {
+   "id": "sw_shanty",
+   "loop_end_sample_exclusive": 4608000,
+   "seconds": 96
   }
  ],
  "stingers": []

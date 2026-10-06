@@ -9,7 +9,10 @@
     "ambient_core"
   ],
   "ui_sources": [
-    "ui/ambient_view.cpp"
+    "ui/ambient_view.cpp",
+    "ui/diorama.cpp",
+    "ui/scene_view.cpp",
+    "ui/sound_desk.cpp"
   ],
   "ui_libraries": [
     "ambient_ui"

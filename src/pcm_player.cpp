@@ -68,6 +68,23 @@ void PcmPlayer::start(std::size_t index, const std::string& name, bool loop, dou
         create_voice(slot);
     }
 }
+#ifdef GUI_FORMS_AUDIO_GENERATOR
+void PcmPlayer::generate(std::size_t index, std::shared_ptr<gui_forms::AudioGenerator> source, double gain) {
+    if (index >= slots_.size() || !source) { return; }
+    open();
+    if (engine_.status() != gui_forms::AudioStatus::ok) { return; }
+    clear(index);
+    Slot& slot = slots_[index];
+    slot.name = "generator";
+    slot.gain = gain;
+    const gui_forms::AudioStatus admitted = engine_.generator(std::move(source), slot.voice);
+    report(admitted, slot.name);
+    slot.voice_ready = admitted == gui_forms::AudioStatus::ok;
+    if (!slot.voice_ready) { return; }
+    report(slot.voice.set_gain(slot.gain), "gain");
+    report(slot.voice.play(), "play");
+}
+#endif
 void PcmPlayer::gain(std::size_t index, double value) {
     Slot& slot = slots_.at(index);
     slot.gain = value;

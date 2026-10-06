@@ -118,3 +118,20 @@ static pixel retention without copying platform rendering code into Games.
 Faster image filtering and propagation of bounded damage through the native
 direct drain remain independent improvements. The adapter was developed in an
 isolated toolkit branch and raised with the toolkit owner for upstream adoption.
+
+## Live audio sources
+
+`AudioEngine` plays clips only ("No streaming"). The mower in Mowing is a synthesizer
+that must answer the moment the key or the grass changes, so it needs the mixer to
+pull samples from it. `docs/toolkit-patches/gui_forms_audio_generator.patch` adds
+that as a small addition against GUI.Forms `d58f530`: an `AudioGenerator` interface
+(`render(std::span<float>) noexcept`, called on the device callback or inside
+offline `render`), `AudioEngine::generator(source, voice)`, and the feature macro
+`GUI_FORMS_AUDIO_GENERATOR`. A generator voice is fixed-rate, takes gain, pause and
+resume like any voice, and is not pulled while paused.
+
+Games uses it only behind that macro: `PcmPlayer::generate`, `ambient::SoundDesk::live`
+and the `LiveMower` in Mowing. Without it Mowing plays the same voice from rendered
+clips. It was developed against an isolated copy of the toolkit
+(`.build/toolkit-audio-generator`, never the shared checkout) and is raised here for
+upstream adoption.

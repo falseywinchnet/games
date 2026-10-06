@@ -17,7 +17,7 @@ processor redoes only what moved:
 | Layer | Contents | Redrawn |
 |---|---|---|
 | fixed | Everything that does not move: sand, rock, wood, pebbles, ferns, and foliage that cannot move half a pixel at this size. Shaded once per pixel with material maps, normal maps, shadows and 2 × 2 supersampling. Keeps colour, depth, and for surfaces that take animated light, their world position and brightening. | When the view's size or detail changes (on a worker) |
-| sway | The fixed layer plus moving foliage, bent by the current, Gouraud-shaded | On the sway cadence (8 per second preferred) |
+| sway | The fixed layer plus moving foliage, bent by the current, Gouraud-shaded. Two buffers: one is shown while the other is rebuilt on a worker | On the sway cadence (8 per second preferred), beside the frames |
 | frame | The sway layer, the animated light on the lit pixels, then creatures (shaded per pixel) and particles | Every animation tick (24 per second preferred) |
 
 The frame is enlarged to the device surface with nearest-pixel sampling. Each scene
@@ -35,6 +35,12 @@ the raster, so a full-screen window costs no more than a large one.
   doubles it). Floors keep motion fluid: 12 frames and 3 sway updates a second.
 - **An inactive window halves the budget** and the preferred rates.
 - **Reduced motion** holds the foliage and the light still; creatures keep swimming.
+- **Hidden foliage is dropped per size.** With each fixed layer, foliage that the
+  fixed scenery hides wherever the current can carry it (or that stays off the
+  picture) is left out of the sway updates; the picture is identical.
+- **Frames never wait for the grass.** Sway updates after the first run on a worker
+  into the hidden sway buffer and are shown with the next frame, so a frame costs
+  the same whether or not the foliage moved.
 - **Foliage lighting is linearized** in the bend: each vertex is shaded at rest and
   at a small tilt once, and each update interpolates (a first-order approximation).
 - **Foliage is ordered by plant**: see-through plants farthest first so blending
@@ -68,8 +74,16 @@ class StillwaterView final : public ambient::AmbientView {
 ```
 
 `SceneSetup` names the archive below the game's asset folder, the settings file, the
-ambience loop and tap sound, the help words, the look factory, the creatures'
-bounds, the cadence limits and a backdrop colour shown while loading.
+ambience (a sound bed, under the Sound master), music (under the Music master), the
+tap sound, the help words, the look factory, an optional dressing that adds the
+game's own props to the archive as it loads, the creatures' bounds, the cadence
+limits and a backdrop colour shown while loading. Where the toolkit plays
+generators, `live_ambience` and `live_music` name voices synthesized as they play
+(`SoundDesk::live` and `SoundDesk::live_music`); the clips are the fallback.
+
+Set `GAMES_SCENE_TRACE` to have a scene print its frame pacing (interval, spread,
+late frames), drawing and presentation times and missed surface leases when it
+closes.
 
 ## Making a scene
 

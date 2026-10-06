@@ -1,6 +1,10 @@
 # Included by the generated registry (and by CMakeLists.txt), with GAME_MODULE_DIR set
 # to this folder. The ambient engine (engines/ambient) is built first.
-add_library(sw_core STATIC "${GAME_MODULE_DIR}/src/riverscape_look.cpp")
+add_library(sw_core STATIC
+  "${GAME_MODULE_DIR}/src/riverscape_look.cpp"
+  "${GAME_MODULE_DIR}/src/treasure.cpp"
+  "${GAME_MODULE_DIR}/src/shanty_voice.cpp"
+  "${GAME_MODULE_DIR}/src/tank_voice.cpp")
 target_include_directories(sw_core PUBLIC "${GAME_MODULE_DIR}/src")
 target_link_libraries(sw_core PUBLIC ambient_core)
 target_compile_definitions(sw_core PRIVATE _USE_MATH_DEFINES)
@@ -14,6 +18,10 @@ add_executable(stillwater_rules_tests "${GAME_MODULE_DIR}/tests/stillwater_tests
 target_link_libraries(stillwater_rules_tests PRIVATE sw_core)
 add_test(NAME stillwater_rules COMMAND stillwater_rules_tests "${GAME_MODULE_DIR}/assets/scene/riverscape.ambient")
 set_tests_properties(stillwater_rules PROPERTIES TIMEOUT 120)
+
+# The live music and water, rendered to WAV: the fallback loops and listening copies.
+add_executable(sw_music_render "${GAME_MODULE_DIR}/tools/music_render.cpp")
+target_link_libraries(sw_music_render PRIVATE sw_core)
 
 # Headless frames and timings (tools/preview.cpp); needs the kit's PNG writer.
 get_filename_component(SW_KIT_DIR "${GAME_MODULE_DIR}/../../new-games/kit" ABSOLUTE)
