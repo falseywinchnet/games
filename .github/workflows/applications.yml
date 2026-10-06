@@ -143,7 +143,7 @@ jobs:
         if: runner.os == 'Linux' && steps.skia.outputs.cache-hit != 'true'
         run: |
           GUI_FORMS_SYSTEM_BUILD_TOOLS=1 sh toolkit/gui_forms/third_party/fetch_skia_cpu.sh
-          BUILD_JOBS=2 sh toolkit/gui_forms/third_party/build_skia_cpu_linux.sh "$PWD/toolkit/gui_forms/third_party/skia/out/games"
+          BUILD_JOBS=4 sh toolkit/gui_forms/third_party/build_skia_cpu_linux.sh "$PWD/toolkit/gui_forms/third_party/skia/out/games"
       - name: Build CPU renderer on macOS
         if: runner.os == 'macOS' && steps.skia.outputs.cache-hit != 'true'
         run: |
@@ -152,7 +152,7 @@ jobs:
           mkdir -p "$skia/out/games"
           cp toolkit/gui_forms/third_party/skia_cpu_args.gn "$skia/out/games/args.gn"
           "$skia/bin/gn" gen "$skia/out/games" --root="$skia"
-          "$skia/third_party/ninja/ninja" -C "$skia/out/games" -j2 skia
+          "$skia/third_party/ninja/ninja" -C "$skia/out/games" -j4 skia
       - uses: actions/cache/save@v4
         if: runner.os != 'Windows' && steps.skia.outputs.cache-hit != 'true'
         with:
@@ -174,8 +174,10 @@ jobs:
             -DGAMES_RELEASE_VERSION="$GAMES_RELEASE_VERSION" \
             -DGUI_FORMS_SKIA_PREBUILT=ON \
             -DGUI_FORMS_SKIA_OUT="$PWD/toolkit/gui_forms/third_party/skia/out/games"
+      # Hosted runners are dedicated machines (4 cores on Linux and Windows, 3 on
+      # macOS), unlike the shared development hosts AGENTS.md limits to two jobs.
       - name: Compile complete collection
-        run: cmake --build build/app --parallel 2
+        run: cmake --build build/app --parallel 4
       - name: Report Rock Stack stress benchmark
         continue-on-error: true
         run: ./build/app/rockstack_physics_tests performance
@@ -188,7 +190,7 @@ jobs:
             -DGUI_FORMS_ENABLE_SKIA=OFF -DGUI_FORMS_ENABLE_WINDOWS_HOST=OFF \
             -DGUI_FORMS_ENABLE_HARFBUZZ_TEXT=OFF -DGUI_FORMS_BUILD_GALLERY=OFF \
             -DGUI_FORMS_BUILD_BENCHMARKS=OFF -DGUI_FORMS_BUILD_TESTS=ON
-          cmake --build build/message-tests --target gui_forms_windows_message_queue_tests --parallel 2
+          cmake --build build/message-tests --target gui_forms_windows_message_queue_tests --parallel 4
           ctest --test-dir build/message-tests -R '^gui_forms_windows_message_queue_tests$' --output-on-failure
       - name: Package Windows application and installer
         if: runner.os == 'Windows'

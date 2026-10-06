@@ -126,7 +126,7 @@ jobs:
           -DGAMES_AUDIO_SOURCE_DIR="$PWD/toolkit/gui_forms"
           -DGAMES_AUDIO_ASSET_DIR="$PWD/build/runtime"
       - name: Build shared audio and game adapters
-        run: cmake --build build/audio --parallel 2
+        run: cmake --build build/audio --parallel 4
       - name: Test decoded audio and sample-clock transitions
         run: ctest --test-dir build/audio --output-on-failure --timeout 120 --output-junit results.xml
       - uses: actions/upload-artifact@v4

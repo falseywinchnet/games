@@ -53,7 +53,7 @@ jobs:
       - name: Configure the complete portable game core
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGAMES_BUILD_APPLICATION=OFF
       - name: Build
-        run: cmake --build build --parallel 2
+        run: cmake --build build --parallel 4
       - name: Test rules and storage
         run: ctest --test-dir build --output-on-failure --timeout 180 --parallel 4 --output-junit results.xml
       - name: Render replacement game scenes

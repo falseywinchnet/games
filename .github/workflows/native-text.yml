@@ -71,7 +71,7 @@ jobs:
           cmake -S tests/portable_text -B build/text -G Ninja
           -DCMAKE_BUILD_TYPE=Release -DGAMES_TEST_VENDOR_FRAMES=ON -DGAMES_TEXT_SOURCE_DIR="$PWD/toolkit/gui_forms"
       - name: Build native masks and Games adapters
-        run: cmake --build build/text --target text_request_tests text_native_consumer_tests game_text_frame_tests vendor_game_frame_tests --parallel 2
+        run: cmake --build build/text --target text_request_tests text_native_consumer_tests game_text_frame_tests vendor_game_frame_tests --parallel 4
       - name: Test lifecycle and actual native text
         run: ctest --test-dir build/text --output-on-failure --timeout 120 --output-junit results.xml -R '^(text_request_lifecycle|text_native_consumer|game_text_frame_preparation|.+_native_frames)$'
       - name: Render actual text previews
