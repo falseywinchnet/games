@@ -42,7 +42,8 @@ gf::Color backdrop_color(std::uint32_t rgb) {
     return result;
 }
 
-// Blends a straight-alpha colour over an opaque BGRA pixel.
+// Blends a straight-alpha colour over an opaque pixel (the colour already in the
+// pixel's byte order, so each channel blends with its own).
 void blend_pixel(std::uint32_t& pixel, std::uint32_t rgb, float alpha) {
     const float keep = 1.0F - alpha;
     std::uint32_t out = 0xFF000000U;
@@ -220,6 +221,8 @@ void SceneView::arrange(gf::Rect bounds) {
         description.width = static_cast<std::uint32_t>(device_width_);
         description.height = static_cast<std::uint32_t>(device_height_);
         description.opaque = true;  // every pixel is written opaque: the host may copy, not blend
+        description.pixel_format = gf::native_live_surface_pixel_format();  // the host's own byte order: a straight copy
+        rgba_ = description.pixel_format == gf::LiveSurfacePixelFormat::rgba32_premultiplied_srgb;
         static_cast<void>((*surface_).reconfigure(description));
     }
     request_frame();
@@ -343,12 +346,19 @@ void SceneView::tick() {
 
 // ---------------------------------------------------------------- drawing
 
+// A packed 0xRRGGBB colour as the surface stores it (red and blue exchanged for RGBA).
+std::uint32_t SceneView::in_order(std::uint32_t rgb) const {
+    return rgba_ ? ((rgb & 0xFF00U) | ((rgb >> 16) & 0xFFU) | ((rgb & 0xFFU) << 16)) : rgb;
+}
+
 void SceneView::publish(const std::vector<std::uint32_t>* picture, int width, int height) {
     if (!surface_) {
         gf::LiveSurfaceDescription description;
         description.width = static_cast<std::uint32_t>(device_width_);
         description.height = static_cast<std::uint32_t>(device_height_);
         description.opaque = true;  // every pixel is written opaque: the host may copy, not blend
+        description.pixel_format = gf::native_live_surface_pixel_format();  // the host's own byte order: a straight copy
+        rgba_ = description.pixel_format == gf::LiveSurfacePixelFormat::rgba32_premultiplied_srgb;
         surface_ = gf::LiveSurface::create(description);
         gf::Window* window = attached_window();
         if (surface_ && window != nullptr)
@@ -374,9 +384,9 @@ void SceneView::publish(const std::vector<std::uint32_t>* picture, int width, in
             columns_width_ = width;
         }
         present_nearest((*picture).data(), width, height, columns_, destination.data(), row_bytes, device_width_,
-                        device_height_);
+                        device_height_, rgba_);
     } else {
-        const std::uint32_t backdrop = 0xFF000000U | setup_.backdrop;
+        const std::uint32_t backdrop = 0xFF000000U | in_order(setup_.backdrop);
         for (int y = 0; y < device_height_; ++y) {
             std::uint32_t* row = reinterpret_cast<std::uint32_t*>(destination.data() + static_cast<std::size_t>(y) * row_bytes);
             std::fill(row, row + device_width_, backdrop);
@@ -465,7 +475,7 @@ void SceneView::draw_help(std::byte* pixels, std::size_t row_bytes) {
     for (int y = top; y < top + card_height && y < device_height_; ++y) {
         std::uint32_t* row = reinterpret_cast<std::uint32_t*>(pixels + static_cast<std::size_t>(y) * row_bytes);
         for (int x = left; x < left + card_width; ++x)
-            blend_pixel(row[x], 0x07130F, 0.86F);
+            blend_pixel(row[x], in_order(0x07130F), 0.86F);
     }
     int y = top + margin;
     for (std::size_t index = 0; index < lines.size(); ++index) {
@@ -474,7 +484,7 @@ void SceneView::draw_help(std::byte* pixels, std::size_t row_bytes) {
         if (y + (*line.mask).h > top + card_height)
             break;
         const std::uint32_t ink = index == 0 ? 0xE9F3DCU : 0xC9D8C4U;
-        draw_mask(*line.mask, left + margin, y, ink, pixels, row_bytes, device_width_, device_height_);
+        draw_mask(*line.mask, left + margin, y, in_order(ink), pixels, row_bytes, device_width_, device_height_);
         y += (*line.mask).h;
     }
 }

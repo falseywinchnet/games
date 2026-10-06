@@ -96,6 +96,7 @@ class SceneView : public gf::Control, public games::CommandSource {
     SceneSize wanted_{};
     bool render_dirty_{true};
     bool direct_{};
+    bool rgba_{};         // the live surface is RGBA (the host's own order), not BGRA
     bool front_{true};
     bool music_{true};
     bool sound_on_{true};
@@ -135,6 +136,7 @@ class SceneView : public gf::Control, public games::CommandSource {
     void finish(const SceneContext& context);
     void publish(const std::vector<std::uint32_t>* picture, int width, int height);
     void draw_help(std::byte* pixels, std::size_t row_bytes);
+    [[nodiscard]] std::uint32_t in_order(std::uint32_t rgb) const;
     void set_paused(bool paused);
     void set_detail(Detail detail);
     void set_help(bool open);

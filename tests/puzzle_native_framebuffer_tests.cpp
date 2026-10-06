@@ -20,6 +20,12 @@ std::uint32_t bgra(std::uint32_t pixel, gf::FramebufferChannelOrder order) {
                 ? ((pixel & 0xffU) << 16) | (pixel & 0xff00U) | ((pixel >> 16) & 0xffU)
                 : pixel);
 }
+// A surface pixel read back as BGRA, whichever order the surface was written in.
+std::uint32_t surface_bgra(std::uint32_t pixel, gf::LiveSurfacePixelFormat format) {
+    return format == gf::LiveSurfacePixelFormat::rgba32_premultiplied_srgb
+               ? (pixel & 0xff00ff00U) | ((pixel & 0xffU) << 16) | ((pixel >> 16) & 0xffU)
+               : pixel;
+}
 } // namespace
 struct PuzzleFramebufferTest {
     static bool compare(PuzzleView& view, gf::Window& window) {
@@ -52,12 +58,12 @@ struct PuzzleFramebufferTest {
             const std::uint32_t* observed = reinterpret_cast<const std::uint32_t*>(
                 actual.pixels().data() + y * actual.row_bytes());
             for (std::uint32_t x = 0; x < actual.width(); ++x)
-                if (observed[x] != bgra(expected[x], (*reference).channel_order())) {
+                if (surface_bgra(observed[x], actual.pixel_format()) != bgra(expected[x], (*reference).channel_order())) {
                     const std::uint32_t wanted = bgra(expected[x], (*reference).channel_order());
                     bool rounding = (*reference).channel_order() == gf::FramebufferChannelOrder::rgba;
                     for (unsigned shift = 0; shift < 32; shift += 8)
                         rounding = rounding &&
-                                   std::abs(static_cast<int>((observed[x] >> shift) & 255U) -
+                                   std::abs(static_cast<int>((surface_bgra(observed[x], actual.pixel_format()) >> shift) & 255U) -
                                             static_cast<int>((wanted >> shift) & 255U)) <= 1;
                     // Skia's clipped SIMD spans can round an 8-bit blend one level
                     // differently. Bound both the channel error and pixel count;
@@ -69,7 +75,7 @@ struct PuzzleFramebufferTest {
                     if (mismatches < 8)
                         std::cerr << "pixel " << x << ',' << y << " expected=" << std::hex
                                   << bgra(expected[x], (*reference).channel_order())
-                                  << " observed=" << observed[x] << std::dec << '\n';
+                                  << " observed=" << surface_bgra(observed[x], actual.pixel_format()) << std::dec << '\n';
                     ++mismatches;
                 }
         }

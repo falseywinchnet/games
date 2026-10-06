@@ -129,6 +129,14 @@ Builds against an older toolkit fall back to rendered clips.
 
 ## macOS live-surface painting (found with Stillwater, 2026-10-06)
 
+Largely done: GUI.Forms #52 added `LiveSurfaceDescription::opaque` (no retained paint
+under an opaque surface) and #55 (`2ac5dcd`) native-order surfaces
+(`native_live_surface_pixel_format()`, RGBA on macOS and Linux, BGRA on Windows) with
+pixel-exact copies at 1:1. The scene view and the puzzle views write native order and
+declare themselves opaque. Stillwater, 1060 x 618, per frame on the M4: retained paint
+1.84 -> 0.56 ms, live draw 1.55 -> 1.35 ms. The full-window CoreGraphics hand-off
+remains. The original finding follows.
+
 On the M4 (pinned Skia CPU adapter), a `LiveSurface` drawn through
 `Painter::draw_live_surface` is not directly presented: every published frame
 becomes a retained paint pass over the control's whole area. A 10-second

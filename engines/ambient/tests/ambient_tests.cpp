@@ -476,6 +476,11 @@ void test_presentation() {
             require(device[static_cast<std::size_t>(y * 7 + x)] ==
                         (opaque | scene[static_cast<std::size_t>((y * sh / 5) * sw + x * sw / 7)]),
                     "nearest sampling, made opaque");
+    // the same into an RGBA surface: red and blue exchanged in the one store
+    const std::vector<std::uint32_t> colour{0x00112233U, 0x00445566U, 0x00778899U, 0x00AABBCCU, 0x00DDEEFFU, 0x00102030U};
+    std::vector<std::uint32_t> rgba(7 * 5, 0);
+    present_nearest(colour.data(), sw, sh, columns, reinterpret_cast<std::byte*>(rgba.data()), 7 * 4, 7, 5, true);
+    require(rgba[0] == 0xFF332211U && rgba[34] == 0xFF302010U, "an RGBA surface gets red and blue in its own places");
 }
 
 void test_settings() {

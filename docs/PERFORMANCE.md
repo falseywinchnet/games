@@ -128,7 +128,7 @@ expected during direct animation and must not be described as zero CPU.
 ### Rendering and presentation audit
 
 The following paths describe the current application. The native offscreen
-adapter is pinned at GUI.Forms revision `63e71281fa86a93bc83117e7148490859b483670`.
+adapter is pinned at GUI.Forms revision `2ac5dcd84b8f5b0e241691e31880e36684e0cfcf`.
 Direct presentation means a registered `LiveSurface` submitted through
 `Window::queue_live_surface_presentation`; merely owning a CPU pixel buffer
 does not establish that path. On the pinned Windows host, a surface matching

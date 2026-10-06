@@ -53,7 +53,7 @@ void build_column_map(int scene_width, int device_width, std::vector<std::uint32
 
 void present_nearest(const std::uint32_t* scene, int scene_width, int scene_height,
                      const std::vector<std::uint32_t>& columns, std::byte* destination, std::size_t row_bytes,
-                     int device_width, int device_height) {
+                     int device_width, int device_height, bool rgba) {
     if (scene == nullptr || destination == nullptr || scene_width <= 0 || scene_height <= 0 || device_width <= 0 ||
         device_height <= 0 || columns.size() != static_cast<std::size_t>(device_width))
         return;
@@ -70,8 +70,15 @@ void present_nearest(const std::uint32_t* scene, int scene_width, int scene_heig
         }
         const std::uint32_t* source = scene + static_cast<std::size_t>(source_row) * static_cast<std::size_t>(scene_width);
         std::uint32_t* out = reinterpret_cast<std::uint32_t*>(row);
-        for (int x = 0; x < device_width; ++x)
-            out[x] = source[columns[static_cast<std::size_t>(x)]] | 0xFF000000U;  // the surface is declared opaque
+        if (rgba) {
+            for (int x = 0; x < device_width; ++x) {
+                const std::uint32_t pixel = source[columns[static_cast<std::size_t>(x)]];
+                out[x] = 0xFF000000U | (pixel & 0xFF00U) | ((pixel >> 16) & 0xFFU) | ((pixel & 0xFFU) << 16);
+            }
+        } else {
+            for (int x = 0; x < device_width; ++x)
+                out[x] = source[columns[static_cast<std::size_t>(x)]] | 0xFF000000U;  // the surface is declared opaque
+        }
         previous_source = source_row;
         previous_row = row;
     }

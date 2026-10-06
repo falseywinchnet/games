@@ -95,6 +95,11 @@ bool PuzzleView::prepare_framebuffer() {
     gf::LiveSurfaceDescription description;
     description.width = (*replacement).width();
     description.height = (*replacement).height();
+    // The framebuffer's own byte order, and opaque: presenting it is a straight copy.
+    description.pixel_format = (*replacement).channel_order() == gf::FramebufferChannelOrder::rgba
+                                   ? gf::LiveSurfacePixelFormat::rgba32_premultiplied_srgb
+                                   : gf::LiveSurfacePixelFormat::bgra32_premultiplied_srgb;
+    description.opaque = true;
     if (surface_) {
         if (!(*surface_).reconfigure(description))
             return false;
@@ -179,19 +184,15 @@ void PuzzleView::present_framebuffer(gf::Rect damage) {
     target.end();
     gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write();
     if (lease) {
-        // Pool rotation and skipped generations require a complete candidate.
-        const bool rgba = target.channel_order() == gf::FramebufferChannelOrder::rgba;
+        // Pool rotation and skipped generations require a complete candidate. The
+        // surface shares the framebuffer's byte order; alpha is forced opaque as promised.
         for (std::uint32_t y = 0; y < target.height(); ++y) {
             const std::uint32_t* source =
                 reinterpret_cast<const std::uint32_t*>(pixels.data() + y * target.row_bytes());
             std::uint32_t* destination =
                 reinterpret_cast<std::uint32_t*>(lease.pixels().data() + y * lease.row_bytes());
-            for (std::uint32_t x = 0; x < target.width(); ++x) {
-                const std::uint32_t pixel = source[x];
-                destination[x] = 0xff000000U | (rgba ? ((pixel & 0xffU) << 16) | (pixel & 0xff00U) |
-                                                           ((pixel >> 16) & 0xffU)
-                                                     : pixel);
-            }
+            for (std::uint32_t x = 0; x < target.width(); ++x)
+                destination[x] = 0xff000000U | source[x];
         }
         static_cast<void>(lease.publish(damage));
         if (!direct_)
