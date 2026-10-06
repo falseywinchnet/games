@@ -1,13 +1,14 @@
 // Headless Stillwater frames and timings: renders the scene at any size and time
 // to a PNG and reports what each layer cost. Look at the picture; do not assume it.
 //
-//   stillwater_preview archive out.png [width height [time [supersample [frames [settle]]]]]
+//   stillwater_preview archive out.png [width height [time [supersample [frames [settle [pace]]]]]]
 //     width, height  scene pixels (default 590 x 380, a 1180 x 760 point window at
 //                    one scene pixel per two points)
 //     time           scene seconds (default 12)
 //     supersample    fixed-layer samples per side (default 2)
 //     frames         extra animated frames to time (default 48)
 //     settle         foliage that moves less than this many pixels is drawn once (default 0.5)
+//     pace           milliseconds idle after each timed frame, as a governed window (default 0)
 #include "archive.hpp"
 #include "motion.hpp"
 #include "png_writer.hpp"
@@ -19,6 +20,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -47,7 +49,7 @@ void write_frame(const std::string& path, int width, int height, const std::vect
 
 int main(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: %s archive out.png [width height [time [supersample [frames [settle]]]]]\n", argv[0]);
+        std::fprintf(stderr, "usage: %s archive out.png [width height [time [supersample [frames [settle [pace]]]]]]\n", argv[0]);
         return 2;
     }
     const int width = argc > 4 ? std::atoi(argv[3]) : 590;
@@ -56,6 +58,8 @@ int main(int argc, char** argv) {
     const int supersample = argc > 6 ? std::atoi(argv[6]) : 2;
     const int frames = argc > 7 ? std::atoi(argv[7]) : 48;
     const float settle_pixels = argc > 8 ? static_cast<float>(std::atof(argv[8])) : 0.5F;
+    // pace: milliseconds idle between timed frames, as a governed window leaves them (default 0)
+    const int pace_ms = argc > 9 ? std::atoi(argv[9]) : 0;
     if (width < 16 || height < 16 || width > 8192 || height > 8192) {
         std::fprintf(stderr, "size out of range\n");
         return 2;
@@ -107,6 +111,7 @@ int main(int argc, char** argv) {
 
     // Steady animation: sway every third frame (about 8 Hz at 24 frames a second).
     start = Clock::now();
+    double idle_total = 0;
     double sway_total = 0;
     int sway_count = 0;
     for (int frame = 1; frame <= frames; ++frame) {
@@ -118,8 +123,13 @@ int main(int argc, char** argv) {
             ++sway_count;
         }
         stage.compose(t, t, creatures);
+        if (pace_ms > 0) {
+            const Clock::time_point rest = Clock::now();
+            std::this_thread::sleep_for(std::chrono::milliseconds(pace_ms));
+            idle_total += milliseconds_since(rest);
+        }
     }
-    const double animated_ms = milliseconds_since(start);
+    const double animated_ms = milliseconds_since(start) - idle_total;
     const double compose_mean = frames > 0 ? (animated_ms - sway_total) / frames : 0;
     std::printf("scene %d x %d, fixed supersample %d\n", width, height, supersample);
     std::printf("load %.1f ms, look %.1f ms, shadow map %.1f ms, foliage %.1f ms, fixed layer %.1f ms\n", load_ms,

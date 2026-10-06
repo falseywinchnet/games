@@ -172,3 +172,36 @@ the HANDOFF's earlier 18.3 % (1060 x 680) is the older reference.
 
 Not yet done: listening to the shanties and the live water; Retina; why in-app
 compose is so much slower than headless (QoS); toolkit direct presentation on macOS.
+
+### Why the app costs 3-6x the headless timings (2026-10-06, follow-up)
+
+The cause is not QoS, backing scale or locking. In the app the scene is 530 x 309
+at scale 1. The main thread runs at the default priority (31, from `ps -M`), and
+forcing user-interactive QoS changes nothing. The sway worker shares no lock with
+the frame.
+
+The cause is the idle time between frames. `sw_preview` now takes a ninth
+argument, `pace`: the milliseconds to sleep after each timed frame. Timings at
+530 x 309:
+
+| Pace | Compose | Sway update |
+|---|---|---|
+| 0 ms (back to back) | 1.07 ms | 7.7 ms |
+| 5 ms | 1.40 ms | 10.2 ms |
+| 15 ms | 3.32 ms | 24.3 ms |
+| 40 ms | 5.30 ms | 31.6 ms |
+| 80 ms (the app's 12 frames a second) | 5.9 ms | 31.5 ms |
+| 80 ms busy-waited instead of slept | 1.09 ms | 8.1 ms |
+
+At 12 frames a second the processor falls back to its idle performance state
+between frames, so each short burst of work runs at a fraction of full speed. The
+app's 7.8 ms frames are 1.1 ms of work done slowly. Process CPU, being a measure
+of time, is inflated the same way.
+
+Cutting cycles per frame still helps. Most of the time that the governor and `ps`
+report, though, comes from this scheduling effect. Keeping the clock up by
+spinning would burn energy just to improve the number, so it was not done.
+
+About 20 % of the active samples are the toolkit's full-window repaint of the live
+surface on macOS (a clear, a blend and a byte-order swap). That is recorded in
+`docs/TOOLKIT_REQUESTS.md`.

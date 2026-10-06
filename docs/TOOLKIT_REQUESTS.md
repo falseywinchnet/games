@@ -135,3 +135,18 @@ and the `LiveMower` in Mowing. Without it Mowing plays the same voice from rende
 clips. It was developed against an isolated copy of the toolkit
 (`.build/toolkit-audio-generator`, never the shared checkout) and is raised here for
 upstream adoption.
+
+## macOS live-surface painting (found with Stillwater, 2026-10-06)
+
+On the M4 (pinned Skia CPU adapter), a `LiveSurface` drawn through
+`Painter::draw_live_surface` is not directly presented: every published frame
+becomes a retained paint pass over the control's whole area. A 10-second
+`sample` of Stillwater at 1060 x 618 (scale 1, 12 frames a second) puts about 20 %
+of the process's active samples in that paint: `neon::rect_memset32` (the
+destination is cleared before an opaque surface covers it), `srcover` blending
+of a surface the producer marks opaque, `swap_rb` (a BGRA/RGBA conversion of every
+pixel), loads and stores, and the IOKit flush. Requests: present opaque live
+surfaces directly on macOS as on Windows, or at least skip the clear, use `src`
+for opaque surfaces, and accept the surface in the destination's byte order. A
+scene-sized surface enlarged by the presenter would also remove the producer's
+enlarging copy.
