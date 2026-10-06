@@ -15,10 +15,22 @@ SYSTEM = {"kernel32.dll", "user32.dll", "gdi32.dll", "advapi32.dll", "comdlg32.d
           "crypt32.dll", "normaliz.dll"}
 
 
+def plugin_lines():
+    """MSYS2 NSIS 3.13 keeps its plugins in Plugins/unicode, where makensis does not
+    look for them; name that folder for its own target."""
+    makensis = shutil.which("makensis")
+    if makensis is None:
+        return []
+    plugins = Path(makensis).resolve().parent.parent / "share" / "nsis" / "Plugins"
+    if (plugins / "x86-unicode" / "nsDialogs.dll").is_file() or not (plugins / "unicode" / "nsDialogs.dll").is_file():
+        return []
+    return ['!addplugindir "' + str(plugins / "unicode") + '"']
+
+
 def make_installer(bundle, output):
     installer = output / ("playsuite-" + project_version() + "-windows-x64-setup.exe")
     script = output / "games-installer.nsi"
-    lines = ['Unicode True', '!include "MUI2.nsh"', 'Name "PlaySuite"',
+    lines = ['Unicode True'] + plugin_lines() + ['!include "MUI2.nsh"', 'Name "PlaySuite"',
              'OutFile "' + str(installer).replace("/", "\\") + '"', 'InstallDir "$LOCALAPPDATA\\Rainstar\\Games"',
              'RequestExecutionLevel user', '!insertmacro MUI_PAGE_WELCOME',
              '!insertmacro MUI_PAGE_DIRECTORY', '!insertmacro MUI_PAGE_INSTFILES',
