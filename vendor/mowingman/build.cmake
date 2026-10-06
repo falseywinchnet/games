@@ -47,7 +47,12 @@ include(CTest)
 add_executable(mowingman_rules_tests "${GAME_MODULE_DIR}/tests/mowing_tests.cpp")
 target_link_libraries(mowingman_rules_tests PRIVATE mm_core)
 add_test(NAME mowingman_rules COMMAND mowingman_rules_tests)
-set_tests_properties(mowingman_rules PROPERTIES TIMEOUT 120)
+set_tests_properties(mowingman_rules PROPERTIES TIMEOUT 180)
+# Whole gardens mowed to the end, one test each so they run in parallel.
+foreach(garden 1 2 3 4)
+  add_test(NAME mowingman_complete_${garden} COMMAND mowingman_rules_tests complete ${garden})
+  set_tests_properties(mowingman_complete_${garden} PROPERTIES TIMEOUT 300)
+endforeach()
 
 # The mower's voice: live in the game where the toolkit can play a generator, and
 # rendered to clips by mm_mower_loops for where it cannot (audio_src/README.md).

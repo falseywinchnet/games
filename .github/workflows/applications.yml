@@ -180,7 +180,7 @@ jobs:
         continue-on-error: true
         run: ./build/app/rockstack_physics_tests performance
       - name: Test complete application
-        run: ctest --test-dir build/app --output-on-failure --timeout 180 --output-junit results.xml
+        run: ctest --test-dir build/app --output-on-failure --timeout 180 --parallel 4 --output-junit results.xml
       - name: Test Windows native queue ordering
         if: runner.os == 'Windows'
         run: |

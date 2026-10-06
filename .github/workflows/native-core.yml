@@ -1,7 +1,9 @@
 name: Native game core checks
+# On main the installable build already compiles and runs every one of these tests on
+# all four platforms, so this matrix runs only for branches and pull requests.
 on:
   push:
-    branches: [main, 'codex/**']
+    branches: ['codex/**']
   pull_request:
   workflow_dispatch:
 permissions:
@@ -53,7 +55,7 @@ jobs:
       - name: Build
         run: cmake --build build --parallel 2
       - name: Test rules and storage
-        run: ctest --test-dir build --output-on-failure --timeout 180 --output-junit results.xml
+        run: ctest --test-dir build --output-on-failure --timeout 180 --parallel 4 --output-junit results.xml
       - name: Render replacement game scenes
         run: |
           mkdir -p build/previews

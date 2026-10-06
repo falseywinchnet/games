@@ -7,6 +7,8 @@
 #include "sim.hpp"
 #include "yard.hpp"
 
+#include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <memory>
@@ -119,8 +121,9 @@ void test_gardens() {
         require(seen > 0, "every kind of flower turns up");
 }
 
-void test_mowing_completes() {
-    for (std::uint64_t seed = 1; seed <= 4; ++seed) {
+// One garden mowed from start to finish (each is its own test, so they run side by side).
+void mow_to_the_end(std::uint64_t seed) {
+    {
         mm::Mowing mowing(seed, mm::Livery::green_jd);
         double time = 0;
         while (!mowing.complete() && time < 1500) {
@@ -505,18 +508,29 @@ void test_bees_and_birds() {
     require(scattered > 0, "and they leave when the mower comes near");
 }
 
-int main() {
-    test_gardens();
-    test_engine();
-    test_engine_switch();
-    test_driving_over_a_bed();
-    test_striking_a_tree();
-    test_bees_and_birds();
-    test_takeover();
-    test_deterministic();
-    test_gnome();
-    test_retained_lawn();
-    test_mowing_completes();
+// Each check's time, so a slow one shows in the log.
+void timed(void (*check)(), const char* name) {
+    const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+    check();
+    std::printf("%-26s %6.2f s\n", name, std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count());
+}
+
+int main(int argc, char** argv) {
+    if (argc > 2 && std::string(argv[1]) == "complete") {
+        mow_to_the_end(static_cast<std::uint64_t>(std::atoi(argv[2])));
+        std::printf("mowing man: %d checks passed\n", checks);
+        return 0;
+    }
+    timed(test_gardens, "test_gardens");
+    timed(test_engine, "test_engine");
+    timed(test_engine_switch, "test_engine_switch");
+    timed(test_driving_over_a_bed, "test_driving_over_a_bed");
+    timed(test_striking_a_tree, "test_striking_a_tree");
+    timed(test_bees_and_birds, "test_bees_and_birds");
+    timed(test_takeover, "test_takeover");
+    timed(test_deterministic, "test_deterministic");
+    timed(test_gnome, "test_gnome");
+    timed(test_retained_lawn, "test_retained_lawn");
     std::printf("mowing man: %d checks passed\n", checks);
     return 0;
 }
