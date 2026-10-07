@@ -39,10 +39,9 @@ jobs:
       - name: Fetch reviewed development text source
         uses: actions/checkout@v4
         with:
-          repository: falseywinchnet/file_manager
-          ref: 2ac5dcd84b8f5b0e241691e31880e36684e0cfcf
-          path: toolkit
-          sparse-checkout: gui_forms
+          repository: falseywinchnet/gui_forms
+          ref: 2cb2fc53bb26ff6c6cb2a856a60b0a6b9c854558
+          path: toolkit/gui_forms
       - uses: msys2/setup-msys2@v2
         if: runner.os == 'Windows'
         with:
@@ -62,7 +61,15 @@ jobs:
           echo "LDFLAGS=-L$llvm_prefix/lib/c++ -Wl,-rpath,$llvm_prefix/lib/c++ -L$llvm_prefix/lib/unwind -Wl,-rpath,$llvm_prefix/lib/unwind -lunwind" >> "$GITHUB_ENV"
       - name: Install Linux tools
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y ninja-build
+        # Current GUI.Forms needs the LLVM 22 series (Ubuntu's compilers reject it).
+        run: |
+          curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key -o "$RUNNER_TEMP/llvm-key.asc"
+          sudo install -m 0644 "$RUNNER_TEMP/llvm-key.asc" /usr/share/keyrings/apt-llvm.asc
+          echo 'deb [signed-by=/usr/share/keyrings/apt-llvm.asc] https://apt.llvm.org/noble/ llvm-toolchain-noble-22 main' | sudo tee /etc/apt/sources.list.d/llvm-22.list
+          sudo apt-get update && sudo apt-get install -y ninja-build clang-22
+          echo /usr/lib/llvm-22/bin >> "$GITHUB_PATH"
+          echo "CC=clang" >> "$GITHUB_ENV"
+          echo "CXX=clang++" >> "$GITHUB_ENV"
       - name: Fetch pinned native text dependencies
         run: |
           sh toolkit/gui_forms/third_party/fetch_text_stack.sh

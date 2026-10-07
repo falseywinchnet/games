@@ -97,7 +97,7 @@ build uses the reviewed toolkit at
 runtime assets at `.../PlaysuiteDependencies/runtime-modular`, and the verified
 Skia CPU output at
 `/Users/joshuahkuttenkuler/Developer/Projects/gui-forms-investigation/skia-cpu`.
-Release CI now pins GUI.Forms `2ac5dcd84b8f5b0e241691e31880e36684e0cfcf` (current `main`, with opaque and native-order live surfaces, the framebuffer painter, live audio generators and HarfBuzz 14.6.0); on the M4, `.build/toolkit-opaque` holds that revision unpatched, built in `.build/opaque-app`. The `toolkit-d58f530` paths above are the previous pin.
+Release CI now pins GUI.Forms `2cb2fc53bb26ff6c6cb2a856a60b0a6b9c854558` from its own repository, `falseywinchnet/gui_forms` (owner-held handlers, shared `Command`/`Value` state, collection controls; the shell's switches, Settings controls and shelf arrows use them), and restores that revision's published compiler cache (see docs/BUILDING.md). On the M4, `~/Developer/PlaysuiteDependencies/toolkit-f81ec0c/gui_forms` holds the PR head with its dependencies fetched. The `toolkit-opaque` and `toolkit-d58f530` paths above are earlier pins.
 The development compiler is Homebrew LLVM 22.1.8; release CI retains LLVM 20.1.8.
 This developer build does not establish release packaging with a different LLVM.
 
