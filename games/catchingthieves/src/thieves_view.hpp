@@ -59,9 +59,9 @@ public:
     int current_level() const { return save_.level; }  // the garden's table id, or -1 for a fresh one
     int difficulty() const { return save_.difficulty; }
     int garden_tier() const { return save_.garden_tier; }
-    // The difficulty setting, as the capsule shows it. When the shared settings
-    // screen lands, this declaration is what moves there.
-    games::GameCommand difficulty_command() const;
+    // The difficulty, declared to the shell's Settings screen.
+    std::vector<games::GameSetting> settings() const override;
+    void change_setting(std::string_view id, double value) override;
     std::string move_history() const { return board_.history(); }
     bool solved() const { return won_; }
     bool reduced_motion() const { return cab_reduced_; }
@@ -150,6 +150,7 @@ private:
     bool enter(int id, const std::string& history = {});
     void enter_fresh(const LevelEntry& e, const std::string& history = {});
     void set_difficulty(int difficulty);
+    void choose_difficulty(int difficulty);
     int pick_season();
     int random(int n);
     void begin_level();

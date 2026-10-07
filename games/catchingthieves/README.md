@@ -40,8 +40,9 @@ every time. A simulated 18-minute session says about 110 lines with none repeate
 
 ## The gardens
 
-There is no fixed sequence. **Next** in the command bar chooses the difficulty and
-**New garden** deals a garden at it. A garden in play is never interrupted: a new
+There is no fixed sequence. **Difficulty** on the shell's Settings screen chooses
+Tutorial, Easy, Medium or Hard (`settings()` in the view) and **New garden** deals a
+garden at it. A garden in play is never interrupted: a new
 difficulty replaces an untouched garden at once, otherwise it waits for the next one.
 
 - **Tutorial:** eleven short, hand-made lessons, each showing one mechanism, dealt at
@@ -105,7 +106,7 @@ games --game catchingthieves --standalone --dev --script games/catchingthieves/t
 
 - **Walk:** arrow keys or WASD. Walking into a pumpkin pushes it.
 - **Click:** a square to walk there, or a pumpkin beside the bear to push it.
-- **Keys:** Z (or Backspace) undo, R start over, H or F1 help, Enter the next garden. Use the capsule for Hint, Next (the difficulty) and the hosted audio masters.
+- **Keys:** Z (or Backspace) undo, R start over, H or F1 help, Enter the next garden. Use the capsule for Hint and Settings for the difficulty.
 - **Hints:** a hint marks the next push of a best solution with marching chevrons.
   - Instant when your garden still lies on the level's recorded best solution.
   - Otherwise the solver thinks it through on a worker thread while the bear strokes his chin.

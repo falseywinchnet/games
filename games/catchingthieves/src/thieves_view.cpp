@@ -63,7 +63,7 @@ ThievesView::ThievesView(gf::StableId id, Options opt) : Control(std::move(id)),
         set_authored_surface_material(none);
     }
     set_accessible_name("Catching Thieves. Raccoon bandits are raiding the bear's garden from their burrows. Push a pumpkin onto every burrow to trap them. "
-                        "Arrow keys or WASD walk; walking into a pumpkin pushes it. Click a square to walk there. Z undo, R restart, H or F1 help; Hint and the difficulty are in the command capsule.");
+                        "Arrow keys or WASD walk; walking into a pumpkin pushes it. Click a square to walk there. Z undo, R restart, H or F1 help; Hint is in the command capsule and the difficulty in Settings.");
     rng_ = seed_now() | 1;
     load_tables();
     if (load_save(save_path(opt_.dev), save_)) {
@@ -169,8 +169,26 @@ void ThievesView::set_cabinet(bool foreground, bool music, bool sound, bool redu
     request_frame();
 }
 
-games::GameCommand ThievesView::difficulty_command() const {
-    return {"level", std::string("Next: ") + difficulty_name(save_.difficulty)};
+std::vector<games::GameSetting> ThievesView::settings() const {
+    std::vector<std::string> names;
+    for (int d = 0; d < kDifficulties; ++d) names.push_back(difficulty_name(d));
+    return {{"level", "Difficulty", games::GameSetting::Kind::choice, static_cast<double>(save_.difficulty), names, 0,
+             kDifficulties - 1, 1, "An untouched garden is dealt again; otherwise the next garden uses it."}};
+}
+
+void ThievesView::change_setting(std::string_view id, double value) {
+    const int d = static_cast<int>(std::lround(value));
+    if (id != "level" || d < 0 || d >= kDifficulties || d == save_.difficulty) return;
+    choose_difficulty(d);
+}
+
+void ThievesView::choose_difficulty(int d) {
+    // an untouched garden is replaced at once; otherwise the difficulty applies to the next one
+    set_difficulty(d);
+    if (board_.moves() == 0 && !won_) { open(Panel::none); deal(); }
+    else say(std::string("Your next garden will be ") + difficulty_name(save_.difficulty) + ".", kPaper);
+    layout_buttons();
+    request_frame();
 }
 
 std::vector<games::GameCommand> ThievesView::commands() const {
@@ -178,7 +196,6 @@ std::vector<games::GameCommand> ThievesView::commands() const {
             {"restart", "Start over", panel_ == Panel::none},
             {"undo", "Undo", board_.moves() > 0 && !won_ && panel_ == Panel::none},
             {"hint", "Hint", !won_ && panel_ == Panel::none},
-            difficulty_command(),
             {"help", "Help", true, panel_ == Panel::help}};
 }
 
@@ -325,7 +342,7 @@ void ThievesView::deal() {
     save_.season = pick_season();
     enter(fresh[static_cast<size_t>(random(static_cast<int>(fresh.size())))]);
     if (every_lesson) {
-        say("You've seen every lesson. Try Easy: Next in the bar.", kGold);
+        say("You've seen every lesson. Try Easy, in Settings.", kGold);
         play("ct_stinger_book", .8f);
     }
 }
@@ -847,12 +864,8 @@ void ThievesView::action(const std::string& id) {
     request_frame();
     play("ct_click", .4f);
     if (panel_ == Panel::menu && (id == "undo" || id == "restart" || id == "hint" || id == "new")) open(Panel::none);
-    if (id == "level") {
-        // the difficulty: an untouched garden is replaced at once; otherwise it applies to the next one
-        set_difficulty((save_.difficulty + 1) % kDifficulties);
-        if (board_.moves() == 0 && !won_) { open(Panel::none); deal(); }
-        else say(std::string("Your next garden will be ") + difficulty_name(save_.difficulty) + ".", kPaper);
-        layout_buttons();
+    if (id == "level") {  // the standalone menu's difficulty button steps through them
+        choose_difficulty((save_.difficulty + 1) % kDifficulties);
         return;
     }
     if (id == "menu") open(panel_ == Panel::menu ? Panel::none : Panel::menu);
@@ -913,7 +926,7 @@ void ThievesView::layout_buttons() {
         const int width = (pw_ - 44) / 3;
         for (int index = 0; index < 9; ++index) {
             std::string label = names[index];
-            if (index == 4) label = difficulty_command().label;
+            if (index == 4) label = std::string("Difficulty: ") + difficulty_name(save_.difficulty);
             if (index == 6) label += save_.settings.music ? " on" : " off";
             if (index == 7) label += save_.settings.sound ? " on" : " off";
             buttons_.push_back({ids[index], label, 16 + index % 3 * (width + 6),
@@ -1049,7 +1062,7 @@ void ThievesView::draw_panel() {
     text("Catching Thieves", wx + (ww - text_w("Catching Thieves", 16, 2)) / 2, wy + 10, kLeafGreen, 16, 2);
     const char* paragraphs[] = {
         "Push a pumpkin onto every raccoon burrow. The bear can push, never pull. A pumpkin in a corner may need Undo.",
-        "Next in the menu chooses Tutorial, Easy, Medium or Hard for the next garden. Every garden has a verified solution; match its fewest pushes for gold.",
+        "Difficulty in the menu chooses Tutorial, Easy, Medium or Hard. Every garden has a verified solution; match its fewest pushes for gold.",
         "Arrows or WASD walk; click a square to walk there. Z undo, R restart. Use Hint in the menu."};
     for (int index = 0; index < 3; ++index) {
         const std::string paragraph = paragraphs[index];

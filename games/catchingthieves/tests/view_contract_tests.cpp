@@ -61,13 +61,15 @@ void gameplay_contract(const std::string& previews) {
         kit::contract_require(ct::load_save(ct::save_path(true), current) && current.level == (*view).current_level() && current.history.empty(),
                               "new game immediately replaces current autosave while preserving records");
         // the difficulty: an untouched garden is replaced at once, without waiting for anything to grow
-        const games::GameCommand* level = nullptr;
-        const std::vector<games::GameCommand> commands = (*view).commands();
-        for (const games::GameCommand& command : commands) if (command.id == "level") level = &command;
-        kit::contract_require(level != nullptr && (*level).label == "Next: Tutorial", "the capsule offers the difficulty");
+        const std::vector<games::GameSetting> settings = (*view).settings();
+        kit::contract_require(settings.size() == 1 && settings[0].id == "level" && settings[0].kind == games::GameSetting::Kind::choice &&
+                              settings[0].choices.size() == 4 && settings[0].choices[0] == "Tutorial" && settings[0].value == 0,
+                              "the Settings screen offers the difficulty");
+        for (const games::GameCommand& command : (*view).commands())
+            kit::contract_require(command.id != "level", "the difficulty is a setting, not a command");
         for (int tier = ct::kEasy; tier < ct::kDifficulties; ++tier) {
             const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
-            (*view).run_command("level");
+            (*view).change_setting("level", tier);
             const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
             kit::contract_require((*view).difficulty() == tier && (*view).garden_tier() == tier && (*view).move_history().empty(),
                                   "choosing a difficulty deals an untouched garden at it");
@@ -79,14 +81,15 @@ void gameplay_contract(const std::string& previews) {
                 frame = {};
             }
         }
-        (*view).run_command("level");
-        (*view).run_command("level");
-        kit::contract_require((*view).difficulty() == ct::kEasy, "the difficulty cycles back round");
+        (*view).change_setting("level", 1);
+        kit::contract_require((*view).difficulty() == ct::kEasy && (*view).settings()[0].value == 1, "the setting reads back");
         take_a_step(*view);
-        (*view).run_command("level");
+        (*view).change_setting("level", 2);
         kit::contract_require((*view).difficulty() == ct::kMedium && (*view).garden_tier() == ct::kEasy,
                               "a garden in progress is kept; the difficulty waits for the next one");
-        (*view).run_command("level"); (*view).run_command("level"); (*view).run_command("level");
+        (*view).change_setting("level", 9);
+        kit::contract_require((*view).difficulty() == ct::kMedium, "nonsense values are refused");
+        (*view).change_setting("level", 1);
         kit::contract_require((*view).difficulty() == ct::kEasy, "back to Easy");
         (*view).scripted_action("rs");
         (*view).scripted_action("sol");
