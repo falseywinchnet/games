@@ -106,6 +106,14 @@ jobs:
             mingw-w64-clang-x86_64-llvm-tools mingw-w64-clang-x86_64-cmake
             mingw-w64-clang-x86_64-ninja mingw-w64-clang-x86_64-python
             mingw-w64-clang-x86_64-nsis mingw-w64-clang-x86_64-ccache git
+      # Name the compiler as GUI.Forms' CI does. CMake otherwise picks cc.exe and
+      # c++.exe: the same Clang, but different files to ccache, so none of the
+      # published cache would match.
+      - name: Select Windows compiler
+        if: runner.os == 'Windows'
+        run: |
+          echo "CC=clang" >> "$GITHUB_ENV"
+          echo "CXX=clang++" >> "$GITHUB_ENV"
       - name: Install macOS C++20 compiler and runtime
         if: runner.os == 'macOS'
         run: |
