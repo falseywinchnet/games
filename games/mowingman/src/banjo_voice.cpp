@@ -53,15 +53,17 @@ struct Flavour {
     double hammer;      // ornament chances on a melody note
     double slide;
     double pull;
+    bool song;          // the lead passes between banjo and fiddle, as on a record
+    double fiddle;
 };
 
 const Flavour flavours[3] = {
     // scruggs: a resonator banjo with metal picks, driving, and the whole band
-    {124, 4, 0.57, 0.92, 0.085, 1.6, 0.86, -0.24, 0.0045, 1.5, 0.55, 4300, 0, 0.5, 0.62, 0.7, false, 0.0, 0.508, 0.22, 0.14, 0.1},
+    {124, 4, 0.57, 0.92, 0.085, 1.6, 0.86, -0.24, 0.0045, 1.5, 0.55, 4300, 0, 0.5, 0.62, 0.7, false, 0.0, 0.508, 0.22, 0.14, 0.1, true, 0.42},
     // clawhammer: an open-back banjo frailed with the nail, bass and a soft guitar
-    {122, 3, 0.88, 0.65, 0.21, 1.0, 0.74, -0.16, 0.0025, 0.8, 0.32, 2700, 1, 0.4, 0.3, 0.0, true, 0.0, 0.54, 0.0, 0.0, 0.0},
+    {122, 3, 0.88, 0.65, 0.21, 1.0, 0.74, -0.16, 0.0025, 0.8, 0.32, 2700, 1, 0.4, 0.3, 0.0, true, 0.0, 0.54, 0.0, 0.0, 0.0, false, 0.0},
     // porch: Scruggs on a resonator at an easier pace, a quiet band, gentle passages
-    {113, 3, 0.69, 0.8, 0.1, 1.4, 0.82, -0.22, 0.0035, 1.15, 0.38, 3900, 0, 0.58, 0.4, 0.0, false, 0.55, 0.515, 0.17, 0.12, 0.08},
+    {113, 3, 0.69, 0.8, 0.1, 1.4, 0.82, -0.22, 0.0035, 1.15, 0.38, 3900, 0, 0.58, 0.4, 0.0, false, 0.55, 0.515, 0.17, 0.12, 0.08, false, 0.0},
 };
 
 // The head's modes. A resonator banjo's head is tight and its back closed, so the
@@ -129,10 +131,20 @@ constexpr int g_lick[16][3] = {
     {3, 0, how_pick}, {2, 0, how_pick}, {5, 0, how_pick}, {1, 0, how_pick},
 };
 // A fill-in: a bluesy run down from the top, pulling off as it goes (over the I).
+// The old-time bands take it; the bluegrass record keeps to the major scale.
 constexpr int run_fill[8][3] = {
     {1, 5, how_pick}, {1, 3, how_pull}, {1, 0, how_pull}, {2, 3, how_pick},
     {2, 0, how_pull}, {5, 0, how_pick}, {3, 2, how_pick}, {3, 0, how_pull},
 };
+constexpr int major_fill[8][3] = {
+    {1, 5, how_pick}, {1, 2, how_pull}, {1, 0, how_pull}, {2, 3, how_pick},
+    {2, 0, how_pull}, {5, 0, how_pick}, {3, 2, how_pick}, {3, 0, how_pull},
+};
+
+// The fiddle's body: its main air and wood resonances and the bridge's hill.
+constexpr double fiddle_freq[4] = {280, 470, 1150, 2800};
+constexpr double fiddle_q[4] = {6, 5, 3, 2.2};
+constexpr double fiddle_peak[4] = {0.8, 1.0, 0.6, 0.85};
 
 } // namespace
 
@@ -164,6 +176,13 @@ BanjoVoice::BanjoVoice(std::uint32_t seed, BanjoStyle style) : state_(seed * 265
         const double r = 0.82;
         click_a1_ = 2 * r * std::cos(w);
         click_a2_ = -r * r;
+    }
+    for (int k = 0; k < 4; ++k) {
+        const double w = 2 * pi * fiddle_freq[k] / sample_rate;
+        const double r = 1 - w / (2 * fiddle_q[k]);
+        fiddle_a1_[k] = 2 * r * std::cos(w);
+        fiddle_a2_[k] = -r * r;
+        fiddle_g_[k] = fiddle_peak[k] * (1 - r) * 2 * std::sin(w);
     }
     swing_ = f.swing;
     plan_tune();
@@ -367,7 +386,7 @@ void BanjoVoice::plan_tune() {
     if (f.clawhammer && uniform() < 0.45) {
         a = 4;
         b = 4;
-    } else if (!f.clawhammer && uniform() < 0.12) {
+    } else if (!f.clawhammer && !f.song && uniform() < 0.12) {
         a = 4;
     }
     for (int k = 0; k < 8; ++k) {
@@ -446,6 +465,9 @@ void BanjoVoice::plan_bar() {
         return;
     }
     chord_ = progression_[part_][bar_];
+    // On the record the banjo kicks off, the fiddle takes the verse, the fiddle the
+    // chorus, and the banjo breaks to finish.
+    lead_ = f.song && (part_ == 0) != (pass_ == 0) ? 1 : 0;
     if (section_ == 1) {
         hand_ = 0;
         plan_scruggs_bar(true);
@@ -461,18 +483,24 @@ void BanjoVoice::plan_bar() {
         plan_clawhammer_bar();
         return;
     }
-    // the G lick closes the second time through a part, sometimes the first
+    if (lead_ == 1) {
+        plan_backup_bar();
+        return;
+    }
+    // the G lick closes the second time through a part, sometimes the first; on the
+    // record it closes every banjo break, the last always
     if (bar_ == 6)
-        licking_ = pass_ == 1 || uniform() < 0.25;
+        licking_ = f.song ? part_ == 1 || uniform() < 0.6 : pass_ == 1 || uniform() < 0.25;
     if (bar_ >= 6 && licking_) {
         plan_lick(bar_ - 6);
         return;
     }
     if (bar_ == 3 && chord_.root == 0 && uniform() < 0.2) {
+        const int(*fill)[3] = f.song ? major_fill : run_fill;
         for (int k = 0; k < 8; ++k) {
-            const int string = run_fill[k][0];
-            const int note = string == 5 ? drone() : banjo_open[string - 1] + run_fill[k][1] + key_;
-            bar_plan_[k] = Slot{string, note, 0, 0, run_fill[k][2], k == 0 ? 0.95 : 0.7};
+            const int string = fill[k][0];
+            const int note = string == 5 ? drone() : banjo_open[string - 1] + fill[k][1] + key_;
+            bar_plan_[k] = Slot{string, note, 0, 0, fill[k][2], k == 0 ? 0.95 : 0.7};
         }
         return;
     }
@@ -633,6 +661,149 @@ void BanjoVoice::plan_clawhammer_bar() {
     }
 }
 
+// Backup behind the fiddle: the same rolls, quietly, on the chord's own notes, and
+// out of the way when the guitar runs at the end of the verse.
+void BanjoVoice::plan_backup_bar() {
+    if (bar_ == 7) {
+        bar_plan_[0] = Slot{3, fret_note(3, chord_), 1, fret_note(1, chord_), how_pick, 0.4};
+        return;
+    }
+    const int* roll = rolls[bar_ % 2 == 0 ? 0 : 5];
+    for (int k = 0; k < 8; ++k) {
+        const int string = roll[k];
+        const double accent = k == 0 || k == 3 || k == 6 ? 0.46 : 0.36;
+        bar_plan_[k] = Slot{string, fret_note(string, chord_), 0, 0, how_pick, string == 5 ? 0.3 : accent};
+    }
+}
+
+// The fiddle's bar. When it has the tune it bows the melody an octave up, in long
+// notes that hold at the ends of phrases, often with a double stop under them; when
+// the banjo has it, the fiddle holds soft double stops under the chords.
+void BanjoVoice::plan_fiddle_bar() {
+    const Flavour& f = flavours[static_cast<int>(style_)];
+    for (BowPlan& p : fiddle_plan_)
+        p = BowPlan{};
+    if (f.fiddle <= 0 || section_ != 0)
+        return;
+    const int* melody = melody_[part_][bar_];
+    if (lead_ == 1) {
+        const int up[3] = {melody[0] + 12 <= 84 ? melody[0] + 12 : melody[0], melody[1] + 12 <= 84 ? melody[1] + 12 : melody[1],
+                           melody[2] + 12 <= 84 ? melody[2] + 12 : melody[2]};
+        int at[3] = {0, 3, 6};
+        int lengths[3] = {3, 3, 2};
+        int notes = 3;
+        if (bar_ == 3 || bar_ == 7) {
+            // the end of a line: one long note
+            lengths[0] = 8;
+            notes = 1;
+        } else if (uniform() < 0.45) {
+            // two half-bar notes, the second the bar's last accent
+            at[1] = 4;
+            lengths[0] = 4;
+            lengths[1] = 4;
+            notes = 2;
+        }
+        for (int k = 0; k < notes; ++k) {
+            const int note = notes == 2 && k == 1 ? up[2] : up[k];
+            BowPlan& p = fiddle_plan_[at[k]];
+            p.midi = note;
+            p.sixteenths = lengths[k];
+            p.level = k == 0 ? 0.9 : 0.78;
+            p.attack = 0.03;
+            if (k == 0 && uniform() < 0.65) {
+                // a double stop: the chord tone a third to a sixth below
+                for (int down = 3; down <= 9; ++down) {
+                    if (tone_in(note - down, chord_)) {
+                        p.harmony = note - down;
+                        break;
+                    }
+                }
+            }
+        }
+        return;
+    }
+    // under the banjo's break: a soft double stop on each new chord, held
+    const bool change = bar_ == 0 || progression_[part_][bar_ - 1].root != chord_.root;
+    if (!change && bar_ % 2 == 1)
+        return;
+    int top = nearest_chord_tone(69, chord_);
+    int low = top - 3;
+    while (low > top - 10 && !tone_in(low, chord_))
+        --low;
+    BowPlan& p = fiddle_plan_[0];
+    p.midi = top;
+    p.harmony = low;
+    p.sixteenths = 16;
+    p.level = 0.26;
+    p.attack = 0.28;
+}
+
+// The bow drawn across the string: the note scoops up from below when it starts
+// fresh, or the finger moves under a slur.
+void BanjoVoice::bow(Bow& b, int midi, double seconds, double level, double attack_seconds, bool scoop) {
+    b.target_hz = hz_of(midi);
+    if (scoop || b.env < 0.02) {
+        b.hz = hz_of(midi - 1);
+        b.glide = 1 - std::exp(-1.0 / (0.035 * sample_rate));
+    } else {
+        b.glide = 1 - std::exp(-1.0 / (0.008 * sample_rate));
+    }
+    // the bow changes direction: a breath between notes
+    b.env *= 0.55;
+    b.age = 0;
+    b.level = level;
+    b.attack = 1 - std::exp(-1.0 / (attack_seconds * sample_rate));
+    b.hold = seconds;
+    ++picked_[part_fiddle];
+}
+
+float BanjoVoice::run_bow(Bow& b) {
+    const bool bowing = b.hold > 0;
+    if (!bowing && b.env < 1e-5)
+        return 0;
+    b.hold -= dt;
+    b.age += dt;
+    b.env += ((bowing ? b.level : 0) - b.env) * (bowing ? b.attack : 0.0012);
+    b.hz += (b.target_hz - b.hz) * b.glide;
+    // the vibrato comes in once the note has settled
+    const double depth = 0.0065 * std::clamp((b.age - 0.16) / 0.3, 0.0, 1.0);
+    b.vibrato_phase += 2 * pi * 5.6 * dt;
+    if (b.vibrato_phase > 2 * pi)
+        b.vibrato_phase -= 2 * pi;
+    const double step = b.hz * (1 + depth * std::sin(b.vibrato_phase)) * dt;
+    b.phase += step;
+    if (b.phase >= 1)
+        b.phase -= 1;
+    // a sawtooth with its corner rounded (polyBLEP), so it does not alias
+    double saw = 2 * b.phase - 1;
+    if (b.phase < step) {
+        const double x = b.phase / step;
+        saw -= x + x - x * x - 1;
+    } else if (b.phase > 1 - step) {
+        const double x = (b.phase - 1) / step;
+        saw -= x * x + x + x + 1;
+    }
+    return static_cast<float>(saw * b.env);
+}
+
+// One guitar note picked, or hammered on to from the note below.
+void BanjoVoice::guitar_note(int string, int midi, double strength, bool hammer) {
+    String& s = guitar_[string];
+    s.pending = -1;
+    s.loss = static_cast<float>(std::pow(10.0, -3.0 / (1.3 * hz_of(midi))));
+    s.bright = 0.55F;
+    s.stiff = -0.05F;
+    s.mute_in = -1;
+    if (hammer) {
+        set_pitch(s, midi, 0.004);
+        pluck(s, midi, strength * 0.3, 0.5, 0.3, 0.85);
+    } else {
+        set_pitch(s, midi, 0);
+        pluck(s, midi, strength, 0.5, 0.17, 0.1);
+    }
+    ++picked_[part_guitar];
+}
+
 void BanjoVoice::play_slot(const Slot& slot) {
     const Flavour& f = flavours[static_cast<int>(style_)];
     if (slot.string == 0)
@@ -730,8 +901,25 @@ void BanjoVoice::play_band(int slot) {
         s.mute_loss = 0.985F;
         ++picked_[part_bass];
     }
+    // The end of a verse on the record: the guitar's G run, from the flat third
+    // hammered up to the third, down through the fifth to the root.
+    if (f.song && lead_ == 1 && section_ == 0 && bar_ == 7 && f.guitar > 0) {
+        int home = 43 + key_ % 12;
+        if (home > 50)
+            home -= 12;
+        if (slot == 0)
+            guitar_note(1, home + 3, 0.85, false);
+        else if (slot == 1)
+            guitar_note(1, home + 4, 0.85, true);
+        else if (slot == 2)
+            guitar_note(2, home + 7, 0.8, false);
+        else if (slot == 4)
+            guitar_note(1, home + 4, 0.8, false);
+        else if (slot == 6)
+            guitar_note(0, home, 0.9, false);
+    }
     // The guitar: boom on the beat, chuck on the off-beat.
-    if (f.guitar > 0 && (!quiet || tag) && (slot == 0 || slot == 4)) {
+    else if (f.guitar > 0 && (!quiet || tag) && (slot == 0 || slot == 4)) {
         if (slot == 0) {
             int note = odd_bar && !tag ? fifth : root;
             if (note < 40)
@@ -809,6 +997,7 @@ void BanjoVoice::step_slot() {
     const Flavour& f = flavours[static_cast<int>(style_)];
     if (slot_ == 0) {
         plan_bar();
+        plan_fiddle_bar();
         // the fretting hand moves: strings left ringing outside the new chord are stopped
         if (section_ != 2) {
             for (int k = 0; k < 4; ++k) {
@@ -822,6 +1011,15 @@ void BanjoVoice::step_slot() {
     }
     play_slot(bar_plan_[slot_]);
     play_band(slot_);
+    {
+        const BowPlan& p = fiddle_plan_[slot_];
+        if (p.midi > 0) {
+            const double seconds = p.sixteenths * 15.0 / tempo_ - 0.02;
+            bow(fiddle_[0], p.midi, seconds, p.level, p.attack, lead_ == 1 && slot_ == 0 && uniform() < 0.3);
+            if (p.harmony > 0)
+                bow(fiddle_[1], p.harmony, seconds, p.level * 0.55, p.attack, false);
+        }
+    }
     // On through the bar, the part, the tune.
     slot_ = (slot_ + 1) % 8;
     if (slot_ != 0)
@@ -866,6 +1064,7 @@ void BanjoVoice::render_add(std::span<float> stereo, double gain) {
     const double bass_part = part_gain(part_bass) * f.bass;
     const double guitar_part = part_gain(part_guitar) * f.guitar;
     const double mandolin_part = part_gain(part_mandolin) * f.mandolin;
+    const double fiddle_part = part_gain(part_fiddle) * f.fiddle;
     const double click_decay = std::exp(-1.0 / (0.0025 * sample_rate));
     const double thump_decay = std::exp(-1.0 / (0.03 * sample_rate));
     const double thump_w = 2 * pi * 170 / sample_rate;
@@ -943,8 +1142,9 @@ void BanjoVoice::render_add(std::span<float> stereo, double gain) {
             left += b;
             right += b;
         }
-        // the guitar, left, through a warm body
-        if (guitar_part > 0) {
+        // the guitar, left, through a warm body (its strings run even when another part
+        // is soloed, so a solo is the same performance)
+        {
             double g = 0;
             for (String& s : guitar_) {
                 if (s.pending >= 0) {
@@ -965,7 +1165,7 @@ void BanjoVoice::render_add(std::span<float> stereo, double gain) {
             right += v * 0.5;
         }
         // the mandolin's chop, right
-        if (mandolin_part > 0) {
+        {
             double m = 0;
             for (String& s : mandolin_) {
                 if (s.pending >= 0) {
@@ -983,6 +1183,21 @@ void BanjoVoice::render_add(std::span<float> stereo, double gain) {
             const double v = m * 1.5 * mandolin_part;
             left += v * 0.55;
             right += v;
+        }
+        // the fiddle, a little left, through its body
+        if (f.fiddle > 0) {
+            const double strings_bowed = run_bow(fiddle_[0]) + run_bow(fiddle_[1]);
+            double resonant = 0;
+            for (int k = 0; k < 4; ++k) {
+                const double y = fiddle_g_[k] * strings_bowed + fiddle_a1_[k] * fiddle_y1_[k] + fiddle_a2_[k] * fiddle_y2_[k];
+                fiddle_y2_[k] = fiddle_y1_[k];
+                fiddle_y1_[k] = y;
+                resonant += y;
+            }
+            fiddle_tone_ += (resonant * 1.3 + strings_bowed * 0.08 - fiddle_tone_) * 0.45;
+            const double v = fiddle_tone_ * fiddle_part;
+            left += v;
+            right += v * 0.7;
         }
         // a small room: early reflections, crossed
         const float mono = static_cast<float>((left + right) * 0.5);

@@ -1,7 +1,8 @@
 // The live banjo band: bounded and deterministic in every style, at its calibrated
 // level, picking a Scruggs roll's sixteenths (or the clawhammer's bum-ditty), playing
-// tune after tune, hearing one part alone, silent at no gain and fading to silence
-// when the gain is taken away, and far cheaper than real time.
+// tune after tune, passing the lead between banjo and fiddle in the full bluegrass
+// style, hearing one part alone, silent at no gain and fading to silence when the gain
+// is taken away, and far cheaper than real time.
 #include "banjo_voice.hpp"
 
 #include <chrono>
@@ -97,10 +98,42 @@ void test_solo() {
     const double bass_level = decibels(low, 0, low.size());
     require(banjo_level < whole_level && banjo_level > whole_level - 4, "the banjo carries the band");
     require(bass_level < banjo_level - 5, "the bass stays under the banjo");
+    // A solo is the same performance as the whole band, only quieter.
+    require(banjo.notes_picked(mm::BanjoVoice::part_banjo) == whole.notes_picked(mm::BanjoVoice::part_banjo), "a solo plays the band's own performance");
     mm::BanjoVoice porch(4, mm::BanjoStyle::porch);
     porch.solo(mm::BanjoVoice::part_mandolin);
     const std::vector<float> none = play(porch, 10, 1.0);
     require(decibels(none, 0, none.size()) < -200, "the porch band has no mandolin");
+}
+
+// The record's arrangement: the banjo kicks off and breaks, the fiddle takes the verse
+// and the chorus with the banjo backing it quietly, and the fiddle's backup under a
+// banjo break stays well down.
+void test_lead() {
+    mm::BanjoVoice fiddle(8, mm::BanjoStyle::scruggs);
+    mm::BanjoVoice banjo(8, mm::BanjoStyle::scruggs);
+    fiddle.solo(mm::BanjoVoice::part_fiddle);
+    banjo.solo(mm::BanjoVoice::part_banjo);
+    const std::vector<float> bowed = play(fiddle, 60, 1.0);
+    const std::vector<float> picked = play(banjo, 60, 1.0);
+    require(fiddle.notes_picked(mm::BanjoVoice::part_fiddle) > 40, "the fiddle plays in the full bluegrass style");
+    // In each 4 s window, whichever has the tune is clearly louder than the other.
+    int fiddle_leads = 0;
+    int banjo_leads = 0;
+    const std::size_t window = static_cast<std::size_t>(rate) * 4;
+    for (std::size_t at = 0; at + window <= bowed.size(); at += window) {
+        const double f = decibels(bowed, at, at + window);
+        const double b = decibels(picked, at, at + window);
+        if (f > b + 2)
+            ++fiddle_leads;
+        if (b > f + 2)
+            ++banjo_leads;
+    }
+    require(fiddle_leads >= 4 && banjo_leads >= 4, "the lead passes between the banjo and the fiddle");
+    mm::BanjoVoice porch(8, mm::BanjoStyle::porch);
+    porch.solo(mm::BanjoVoice::part_fiddle);
+    const std::vector<float> none = play(porch, 10, 1.0);
+    require(decibels(none, 0, none.size()) < -200, "the porch band has no fiddle");
 }
 
 void test_gain() {
@@ -132,6 +165,7 @@ int main() {
     test_deterministic();
     test_tunes();
     test_solo();
+    test_lead();
     test_gain();
     test_cost();
     std::printf("banjo voice: %d checks passed\n", checks);

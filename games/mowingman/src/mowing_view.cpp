@@ -81,7 +81,7 @@ class LiveBand final : public gui_forms::AudioGenerator {
     }
 
   private:
-    BanjoVoice band_{static_cast<std::uint32_t>(std::random_device{}()), BanjoStyle::porch};
+    BanjoVoice band_{static_cast<std::uint32_t>(std::random_device{}()), BanjoStyle::scruggs};
 };
 #endif
 
@@ -453,7 +453,8 @@ void MowingScenery::sound(bool running, ambient::SceneContext& context) {
     // The music is a banjo band improvising live (banjo_voice.hpp), under the Music control.
     if (!band_)
         band_ = std::make_shared<LiveBand>();
-    context.sound.live_music(band_, 0.8);
+    // About 5 dB under where it was first accepted: background music, never in front.
+    context.sound.live_music(band_, 0.45);
     // The mower's voice is synthesized live: the key and the grass under the deck go
     // straight to it, and it starts, labours, clears and spins down on its own.
     if (!live_)

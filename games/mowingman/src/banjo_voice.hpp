@@ -9,7 +9,10 @@
 // shaped, AABB in eight-bar parts over I, IV and V; between tunes the band rests or
 // plays a quieter passage. An upright bass and a guitar's boom-chuck sit underneath,
 // and in the full bluegrass style a mandolin chops the off-beat; all of them softer
-// than the banjo.
+// than the banjo. The full bluegrass style (the game's) is arranged like an old Flatt
+// and Scruggs record: the lead passes round. The banjo kicks off with a break, then a
+// fiddle sings the tune in long bowed notes with double stops while the banjo backs it
+// quietly and the guitar closes each verse with a G run; then the banjo breaks again.
 //
 // The banjo's strings are plucked delay lines (Karplus-Strong) with a bright loop, a
 // little stiffness (an allpass in the loop sharpens the upper partials), a pitch that
@@ -23,21 +26,24 @@
 
 namespace mm {
 
-// Which band plays. Scruggs is full bluegrass on a resonator banjo; clawhammer is a
-// mellower open-back banjo frailing old-time tunes; porch (the game's) is Scruggs
-// rolling at an easier tempo with a quieter band and gentler passages between tunes.
+// Which band plays. Scruggs (the game's) is full bluegrass on a resonator banjo, the
+// lead passing between banjo and fiddle; clawhammer is a mellower open-back banjo
+// frailing old-time tunes; porch is Scruggs rolling at an easier tempo with a quieter
+// band and gentler passages between tunes.
 enum class BanjoStyle { scruggs = 0, clawhammer = 1, porch = 2 };
 
 class BanjoVoice final {
   public:
     static constexpr int sample_rate = 48000;
-    // Parts, for solo(): the banjo, the upright bass, the guitar, the mandolin.
+    // Parts, for solo(): the banjo, the upright bass, the guitar, the mandolin, the fiddle.
     static constexpr int part_banjo = 0;
     static constexpr int part_bass = 1;
     static constexpr int part_guitar = 2;
     static constexpr int part_mandolin = 3;
 
-    explicit BanjoVoice(std::uint32_t seed = 21, BanjoStyle style = BanjoStyle::porch);
+    static constexpr int part_fiddle = 4;
+
+    explicit BanjoVoice(std::uint32_t seed = 21, BanjoStyle style = BanjoStyle::scruggs);
     // Adds the band to interleaved stereo frames at the given gain (glided).
     void render_add(std::span<float> stereo, double gain);
     // For tools: hear one part alone, or -1 for the whole band.
@@ -81,6 +87,30 @@ class BanjoVoice final {
         double pending_where{};
     };
 
+    // A bowed fiddle string: a bright sawtooth (the bow's stick and slip) with a
+    // vibrato that comes in once the note has settled.
+    struct Bow {
+        double phase{};
+        double hz{};
+        double target_hz{};
+        double glide{};          // per-sample approach of hz to target_hz
+        double vibrato_phase{};
+        double age{};            // seconds since the note was bowed
+        double env{};
+        double level{};
+        double attack{};         // per-sample approach of env to level
+        double hold{};           // seconds the bow stays on the string
+    };
+
+    // A note the fiddle bows at a sixteenth of the bar: the tune or a long double stop.
+    struct BowPlan {
+        int midi{};              // 0 for none
+        int harmony{};           // the double stop's lower note, 0 for none
+        int sixteenths{};
+        double level{};
+        double attack{};         // seconds
+    };
+
     struct Chord {
         int root{};  // semitones above the key's tonic
         int kind{};  // 0 major, 1 minor, 2 dominant seventh
@@ -121,6 +151,11 @@ class BanjoVoice final {
     int step_scale(int midi, int steps) const;
     void play_slot(const Slot& slot);
     void play_band(int slot);
+    void plan_backup_bar();
+    void plan_fiddle_bar();
+    void bow(Bow& b, int midi, double seconds, double level, double attack_seconds, bool scoop);
+    float run_bow(Bow& b);
+    void guitar_note(int string, int midi, double strength, bool hammer);
 
     std::uint32_t state_;
     BanjoStyle style_;
@@ -129,6 +164,14 @@ class BanjoVoice final {
     String bass_{};
     String guitar_[6]{};
     String mandolin_[4]{};
+    Bow fiddle_[2]{};             // the tune, and the double stop under it
+    BowPlan fiddle_plan_[8]{};
+    double fiddle_y1_[4]{};       // the fiddle's body: four resonances
+    double fiddle_y2_[4]{};
+    double fiddle_a1_[4]{};
+    double fiddle_a2_[4]{};
+    double fiddle_g_[4]{};
+    double fiddle_tone_{};
     std::vector<float> burst_{};  // scratch for a pluck, kept so the audio thread never allocates
 
     // the head: modal resonators under the bridge
@@ -175,13 +218,14 @@ class BanjoVoice final {
     int rest_bars_{};
     int hand_{};                 // the fretting hand's position
     bool licking_{};             // this pass ends on the G lick
+    int lead_{};                 // who has the tune this pass: 0 the banjo, 1 the fiddle
     double clock_{};             // seconds until the next sixteenth
     double tempo_{116};
     double tune_tempo_{116};
     double loud_{0.9};
     double tune_loud_{0.9};
     int tunes_{};
-    long picked_[4]{};
+    long picked_[5]{};
     double swing_{};             // the on-beat sixteenth's share of each pair
 };
 

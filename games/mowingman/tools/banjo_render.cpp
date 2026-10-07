@@ -2,8 +2,8 @@
 //
 //   mm_banjo_render out.wav [seconds [seed [style [part]]]]
 //
-// style: porch (the game's), scruggs or clawhammer. part: all, banjo, bass, guitar or
-// mandolin, to hear one alone (BanjoVoice::solo).
+// style: scruggs (the game's), porch or clawhammer. part: all, banjo, bass, guitar,
+// mandolin or fiddle, to hear one alone (BanjoVoice::solo).
 #include "banjo_voice.hpp"
 
 #include <algorithm>
@@ -17,20 +17,20 @@
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        std::fprintf(stderr, "usage: %s out.wav [seconds [seed [porch|scruggs|clawhammer [all|banjo|bass|guitar|mandolin]]]]\n", argv[0]);
+        std::fprintf(stderr, "usage: %s out.wav [seconds [seed [scruggs|porch|clawhammer [all|banjo|bass|guitar|mandolin|fiddle]]]]\n", argv[0]);
         return 2;
     }
     const double seconds = argc > 2 ? std::atof(argv[2]) : 60;
     const std::uint32_t seed = argc > 3 ? static_cast<std::uint32_t>(std::atoi(argv[3])) : 21;
-    mm::BanjoStyle style = mm::BanjoStyle::porch;
-    if (argc > 4 && std::strcmp(argv[4], "scruggs") == 0)
-        style = mm::BanjoStyle::scruggs;
+    mm::BanjoStyle style = mm::BanjoStyle::scruggs;
+    if (argc > 4 && std::strcmp(argv[4], "porch") == 0)
+        style = mm::BanjoStyle::porch;
     else if (argc > 4 && std::strcmp(argv[4], "clawhammer") == 0)
         style = mm::BanjoStyle::clawhammer;
     int part = -1;
     if (argc > 5) {
-        const char* names[4] = {"banjo", "bass", "guitar", "mandolin"};
-        for (int k = 0; k < 4; ++k)
+        const char* names[5] = {"banjo", "bass", "guitar", "mandolin", "fiddle"};
+        for (int k = 0; k < 5; ++k)
             if (std::strcmp(argv[5], names[k]) == 0)
                 part = k;
     }
