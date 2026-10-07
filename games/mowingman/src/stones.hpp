@@ -1,6 +1,6 @@
 #pragma once
 // Stones for the edges of the flower beds, from Rock Stack's rock generator
-// (vendor/zenconstruction/src/rocks.cpp): the same radius field over directions (a
+// (games/zenconstruction/src/rocks.cpp): the same radius field over directions (a
 // superquadric cut by fracture planes, times one plus octaves of gradient noise), the
 // same five classes after photographs of real stones, and the same stones they are made
 // of, coloured and mottled, veined and lichened the same way. Only the shape is taken:

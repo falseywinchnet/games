@@ -10,7 +10,7 @@
 - Portable text/audio adapters compile against the pinned headers. Source audio and exact producer loop metadata pass the dynamic inventory verifier; the native decoder and Four Pegs transport checks pass with libvorbis quality-6 runtime assets.
 - The authoring gate checks newly edited files against house style. `borrowed` records only source files that remained byte-for-byte identical to the original package; original fingerprints are in `SOURCE_PROVENANCE.json`.
 
-Reproduce standalone native input with `games --game catchingthieves --standalone --dev --script vendor/catchingthieves/tests/native.script`. The full native host recipe is in the root `AGENTS.md`.
+Reproduce standalone native input with `games --game catchingthieves --standalone --dev --script games/catchingthieves/tests/native.script`. The full native host recipe is in the root `AGENTS.md`.
 
 ## NOT VERIFIED
 

@@ -128,7 +128,7 @@ guide where that guide is needed.
 | [guide/08-on-the-shelf.md](guide/08-on-the-shelf.md) | The folder contract and automatic discovery |
 | [guide/09-deliver.md](guide/09-deliver.md) | One-folder push and automatic publication |
 | [guide/10-house-style.md](guide/10-house-style.md) | How the C++ is written |
-| [guide/11-shared-engines.md](guide/11-shared-engines.md) | Engines shared by a series of games (`engines/`), and when to make one |
+| [guide/11-shared-engines.md](guide/11-shared-engines.md) | Engines shared by a series of games (`shared/`), and when to make one |
 | `template/` | A complete small game to start from |
 | `tools/` | `new_game.py`, `wire_shelf.py`, `check_game.py`, `shrink_png.py` |
 | `kit/` | The headless harness: real fonts and PNG output with no window |

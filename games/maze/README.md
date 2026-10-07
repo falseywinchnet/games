@@ -54,7 +54,7 @@ The in-game "Who's who" lists every source. No trademarks are used: the rewards 
 
 ```sh
 games --game maze
-games --game maze --standalone --dev --script vendor/maze/tests/native.script
+games --game maze --standalone --dev --script games/maze/tests/native.script
 ```
 
 - **Keys:** Up / W walks forward, Down / S steps back, Left and Right turn.
@@ -80,7 +80,7 @@ frame capture. Its finite scripts are described in `new-games/AGENTS.md`.
 From the repository root, test the core independently:
 
 ```sh
-cmake -S vendor/maze -B .build/new-games/maze -DCMAKE_BUILD_TYPE=Release
+cmake -S games/maze -B .build/new-games/maze -DCMAKE_BUILD_TYPE=Release
 cmake --build .build/new-games/maze --parallel 2
 ctest --test-dir .build/new-games/maze --output-on-failure
 ```
@@ -88,7 +88,7 @@ ctest --test-dir .build/new-games/maze --output-on-failure
 Build the shared native host using the repository's `docs/BUILDING.md` and root
 `AGENTS.md`; it supplies both standalone and hosted play. The headless preview
 executable is `maze_preview`. Authoring audio sources stay in `audio_src/` and
-render into this module's `assets/audio/`. Adding the complete folder to `vendor/`
+render into this module's `assets/audio/`. Adding the complete folder to `games/`
 is its registration; no shell or release-version edits are required.
 
 ## How it works

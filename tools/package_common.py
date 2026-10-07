@@ -47,7 +47,7 @@ def copy_resources(build, toolkit, destination):
         "libunibreak.txt": toolkit / "third_party/libunibreak/LICENCE",
         "QuickJS.txt": build / "_deps/quickjs-src/LICENSE",
         "miniaudio.txt": build / "_deps/gui_forms_miniaudio-src/LICENSE",
-        "Plan-Paint.txt": ROOT / "vendor/paint/LICENSE",
+        "Plan-Paint.txt": ROOT / "shared/felt/LICENSE",
     }
     for name, source in entries.items():
         shutil.copy2(source, notices / name)

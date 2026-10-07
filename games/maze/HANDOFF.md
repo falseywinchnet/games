@@ -10,7 +10,7 @@
 - Portable text and audio compile against the pinned headers. Dynamic source/runtime inventory verification and native loop decoding pass with quality-6 libvorbis assets.
 - Only byte-identical original files are listed as `borrowed`; the gate checks all edited C++ files. `SOURCE_PROVENANCE.json` records the original package fingerprints.
 
-Run `games --game maze --standalone --dev --script vendor/maze/tests/native.script`. The root `AGENTS.md` contains the supported native development build recipe.
+Run `games --game maze --standalone --dev --script games/maze/tests/native.script`. The root `AGENTS.md` contains the supported native development build recipe.
 
 ## NOT VERIFIED
 

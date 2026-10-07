@@ -1,7 +1,7 @@
 # Stillwater
 
 A living aquarium for the shelf: the first of PlaySuite's ambient scenes, and the
-first game on the shared ambient engine (`engines/ambient`).
+first game on the shared ambient engine (`shared/ambient`).
 
 ## What it is
 

@@ -27,7 +27,7 @@ For an authorized checkout based on current `main`, with only the intended game
 commits ahead of it:
 
 ```sh
-git add vendor/<id>
+git add games/<id>
 git diff --cached --stat
 git commit -m "Add <Title> to the shelf"
 git push origin HEAD:main

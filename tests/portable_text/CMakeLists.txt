@@ -46,10 +46,10 @@ target_link_libraries(game_text_frame_tests PRIVATE game_text_frames)
 add_test(NAME game_text_frame_preparation COMMAND game_text_frame_tests "${GAMES_TEXT_SOURCE_DIR}/assets/fonts")
 set_tests_properties(game_text_frame_preparation PROPERTIES TIMEOUT 30)
 add_library(vendor_text_views OBJECT
-    "${games_root}/vendor/eggy/src/eggy_view.cpp"
-    "${games_root}/vendor/fourpegs/src/fourpegs_view.cpp"
-    "${games_root}/vendor/atomprobe/src/atomprobe_view.cpp"
-    "${games_root}/vendor/switchbox/src/switchbox_view.cpp")
+    "${games_root}/games/eggy/src/eggy_view.cpp"
+    "${games_root}/games/fourpegs/src/fourpegs_view.cpp"
+    "${games_root}/games/atomprobe/src/atomprobe_view.cpp"
+    "${games_root}/games/switchbox/src/switchbox_view.cpp")
 target_link_libraries(vendor_text_views PRIVATE game_text_frames GUIForms::Controls)
 
 option(GAMES_TEST_VENDOR_FRAMES "Render complete vendor game frames with real portable services" OFF)
@@ -63,10 +63,10 @@ if(GAMES_TEST_VENDOR_FRAMES)
         "${games_root}/src/pcm_player.cpp"
         "${games_root}/src/fourpegs_audio.cpp"
         "${games_root}/src/scene_audio.cpp"
-        "${games_root}/vendor/eggy/src/audio.cpp"
-        "${games_root}/vendor/atomprobe/src/platform/audio.cpp"
-        "${games_root}/vendor/switchbox/src/platform/audio.cpp"
-        "${games_root}/vendor/fourpegs/src/platform/audio.cpp")
+        "${games_root}/games/eggy/src/audio.cpp"
+        "${games_root}/games/atomprobe/src/platform/audio.cpp"
+        "${games_root}/games/switchbox/src/platform/audio.cpp"
+        "${games_root}/games/fourpegs/src/platform/audio.cpp")
     target_include_directories(fourpegs_frame_audio PUBLIC "${games_root}/src")
     target_link_libraries(fourpegs_frame_audio PUBLIC GUIForms::Audio game_paths)
     add_executable(vendor_game_frame_tests "${games_root}/tests/vendor_game_frame_tests.cpp")

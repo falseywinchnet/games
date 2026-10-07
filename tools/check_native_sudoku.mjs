@@ -1,7 +1,7 @@
 import {readFileSync} from 'node:fs';
-import {generate,analyze} from '../vendor/sudoku/src/engine.mjs';
-import {referenceSolve,verifyTrace} from '../vendor/sudoku/test/reference.mjs';
-const calibration=JSON.parse(readFileSync(new URL('../vendor/sudoku/src/calibration.json',import.meta.url)));
+import {generate,analyze} from '../games/sudoku/src/engine.mjs';
+import {referenceSolve,verifyTrace} from '../games/sudoku/test/reference.mjs';
+const calibration=JSON.parse(readFileSync(new URL('../games/sudoku/src/calibration.json',import.meta.url)));
 const directory=process.argv[2] ?? '/tmp/games-native-sudoku-validation';
 for(let level=0;level<3;level++) {
  const lines=readFileSync(`${directory}/native-${level}.txt`,'utf8').split('\n');

@@ -148,7 +148,7 @@ void KoiView::build_art() {
         reduce(art_shadow_, static_cast<int>(std::lround(bw * 440.0 / 360)), static_cast<int>(std::lround(bw * 584.0 / 360)), shadow_big_);
         reduce(art_shadow_, static_cast<int>(std::lround(sw * 440.0 / 360)), static_cast<int>(std::lround(sw * 584.0 / 360)), shadow_small_);
     }
-    // the felt: the card table's own carpet (vendor/paint, preset 3, a 256-point tile), on the
+    // the felt: the card table's own carpet (shared/felt, preset 3, a 256-point tile), on the
     // table's base green, under its radial light, exactly as src/table.cpp lays it
     if (carpet_.w == 0) {
         // woven once, before the first frame, as the card table does (src/table.cpp, on attach)

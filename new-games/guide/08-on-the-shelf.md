@@ -1,6 +1,6 @@
 # Automatic shelf discovery
 
-A game joins the suite when its complete folder is placed in `vendor/<id>/`.
+A game joins the suite when its complete folder is placed in `games/<id>/`.
 CMake discovers `GAME.json` on configure and regenerates the catalog in the build
 directory. No generated file belongs in the source tree.
 
@@ -26,7 +26,7 @@ option is also read-only. It never patches the shell.
 | `HANDOFF.md`, `screens/` | Honest validation evidence and inspected presentation |
 
 `ui_sources`, `audio_sources` and `libraries` are read from the manifest.
-`engines` lists the shared engines (`engines/<id>/`) the game builds on; they are
+`engines` lists the shared engines (`shared/<id>/`) the game builds on; they are
 validated and built before the games ([shared engines](11-shared-engines.md)).
 `help_topics` contains `{ "id": "sets", "title": "Card sets", "file": "help-sets.md" }`
 objects. `module`, `cover`, `help` and `build` name files within this folder.
@@ -54,7 +54,7 @@ Use semicolon-separated paths for multiple external folders. Run the game with
 code and assets are exercised. Prepare runtime assets with `--extra-game-dir <folder>`
 for external prototypes; check the asset tool's `--help` for syntax.
 
-After copying that folder to `vendor/<id>/`, clear `GAMES_EXTRA_GAME_DIRS` in the
+After copying that folder to `games/<id>/`, clear `GAMES_EXTRA_GAME_DIRS` in the
 build cache and configure again. Build and run all tests. Check the hosted box,
 help, masters, input, persistence and minimum window size. Publishing after the
 normal merge uses the shared workflow's generated version and tested artifacts.

@@ -2,14 +2,14 @@
 
 Stillwater is the native Stillwater aquarium (Metal, macOS) ported to PlaySuite as
 a processor-only scene, and the first game on the shared ambient engine
-(`engines/ambient`). The engine tier itself (`engines/`, discovery, gate and kit
+(`shared/ambient`). The engine tier itself (`shared/`, discovery, gate and kit
 rules) arrived in the same change; see `new-games/guide/11-shared-engines.md`.
 
 ## Verified
 
 On the M4 Mac mini (macOS, LLVM 22, toolkit `d58f530`, Skia CPU), 2026-10-04:
 
-- Game's own headless build (`cmake -S vendor/stillwater`): no warnings;
+- Game's own headless build (`cmake -S games/stillwater`): no warnings;
   `ambient_engine` (38,342 checks) and `stillwater_rules` (the shipped archive:
   loads, validates, look ranges, grass, fish, light, sway, startle, reproducible
   frames) pass.
@@ -116,7 +116,7 @@ On the M4 Mac mini (`.build/mowing-app`, LLVM 22, Skia CPU), all 56 tests pass.
   `SceneSetup::dress`; it is fixed scenery (about 1,000 triangles shaded once per
   size), so a frame costs nothing extra. Gold and iron are new materials (15, 16)
   with a highlight; the gold takes the rippling light, which makes it glint.
-- **Engine additions** (`engines/ambient`): `SceneSetup::music`, `dress`,
+- **Engine additions** (`shared/ambient`): `SceneSetup::music`, `dress`,
   `live_ambience`, `live_music`; `Diorama` plays the ambience as a bed. Mowing's
   `live_music`, Q and repeat handling are unchanged.
 

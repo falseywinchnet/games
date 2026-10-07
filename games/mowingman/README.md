@@ -1,9 +1,9 @@
 # Mowing
 
 The second ambient scene, after Stillwater: a garden seen from straight above while
-Eggy mows it on a ride-on mower. Built on two shared engines: `engines/ambient`
+Eggy mows it on a ride-on mower. Built on two shared engines: `shared/ambient`
 (the scene host: governed clock, pause, detail, help, sound beds) and
-`engines/coverage` (the mower's brain).
+`shared/coverage` (the mower's brain).
 
 ## What it is
 
@@ -20,7 +20,7 @@ stripes appear and a job get finished.
 
 ## The mower's mind
 
-`engines/coverage` is a robot-mower brain. It knows only the lawn's boundary
+`shared/coverage` is a robot-mower brain. It knows only the lawn's boundary
 (as a perimeter wire would tell it). A simulated lidar looks ahead in a 120-degree
 fan for 1.8 m and builds a belief map; beds and the birdbath are discovered as
 they come into view. A planner sweeps lanes one deck-width apart (the stripes),

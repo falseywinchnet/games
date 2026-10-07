@@ -37,7 +37,7 @@ cmake --build .build/portable-audio -j 2
 ctest --test-dir .build/portable-audio --output-on-failure
 ```
 
-Atom Probe now uses `vendor/atomprobe` and `atom_probe-v2.txt`. Four Pegs uses the editable `vendor/fourpegs` copy and reserves `four_pegs-v2.txt`; Switchbox uses `vendor/switchbox` and `switchbox-v2.txt`. Keep their incoming packages and v1 saves unchanged. Collection source selects the new views in slots 5, 6 and 7 while retaining their enum values. Full UI linking, shared prepared-text wrapping, native audio playback, native cursor interaction and release packaging remain separate validation requirements.
+Atom Probe now uses `games/atomprobe` and `atom_probe-v2.txt`. Four Pegs uses the editable `games/fourpegs` copy and reserves `four_pegs-v2.txt`; Switchbox uses `games/switchbox` and `switchbox-v2.txt`. Keep their incoming packages and v1 saves unchanged. Collection source selects the new views in slots 5, 6 and 7 while retaining their enum values. Full UI linking, shared prepared-text wrapping, native audio playback, native cursor interaction and release packaging remain separate validation requirements.
 
 Four Pegs bar scheduling has a separate development consumer test against GUI.Forms source, because the draft transport is not exported in an installed SDK:
 
@@ -61,7 +61,7 @@ ctest --test-dir .build/portable-core --output-on-failure --timeout 120
 
 The `Native game core checks` workflow runs that profile on native Windows x64, macOS arm64, Linux x64 and Linux arm64 runners. Test reports and scene previews are diagnostic artifacts, not application packages.
 
-New games are built with the kit in `new-games/`; a model starting one reads `new-games/AGENTS.md` first. Shared engines live in `engines/<id>/` (see `new-games/guide/11-shared-engines.md`); games declare them in `GAME.json`. `engines/ambient` draws living 3D scenes on the processor alone under a measured CPU budget; Stillwater is its first scene. Kit games are written portable from the start, live only in `vendor/<id>/`, and are discovered automatically from `GAME.json`; `new-games/tools/wire_shelf.py` validates without changing files; they have no `incoming/` package. `new-games/tools/check_game.py <id> --fetch-toolkit` is their gate, and each adds a `<id>_view_contract` application test.
+New games are built with the kit in `new-games/`; a model starting one reads `new-games/AGENTS.md` first. Shared engines live in `shared/<id>/` (see `new-games/guide/11-shared-engines.md`); games declare them in `GAME.json`. `shared/ambient` draws living 3D scenes on the processor alone under a measured CPU budget; Stillwater is its first scene. Kit games are written portable from the start, live only in `games/<id>/`, and are discovered automatically from `GAME.json`; `new-games/tools/wire_shelf.py` validates without changing files; they have no `incoming/` package. `new-games/tools/check_game.py <id> --fetch-toolkit` is their gate, and each adds a `<id>_view_contract` application test.
 
 The 0.4 integrations and adapter boundaries are documented in docs/NEW_GAME_INTEGRATION.md. Run `python3 scripts/check-style.py` before publishing. New incoming packages remain unchanged; vendor copies are the integration surface.
 
@@ -125,7 +125,7 @@ The native executable is `.build/modular-app/games.app/Contents/MacOS/games`.
 Use `--list-games`, `--game catchingthieves --standalone --dev`, or
 `--game maze --dev --script <finite-script>` for isolated native validation.
 `GAMES_EXTRA_GAME_DIRS` allows a complete external game folder to be tested before
-copying it into `vendor/`. Clear that cache option after the experiment. Never
+copying it into `games/`. Clear that cache option after the experiment. Never
 commit fixture games or generated catalog files. Test module addition/removal,
 sparse permanent IDs, help, scrolling and old save migration without editing the
 shell. Run the full native suite after finalizing the catalog.

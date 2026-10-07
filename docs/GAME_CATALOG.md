@@ -94,7 +94,7 @@ Before implementing: fix the movement and victory rules, choose the new original
 
 ## Sudoku engine provenance
 
-The user-authorized handoff came from “Build an offline Sudoku generator.” The replaceable M4 mirror was `/Users/joshuahkuttenkuler/Developer/CodexBuilds/sudoku-offline-f74d1316f7bd`. Its canonical engine, calibration, independent oracle/tests, and original reports are preserved under `vendor/sudoku/`. The engine SHA-256 is `e6c1324a58ab7ebe3521ede26cda78a179843ed86af47a7eb2a268438f0a642d`.
+The user-authorized handoff came from “Build an offline Sudoku generator.” The replaceable M4 mirror was `/Users/joshuahkuttenkuler/Developer/CodexBuilds/sudoku-offline-f74d1316f7bd`. Its canonical engine, calibration, independent oracle/tests, and original reports are preserved under `games/sudoku/`. The engine SHA-256 is `e6c1324a58ab7ebe3521ede26cda78a179843ed86af47a7eb2a268438f0a642d`.
 
 The app uses pinned QuickJS in a background job; no server or external Node installation is required. The runtime adapter removes only ES-module export syntax and supplies a clock. Three native integration fixtures match the original Node engine exactly and pass the independent Algorithm X oracle and logical trace replay. Original warmed-Node benchmark timings are not native cold-start timings.
 

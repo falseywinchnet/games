@@ -44,7 +44,7 @@ pumpkins hop, and the raccoons wave white flags from underneath ("We give up!").
 
 ```sh
 games --game catchingthieves
-games --game catchingthieves --standalone --dev --script vendor/catchingthieves/tests/native.script
+games --game catchingthieves --standalone --dev --script games/catchingthieves/tests/native.script
 ```
 
 - **Walk:** arrow keys or WASD. Walking into a pumpkin pushes it.
@@ -77,7 +77,7 @@ frame capture. Its finite scripts are described in `new-games/AGENTS.md`.
 From the repository root, test the core independently:
 
 ```sh
-cmake -S vendor/catchingthieves -B .build/new-games/catchingthieves -DCMAKE_BUILD_TYPE=Release
+cmake -S games/catchingthieves -B .build/new-games/catchingthieves -DCMAKE_BUILD_TYPE=Release
 cmake --build .build/new-games/catchingthieves --parallel 2
 ctest --test-dir .build/new-games/catchingthieves --output-on-failure
 ```
@@ -85,7 +85,7 @@ ctest --test-dir .build/new-games/catchingthieves --output-on-failure
 Build the shared native host using the repository's `docs/BUILDING.md` and root
 `AGENTS.md`; it supplies both standalone and hosted play. The headless preview
 executable is `ct_preview`. Authoring audio sources stay in `audio_src/` and
-render into this module's `assets/audio/`. Adding the complete folder to `vendor/`
+render into this module's `assets/audio/`. Adding the complete folder to `games/`
 is its registration; no shell or release-version edits are required.
 
 ## How it works

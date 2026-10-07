@@ -8,8 +8,8 @@ on:
       - 'src/pcm_player.*'
       - 'tests/portable_audio/**'
       - 'tests/*audio*'
-      - 'vendor/**'
-      - 'engines/**'
+      - 'games/**'
+      - 'shared/**'
       - 'tools/game_catalog.py'
       - 'tools/prepare_portable_assets.py'
       - 'tools/verify_portable_assets.py'
@@ -21,8 +21,8 @@ on:
       - 'src/pcm_player.*'
       - 'tests/portable_audio/**'
       - 'tests/*audio*'
-      - 'vendor/**'
-      - 'engines/**'
+      - 'games/**'
+      - 'shared/**'
       - 'tools/game_catalog.py'
       - 'tools/*portable_assets.py'
       - '.github/workflows/runtime-assets.yml'
@@ -42,7 +42,7 @@ jobs:
         id: runtime-cache
         with:
           path: build/runtime-assets
-          key: runtime-v2-${{ hashFiles('assets/**', 'vendor/**', 'engines/**', 'tools/*portable_assets.py', 'tools/game_catalog.py') }}
+          key: runtime-v2-${{ hashFiles('assets/**', 'games/**', 'shared/**', 'tools/*portable_assets.py', 'tools/game_catalog.py') }}
       - name: Install authoring tools
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         run: sudo apt-get update && sudo apt-get install -y ffmpeg python3-pil

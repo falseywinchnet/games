@@ -1,13 +1,13 @@
 # Anatomy of a game
 
-A kit game is one folder, `vendor/<id>/`, in one C++ namespace. This guide
+A kit game is one folder, `games/<id>/`, in one C++ namespace. This guide
 explains what is in the folder, why it is split the way it is, and what
 "standalone" requires.
 
 ## The folder
 
 ```
-vendor/<id>/
+games/<id>/
   GAME.json                 names, colours and file lists the tools read
   README.md                 the brief
   HANDOFF.md                what was verified and what was not

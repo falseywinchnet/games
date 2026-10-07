@@ -6,7 +6,7 @@ current, creatures on analytic routes, rising particles, and an animated light
 pattern. The engine keeps it all inside a measured processor budget and does no work
 at all when paused or hidden.
 
-Stillwater (`vendor/stillwater`) is the first scene. Later scenes are new games that
+Stillwater (`games/stillwater`) is the first scene. Later scenes are new games that
 declare `"engines": ["ambient"]` and supply an archive and a look.
 
 ## How a frame is made
@@ -46,7 +46,7 @@ the raster, so a full-screen window costs no more than a large one.
 - **Foliage is ordered by plant**: see-through plants farthest first so blending
   layers correctly, opaque plants nearest first so hidden pixels fail the depth test.
 
-Measured costs for Stillwater are in `vendor/stillwater/HANDOFF.md`.
+Measured costs for Stillwater are in `games/stillwater/HANDOFF.md`.
 
 ## Interface
 
@@ -88,7 +88,7 @@ closes.
 ## Making a scene
 
 An archive is written offline by the game's authoring script (Stillwater's is
-`vendor/stillwater/scene_src/build_scene.py`). Prepare geometry for the processor:
+`games/stillwater/scene_src/build_scene.py`). Prepare geometry for the processor:
 decimate meshes to what the scene raster can show, thin foliage ribbons along their
 length, and downsample material maps. Sections:
 

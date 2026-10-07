@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Render this game's effects as 48 kHz stereo 16-bit WAV, with the standard library only.
 
-    python3 vendor/<id>/audio_src/make_sfx.py            writes into this game's assets/audio/
-    python3 vendor/<id>/audio_src/make_sfx.py out_dir    writes somewhere else
+    python3 games/<id>/audio_src/make_sfx.py            writes into this game's assets/audio/
+    python3 games/<id>/audio_src/make_sfx.py out_dir    writes somewhere else
 
 Deterministic: the same script gives the same bytes on every machine.
 """

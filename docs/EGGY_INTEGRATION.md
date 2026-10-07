@@ -4,7 +4,7 @@ The delivered `game-eggy-01` package is integrated into the Games collection as 
 
 ## Source and assets
 
-`vendor/eggy/src/` is the cabinet's working copy; the separate `eggy_core` and `eggy_ui` libraries link into `game_ui`. The standalone `main.cpp` is preserved but is not linked into Games. The author's original handoff is copied to `vendor/eggy/INTEGRATION_HANDOFF.txt`. No GUI.Forms or sibling checkout was edited.
+`games/eggy/src/` is the cabinet's working copy; the separate `eggy_core` and `eggy_ui` libraries link into `game_ui`. The standalone `main.cpp` is preserved but is not linked into Games. The author's original handoff is copied to `games/eggy/INTEGRATION_HANDOFF.txt`. No GUI.Forms or sibling checkout was edited.
 
 Delivered assets were copied without alteration or name collisions into `assets/audio/` and `assets/lines/`: 44 AAC files, five WAV ambience beds, and 17,918 lines in 53 categories. The original WAV music masters remain on the Neo. The cabinet bundle contains the runtime assets.
 

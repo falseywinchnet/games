@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compatibility command: validate automatic folder discovery without editing the shell.
 
-CMake reads vendor/*/GAME.json and GAMES_EXTRA_GAME_DIRS, generating its registry
+CMake reads games/*/GAME.json and GAMES_EXTRA_GAME_DIRS, generating its registry
 inside the build directory. This command checks the same catalog and asset
 contract. It never modifies source, counts, saved ids, covers, help or build files.
 """

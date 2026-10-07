@@ -13,7 +13,7 @@ AGENTS.md asks for reusable capabilities to become GUI.Forms enhancements, coord
 4. **Anti-aliased polygon and path fill on `Painter`.** Only `gui_drawing::GraphicsRecorder` has paths, and it is not drawable through `Painter`. Games fills polygons with device-row spans and blends the partly covered pixel at each span end. Tiled shapes need a hard-edged mode, or seams appear between them.
 
 5. **Scaled presentation of a small live surface, and no clear under an opaque one.**
-   Measured with Stillwater (`engines/ambient`) on the macOS Skia CPU host at
+   Measured with Stillwater (`shared/ambient`) on the macOS Skia CPU host at
    1060 x 680 points, scale 1, 20 frames a second: of 18 % of one core, about 6 %
    is host work per presented frame (Skia clearing the window under the opaque
    surface with `rect_memset32`, retained paint of the surface, Core Animation

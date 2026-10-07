@@ -1,13 +1,13 @@
 # Included by the generated registry (and by CMakeLists.txt), with GAME_MODULE_DIR set
 # to this folder. The ambient and coverage engines are built first.
 #
-# The mown turf comes from the suite's felt generator (vendor/paint), linked once by
+# The mown turf comes from the suite's felt generator (shared/felt), linked once by
 # the application as game_felt; headless builds compile the same sources here.
 if(GAMES_BUILD_APPLICATION)
   set(MM_FELT game_felt)
 else()
   if(NOT TARGET mm_felt)
-    add_library(mm_felt STATIC "${GAME_MODULE_DIR}/../paint/carpet.cpp" "${GAME_MODULE_DIR}/../paint/image.cpp")
+    add_library(mm_felt STATIC "${GAME_MODULE_DIR}/../../shared/felt/carpet.cpp" "${GAME_MODULE_DIR}/../../shared/felt/image.cpp")
     target_compile_features(mm_felt PUBLIC cxx_std_20)
   endif()
   set(MM_FELT mm_felt)
@@ -34,7 +34,7 @@ add_library(mm_core STATIC
   "${GAME_MODULE_DIR}/src/models_common.cpp"
   "${GAME_MODULE_DIR}/src/yard.cpp"
   "${GAME_MODULE_DIR}/src/platform/raster.cpp")
-target_include_directories(mm_core PUBLIC "${GAME_MODULE_DIR}/src" "${GAME_MODULE_DIR}/../paint")
+target_include_directories(mm_core PUBLIC "${GAME_MODULE_DIR}/src" "${GAME_MODULE_DIR}/../../shared/felt")
 find_package(Threads REQUIRED)
 target_link_libraries(mm_core PUBLIC coverage_core ${MM_FELT} Threads::Threads)
 target_compile_definitions(mm_core PRIVATE _USE_MATH_DEFINES)

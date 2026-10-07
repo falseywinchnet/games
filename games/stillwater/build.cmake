@@ -1,5 +1,5 @@
 # Included by the generated registry (and by CMakeLists.txt), with GAME_MODULE_DIR set
-# to this folder. The ambient engine (engines/ambient) is built first.
+# to this folder. The ambient engine (shared/ambient) is built first.
 add_library(sw_core STATIC
   "${GAME_MODULE_DIR}/src/riverscape_look.cpp"
   "${GAME_MODULE_DIR}/src/treasure.cpp"

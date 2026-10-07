@@ -61,9 +61,9 @@ add_library(sudoku_generator src/sudoku_bridge.cpp)
 target_link_libraries(sudoku_generator PUBLIC game_rules PRIVATE qjs)
 find_package(Threads REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
-set(GAMES_EXTRA_GAME_DIRS "" CACHE STRING "Additional game folders to test before copying into vendor")
-file(GLOB module_manifests CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/vendor/*/GAME.json"
-  "${CMAKE_CURRENT_SOURCE_DIR}/engines/*/ENGINE.json")
+set(GAMES_EXTRA_GAME_DIRS "" CACHE STRING "Additional game folders to test before copying into games/")
+file(GLOB module_manifests CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/games/*/GAME.json"
+  "${CMAKE_CURRENT_SOURCE_DIR}/shared/*/ENGINE.json")
 set(catalog_arguments)
 foreach(directory IN LISTS GAMES_EXTRA_GAME_DIRS)
   list(APPEND catalog_arguments --extra "${directory}")

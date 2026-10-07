@@ -89,7 +89,7 @@ spirit of the collection. Keep them harmless and findable by play.
 ## Sound
 
 **Everything is synthesized, here.** Every sound is rendered by a script in
-`vendor/<id>/audio_src/`. No samples, no recordings, no borrowed melodies, no
+`games/<id>/audio_src/`. No samples, no recordings, no borrowed melodies, no
 voices from anywhere. A reference track may guide the mood; nothing is taken
 from it.
 

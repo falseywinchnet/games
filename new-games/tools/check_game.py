@@ -89,7 +89,7 @@ def check_structure(directory: Path, manifest: dict, report: Report) -> None:
         report.require((directory / manifest.get(key, "?")).is_file(), f"{key}: {manifest.get(key)}", f"{key} file is missing")
     for engine in manifest.get("engines", []):
         report.require(engine in kitlib.engines(), f"built on the shared engine {engine}",
-                       f"GAME.json names engine {engine!r}, which is not in engines/")
+                       f"GAME.json names engine {engine!r}, which is not in shared/")
     stray = [path.name for path in directory.rglob("*") if path.suffix in (".mm", ".m", ".swift", ".cs", ".js", ".dll", ".dylib", ".so", ".exe")]
     report.require(not stray, "no platform-specific or binary sources", "platform-specific or binary files: " + ", ".join(stray[:6]))
     report.require(re.fullmatch(r"[a-z0-9_]+-v\d+\.txt", manifest.get("save_file", "")) is not None,
@@ -107,7 +107,7 @@ def check_structure(directory: Path, manifest: dict, report: Report) -> None:
                        "screens/ needs at least two PNGs you have looked at, one with 600x370 in its name")
         heavy = [path.name for path in screens if path.stat().st_size > 700 * 1024]
         report.require(not heavy, "screenshots are compressed",
-                       f"{len(heavy)} screenshots are over 700 KiB; run python3 new-games/tools/shrink_png.py vendor/{manifest['id']}/screens")
+                       f"{len(heavy)} screenshots are over 700 KiB; run python3 new-games/tools/shrink_png.py games/{manifest['id']}/screens")
 
 
 def check_style(directory: Path, manifest: dict, report: Report) -> None:
@@ -167,7 +167,7 @@ def check_portability(directory: Path, manifest: dict, report: Report) -> None:
                 report.fail(f"{relative}:{line}: {what}")
                 problems += 1
         for include in re.findall(r'#\s*include\s*"([^"]+)"', raw):
-            if include.startswith("../") or include.startswith("vendor/"):
+            if include.startswith("../") or include.startswith("games/"):
                 report.fail(f"{relative}: includes {include}; a game reaches into no other game's folder")
                 problems += 1
         for name in sorted(others):

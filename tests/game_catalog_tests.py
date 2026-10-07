@@ -41,10 +41,10 @@ class CatalogTests(unittest.TestCase):
         self.addCleanup(self.scratch.cleanup)
         self.root = Path(self.scratch.name) / "collection"
         self.output = Path(self.scratch.name) / "generated"
-        (self.root / "vendor").mkdir(parents=True)
+        (self.root / "games").mkdir(parents=True)
 
     def module(self, name="sample", entry=41, **overrides):
-        directory = self.root / "vendor" / name
+        directory = self.root / "games" / name
         directory.mkdir(parents=True)
         data = dict(schema_version=1, id=name, entry_id=entry, entry_name=name,
                     namespace="ns_" + name, title="A Garden", kind="Puzzle",
@@ -117,7 +117,7 @@ class CatalogTests(unittest.TestCase):
                            ("entry_id", 7), ("namespace", "ns_first")):
             for disabled in (False, True):
                 with self.subTest(key=key, disabled=disabled):
-                    shutil.rmtree(self.root / "vendor")
+                    shutil.rmtree(self.root / "games")
                     self.module("first", 7, enabled=not disabled)
                     self.module("second", 8, **{key: value})
                     with self.assertRaisesRegex(ValueError, "duplicate " + key):
@@ -213,7 +213,7 @@ class CatalogTests(unittest.TestCase):
                     catalog.discover(self.root)
 
     def engine(self, name="scenery", namespace="scenery", **overrides):
-        directory = self.root / "engines" / name
+        directory = self.root / "shared" / name
         (directory / "ui").mkdir(parents=True)
         for filename in ("build.cmake", "ui/view.cpp"):
             (directory / filename).write_text("# fixture\n", encoding="utf-8")
@@ -248,21 +248,21 @@ class CatalogTests(unittest.TestCase):
         self.module("scene", 2, engines=["missing"])
         with self.assertRaisesRegex(ValueError, "unknown engine"):
             catalog.discover(self.root)
-        shutil.rmtree(self.root / "vendor" / "scene")
+        shutil.rmtree(self.root / "games" / "scene")
         self.module("scene", 2, namespace="scenery")
         with self.assertRaisesRegex(ValueError, "belongs to the engine"):
             catalog.discover(self.root)
-        shutil.rmtree(self.root / "vendor" / "scene")
+        shutil.rmtree(self.root / "games" / "scene")
         self.module("scene", 2, engines=["scenery", "scenery"])
         with self.assertRaisesRegex(ValueError, "distinct engine ids"):
             catalog.discover(self.root)
-        shutil.rmtree(self.root / "vendor" / "scene")
+        shutil.rmtree(self.root / "games" / "scene")
         self.module("scene", 2)
         for change, message in (({"id": "other"}, "folder name"), ({"namespace": "games"}, "reserved"),
                                 ({"ui_sources": ["ui/missing.cpp"]}, "missing"),
                                 ({"build": "../escape.cmake"}, "escapes"), ({"summary": ""}, "summary")):
             with self.subTest(change=change):
-                shutil.rmtree(self.root / "engines")
+                shutil.rmtree(self.root / "shared")
                 self.engine(**change)
                 with self.assertRaisesRegex(ValueError, message):
                     catalog.discover(self.root)
