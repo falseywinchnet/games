@@ -1,4 +1,4 @@
-// The card table's card finish, copied verbatim from PlaySuite src/table.cpp (card_finish) so the
+// The card table's card finish, copied verbatim from PlaySuite shared/cards/table.cpp (card_finish) so the
 // hanafuda wear exactly the same surface as the other decks. On the card table itself, Koi-Koi
 // uses that original; this copy is only for the Mac preview table.
 #include "card_finish.hpp"

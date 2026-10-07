@@ -20,12 +20,12 @@ target_include_directories(game_paths PUBLIC "${PLAYSUITE_SOURCE_DIR}/src")
 # These modules share the established card/puzzle rules and their acceptance suite.
 if(DEFINED GAME_SHARED_ENGINE)
   add_library(game_rules
-    "${PLAYSUITE_SOURCE_DIR}/src/game.cpp"
+    "${PLAYSUITE_SOURCE_DIR}/shared/cards/game.cpp"
     "${PLAYSUITE_SOURCE_DIR}/src/storage.cpp"
     "${PLAYSUITE_SOURCE_DIR}/src/scores.cpp"
-    "${PLAYSUITE_SOURCE_DIR}/src/sudoku.cpp"
-    "${PLAYSUITE_SOURCE_DIR}/src/puzzles.cpp")
-  target_include_directories(game_rules PUBLIC "${PLAYSUITE_SOURCE_DIR}/src")
+    "${PLAYSUITE_SOURCE_DIR}/games/sudoku/src/sudoku.cpp"
+    "${PLAYSUITE_SOURCE_DIR}/shared/puzzles/puzzles.cpp")
+  target_include_directories(game_rules PUBLIC "${PLAYSUITE_SOURCE_DIR}/src" "${PLAYSUITE_SOURCE_DIR}/shared/cards" "${PLAYSUITE_SOURCE_DIR}/shared/puzzles" "${PLAYSUITE_SOURCE_DIR}/games/sudoku/src")
   target_link_libraries(game_rules PUBLIC game_paths)
   add_executable(rules_tests "${PLAYSUITE_SOURCE_DIR}/tests/rules_tests.cpp")
   target_link_libraries(rules_tests PRIVATE game_rules)
@@ -34,7 +34,7 @@ if(DEFINED GAME_SHARED_ENGINE)
   target_link_libraries(storage_tests PRIVATE game_rules)
   add_test(NAME storage COMMAND storage_tests)
   if(GAME_SHARED_ENGINE STREQUAL "cards")
-    add_library(game_solver "${PLAYSUITE_SOURCE_DIR}/src/solitaire_solver.cpp" "${PLAYSUITE_SOURCE_DIR}/src/deal_tables.cpp")
+    add_library(game_solver "${PLAYSUITE_SOURCE_DIR}/shared/cards/solitaire_solver.cpp" "${PLAYSUITE_SOURCE_DIR}/shared/cards/deal_tables.cpp")
     target_link_libraries(game_solver PUBLIC game_rules)
     add_executable(solver_tests "${PLAYSUITE_SOURCE_DIR}/tests/solver_tests.cpp")
     target_link_libraries(solver_tests PRIVATE game_solver)
@@ -48,14 +48,14 @@ if(DEFINED GAME_SHARED_ENGINE)
     set(QJS_BUILD_LIBC OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(quickjs)
     set_property(DIRECTORY "${quickjs_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL TRUE)
-    add_library(sudoku_generator "${PLAYSUITE_SOURCE_DIR}/src/sudoku_bridge.cpp")
+    add_library(sudoku_generator "${PLAYSUITE_SOURCE_DIR}/games/sudoku/src/sudoku_bridge.cpp")
     target_link_libraries(sudoku_generator PUBLIC game_rules PRIVATE qjs)
     add_executable(sudoku_tests "${PLAYSUITE_SOURCE_DIR}/tests/sudoku_tests.cpp")
     target_link_libraries(sudoku_tests PRIVATE sudoku_generator)
     target_compile_definitions(sudoku_tests PRIVATE GAMES_TEST_ASSET_DIR="${PLAYSUITE_SOURCE_DIR}/assets")
     add_test(NAME sudoku COMMAND sudoku_tests)
   else()
-    add_library(game_raster "${PLAYSUITE_SOURCE_DIR}/src/puzzle_render.cpp" "${PLAYSUITE_SOURCE_DIR}/src/puzzle_image.cpp")
+    add_library(game_raster "${PLAYSUITE_SOURCE_DIR}/shared/puzzles/puzzle_render.cpp" "${PLAYSUITE_SOURCE_DIR}/shared/puzzles/puzzle_image.cpp")
     target_link_libraries(game_raster PUBLIC game_rules)
     add_executable(raster_tests "${PLAYSUITE_SOURCE_DIR}/tests/raster_tests.cpp")
     target_link_libraries(raster_tests PRIVATE game_raster)

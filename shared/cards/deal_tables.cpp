@@ -3,7 +3,7 @@
 // Easy/Medium/Hard by games::grade_deal (see solitaire_solver.cpp).
 // Regenerate from a portable-core build:
 //   cmake --build .build/portable-core --target deal_grader -j 1
-//   .build/portable-core/deal_grader generate src/deal_tables.cpp
+//   .build/portable-core/deal_grader generate shared/cards/deal_tables.cpp
 // Per-bucket target 500 seeds.
 // klondike_draw1: 3974 seeds scanned in 176 s; casual-player wins 1553, solver-only wins 1892, no win found 529 (exhausted 53, budget 476); easy 1553 medium 1392 hard 500; kept 500/500/500; 72.5 ms per solver run
 // klondike_draw3: 4637 seeds scanned in 235 s; casual-player wins 500, solver-only wins 2984, no win found 1153 (exhausted 402, budget 751); easy 500 medium 1864 hard 1120; kept 500/500/500; 56.7 ms per solver run
