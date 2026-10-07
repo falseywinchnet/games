@@ -14,7 +14,7 @@
 #include "png_writer.hpp"
 #include "riverscape_look.hpp"
 #include "stage.hpp"
-#include "treasure.hpp"
+#include "tanks.hpp"
 
 #include <chrono>
 #include <cstdio>
@@ -72,13 +72,53 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", error.c_str());
         return 1;
     }
-    // The game dresses the archive with its treasure chest as it loads; so does this.
-    sw::add_treasure(scene);
+    // The game dresses the archive with its props (the chest) as it loads; so does
+    // this. The tank (and its look) follows the archive's name.
+    const sw::Tank tank = sw::tank_for_archive(argv[1]);
+    sw::dress_tank(tank, scene);
     const double load_ms = milliseconds_since(start);
 
     start = Clock::now();
-    const sw::RiverscapeLook look(scene);
+    // SW_NO_CAUSTICS=1 draws the tank without caustics (for before-and-after pictures).
+    sw::TankStyle style = sw::tank_style(tank);
+    if (std::getenv("SW_NO_CAUSTICS") != nullptr) {
+        style.caustic_share = 0;
+        style.caustics.size = 0;
+    }
+    const sw::RiverscapeLook look(scene, style);
     const double look_ms = milliseconds_since(start);
+
+    // SW_CAUSTIC_TILE=file.png writes the caustic pattern's first frame: sharp (left)
+    // and soft (right), tiled two by two.
+    const char* tile_path = std::getenv("SW_CAUSTIC_TILE");
+    if (tile_path != nullptr && !(*look.caustics()).empty()) {
+        const ambient::CausticField& field = *look.caustics();
+        const int n = field.size();
+        std::vector<std::uint32_t> tile(static_cast<std::size_t>(n * 4) * static_cast<std::size_t>(n * 2));
+        for (int y = 0; y < n * 2; ++y) {
+            for (int x = 0; x < n * 4; ++x) {
+                const std::uint16_t texel = field.texel(0, (y % n) * n + (x % n));
+                const std::uint32_t value = x < n * 2 ? (texel & 255U) : (texel >> 8U);
+                tile[static_cast<std::size_t>(y) * static_cast<std::size_t>(n * 4) + static_cast<std::size_t>(x)] =
+                    0xFF000000U | (value << 16U) | (value << 8U) | value;
+            }
+        }
+        write_frame(tile_path, n * 4, n * 2, tile);
+    }
+    if (std::getenv("SW_CAUSTIC_STATS") != nullptr) {
+        for (int level = 0; level <= 8; level += 2) {
+            double sum = 0;
+            float peak = 0;
+            int bright = 0;
+            for (int k = 0; k < 10000; ++k) {
+                const float s = (*look.caustics()).at({-6.0F + 0.0012F * k, static_cast<float>(level), 0.3F * (k % 37)}, 12.0F);
+                sum += s;
+                peak = std::max(peak, s);
+                bright += s > 0.3F ? 1 : 0;
+            }
+            std::printf("height %d: mean %.3f peak %.3f bright %.3f\n", level, sum / 10000, static_cast<double>(peak), bright / 10000.0);
+        }
+    }
 
     start = Clock::now();
     const ambient::ShadowMap shadows = ambient::build_shadow_map(scene, look, 1024);

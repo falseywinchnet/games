@@ -1,0 +1,24 @@
+{
+  "reef": {
+    "bytes": 4672990,
+    "sha256": "9721309ca6a57a36bf0f380f992d2b8c3e357b90a54ad364174a2de54eb5ca2d",
+    "static_triangles": 535262,
+    "placements": 448,
+    "sway_triangles": 6764,
+    "sway_roots": 105,
+    "creatures": 33,
+    "risers": 30,
+    "base_sha256": "a6031e334831c46639c66b01cb716707d075afdf7186e03cbbebb91782d174ca"
+  },
+  "pool": {
+    "bytes": 2356639,
+    "sha256": "dade125aef3adae0c3f323e1333ba69bf94d6136402ca539bbe7fb324b56b57a",
+    "static_triangles": 319059,
+    "placements": 3252,
+    "sway_triangles": 14696,
+    "sway_roots": 311,
+    "creatures": 19,
+    "risers": 8,
+    "base_sha256": "a6031e334831c46639c66b01cb716707d075afdf7186e03cbbebb91782d174ca"
+  }
+}

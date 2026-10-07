@@ -82,7 +82,7 @@ On the M4 Mac mini (macOS, LLVM 22, toolkit `d58f530`, Skia CPU), 2026-10-04:
 - **Sound.** The ambience follows the Music master and stops while paused; the tap
   follows the Sound master. The 12 MB ambience master WAV is not committed:
   `audio_src/make_audio.py` regenerates it and the shipped files deterministically.
-- **Saves.** `stillwater-v1.txt` holds paused and detail only; there is no progress.
+- **Saves.** `stillwater-v1.txt` holds paused, detail and (since the tanks) scene; there is no progress.
 - **Provenance.** Riverscape geometry and formulas: Desktop Habitats, Chase Lean,
   MIT (`assets/licenses/desktop-habitats-MIT.txt`). Material maps: Poly Haven,
   CC0. ACES fit: Three.js, MIT. Fish, crab and bubble motion, the audio and all
@@ -209,3 +209,144 @@ spinning would burn energy just to improve the number, so it was not done.
 About 20 % of the active samples are the toolkit's full-window repaint of the live
 surface on macOS (a clear, a blend and a byte-order swap). That is recorded in
 `docs/TOOLKIT_REQUESTS.md`.
+
+## 2026-10-06: caustics and a choice of tanks
+
+On the M4 Mac mini (`.build/opaque-app`, LLVM 22, toolkit `toolkit-opaque`, Skia CPU),
+all 60 tests pass, including `ambient_engine` (46,353 checks), `stillwater_rules`
+(5,816) and `stillwater_view_contract`; Mowing's six tests pass unchanged. The game's
+own headless build (`cmake -S games/stillwater`) has no warnings.
+
+- **Caustics** replace the labelled wave approximation. `ambient::CausticField`
+  (`shared/ambient/src/caustics.*`) traces light through a tileable, looping
+  rippled surface once per look (about 20 ms on the loading worker, 1 MB) and keeps
+  32 steps, sharp and soft. Surfaces are reduced to taps per layer; a frame reads two
+  bytes per lit pixel and blends with packed integer arithmetic. The light falls on
+  sand, stones, wood, coral and the chest (sharp near the surface, soft and dimmer on
+  the floor), on the swaying leaves (soft only: sharp lines turned into dashes on
+  edge-on blades) and on the fish and crabs. In the look, the share of sunlight the
+  ripples gather (`TankStyle::caustic_share`) leaves the even light and returns in
+  the lines, so the tank is not brighter overall. `SW_CAUSTIC_TILE=file.png` and
+  `SW_CAUSTIC_STATS=1` make `sw_preview` show the pattern and its strength by height;
+  `SW_NO_CAUSTICS=1` draws a tank without them.
+- **Tanks.** `Scene` (S, and the capsule) cycles the planted tank, a coral reef and a
+  river pool. `scene_src/build_tanks.py` writes `assets/scene/reef.ambient` and
+  `pool.ambient` (deterministic; `--check` compares) from new procedural content
+  (staghorn and brain corals, sea fans, soft corals, anemones with swaying tentacles,
+  sea grass and sea whips; tree roots, sunken branches, leaf litter, gravel and
+  eelgrass) and from the planted archive's shared parts (camera, sand floor, material
+  maps, boulders, fish meshes, crab). Each tank has a `TankStyle` (`src/tanks.cpp`):
+  water, light, fog, sand and rock tints, caustics and three fish colourings, chosen
+  per fish by its archive tint (tangs, clownfish with bands, yellow tangs; minnows,
+  red-finned rudd, banded darters). The chest dresses the planted tank and the reef.
+- **Engine** (`shared/ambient`): `DioramaScene` and `SceneSetup::scenes`; the Diorama
+  loads and builds the next scene on workers while the shown one dims (0.45 s), then
+  swaps and brightens it (0.6 s), on the wall clock so it completes while paused
+  (`SceneContext::redraw` keeps the view drawing); a second press redirects a change
+  in flight. `FixedLayer::light_position` now keeps x, y, z. Looks without a field
+  keep `animated_light` unchanged (Mowing does not use the stage).
+- **Saves.** The choice is the `scene` line of `stillwater-v1.txt`; a file without
+  one opens the planted tank (tested in `stillwater_view_contract` with a pre-scene
+  file, then cycling while paused, saving, a double press and reopening).
+
+Cost, planted tank (the default), measured before and after on the same machine:
+
+| Measure | Before | After |
+|---|---|---|
+| Headless compose (`sw_preview`, 590 x 380, 240 frames) | 1.39 ms | 1.56 ms |
+| Headless sway update | 8.81 ms | 9.71 ms |
+| Headless scene work at 24 fps + 8 sway | 104 ms/s | 115 ms/s |
+| App draw per frame (`--profile-idle 20`, 530 x 309 scene) | 7.81 ms | 7.82-7.91 ms |
+| App process CPU over 10 s (rates at their floors, 12 + 3) | 27.2 % | 27.7-28.7 % |
+| Resident memory | 200 MiB | 208 MiB |
+
+The extra work is the light on leaves and fish, which the old pattern did not reach;
+the budget (10 % of a core for the scene's own work) and the governor are unchanged,
+so the frame and sway rates absorb it. Reef: compose 1.90 ms, sway 0.52 ms, app
+23.0 %, 168 MiB. River pool: compose 1.65 ms, sway 1.89 ms, app 23.4 %, 166 MiB.
+Opening a tank costs about 130-180 ms on workers (archive, look and caustics, shadow
+map, fixed layer).
+
+Not verified: a Retina window; the look of the new tanks on other displays; the
+caustic pattern's repetition (one tile is 3.2 units, turned 27 degrees) at Fine on a
+very large window.
+
+## 2026-10-07: the native Stillwater's sound restored; the reef rebuilt
+
+On the M4 Mac mini (`.build/app`, LLVM 22, toolkit `toolkit-opaque`, Skia CPU), all 60
+tests pass; `scripts/check-style.py` is clean; `build_tanks.py --check` matches.
+
+### Sound
+
+The port's water and tap came from the native app at 4a80ee3, which still had its
+first sound. Hours later the native app replaced it (3f6830f, 424bea9, its
+`docs/ATMOSPHERE.md`): the owner had heard the tonal loop, the rising bubble sweeps
+and the ringing 730 Hz tap and found them too prominent, and the refined version is the
+one they kept. The port never received it. `src/tank_voice.cpp` now carries that
+refined recipe, measured against the original's own code (a harness compiled from its
+`src/sound.cpp`):
+
+| Layer | Native Stillwater (424bea9) | Port before (PR #8) | Port now |
+|---|---|---|---|
+| Filter motor | 60 Hz series, five modes weighted to 120 Hz, amplitude stirred ±8 % by 89 Hz-filtered mechanical noise, a little of that noise heard; right ear 0.94 | two steady sines, 55 and 110 Hz (the first draft) | the original, by frequency at 48 kHz |
+| Return water | continuous noise band 42-612 Hz, independent per ear, very quiet | low-passed noise (about 270 Hz) swelling on 16 and 64 s sines: a rumble, the loudest layer | the original; reef ×1.6; pool ×2.1 (the current); ±12 % with the flow |
+| Air stone | about 24 bubbles/s at exponential waits; radii 0.7-3.2 mm (biased small) ringing at their Minnaert pitch (1-4.7 kHz), fixed pitch, damped 75-255/s; 24 voices; levels skewed quiet; softened by an 872 Hz low-pass; panned 0.25-0.65 | about 3/s in clusters, 440-1340 Hz sines rising 1,600 Hz/s (the sweeps the owner rejected), 8 voices, unfiltered, loud | the original, but the flow that paces them really wanders (15-33/s over 10-40 s; the original's wander was ±0.002), panned toward the column on the right; pool: about 1.3/s larger silt bubbles anywhere |
+| Glass tap | 200 ms fingertip: 220 Hz damped body, faint 920/1770 Hz glass, contact noise; peak -42.7 dBFS, beside the ambience; synthesized per tap, equal-power pan | the rejected 600 ms 730/1931/3173 Hz ring and 157 Hz knock, about 34 dB louder than the kept tap; one clip | the original, live in the tank voice, placed at the click; each tap ±6 % pitch, ±10 % level and new noise |
+| Scatter, feeding, surface | none (a surface-splash layer was removed at the owner's request as "mechanical clatter"); no feeding | none | none, deliberately |
+| Level | RMS 0.0036 (-48.8 dBFS), alone | RMS 0.066 (-23.6 dBFS), louder than the band (0.047) | RMS 0.0116 (-38.7 dBFS): the original +10 dB (`TankVoice::suite_level`), about 12 dB under the band |
+| Rate | 22,050 Hz | 48 kHz | 48 kHz; one-pole filters carried by frequency, noise power matched |
+
+Octave-band spectra of the original and of the port at the original's level agree
+within 0.5 dB from 20 Hz to 5.6 kHz (the 180 Hz band within 1.8 dB) and their RMS
+within 0.3 %. `sw_music_render original|tank|taps|tapped|tankloop|tap` renders them.
+
+Engine: `ambient::SceneVoice` (`shared/ambient/ui/diorama.hpp`) is a live bed that
+hears the shown scene and may play the taps itself; `SceneSetup::live_ambience` is now
+a `SceneVoiceFactory`. Taps pass through a four-slot lock-free queue; one the device
+did not take within a third of a second (sound off) is dropped. The `sw_tap` and
+`sw_ambience` clips (no-generator fallback) are rendered by the same voice through
+`audio_src/make_audio.py --render <sw_music_render>`; the manifest is unchanged.
+
+### Reef and pool
+
+`build_tanks.py`: the reef is rebuilt. Live rock forms a back wall rising toward the
+sides, two bommies and a sand channel; on it, seven table corals (dished plates on
+stalks, tipped toward the glass so their tops show), ten staghorn and bushy thickets
+of thick forking branches, finger corals, brain corals with meandering valleys,
+Montipora plate whorls, leather toadstools, mushroom discs, zoanthid mats, tube
+sponges, three lace sea fans with open holes, and an encrusting pass of 520 small
+heads, mats and shelves on every upward face and face toward the glass (`RockMap`,
+`encrust`, `encrust_faces`); rubble along the channel. Fish are reshaped from the
+tetra's meshes to real outlines (`reshaped_fish`: body depth to an outline, dorsal and
+anal fins stretched and re-seated, tail forked or rounded): 13 green chromis and 10
+lyretail anthias in schools (shared loop, offsets, near phases), 3 yellow tangs
+(discs), 2 blue tangs, 4 clownfish, the hermit crab. `TankStyle` gained six fish
+colourings, `film`/`turf` (pink coralline crust on the reef's rock), `surface_glow`
+and `shafts` (static sunbeams in the open water). The pool gained a far bank of
+stones out of the murk, a minnow shoal that keeps together, and warm sunbeams.
+
+| Measure (headless, 590 x 380) | Reef before | Reef now | Pool now | Planted |
+|---|---|---|---|---|
+| Static triangles | 327,241 | 535,262 | 319,059 | 330,504 |
+| Fixed layer | 65 ms | 79 ms | 46 ms | 57 ms |
+| Compose / frame | 1.74 ms | 1.47 ms | 1.51 ms | 1.48 ms |
+| Scene work at 24 fps + 8 sway | 45.7 ms/s | 39.3 ms/s | 50.8 ms/s | 111 ms/s |
+
+The reef costs less per frame than before (smaller fish), more once per size.
+
+Process CPU in the app (1060 x 680 window, scene 530 x 309, Balanced; `ps` CPU time
+from 15 s to 35 s; four runs each, alternating builds, on a host shared with other
+work): planted 17.9 % before and 20.3 % after (runs 13.6-23.4 and 14.4-23.3), reef
+15.4 % and 15.8 % (14.3-16.8 and 13.2-19.8), pool 13.4 % and 17.8 % (8.8-16.4 and
+14.4-22.0). The spread within a build is wider than the difference between them; the
+governor spends the budget it is given and the scene's own per-frame work is unchanged
+(planted, pool) or lower (reef). The tank voice itself renders at about 1,500 times
+real time, 0.066 % of a core (the PR #8 voice: 0.15 %). Resident memory: reef 225-246
+MiB (was 193-228; more static geometry), others unchanged.
+
+Captures from the real window (1180 x 800, by script) of all three tanks before and
+after are with the review material, not committed.
+
+Not verified: listening (the samples are rendered for the owner to judge: the
+original's own, the PR #8 port's and the new voice's, per tank, with taps); Retina;
+the reef on other displays; Windows and Linux (CI).

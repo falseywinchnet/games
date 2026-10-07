@@ -9,14 +9,17 @@
 #include "island_voice.hpp"
 #include "stage.hpp"
 #include "tank_voice.hpp"
+#include "tanks.hpp"
 #include "treasure.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <span>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -49,7 +52,7 @@ void test_look_ranges(const sw::RiverscapeLook& look) {
         previous = out.y;
     }
     require(sw::display_aces({0, 0, 0}).y < 0.02F, "black stays black");
-    // The animated light is a pattern in 0..1 that moves with time.
+    // The caustics: a pattern in 0..1 that moves with time.
     float lowest = 1;
     float highest = 0;
     int changed = 0;
@@ -62,9 +65,18 @@ void test_look_ranges(const sw::RiverscapeLook& look) {
         highest = std::max(highest, a);
         changed += std::abs(a - b) > 0.01F ? 1 : 0;
     }
-    require(lowest == 0 && highest > 0.8F, "the light forms bright ridges between dark water");
+    require(lowest == 0 && highest > 0.8F, "the light forms bright lines between dark water");
+    // The pattern loops: one period on, the same light.
+    const ambient::CausticField& field = *look.caustics();
+    const float period = static_cast<float>(sw::tank_style(sw::Tank::planted).caustics.period);
+    for (int k = 0; k < 200; ++k) {
+        const ambient::Vec3 at{-6.0F + 0.06F * static_cast<float>(k), 0.3F, 0.5F};
+        require(std::abs(field.at(at, 3.0F) - field.at(at, 3.0F + period)) < 1e-4F, "the caustics loop");
+    }
     require(changed > 200, "the light pattern moves");
 }
+
+void test_tank_voice();
 
 // The live voices: never silent, never clipping, finite, and the band keeps moving
 // through verses. Each is far faster than real time.
@@ -92,18 +104,77 @@ void test_voices() {
         twin.render_add(std::span<float>(again.data() + at, std::min<std::size_t>(512, again.size() - at)), 0.25);
     require(again == block, "a seed plays the same tunes");
 
-    std::vector<float> water(48000 * 2 * 10, 0.0F);
-    sw::TankVoice tank(3);
-    tank.render_add(water, 1.0);
-    square = 0;
+    test_tank_voice();
+}
+
+// The tank's water and taps (tank_voice.hpp): the native Stillwater's recipe and level.
+double rms_of(const std::vector<float>& samples, float& peak) {
+    double square = 0;
     peak = 0;
-    for (const float sample : water) {
+    for (const float sample : samples) {
         peak = std::max(peak, std::abs(sample));
         square += static_cast<double>(sample) * sample;
     }
-    const double water_rms = std::sqrt(square / static_cast<double>(water.size()));
-    // The 64-second loop it replaces: RMS 0.066, peak 0.30.
-    require(water_rms > 0.045 && water_rms < 0.09 && peak < 0.45F, "the tank sits at the loop's level");
+    const double result = std::sqrt(square / static_cast<double>(std::max<std::size_t>(1, samples.size())));
+    return result;
+}
+
+std::vector<float> render_tank(sw::TankVoice& voice, std::size_t seconds, double gain) {
+    std::vector<float> out(48000 * 2 * seconds, 0.0F);
+    for (std::size_t at = 0; at < out.size(); at += 512)
+        voice.render_add(std::span<float>(out.data() + at, std::min<std::size_t>(512, out.size() - at)), gain);
+    return out;
+}
+
+void test_tank_voice() {
+    float peak = 0;
+    sw::TankVoice tank(3);
+    const std::vector<float> water = render_tank(tank, 10, 1.0);
+    // The original's ambience: RMS 0.0036 (-48.8 dBFS), peak 0.012 (-38.4 dBFS).
+    const double original = rms_of(water, peak);
+    require(original > 0.0028 && original < 0.0046 && peak < 0.02F, "the tank sits at the original's level");
+    sw::TankVoice suite(3);
+    const double played = rms_of(render_tank(suite, 10, sw::TankVoice::suite_level), peak);
+    require(played > 0.006 && played < 0.02 && peak < 0.08F, "the suite plays the tank faintly");
+    sw::TankVoice twin(3);
+    require(render_tank(twin, 10, 1.0) == water, "a seed plays the same water");
+
+    // The tank chosen before the voice is first heard is taken at once; later, glided to.
+    sw::TankVoice pool(5, 2);
+    sw::TankVoice told(5);
+    told.set_tank(2);
+    require(render_tank(told, 2, 1.0) == render_tank(pool, 2, 1.0), "the first tank is taken at once");
+    sw::TankVoice planted(5);
+    sw::TankVoice reef(5, 1);
+    const double planted_rms = rms_of(render_tank(planted, 6, 1.0), peak);
+    const double reef_rms = rms_of(render_tank(reef, 6, 1.0), peak);
+    require(reef_rms > planted_rms * 1.01, "the reef's water moves more");
+
+    // A tap is played once, near the original's level, panned toward its side.
+    sw::TankVoice quiet(9);
+    sw::TankVoice tapped(9);
+    tapped.knock(0.8);
+    const std::vector<float> plain = render_tank(quiet, 1, 1.0);
+    const std::vector<float> knocked = render_tank(tapped, 1, 1.0);
+    require(tapped.knocks_played() == 1, "a tap is played");
+    double left = 0;
+    double right = 0;
+    float tap_peak = 0;
+    for (std::size_t index = 0; index < plain.size(); index += 2) {
+        const double l = static_cast<double>(knocked[index]) - plain[index];
+        const double r = static_cast<double>(knocked[index + 1]) - plain[index + 1];
+        left += l * l;
+        right += r * r;
+        tap_peak = std::max(tap_peak, static_cast<float>(std::max(std::abs(l), std::abs(r))));
+    }
+    // The original's centred tap peaks at -42.7 dBFS (0.0073).
+    require(tap_peak > 0.003F && tap_peak < 0.02F, "the tap is a dull, quiet fingertip");
+    require(right > left * 4, "the tap sounds from where the glass was touched");
+    sw::TankVoice late(9);
+    late.knock(0.0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+    static_cast<void>(render_tank(late, 1, 1.0));
+    require(late.knocks_played() == 0, "a tap the device could not play in time is dropped");
 }
 
 // The treasure chest: four placements and three bubbles, in front of the camera,
@@ -134,11 +205,62 @@ void test_treasure(const ambient::SceneData& original) {
             "the chest is sunk in the sand");
 }
 
+// Another tank's archive: it loads, keeps within its budget, draws its own colours,
+// its fish, its foliage and its caustics.
+void test_tank(const std::string& path, sw::Tank tank) {
+    ambient::SceneData scene{};
+    std::string error{};
+    require(ambient::load_scene(path, scene, error), "the tank's archive loads and validates");
+    require(scene.textures.size() == 6 && scene.actors.size() >= 15, "the tank has its fish");
+    require(scene.sway.indices.size() / 3 > 2000 && scene.sway.indices.size() / 3 < 60000,
+            "the tank's foliage is within budget");
+    sw::dress_tank(tank, scene);
+    const sw::RiverscapeLook look(scene, sw::tank_style(tank));
+    require(look.caustics() != nullptr && !(*look.caustics()).empty(), "the tank has caustics");
+    const ambient::ShadowMap shadows = ambient::build_shadow_map(scene, look, 512);
+    const ambient::Foliage foliage = ambient::prepare_foliage(scene, look, shadows);
+    ambient::FixedLayer layer = ambient::build_fixed_layer(scene, look, shadows, foliage, 236, 152, 2, 0.5F);
+    std::size_t lit = 0;
+    for (const std::uint32_t boost : layer.boost)
+        lit += boost != 0 ? 1 : 0;
+    require(lit > 2000, "the tank's floor and stones take the caustics");
+    ambient::Stage stage(scene, look, foliage);
+    stage.adopt(std::move(layer));
+    std::vector<ambient::Creature> creatures = ambient::creatures_from(scene.actors);
+    stage.update_sway(10.0);
+    stage.compose(10.0, 10.0, creatures);
+    const std::vector<std::uint32_t> frame = stage.frame();
+    require(stage.counters().actor_fragments > 200, "the tank's fish are drawn");
+    // The water's colour, from the open water in the upper third of the picture.
+    double red = 0;
+    double green = 0;
+    double blue = 0;
+    const std::size_t upper = static_cast<std::size_t>(stage.width()) * static_cast<std::size_t>(stage.height() / 3);
+    for (std::size_t index = 0; index < upper && index < frame.size(); ++index) {
+        const std::uint32_t pixel = frame[index];
+        red += static_cast<double>((pixel >> 16U) & 255U);
+        green += static_cast<double>((pixel >> 8U) & 255U);
+        blue += static_cast<double>(pixel & 255U);
+    }
+    if (tank == sw::Tank::reef)
+        require(blue > green * 1.15 && blue > red * 1.5, "the reef's water is blue");
+    else
+        require(red > blue * 1.2 && green > blue * 1.2, "the river pool's water is brown");
+    stage.compose(10.0, 13.0, creatures);
+    require(differing(stage.frame(), frame) > 300, "the tank's caustics move");
+    stage.update_sway(14.0);
+    stage.compose(10.0, 10.0, creatures);
+    require(differing(stage.frame(), frame) > 50, "the tank's foliage sways");
+    stage.update_sway(10.0);
+    stage.compose(10.0, 10.0, creatures);
+    require(differing(stage.frame(), frame) == 0, "the tank's frames are reproducible");
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        std::fprintf(stderr, "usage: %s riverscape.ambient\n", argv[0]);
+        std::fprintf(stderr, "usage: %s riverscape.ambient (reef.ambient and pool.ambient beside it)\n", argv[0]);
         return 2;
     }
     ambient::SceneData scene{};
@@ -151,7 +273,7 @@ int main(int argc, char** argv) {
             "the foliage is within its processor budget");
     require(scene.actors.size() == 18 && scene.risers.size() == 30, "sixteen fish, two crabs and the air stone");
 
-    const sw::RiverscapeLook look(scene);
+    const sw::RiverscapeLook look(scene, sw::tank_style(sw::Tank::planted));
     test_look_ranges(look);
     test_voices();
     test_treasure(scene);
@@ -193,10 +315,13 @@ int main(int argc, char** argv) {
     // Same inputs, same frame.
     stage.compose(10.0, 10.0, creatures);
     require(differing(stage.frame(), frame) == 0, "composing is reproducible");
-    // Only the light's clock: some sand changes, the grass does not.
+    // Only the light's clock: the caustics move over sand, stone, leaves and fish,
+    // and setting the clock back gives the same picture.
     stage.compose(10.0, 13.0, creatures);
     const int by_light = differing(stage.frame(), frame);
-    require(by_light > 100 && by_light < static_cast<int>(frame.size()) / 3, "the light moves on the sand only");
+    require(by_light > 1000 && by_light < static_cast<int>(frame.size()) * 3 / 4, "the caustics move");
+    stage.compose(10.0, 10.0, creatures);
+    require(differing(stage.frame(), frame) == 0, "the caustics are a function of their clock");
     // Creatures' clock: a little of the picture changes.
     stage.compose(10.5, 10.0, creatures);
     const int by_fish = differing(stage.frame(), frame);
@@ -239,6 +364,10 @@ int main(int argc, char** argv) {
                                                   static_cast<float>(before.position.z)}));
     const ambient::ScreenTap tap{at.x / width, at.y / height, static_cast<double>(width) / height, 0.05};
     require(ambient::startle(creatures, projection, tap, 12.0, ambient::Bounds{}) >= 1, "a tap startles the fish beside it");
+    // The other tanks, beside the planted tank's archive.
+    const std::string folder = std::string(argv[1]).substr(0, std::string(argv[1]).find_last_of("/\\") + 1);
+    test_tank(folder + "reef.ambient", sw::Tank::reef);
+    test_tank(folder + "pool.ambient", sw::Tank::pool);
     std::printf("stillwater: %d checks passed\n", checks);
     return 0;
 }

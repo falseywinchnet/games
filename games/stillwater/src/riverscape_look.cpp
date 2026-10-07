@@ -12,15 +12,8 @@ namespace {
 using ambient::Rgb;
 using ambient::Vec3;
 
-const Vec3 hemisphere_low{0.035F, 0.028F, 0.016F};
-const Vec3 hemisphere_high{0.10F, 0.13F, 0.085F};
-const Vec3 fill_color{0.06F, 0.085F, 0.10F};
-const Vec3 sun_color{1.43F, 1.39F, 1.28F};
-const Vec3 caustic_color{0.18F, 0.25F, 0.13F};
-const Vec3 absorption{0.030F, 0.006F, 0.016F};
-
-Vec3 water_color(float v_up) {
-    const Vec3 result = ambient::scale({0.0055F, 0.023F, 0.015F}, 0.82F + 0.18F * v_up);
+Vec3 water_color(const TankStyle& style, float v_up) {
+    const Vec3 result = ambient::scale(style.water, 0.82F + 0.18F * v_up);
     return result;
 }
 
@@ -101,35 +94,50 @@ struct Water {
     Vec3 transmission{};
     float fog{};
 };
-Water water_at(Vec3 eye, Vec3 world) {
-    const float depth = std::max(0.0F, ambient::length(ambient::subtract(eye, world)) - 16.0F);
-    const float fog = 1.0F - std::exp(-depth * depth * 0.001156F);
-    const Water result{ambient::scale(exp3(ambient::scale(absorption, -depth)), 1.0F - fog), fog};
+Water water_at(const TankStyle& style, Vec3 eye, Vec3 world) {
+    const float depth = std::max(0.0F, ambient::length(ambient::subtract(eye, world)) - style.fog_start);
+    const float fog = 1.0F - std::exp(-depth * depth * style.fog_density);
+    const Water result{ambient::scale(exp3(ambient::scale(style.absorption, -depth)), 1.0F - fog), fog};
     return result;
 }
 
-Vec3 fish_skin(const ambient::ActorSample& in) {
+const FishColors& fish_colors(const TankStyle& style, const ambient::ActorSample& in) {
+    const int last = static_cast<int>(style.fish.size()) - 1;
+    const int kind = std::clamp(static_cast<int>(in.tint.x + 0.5F) - 1, 0, last);
+    return style.fish[static_cast<std::size_t>(kind)];
+}
+
+Vec3 fish_skin(const FishColors& f, const ambient::ActorSample& in) {
     const float part = in.part;
     const float band = std::clamp(in.v, 0.0F, 1.0F);
     const float x = in.local.x;
     if (part < 0.5F) {
-        Vec3 skin = ambient::mix(Vec3{0.0105F, 0.015F, 0.0125F}, Vec3{0.034F, 0.049F, 0.043F},
-                                 ambient::smoothstep(0.02F, 0.135F, band));
-        skin = ambient::mix(skin, Vec3{0.47F, 0.51F, 0.5F}, ambient::smoothstep(0.185F, 0.42F, band));
+        Vec3 skin = ambient::mix(f.back, f.upper, ambient::smoothstep(0.02F, 0.135F, band));
+        skin = ambient::mix(skin, f.flank, ambient::smoothstep(0.185F, 0.42F, band));
         const float belly = ambient::smoothstep(-0.26F, -0.12F, x);
-        skin = ambient::mix(skin, Vec3{0.655F, 0.66F, 0.63F}, ambient::smoothstep(0.52F, 0.84F, band) * belly);
+        skin = ambient::mix(skin, f.belly, ambient::smoothstep(0.52F, 0.84F, band) * belly);
         const float sheen_band = (band - 0.25F) / 0.07F;
         const float sheen = std::exp(-sheen_band * sheen_band) * ambient::smoothstep(-0.285F, -0.225F, x) *
                             (1.0F - ambient::smoothstep(0.188F, 0.245F, x));
-        skin = ambient::mix(skin, Vec3{0.08F, 0.41F, 0.62F}, sheen * 0.82F);
+        skin = ambient::mix(skin, f.sheen, sheen * f.sheen_amount);
         const float warm = (1.0F - ambient::smoothstep(-0.27F, 0.0F, x)) * ambient::smoothstep(0.32F, 0.60F, band) *
                            (1.0F - ambient::smoothstep(0.88F, 1.0F, band));
-        skin = ambient::mix(skin, Vec3{0.42F, 0.105F, 0.03F}, warm * 0.45F);
+        skin = ambient::mix(skin, f.warm, warm * f.warm_amount);
+        if (f.bands > 0) {
+            // Bands across the body from nose to tail (the body runs about -0.3..0.3 in x),
+            // each with a dark edge.
+            const float across = (x + 0.30F) / 0.60F * f.bands;
+            const float cell = across - std::floor(across);
+            const float centre = std::abs(cell - 0.5F);
+            const float white = 1.0F - ambient::smoothstep(0.16F, 0.20F, centre);
+            const float edge = ambient::smoothstep(0.15F, 0.19F, centre) * (1.0F - ambient::smoothstep(0.21F, 0.25F, centre));
+            skin = ambient::mix(skin, f.band, white);
+            skin = ambient::mix(skin, f.band_edge, edge * 0.85F);
+        }
         const float head = ambient::smoothstep(0.175F, 0.22F, x);
-        const Vec3 cheek = ambient::mix(Vec3{0.04F, 0.052F, 0.046F}, Vec3{0.42F, 0.44F, 0.42F},
-                                        ambient::smoothstep(0.13F, 0.4F, band));
+        const Vec3 cheek = ambient::mix(f.cheek_dark, f.cheek_light, ambient::smoothstep(0.13F, 0.4F, band));
         skin = ambient::mix(skin, cheek, head * 0.92F);
-        skin = ambient::mix(skin, Vec3{0.05F, 0.056F, 0.046F}, ambient::smoothstep(0.25F, 0.33F, x) * 0.82F);
+        skin = ambient::mix(skin, f.snout, ambient::smoothstep(0.25F, 0.33F, x) * 0.82F);
         const float gill_y = std::clamp((in.local.y + 0.004F) / 0.078F, -1.0F, 1.0F);
         const float opercle = 0.196F - 0.03F * (1.0F - gill_y * gill_y);
         const float gill = (x - opercle) / 0.0028F;
@@ -138,8 +146,7 @@ Vec3 fish_skin(const ambient::ActorSample& in) {
     }
     if (part < 6.5F || part > 11.5F) {
         const float ribs = std::pow(0.5F + 0.5F * std::cos(in.u * 6.283185F * (part < 1.5F ? 18.0F : 11.0F)), 12.0F);
-        const Vec3 membrane = ambient::mix(Vec3{0.32F, 0.20F, 0.14F}, Vec3{0.45F, 0.035F, 0.012F},
-                                           ambient::smoothstep(0.2F, 0.8F, in.v));
+        const Vec3 membrane = ambient::mix(f.fin_root, f.fin_tip, ambient::smoothstep(0.2F, 0.8F, in.v));
         const Vec3 result = ambient::scale(membrane, 0.65F + 0.6F * ribs);
         return result;
     }
@@ -173,8 +180,8 @@ Rgb display_aces(Rgb value) {
     return result;
 }
 
-RiverscapeLook::RiverscapeLook(const ambient::SceneData& scene)
-    : eye_(scene.camera.eye), light_(scene.camera.light) {
+RiverscapeLook::RiverscapeLook(const ambient::SceneData& scene, const TankStyle& style)
+    : style_(style), caustics_(style.caustics, scene.camera.light), eye_(scene.camera.eye), light_(scene.camera.light) {
     for (std::size_t index = 0; index < maps_.size() && index < scene.textures.size(); ++index)
         maps_[index] = ambient::build_mips(scene.textures[index]);
     for (std::size_t index = 0; index < srgb_to_linear_.size(); ++index) {
@@ -183,8 +190,23 @@ RiverscapeLook::RiverscapeLook(const ambient::SceneData& scene)
     }
 }
 
-Rgb RiverscapeLook::background(float, float v) const {
-    const Rgb result = display_tank(ambient::scale(water_color(1.0F - v), 1.0F));
+Rgb RiverscapeLook::background(float u, float v) const {
+    const float up = 1.0F - v;
+    float glow = up * up;
+    if (style_.shafts > 0) {
+        // Five soft shafts leaning a little, spreading as they fall, fading with depth.
+        constexpr float centres[5] = {0.12F, 0.31F, 0.47F, 0.66F, 0.86F};
+        constexpr float widths[5] = {0.035F, 0.05F, 0.03F, 0.06F, 0.04F};
+        constexpr float strengths[5] = {0.7F, 1.0F, 0.6F, 0.9F, 0.65F};
+        float shaft = 0;
+        for (int k = 0; k < 5; ++k) {
+            const float across = (u - centres[k] + 0.12F * v) / (widths[k] * (1.0F + 1.5F * v));
+            shaft += strengths[k] * std::exp(-across * across);
+        }
+        glow += style_.shafts * shaft * std::pow(up, 1.6F);
+    }
+    const Vec3 water = ambient::add(water_color(style_, up), ambient::scale(style_.surface_glow, glow));
+    const Rgb result = display_tank(water);
     return result;
 }
 
@@ -213,7 +235,8 @@ ambient::FixedShade RiverscapeLook::shade_fixed(const ambient::FixedSample& in, 
         const Vec3 linear{srgb_to_linear_[static_cast<std::size_t>(color.x * 255.0F + 0.5F)],
                           srgb_to_linear_[static_cast<std::size_t>(color.y * 255.0F + 0.5F)],
                           srgb_to_linear_[static_cast<std::size_t>(color.z * 255.0F + 0.5F)]};
-        const Vec3 tinted = ambient::multiply(albedo, linear);
+        const Vec3 tint = material == sand ? style_.sand_tint : (material == rock ? style_.rock_tint : Vec3{1, 1, 1});
+        const Vec3 tinted = ambient::multiply(ambient::multiply(albedo, linear), tint);
         const Vec3 detail = ambient::sample(maps_[first + 1U], in.u, in.v, in.texture_lod);
         // Tangent-space normal map on the triangle's own frame.
         const float strength = material == sand ? 0.32F : 0.8F;
@@ -225,30 +248,37 @@ ambient::FixedShade RiverscapeLook::shade_fixed(const ambient::FixedSample& in, 
             normal = ambient::normalize(ambient::add(ambient::add(t, b), ambient::scale(normal, detail.z * 2 - 1)));
         }
         const float fine = value_noise(ambient::scale(in.world, 9)) * 0.6F + value_noise(ambient::scale(in.world, 27)) * 0.4F;
-        const float moss = ambient::smoothstep(0.07F, 0.5F, in.moss + (fine - 0.5F) * 0.45F);
-        const Vec3 film = material == sand ? Vec3{0.10F, 0.10F, 0.02F} : Vec3{0.03F, 0.055F, 0.007F};
-        const Vec3 turf{0.0035F, 0.013F, 0.0025F};
+        const float moss = ambient::smoothstep(0.07F, 0.5F, in.moss + (fine - 0.5F) * 0.45F) * style_.moss;
+        const Vec3 film = material == sand ? Vec3{0.10F, 0.10F, 0.02F} : style_.film;
+        const Vec3 turf = style_.turf;
         const Vec3 moss_color =
             ambient::scale(ambient::mix(film, turf, ambient::smoothstep(0.15F, 0.85F, in.moss)), 0.6F + 0.8F * fine);
         albedo = ambient::mix(tinted, ambient::multiply(moss_color, albedo), moss);
     }
-    const Vec3 hemisphere = ambient::mix(hemisphere_low, hemisphere_high, normal.y * 0.5F + 0.5F);
+    const Vec3 hemisphere = ambient::mix(style_.hemisphere_low, style_.hemisphere_high, normal.y * 0.5F + 0.5F);
     const Vec3 fill_direction = ambient::normalize({1, 5, 10});
     const Vec3 base = ambient::add(ambient::multiply(albedo, hemisphere),
-                                   ambient::scale(ambient::multiply(albedo, fill_color),
+                                   ambient::scale(ambient::multiply(albedo, style_.fill),
                                                   std::max(0.0F, ambient::dot(normal, fill_direction))));
     const float direct = std::max(0.0F, ambient::dot(normal, light_));
     // The chest's iron and gold (treasure.hpp) are metals: they also catch the light
     // as a highlight, and the gold glints where the rippling light crosses it.
     const bool metal = material == iron || material == gold;
-    const float caustic = mapped || metal ? std::max(normal.y, 0.0F) : 0.0F;
-    const Water water = water_at(eye_, in.world);
+    // Caustics fall on everything that faces up into the light; the vertical faces
+    // of stones catch a little where the light comes in slanting.
+    const float caustic = std::clamp(normal.y * 0.85F + 0.15F, 0.0F, 1.0F);
+    const Water water = water_at(style_, eye_, in.world);
     const Vec3 base_term = ambient::add(ambient::multiply(base, water.transmission),
-                                        ambient::scale(water_color(0.5F), water.fog));
+                                        ambient::scale(water_color(style_, 0.5F), water.fog));
     const Vec3 surface = ambient::multiply(albedo, water.transmission);
     const float lit = in.light_visibility * illumination_;
-    Vec3 direct_term = ambient::scale(ambient::multiply(surface, sun_color), direct * lit);
-    Vec3 focused = ambient::scale(ambient::multiply(surface, caustic_color), caustic * lit);
+    // The ripples gather part of the sunlight into moving lines: that part leaves the
+    // even light and returns, concentrated, where the pattern is bright.
+    const float share = style_.caustic_share * caustic;
+    const Vec3 sunlit = ambient::multiply(surface, style_.sun);
+    Vec3 direct_term = ambient::scale(sunlit, direct * lit * (1.0F - share));
+    Vec3 focused = ambient::scale(ambient::multiply(sunlit, style_.caustic),
+                                  std::max(direct, 0.3F) * lit * share / style_.caustic_mean);
     if (metal) {
         const bool golden = material == gold;
         const Vec3 view = ambient::normalize(ambient::subtract(eye_, in.world));
@@ -259,8 +289,15 @@ ambient::FixedShade RiverscapeLook::shade_fixed(const ambient::FixedSample& in, 
         direct_term = ambient::add(direct_term,
                                    ambient::scale(ambient::multiply(sheen, water.transmission), shine * lit));
         if (golden)
-            focused = ambient::scale(ambient::multiply(ambient::multiply(sheen, water.transmission), caustic_color),
-                                     caustic * lit * 9.0F);
+            focused = ambient::add(focused, ambient::scale(ambient::multiply(ambient::multiply(sheen, water.transmission),
+                                                                             style_.caustic),
+                                                           caustic * lit * 1.5F));
+    }
+    if (material == coral) {
+        // Living coral and anemone flesh: a faint glow of its own and light let through.
+        const Vec3 glow = ambient::scale(ambient::multiply(surface, style_.sun), 0.05F + 0.08F * (1.0F - direct));
+        direct_term = ambient::add(direct_term, glow);
+        focused = ambient::scale(focused, 1.3F);
     }
     ambient::FixedShade shade{};
     shade.color = display_aces(ambient::add(base_term, direct_term));
@@ -273,15 +310,9 @@ ambient::FixedShade RiverscapeLook::shade_fixed(const ambient::FixedSample& in, 
 }
 
 float RiverscapeLook::animated_light(float x, float z, float time) const {
-    // A deliberately labeled wave-light approximation, not a refraction solve.
-    const float qx = x * 2.0F;
-    const float qz = z * 2.0F;
-    const float wave = ambient::fast_sin(qx + ambient::fast_sin(qz * 1.4F + time * 0.2F)) +
-                       ambient::fast_sin(qz + ambient::fast_sin(qx * 1.2F - time * 0.17F));
-    const float ridge = std::max(0.0F, 1.0F - std::abs(wave) * 1.8F);
-    const float r2 = ridge * ridge;
-    const float r4 = r2 * r2;
-    const float result = r4 * r4;
+    // The caustic pattern just under the surface (the engine reads the field itself;
+    // this is for anything asking about a point on the plane).
+    const float result = caustics_.at({x, style_.caustics.surface, z}, time);
     return result;
 }
 
@@ -289,27 +320,36 @@ ambient::SwayShade RiverscapeLook::shade_sway(const ambient::SwaySample& in) con
     const Vec3 fill_direction = ambient::normalize({1, 5, 10});
     const Vec3 rim_direction = ambient::normalize({2, 10, -4});
     const float lit = in.light_visibility * illumination_;
-    const Water water = water_at(eye_, in.world);
-    const Vec3 fogged = ambient::scale(water_color(0.5F), water.fog);
+    const Water water = water_at(style_, eye_, in.world);
+    const Vec3 fogged = ambient::scale(water_color(style_, 0.5F), water.fog);
     ambient::SwayShade shade{};
     for (int side = 0; side < 2; ++side) {
         const Vec3 n = side == 0 ? in.normal : ambient::scale(in.normal, -1);
         const Vec3 albedo = side == 0 ? in.albedo : ambient::multiply(in.albedo, Vec3{0.82F, 0.76F, 0.66F});
-        const Vec3 hemisphere = ambient::mix(hemisphere_low, hemisphere_high, n.y * 0.5F + 0.5F);
+        const Vec3 hemisphere = ambient::mix(style_.hemisphere_low, style_.hemisphere_high, n.y * 0.5F + 0.5F);
         const float direct = std::max(0.0F, ambient::dot(n, light_));
-        Vec3 color = ambient::multiply(albedo, ambient::add(hemisphere, ambient::scale(sun_color, direct * lit)));
-        color = ambient::add(color, ambient::scale(ambient::multiply(albedo, fill_color),
+        Vec3 color = ambient::multiply(albedo, ambient::add(hemisphere, ambient::scale(style_.sun, direct * lit)));
+        color = ambient::add(color, ambient::scale(ambient::multiply(albedo, style_.fill),
                                                    std::max(0.0F, ambient::dot(n, fill_direction))));
         const float back = std::max(0.0F, -ambient::dot(n, light_));
         color = ambient::add(color, ambient::scale(ambient::multiply(albedo, Vec3{0.55F, 0.85F, 0.30F}),
                                                    back * in.translucency * 0.9F * lit));
         color = ambient::add(color, ambient::scale(ambient::multiply(albedo, Vec3{0.13F, 0.20F, 0.075F}),
                                                    std::max(0.0F, ambient::dot(n, rim_direction))));
-        color = ambient::add(ambient::multiply(color, water.transmission), fogged);
-        if (side == 0)
-            shade.front = display_aces(color);
-        else
-            shade.back = display_aces(color);
+        const Vec3 shown = ambient::add(ambient::multiply(color, water.transmission), fogged);
+        if (side == 0) {
+            shade.front = display_aces(shown);
+            // Caustic light on the leaves: strongest on faces turned up to it.
+            const float upward = 0.35F + 0.65F * std::abs(n.y);
+            const Vec3 focused = ambient::scale(ambient::multiply(ambient::multiply(albedo, style_.sun), style_.caustic),
+                                                upward * lit * style_.caustic_share * 1.6F);
+            const Rgb bright = display_aces(
+                ambient::add(shown, ambient::multiply(focused, water.transmission)));
+            shade.light_boost = {std::max(0.0F, bright.x - shade.front.x), std::max(0.0F, bright.y - shade.front.y),
+                                 std::max(0.0F, bright.z - shade.front.z)};
+        } else {
+            shade.back = display_aces(shown);
+        }
     }
     // Translucent leaf tips: thinner toward the leaf edge, as the shader's coverage.
     if (in.translucency >= 0.7F) {
@@ -349,14 +389,15 @@ ambient::Rgb RiverscapeLook::shade_actor(const ambient::ActorSample& in, float& 
     const Vec3 view = ambient::normalize(ambient::subtract(eye_, in.world));
     alpha = 1;
     if (in.material == fish_body || in.material == fish_fin) {
-        const Vec3 albedo = fish_skin(in);
+        const FishColors& colors = fish_colors(style_, in);
+        const Vec3 albedo = fish_skin(colors, in);
         if (in.material == fish_fin)
             alpha = 0.55F + 0.35F * (1.0F - in.fin);
-        const Vec3 hemisphere = ambient::mix(hemisphere_low, hemisphere_high, n.y * 0.5F + 0.5F);
+        const Vec3 hemisphere = ambient::mix(style_.hemisphere_low, style_.hemisphere_high, n.y * 0.5F + 0.5F);
         const float direct = std::max(0.0F, ambient::dot(n, light_));
         Vec3 color =
-            ambient::multiply(albedo, ambient::add(hemisphere, ambient::scale(sun_color, direct * illumination_)));
-        color = ambient::add(color, ambient::scale(ambient::multiply(albedo, fill_color),
+            ambient::multiply(albedo, ambient::add(hemisphere, ambient::scale(style_.sun, direct * illumination_)));
+        color = ambient::add(color, ambient::scale(ambient::multiply(albedo, style_.fill),
                                                    std::max(0.0F, ambient::dot(n, ambient::normalize({1, 5, 10})))));
         if (in.material == fish_body) {
             const Vec3 incident = ambient::scale(view, -1);
@@ -364,28 +405,34 @@ ambient::Rgb RiverscapeLook::shade_actor(const ambient::ActorSample& in, float& 
             const float reflector = ambient::smoothstep(0.07F, 0.24F, in.v) * (1 - ambient::smoothstep(0.58F, 0.92F, in.v));
             const float lift = (reflected.y - 0.6F) * 3.0F;
             const float strip = std::exp(-lift * lift);
-            color = ambient::add(color, ambient::scale(albedo, (0.25F + 0.70F * strip) * reflector));
+            color = ambient::add(color, ambient::scale(albedo, (0.25F + 0.70F * strip) * reflector * colors.reflect));
             const Vec3 half = ambient::normalize(ambient::add(light_, view));
             const float shine = std::pow(std::max(ambient::dot(n, half), 0.0F), 70.0F);
             color = ambient::add(color, ambient::scale(Vec3{0.7F, 0.85F, 0.85F}, shine * illumination_));
         }
-        const Water water = water_at(eye_, in.world);
-        color = ambient::add(ambient::multiply(color, water.transmission), ambient::scale(water_color(0.5F), water.fog));
+        // Caustic light rippling over the fish's back.
+        const float upward = std::clamp(n.y * 0.7F + 0.3F, 0.0F, 1.0F);
+        color = ambient::add(color, ambient::scale(ambient::multiply(ambient::multiply(albedo, style_.sun), style_.caustic),
+                                                   in.light * upward * style_.caustic_share * 1.4F * illumination_));
+        const Water water = water_at(style_, eye_, in.world);
+        color = ambient::add(ambient::multiply(color, water.transmission), ambient::scale(water_color(style_, 0.5F), water.fog));
         return display_aces(color);
     }
     // Crabs: Stillwater's original tank material.
     const Vec3 albedo = in.tint;
     const float direct = std::max(0.0F, ambient::dot(n, light_));
+    const float focused = in.light * std::max(n.y, 0.0F) * 0.8F;
     Vec3 color = ambient::multiply(albedo, ambient::add(Vec3{0.12F, 0.12F, 0.12F},
-                                                        ambient::scale(Vec3{1.10F, 1.13F, 0.84F}, direct * illumination_)));
+                                                        ambient::scale(Vec3{1.10F, 1.13F, 0.84F},
+                                                                       (direct + focused) * illumination_)));
     const Vec3 half = ambient::normalize(ambient::add(light_, view));
     const float specular = std::pow(std::max(ambient::dot(n, half), 0.0F), 22.0F);
     color = ambient::add(color, Vec3{specular * 0.08F * illumination_, specular * 0.08F * illumination_,
                                      specular * 0.08F * illumination_});
     const float range = ambient::length(ambient::subtract(eye_, in.world));
-    color = ambient::multiply(color, exp3(ambient::scale(Vec3{0.038F, 0.010F, 0.018F}, -range)));
+    color = ambient::multiply(color, exp3(ambient::scale(style_.tank_absorption, -range)));
     const float fog = 1.0F - std::exp(-std::max(0.0F, range - 8.0F) * 0.090F);
-    color = ambient::mix(color, water_color(1.0F - in.screen_v), fog);
+    color = ambient::mix(color, water_color(style_, 1.0F - in.screen_v), fog);
     return display_tank(color);
 }
 
@@ -394,12 +441,12 @@ ambient::Rgb RiverscapeLook::shade_riser(Vec3 world, Vec3 normal, float screen_v
     const float rim = std::pow(1.0F - std::abs(ambient::dot(normal, view)), 3.0F);
     const Vec3 half = ambient::normalize(ambient::add(light_, view));
     const float specular = std::pow(std::max(ambient::dot(normal, half), 0.0F), 22.0F);
-    Vec3 color = ambient::add(ambient::add(Vec3{0.08F, 0.19F, 0.18F}, ambient::scale(Vec3{0.4F, 0.62F, 0.56F}, rim)),
+    Vec3 color = ambient::add(ambient::add(style_.bubble, ambient::scale(style_.bubble_rim, rim)),
                               Vec3{specular * 0.5F, specular * 0.5F, specular * 0.5F});
     const float range = ambient::length(ambient::subtract(eye_, world));
-    color = ambient::multiply(color, exp3(ambient::scale(Vec3{0.038F, 0.010F, 0.018F}, -range)));
+    color = ambient::multiply(color, exp3(ambient::scale(style_.tank_absorption, -range)));
     const float fog = 1.0F - std::exp(-std::max(0.0F, range - 8.0F) * 0.090F);
-    color = ambient::mix(color, water_color(1.0F - screen_v), fog);
+    color = ambient::mix(color, water_color(style_, 1.0F - screen_v), fog);
     return display_tank(color);
 }
 

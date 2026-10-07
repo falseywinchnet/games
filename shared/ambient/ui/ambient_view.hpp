@@ -24,10 +24,13 @@ struct SceneSetup {
     LookFactory make_look{};
     SceneDressing dress{};        // the game's own props, added to the archive as it loads
 #ifdef GUI_FORMS_AUDIO_GENERATOR
-    VoiceFactory live_ambience{};  // synthesized in place of `ambience` where possible
+    SceneVoiceFactory live_ambience{};  // synthesized in place of `ambience` (and the tap) where possible
     VoiceFactory live_music{};     // synthesized in place of `music` where possible
 #endif
     Bounds bounds{};              // where startled creatures may go
+    // Several scenes the player can choose between with the Scene command (S); the
+    // first is the default. When empty, archive/make_look/dress/bounds are the scene.
+    std::vector<DioramaScene> scenes{};
     CadenceLimits limits{};
     std::uint32_t backdrop{0x0B1A14};  // 0xRRGGBB shown until the scene is ready
 };

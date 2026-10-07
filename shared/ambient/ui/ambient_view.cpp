@@ -29,6 +29,7 @@ std::unique_ptr<Scenery> diorama_from(const SceneSetup& setup) {
     diorama.live_music = setup.live_music;
 #endif
     diorama.bounds = setup.bounds;
+    diorama.scenes = setup.scenes;
     std::unique_ptr<Scenery> scenery = std::make_unique<Diorama>(diorama);
     return scenery;
 }
