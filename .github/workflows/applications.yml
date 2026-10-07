@@ -125,7 +125,12 @@ jobs:
         run: |
           sh toolkit/gui_forms/third_party/fetch_text_stack.sh
           sh toolkit/gui_forms/third_party/fetch_linebreak.sh
-      - uses: actions/cache@v4
+      # Restore and save separately: the save runs right after a successful
+      # compile, so a later test or packaging failure no longer discards it.
+      # Windows failed late until 2026-10-06, never saved, and kept restoring
+      # a GCC-era cache that clang could not use.
+      - uses: actions/cache/restore@v4
+        id: objects
         with:
           path: .ccache
           key: games-objects-v1-${{ matrix.platform }}-${{ hashFiles('CMakeLists.txt', 'cmake/**', 'src/**', 'tests/**', 'games/**', 'shared/**') }}
@@ -138,6 +143,7 @@ jobs:
           echo "CCACHE_DIR=$cache_dir" >> "$GITHUB_ENV"
           echo "CCACHE_COMPILERCHECK=content" >> "$GITHUB_ENV"
           ccache --max-size=500M
+          ccache --zero-stats
       - uses: actions/cache/restore@v4
         if: runner.os != 'Windows'
         id: skia
@@ -182,8 +188,20 @@ jobs:
       # Hosted runners are dedicated machines (4 cores on Linux and Windows, 3 on
       # macOS), unlike the shared development hosts AGENTS.md limits to two jobs.
       - name: Compile complete collection
+        id: compile
         run: cmake --build build/app --parallel 4
+      - name: Report compiler cache statistics
+        if: always()
+        run: ccache --show-stats --verbose
+      - uses: actions/cache/save@v4
+        if: always() && steps.compile.outcome == 'success' && steps.objects.outputs.cache-hit != 'true'
+        with:
+          path: .ccache
+          key: ${{ steps.objects.outputs.cache-primary-key }}
+      # The benchmark and the presentation profile record numbers and gate
+      # nothing, so they run for publications and manual runs only.
       - name: Report Rock Stack stress benchmark
+        if: needs.prepare.outputs.publish == 'true' || github.event_name == 'workflow_dispatch'
         continue-on-error: true
         run: ./build/app/rockstack_physics_tests performance
       - name: Test complete application
@@ -218,7 +236,7 @@ jobs:
           sudo /usr/sbin/installer -pkg dist/*.pkg -target /
           python3 tools/smoke_package.py /Applications/PlaySuite.app/Contents/MacOS/games
       - name: Record macOS puzzle presentation costs
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && (needs.prepare.outputs.publish == 'true' || github.event_name == 'workflow_dispatch')
         run: |
           python3 tools/profile_presentation.py dist/PlaySuite.app/Contents/MacOS/games \
             --assets build/runtime --state build/profile-state \
