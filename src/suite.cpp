@@ -144,6 +144,15 @@ void paint_glyph(gf::Painter& p, gf::Rect r, Glyph glyph, gf::Color ink, bool cr
         for (int i = -1; i <= 1; ++i)
             disc(p, cx + i * s * .22, cy, s * .07, ink);
         break;
+    case Glyph::settings:
+        // A cog: eight teeth around a ring.
+        for (int i = 0; i < 8; ++i) {
+            const double a = i * 3.14159265358979 / 4;
+            p.draw_line({cx + std::cos(a) * s * .2, cy + std::sin(a) * s * .2},
+                        {cx + std::cos(a) * s * .36, cy + std::sin(a) * s * .36}, ink, s * .13);
+        }
+        p.stroke_rounded_rect({cx - s * .2, cy - s * .2, s * .4, s * .4}, s * .2, ink, s * .11);
+        break;
     }
     if (crossed)
         p.draw_line({cx - s * .34, cy + s * .34}, {cx + s * .34, cy - s * .34}, rgb(200, 40, 50),

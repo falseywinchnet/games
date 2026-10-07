@@ -5,6 +5,7 @@
 #include "gui_forms/timer.hpp"
 #include "storage.hpp"
 #include "suite.hpp"
+#include "suite_settings.hpp"
 #include <array>
 #include <chrono>
 namespace games {
@@ -35,6 +36,13 @@ class Table final : public gf::Control, public CommandSource {
     void show_kind(Kind kind);
     [[nodiscard]] std::vector<GameCommand> commands() const override;
     void run_command(std::string_view id) override;
+    // Draw (Solitaire), Suits (Spider) and the deal level, on the Settings screen.
+    // Motion, Sound, Music and the card back are the PlaySuite masters.
+    [[nodiscard]] std::vector<GameSetting> settings() const override;
+    void change_setting(std::string_view id, double value) override;
+    [[nodiscard]] bool uses_card_backs() const override {
+        return true;
+    }
 
   private:
     Cabinet cabinet_;
@@ -74,6 +82,8 @@ class Table final : public gf::Control, public CommandSource {
     std::array<int, 3> levels_{1, 1, 1};
     std::array<std::uint32_t, 3> picks_{};
     void load_levels();
+    void set_level(int level);
+    void set_deal_option(int option);
     void save_levels() const;
     [[nodiscard]] std::uint32_t deal_seed(Kind kind, int option);
     [[nodiscard]] std::string level_name() const;

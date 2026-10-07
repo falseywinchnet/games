@@ -19,7 +19,7 @@ namespace ambient {
 class SoundDesk final {
   public:
     static constexpr std::size_t bed_count = 8;
-    SoundDesk() = default;
+    SoundDesk();
     SoundDesk(const SoundDesk&) = delete;
     SoundDesk& operator=(const SoundDesk&) = delete;
 

@@ -37,6 +37,8 @@ class MowingScenery final : public ambient::Scenery {
     bool hold_key(std::uint32_t key, bool down, ambient::SceneContext& context) override;
     void add_commands(std::vector<games::GameCommand>& list, const ambient::Settings& settings) const override;
     bool run_command(std::string_view id, ambient::SceneContext& context) override;
+    void add_settings(std::vector<games::GameSetting>& list, const ambient::Settings& settings) const override;
+    bool change_setting(std::string_view id, double value, ambient::SceneContext& context) override;
     [[nodiscard]] std::string key_command(std::uint32_t key) const override;
     bool scripted_action(std::string_view action, ambient::SceneContext& context) override;
     void sound(bool running, ambient::SceneContext& context) override;

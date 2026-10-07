@@ -6,7 +6,7 @@
 //   * a governed clock: frames at rates that keep the scene inside its processor
 //     budget (cadence.hpp), half the budget while the window is not active, and no
 //     timer at all while paused, hidden or occluded;
-//   * Pause, Detail and Help commands, the Motion master, remembered settings,
+//   * Pause and Help commands, the Detail setting, the Motion master, remembered settings,
 //     pointer gestures (press, drag, release), sound routing (SoundDesk), and a
 //     help card when no shell is there to show help.
 #include "suite.hpp"
@@ -65,6 +65,9 @@ class SceneView : public gf::Control, public games::CommandSource {
     void set_cabinet(bool foreground, bool music, bool sound, bool reduced = false);
     [[nodiscard]] std::vector<games::GameCommand> commands() const override;
     void run_command(std::string_view id) override;
+    // Detail, then the scenery's own settings, for the PlaySuite Settings screen.
+    [[nodiscard]] std::vector<games::GameSetting> settings() const override;
+    void change_setting(std::string_view id, double value) override;
     // Development scripts: "pause", "resume", "detail light|balanced|fine", then
     // anything the scenery accepts. Refused outside --dev and while hidden.
     bool scripted_action(std::string_view action);
@@ -100,7 +103,7 @@ class SceneView : public gf::Control, public games::CommandSource {
     bool front_{true};
     bool music_{true};
     bool sound_on_{true};
-    bool sound_muted_{};  // the scene's own menu mutes
+    bool sound_muted_{};  // standalone only: the scene's own switches (M); hosted, the masters rule
     bool music_muted_{};
     bool reduced_{};
     bool help_open_{};

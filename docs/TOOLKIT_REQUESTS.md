@@ -29,15 +29,6 @@ AGENTS.md asks for reusable capabilities to become GUI.Forms enhancements, coord
    view contract currently requires device-sized frames, so (a) also needs a
    contract revision.
 
-6. **Decode a PNG into CPU pixels.** `Window::load_png` validates a PNG and hands
-   it to the host renderer, but nothing public returns its pixels, and the
-   Windows host decodes through WIC while Skia hosts decode internally. Koi-Koi
-   keeps its own CPU raster (area-averaged card reduction, card finish), so it
-   decodes its compressed deck itself with the ambient engine's zlib decoder
-   (`games/koikoi/src/platform/image.cpp`, 8-bit RGBA only). What would replace
-   it: a portable `decode_png(bytes) -> premultiplied BGRA` in GUI.Forms, with
-   the registry's limits, usable off the UI thread.
-
 ## Host behavior found on Windows
 
 **Idle live-surface clock and registration lifecycle.** In pinned `7b260cf`,
@@ -158,3 +149,34 @@ surfaces directly on macOS as on Windows, or at least skip the clear, use `src`
 for opaque surfaces, and accept the surface in the destination's byte order. A
 scene-sized surface enlarged by the presenter would also remove the producer's
 enlarging copy.
+
+## Shared settings and volume (found with the Settings screen, 2026-10-07)
+
+1. **Mix-bus or engine gain in the audio engine.** `gui_forms::AudioVoice::set_gain`
+   is the only gain; there is no engine master and no bus. PlaySuite's Music and
+   Sound volumes are applied on the application side: `games::PcmPlayer` routes
+   each slot to a bus (`AudioBus::music` or `AudioBus::sound`), multiplies the
+   slot's own gain by the bus gain, keeps a list of live players and re-sets the
+   gain of every live voice when a volume moves (`src/pcm_player.*`). The Four
+   Pegs loop transport multiplies its own `set_gain`. What would replace it:
+   named buses (or at least an engine master gain) on `AudioEngine`, applied in the
+   mixer after voice gain, so a volume change is one call and reaches generators,
+   clips and loop transports alike. A smoothed gain change would also avoid the
+   step a voice hears when a slider jumps.
+2. **A themeable TrackBar.** `TrackBar` paints from `BasicControlStyle` (one
+   accent, square thumb) and maps the pointer with a private ten-point
+   `track_inset` (`range_control_rendering.hpp`). The Settings screen overrides
+   `on_paint` in `games::SettingSlider` for a gold groove and gloss knob and has to
+   repeat that inset. A public track rectangle (or thumb/track recipes in the
+   theme) would let applications restyle it safely. TrackBar also lacks a
+   hovered-visual accessor such as `ButtonBase::hovered_visual()`. `CheckBox` likewise
+   draws its focus as a fixed blue rectangle from the theme; `games::SettingCheck`
+   overrides `on_paint` for a gold box and a soft gold focus outline (shown only
+   while `focus_cue_visible()`, that is after keyboard input). A focus-ring recipe in
+   the theme (colour, radius, inset) would make such subclasses unnecessary.
+3. **A settings form control.** `src/settings_sheet.*` builds a scrolling page of
+   labelled rows (check box with slider, choice chips, image choices, notes) from
+   a declarative list, re-reads values in place and rebuilds only when the list's
+   shape changes. A property-sheet control fed by such a model (with
+   toggle, choice and slider rows and keyboard order) would serve other
+   applications' preference screens.

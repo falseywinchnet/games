@@ -5,6 +5,10 @@
 
 namespace ambient {
 
+SoundDesk::SoundDesk() {
+    beds_.route(bed_count + 1, games::AudioBus::music);  // live music: the Music volume
+}
+
 void SoundDesk::music(const std::string& name, bool on) {
     score_.music(on ? name : std::string(), on);
 }

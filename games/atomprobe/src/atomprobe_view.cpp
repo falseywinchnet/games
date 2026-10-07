@@ -183,7 +183,8 @@ void AtomProbeView::on_paint(gf::Painter& p, gf::Rect) {
 
 // ------------------------------------------------------------------ game
 void AtomProbeView::play(const std::string& name, float gain, float rate) {
-    audio_sfx(name, gain, rate, save_.settings.sound && cab_sound_ && cab_front_ && visible());
+    // Hosted, PlaySuite's Sound master is the only switch.
+    audio_sfx(name, gain, rate, (opt_.hosted || save_.settings.sound) && cab_sound_ && cab_front_ && visible());
 }
 
 void AtomProbeView::say(const std::string& s, Col c) {
@@ -620,7 +621,7 @@ void AtomProbeView::on_key(gf::KeyEvent& e) {
     if (k == K::t) { open(panel_ == Panel::scores ? Panel::none : Panel::scores); e.handled = true; return; }
     if (k == K::n) { action("new"); e.handled = true; return; }
     if (k == K::m) { action("music"); e.handled = true; return; }
-    if (k == K::s) { action("sound"); e.handled = true; return; }
+    if (k == K::s && !opt_.hosted) { action("sound"); e.handled = true; return; }
 }
 
 void AtomProbeView::on_text_input(gf::TextInputEvent& e) {

@@ -101,7 +101,7 @@ void SwitchboxView::set_cabinet(bool foreground, bool music, bool sound, bool re
     if (!foreground) {
         cancel_cursor_interaction();
     }
-    audio_music(foreground ? kMusic : "", foreground && music && save_.settings.music);
+    audio_music(foreground ? kMusic : "", foreground && music && (opt_.hosted || save_.settings.music));
 }
 
 void SwitchboxView::cancel_cursor_interaction() {
@@ -164,7 +164,8 @@ void SwitchboxView::on_paint(gf::Painter& p, gf::Rect) {
 
 // ------------------------------------------------------------------ game
 void SwitchboxView::play(const std::string& name, float gain, float rate) {
-    audio_sfx(name, gain, rate, save_.settings.sound && cab_sound_ && cab_front_ && visible());
+    // Hosted, PlaySuite's Sound master is the only switch.
+    audio_sfx(name, gain, rate, (opt_.hosted || save_.settings.sound) && cab_sound_ && cab_front_ && visible());
 }
 
 void SwitchboxView::flip(int sw) {
@@ -545,7 +546,7 @@ void SwitchboxView::on_key(gf::KeyEvent& e) {
     if (k == K::f1) { open(panel_ == Panel::help ? Panel::none : Panel::help); e.handled = true; return; }
     if (k == K::t) { open(panel_ == Panel::scores ? Panel::none : Panel::scores); e.handled = true; return; }
     if (k == K::m) { action("music"); e.handled = true; return; }
-    if (k == K::n) { action("sound"); e.handled = true; return; }
+    if (k == K::n && !opt_.hosted) { action("sound"); e.handled = true; return; }
     if (k == K::enter && panel_ != Panel::none) { open(Panel::none); e.handled = true; }
 }
 
@@ -618,7 +619,7 @@ void SwitchboxView::layout_render_buttons() {
     };
     if ((*rendering_).panel_ == Panel::none) {
         if (!opt_.hosted) add_right("music", (*rendering_).save_.settings.music ? "Music on" : "Music off");
-        add_right("sound", (*rendering_).save_.settings.sound ? "Sound on" : "Sound off");
+        if (!opt_.hosted) add_right("sound", (*rendering_).save_.settings.sound ? "Sound on" : "Sound off");
         add_right("scores", "Top scores");
         if (!opt_.hosted) add_right("help", "Help");
         return;

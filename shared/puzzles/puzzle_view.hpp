@@ -28,6 +28,9 @@ class PuzzleView final : public gf::Control, public CommandSource {
     void activate();
     [[nodiscard]] std::vector<GameCommand> commands() const override;
     void run_command(std::string_view id) override;
+    // Nature Cube and Untangle: the level, on the Settings screen.
+    [[nodiscard]] std::vector<GameSetting> settings() const override;
+    void change_setting(std::string_view id, double value) override;
     [[nodiscard]] gf::Rect board() const {
         return board_;
     }

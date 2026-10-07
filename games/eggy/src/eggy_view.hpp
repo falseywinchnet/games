@@ -73,6 +73,8 @@ private:
     void cabinet_visibility(bool shown);
     bool cabinet_music_ = true, cabinet_sound_ = true, cabinet_reduced_ = false;
     Options opt_;
+    // Hosted, PlaySuite's Sound master is the only switch; standalone, the game's own.
+    [[nodiscard]] bool sound_on() const { return opt_.hosted || save_.settings.sound; }
     std::unique_ptr<Sim> sim_;
     Scene scene_;
     SaveData save_;

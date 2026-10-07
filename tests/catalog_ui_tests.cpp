@@ -25,7 +25,7 @@ int main() {
         window.set_active(true); window.perform_layout();
         assert((*collection).shelf_open());
         assert(games::valid_entry((*collection).active()));
-        assert((*collection).children().size()==4);
+        assert((*collection).children().size()==5);
         std::set<int> ids;
         for(games::Entry entry:games::entries) {
             assert(ids.insert(static_cast<int>(entry)).second);

@@ -342,7 +342,25 @@ bool MowingScenery::grabbable(double x, double y) const {
 void MowingScenery::add_commands(std::vector<games::GameCommand>& list, const ambient::Settings&) const {
     list.push_back({"new-garden", "New Garden", true, false, false});
     list.push_back({"engine", (*mowing_).engine_on() ? "Engine: On" : "Engine: Off", true, false, false});
-    list.push_back({"mower", std::string("Mower: ") + livery_name(livery_), true, false, false});
+}
+
+void MowingScenery::add_settings(std::vector<games::GameSetting>& list, const ambient::Settings&) const {
+    games::GameSetting mower{"mower", "Mower", games::GameSetting::Kind::choice,
+                             static_cast<double>(static_cast<int>(livery_))};
+    for (int i = 0; i < livery_count; ++i)
+        mower.choices.push_back(livery_name(static_cast<Livery>(i)));
+    list.push_back(mower);
+}
+
+bool MowingScenery::change_setting(std::string_view id, double value, ambient::SceneContext& context) {
+    const int chosen = static_cast<int>(std::lround(value));
+    if (id != "mower" || chosen < 0 || chosen >= livery_count || chosen == static_cast<int>(livery_))
+        return false;
+    livery_ = static_cast<Livery>(chosen);
+    (*mowing_).set_livery(livery_);
+    ambient::set_setting(context.settings, "mower", livery_key(livery_));
+    context.persist = true;
+    return true;
 }
 
 bool MowingScenery::run_command(std::string_view id, ambient::SceneContext& context) {

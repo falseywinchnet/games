@@ -6,4 +6,4 @@ Now and then a small garden gnome pops up near the mower, turns to face it and d
 
 Mushrooms come up in rings, dandelions dot the lawn, and in places clover and crabgrass have woven themselves into the turf. The mower takes them all.
 
-N (or New Garden) starts a fresh garden. E (or Engine) turns the mower's engine off and on; with it off the mower stands where it is. Mower switches between the orange, red and green machines. Sound and Music turn this game's sound and music off and on; M turns the music off and on. Space (or Pause) stops everything; a paused garden does no work. Q (or Detail) chooses how fine the picture is. With Reduced Motion on, nothing is thrown about by the mower.
+N (or New Garden) starts a fresh garden. E (or Engine) turns the mower's engine off and on; with it off the mower stands where it is. Settings (the cog) chooses the orange, red or green mower and the detail; M turns the music off and on. Space (or Pause) stops everything; a paused garden does no work. Q changes how fine the picture is. With Reduced Motion on, nothing is thrown about by the mower.

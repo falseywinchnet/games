@@ -2,6 +2,7 @@
 #include "gui_forms/timer.hpp"
 #include "gui_forms/controls/scrollable_control/scrollable_control.hpp"
 #include "suite.hpp"
+#include "suite_settings.hpp"
 #include "text_sprites.hpp"
 #include <functional>
 #include <memory>
@@ -64,7 +65,8 @@ class LaunchCurtain final : public gf::Control {
 };
 
 // The PlaySuite main menu: a lit wall of shelves holding every game as a box,
-// a sign with the master switches, and a ticket describing the box under the pointer.
+// a sign with the master switches and the Settings button (the switches observe the
+// SettingsStore), and a ticket describing the box under the pointer.
 // One click on a box opens its game.
 class ShelfView final : public gf::Control {
   public:
@@ -80,10 +82,12 @@ class ShelfView final : public gf::Control {
         return selection_;
     }
     void set_preferences(bool music, bool sound, bool reduced);
+    // The Settings cog stays lit while the Settings screen is open.
+    void set_settings_open(bool open);
     void set_progress(Entry entry, bool started);
     void focus_selection();
     std::function<void(Entry)> open;
-    std::function<void(int)> toggle; // 0 music, 1 sound, 2 motion
+    std::function<void(int)> toggle; // 0 music, 1 sound, 2 motion, 3 open Settings
 
   private:
     TextSprites& sprites_;
@@ -94,7 +98,9 @@ class ShelfView final : public gf::Control {
     bool launching_ = false;
     double launch_t_ = 0;
     void launch(Entry entry);
-    std::array<std::shared_ptr<SuiteButton>, 3> switches_{};
+    std::array<std::shared_ptr<SuiteButton>, 4> switches_{};
+    SettingsObservation masters_{};
+    void masters_changed();
     std::vector<gf::SubscriptionToken> subscriptions_;
     std::unique_ptr<gf::Timer> timer_;
     std::chrono::steady_clock::time_point last_{};

@@ -184,7 +184,8 @@ void FourPegsView::on_paint(gf::Painter& p, gf::Rect) {
 
 // ------------------------------------------------------------------ game
 void FourPegsView::play(const std::string& name, float gain, float rate) {
-    audio_sfx(name, gain, rate, save_.settings.sound && cab_sound_ && cab_front_ && visible());
+    // Hosted, PlaySuite's Sound master is the only switch.
+    audio_sfx(name, gain, rate, (opt_.hosted || save_.settings.sound) && cab_sound_ && cab_front_ && visible());
 }
 
 void FourPegsView::new_game() {
@@ -591,7 +592,7 @@ void FourPegsView::on_key(gf::KeyEvent& e) {
     if (k == K::t) { open(panel_ == Panel::scores ? Panel::none : Panel::scores); e.handled = true; return; }
     if (k == K::n || k == K::f2) { action(panel_ == Panel::gameover ? "retry" : "new"); e.handled = true; return; }
     if (k == K::m) { action("music"); e.handled = true; return; }
-    if (k == K::s) { action("sound"); e.handled = true; return; }
+    if (k == K::s && !opt_.hosted) { action("sound"); e.handled = true; return; }
 }
 
 void FourPegsView::on_text_input(gf::TextInputEvent& e) {

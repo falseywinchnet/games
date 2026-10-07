@@ -34,9 +34,9 @@ void CommandCapsule::initialize_control_tree() {
     (*more_).set_radius(15);
     (*more_).set_accessible_name("Keep the commands open");
     add_child(more_);
-    const char* names[] = {"Music", "Sound", "Motion"};
-    const Glyph glyphs[] = {Glyph::music, Glyph::sound, Glyph::motion};
-    for (int i = 0; i < 3; ++i) {
+    const char* names[] = {"Music", "Sound", "Motion", "Settings"};
+    const Glyph glyphs[] = {Glyph::music, Glyph::sound, Glyph::motion, Glyph::settings};
+    for (int i = 0; i < 4; ++i) {
         switches_[i] = gf::make_control<SuiteButton>(
             gf::StableId(std::string("capsule.") + names[i]), "", GlossTone::smoke);
         (*switches_[i]).set_glyph(glyphs[i]);
@@ -44,11 +44,18 @@ void CommandCapsule::initialize_control_tree() {
         (*switches_[i]).set_accessible_name(names[i]);
         add_child(switches_[i]);
     }
+    (*switches_[3]).set_accessible_name("Settings");
     for (const std::shared_ptr<SuiteButton>& b :
-         {back_, more_, switches_[0], switches_[1], switches_[2]})
+         {back_, more_, switches_[0], switches_[1], switches_[2], switches_[3]})
         subscriptions_.push_back((*b).clicked().subscribe(
             *this,
             gf::Delegate<gf::ButtonBase&>::bind<CommandCapsule, &CommandCapsule::clicked>(*this)));
+    masters_ = SettingsStore::shared().observe(std::bind_front(&CommandCapsule::masters_changed, this));
+    masters_changed();
+}
+void CommandCapsule::masters_changed() {
+    const SuiteSettings& masters = SettingsStore::shared().values();
+    set_preferences(masters.music, masters.sound, masters.reduced);
 }
 void CommandCapsule::set_game(std::string title, std::vector<GameCommand> commands) {
     bool same = title == title_ && commands.size() == commands_.size();
@@ -87,6 +94,9 @@ void CommandCapsule::set_game(std::string title, std::vector<GameCommand> comman
     }
     layout_slots();
     invalidate(gf::Dirty::layout | gf::Dirty::paint);
+}
+void CommandCapsule::set_settings_open(bool open) {
+    (*switches_[3]).set_checked(open);
 }
 void CommandCapsule::set_preferences(bool music, bool sound, bool reduced) {
     (*switches_[0]).set_glyph(Glyph::music, !music);
@@ -219,7 +229,7 @@ void CommandCapsule::clicked(gf::ButtonBase& button) {
             idle_ = .3;
         return;
     }
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 4; ++i)
         if (&button == switches_[i].get()) {
             if (toggle)
                 toggle(i);

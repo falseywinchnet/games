@@ -42,6 +42,7 @@ void music_play(const std::string& game, bool enabled) {
     if (!enabled) { player.pause(0); return; }
     if (current != game) {
         player.clear(1);
+        player.route(0, AudioBus::music);
         player.start(0, "music_" + track_name(game) + "_loop", true, .4);
         current = game;
     } else { player.resume(0); }

@@ -560,7 +560,8 @@ void ZenView::update_hover() {
 }
 
 void ZenView::play(const std::string& name, float gain, float rate, float pan) {
-    audio_sfx(name, gain, rate, sound_ && cab_sound_ && cab_front_ && visible(), pan);
+    // Hosted, PlaySuite's Sound and Music masters are the only switches.
+    audio_sfx(name, gain, rate, (options_.hosted || sound_) && cab_sound_ && cab_front_ && visible(), pan);
 }
 
 // The beds and the odd sounds: the brook always; the motor whining up with
@@ -568,7 +569,7 @@ void ZenView::play(const std::string& name, float gain, float rate, float pan) {
 // while it holds a rock, spinning down when it stops; sounds due now; a
 // bird in the trees every half minute or so.
 void ZenView::step_sound(double dt) {
-    const bool sound_on = sound_ && cab_sound_ && cab_front_ && visible();
+    const bool sound_on = (options_.hosted || sound_) && cab_sound_ && cab_front_ && visible();
     // the creek: its rush, the babble of bubbles over it, wind in the reeds
     // (loops of 37, 40 and 53 seconds, so together they never repeat)
     audio_bed("zc_rush", .13f, 1.f, sound_on);
@@ -681,7 +682,7 @@ void ZenView::tick() {
     } else {
         hold_reset_ = 0;
     }
-    audio_music(front ? "zc_music" : "", music_ && cab_music_ && cab_front_);
+    audio_music(front ? "zc_music" : "", (options_.hosted || music_) && cab_music_ && cab_front_);
     step_sound(dt);
     audio_tick(dt);
     save_t_ += dt;

@@ -2,4 +2,4 @@ Drag the pegs until no thread crosses another thread of its own color. Different
 
 Frosted pegs cannot move until all their attached threads are clear. The cat sits on pegs and chases what you drag. Click it to shoo it. On Medium and Hard, leaving the yarn alone may invite a swat at a peg.
 
-The Next setting chooses the next level. Every puzzle starts from a known untangled arrangement.
+The Level setting in Settings chooses the next level. Every puzzle starts from a known untangled arrangement.

@@ -52,6 +52,9 @@ public:
     void set_cabinet(bool foreground, bool music, bool sound, bool reduced = false);
     [[nodiscard]] std::vector<games::GameCommand> commands() const override;
     void run_command(std::string_view id) override;
+    // Choices that persist (sizes, levels, looks) are settings, not commands.
+    [[nodiscard]] std::vector<games::GameSetting> settings() const override;
+    void change_setting(std::string_view id, double value) override;
 
 private:
     Options options_;
@@ -87,6 +90,7 @@ private:
     void undo_press();
     void new_board();
     void cycle_size();
+    void set_next_size(int side);
     void set_help(bool open);
     void move_cursor(int rows, int columns);
     void persist();

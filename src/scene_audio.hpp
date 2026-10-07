@@ -7,7 +7,11 @@ namespace games {
 // ambience beds and a bounded 24-voice pool. All calls are on the UI thread.
 class SceneAudio final {
 public:
-    explicit SceneAudio(bool offline = false) : player_(offline) {}
+    // Slots 0 and 1 are the music crossfade (the Music volume); the rest are Sound.
+    explicit SceneAudio(bool offline = false) : player_(offline) {
+        player_.route(0, AudioBus::music);
+        player_.route(1, AudioBus::music);
+    }
     void music(const std::string& name, bool enabled);
     void effects(const std::string& name, double gain, double rate, bool enabled, double pan = 0);
     void ambience(const std::array<double, 5>& values, bool enabled);

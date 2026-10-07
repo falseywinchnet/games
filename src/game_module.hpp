@@ -59,6 +59,20 @@ template<class View> class HostedGameInstance : public GameInstance {
         else if constexpr (requires(View& v) { v.host_command(std::string(id)); })
             (*view_).host_command(std::string(id));
     }
+    std::vector<GameSetting> settings() const override {
+        if constexpr (std::is_base_of_v<CommandSource, View>)
+            return (*view_).settings();
+        return {};
+    }
+    void change_setting(std::string_view id, double value) override {
+        if constexpr (std::is_base_of_v<CommandSource, View>)
+            (*view_).change_setting(id, value);
+    }
+    bool uses_card_backs() const override {
+        if constexpr (std::is_base_of_v<CommandSource, View>)
+            return (*view_).uses_card_backs();
+        return false;
+    }
   protected:
     std::shared_ptr<View> view_;
 };
