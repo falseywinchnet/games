@@ -66,9 +66,15 @@ class Scenery {
     [[nodiscard]] virtual bool grabbable(double, double) const {
         return false;
     }
-    // Commands beyond Pause, Detail and Help.
+    // Commands (actions) beyond Pause and Help.
     virtual void add_commands(std::vector<games::GameCommand>&, const Settings&) const {}
     virtual bool run_command(std::string_view, SceneContext&) {
+        return false;
+    }
+    // Settings beyond Detail, for the PlaySuite Settings screen: choices that persist
+    // (keep them in settings.extra and set context.persist).
+    virtual void add_settings(std::vector<games::GameSetting>&, const Settings&) const {}
+    virtual bool change_setting(std::string_view, double, SceneContext&) {
         return false;
     }
     // The command a key runs, if the scene gives it one (a gf::PhysicalKey); empty for none.

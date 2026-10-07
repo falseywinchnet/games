@@ -237,9 +237,9 @@ void ShelfView::initialize_control_tree() {
                            gf::Delegate<gf::ButtonBase&>::bind<ShelfView, &ShelfView::clicked_box>(
                                *this)));
     }
-    const char* names[] = {"Music", "Sound", "Motion"};
-    const Glyph glyphs[] = {Glyph::music, Glyph::sound, Glyph::motion};
-    for (int i = 0; i < 3; ++i) {
+    const char* names[] = {"Music", "Sound", "Motion", "Settings"};
+    const Glyph glyphs[] = {Glyph::music, Glyph::sound, Glyph::motion, Glyph::settings};
+    for (int i = 0; i < 4; ++i) {
         switches_[i] = gf::make_control<SuiteButton>(gf::StableId(std::string("shelf.") + names[i]),
                                                      "", GlossTone::smoke);
         (*switches_[i]).set_glyph(glyphs[i]);
@@ -258,6 +258,12 @@ void ShelfView::initialize_control_tree() {
     (*curtain_).set_visible(false);
     add_child(curtain_);
     select(selection_);
+    masters_ = SettingsStore::shared().observe(std::bind_front(&ShelfView::masters_changed, this));
+    masters_changed();
+}
+void ShelfView::masters_changed() {
+    const SuiteSettings& masters = SettingsStore::shared().values();
+    set_preferences(masters.music, masters.sound, masters.reduced);
 }
 void ShelfView::launch(Entry entry) {
     if (launching_ || !valid_entry(entry))
@@ -385,7 +391,7 @@ void ShelfView::clicked_box(gf::ButtonBase& button) {
     launch((*box).entry());
 }
 void ShelfView::clicked_switch(gf::ButtonBase& button) {
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 4; ++i)
         if (&button == switches_[i].get() && toggle)
             toggle(i);
 }
@@ -431,8 +437,8 @@ void ShelfView::arrange(gf::Rect bounds) {
     set_child_layout(rows_, {0, top, w, std::max(1.0, bottom - top)});
     set_child_layout(curtain_, {0, 0, w, h});
     const double sw = compact ? 34 : 38;
-    for (int i = 0; i < 3; ++i)
-        set_child_layout(switches_[i], {w - (3 - i) * (sw + 6) - (compact ? 10 : 22) - 44,
+    for (int i = 0; i < 4; ++i)
+        set_child_layout(switches_[i], {w - (4 - i) * (sw + 6) - (compact ? 10 : 22) - 44,
                                         (header_.height - sw) * .5, sw, sw});
 }
 void ShelfView::on_paint(gf::Painter& p, gf::Rect) {

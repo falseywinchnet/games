@@ -144,15 +144,13 @@ Table::Table(gf::StableId id) : Control(std::move(id)) {
         static_cast<std::uint32_t>(std::chrono::system_clock::now().time_since_epoch().count());
     load_levels();
     game.deal(Kind::solitaire, deal_seed(Kind::solitaire, 1));
-    if (load_cabinet(cabinet_path(), cabinet_)) {
+    if (load_cabinet(cabinet_path(), cabinet_))
         game = cabinet_.games[cabinet_.active];
-        back_ = cabinet_.back;
-        reduced_ = cabinet_.reduced;
-        sound_ = cabinet_.sound;
-        music_ = cabinet_.music;
-    }
+    reload_preferences();
 }
 void Table::initialize_control_tree() {
+    // Slots 8 and 10-13 held the old Options panel; the shared Settings screen replaced
+    // it. They stay hidden so the other slots keep their numbers.
     const char* names[] = {"Solitaire", "Spider",   "FreeCell",    "Hearts",     "New game",
                            "Undo",      "Hint",     "How to play", "Options",    "Close",
                            "Card back", "Motion",   "Sound",       "Music",      "Deal options",
@@ -410,11 +408,14 @@ void Table::request_tick() {
         (*timer_).start();
 }
 void Table::reload_preferences() {
-    Cabinet preferences;
-    if (load_cabinet(cabinet_path(), preferences)) {
-        reduced_ = preferences.reduced;
-        sound_ = preferences.sound;
-        music_ = preferences.music;
+    // The PlaySuite masters, which the Settings screen and the switches change.
+    const SuiteSettings& masters = SettingsStore::shared().values();
+    reduced_ = masters.reduced;
+    sound_ = masters.sound;
+    music_ = masters.music;
+    if (back_ != masters.card_back) {
+        back_ = masters.card_back;
+        invalidate(gf::Dirty::paint);
     }
 }
 void Table::activate() {
@@ -822,30 +823,15 @@ void Table::draw_panel(gf::Painter& p) {
               panel_ == 1 ? std::string(game_name(game.state.kind)) + " Help"
                           : "Make yourself at home",
               24, title_ink);
-    if (panel_ == 2) {
-        const char* backs[] = {"Sapphire clubs", "Ruby diamonds", "Emerald hearts",
-                               "Amethyst spades"};
-        const std::string values[] = {
-            backs[back_], reduced_ ? "Reduced motion" : "Smooth card motion",
-            sound_ ? "Soft effects on" : "Effects off", music_ ? "Music on" : "Music off",
-            game.state.kind == Kind::spider
-                ? std::to_string(game.state.spider_suits) + " suit (starts new deal)"
-            : game.state.kind == Kind::solitaire
-                ? "Draw " + std::to_string(game.state.draw_count) + " (starts new deal)"
-                : "Standard rules"};
-        for (int i = 0; i < 5; ++i)
-            draw_text(p, popup_.x + 251, popup_.y + 111 + i * 66, values[i], 15, ink);
-        return;
-    }
     std::string text;
     if (topic_ == 1)
         text = "Click a card, then its destination, or drag a legal run. A gold outline marks your "
                "selection; a gold destination outline confirms a legal move. Double-click a card "
                "to send it to a foundation.\n\nKeyboard: arrow keys choose a pile and card. Enter "
                "selects or places. Space draws. Z undoes. H gives a hint. F1 opens this help; "
-               "Escape closes it or clears a selection. Tab visits the buttons.\n\nOptions changes "
-               "the card back, motion, sound, music, and deal rules. New game deals fresh cards. "
-               "All sound has visible feedback.";
+               "Escape closes it or clears a selection. Tab visits the buttons.\n\nSettings (the "
+               "cog) changes the card back, the deal rules and level, motion, and the music and "
+               "sound volumes. New game deals fresh cards. All sound has visible feedback.";
     else if (topic_ == 2)
         text = "Games is a native C++ card cabinet built with GUI.Forms. Card faces and backs are "
                "original, reproducible artwork. The felt comes from Plan Paint's fiber and light "
@@ -869,7 +855,7 @@ void Table::draw_panel(gf::Painter& p) {
                "card or valid run may fill an empty column.\n\nA complete king-to-ace run of one "
                "suit moves home automatically. Clear eight runs to win. Click the stock to deal "
                "one card onto each column. Every column must contain a card before "
-               "dealing.\n\nOptions selects one, two, or four suits and starts a new deal. One "
+               "dealing.\n\nSettings selects one, two, or four suits and starts a new deal. One "
                "suit is a relaxed introduction; four suits needs much more planning.";
     else if (game.state.kind == Kind::freecell)
         text = "Build the four foundations upward from ace to king in one suit. Build tableau "
@@ -932,7 +918,7 @@ void Table::open_panel(int panel) {
     for (int i = 9; i < 22; ++i)
         (*buttons_[i])
             .set_visible(i == 9   ? panel != 0
-                         : i < 15 ? panel == 2
+                         : i < 15 ? false
                          : i < 18 ? panel == 1
                          : i == 18
                              ? panel == 0 && game.state.kind == Kind::hearts && !game.state.over &&
@@ -1020,10 +1006,12 @@ void Table::persist() {
     cabinet_.games[current].state = game.state;
     cabinet_.games[current].message = game.message;
     cabinet_.started[current] = true;
-    cabinet_.back = back_;
-    cabinet_.reduced = reduced_;
-    cabinet_.sound = sound_;
-    cabinet_.music = music_;
+    // The cabinet keeps a copy of the masters for earlier versions of PlaySuite.
+    const SuiteSettings& masters = SettingsStore::shared().values();
+    cabinet_.back = masters.card_back;
+    cabinet_.reduced = masters.reduced;
+    cabinet_.sound = masters.sound;
+    cabinet_.music = masters.music;
     if (!save_cabinet(cabinet_path(), cabinet_))
         game.message = "Your move is safe in memory, but the local save could not be written.";
 }
@@ -1057,18 +1045,60 @@ std::vector<GameCommand> Table::commands() const {
     std::vector<GameCommand> list{{"new", "New game", true, false, true},
                                   {"undo", "Undo", !game.history.empty() && panel_ == 0},
                                   {"hint", "Hint", panel_ == 0 && !game.state.over}};
-    if (game.state.kind == Kind::solitaire)
-        list.push_back({"deal", game.state.draw_count == 1 ? "Draw one" : "Draw three"});
-    if (game.state.kind == Kind::spider)
-        list.push_back({"deal", game.state.spider_suits == 1   ? "One suit"
-                                : game.state.spider_suits == 2 ? "Two suits"
-                                                               : "Four suits"});
-    if (game.state.kind != Kind::hearts)
-        list.push_back({"level", "Next: " + level_name()});
-    list.push_back({"options", "Options", true, panel_ == 2});
     list.push_back({"help", "Help", true, panel_ == 1});
     list.push_back({"scores", "Top scores", true, panel_ == 3});
     return list;
+}
+std::vector<GameSetting> Table::settings() const {
+    std::vector<GameSetting> list;
+    if (game.state.kind == Kind::solitaire)
+        list.push_back({"draw", "Draw", GameSetting::Kind::choice,
+                        game.state.draw_count == 3 ? 1.0 : 0.0, {"One card", "Three cards"}, 0,
+                        1, 1, "Changing it deals again."});
+    if (game.state.kind == Kind::spider)
+        list.push_back({"suits", "Suits", GameSetting::Kind::choice,
+                        game.state.spider_suits == 4   ? 2.0
+                        : game.state.spider_suits == 2 ? 1.0
+                                                       : 0.0,
+                        {"One", "Two", "Four"}, 0, 2, 1, "Changing it deals again."});
+    if (game.state.kind != Kind::hearts)
+        list.push_back({"level", "Deals", GameSetting::Kind::choice,
+                        static_cast<double>(levels_[static_cast<int>(game.state.kind)]),
+                        {"Easy", "Medium", "Hard"}, 0, 2, 1,
+                        "Every deal can be won. An untouched deal is dealt again; otherwise "
+                        "the next deal uses it."});
+    return list;
+}
+void Table::change_setting(std::string_view id, double value) {
+    const int choice = static_cast<int>(std::lround(value));
+    if (id == "draw" && game.state.kind == Kind::solitaire)
+        set_deal_option(choice == 1 ? 3 : 1);
+    else if (id == "suits" && game.state.kind == Kind::spider)
+        set_deal_option(choice == 2 ? 4 : choice == 1 ? 2 : 1);
+    else if (id == "level" && game.state.kind != Kind::hearts)
+        set_level(std::clamp(choice, 0, 2));
+}
+void Table::set_deal_option(int option) {
+    int& current = game.state.kind == Kind::spider ? game.state.spider_suits : game.state.draw_count;
+    if (current == option)
+        return;
+    current = option;
+    open_panel(0);
+    new_game(game.state.kind);
+}
+void Table::set_level(int level) {
+    const int k = static_cast<int>(game.state.kind);
+    if (levels_[k] == level)
+        return;
+    levels_[k] = level;
+    save_levels();
+    // An untouched deal is replaced at once; otherwise the level waits for the next deal.
+    if (game.history.empty() && !game.state.over) {
+        open_panel(0);
+        new_game(game.state.kind);
+    } else
+        game.message = "Your next deal will be " + level_name() + ".";
+    invalidate(gf::Dirty::paint);
 }
 void Table::run_command(std::string_view id) {
     if (id == "new") {
@@ -1082,19 +1112,9 @@ void Table::run_command(std::string_view id) {
         open_panel(0);
         action(*buttons_[14]);
     } else if (id == "level" && game.state.kind != Kind::hearts) {
-        const int k = static_cast<int>(game.state.kind);
-        levels_[k] = (levels_[k] + 1) % 3;
-        save_levels();
-        // An untouched deal is replaced at once; otherwise the level waits for the next deal.
-        if (game.history.empty() && !game.state.over) {
-            open_panel(0);
-            new_game(game.state.kind);
-        } else
-            game.message = "Your next deal will be " + level_name() + ".";
-        invalidate(gf::Dirty::paint);
-    } else if (id == "options")
-        panel_ == 2 ? open_panel(0) : action(*buttons_[8]);
-    else if (id == "help")
+        // Scripts may still cycle the level; the Settings screen chooses it directly.
+        set_level((levels_[static_cast<int>(game.state.kind)] + 1) % 3);
+    } else if (id == "help")
         panel_ == 1 ? open_panel(0) : action(*buttons_[7]);
     else if (id == "scores")
         panel_ == 3 ? open_panel(0) : action(*buttons_[19]);
@@ -1156,22 +1176,8 @@ void Table::action(gf::ButtonBase& button) {
         topic_ = 0;
         open_panel(1);
     }
-    if (a == 8)
-        open_panel(2);
     if (a == 9)
         open_panel(0);
-    if (a == 10)
-        back_ = (back_ + 1) % 4;
-    if (a == 11) {
-        reduced_ = !reduced_;
-        layout_cards(false);
-    }
-    if (a == 12)
-        sound_ = !sound_;
-    if (a == 13) {
-        music_ = !music_;
-        music_play(audio_name(game.state.kind), music_);
-    }
     if (a == 14) {
         if (game.state.kind == Kind::solitaire) {
             game.state.draw_count = game.state.draw_count == 1 ? 3 : 1;

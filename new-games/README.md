@@ -45,7 +45,7 @@ These are checked when the game is built and reviewed.
 
 1. **Standard controls.** The game uses the collection's controls: the command
    bar with New game, shared help (H or F1), the Music and Sound masters (M toggles
-   music), Escape to close a panel, Enter or Space to confirm, Z or Backspace to
+   music), the shared Settings screen for choices that persist, Escape to close a panel, Enter or Space to confirm, Z or Backspace to
    undo where undo exists, and the arrow keys wherever the rules allow keyboard
    play.
 2. **Saves.** A game with state saves it, through the collection's save format,
@@ -59,8 +59,8 @@ These are checked when the game is built and reviewed.
 5. **Size.** The game adds at most 32 MB to the installer. Most add far less.
 6. **Windows and sizes.** The game works on all three systems, in a window as
    small as 600 × 420, at display scales 1 to 2.
-7. **Sound.** Music follows the Music master and everything else follows the
-   Sound master. All audio is made by the game's own code.
+7. **Sound.** Music follows the Music master and volume, everything else the
+   Sound master and volume. All audio is made by the game's own code.
 8. **Tests.** Rules, saves and layout are tested, and the game passes the
    submission check.
 

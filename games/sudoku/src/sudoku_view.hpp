@@ -21,6 +21,9 @@ class SudokuView final : public gf::Control, public CommandSource {
     void activate();
     [[nodiscard]] std::vector<GameCommand> commands() const override;
     void run_command(std::string_view id) override;
+    // The next puzzle's level and the Day or Night board, on the Settings screen.
+    [[nodiscard]] std::vector<GameSetting> settings() const override;
+    void change_setting(std::string_view id, double value) override;
     Sudoku game;
 
   private:

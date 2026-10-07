@@ -274,7 +274,11 @@ void TemplateView::new_board() {
 }
 
 void TemplateView::cycle_size() {
-    session_.next_side = session_.next_side >= maximum_side ? minimum_side : session_.next_side + 1;
+    set_next_size(session_.next_side >= maximum_side ? minimum_side : session_.next_side + 1);
+}
+
+void TemplateView::set_next_size(int side) {
+    session_.next_side = side;
     // The size applies to the next board; a board nobody has touched is replaced at once.
     if (session_.board.moves.empty()) {
         new_board();
@@ -379,9 +383,27 @@ std::vector<games::GameCommand> TemplateView::commands() const {
     // id, label, enabled, checked, primary. Primary commands show while the capsule is folded.
     list.push_back({"new", "New board", true, false, true});
     list.push_back({"undo", "Undo", !board.moves.empty() && !solved(board), false, false});
-    list.push_back({"size", "Next: " + size_label(session_.next_side), true, false, false});
     list.push_back({"help", "Help", true, visual_.help, false});
     return list;
+}
+
+// ---------------------------------------------------------------- the Settings screen
+
+std::vector<games::GameSetting> TemplateView::settings() const {
+    // id, label, kind, value, choices, minimum, maximum, step, note. The shell draws them
+    // under its own Music, Sound, volume and Motion controls. The game saves the value.
+    games::GameSetting size{"size", "Board", games::GameSetting::Kind::choice,
+                            static_cast<double>(session_.next_side - minimum_side)};
+    for (int side = minimum_side; side <= maximum_side; ++side)
+        size.choices.push_back(size_label(side));
+    size.note = "An untouched board changes at once; otherwise the next board does.";
+    return {size};
+}
+
+void TemplateView::change_setting(std::string_view id, double value) {
+    const int side = minimum_side + static_cast<int>(std::lround(value));
+    if (id == "size" && side >= minimum_side && side <= maximum_side && side != session_.next_side)
+        set_next_size(side);
 }
 
 void TemplateView::run_command(std::string_view id) {

@@ -2476,11 +2476,6 @@ void PuzzleView::new_game() {
 }
 std::vector<GameCommand> PuzzleView::commands() const {
     std::vector<GameCommand> list{{"new", "New game", true, false, true}};
-    if (game.kind == PuzzleKind::cube || game.kind == PuzzleKind::untangle ||
-        game.kind == PuzzleKind::solve) {
-        const char* levels[] = {"Easy", "Medium", "Hard"};
-        list.push_back({"level", std::string("Next: ") + levels[std::clamp(game.level, 0, 2)]});
-    }
     if (game.kind == PuzzleKind::solve) {
         list.push_back({"rotate", "Rotate", panel_ == 0 && !game.state.over});
         list.push_back({"flip", "Flip", panel_ == 0 && !game.state.over, flip_});
@@ -2488,6 +2483,22 @@ std::vector<GameCommand> PuzzleView::commands() const {
     list.push_back({"help", "Help", true, panel_ == 1});
     list.push_back({"scores", "Top scores", true, panel_ == 2});
     return list;
+}
+std::vector<GameSetting> PuzzleView::settings() const {
+    if (game.kind != PuzzleKind::cube && game.kind != PuzzleKind::untangle &&
+        game.kind != PuzzleKind::solve)
+        return {};
+    return {{"level", "Level", GameSetting::Kind::choice,
+             static_cast<double>(std::clamp(game.level, 0, 2)), {"Easy", "Medium", "Hard"}, 0, 2,
+             1, "An untouched board is dealt again; otherwise the next game uses it."}};
+}
+void PuzzleView::change_setting(std::string_view id, double value) {
+    const int level = static_cast<int>(std::lround(value));
+    if (id != "level" || level < 0 || level > 2 || level == game.level || settings().empty())
+        return;
+    // One step short, then the command's own step: it re-deals an untouched board once.
+    game.level = (level + 2) % 3;
+    run_command("level");
 }
 void PuzzleView::run_command(std::string_view id) {
     if (id == "new")

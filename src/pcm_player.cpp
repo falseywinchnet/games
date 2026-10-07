@@ -3,9 +3,45 @@
 #include <chrono>
 #include <iostream>
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 namespace games {
+namespace {
+std::array<double, 2> bus_gains{1, 1};
+// Live players, so a master change reaches voices that are already sounding.
+std::vector<PcmPlayer*>& players() {
+    static std::vector<PcmPlayer*> live;
+    return live;
+}
+}
+void set_bus_gain(AudioBus bus, double gain) {
+    const double value = std::isfinite(gain) ? std::clamp(gain, 0.0, 1.0) : 1.0;
+    double& current = bus_gains[static_cast<std::size_t>(bus)];
+    if (current == value) { return; }
+    current = value;
+    for (PcmPlayer* player : players()) { (*player).apply_bus_gains(); }
+}
+double bus_gain(AudioBus bus) { return bus_gains[static_cast<std::size_t>(bus)]; }
+PcmPlayer::PcmPlayer(bool offline) : offline_(offline) {
+    buses_.fill(AudioBus::sound);
+    players().push_back(this);
+}
+void PcmPlayer::route(std::size_t index, AudioBus bus) {
+    buses_.at(index) = bus;
+    Slot& slot = slots_[index];
+    if (slot.voice_ready && engine_.status() == gui_forms::AudioStatus::ok) { report(slot.voice.set_gain(voice_gain(slot)), "gain"); }
+}
+double PcmPlayer::voice_gain(const Slot& slot) const {
+    const std::size_t index = static_cast<std::size_t>(&slot - slots_.data());
+    return std::clamp(slot.gain, 0.0, 1.0) * bus_gain(buses_[index]);
+}
+void PcmPlayer::apply_bus_gains() {
+    if (engine_.status() != gui_forms::AudioStatus::ok) { return; }
+    for (Slot& slot : slots_) {
+        if (slot.voice_ready) { report(slot.voice.set_gain(voice_gain(slot)), "gain"); }
+    }
+}
 void PcmPlayer::report(gui_forms::AudioStatus status, const std::string& operation) {
     if (status != gui_forms::AudioStatus::ok) {
         std::cerr << "Audio " << operation << ": status " << static_cast<int>(status) << '\n';
@@ -31,7 +67,7 @@ void PcmPlayer::create_voice(Slot& slot) {
     report(admitted, slot.name);
     slot.voice_ready = admitted == gui_forms::AudioStatus::ok;
     if (!slot.voice_ready) { return; }
-    report(slot.voice.set_gain(slot.gain), "gain");
+    report(slot.voice.set_gain(voice_gain(slot)), "gain");
     report(slot.voice.set_rate(slot.rate), "rate");
     if (!slot.paused) { report(slot.voice.play(), "play"); }
 }
@@ -81,14 +117,14 @@ void PcmPlayer::generate(std::size_t index, std::shared_ptr<gui_forms::AudioGene
     report(admitted, slot.name);
     slot.voice_ready = admitted == gui_forms::AudioStatus::ok;
     if (!slot.voice_ready) { return; }
-    report(slot.voice.set_gain(slot.gain), "gain");
+    report(slot.voice.set_gain(voice_gain(slot)), "gain");
     report(slot.voice.play(), "play");
 }
 #endif
 void PcmPlayer::gain(std::size_t index, double value) {
     Slot& slot = slots_.at(index);
     slot.gain = value;
-    if (slot.voice_ready && engine_.status() == gui_forms::AudioStatus::ok) { report(slot.voice.set_gain(value), "gain"); }
+    if (slot.voice_ready && engine_.status() == gui_forms::AudioStatus::ok) { report(slot.voice.set_gain(voice_gain(slot)), "gain"); }
 }
 void PcmPlayer::rate(std::size_t index, double value) {
     Slot& slot = slots_.at(index);
@@ -136,7 +172,11 @@ void PcmPlayer::shutdown() {
     engine_.shutdown();
     attempted_ = false;
 }
-PcmPlayer::~PcmPlayer() { shutdown(); }
+PcmPlayer::~PcmPlayer() {
+    shutdown();
+    std::vector<PcmPlayer*>& live = players();
+    live.erase(std::remove(live.begin(), live.end(), this), live.end());
+}
 bool PcmPlayer::pending() const {
     for (const Slot& slot : slots_) { if (slot.pending.valid()) { return true; } }
     return false;

@@ -4,7 +4,7 @@ Click the glass near a fish to startle it. It darts away from your finger, then 
 
 Space (or Pause in the menu) stops the tank exactly where it is. A paused tank does no work at all, and Resume continues from the same moment. The tank also stops whenever another game or the shelf is in front.
 
-Detail (Q) chooses the size of the tank's pixels: Fine is sharper, Light is gentlest on an older or busy computer, Balanced sits between. Whatever the detail, the tank measures what it costs and slows its swimming and swaying a little rather than take more than its share of the processor, and it slows further while another window is in front.
+Detail (Q, or Settings) chooses the size of the tank's pixels: Fine is sharper, Light is gentlest on an older or busy computer, Balanced sits between. Whatever the detail, the tank measures what it costs and slows its swimming and swaying a little rather than take more than its share of the processor, and it slows further while another window is in front.
 
 The water, the bubbles and the knock on the glass are sound, under Sound. Below decks a small band (concertina, fiddle, bass fiddle and a stamping boot) keeps making up sea shanties; they are music, under Music, and M turns them off and on.
 

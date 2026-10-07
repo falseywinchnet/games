@@ -268,7 +268,7 @@ std::string EggyView::context_category() {
 
 void EggyView::handle(const Event& e) {
     Sim& s = *sim_;
-    const bool snd = save_.settings.sound;
+    const bool snd = sound_on();
     auto rnd = [](float a, float b) { return a + (b - a) * static_cast<float>(std::rand()) / RAND_MAX; };
     scene_.on_event(e, s);
     switch (e.type) {
@@ -384,7 +384,7 @@ void EggyView::tick() {
     if (panel_ != Panel::finale && panel_ != Panel::title)
         for (double left = dt; left > 1e-6; left -= .25) s.step(std::min(left, .25));
     else if (panel_ == Panel::title) { s.events.clear(); }
-    for (const auto& [name, gain] : scene_.sounds) audio_sfx(name, gain, 1, save_.settings.sound);
+    for (const auto& [name, gain] : scene_.sounds) audio_sfx(name, gain, 1, sound_on());
     scene_.sounds.clear();
     for (const Event& e : s.events) handle(e);
     s.events.clear();
@@ -396,7 +396,7 @@ void EggyView::tick() {
         bubble_.shown = std::min(static_cast<int>(bubble_.text.size()), static_cast<int>(bubble_.age * 34));
         if (bubble_.shown / 3 != before / 3 && bubble_.shown < static_cast<int>(bubble_.text.size()) && bubble_.text[static_cast<size_t>(bubble_.shown)] != ' ')
             audio_sfx("eggy_chirp_0" + std::to_string(1 + std::rand() % 6), bubble_.officer ? .2f : .28f,
-                      (bubble_.officer ? .75f : 1.05f) + .3f * static_cast<float>(std::rand()) / RAND_MAX, save_.settings.sound);
+                      (bubble_.officer ? .75f : 1.05f) + .3f * static_cast<float>(std::rand()) / RAND_MAX, sound_on());
         if (bubble_.age > bubble_.dur) {
             bubble_ = Bubble{};
             if (!queue_.empty()) { bubble_ = queue_.front(); queue_.erase(queue_.begin()); }
@@ -435,7 +435,7 @@ void EggyView::tick() {
         const bool woods = b == Biome::forest || b == Biome::autumn;
         water = std::max(water, static_cast<float>(scene_.near_waterfall * .8));
         audio_ambience(static_cast<float>(.08 + .55 * s.wind_vis + .15 * seg.wind), water, woods ? .3f : .05f,
-                       static_cast<float>(std::max(s.storm * .9, seg.rain * .35)), static_cast<float>(scene_.near_fire * .7), save_.settings.sound);
+                       static_cast<float>(std::max(s.storm * .9, seg.rain * .35)), static_cast<float>(scene_.near_fire * .7), sound_on());
     }
     audio_tick(dt);
     // Frame pacing: a calm 15 fps while you watch, 6 fps in the background,
@@ -569,7 +569,7 @@ void EggyView::intro_tick(double dt) {
         if (intro_ < kIntroLines) {
             bubble_ = Bubble{};
             say_text(kIntro[intro_], false, std::clamp(1.6 + std::strlen(kIntro[intro_]) * .06, 3.0, 5.5));
-            if (intro_ == kIntroLines - 1) { scene_.salute = 2.0; audio_sfx("eggy_salute", .7f, 1, save_.settings.sound); }
+            if (intro_ == kIntroLines - 1) { scene_.salute = 2.0; audio_sfx("eggy_salute", .7f, 1, sound_on()); }
         } else {
             intro_ = -1;
             s.hold = false;
@@ -637,7 +637,7 @@ void EggyView::layout_render_buttons() {
         add_right("zoom_in", " + ");
         add_right("zoom_out", " - ");
         if (!opt_.hosted) add_right("music", (*rendering_).save_.settings.music ? "MUSIC ON" : "MUSIC OFF");
-        add_right("sound", (*rendering_).save_.settings.sound ? "SOUND ON" : "SOUND OFF");
+        if (!opt_.hosted) add_right("sound", (*rendering_).save_.settings.sound ? "SOUND ON" : "SOUND OFF");
         add_right("scores", "TOP SCORES");
         if (!opt_.hosted) add_right("help", "HELP");
         add_right("new", "NEW CLIMB");
@@ -663,7 +663,7 @@ void EggyView::layout_render_buttons() {
 }
 
 void EggyView::action(const std::string& id) {
-    audio_sfx("eggy_ui_click", .5f, 1, save_.settings.sound);
+    audio_sfx("eggy_ui_click", .5f, 1, sound_on());
     if (id == "start") {
         if (!climb_started_) {
             climb_started_ = true;
@@ -739,7 +739,7 @@ void EggyView::on_key(gf::KeyEvent& e) {
     else if (k == K::left || k == K::a) idx = 2;
     else if (k == K::right || k == K::d) idx = 3;
     if (panel_ == Panel::finale && !score_saved_) {
-        if (down && k == K::backspace && !name_entry_.empty()) { name_entry_.pop_back(); audio_sfx("eggy_ui_key", .4f, .8f, save_.settings.sound); }
+        if (down && k == K::backspace && !name_entry_.empty()) { name_entry_.pop_back(); audio_sfx("eggy_ui_key", .4f, .8f, sound_on()); }
         if (down && k == K::enter) action("save_name");
         e.handled = true;
         return;
@@ -756,7 +756,7 @@ void EggyView::on_key(gf::KeyEvent& e) {
     if (k == K::f1) { open(panel_ == Panel::help ? Panel::none : Panel::help); e.handled = true; return; }
     if (k == K::t) { open(panel_ == Panel::scores ? Panel::none : Panel::scores); e.handled = true; return; }
     if (k == K::m) { action("music"); e.handled = true; return; }
-    if (k == K::n) { action("sound"); e.handled = true; return; }
+    if (k == K::n && !opt_.hosted) { action("sound"); e.handled = true; return; }
     if (k == K::equal) { action("zoom_in"); e.handled = true; return; }
     if (k == K::minus) { action("zoom_out"); e.handled = true; return; }
     if (k == K::enter && panel_ != Panel::none && panel_ != Panel::confirm) { action(panel_ == Panel::finale ? "save_name" : "close"); e.handled = true; }
@@ -768,7 +768,7 @@ void EggyView::on_text_input(gf::TextInputEvent& e) {
         if (name_entry_.size() >= 12) break;
         if (std::isalnum(static_cast<unsigned char>(c)) || c == ' ' || c == '-' || c == '.') {
             name_entry_ += static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-            audio_sfx("eggy_ui_key", .4f, 1.f + .1f * (std::rand() % 4), save_.settings.sound);
+            audio_sfx("eggy_ui_key", .4f, 1.f + .1f * (std::rand() % 4), sound_on());
         }
     }
     e.handled = true;

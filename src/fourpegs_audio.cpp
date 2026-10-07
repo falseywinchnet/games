@@ -129,7 +129,7 @@ void FourPegsAudio::tick(double dt) {
     if (!enabled_) {
         return;
     }
-    const double gain = .42 * (1 - .75 * duck_);
+    const double gain = .42 * (1 - .75 * duck_) * bus_gain(AudioBus::music);
     if (sent_gain_ != gain) {
         const gui_forms::AudioLoopCommand command = transport_.set_gain(gain);
         const bool accepted = accept(command, "music gain");

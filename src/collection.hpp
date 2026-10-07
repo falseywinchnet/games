@@ -6,13 +6,17 @@
 #include "help_book.hpp"
 #include "help_route.hpp"
 #include "presentation.hpp"
+#include "settings_sheet.hpp"
 #include "shelf.hpp"
+#include "suite_settings.hpp"
 #include <set>
 #include "text_sprites.hpp"
 namespace games {
 
-// The PlaySuite shell: the shelf of boxed games, every game view, and the command
-// capsule that floats over whichever game is open.
+// The PlaySuite shell: the shelf of boxed games, every game view, the command
+// capsule that floats over whichever game is open, Help and the Settings screen.
+// The masters live in the SettingsStore; the shell observes it and hands every
+// change to the games and to the audio volumes, wherever the change came from.
 class Collection final : public gf::Control, public HelpHost {
   public:
     explicit Collection(gf::StableId id, bool dev = false);
@@ -28,6 +32,11 @@ class Collection final : public gf::Control, public HelpHost {
     void show_shelf();
     void show_help(std::string_view topic = {}) override;
     void close_help();
+    void show_settings();
+    void close_settings();
+    [[nodiscard]] bool settings_open() const {
+        return settings_ && (*settings_).visible();
+    }
     bool dispatch_action(std::string_view action) { return !shelf_open_ && (*games_.at(active_)).scripted_action(action); }
     void dispatch_command(const std::string& id) { run_command(id); }
     [[nodiscard]] bool help_open() const {
@@ -49,6 +58,10 @@ class Collection final : public gf::Control, public HelpHost {
     std::shared_ptr<HelpGlyph> help_link_;
     std::shared_ptr<HelpBook> help_;
     gf::FocusScopeId help_focus_{};
+    std::shared_ptr<SettingsSheet> settings_;
+    gf::FocusScopeId settings_focus_{};
+    SettingsObservation masters_{};
+    bool music_shown_ = true, sound_shown_ = true, reduced_shown_ = false;
     ModuleContext modules_;
     std::map<Entry,std::unique_ptr<GameInstance>> games_;
     std::vector<gf::SubscriptionToken> subscriptions_;
@@ -68,6 +81,8 @@ class Collection final : public gf::Control, public HelpHost {
     void ensure_view(Entry entry);
     void visibility();
     void preferences();
+    void masters_changed();
+    [[nodiscard]] bool overlay(const std::shared_ptr<gf::Control>& child) const;
     void persist() const;
     void refresh_commands();
     void run_command(const std::string& id);

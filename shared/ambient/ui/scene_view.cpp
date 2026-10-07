@@ -595,15 +595,31 @@ void SceneView::on_key(gf::KeyEvent& event) {
 
 std::vector<games::GameCommand> SceneView::commands() const {
     std::vector<games::GameCommand> list{};
-    std::string detail = "Detail: ";
-    detail += settings_.detail == Detail::light ? "Light" : (settings_.detail == Detail::fine ? "Fine" : "Balanced");
     list.push_back({"pause", settings_.paused ? "Resume" : "Pause", true, settings_.paused, true});
     (*scenery_).add_commands(list, settings_);
-    list.push_back({"detail", detail, true, false, false});
-    list.push_back({"sound", sound_muted_ ? "Sound: Off" : "Sound: On", true, false, false});
-    list.push_back({"music", music_muted_ ? "Music: Off" : "Music: On", true, false, false});
     list.push_back({"help", "Help", true, help_open_, false});
     return list;
+}
+
+std::vector<games::GameSetting> SceneView::settings() const {
+    std::vector<games::GameSetting> list{};
+    list.push_back({"detail", "Detail", games::GameSetting::Kind::choice,
+                    static_cast<double>(static_cast<int>(settings_.detail)), {"Light", "Balanced", "Fine"},
+                    0, 2, 1, "Light is gentlest on an older or busy computer. Q changes it too."});
+    (*scenery_).add_settings(list, settings_);
+    return list;
+}
+
+void SceneView::change_setting(std::string_view id, double value) {
+    const int choice = static_cast<int>(std::lround(value));
+    if (id == "detail") {
+        set_detail(choice <= 0 ? Detail::light : (choice == 1 ? Detail::balanced : Detail::fine));
+        return;
+    }
+    SceneContext work = context();
+    if ((*scenery_).change_setting(id, value, work))
+        request_frame();
+    finish(work);
 }
 
 void SceneView::run_command(std::string_view id) {
@@ -613,8 +629,9 @@ void SceneView::run_command(std::string_view id) {
         set_detail(next_detail(settings_.detail));
     } else if (id == "help") {
         set_help(!help_open_);
-    } else if (id == "sound" || id == "music") {
-        // this scene's own mutes, under the shell's Sound and Music masters
+    } else if ((id == "sound" || id == "music") && !options_.hosted) {
+        // Standalone only: without the PlaySuite shell the scene keeps its own switches.
+        // Hosted, the shell's masters are the only ones (the capsule, M and Settings).
         if (id == "sound")
             sound_muted_ = !sound_muted_;
         else

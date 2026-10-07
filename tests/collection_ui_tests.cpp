@@ -5,6 +5,8 @@
 #include "eggy_view.hpp"
 #include "fourpegs_view.hpp"
 #include "atomprobe_view.hpp"
+#include "pcm_player.hpp"
+#include "settings_sheet.hpp"
 #include "gui_forms/window.hpp"
 #include "test_paths.hpp"
 #include <cassert>
@@ -285,7 +287,7 @@ int main() {
                                      eggy = child(*collection, "collection.eggy"),
                                      cards = child(*collection, "collection.cards");
         assert(shelf && capsule && !eggy && !cards);
-        assert((*collection).children().size() == 4);
+        assert((*collection).children().size() == 5);
         assert((*shelf).visible() && !(*capsule).visible());
         // PlaySuite lists all thirteen games in one place, with no categories.
         for (Entry entry : entries)
@@ -315,28 +317,40 @@ int main() {
             assert(static_cast<int>((*std::static_pointer_cast<Table>(cards)).game.state.kind) ==
                    static_cast<int>(e));
             assert(button(*capsule, "capsule.cmd.new") && button(*capsule, "capsule.cmd.undo"));
-            // Patience games offer Easy, Medium and Hard deals; Hearts has no levels.
+            // Patience games offer Easy, Medium and Hard deals on the Settings screen, not
+            // in the capsule; Hearts has no levels. Every card game shows the card backs.
             Table& table = *std::static_pointer_cast<Table>(cards);
-            struct LevelLabel {
+            assert(table.uses_card_backs());
+            assert(!button(*capsule, "capsule.cmd.level") && !button(*capsule, "capsule.cmd.options"));
+            struct LevelValue {
                 const Table& table;
-                std::string operator()() const {
-                    for (const GameCommand& command : table.commands())
-                        if (command.id == "level")
-                            return command.label;
-                    return "";
+                int operator()() const {
+                    for (const GameSetting& setting : table.settings())
+                        if (setting.id == "level") {
+                            assert(setting.kind == GameSetting::Kind::choice &&
+                                   setting.choices.size() == 3);
+                            return static_cast<int>(setting.value);
+                        }
+                    return -1;
                 }
             };
-            const LevelLabel level{table};
+            const LevelValue level{table};
             if (e == Entry::hearts)
-                assert(level().empty());
+                assert(level() == -1);
             else {
-                const std::string before = level();
-                assert(before.rfind("Next: ", 0) == 0);
-                table.run_command("level");
-                assert(level() != before && level().rfind("Next: ", 0) == 0);
-                table.run_command("level");
-                table.run_command("level");
+                const int before = level();
+                assert(before >= 0 && before < 3);
+                table.change_setting("level", (before + 1) % 3);
+                assert(level() == (before + 1) % 3);
+                table.change_setting("level", before);
                 assert(level() == before);
+            }
+            if (e == Entry::solitaire) {
+                const int draw = table.game.state.draw_count;
+                table.change_setting("draw", draw == 1 ? 1 : 0);
+                assert(table.game.state.draw_count == (draw == 1 ? 3 : 1));
+                table.change_setting("draw", draw == 1 ? 0 : 1);
+                assert(table.game.state.draw_count == draw);
             }
             (*collection).show_shelf();
         }
@@ -433,6 +447,121 @@ int main() {
         assert(!(*collection).shelf_open() && (*collection).active() == Entry::gems);
     }
     {
+        // One source of truth: whatever changes a master, every switch shows it at once,
+        // on the shelf and in the capsule, without switching games.
+        std::shared_ptr<Collection> collection =
+            gf::make_control<Collection>(gf::StableId("collection.masters"));
+        gf::Window window(collection, {1100, 760});
+        window.perform_layout();
+        SettingsStore& store = SettingsStore::shared();
+        const std::shared_ptr<SuiteButton> shelf_sound =
+            std::static_pointer_cast<SuiteButton>(button(*collection, "shelf.Sound"));
+        const std::shared_ptr<SuiteButton> capsule_sound =
+            std::static_pointer_cast<SuiteButton>(button(*collection, "capsule.Sound"));
+        const std::shared_ptr<SuiteButton> capsule_music =
+            std::static_pointer_cast<SuiteButton>(button(*collection, "capsule.Music"));
+        assert(shelf_sound && capsule_sound && capsule_music && button(*collection, "capsule.Settings") &&
+               button(*collection, "shelf.Settings"));
+        (*collection).open_entry(Entry::solitaire);
+        window.perform_layout();
+        // Open the capsule, as hovering does, so its switches can be pressed.
+        for (const std::shared_ptr<gf::Control>& c : (*collection).children())
+            if ((*c).stable_id().value() == "collection.capsule") {
+                (*std::static_pointer_cast<CommandCapsule>(c)).step(1.0, true, true);
+                (*collection).invalidate(gf::Dirty::layout);
+            }
+        window.perform_layout();
+        const bool sound = store.values().sound;
+        assert((*capsule_sound).crossed() == !sound && (*shelf_sound).crossed() == !sound);
+        store.toggle_sound(); // as a game's own menu or the Settings screen would
+        assert((*capsule_sound).crossed() == sound && (*shelf_sound).crossed() == sound);
+        assert((*capsule_sound).accessible_name() == (sound ? "Sound off" : "Sound on"));
+        // M, and the capsule's own switch, go through the same store.
+        const bool music = store.values().music;
+        gf::KeyEvent key;
+        key.physical_key = gf::PhysicalKey::m;
+        assert(window.dispatch_key(key));
+        assert(store.values().music == !music && (*capsule_music).crossed() == music);
+        assert((*capsule_music).perform_click());
+        assert(store.values().music == music && (*capsule_music).crossed() == !music);
+        // The Settings screen: the cog opens it over the game; its controls are the masters.
+        assert((*button(*collection, "capsule.Settings")).perform_click());
+        window.perform_layout();
+        assert((*collection).settings_open() && window.focus_scope_depth() == 1);
+        std::shared_ptr<SettingsSheet> sheet;
+        for (const std::shared_ptr<gf::Control>& c : (*collection).children())
+            if (std::dynamic_pointer_cast<SettingsSheet>(c))
+                sheet = std::static_pointer_cast<SettingsSheet>(c);
+        assert(sheet && (*sheet).visible());
+        struct FindNamed {
+            std::shared_ptr<gf::Control> operator()(gf::Control& root, const std::string& suffix) const {
+                for (const std::shared_ptr<gf::Control>& c : root.children()) {
+                    const std::string_view id = (*c).stable_id().value();
+                    if (id.size() >= suffix.size() && id.substr(id.size() - suffix.size()) == suffix)
+                        return c;
+                    const std::shared_ptr<gf::Control> nested = (*this)(*c, suffix);
+                    if (nested)
+                        return nested;
+                }
+                return {};
+            }
+        };
+        FindNamed named{};
+        const std::shared_ptr<gf::CheckBox> music_box =
+            std::dynamic_pointer_cast<gf::CheckBox>(named(*sheet, ".check.music"));
+        const std::shared_ptr<SettingSlider> music_slider =
+            std::dynamic_pointer_cast<SettingSlider>(named(*sheet, ".slider.music"));
+        const std::shared_ptr<SettingSlider> sound_slider =
+            std::dynamic_pointer_cast<SettingSlider>(named(*sheet, ".slider.sound"));
+        assert(music_box && music_slider && sound_slider);
+        assert((*music_box).checked() == store.values().music);
+        assert((*music_box).perform_click());
+        assert(store.values().music == !music && (*music_box).checked() == !music &&
+               (*capsule_music).crossed() == music);
+        // Volumes: the slider moves the master and every audio path's gain with it.
+        (*music_slider).set_value(50);
+        assert(std::abs(store.values().music_volume - .5) < 1e-9);
+        assert(std::abs(bus_gain(AudioBus::music) - .25) < 1e-9);
+        (*sound_slider).set_value(80);
+        assert(std::abs(bus_gain(AudioBus::sound) - .64) < 1e-9);
+        assert(std::abs(bus_gain(AudioBus::music) - .25) < 1e-9);
+        // A change elsewhere moves the slider.
+        SuiteSettings next = store.values();
+        next.music_volume = .7;
+        store.set(next);
+        assert(std::abs((*music_slider).value() - 70) < 1e-9);
+        // Card games choose the shared card back here; the table draws it at once.
+        const std::shared_ptr<gf::Button> ruby = std::dynamic_pointer_cast<gf::Button>(named(*sheet, ".back.1"));
+        assert(ruby && (*ruby).perform_click() && store.values().card_back == 1);
+        Cabinet mirrored;
+        assert(load_cabinet(cabinet_path(), mirrored) && mirrored.back == 1);
+        // The game's own section: Draw and Deals for Solitaire, as choices.
+        const std::shared_ptr<SuiteButton> three =
+            std::dynamic_pointer_cast<SuiteButton>(named(*sheet, ".chip.game.draw.1"));
+        assert(three);
+        std::shared_ptr<Table> table;
+        for (const std::shared_ptr<gf::Control>& c : (*collection).children())
+            if ((*c).stable_id().value() == "collection.cards")
+                table = std::static_pointer_cast<Table>(c);
+        assert(table);
+        const int draw = (*table).game.state.draw_count;
+        assert((*three).checked() == (draw == 3));
+        assert((*three).perform_click() && (*table).game.state.draw_count == 3 && (*three).checked());
+        // Escape closes it and hands the keyboard back.
+        key.physical_key = gf::PhysicalKey::escape;
+        assert(window.dispatch_key(key));
+        assert(!(*collection).settings_open() && window.focus_scope_depth() == 0);
+        // The shelf has the same screen, with the masters only.
+        (*collection).show_shelf();
+        window.perform_layout();
+        assert((*button(*collection, "shelf.Settings")).perform_click());
+        window.perform_layout();
+        assert((*collection).settings_open() && !named(*sheet, ".back.1") && !named(*sheet, ".chip.game.draw.0"));
+        (*collection).dispatch_command("settings");
+        assert(!(*collection).settings_open());
+        store.set(SuiteSettings{});
+    }
+    {
         // Every game must keep its commands usable at the supported minimum size.
         std::shared_ptr<Collection> collection =
             gf::make_control<Collection>(gf::StableId("collection.small"));
@@ -491,6 +620,28 @@ int main() {
             key.physical_key = gf::PhysicalKey::escape;
             assert(window.dispatch_key(key));
             assert(!(*collection).help_open());
+            // Every game has the shared Settings screen, inside the minimum window, with
+            // its controls in one keyboard scope; Escape closes it.
+            (*collection).dispatch_command("settings");
+            window.perform_layout();
+            assert((*collection).settings_open() && window.focus_scope_depth() == 1);
+            for (const std::shared_ptr<gf::Control>& c : (*collection).children())
+                if (std::dynamic_pointer_cast<SettingsSheet>(c)) {
+                    const gf::Rect r = (*c).client_rectangle();
+                    const gf::Point top = (*c).point_to_window({0, 0});
+                    assert(top.x >= 0 && top.y >= 0 && top.x + r.width <= 600 && top.y + r.height <= 420);
+                    const std::shared_ptr<gf::Control> focus = window.focused_control();
+                    assert(focus && (*focus).focusable());
+                    painter.text_seen.clear();
+                    static_cast<void>(window.paint(painter));
+                    assert(painter.text_seen.contains(std::string(entry_info(entry).title) + " · Settings"));
+                }
+            key.physical_key = gf::PhysicalKey::tab;
+            key.repeat = false;
+            assert(window.dispatch_key(key));
+            key.physical_key = gf::PhysicalKey::escape;
+            assert(window.dispatch_key(key));
+            assert(!(*collection).settings_open() && window.focus_scope_depth() == 0);
             // Invoke through hit-testing, not perform_click(): a game painted
             // above the capsule must not steal its Back button's pointer input.
             const std::shared_ptr<gf::Button> back = button(*capsule, "capsule.back");

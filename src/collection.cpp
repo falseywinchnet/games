@@ -1,5 +1,6 @@
 #include "collection.hpp"
 #include "audio.hpp"
+#include "pcm_player.hpp"
 #include "storage.hpp"
 #include "gui_forms/controls/panel/text_box/text_box.hpp"
 #include <sstream>
@@ -88,8 +89,17 @@ void Collection::initialize_control_tree() {
     help_ = gf::make_control<HelpBook>(gf::StableId("collection.help-book"));
     (*help_).close = std::bind_front(&Collection::close_help, this);
     (*help_).set_visible(false);
+    settings_ = gf::make_control<SettingsSheet>(gf::StableId("collection.settings"));
+    (*settings_).close = std::bind_front(&Collection::close_settings, this);
+    (*settings_).set_visible(false);
     add_child(help_link_);
     add_child(help_);
+    add_child(settings_);
+    masters_ = SettingsStore::shared().observe(std::bind_front(&Collection::masters_changed, this));
+    const SuiteSettings& masters = SettingsStore::shared().values();
+    music_shown_ = masters.music;
+    sound_shown_ = masters.sound;
+    reduced_shown_ = masters.reduced;
     for (Entry entry : entries)
         (*shelf_).set_progress(entry, opened_.contains(static_cast<int>(entry)));
     if (!shelf_open_)
@@ -178,9 +188,12 @@ void Collection::tick() {
             (*capsule_).unsettled(inside) || sprites_.waiting() || audio_pending() ? 16 : 200));
 }
 void Collection::on_pointer_preview(gf::PointerEvent& e) {
-    if (help_open()) {
-        const gf::Point local = (*help_).point_from_window(e.position);
-        const gf::Rect paper = (*help_).client_rectangle();
+    if (help_open() || settings_open()) {
+        const std::shared_ptr<gf::Control> sheet =
+            settings_open() ? std::static_pointer_cast<gf::Control>(settings_)
+                            : std::static_pointer_cast<gf::Control>(help_);
+        const gf::Point local = (*sheet).point_from_window(e.position);
+        const gf::Rect paper = (*sheet).client_rectangle();
         if (local.x < 0 || local.y < 0 || local.x >= paper.width || local.y >= paper.height) {
             e.handled = true;
             return;
@@ -202,11 +215,14 @@ void Collection::on_key_preview(gf::KeyEvent& e) {
         (!entering_text || e.physical_key == gf::PhysicalKey::f1)) {
         const bool help_key =
             e.physical_key == gf::PhysicalKey::h || e.physical_key == gf::PhysicalKey::f1;
+        const bool escape = e.physical_key == gf::PhysicalKey::escape;
         if (help_key || e.physical_key == gf::PhysicalKey::m ||
-            (help_open() && e.physical_key == gf::PhysicalKey::escape)) {
+            ((help_open() || settings_open()) && escape)) {
             if (!e.repeat) {
                 if (e.physical_key == gf::PhysicalKey::m)
                     toggle(0);
+                else if (settings_open() && escape)
+                    close_settings();
                 else if (help_open())
                     close_help();
                 else
@@ -216,7 +232,7 @@ void Collection::on_key_preview(gf::KeyEvent& e) {
             return;
         }
     }
-    if (help_open())
+    if (help_open() || settings_open())
         return;
     if (!shelf_open_ && e.action == gf::KeyAction::down && e.physical_key == gf::PhysicalKey::f2 &&
         source(active_)) {
@@ -241,9 +257,21 @@ void Collection::refresh_commands() {
         }
     };
     std::erase_if(commands, Explanation{game_descriptor(active_).help_topics});
+    struct Reserved {
+        bool operator()(const GameCommand& command) const { return command.id == "settings"; }
+    };
+    std::erase_if(commands, Reserved{});
     (*capsule_).set_game(info.title, std::move(commands));
+    // A game's values can change under the screen (a key, a command); show them.
+    if (settings_open())
+        (*settings_).refresh();
 }
 void Collection::run_command(const std::string& id) {
+    // "settings" is the shell's own, like Help: every game and the shelf have it.
+    if (id == "settings") {
+        settings_open() ? close_settings() : show_settings();
+        return;
+    }
     bool explanation = id == "help" || id == "rules";
     for (const HelpTopic& topic : game_descriptor(active_).help_topics) explanation = explanation || id == topic.id;
     if (explanation) {
@@ -257,9 +285,13 @@ void Collection::run_command(const std::string& id) {
     if (attached_window() && view(active_))
         static_cast<void>((*attached_window()).request_focus(view(active_)));
 }
+bool Collection::overlay(const std::shared_ptr<gf::Control>& child) const {
+    return child == shelf_ || child == capsule_ || child == help_ || child == help_link_ ||
+           child == settings_;
+}
 void Collection::visibility() {
     for (const std::shared_ptr<gf::Control>& child : children())
-        if (child != shelf_ && child != capsule_ && child != help_ && child != help_link_)
+        if (!overlay(child))
             (*child).set_visible(false);
     if (!shelf_open_)
         (*view(active_)).set_visible(true);
@@ -281,8 +313,7 @@ void Collection::arrange(gf::Rect b) {
                          std::max(0.0, b.height - current_rail_height_)};
     // Each view is laid out once per pass; live-surface games sit below the rail.
     for (const std::shared_ptr<gf::Control>& child : children())
-        if (child != shelf_ && child != capsule_ && child != help_ && child != help_link_ &&
-            (*child).visible()) {
+        if (!overlay(child) && (*child).visible()) {
             const bool railed = uses_rail(active_);
             set_child_layout(child, railed ? below : full);
         }
@@ -297,6 +328,9 @@ void Collection::arrange(gf::Rect b) {
     set_child_layout(help_link_, {b.width - 44, 7, 36, 36});
     const double paper_width = std::min(780.0, b.width - 32);
     set_child_layout(help_, {b.width - paper_width - 16, 16, paper_width, b.height - 32});
+    const double sheet_width = std::min(600.0, b.width - 32);
+    set_child_layout(settings_, {b.width - sheet_width - 16, 16, sheet_width,
+                                 (*settings_).preferred_height(sheet_width, b.height - 32)});
 }
 void Collection::on_paint(gf::Painter& p, gf::Rect) {
     if (shelf_open_ || !uses_rail(active_))
@@ -309,15 +343,37 @@ void Collection::on_paint(gf::Painter& p, gf::Rect) {
                 gf::Color::rgba(255, 210, 122, 150), 1);
 }
 void Collection::preferences() {
-    Cabinet cabinet;
-    if (!load_cabinet(cabinet_path(), cabinet))
-        return;
-    reduced_ = cabinet.reduced;
+    const SuiteSettings masters = SettingsStore::shared().values();
+    reduced_ = masters.reduced;
+    set_bus_gain(AudioBus::music, audio_gain(masters.music_volume));
+    set_bus_gain(AudioBus::sound, audio_gain(masters.sound_volume));
     for (const std::pair<const Entry,std::unique_ptr<GameInstance>>& game : games_)
         (*game.second).preferences(!shelf_open_ && active_ == game.first,
-                                   cabinet.music,cabinet.sound,cabinet.reduced);
-    (*shelf_).set_preferences(cabinet.music, cabinet.sound, cabinet.reduced);
-    (*capsule_).set_preferences(cabinet.music, cabinet.sound, cabinet.reduced);
+                                   masters.music, masters.sound, masters.reduced);
+    (*shelf_).set_preferences(masters.music, masters.sound, masters.reduced);
+    (*capsule_).set_preferences(masters.music, masters.sound, masters.reduced);
+    if (settings_open())
+        (*settings_).refresh();
+}
+void Collection::masters_changed() {
+    const SuiteSettings masters = SettingsStore::shared().values();
+    preferences();
+    // Volumes and the card back need nothing more. A switch restarts or stops music
+    // and lets the open game take up the new masters.
+    if (masters.music == music_shown_ && masters.sound == sound_shown_ &&
+        masters.reduced == reduced_shown_)
+        return;
+    music_shown_ = masters.music;
+    sound_shown_ = masters.sound;
+    reduced_shown_ = masters.reduced;
+    // Music changes must not take keyboard focus out of help or settings.
+    if (help_open() || settings_open()) {
+        if (shelf_open_)
+            music_play("menu", masters.music);
+        else if (!uses_rail(active_))
+            (*games_.at(active_)).activate();
+    } else
+        activate();
 }
 void Collection::persist() const {
     std::filesystem::path path = entry_path(), temporary = path;
@@ -339,9 +395,7 @@ void Collection::activate() {
     wake();
     preferences();
     if (shelf_open_) {
-        Cabinet cabinet;
-        load_cabinet(cabinet_path(), cabinet);
-        music_play("menu", cabinet.music);
+        music_play("menu", SettingsStore::shared().values().music);
         (*shelf_).focus_selection();
         return;
     }
@@ -351,6 +405,7 @@ void Collection::activate() {
 void Collection::open_entry(Entry entry) {
     if (!valid_entry(entry)) return;
     close_help();
+    close_settings();
     wake();
     ensure_view(entry);
     active_ = entry;
@@ -366,6 +421,7 @@ void Collection::open_entry(Entry entry) {
 }
 void Collection::show_shelf() {
     close_help();
+    close_settings();
     shelf_open_ = true;
     (*shelf_).select(active_);
     visibility();
@@ -373,31 +429,45 @@ void Collection::show_shelf() {
     activate();
 }
 void Collection::toggle(int which) {
-    Cabinet cabinet;
-    if (!load_cabinet(cabinet_path(), cabinet))
-        return;
+    // The store saves and notifies; masters_changed() and every switch follow it.
+    SettingsStore& store = SettingsStore::shared();
     if (which == 0)
-        cabinet.music = !cabinet.music;
-    if (which == 1)
-        cabinet.sound = !cabinet.sound;
-    if (which == 2)
-        cabinet.reduced = !cabinet.reduced;
-    if (save_cabinet(cabinet_path(), cabinet)) {
-        preferences();
-        // Music changes must not take keyboard focus out of the help document.
-        if (help_open()) {
-            if (shelf_open_)
-                music_play("menu", cabinet.music);
-            else if (!uses_rail(active_))
-                (*games_.at(active_)).activate();
-        } else
-            activate();
+        store.toggle_music();
+    else if (which == 1)
+        store.toggle_sound();
+    else if (which == 2)
+        store.toggle_reduced();
+    else if (which == 3)
+        settings_open() ? close_settings() : show_settings();
+}
+void Collection::show_settings() {
+    close_help();
+    const bool was_open = settings_open();
+    (*settings_).show_for(shelf_open_ ? std::string() : std::string(entry_info(active_).title),
+                          shelf_open_ ? nullptr : source(active_));
+    (*settings_).set_visible(true);
+    if (!was_open && attached_window()) {
+        settings_focus_ = (*attached_window()).begin_focus_scope(settings_);
+        static_cast<void>((*attached_window()).request_focus((*settings_).first_control()));
     }
+    invalidate(gf::Dirty::layout | gf::Dirty::paint);
+}
+void Collection::close_settings() {
+    if (!settings_open())
+        return;
+    if (attached_window() && settings_focus_)
+        static_cast<void>((*attached_window()).end_focus_scope(settings_focus_));
+    settings_focus_ = {};
+    (*settings_).set_visible(false);
+    if (!shelf_open_)
+        refresh_commands();
+    invalidate(gf::Dirty::paint);
 }
 void Collection::clicked_help(gf::ButtonBase&) {
     show_help();
 }
 void Collection::show_help(std::string_view topic) {
+    close_settings();
     const bool was_open = help_open();
     (*help_).select(shelf_open_ ? -1 : static_cast<int>(active_), topic);
     (*help_).set_visible(true);

@@ -180,7 +180,11 @@ These standards apply to every game.
 - No network, accounts or operating-system code inside a game.
 - IDs and save formats are permanent. Committed progress is saved at once.
 - Settled scenes schedule no frames. Hidden games stop timers, workers and sound.
-- The shell owns navigation, help and the Music, Sound and Motion masters.
+- The shell owns navigation, help, the Settings screen and the Music, Sound and
+  Motion masters and volumes. A hosted game shows no switch or entry of its own
+  for them.
+- Commands are actions. A choice that persists (level, size, look, detail) is a
+  `GameSetting` from `settings()`, not a command.
 - Never remove a game, lower its quality or weaken a test to make a check pass.
   Toolkit capabilities go to GUI.Forms as a reviewed pull request.
 - Reports state what was observed. Passing rules tests is not native, audio or

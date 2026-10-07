@@ -82,6 +82,58 @@ void player_controls(const std::filesystem::path& audio) {
     player.tick();
     require(!player.playing(2), "late completion cannot revive a cleared slot");
 }
+// The last sample of a block, after any gain smoothing has settled.
+float settled(games::PcmPlayer& player) {
+    std::array<float, 4096> samples{};
+    for (int i = 0; i < 4; ++i)
+        require(player.render(samples) == gui_forms::AudioStatus::ok, "volume render");
+    return samples[samples.size() - 2];
+}
+#ifdef GUI_FORMS_AUDIO_GENERATOR
+class Steady final : public gui_forms::AudioGenerator {
+  public:
+    void render(std::span<float> stereo) noexcept override {
+        for (float& sample : stereo)
+            sample = .5F;
+    }
+};
+#endif
+// The Music and Sound volumes scale every voice: clips and live generators, already
+// sounding or started later, each following its own master.
+void volume_masters() {
+    games::PcmPlayer player(true);
+    games::PcmPlayer second(true);
+    player.route(0, games::AudioBus::music);
+    player.start(0, "tone", true, 1);
+    player.start(1, "tone", true, .5);
+    settle(player);
+    player.pause(1);
+    require(std::abs(settled(player) - .25f) < 1e-4f, "full music volume plays the clip as recorded");
+    games::set_bus_gain(games::AudioBus::music, .25);
+    require(std::abs(settled(player) - .0625f) < 1e-4f, "music volume scales a voice already playing");
+    games::set_bus_gain(games::AudioBus::sound, .5);
+    require(std::abs(settled(player) - .0625f) < 1e-4f, "the sound volume leaves music alone");
+    player.pause(0);
+    player.resume(1);
+    require(std::abs(settled(player) - .0625f) < 1e-4f, "sound volume times the voice's own gain");
+    player.gain(1, 1);
+    require(std::abs(settled(player) - .125f) < 1e-4f, "a later gain change keeps the master");
+    second.start(3, "tone", true, 1);
+    settle(second);
+    require(std::abs(settled(second) - .125f) < 1e-4f, "a voice started later follows the master");
+#ifdef GUI_FORMS_AUDIO_GENERATOR
+    player.pause(1);
+    player.route(5, games::AudioBus::music);
+    player.generate(5, std::make_shared<Steady>(), 1);
+    require(std::abs(settled(player) - .125f) < 1e-4f, "a live generator follows the music volume");
+    games::set_bus_gain(games::AudioBus::music, 0);
+    require(std::abs(settled(player)) < 1e-6f, "music volume zero silences live music");
+#endif
+    games::set_bus_gain(games::AudioBus::music, 1);
+    games::set_bus_gain(games::AudioBus::sound, 1);
+    require(games::bus_gain(games::AudioBus::music) == 1 && games::bus_gain(games::AudioBus::sound) == 1,
+            "masters restored");
+}
 void scene_gates() {
     games::SceneAudio scene(true);
     require(!scene.needs_tick(), "silent scene needs no polling");
@@ -134,12 +186,13 @@ int main() {
         require(environment == 0, "isolated test asset path");
         write_tone(audio / "tone.wav");
         player_controls(audio);
+        volume_masters();
         scene_gates();
         std::filesystem::remove(audio / "tone.wav");
         std::filesystem::remove(audio / "retry.wav");
         std::filesystem::remove(audio);
         std::filesystem::remove(root);
-        std::cout << "Audio policy, async retry, mute, EOF and shutdown pass.\n";
+        std::cout << "Audio policy, volume masters, async retry, mute, EOF and shutdown pass.\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

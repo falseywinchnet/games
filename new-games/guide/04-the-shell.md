@@ -59,7 +59,8 @@ Inside a game, a floating pill at the top of the window is the whole menu.
 - **Folded**, it shows the way back to the shelf, the game's name, and the
   game's *primary* commands.
 - **On hover** (or pinned open with `···`), it opens to the game's other
-  commands and the three master switches: Music, Sound and Motion.
+  commands, the master switches (Music, Sound and Motion, slashed in red when off)
+  and the Settings cog.
 - When the window is narrow, an open capsule wraps onto more rows.
 
 A game supplies its commands by implementing `games::CommandSource`:
@@ -87,7 +88,6 @@ when there is nothing to undo). Keep the function cheap and free of side effects
 | `new` | "New game", or the game's own word: "New board", "New meadow" | **Primary.** Starts another. A game in progress is abandoned without a dialog; it was saved, and New is one click. If abandoning loses something the player built over a long time, make the command a held press or a two-step, as Rock Stack's "Start over" is. |
 | `undo` | "Undo" | When the rules allow taking a move back. Disabled when there is nothing to undo. |
 | `hint` | "Hint" | When a hint is possible and fair. |
-| a level control | "Next: Medium" | Cycles the difficulty or size for the *next* new game. An untouched game is replaced at once. |
 | the game's panels | "Meadows", "Crew", "Records" | Each opens a panel the game draws on its own surface. `checked` while open. |
 | `scores` | "Top scores" | When the game keeps a top-ten table. |
 | `help` | "Help" | Keep the command for standalone testing. In PlaySuite, the shell routes it to the shared help document and omits it from the capsule. |
@@ -97,12 +97,59 @@ Rules:
 - One or two primary commands, no more. The folded capsule must stay small.
 - Labels are plain words in sentence case. They name what happens.
 - A command that opens a panel is a toggle: running it again closes the panel.
-- Do not offer Music, Sound, Motion or Back. Those are the shell's.
+- Do not offer Music, Sound, Motion, Settings or Back. Those are the shell's.
+- A choice that persists (difficulty, size, a look, detail) is a setting, below,
+  not a command.
 - Do not draw your own menu bar, back button or music switch on the game's
   surface. Controls that are part of play (the cards, a Check button beside the
   board, a bid) stay on the board, because that is where the player's eyes are.
   A control on the board must look like one; a Check button that players could
   not find was moved and made "a red button that depresses".
+
+### Settings
+
+The cog in the capsule (and on the shelf's sign) opens the shared Settings screen:
+Music and Sound, each a switch and a volume slider; Motion; the card back for a game
+that draws the shared backs; then the game's own section. The game declares that
+section; the shell draws it, at every size, with keyboard order (Tab, arrows on
+sliders, Escape to close).
+
+```cpp
+struct GameSetting {
+    enum class Kind { toggle, choice, slider };
+    std::string id, label;
+    Kind kind = Kind::toggle;
+    double value = 0;                 // toggle 0 or 1; choice index; slider value
+    std::vector<std::string> choices; // choice
+    double minimum = 0, maximum = 1, step = .1; // slider
+    std::string note;                 // optional one line under the row
+};
+std::vector<GameSetting> settings() const override;      // current values
+void change_setting(std::string_view id, double value) override;
+bool uses_card_backs() const override;                   // shared/cards games
+```
+
+```cpp
+std::vector<games::GameSetting> MyView::settings() const {
+    return {{"level", "Next game", games::GameSetting::Kind::choice,
+             static_cast<double>(level_), {"Easy", "Medium", "Hard"}, 0, 2, 1,
+             "An untouched game changes at once."}};
+}
+void MyView::change_setting(std::string_view id, double value) {
+    if (id == "level") set_level(static_cast<int>(std::lround(value)));
+}
+```
+
+Rules:
+
+- The game owns and saves each value, and applies a change at once. The shell
+  re-reads `settings()` five times a second while the screen is open, so a key
+  that changes a setting shows there too. Keep it cheap.
+- A change that discards a game in progress says so in `note`, or waits for the
+  next game.
+- The ids `settings` and anything beginning `suite.` are the shell's.
+- Keep a key or script command for a setting if the game had one; the screen is
+  not the only way in.
 
 ### Help
 
@@ -173,7 +220,12 @@ master switch changes.
 - `foreground == true`: resume. Reset your time origin so the first tick does
   not see a huge elapsed time. Request a frame.
 - `music` and `sound` are the master switches. Pass them to the audio adapter
-  and gate every sound on them.
+  and gate every sound on them. Hosted, they are the only switches: ignore any
+  sound or music flag of the game's own (`options.hosted || own_flag`).
+- The Music and Sound volumes need nothing from the game: every voice of the
+  shared players is scaled. Live music on a `PcmPlayer` slot of its own is routed
+  with `player.route(slot, games::AudioBus::music)`; `SceneAudio` and `SoundDesk`
+  route their music already.
 - `reduced` is the Motion switch. When true, state changes appear at once: no
   easing, no shakes, no ambient motion. The game stays fully playable and looks
   finished.
@@ -183,7 +235,8 @@ to start.
 
 ## Keyboard
 
-- H or F1: shared Help. M: master music. Escape: close the open panel.
+- H or F1: shared Help. M: master music. Escape: close the open panel, Help or
+  Settings.
 - Enter or Space: confirm, or continue after a result.
 - Z, U or Backspace: Undo, where there is one. N: new game, where that is safe.
 - Arrow keys move a visible cursor, so the game can be played without a mouse

@@ -22,6 +22,7 @@ if(DEFINED GAME_SHARED_ENGINE)
   add_library(game_rules
     "${PLAYSUITE_SOURCE_DIR}/shared/cards/game.cpp"
     "${PLAYSUITE_SOURCE_DIR}/src/storage.cpp"
+    "${PLAYSUITE_SOURCE_DIR}/src/suite_settings.cpp"
     "${PLAYSUITE_SOURCE_DIR}/src/scores.cpp"
     "${PLAYSUITE_SOURCE_DIR}/games/sudoku/src/sudoku.cpp"
     "${PLAYSUITE_SOURCE_DIR}/shared/puzzles/puzzles.cpp")

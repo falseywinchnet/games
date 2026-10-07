@@ -18,7 +18,7 @@ SPEC.loader.exec_module(catalog)
 # These include paragraphs after semicolons and the entire Pen the Sheep text. Puzzle
 # Solve's help was rewritten deliberately for its difficulty levels and new frames.
 ORIGINAL_HELP = {'atom': 'ca18af9d89d615ad304a8208d958e7aace41d77f15a4e9ce7ca101b05cfd5467',
- 'cube': '84c4463ce7dc59d84be565dbab6e547a8b05729596ef9a12ce52458e18e7b54b',
+ 'cube': 'f4a826bdfc99fdcf5cba26d6029109aa09a40d41bb382e436b8f5c0c63753481',
  'eggy': 'd899bd545ea8ac4956a1bd9f554d2df1794f0a138a2e7f78e9e041089d172c3d',
  'freecell': 'b41e475de83b95b1e0172736c9c2ddb272d094f8d5d5512d03a3040bc2f74407',
  'gems': 'cfa82cf3f67b37ae0750339eec92c21e7a5ded06fb51e0eb37e8aa307fa9cfce',
@@ -29,12 +29,14 @@ ORIGINAL_HELP = {'atom': 'ca18af9d89d615ad304a8208d958e7aace41d77f15a4e9ce7ca101
  'pegs': '183961b64a8360d584cdaeb5142f641af73293e7cd097a2558ecf2437a34f006',
  'penthesheep': '045390875c57892369bdcdcf784506f06459d57014930b42e2e14a1a3f91ef75',
  'rockstack': '44a440789430322b44d32b8df5ee3b3f13a9d28d04618544230bd5e96fea615a',
- 'solitaire': '3feb19370ff30645a3e9e48dfab46f78efde2f3c95884247db1a2ed7dea2ac36',
- 'solve': '4db335e1bd4a8ed5c5a382143cbdc6189832bc24652203b7977328ca12a2d1a8',
- 'spider': '920aaed5375f03bab6d22293fc48ac69a18cc51c930847cf5a6edd623f4faf3c',
+ # Solitaire, Spider, Puzzle Solve, Nature Cube and Untangle: one sentence each now
+ # names the shared Settings screen, which replaced the Options panel and Next command.
+ 'solitaire': 'cee297ec0e58760775836e3ae4ec3eb942fa45bae255bff03a59104fcb883c5d',
+ 'solve': 'ad54c2a2be773917f955cb662547f9d9a50feb6b9c42cd47193951101036599b',
+ 'spider': '266678a16d2fd59aca72e53af62221b24b0ae722e7cb87450423f209bd808b56',
  'sudoku': '5a2e157274e6ea553bd624bf6962e8d9ef839e3502cb0386e903a24ee1b60133',
  'switchbox': 'a900bf901111325449ad65dea3871803b5e104ea4db4fdf90af72b7a32405c65',
- 'untangle': 'e5c765b5c2a5ed4f0cdf0f5788bd7253ba62dc13f5daa5764998553639324ebb'}
+ 'untangle': 'b0483a2bf8beb2b26e37cded9a398f89cac57b3940b919d0427f71cb7c799d50'}
 
 class CatalogTests(unittest.TestCase):
     def setUp(self):

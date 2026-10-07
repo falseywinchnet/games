@@ -364,14 +364,24 @@ void SudokuView::edit(int digit, bool note) {
     invalidate(gf::Dirty::paint);
 }
 std::vector<GameCommand> SudokuView::commands() const {
-    const char* levels[] = {"Easy", "Medium", "Hard"};
     return {{"new", "New game", !busy_, false, true},
             {"undo", "Undo", panel_ == 0},
             {"notes", "Notes", panel_ == 0, notes_},
-            {"level", std::string("Next: ") + levels[difficulty_]},
-            {"theme", game.dark ? "Day" : "Night"},
             {"help", "Help", true, panel_ == 1},
             {"scores", "Top scores", true, panel_ == 2}};
+}
+std::vector<GameSetting> SudokuView::settings() const {
+    return {{"level", "Next puzzle", GameSetting::Kind::choice, static_cast<double>(difficulty_),
+             {"Easy", "Medium", "Hard"}, 0, 2, 1, "New game deals at this level."},
+            {"theme", "Board", GameSetting::Kind::choice, game.dark ? 1.0 : 0.0, {"Day", "Night"}}};
+}
+void SudokuView::change_setting(std::string_view id, double value) {
+    const int choice = static_cast<int>(std::lround(value));
+    if (id == "level" && choice >= 0 && choice < 3)
+        while (difficulty_ != choice)
+            action(*buttons_[4]);
+    else if (id == "theme" && (choice == 1) != game.dark)
+        action(*buttons_[3]);
 }
 void SudokuView::run_command(std::string_view id) {
     const char* ids[] = {"new", "undo", "notes", "theme", "level", "help", "scores"};
