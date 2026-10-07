@@ -1,3 +1,5 @@
 # Font and license fingerprints identify exact upstream bytes on every platform.
 assets/fonts/*.ttf -text
 assets/fonts/OFL-*.txt -text
+# Test fixtures are saves byte for byte (their checksums cover the line endings).
+games/*/tests/fixtures/** -text

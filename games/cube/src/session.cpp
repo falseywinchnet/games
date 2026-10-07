@@ -466,7 +466,17 @@ bool read_save(const std::filesystem::path& path, std::string& body) {
 }
 
 bool import_legacy(const std::string& file_text, bool board, Session& destination) {
-    std::istringstream file(file_text);
+    // The old engine wrote its file in text mode, so on Windows its lines end in CR LF;
+    // its checksum was taken over the text with plain line feeds.
+    std::string text;
+    text.reserve(file_text.size());
+    for (std::size_t index = 0; index < file_text.size(); ++index) {
+        if (file_text[index] == '\r' && index + 1 < file_text.size() && file_text[index + 1] == '\n') {
+            continue;
+        }
+        text.push_back(file_text[index]);
+    }
+    std::istringstream file(text);
     std::string magic;
     int version = 0;
     std::uint64_t hash = 0;

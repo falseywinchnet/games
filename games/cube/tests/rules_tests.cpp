@@ -6,6 +6,7 @@
 #include "solver.hpp"
 #include "stage.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -348,6 +349,18 @@ void test_saves(const std::filesystem::path& fixtures) {
     Session legacy;
     require(import_legacy(slurp(fixtures / "legacy-hard-partial.txt"), true, legacy),
             "an old Hard game in progress loads");
+    {
+        // The same file as the old engine wrote it on Windows, in text mode.
+        std::string windows;
+        for (char c : slurp(fixtures / "legacy-hard-partial.txt")) {
+            if (c == '\n') {
+                windows.push_back('\r');
+            }
+            windows.push_back(c);
+        }
+        Session crlf;
+        require(import_legacy(windows, true, crlf), "an old save written on Windows loads");
+    }
     require(legacy.puzzle.level == 2 && legacy.puzzle.side == 4 && legacy.next_level == 2,
             "on its own level and board");
     require(!legacy.play.won && legacy.play.strokes == 9, "still in progress, strokes kept");
