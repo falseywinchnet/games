@@ -117,7 +117,8 @@ Scripts require `--dev`. Add explicit module actions for reproducible difficult
 states, and refuse them in production and while hidden.
 
 Check keyboard, pointer, focus, timing, help, all dialogs, save/reopen, masters,
-minimum size and DPI. Run the native view-contract test. Observe sound quality by
+minimum size and DPI. Look at captures of the real window, not only previews: a
+contact sheet of every state at a glance catches what one picture at a time hides. Run the native view-contract test. Observe sound quality by
 listening when possible; measurements alone do not establish that it sounds good.
 If native dependencies are unavailable, record exactly what is blocked. A native
 validation requirement remains open until tested locally or with a CI artifact.
@@ -142,6 +143,11 @@ that infrastructure. The generic catalog UI test visits every discovered module.
 
 ## 6. Deliver and publish
 
+Give the game its front-page entry: `about.md` (two or three sentences on what
+makes it worth playing) and `screens/readme.jpg` (one 800-pixel-wide picture of it in
+play, from a `capture` in a `--dev` script). The README's game list is regenerated
+from them after the push; nothing else on the front page needs editing.
+
 Keep `HANDOFF.md` brief: tests actually run, real limitations, and non-obvious
 provenance or design decisions. Do not copy CI logs or write a platform/release
 report. Fix gate failures and explain remaining warnings. Keep build output and
@@ -164,9 +170,9 @@ publication before claiming that outcome.
 ## Contracts to preserve
 
 - One game folder and namespace; no dependency on another game's private files.
-  Shared engines are collection infrastructure: the card/puzzle engines in `src/`,
-  and engines in `shared/<id>/` that a game declares in `GAME.json`
-  (`"engines": [...]`). Machinery anticipated for a series of games, or shared by
+  Shared engines are collection infrastructure in `shared/<id>/`: the card and
+  puzzle engines the original games build on, and engines a game declares in
+  `GAME.json` (`"engines": [...]`). Machinery anticipated for a series of games, or shared by
   several, is promoted to an engine rather than copied into each; content stays in
   the games. See [shared engines](guide/11-shared-engines.md).
 - No network, accounts or operating-system code inside game modules.

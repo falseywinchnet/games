@@ -179,3 +179,22 @@ seconds (some of the collection's older solver tests run longer; do not add to
 that). Do not assert on wall-clock time: Rock Stack's timing test failed on a busy machine
 and had to be moved out of the required set. Measure speed with a separate tool
 and report the numbers in `HANDOFF.md`.
+
+The same tests run on four platforms and three compilers, on runners slower than
+your machine. What has failed there and nowhere else:
+
+- **A missing include.** macOS's library pulls in headers that GCC's does not:
+  `std::clamp` without `<algorithm>` built on a Mac and failed on Linux and Windows.
+  Include every standard header you use, and build once with a second compiler if
+  you have one.
+- **A long test.** A test that mowed four whole gardens took a minute here and
+  timed out on GitHub's Mac. Keep each test well under thirty seconds; run a long
+  simulation as several tests (one per seed), which also run side by side.
+- **A tolerance on chaos.** A physics check that a woken heap of rocks moves under
+  3 cm passed on one compiler and failed on others (32-45 mm), with nothing wrong in
+  play. Do not pass or fail on exact outcomes of chaotic simulations; test the
+  property the player sees.
+
+Derive every grid, table and bound from the world's own constants. When Mowing's
+lawn doubled in size, the old lady's path map stayed at the old size, and she could
+not find her way across three quarters of the garden.

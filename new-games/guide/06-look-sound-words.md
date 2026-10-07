@@ -88,10 +88,20 @@ spirit of the collection. Keep them harmless and findable by play.
 
 ## Sound
 
-**Everything is synthesized, here.** Every sound is rendered by a script in
-`games/<id>/audio_src/`. No samples, no recordings, no borrowed melodies, no
-voices from anywhere. A reference track may guide the mood; nothing is taken
-from it.
+**Everything is synthesized, here.** Every sound is made by the game's own code:
+live in the game, or rendered by a script in `games/<id>/audio_src/`. No samples,
+no recordings, no borrowed melodies, no voices from anywhere. A reference track
+may guide the mood; nothing is taken from it. This holds when the reference is
+famous: a meme's voice can shape a character's sound, but its audio is someone
+else's recording and the game ships.
+
+**Live when it can be.** Where synthesis runs faster than real time, play it live
+rather than from a rendered loop: the owner prefers it, it never repeats, and it
+can answer the game. Mowing's engine, bees and old lady, its banjo band and
+Stillwater's island band are generators the audio device pulls from
+(`gf::AudioGenerator`; through `SoundDesk::live` for sound and `live_music` for
+music on the ambient engine). Music written this way improvises within a style,
+in sections joined by proper transitions, rather than playing one loop.
 
 **Music is a mood, and it loops without a seam.**
 
@@ -132,10 +142,38 @@ speech.
 with their exact loop length in the game's audio manifest (see
 [primitives](07-primitives.md)). Name everything with the game's prefix.
 
+**Study the real sound first.** Before synthesizing a thing, find out what it
+actually sounds like and why. A first set of bees was "a swarm of drones... a phone
+going off... a vuvuzela": a sharp buzz with a long train of harmonics. Real bees are
+a soft hum, mostly the wingbeat and its first overtone, wavering in pitch and
+loudness as they turn.
+
+**Offer candidates.** When a sound is wrong and the fix is a matter of taste,
+render several distinct attempts, label them, and let the owner choose: of six
+bees, one was right, and "fainter" was the only change.
+
+**Let each part be heard alone.** Give a band or a layered bed a way to render one
+part at a time (Stillwater's `sw_music_render band out.wav seconds seed part`).
+"One instrument sounds like a saw blade" was found by soloing: it was in none of
+the solos the author suspected.
+
+**Known ways synthesis goes harsh:**
+
+- a plucked-string (Karplus-Strong) model fed noise sounds rasping on low notes; a
+  bass wants a round fundamental with a few overtones that die fast;
+- one part much louder than the rest, pushed through saturation, buzzes;
+- resonant filters must be normalised, or a body resonance multiplies the level
+  twenty-fold;
+- a long train of equal harmonics is a buzzer, whatever it is called.
+
+**Background creatures are faint.** Bees, birds and wind sit under everything and
+are heard when near. A gust that builds and builds became the loudest thing in a
+quiet garden.
+
 **What you can and cannot check.** You can check that files decode, their
-length, their peak level and that a loop's ends meet. You cannot hear them.
-Numerical validation is not a listening pass; write exactly that in
-`HANDOFF.md`.
+length, their peak level, their balance and spectrum, and that a loop's ends meet.
+You cannot hear them. Numerical validation is not a listening pass; write exactly
+that in `HANDOFF.md`, and send the owner the audio to judge.
 
 ## Words
 

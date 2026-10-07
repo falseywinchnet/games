@@ -8,7 +8,7 @@ in. The owner's rule for that case: an engine anticipated for a large collection
 shared between games, is promoted ("upstaged") to collection infrastructure.
 
 A shared engine lives once, in `shared/<id>/`, and games declare that they build on
-it. The card and puzzle engines in `src/` were the first shared engines; `shared/`
+it. The card and puzzle engines (`shared/cards`, `shared/puzzles`) were the first shared engines; `shared/`
 is where new ones go, discovered like games, with no edits to the shell.
 
 ## When to make one

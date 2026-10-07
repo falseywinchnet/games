@@ -192,6 +192,12 @@ to start.
   the function keys. It has no names for the digit row; those are the HID usage
   codes `0x1E` for 1 through `0x26` for 9, and `0x27` for 0, compared against
   `event.physical_key` as Four Pegs and Switchbox do.
+- Never give a command to a letter a movement scheme uses. When W, A, S and D
+  steer, D cannot also cycle the picture quality: holding D to turn did exactly
+  that. Quality is Q across the collection.
+- Commands and toggles ignore the operating system's key repeat (`event.repeat`);
+  held controls track their own key-down and key-up instead. A repeated toggle
+  flickers, and a repeated New game starts several.
 - Set `event.handled = true` only for keys you used. Unhandled keys belong to
   the shell.
 - Keys act on the game's own directions, never the camera's: if a view can be

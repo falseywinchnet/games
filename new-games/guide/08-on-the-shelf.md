@@ -41,7 +41,7 @@ The shelf derives its count and boxes from the catalog. Its native vertical
 scrollbar, keyboard focus reveal and shared help contents grow with the catalog.
 There is no per-game edit to the collection, shelf, help source or asset scripts.
 
-## Before copying a prototype into vendor
+## Before copying a prototype into games/
 
 Build its core independently, then configure the native suite with:
 

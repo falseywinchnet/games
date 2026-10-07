@@ -1,6 +1,6 @@
 # PlaySuite
 
-PlaySuite (formerly Rainstar Games) is one native C++20 / GUI.Forms application holding a collection of games. Every game lives in its own folder under [`games/`](games), and the collection is discovered from those folders: adding a game is adding a folder.
+PlaySuite is one native C++20 / GUI.Forms application holding a collection of games. Every game lives in its own folder under [`games/`](games), and the collection is discovered from those folders: adding a game is adding a folder.
 
 ![The PlaySuite shelf](docs/images/shelf.jpg)
 

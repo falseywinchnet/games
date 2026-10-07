@@ -214,7 +214,14 @@ A view uses a small part of it, all visible in the template:
 **Do not change the toolkit to suit a game.** Reusable capabilities are meant to
 become toolkit features, decided by its owner. If a game needs something the
 toolkit lacks, write down what and why in `HANDOFF.md` (the existing list is
-`docs/TOOLKIT_REQUESTS.md`) and work within what exists.
+`docs/TOOLKIT_REQUESTS.md`) and work within what exists. Dogfooding has carried
+several capabilities upstream this way, each as a pull request the owner reviewed:
+live audio generators, opaque live surfaces and native-order surfaces.
+
+**Declare an opaque frame opaque.** A game whose every frame covers its surface
+with solid pixels sets `LiveSurfaceDescription::opaque = true`.
+The host then copies the frame instead of blending it and skips repainting
+what lies under it. Never set it if any pixel is translucent.
 
 Known toolkit behaviour to design around:
 
