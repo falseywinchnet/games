@@ -188,12 +188,21 @@ void Collection::tick() {
             (*capsule_).unsettled(inside) || sprites_.waiting() || audio_pending() ? 16 : 200));
 }
 void Collection::on_pointer_preview(gf::PointerEvent& e) {
-    if (help_open() || settings_open()) {
-        const std::shared_ptr<gf::Control> sheet =
-            settings_open() ? std::static_pointer_cast<gf::Control>(settings_)
-                            : std::static_pointer_cast<gf::Control>(help_);
-        const gf::Point local = (*sheet).point_from_window(e.position);
-        const gf::Rect paper = (*sheet).client_rectangle();
+    if (settings_open()) {
+        const gf::Point local = (*settings_).point_from_window(e.position);
+        const gf::Rect paper = (*settings_).paper();
+        if (local.x < paper.x || local.y < paper.y || local.x >= paper.x + paper.width ||
+            local.y >= paper.y + paper.height) {
+            // A press on the dimmed background closes the screen, like Escape.
+            if (e.action == gf::PointerAction::down && e.button == gf::PointerButton::primary)
+                close_settings();
+            e.handled = true;
+            return;
+        }
+    }
+    if (help_open()) {
+        const gf::Point local = (*help_).point_from_window(e.position);
+        const gf::Rect paper = (*help_).client_rectangle();
         if (local.x < 0 || local.y < 0 || local.x >= paper.width || local.y >= paper.height) {
             e.handled = true;
             return;
@@ -328,9 +337,7 @@ void Collection::arrange(gf::Rect b) {
     set_child_layout(help_link_, {b.width - 44, 7, 36, 36});
     const double paper_width = std::min(780.0, b.width - 32);
     set_child_layout(help_, {b.width - paper_width - 16, 16, paper_width, b.height - 32});
-    const double sheet_width = std::min(600.0, b.width - 32);
-    set_child_layout(settings_, {b.width - sheet_width - 16, 16, sheet_width,
-                                 (*settings_).preferred_height(sheet_width, b.height - 32)});
+    set_child_layout(settings_, full);
 }
 void Collection::on_paint(gf::Painter& p, gf::Rect) {
     if (shelf_open_ || !uses_rail(active_))
@@ -446,6 +453,8 @@ void Collection::show_settings() {
     (*settings_).show_for(shelf_open_ ? std::string() : std::string(entry_info(active_).title),
                           shelf_open_ ? nullptr : source(active_));
     (*settings_).set_visible(true);
+    (*capsule_).set_settings_open(true);
+    (*shelf_).set_settings_open(true);
     if (!was_open && attached_window()) {
         settings_focus_ = (*attached_window()).begin_focus_scope(settings_);
         static_cast<void>((*attached_window()).request_focus((*settings_).first_control()));
@@ -459,6 +468,8 @@ void Collection::close_settings() {
         static_cast<void>((*attached_window()).end_focus_scope(settings_focus_));
     settings_focus_ = {};
     (*settings_).set_visible(false);
+    (*capsule_).set_settings_open(false);
+    (*shelf_).set_settings_open(false);
     if (!shelf_open_)
         refresh_commands();
     invalidate(gf::Dirty::paint);

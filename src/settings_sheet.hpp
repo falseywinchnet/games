@@ -33,6 +33,15 @@ class SettingSlider final : public gf::TrackBar {
     void changed(double value);
 };
 
+// A CheckBox in the shell's look: a gold box, and a soft gold outline for focus that
+// shows only when the keyboard moved it (the toolkit's focus cue). Behaviour and
+// accessibility stay the CheckBox's.
+class SettingCheck final : public gf::CheckBox {
+  public:
+    SettingCheck(gf::StableId id, std::string text);
+    void on_paint(gf::Painter& painter, gf::Rect damage) override;
+};
+
 // One of the shared card backs, drawn as it appears on the table.
 class CardBackChoice final : public gf::Button {
   public:
@@ -116,8 +125,11 @@ class SettingsSheet final : public gf::Control {
     void refresh();
     // The first control, for keyboard focus when the sheet opens.
     [[nodiscard]] std::shared_ptr<gf::Control> first_control() const;
-    // The sheet's height for a width: its content, up to `limit`.
-    [[nodiscard]] double preferred_height(double width, double limit) const;
+    // The paper, in the sheet's coordinates. The sheet itself covers the whole window
+    // and dims what is behind the paper; a press outside the paper closes it.
+    [[nodiscard]] gf::Rect paper() const {
+        return paper_;
+    }
     std::function<void()> close;
 
   private:
@@ -126,6 +138,7 @@ class SettingsSheet final : public gf::Control {
     gf::SubscriptionToken close_subscription_{};
     std::array<gf::ImageId, card_back_count> backs_{};
     std::string title_;
+    gf::Rect paper_{};
     void clicked_close(gf::ButtonBase& button);
     void on_attached_to_window() override;
     void on_detaching_from_window(gf::Window& window) noexcept override;

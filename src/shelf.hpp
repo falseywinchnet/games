@@ -82,6 +82,8 @@ class ShelfView final : public gf::Control {
         return selection_;
     }
     void set_preferences(bool music, bool sound, bool reduced);
+    // The Settings cog stays lit while the Settings screen is open.
+    void set_settings_open(bool open);
     void set_progress(Entry entry, bool started);
     void focus_selection();
     std::function<void(Entry)> open;

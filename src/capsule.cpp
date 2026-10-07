@@ -95,6 +95,9 @@ void CommandCapsule::set_game(std::string title, std::vector<GameCommand> comman
     layout_slots();
     invalidate(gf::Dirty::layout | gf::Dirty::paint);
 }
+void CommandCapsule::set_settings_open(bool open) {
+    (*switches_[3]).set_checked(open);
+}
 void CommandCapsule::set_preferences(bool music, bool sound, bool reduced) {
     (*switches_[0]).set_glyph(Glyph::music, !music);
     (*switches_[1]).set_glyph(Glyph::sound, !sound);

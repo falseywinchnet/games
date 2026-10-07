@@ -29,15 +29,6 @@ AGENTS.md asks for reusable capabilities to become GUI.Forms enhancements, coord
    view contract currently requires device-sized frames, so (a) also needs a
    contract revision.
 
-6. **Decode a PNG into CPU pixels.** `Window::load_png` validates a PNG and hands
-   it to the host renderer, but nothing public returns its pixels, and the
-   Windows host decodes through WIC while Skia hosts decode internally. Koi-Koi
-   keeps its own CPU raster (area-averaged card reduction, card finish), so it
-   decodes its compressed deck itself with the ambient engine's zlib decoder
-   (`games/koikoi/src/platform/image.cpp`, 8-bit RGBA only). What would replace
-   it: a portable `decode_png(bytes) -> premultiplied BGRA` in GUI.Forms, with
-   the registry's limits, usable off the UI thread.
-
 ## Host behavior found on Windows
 
 **Idle live-surface clock and registration lifecycle.** In pinned `7b260cf`,
@@ -178,7 +169,11 @@ enlarging copy.
    `on_paint` in `games::SettingSlider` for a gold groove and gloss knob and has to
    repeat that inset. A public track rectangle (or thumb/track recipes in the
    theme) would let applications restyle it safely. TrackBar also lacks a
-   hovered-visual accessor such as `ButtonBase::hovered_visual()`.
+   hovered-visual accessor such as `ButtonBase::hovered_visual()`. `CheckBox` likewise
+   draws its focus as a fixed blue rectangle from the theme; `games::SettingCheck`
+   overrides `on_paint` for a gold box and a soft gold focus outline (shown only
+   while `focus_cue_visible()`, that is after keyboard input). A focus-ring recipe in
+   the theme (colour, radius, inset) would make such subclasses unnecessary.
 3. **A settings form control.** `src/settings_sheet.*` builds a scrolling page of
    labelled rows (check box with slider, choice chips, image choices, notes) from
    a declarative list, re-reads values in place and rebuilds only when the list's

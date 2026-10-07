@@ -488,6 +488,7 @@ int main() {
         assert((*button(*collection, "capsule.Settings")).perform_click());
         window.perform_layout();
         assert((*collection).settings_open() && window.focus_scope_depth() == 1);
+        assert((*std::static_pointer_cast<SuiteButton>(button(*collection, "capsule.Settings"))).checked());
         std::shared_ptr<SettingsSheet> sheet;
         for (const std::shared_ptr<gf::Control>& c : (*collection).children())
             if (std::dynamic_pointer_cast<SettingsSheet>(c))
@@ -551,6 +552,7 @@ int main() {
         key.physical_key = gf::PhysicalKey::escape;
         assert(window.dispatch_key(key));
         assert(!(*collection).settings_open() && window.focus_scope_depth() == 0);
+        assert(!(*std::static_pointer_cast<SuiteButton>(button(*collection, "capsule.Settings"))).checked());
         // The shelf has the same screen, with the masters only.
         (*collection).show_shelf();
         window.perform_layout();

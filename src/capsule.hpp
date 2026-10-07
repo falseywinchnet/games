@@ -24,6 +24,8 @@ class CommandCapsule final : public gf::Control {
     void set_game(std::string title, std::vector<GameCommand> commands);
     // Shows the masters; the capsule calls it itself whenever the store changes.
     void set_preferences(bool music, bool sound, bool reduced);
+    // The Settings cog stays lit while the Settings screen is open.
+    void set_settings_open(bool open);
     // Widest the capsule may grow; it wraps its commands onto more rows beyond this.
     void set_maximum_width(double width);
     // The rectangle the capsule wants inside the given area, at the current opening.

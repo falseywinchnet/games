@@ -345,6 +345,9 @@ void ShelfView::tick() {
     if (!moving && timer_)
         (*timer_).stop();
 }
+void ShelfView::set_settings_open(bool open) {
+    (*switches_[3]).set_checked(open);
+}
 void ShelfView::set_preferences(bool music, bool sound, bool reduced) {
     reduced_ = reduced;
     request_animation();

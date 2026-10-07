@@ -52,7 +52,8 @@ void SettingSlider::on_paint(gf::Painter& p, gf::Rect) {
         p.fill_rounded_rect({groove.x, groove.y, 6 + width * ratio, 6}, 3,
                             enabled() ? rgb(201, 146, 40) : rgb(190, 180, 150));
     const double x = inset + width * ratio, r = 9;
-    if (focused_)
+    gf::Window* window = attached_window();
+    if (focused_ && window && (*window).focus_cue_visible())
         p.stroke_rounded_rect({x - r - 3, cy - r - 3, 2 * r + 6, 2 * r + 6}, r + 3,
                               rgb(184, 137, 42), 2);
     p.draw_box_shadow({x - r, cy - r, 2 * r, 2 * r}, r, {0, 1}, 3, 0, rgb(0, 0, 0, 80));
@@ -69,6 +70,28 @@ void SettingSlider::changed(double value) {
         moved(setting_, value);
 }
 
+SettingCheck::SettingCheck(gf::StableId id, std::string text) : CheckBox(std::move(id), std::move(text)) {
+    set_paint_plane(gf::PaintPlane::overlay);
+}
+void SettingCheck::on_paint(gf::Painter& p, gf::Rect) {
+    const gf::Rect b = client_rectangle();
+    const double s = 18, y = (b.height - s) * .5;
+    const gf::Size label = p.measure_text_utf8(text(), font());
+    if (focus_cue_visible())
+        p.stroke_rounded_rect({1, 2, std::min(b.width - 2, s + 16 + label.width), b.height - 4}, 8,
+                              rgb(214, 160, 40, 200), 2);
+    const gf::Rect box{6, y, s, s};
+    if (checked()) {
+        paint_gloss(p, box, 4, GlossTone::gold, {hovered_visual(), pressed_visual(), enabled(), false});
+        p.draw_line({box.x + 4.5, box.y + 9.5}, {box.x + 8, box.y + 13}, rgb(70, 46, 8), 2.2);
+        p.draw_line({box.x + 8, box.y + 13}, {box.x + 14, box.y + 5}, rgb(70, 46, 8), 2.2);
+    } else {
+        p.fill_rounded_rect(box, 4, hovered_visual() ? rgb(255, 246, 214) : rgb(255, 253, 240));
+        p.stroke_rounded_rect(box, 4, rgb(166, 140, 74), 1.5);
+    }
+    p.draw_text_utf8({box.x + s + 9, (b.height + font().size * .72) * .5}, text(), font(),
+                     enabled() ? ink : rgb(150, 140, 110));
+}
 CardBackChoice::CardBackChoice(gf::StableId id, std::string name, int back)
     : Button(std::move(id), std::move(name)), back_(back) {
     set_accessible_name(text());
@@ -96,8 +119,8 @@ void CardBackChoice::on_paint(gf::Painter& p, gf::Rect) {
         p.draw_image(image_, card);
     else
         p.fill_rounded_rect(card, 5, rgb(40, 60, 110));
-    if (focus_cue_visible())
-        p.stroke_rounded_rect({0, 0, b.width, b.height}, 10, rgb(110, 91, 37), 1);
+    if (focus_cue_visible() && !chosen_)
+        p.stroke_rounded_rect({0, 0, b.width, b.height}, 10, rgb(214, 160, 40, 200), 2);
 }
 
 SettingsPage::SettingsPage(gf::StableId id) : ScrollableControl(std::move(id)) {
@@ -124,7 +147,7 @@ std::shared_ptr<gf::Label> SettingsPage::heading(const std::string& text) {
     return label;
 }
 std::shared_ptr<gf::CheckBox> SettingsPage::check(const std::string& key, const std::string& text) {
-    std::shared_ptr<gf::CheckBox> box = gf::make_control<gf::CheckBox>(
+    std::shared_ptr<gf::CheckBox> box = gf::make_control<SettingCheck>(
         gf::StableId("settings." + std::to_string(built_) + ".check." + key), text);
     (*box).set_auto_check(false); // the store or the game decides; refresh() shows it
     (*box).set_font({gf::FontRole::content, 16, 600, false});
@@ -505,9 +528,6 @@ std::shared_ptr<gf::Control> SettingsSheet::first_control() const {
             return child;
     return close_;
 }
-double SettingsSheet::preferred_height(double width, double limit) const {
-    return std::min(limit, std::ceil(74 + (*page_).content_height(width - 32)));
-}
 void SettingsSheet::on_key_bubble(gf::KeyEvent& event) {
     (*page_).on_key_bubble(event);
 }
@@ -517,16 +537,24 @@ void SettingsSheet::clicked_close(gf::ButtonBase&) {
 }
 void SettingsSheet::arrange(gf::Rect bounds) {
     arrange_self(bounds);
-    set_child_layout(close_, {bounds.width - 48, 9, 36, 36});
-    set_child_layout(page_, {20, 62, bounds.width - 32, bounds.height - 74});
+    // The paper sits at the right like Help, no taller than its content.
+    const double width = std::min(600.0, bounds.width - 32);
+    const double height =
+        std::min(bounds.height - 32, std::ceil(74 + (*page_).content_height(width - 32)));
+    paper_ = {bounds.width - width - 16, 16, width, std::max(0.0, height)};
+    set_child_layout(close_, {paper_.x + paper_.width - 48, paper_.y + 9, 36, 36});
+    set_child_layout(page_, {paper_.x + 20, paper_.y + 62, paper_.width - 32, paper_.height - 74});
 }
 void SettingsSheet::on_paint(gf::Painter& p, gf::Rect) {
     const gf::Rect b = client_rectangle();
-    p.draw_box_shadow(b, 4, {0, 8}, 24, 0, rgb(0, 0, 0, 110));
-    p.fill_rect(b, rgb(255, 252, 215));
-    p.stroke_rect(b, rgb(153, 137, 78), 1);
+    // Everything behind the paper is dimmed alike: the shelf's sign, the capsule, the game.
+    p.fill_rect(b, rgb(8, 10, 18, 120));
+    const gf::Rect r = paper_;
+    p.draw_box_shadow(r, 4, {0, 8}, 24, 0, rgb(0, 0, 0, 110));
+    p.fill_rect(r, rgb(255, 252, 215));
+    p.stroke_rect(r, rgb(153, 137, 78), 1);
     const std::string heading = (title_.empty() ? std::string("PlaySuite") : title_) + " · Settings";
-    p.draw_text_utf8({20, 36}, heading, {gf::FontRole::content, 24, 600, false}, ink);
-    p.draw_line({20, 50}, {b.width - 20, 50}, rgb(207, 193, 133), 1);
+    p.draw_text_utf8({r.x + 20, r.y + 36}, heading, {gf::FontRole::content, 24, 600, false}, ink);
+    p.draw_line({r.x + 20, r.y + 50}, {r.x + r.width - 20, r.y + 50}, rgb(207, 193, 133), 1);
 }
 } // namespace games
