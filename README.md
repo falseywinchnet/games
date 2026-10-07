@@ -52,7 +52,7 @@ PlaySuite has **22 games**: Solitaire, Spider, FreeCell, Hearts, Sudoku, Gems, N
 <td width="50%" valign="top">
 <a href="games/cube"><img src="games/cube/screens/readme.jpg" alt="Nature Cube" width="100%"></a>
 <br><b><a href="games/cube">Nature Cube</a></b> · Path puzzle
-<br>A block of dark glass with three playable faces of mirrored tiles reflecting a lake panorama. Join each coloured pair with paths that fold across the cube&#x27;s edges.
+<br>A block of dark glass with three playable faces of mirrored tiles reflecting a lake, after the Flash classic 3D Logic. Join each coloured pair with lines that fold across the cube&#x27;s edges, around walls of mossy stone and through linked portals; Hard boards are measured by a solver to have one true way through.
 </td>
 <td width="50%" valign="top">
 <a href="games/untangle"><img src="games/untangle/screens/readme.jpg" alt="Untangle" width="100%"></a>
