@@ -18,7 +18,7 @@ SPEC.loader.exec_module(catalog)
 # These include paragraphs after semicolons and the entire Pen the Sheep text. Puzzle
 # Solve's help was rewritten deliberately for its difficulty levels and new frames.
 ORIGINAL_HELP = {'atom': 'ca18af9d89d615ad304a8208d958e7aace41d77f15a4e9ce7ca101b05cfd5467',
- 'cube': 'f4a826bdfc99fdcf5cba26d6029109aa09a40d41bb382e436b8f5c0c63753481',
+ 'cube': 'e97306516331686dc8ab36860e05986f18f33edd161318900b1184863fbdc3d9',
  'eggy': 'd899bd545ea8ac4956a1bd9f554d2df1794f0a138a2e7f78e9e041089d172c3d',
  'freecell': 'b41e475de83b95b1e0172736c9c2ddb272d094f8d5d5512d03a3040bc2f74407',
  'gems': 'cfa82cf3f67b37ae0750339eec92c21e7a5ded06fb51e0eb37e8aa307fa9cfce',

@@ -1,1 +1,1 @@
-A block of dark glass with three playable faces of mirrored tiles reflecting a lake panorama. Join each coloured pair with paths that fold across the cube's edges.
+A block of dark glass with three playable faces of mirrored tiles reflecting a lake, after the Flash classic 3D Logic. Join each coloured pair with lines that fold across the cube's edges, around walls of mossy stone and through linked portals; Hard boards are measured by a solver to have one true way through.

@@ -28,12 +28,37 @@
   "module": "module.cpp",
   "cover": "cover.cpp",
   "build": "build.cmake",
-  "ui_sources": [],
+  "ui_sources": [
+    "src/cube_view.cpp"
+  ],
   "audio_sources": [
     "src/glass_music.cpp",
     "src/glass_effects.cpp",
     "src/cube_score.cpp"
   ],
-  "libraries": [],
-  "rail": false
+  "libraries": [
+    "cube_core"
+  ],
+  "rail": true,
+  "view_header": "cube_view.hpp",
+  "view_class": "CubeView",
+  "save_file": "cube-v3.txt",
+  "core_sources": [
+    "src/cube.cpp",
+    "src/solver.cpp",
+    "src/generator.cpp",
+    "src/session.cpp",
+    "src/stage.cpp",
+    "src/raster3d.cpp",
+    "src/scene.cpp",
+    "src/picture.cpp"
+  ],
+  "core_tests": [
+    "tests/rules_tests.cpp"
+  ],
+  "contract_test": "tests/view_contract_tests.cpp",
+  "settles_when_untouched": true,
+  "engines": [
+    "ambient"
+  ]
 }
