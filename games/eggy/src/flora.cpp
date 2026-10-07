@@ -726,17 +726,18 @@ namespace {
 // How common each species is (oak, beech, birch, poplar, willow, maple, rowan,
 // spruce, fir, pine, larch, stone pine, juniper, snag) by biome, for the
 // broadleaf and conifer sites on the path. The mountainside mixes both.
-// Broadleaves thin out with altitude; above the treeline only wind-shaped
-// pines, junipers and dead snags remain.
+// Broadleaves thin out with altitude, and the mountain forest of tall spruce, fir
+// and larch takes over; only on the ice, the ridge and the summit do wind-shaped
+// pines, junipers and dead snags have the slope to themselves.
 const int kBroadWeights[static_cast<int>(Biome::count)][kTreeKinds] = {
     {5, 2, 2, 1, 0, 1, 2, 0, 0, 0, 0, 0, 0, 0},   // meadow
     {3, 4, 2, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0},   // forest
     {2, 3, 2, 0, 0, 4, 1, 0, 0, 0, 1, 0, 0, 0},   // autumn wood
     {1, 0, 2, 2, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0},   // pond country
-    {0, 0, 1, 0, 0, 0, 1, 0, 0, 2, 0, 0, 2, 1},   // rocky ravine
-    {0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0},   // alpine slopes
-    {0, 0, 0, 0, 0, 0, 0, 4, 1, 0, 0, 2, 0, 1},   // snowfield
-    {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 2},   // ice falls
+    {0, 0, 1, 0, 0, 0, 1, 1, 0, 3, 0, 0, 1, 1},   // rocky ravine
+    {0, 0, 1, 0, 0, 0, 1, 3, 2, 0, 2, 0, 0, 0},   // alpine slopes
+    {0, 0, 0, 0, 0, 0, 0, 4, 2, 0, 1, 1, 0, 1},   // snowfield
+    {0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 1},   // ice falls
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 1, 2},   // windy ridge
     {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 1}};  // summit
 const int kConiferWeights[static_cast<int>(Biome::count)][kTreeKinds] = {
@@ -744,10 +745,10 @@ const int kConiferWeights[static_cast<int>(Biome::count)][kTreeKinds] = {
     {0, 0, 0, 0, 0, 0, 0, 4, 2, 2, 1, 0, 0, 0},
     {0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 3, 0, 0, 0},
     {0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 2, 2},
-    {0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 3, 2, 0, 1},
-    {0, 0, 0, 0, 0, 0, 0, 4, 1, 0, 0, 2, 0, 1},
-    {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 2},
+    {0, 0, 0, 0, 0, 0, 0, 1, 0, 3, 0, 0, 1, 1},
+    {0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 3, 1, 0, 1},
+    {0, 0, 0, 0, 0, 0, 0, 4, 2, 0, 1, 1, 0, 1},
+    {0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 1},
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 1, 2},
     {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 1}};
 constexpr double kWindYaw = 2.5;  // prevailing wind on the heights: wind-shaped trees all flag this way
@@ -829,15 +830,16 @@ TreeLook tree_look(Biome b, TreeSite site, double u, double v, unsigned hash) {
     const double stand = static_cast<double>(cell >> 11) * (1.0 / 9007199254740992.0);
     t.kind = pick_kind(b, site, g.uni() < .6 ? stand : g.uni());
     t.form = g.below(kTreeForms);
-    // age: most trees are grown, some young, a few saplings; trees shrink toward the treeline
-    t.size = .86 + .5 * std::sqrt(g.uni());
-    const bool sapling = g.uni() < .09;
-    if (sapling) t.size = g.in(.5, .7);
+    // age: a wide spread, as in an old wood: a few young trees, most grown, and a good
+    // share of tall veterans; only the exposed heights keep their trees short
+    const double age = g.uni();
+    const bool sapling = age < .1;
+    t.size = sapling ? g.in(.6, .85) : age < .62 ? g.in(1.0, 1.4) : g.in(1.4, 1.85);
     double alt = 1;
     switch (b) {
-        case Biome::ravine: case Biome::alpine: alt = .9; break;
-        case Biome::snow: alt = .86; break;
-        case Biome::ice: case Biome::ridge: case Biome::summit: alt = .74; break;
+        case Biome::snow: alt = .95; break;
+        case Biome::ice: alt = .82; break;
+        case Biome::ridge: case Biome::summit: alt = .74; break;
         default: break;
     }
     t.size *= alt;
