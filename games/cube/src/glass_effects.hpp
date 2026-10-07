@@ -4,7 +4,8 @@
 // grows and fall back as it is erased, a chord that blooms when a pair is joined, a soft
 // wooden bump for a move that cannot be made, air across the glass while the cube
 // turns, a rising chime for a new level and a sparkling arpeggio over an open fifth for
-// the win. Repeats never land on the same pitch twice running.
+// the win, and a tap answered an octave up when a line passes through a portal. Repeats
+// never land on the same pitch twice running.
 #include "glass_dsp.hpp"
 
 #include <array>

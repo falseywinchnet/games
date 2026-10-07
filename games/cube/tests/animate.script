@@ -1,0 +1,9 @@
+0 resize 1100 760
+400 action unranked
+500 action deal 1 31
+4000 action finish
+8000 action finish
+12000 action finish
+16000 action finish
+20000 action finish
+24000 quit

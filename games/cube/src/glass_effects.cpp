@@ -317,6 +317,17 @@ void GlassEffects::cue(Cue cue) noexcept {
     case Cue::turn:
         air_target_ = std::min(1.0, air_target_ + .2);
         break;
+    case Cue::portal: {
+        // A line falls into one well and rises out of its partner: a soft tap, answered
+        // an octave higher on the other side a moment later.
+        int index = step_base_ + steps_;
+        while (scale_note(index) > 84)
+            index -= 10;
+        const int m = scale_note(index);
+        glass(m, .1, 0, .16, -.3);
+        glass(m + 12, .09, static_cast<int>(.09 * sample_rate), .2, .3);
+        break;
+    }
     case Cue::level:
         chime();
         break;

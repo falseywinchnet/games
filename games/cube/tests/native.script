@@ -1,0 +1,42 @@
+0 resize 1100 760
+1500 action deal 0 21
+4000 capture easy-1100x760.ppm
+4100 action lines 3
+4500 capture easy-lines-1100x760.ppm
+4600 action portal 1 22
+5000 capture arrive-0.4s-1100x760.ppm
+5500 capture arrive-0.9s-1100x760.ppm
+5850 capture arrive-1.25s-1100x760.ppm
+7200 capture medium-1100x760.ppm
+7300 action through
+7700 capture medium-portal-1100x760.ppm
+7800 action deal 2 23
+20000 capture hard-1100x760.ppm
+20100 action through
+20500 capture hard-portal-1100x760.ppm
+20600 action lines 5
+21000 capture hard-lines-1100x760.ppm
+21100 action finish
+21600 capture finish-0.5s-1100x760.ppm
+22300 capture finish-1.2s-1100x760.ppm
+23000 capture leave-0.4s-1100x760.ppm
+23900 capture next-arriving-1100x760.ppm
+26000 capture next-1100x760.ppm
+26100 help
+26900 capture help-1100x760.ppm
+27000 key escape
+27500 resize 600 420
+28000 action deal 2 23
+40000 capture hard-600x420.ppm
+40100 action through
+40500 capture hard-portal-600x420.ppm
+40600 action portal 1 22
+43500 capture medium-600x420.ppm
+43600 action through
+44000 capture medium-portal-600x420.ppm
+44100 action deal 0 21
+46500 capture easy-600x420.ppm
+46600 help
+47400 capture help-600x420.ppm
+47500 key escape
+48000 quit
