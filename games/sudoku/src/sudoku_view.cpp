@@ -373,7 +373,7 @@ std::vector<GameCommand> SudokuView::commands() const {
 std::vector<GameSetting> SudokuView::settings() const {
     return {{"level", "Next puzzle", GameSetting::Kind::choice, static_cast<double>(difficulty_),
              {"Easy", "Medium", "Hard"}, 0, 2, 1, "New game deals at this level."},
-            {"theme", "Board", GameSetting::Kind::choice, game.dark ? 1.0 : 0.0, {"Day", "Night"}}};
+            {"theme", "Board", GameSetting::Kind::choice, game.dark ? 1.0 : 0.0, {"Day", "Night"}, 0, 1, 1, ""}};
 }
 void SudokuView::change_setting(std::string_view id, double value) {
     const int choice = static_cast<int>(std::lround(value));
