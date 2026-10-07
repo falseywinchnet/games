@@ -573,7 +573,10 @@ void draw_cube(Raster3D& raster, const Puzzle& puzzle, const Play& play, const M
                                                add(add(to, scaled(across, -1)), lift),
                                                add(add(from, scaled(across, -1)), lift)};
                     facet(raster, camera, corners, color, bias, b);
-                    if (!into_portal) {
+                    // No round joint on the fold itself: half of it would hang past the
+                    // cube's edge, and the two halves already meet there.
+                    const bool at_fold = point_count == 3 && k == 0 && t >= 1;
+                    if (!into_portal && !at_fold) {
                         ring(raster, camera, to, u, v, n, 0, radius, .004, color, bias, b, false);
                     }
                     if (k == 0 && !out_of_portal) {
