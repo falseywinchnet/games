@@ -124,7 +124,7 @@ PlaySuite has **22 games**: Solitaire, Spider, FreeCell, Hearts, Sudoku, Gems, N
 <td width="50%" valign="top">
 <a href="games/catchingthieves"><img src="games/catchingthieves/screens/readme.jpg" alt="Catching Thieves" width="100%"></a>
 <br><b><a href="games/catchingthieves">Catching Thieves</a></b> · Garden puzzle
-<br>Push pumpkins over the burrows before the raccoon bandits raid the bear&#x27;s garden. 243 solver-verified gardens through the seasons, plus endless generated ones.
+<br>Push pumpkins over the burrows before the raccoon bandits raid the bear&#x27;s garden. Short lessons teach the rules; Easy, Medium and Hard gardens are grown fresh and proven solvable, and a chorus of cheeky raccoons reacts to every push.
 </td>
 <td width="50%" valign="top">
 <a href="games/maze"><img src="games/maze/screens/readme.jpg" alt="Maze 95" width="100%"></a>
