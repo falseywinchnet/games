@@ -15,7 +15,8 @@ catalog = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(catalog)
 
 # SHA-256 of the complete original C++ help string bodies, before migration.
-# These include paragraphs after semicolons and the entire Pen the Sheep text.
+# These include paragraphs after semicolons and the entire Pen the Sheep text. Puzzle
+# Solve's help was rewritten deliberately for its difficulty levels and new frames.
 ORIGINAL_HELP = {'atom': 'ca18af9d89d615ad304a8208d958e7aace41d77f15a4e9ce7ca101b05cfd5467',
  'cube': '84c4463ce7dc59d84be565dbab6e547a8b05729596ef9a12ce52458e18e7b54b',
  'eggy': 'd899bd545ea8ac4956a1bd9f554d2df1794f0a138a2e7f78e9e041089d172c3d',
@@ -29,7 +30,7 @@ ORIGINAL_HELP = {'atom': 'ca18af9d89d615ad304a8208d958e7aace41d77f15a4e9ce7ca101
  'penthesheep': '045390875c57892369bdcdcf784506f06459d57014930b42e2e14a1a3f91ef75',
  'rockstack': '44a440789430322b44d32b8df5ee3b3f13a9d28d04618544230bd5e96fea615a',
  'solitaire': '3feb19370ff30645a3e9e48dfab46f78efde2f3c95884247db1a2ed7dea2ac36',
- 'solve': 'bc748b3ca39eb8311ba1fb8b605dbf509eac2c0d4c514b7736fc474a58bf4fb6',
+ 'solve': '4db335e1bd4a8ed5c5a382143cbdc6189832bc24652203b7977328ca12a2d1a8',
  'spider': '920aaed5375f03bab6d22293fc48ac69a18cc51c930847cf5a6edd623f4faf3c',
  'sudoku': '5a2e157274e6ea553bd624bf6962e8d9ef839e3502cb0386e903a24ee1b60133',
  'switchbox': 'a900bf901111325449ad65dea3871803b5e104ea4db4fdf90af72b7a32405c65',

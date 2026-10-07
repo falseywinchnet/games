@@ -33,6 +33,11 @@ class PuzzleView final : public gf::Control, public CommandSource {
     }
     // Where a cube cell is drawn (the centroid of its pixels), or nothing if hidden.
     [[nodiscard]] std::optional<gf::Point> cube_cell_point(int cell) const;
+    // Development actions for Puzzle Solve captures (refused unless `development`):
+    // "deal <level> <seed>", "witness <pieces>" places that many witness pieces, and
+    // "drag <piece> <x> <y>" holds a piece with the pointer at frame cell (x, y).
+    bool scripted_action(std::string_view action);
+    bool development = false;
     PuzzleGame game;
 
   private:
@@ -83,13 +88,38 @@ class PuzzleView final : public gf::Control, public CommandSource {
     Point2 grab_{};
     bool lifted_ = false, lift_flip_ = false;
     int lift_x_ = 0, lift_y_ = 0, lift_rotation_ = 0;
-    std::array<int, 7> piece_rotation_{};
-    std::array<bool, 7> piece_flip_{};
+    std::array<int, 12> piece_rotation_{};
+    std::array<bool, 12> piece_flip_{};
     void solve_recenter();
     bool solve_snap(int& x, int& y) const;
     bool solve_lift(int piece);
     void solve_select(int piece);
     void layout_solve(gf::Rect bounds);
+    // Puzzle Solve's art is drawn into cached images between frames (an upload may ask for
+    // a repaint, so never while painting); a frame only places them. Each image remembers
+    // what it shows, so nothing is redrawn until that changes.
+    struct SolveSprite {
+        gf::ImageId image{};
+        std::vector<int> key;
+        double margin = 0, width = 0, height = 0; // device pixels
+    };
+    std::array<SolveSprite, 12> solve_board_sprites_{}, solve_tray_sprites_{};
+    SolveSprite solve_lift_sprite_{}, solve_ghost_sprite_{}, solve_frame_sprite_{},
+        solve_design_sprite_{}, solve_plaster_{};
+    std::array<gf::Point, 12> solve_board_origin_{}; // cell origin of each placed piece
+    double solve_scale_ = 1, solve_border_ = 14, solve_tray_unit_ = 20;
+    gf::Rect solve_design_{};
+    void solve_prepare();
+    void solve_glass(SolveSprite& sprite, const std::vector<PieceCell>& cells, double unit,
+                     GlassLook look);
+    void solve_upload(SolveSprite& sprite, const std::vector<int>& key, const GlassImage& image,
+                      double margin);
+    void solve_draw(gf::Painter& p, const SolveSprite& sprite, double x, double y,
+                    double opacity = 1) const;
+    void solve_release_images(gf::Window& window);
+    [[nodiscard]] double solve_unit() const;
+    [[nodiscard]] int solve_atom_at(gf::Point local) const;
+    [[nodiscard]] std::vector<PieceCell> solve_placed(int piece, int& x, int& y) const;
     [[nodiscard]] double untangle_radius() const;
     struct GemEffect {
         enum Kind { shard, ring, shock, beam_row, beam_column, bolt, points } kind;
