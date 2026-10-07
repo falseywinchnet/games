@@ -86,13 +86,6 @@ std::uint64_t wait_for(gf::Window& window, std::shared_ptr<gf::LiveSurface>& sur
                              std::to_string(colour.blue) + ")");
 }
 
-std::string label_of(const sw::StillwaterView& view, const char* id) {
-    const std::vector<games::GameCommand> commands = view.commands();
-    const games::GameCommand* found = kit::contract_find(commands, id);
-    const std::string result = found != nullptr ? (*found).label : std::string();
-    return result;
-}
-
 std::filesystem::path save_path() {
     const char* directory = std::getenv("GAMES_STATE_DIR");
     const std::filesystem::path result =
@@ -106,6 +99,14 @@ std::string saved_text() {
     return text;
 }
 
+// The tank the Settings screen shows as chosen.
+std::string tank_of(const sw::StillwaterView& view) {
+    for (const games::GameSetting& setting : view.settings())
+        if (setting.id == "tank")
+            return setting.choices[static_cast<std::size_t>(std::lround(setting.value))];
+    return {};
+}
+
 std::shared_ptr<sw::StillwaterView> open_view() {
     const ambient::ViewOptions view_options{.hosted = true, .dev = true};
     std::shared_ptr<sw::StillwaterView> view =
@@ -114,8 +115,9 @@ std::shared_ptr<sw::StillwaterView> open_view() {
     return view;
 }
 
-// The Scene command cycles the tanks, fading through dark even while paused; the
-// choice is saved and reopened; a save from before the choice opens the planted tank.
+// The Tank setting chooses a tank and S (the "scene" command) cycles them, fading through
+// dark even while paused; the choice is saved and reopened; a save from before the
+// choice opens the planted tank.
 int run_scene_checks() {
     try {
         kit::contract_isolate_saves("stillwater-scenes");
@@ -131,20 +133,20 @@ int run_scene_checks() {
             window.perform_layout();
             std::shared_ptr<gf::LiveSurface> surface{};
             std::uint64_t at = wait_for(window, surface, 0, Seen::planted, "an old save opens the planted tank");
-            kit::contract_require(label_of(*view, "scene") == "Scene: Planted", "the Scene command names the tank");
+            kit::contract_require(tank_of(*view) == "Planted", "the Tank setting names the tank");
             (*view).run_command("pause");
-            (*view).run_command("scene");
-            kit::contract_require(label_of(*view, "scene") == "Scene: Reef", "Scene moves on to the reef");
+            (*view).change_setting("tank", 1);
+            kit::contract_require(tank_of(*view) == "Reef", "the setting chooses the reef");
             at = wait_for(window, surface, at, Seen::reef, "the reef fades in while paused");
             kit::contract_require(saved_text().find("scene reef") != std::string::npos, "the choice is saved");
             (*view).run_command("pause");
             (*view).run_command("scene");
-            kit::contract_require(label_of(*view, "scene") == "Scene: River pool", "then the river pool");
+            kit::contract_require(tank_of(*view) == "River pool", "S moves on to the river pool");
             at = wait_for(window, surface, at, Seen::pool, "the river pool fades in");
             // Twice quickly: the change in flight is redirected, not queued.
             (*view).run_command("scene");
             (*view).run_command("scene");
-            kit::contract_require(label_of(*view, "scene") == "Scene: Reef", "two presses land on the reef");
+            kit::contract_require(tank_of(*view) == "Reef", "two presses land on the reef");
             static_cast<void>(wait_for(window, surface, at, Seen::reef, "the second press wins"));
         }
         {
@@ -154,7 +156,7 @@ int run_scene_checks() {
             window.perform_layout();
             std::shared_ptr<gf::LiveSurface> surface{};
             static_cast<void>(wait_for(window, surface, 0, Seen::reef, "the saved tank reopens"));
-            kit::contract_require(label_of(*view, "scene") == "Scene: Reef", "and is named");
+            kit::contract_require(tank_of(*view) == "Reef", "and is named");
         }
         std::cout << "stillwater scenes: passed\n";
         return 0;

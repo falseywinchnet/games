@@ -338,12 +338,24 @@ void Diorama::press(double x, double y, SceneContext& context) {
     tap(x, y, context);
 }
 
-void Diorama::add_commands(std::vector<games::GameCommand>& list, const Settings&) const {
+// The choice of scene is a setting (and S steps through it, as the "scene" command).
+void Diorama::add_settings(std::vector<games::GameSetting>& list, const Settings&) const {
     if (scenes_.size() < 2)
         return;
-    std::string label = "Scene: ";
-    label += scenes_[chosen_].name;
-    list.push_back({"scene", label, true, false, false});
+    games::GameSetting choice{"tank", "Tank", games::GameSetting::Kind::choice, static_cast<double>(chosen_), {},
+                              0, static_cast<double>(scenes_.size() - 1), 1, "S moves to the next one."};
+    for (const DioramaScene& scene : scenes_)
+        choice.choices.push_back(scene.name);
+    list.push_back(choice);
+}
+
+bool Diorama::change_setting(std::string_view id, double value, SceneContext& context) {
+    const long index = std::lround(value);
+    if (id != "tank" || index < 0 || index >= static_cast<long>(scenes_.size()))
+        return false;
+    if (static_cast<std::size_t>(index) != chosen_)
+        choose(static_cast<std::size_t>(index), context);
+    return true;
 }
 
 bool Diorama::run_command(std::string_view id, SceneContext& context) {

@@ -16,7 +16,7 @@ Sunlight through the rippling surface throws caustics, a slowly moving, branchin
 net of bright lines, over the sand, the stones, the leaves and the fish: crisp near
 the surface, softer and dimmer on the floor.
 
-Two more tanks can be chosen with the Scene command:
+Two more tanks can be chosen in Settings, or with S:
 
 - **Reef**: white coral sand under a wall of live rock crusted pink and purple with
   coralline algae, and two bommies with a channel of sand between them running back
@@ -45,10 +45,10 @@ beside real work, that asks for nothing and can be left at any moment.
 - **Pause / Resume** (Space or the capsule's primary command): the tank stops on the
   exact frame and costs nothing until resumed. Resuming continues from the same
   moment.
-- **Detail** (Q or the capsule): Light, Balanced (default) or Fine, the size of the
+- **Detail** (Q or Settings): Light, Balanced (default) or Fine, the size of the
   scene's pixels and the processor budget.
-- **Scene** (S or the capsule): the planted tank (default), the reef or the river
-  pool, in turn. The tank dims to dark water while the next one is prepared on a
+- **Tank** (S or Settings): the planted tank (default), the reef or the river
+  pool; S takes them in turn. The tank dims to dark water while the next one is prepared on a
   worker, then brightens; this works while paused too.
 - **Help** (F1 or H).
 

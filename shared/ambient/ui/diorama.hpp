@@ -90,7 +90,8 @@ class Diorama final : public Scenery {
     void advance(double seconds, SceneContext& context) override;
     const std::vector<std::uint32_t>& draw(SceneContext& context, int& width, int& height) override;
     void press(double x, double y, SceneContext& context) override;
-    void add_commands(std::vector<games::GameCommand>& list, const Settings& settings) const override;
+    void add_settings(std::vector<games::GameSetting>& list, const Settings& settings) const override;
+    bool change_setting(std::string_view id, double value, SceneContext& context) override;
     bool run_command(std::string_view id, SceneContext& context) override;
     [[nodiscard]] std::string key_command(std::uint32_t key) const override;
     bool scripted_action(std::string_view action, SceneContext& context) override;
