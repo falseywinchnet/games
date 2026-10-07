@@ -14,6 +14,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace eggy {
@@ -41,6 +42,10 @@ public:
     void on_text_input(gf::TextInputEvent& e) override;
     void activate();
     void set_cabinet_preferences(bool music, bool sound, bool reduced);
+    // Development scripts (only with --dev): "warp:<row>", "summit", "storm",
+    // "hour:<0..1>" (0.25 sunrise, 0.5 noon, 0.75 sunset), "seed:<n>" (a new climb on
+    // that mountain) and "play" (close the title).
+    bool scripted_action(std::string_view code);
 
 private:
     enum class Panel { none, title, help, scores, confirm, away, finale };
@@ -125,7 +130,7 @@ private:
     int intro_ = -1;
     double intro_t_ = 0;
     bool intro_pending_ = false;
-    void new_climb();
+    void new_climb(std::uint64_t seed = 0);  // 0: a fresh mountain from the clock
     void action(const std::string& id);
     void open(Panel p);
     void layout_buttons();

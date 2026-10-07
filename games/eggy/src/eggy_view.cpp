@@ -594,13 +594,13 @@ void EggyView::persist() {
     static_cast<void>(write_save(save_path(opt_.dev), save_));
 }
 
-void EggyView::new_climb() {
+void EggyView::new_climb(std::uint64_t seed) {
     const auto scores = save_.scores;
     const Settings settings = save_.settings;
     save_ = SaveData{};
     save_.scores = scores;
     save_.settings = settings;
-    save_.seed = static_cast<std::uint64_t>(wall_clock() * 1000) ^ 0xE66E5EEDULL;
+    save_.seed = seed ? seed : static_cast<std::uint64_t>(wall_clock() * 1000) ^ 0xE66E5EEDULL;
     save_.start_wall = save_.last_wall = wall_clock();
     sim_ = std::make_unique<Sim>(save_.seed);
     scene_.cam_ready = false;
@@ -660,6 +660,34 @@ void EggyView::layout_render_buttons() {
             break;
         default: break;
     }
+}
+
+bool EggyView::scripted_action(std::string_view code) {
+    if (!opt_.dev || !sim_) return false;
+    const std::string c(code);
+    if (c.rfind("warp:", 0) == 0) {
+        const double v = std::atof(c.c_str() + 5);
+        if (!(v >= 0) || v >= static_cast<double>((*sim_).world.length())) return false;
+        (*sim_).place_at(v);
+    } else if (c.rfind("seed:", 0) == 0) {
+        const long long seed = std::atoll(c.c_str() + 5);
+        if (seed <= 0) return false;
+        new_climb(static_cast<std::uint64_t>(seed));
+    } else if (c == "summit") {
+        (*sim_).place_at(static_cast<double>((*sim_).world.length()) - 40);
+    } else if (c == "storm") {
+        (*sim_).next_storm = 1;
+    } else if (c.rfind("hour:", 0) == 0) {
+        const double h = std::atof(c.c_str() + 5);
+        if (!(h >= 0 && h <= 1)) return false;
+        (*sim_).day_offset += h - (*sim_).day_phase();
+    } else if (c == "play") {
+        if (intro_ >= 0) skip_intro();
+        open(Panel::none);
+    } else {
+        return false;
+    }
+    return true;
 }
 
 void EggyView::action(const std::string& id) {
