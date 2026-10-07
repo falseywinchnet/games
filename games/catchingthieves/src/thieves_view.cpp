@@ -23,15 +23,6 @@ namespace {
 const Col kInk = hex(0x3A2A1A), kPaper = hex(0xF6EED8), kPaperDark = hex(0xE6D8B4), kLeafGreen = hex(0x5A8A34), kLeafDark = hex(0x2E5A1E);
 const Col kOrange = hex(0xF08A24), kGold = hex(0xF4C430), kSilver = hex(0xC8D0D8), kBronze = hex(0xC8804A);
 const char* kSeasonName[] = {"spring", "summer", "autumn", "winter", "night"};
-struct Tier { const char* name; int w, h, boxes, min_pushes; long long budget; Season season; };
-const Tier kTiers[] = {
-    {"Spring", 6, 6, 2, 12, 200000, Season::spring},
-    {"Summer", 7, 7, 3, 20, 300000, Season::summer},
-    {"Autumn", 8, 8, 4, 26, 500000, Season::autumn},
-    {"Winter", 9, 8, 4, 32, 900000, Season::winter},
-    {"Night", 9, 9, 5, 34, 1200000, Season::night},
-};
-constexpr int kTiersN = 5;
 
 bool script_index(std::string_view value, int limit, int& result) {
     if (value.empty() || value.size() > 7) return false;
@@ -72,19 +63,32 @@ ThievesView::ThievesView(gf::StableId id, Options opt) : Control(std::move(id)),
         set_authored_surface_material(none);
     }
     set_accessible_name("Catching Thieves. Raccoon bandits are raiding the bear's garden from their burrows. Push a pumpkin onto every burrow to trap them. "
-                        "Arrow keys or WASD walk; walking into a pumpkin pushes it. Click a square to walk there. Z undo, R restart, L gardens, H or F1 help; Hint is in the command capsule.");
-    load_campaign();
-    const bool have = load_save(save_path(opt_.dev), save_);
-    if (have && save_.level == -1 && !save_.endless_xsb.empty()) {
+                        "Arrow keys or WASD walk; walking into a pumpkin pushes it. Click a square to walk there. Z undo, R restart, H or F1 help; Hint and the difficulty are in the command capsule.");
+    rng_ = seed_now() | 1;
+    load_tables();
+    if (load_save(save_path(opt_.dev), save_)) {
+        if (migrate(save_, table_)) write_save(save_path(opt_.dev), save_);
+    } else {
+        save_ = SaveData{};
+        save_.format = 2;
+        save_.difficulty = save_.garden_tier = kTutorial;
+    }
+    // resume the garden in play exactly, moves and all
+    bool resumed = false;
+    if (save_.level >= 0) resumed = enter(save_.level, save_.history);
+    else if (!save_.endless_xsb.empty()) {
         LevelEntry e;
         if (Level::parse(split(save_.endless_xsb), e.level)) {
             e.level.solution = save_.endless_solution;
-            e.section = std::string("Endless ") + kTiers[std::clamp(save_.endless_tier, 0, kTiersN - 1)].name;
-            enter_endless(e, save_.history);
-        } else enter(0);
-    } else {
-        enter(std::clamp(save_.level, 0, std::max(0, static_cast<int>(levels_.size()) - 1)), save_.history);
+            e.level.title = save_.garden_title;
+            e.par = save_.garden_par;
+            e.tier = tier_rule(save_.garden_tier).key;
+            e.section = difficulty_name(save_.garden_tier);
+            enter_fresh(e, save_.history);
+            resumed = true;
+        }
     }
+    if (!resumed) deal();
     if (const char* sc = std::getenv("CT_SCRIPT"); sc && opt_.dev) {
         std::string all = sc;
         for (size_t pos = 0; pos < all.size();) {
@@ -157,7 +161,7 @@ void ThievesView::set_cabinet(bool foreground, bool music, bool sound, bool redu
     if (returning) {
         if (hint_ && (*hint_).cancellation.stop_requested()) { join(hint_); show_.thinking(false); }
         if (gen_ && (*gen_).cancellation.stop_requested()) join(gen_);
-        if (save_.level < 0 && !gen_) start_endless_gen(save_.endless_tier);
+        if (!gen_ && save_.difficulty >= kEasy) start_gen(save_.difficulty);
     }
     if (reduced) { show_.settle(board_); if (won_) won_t_ = 9; }
     audio_music(std::string("ct_music_") + kSeasonName[static_cast<int>(show_.state().season)],
@@ -165,12 +169,16 @@ void ThievesView::set_cabinet(bool foreground, bool music, bool sound, bool redu
     request_frame();
 }
 
+games::GameCommand ThievesView::difficulty_command() const {
+    return {"level", std::string("Next: ") + difficulty_name(save_.difficulty)};
+}
+
 std::vector<games::GameCommand> ThievesView::commands() const {
     return {{"new", "New garden", true, false, true},
             {"restart", "Start over", panel_ == Panel::none},
             {"undo", "Undo", board_.moves() > 0 && !won_ && panel_ == Panel::none},
             {"hint", "Hint", !won_ && panel_ == Panel::none},
-            {"map", "Gardens", true, panel_ == Panel::map},
+            difficulty_command(),
             {"help", "Help", true, panel_ == Panel::help}};
 }
 
@@ -179,7 +187,6 @@ void ThievesView::run_command(std::string_view id) {
     for (const games::GameCommand& command : commands()) {
         if (command.id != id || !command.enabled) continue;
         if (id == "new") { open(Panel::none); next(); }
-        else if (id == "map") open(panel_ == Panel::map ? Panel::none : Panel::map);
         else if (id == "help") open(panel_ == Panel::help ? Panel::none : Panel::help);
         else action(std::string(id));
         request_frame();
@@ -228,53 +235,49 @@ void ThievesView::on_paint(gf::Painter& p, gf::Rect) {
     else p.fill_rect(b, gf::Color::rgba(120, 180, 80));
 }
 
-// ------------------------------------------------------------------ the campaign
-void ThievesView::load_campaign() {
-    std::filesystem::path campaign = std::filesystem::path(asset_dir()) / "catchingthieves/levels/campaign.txt";
-    if (!std::filesystem::is_regular_file(campaign)) campaign = std::filesystem::path(asset_dir()) / "levels/campaign.txt";
-    std::ifstream f(campaign);
+// ------------------------------------------------------------------ the gardens
+void ThievesView::load_tables() {
+    std::filesystem::path tables = std::filesystem::path(asset_dir()) / "catchingthieves/levels/gardens.txt";
+    if (!std::filesystem::is_regular_file(tables)) tables = std::filesystem::path(asset_dir()) / "levels/gardens.txt";
+    std::ifstream f(tables);
     std::stringstream ss;
     ss << f.rdbuf();
     std::string err;
-    if (!load_levels(ss.str(), levels_, &err) || levels_.empty()) {
-        throw std::runtime_error("Catching Thieves campaign missing or invalid: " + campaign.string() + " " + err);
+    if (!load_levels(ss.str(), table_, &err) || table_.empty()) {
+        throw std::runtime_error("Catching Thieves garden tables missing or invalid: " + tables.string() + " " + err);
     }
+    for (size_t i = 0; i < table_.size(); ++i) by_id_[table_[i].id] = i;
 }
 
-int ThievesView::section_solved(const std::string& section) const {
-    int n = 0;
-    for (size_t i = 0; i < levels_.size(); ++i)
-        if (levels_[i].section == section && save_.records.count(static_cast<int>(i))) ++n;
-    return n;
+int ThievesView::random(int n) {
+    rng_ ^= rng_ << 13;
+    rng_ ^= rng_ >> 7;
+    rng_ ^= rng_ << 17;
+    return n > 0 ? static_cast<int>((rng_ >> 11) % static_cast<std::uint64_t>(n)) : 0;
 }
 
-// The first two sections are open from the start; each later one opens once half of the one before is cleared.
-bool ThievesView::section_open(const std::string& section) const {
-    std::vector<std::string> order;
-    for (const LevelEntry& e : levels_)
-        if (order.empty() || order.back() != e.section) order.push_back(e.section);
-    const std::vector<std::string>::const_iterator it = std::find(order.begin(), order.end(), section);
-    if (it == order.end()) return true;
-    const size_t k = static_cast<size_t>(it - order.begin());
-    if (k < 2) return true;
-    int total = 0;
-    for (const LevelEntry& e : levels_) total += e.section == order[k - 1];
-    return section_solved(order[k - 1]) * 2 >= total;
+// A garden's season is chosen at random, never the same twice running, so a
+// session passes through the whole year and all five arrangements of the
+// music; it says nothing about difficulty, which the HUD names. Lessons are
+// always in spring, the brightest and plainest scene.
+int ThievesView::pick_season() {
+    if (save_.difficulty == kTutorial) return 0;
+    const int s = random(4);
+    return s >= save_.season ? s + 1 : s;
 }
 
-int ThievesView::medal(int index) const {
-    const std::map<int, LevelRecord>::const_iterator it = save_.records.find(index);
-    if (it == save_.records.end()) return 0;
-    const int par = levels_[static_cast<size_t>(index)].par;
+int ThievesView::medal(int pushes) const {
+    const int par = current_.par;
+    if (pushes <= 0) return 0;
     if (par <= 0) return 1;
-    if ((*it).second.best_pushes <= par) return 3;
-    if ((*it).second.best_pushes <= par + std::max(2, par / 5)) return 2;
+    if (pushes <= par) return 3;
+    if (pushes <= par + std::max(2, par / 5)) return 2;
     return 1;
 }
 
 void ThievesView::begin_level() {
     garden_.set_level(board_.level());
-    show_.set_level(board_, garden_, season_for(current_.section));
+    show_.set_level(board_, garden_, static_cast<Season>(std::clamp(save_.season, 0, 4)));
     show_.state().fade = cab_reduced_ ? 0 : 1;
     queue_.clear();
     won_ = false;
@@ -289,64 +292,106 @@ void ThievesView::begin_level() {
     request_frame();
 }
 
-void ThievesView::enter(int index, const std::string& history) {
-    if (levels_.empty()) return;
-    waiting_endless_ = false;
-    index = std::clamp(index, 0, static_cast<int>(levels_.size()) - 1);
-    current_ = levels_[static_cast<size_t>(index)];
-    save_.level = index;
+// New garden: a lesson chosen at random, or a garden grown fresh in the
+// background for this difficulty, or, while that is still growing, one from
+// the verified tables that has not been dealt yet. Dealing never waits.
+void ThievesView::deal() {
+    const int d = save_.difficulty;
+    if (d >= kEasy && gen_ && (*gen_).done && (*gen_).tier == d) {
+        LevelEntry e;
+        bool ok = false;
+        { std::lock_guard<std::mutex> lk((*gen_).m); ok = (*gen_).level.level.player >= 0; e = (*gen_).level; }
+        join(gen_);
+        if (ok) {
+            save_.season = pick_season();
+            enter_fresh(e);
+            return;
+        }
+    }
+    const std::string key = tier_rule(d).key;
+    std::vector<int> fresh, any;
+    for (const LevelEntry& e : table_) {
+        if (e.tier != key || e.id == save_.level) continue;
+        any.push_back(e.id);
+        if (!save_.played.count(e.id)) fresh.push_back(e.id);
+    }
+    if (fresh.empty()) {
+        // every garden of this tier has been dealt: they all come round again
+        for (int id : any) save_.played.erase(id);
+        fresh = any;
+    }
+    if (fresh.empty()) return;
+    const bool every_lesson = d == kTutorial && fresh.size() == any.size() && save_.tiers[kTutorial].cleared >= static_cast<int>(any.size());
+    save_.season = pick_season();
+    enter(fresh[static_cast<size_t>(random(static_cast<int>(fresh.size())))]);
+    if (every_lesson) {
+        say("You've seen every lesson. Try Easy: Next in the bar.", kGold);
+        play("ct_stinger_book", .8f);
+    }
+}
+
+bool ThievesView::enter(int id, const std::string& history) {
+    const std::map<int, size_t>::const_iterator it = by_id_.find(id);
+    if (it == by_id_.end()) return false;
+    current_ = table_[(*it).second];
+    save_.level = id;
+    save_.garden_tier = std::max(0, difficulty_from_key(current_.tier));
+    save_.endless_xsb.clear();
+    save_.endless_solution.clear();
+    save_.garden_title.clear();
+    save_.garden_par = 0;
+    save_.played.insert(id);
     board_.load(current_.level);
     if (!history.empty() && !board_.replay(history)) board_.restart();
     save_.history = board_.history();
     begin_level();
-    say(current_.level.title.empty() ? "A new garden" : current_.level.title, kPaper);
+    say(current_.level.title, kPaper);
     persist();
+    if (cab_front_ && save_.difficulty >= kEasy) start_gen(save_.difficulty);
+    return true;
 }
 
-void ThievesView::enter_endless(const LevelEntry& e, const std::string& history) {
+void ThievesView::enter_fresh(const LevelEntry& e, const std::string& history) {
     current_ = e;
     save_.level = -1;
+    save_.garden_tier = std::max(0, difficulty_from_key(e.tier));
     save_.endless_xsb = joined(e.level.xsb());
     save_.endless_solution = e.level.solution;
+    save_.garden_title = e.level.title;
+    save_.garden_par = e.par;
     board_.load(e.level);
     if (!history.empty() && !board_.replay(history)) board_.restart();
     save_.history = board_.history();
     begin_level();
-    say("Endless garden #" + std::to_string(save_.endless_cleared + 1), kPaper);
+    say(e.level.title, kPaper);
     persist();
     // grow the next one in the background
-    if (cab_front_) start_endless_gen(save_.endless_tier);
+    if (cab_front_ && save_.difficulty >= kEasy) start_gen(save_.difficulty);
 }
 
-void ThievesView::start_endless_gen(int tier) {
-    if (gen_ && !(*gen_).done) return;
+void ThievesView::set_difficulty(int difficulty) {
+    difficulty = std::clamp(difficulty, 0, kDifficulties - 1);
+    if (difficulty == save_.difficulty) return;
+    save_.difficulty = difficulty;
+    if (gen_ && (*gen_).tier != difficulty) join(gen_);
+    if (difficulty >= kEasy && cab_front_) start_gen(difficulty);
+    persist();
+}
+
+void ThievesView::start_gen(int tier) {
+    if (gen_ && (*gen_).tier == tier && (!(*gen_).done || (*gen_).level.level.player >= 0)) return;  // growing, or grown
     join(gen_);
     gen_ = std::make_unique<Worker>();
-    (*gen_).th = std::thread(&ThievesView::generate_worker, gen_.get(), tier, seed_now());
+    (*gen_).tier = tier;
+    (*gen_).th = std::thread(&ThievesView::generate_worker, gen_.get(), tier, seed_now() ^ rng_);
     request_frame();
 }
 
 void ThievesView::generate_worker(Worker* worker, int tier, std::uint64_t seed) {
-    const Tier tr = kTiers[std::clamp(tier, 0, kTiersN - 1)];
-    GenParams parameters;
-    parameters.w = tr.w; parameters.h = tr.h; parameters.boxes = tr.boxes;
-    parameters.min_pushes = tr.min_pushes; parameters.reverse_budget = tr.budget;
-    parameters.seed = seed;
     const CancellationToken stop = (*worker).cancellation.get_token();
-    GenResult result = generate(parameters, stop);
-    if (!result.ok && !stop.stop_requested()) {
-        parameters.boxes = std::max(2, parameters.boxes - 1);
-        parameters.min_pushes -= 6; parameters.seed ^= 0x55;
-        result = generate(parameters, stop);
-    }
+    const Grown grown = grow(tier, seed, stop);
     std::lock_guard<std::mutex> lock((*worker).m);
-    if (result.ok && !stop.stop_requested()) {
-        (*worker).level.level = result.level;
-        (*worker).level.par = result.pushes;
-        (*worker).level.switches = result.box_lines;
-        (*worker).level.section = std::string("Endless ") + tr.name;
-        (*worker).level.level.title = std::string(tr.name) + " garden";
-    }
+    if (grown.ok && !stop.stop_requested()) (*worker).level = grown.entry;
     (*worker).done = true;
 }
 
@@ -375,6 +420,7 @@ bool ThievesView::same_position(const Board& x) const {
 void ThievesView::start_hint() {
     if (won_) return;
     if (hint_ && !(*hint_).done) { say("Thinking...", kPaper); return; }
+    show_.hinted();
     // instant when the garden still lies somewhere along its known best solution: the rest of it is still best
     if (!current_.level.solution.empty()) {
         Board b;
@@ -449,10 +495,6 @@ void ThievesView::poll_workers() {
         } else {
             say("Too tangled to see from here. Try undoing.", hex(0xFFB0A0));
         }
-    }
-    if (gen_ && (*gen_).done && waiting_endless_ && panel_ == Panel::none) {
-        waiting_endless_ = false;
-        next();
     }
 }
 
@@ -556,47 +598,22 @@ void ThievesView::finish() {
     won_ = true;
     won_t_ = cab_reduced_ ? 9 : 0;
     queue_.clear();
-    show_.won();
+    const bool perfect = current_.par > 0 && board_.pushes() <= current_.par;
+    show_.won(perfect);
     if (save_.level >= 0) {
         LevelRecord& r = save_.records[save_.level];
         if (r.best_moves == 0 || board_.moves() < r.best_moves) r.best_moves = board_.moves();
         if (r.best_pushes == 0 || board_.pushes() < r.best_pushes) r.best_pushes = board_.pushes();
-    } else {
-        ++save_.endless_cleared;
     }
+    TierRecord& tier = save_.tiers[static_cast<size_t>(std::clamp(save_.garden_tier, 0, kDifficulties - 1))];
+    ++tier.cleared;
+    tier.perfect += perfect;
     persist();
     layout_buttons();
 }
 
 void ThievesView::next() {
-    if (save_.level < 0) {
-        if (gen_ && (*gen_).done) {
-            LevelEntry e;
-            bool ok = false;
-            { std::lock_guard<std::mutex> lk((*gen_).m); ok = (*gen_).level.level.player >= 0; e = (*gen_).level; }
-            join(gen_);
-            if (ok) { enter_endless(e); return; }
-            start_endless_gen(save_.endless_tier);
-        }
-        say("Growing the next garden...", kPaper);
-        waiting_endless_ = true;
-        return;
-    }
-    const int n = save_.level + 1;
-    if (n >= static_cast<int>(levels_.size())) {
-        say("Every garden in the book is safe! On to the endless gardens.", kGold);
-        play("ct_stinger_book", .9f);
-        audio_duck_music(1);
-        save_.endless_tier = kTiersN - 1;
-        open(Panel::map);
-        return;
-    }
-    if (!section_open(levels_[static_cast<size_t>(n)].section)) {
-        say("Clear half of this season's gardens to open the next.", kPaper);
-        open(Panel::map);
-        return;
-    }
-    enter(n);
+    deal();
 }
 
 // ------------------------------------------------------------------ frame
@@ -629,8 +646,9 @@ bool ThievesView::scripted_action(std::string_view requested) {
     if (!opt_.dev || !cab_front_ || requested.size() > 128) return false;
     const std::string code(requested);
     int numeric = 0;
-    if (requested.starts_with("lvl") && !script_index(requested.substr(3), static_cast<int>(levels_.size()), numeric)) return false;
-    if (requested.starts_with("end") && !script_index(requested.substr(3), kTiersN, numeric)) return false;
+    if (requested.starts_with("lvl") && (!script_index(requested.substr(3), kMaxGardenId + 1, numeric) || !by_id_.count(numeric))) return false;
+    if (requested.starts_with("tier") && !script_index(requested.substr(4), kDifficulties, numeric)) return false;
+    if (requested.starts_with("fresh") && !script_index(requested.substr(5), kDifficulties, numeric)) return false;
     if (requested.starts_with("mv") && !script_index(requested.substr(2), board_.level().w * board_.level().h, numeric)) return false;
         if (code == "u") step(kUp);
         else if (code == "d") step(kDown);
@@ -640,17 +658,29 @@ bool ThievesView::scripted_action(std::string_view requested) {
         else if (code == "rs") restart();
         else if (code == "h") start_hint();
         else if (code == "n") next();
-        else if (code == "map") open(Panel::map);
         else if (code == "help") open(Panel::help);
+        else if (code == "menu" && !opt_.hosted) open(Panel::menu);
         else if (code == "close") open(Panel::none);
         else if (code == "sol") {
             // the recorded solution from the start of the level, a letter per step
             for (char c : current_.level.solution) if (dir_of(c) >= 0) queue_.push_back(dir_of(c));
         }
         else if (code.rfind("lvl", 0) == 0) {
-            const int level = std::atoi(code.c_str() + 3);
-            if (level < 0 || level >= static_cast<int>(levels_.size())) return false;
-            enter(level);
+            // a table garden by its id
+            if (!enter(numeric)) return false;
+        }
+        else if (code.rfind("tier", 0) == 0) {
+            // choose a difficulty and deal at it
+            set_difficulty(numeric);
+            deal();
+        }
+        else if (code.rfind("fresh", 0) == 0) {
+            // grow a fresh garden here and now, with a fixed seed, and play it
+            if (numeric < kEasy) return false;
+            set_difficulty(numeric);
+            const Grown grown = grow(numeric, 4242);
+            if (!grown.ok) return false;
+            enter_fresh(grown.entry);
         }
         else if (code == "stuckme") {
             // dev: the shortest walk that wedges a pumpkin for good (breadth-first over a few moves)
@@ -668,7 +698,6 @@ bool ThievesView::scripted_action(std::string_view requested) {
                 }
             }
         }
-        else if (code.rfind("end", 0) == 0) action("endless" + code.substr(3));
         else if (code.rfind("mv", 0) == 0) walk_to(std::atoi(code.c_str() + 2));
         else return false;
     if (cab_reduced_) commit_queued_moves();
@@ -789,7 +818,7 @@ void ThievesView::on_key(gf::KeyEvent& e) {
     if (e.action != gf::KeyAction::down) return;
     const std::uint32_t k = e.physical_key;
     if (panel_ != Panel::none) {
-        if (k == K::escape || k == K::enter || (k == K::l && panel_ == Panel::map) || (k == K::f1 && panel_ == Panel::help)) open(Panel::none);
+        if (k == K::escape || k == K::enter || (k == K::f1 && panel_ == Panel::help)) open(Panel::none);
         e.handled = true;
         return;
     }
@@ -809,7 +838,6 @@ void ThievesView::on_key(gf::KeyEvent& e) {
     if (k == K::r) { restart(); e.handled = true; return; }
     if (k == K::h) { open(Panel::help); e.handled = true; return; }
     if (k == K::enter || k == K::n) { if (won_) next(); e.handled = true; return; }
-    if (k == K::l) { open(Panel::map); e.handled = true; return; }
     if (k == K::f1) { open(Panel::help); e.handled = true; return; }
     if (k == K::m) { action("music"); e.handled = true; return; }
     if (k == K::escape) { e.handled = true; return; }
@@ -819,47 +847,25 @@ void ThievesView::action(const std::string& id) {
     request_frame();
     play("ct_click", .4f);
     if (panel_ == Panel::menu && (id == "undo" || id == "restart" || id == "hint" || id == "new")) open(Panel::none);
+    if (id == "level") {
+        // the difficulty: an untouched garden is replaced at once; otherwise it applies to the next one
+        set_difficulty((save_.difficulty + 1) % kDifficulties);
+        if (board_.moves() == 0 && !won_) { open(Panel::none); deal(); }
+        else say(std::string("Your next garden will be ") + difficulty_name(save_.difficulty) + ".", kPaper);
+        layout_buttons();
+        return;
+    }
     if (id == "menu") open(panel_ == Panel::menu ? Panel::none : Panel::menu);
     else if (id == "new") next();
     else if (id == "close") open(Panel::none);
     else if (id == "undo") undo();
     else if (id == "restart") restart();
     else if (id == "hint") start_hint();
-    else if (id == "map") open(Panel::map);
     else if (id == "help") open(Panel::help);
     else if (id == "next") next();
     else if (id == "again") restart();
-    else if (id == "map_previous") { map_section_ = std::max(0, map_section_ - 1); layout_buttons(); }
-    else if (id == "map_next") { ++map_section_; layout_buttons(); }
     else if (id == "sound" && !opt_.hosted) { save_.settings.sound = !save_.settings.sound; dirty_ = true; persist(); layout_buttons(); }
     else if (id == "music" && !opt_.hosted) { save_.settings.music = !save_.settings.music; dirty_ = true; persist(); layout_buttons(); }
-    else if (id.rfind("lv", 0) == 0) {
-        const int i = std::atoi(id.c_str() + 2);
-        if (i >= 0 && i < static_cast<int>(levels_.size()) && section_open(levels_[static_cast<size_t>(i)].section)) { open(Panel::none); enter(i); }
-    } else if (id.rfind("endless", 0) == 0) {
-        const int tier = std::atoi(id.c_str() + 7);
-        if (tier < 0 || tier >= kTiersN) return;
-        open(Panel::none);
-        if (save_.endless_tier != tier || save_.endless_xsb.empty()) {
-            save_.endless_tier = tier;
-            join(gen_);
-            start_endless_gen(tier);
-            save_.level = -1;
-            won_ = true;
-            won_t_ = 9;
-            current_.section = std::string("Endless ") + kTiers[tier].name;
-            save_.endless_xsb.clear();
-            waiting_endless_ = true;
-            say("Growing a garden...", kPaper);
-        } else {
-            LevelEntry e;
-            if (Level::parse(split(save_.endless_xsb), e.level)) {
-                e.level.solution = save_.endless_solution;
-                e.section = std::string("Endless ") + kTiers[tier].name;
-                enter_endless(e);
-            }
-        }
-    }
 }
 
 void ThievesView::open(Panel p) {
@@ -902,11 +908,12 @@ void ThievesView::layout_buttons() {
         return;
     }
     if (panel_ == Panel::menu) {
-        const char* ids[] = {"new", "restart", "undo", "hint", "map", "help", "music", "sound", "close"};
-        const char* names[] = {"New garden", "Start over", "Undo", "Hint", "Gardens", "Help", "Music", "Sound", "Close"};
+        const char* ids[] = {"new", "restart", "undo", "hint", "level", "help", "music", "sound", "close"};
+        const char* names[] = {"New garden", "Start over", "Undo", "Hint", "", "Help", "Music", "Sound", "Close"};
         const int width = (pw_ - 44) / 3;
         for (int index = 0; index < 9; ++index) {
             std::string label = names[index];
+            if (index == 4) label = difficulty_command().label;
             if (index == 6) label += save_.settings.music ? " on" : " off";
             if (index == 7) label += save_.settings.sound ? " on" : " off";
             buttons_.push_back({ids[index], label, 16 + index % 3 * (width + 6),
@@ -920,43 +927,10 @@ void ThievesView::layout_buttons() {
         buttons_.push_back({"close", "Back to the garden", wx + ww - 120, wy + wh - 22, 110, 15, 1});
         return;
     }
-    std::vector<std::string> sections;
-    for (const LevelEntry& entry : levels_)
-        if (sections.empty() || sections.back() != entry.section) sections.push_back(entry.section);
-    if (sections.empty()) return;
-    map_section_ = std::clamp(map_section_, 0, static_cast<int>(sections.size()) - 1);
-    const std::string& section = sections[static_cast<std::size_t>(map_section_)];
-    const int columns = std::max(1, (pw_ - 32) / 18);
-    int position = 0;
-    for (std::size_t index = 0; index < levels_.size(); ++index) {
-        if (levels_[index].section != section) continue;
-        buttons_.push_back({"lv" + std::to_string(index), std::to_string(position + 1),
-                            16 + position % columns * 18, 46 + position / columns * 18,
-                            16, 16, 2, section_open(section)});
-        ++position;
-    }
-    const int endless_y = std::max(94, ph_ - 46), tier_width = (pw_ - 32) / kTiersN;
-    for (int tier = 0; tier < kTiersN; ++tier)
-        buttons_.push_back({"endless" + std::to_string(tier), kTiers[tier].name,
-                            16 + tier * tier_width, endless_y, tier_width - 3, 15});
-    buttons_.push_back({"map_previous", "Previous", 16, ph_ - 25, 65, 15, 0, map_section_ > 0});
-    buttons_.push_back({"map_next", "Next season", 86, ph_ - 25, 72, 15, 0,
-                        map_section_ + 1 < static_cast<int>(sections.size())});
-    buttons_.push_back({"close", "Close", pw_ - 76, ph_ - 25, 60, 15, 1});
 }
 
 void ThievesView::draw_button(const Button& b) {
     const bool down = pressed_ == b.id, over = hover_ == b.id && b.enabled;
-    if (b.style == 2) {
-        // a map tile: a pumpkin medal, or a seed packet still to plant
-        const int i = std::atoi(b.id.c_str() + 2);
-        const int m = medal(i);
-        const bool here = save_.level == i;
-        frame_.fill_rect(b.x, b.y, b.w, b.h, !b.enabled ? hex(0x8A8070, .5f) : over ? hex(0xFFF6D8) : here ? hex(0xFFE9A8) : hex(0xEAD9B0));
-        frame_.begin(); frame_.rect(b.x + .5, b.y + .5, b.w - 1, b.h - 1); frame_.stroke(here ? kOrange : hex(0x8A7450), 1);
-        if (m) medal_icon(frame_, b.x + b.w / 2.0, b.y + b.h / 2.0 + .5, 3.6, m);
-        return;
-    }
     const Col face = b.style == 1 ? (over ? hex(0x7AAE48) : kLeafGreen) : (over ? hex(0xFFF8E4) : kPaperDark);
     frame_.fill_rect(b.x + 1, b.y + 2, b.w, b.h, hex(0x000000, .25f));
     frame_.begin(); frame_.rrect(b.x, b.y + (down ? 1 : 0), b.w, b.h, 4); frame_.fill(face);
@@ -979,12 +953,15 @@ void ThievesView::draw_hud() {
     const std::string title = current_.level.title.empty() ? "A garden" : current_.level.title;
     text(title, x + 10, y, kInk, 13, 2, w - 22);
     y += text_h(title, 13, 2, w - 22) + 2;
-    if (save_.level >= 0) {
-        text("Garden " + std::to_string(save_.level + 1) + " of " + std::to_string(levels_.size()), x + 10, y, hex(0x8A7450), 9.5, 0);
+    if (!current_.lesson.empty()) {
+        // a lesson: its one mechanism, in a sentence
+        text(current_.lesson, x + 10, y, kInk, 9.5, 0, w - 22);
+        y += text_h(current_.lesson, 9.5, 0, w - 22) + 4;
     } else {
-        text("Endless: " + std::to_string(save_.endless_cleared) + " cleared", x + 10, y, hex(0x8A7450), 9.5, 0);
+        const int cleared = save_.tiers[static_cast<size_t>(std::clamp(save_.garden_tier, 0, kDifficulties - 1))].cleared;
+        text(std::to_string(cleared) + " cleared at " + difficulty_name(save_.garden_tier), x + 10, y, hex(0x8A7450), 9.5, 0, w - 22);
+        y += text_h("0", 9.5, 0) + 4;
     }
-    y += 16;
     frame_.fill_rect(x + 10, y, w - 26, 1, hex(0xC8B890));
     y += 6;
     if (current_.par > 0) {
@@ -998,13 +975,13 @@ void ThievesView::draw_hud() {
     const int n = static_cast<int>(board_.boxes().size()), caught = board_.on_goal();
     text("Caught " + std::to_string(caught) + "/" + std::to_string(n), x + 10, y, hex(0x6A5A40), 10, 1);
     y += 18;
-    if (save_.level >= 0) {
-        const int m = medal(save_.level);
-        if (m) {
-            medal_icon(frame_, x + 16, y + 6, 5, m);
-            const LevelRecord& r = save_.records.at(save_.level);
-            text("Best: " + std::to_string(r.best_pushes) + " pushes", x + 26, y, hex(0x6A5A40), 10, 0);
-        }
+    // the best result here: recorded for a table garden, or this one just won
+    int best = 0;
+    if (save_.level >= 0 && save_.records.count(save_.level)) best = save_.records.at(save_.level).best_pushes;
+    if (won_ && (best == 0 || board_.pushes() < best)) best = board_.pushes();
+    if (best > 0) {
+        medal_icon(frame_, x + 16, y + 6, 5, medal(best));
+        text("Best: " + std::to_string(best) + " pushes", x + 26, y, hex(0x6A5A40), 10, 0, w - 36);
     }
     for (const Button& b : buttons_)
         if (b.id != "next" && b.id != "again") draw_button(b);
@@ -1054,34 +1031,8 @@ void ThievesView::draw_win_card() {
         if (b.id == "next" || b.id == "again") draw_button(b);
 }
 
-void ThievesView::draw_map() {
-    frame_.fill_rect(0, 0, pw_, ph_, hex(0x2A3A1A, .55f));
-    frame_.begin(); frame_.rrect(8, 8, pw_ - 16, ph_ - 16, 8); frame_.fill(kPaper);
-    frame_.begin(); frame_.rrect(8.5, 8.5, pw_ - 17, ph_ - 17, 8); frame_.stroke(kLeafDark, 1.2);
-    text("The Garden Book", 18, 13, kLeafGreen, 15, 2);
-    std::vector<std::string> sections;
-    for (const LevelEntry& entry : levels_)
-        if (sections.empty() || sections.back() != entry.section) sections.push_back(entry.section);
-    if (!sections.empty()) {
-        const std::string& section = sections[static_cast<std::size_t>(map_section_)];
-        text(section + (section_open(section) ? "" : " (locked)"), 18, 31, kInk, 11, 1);
-    }
-    text("Endless gardens", 18, std::max(82, ph_ - 58), kInk, 9, 1);
-    for (const Button& b : buttons_) draw_button(b);
-    // the hovered garden's name
-    for (const Button& b : buttons_)
-        if (b.id == hover_ && b.style == 2) {
-            const int i = std::atoi(b.id.c_str() + 2);
-            const LevelEntry& e = levels_[static_cast<size_t>(i)];
-            std::string s = e.level.title + "  -  best possible " + std::to_string(e.par) + " pushes";
-            if (save_.records.count(i)) s += ",  yours " + std::to_string(save_.records.at(i).best_pushes);
-            text(s, 130, 14, kInk, 9, 0, pw_ - 150);
-        }
-}
-
 void ThievesView::draw_panel() {
     if (panel_ == Panel::none) return;
-    if (panel_ == Panel::map) { draw_map(); return; }
     if (panel_ == Panel::menu) {
         frame_.fill_rect(0, 0, pw_, ph_, hex(0x2A3A1A, .55f));
         frame_.begin(); frame_.rrect(8, 8, pw_ - 16, ph_ - 16, 8); frame_.fill(kPaper);
@@ -1098,8 +1049,8 @@ void ThievesView::draw_panel() {
     text("Catching Thieves", wx + (ww - text_w("Catching Thieves", 16, 2)) / 2, wy + 10, kLeafGreen, 16, 2);
     const char* paragraphs[] = {
         "Push a pumpkin onto every raccoon burrow. The bear can push, never pull. A pumpkin in a corner may need Undo.",
-        "Every garden has a verified solution. Match its fewest pushes for a gold pumpkin.",
-        "Arrows or WASD walk; click a square to walk there. Z undo, R restart, L gardens. Use Hint in the menu."};
+        "Next in the menu chooses Tutorial, Easy, Medium or Hard for the next garden. Every garden has a verified solution; match its fewest pushes for gold.",
+        "Arrows or WASD walk; click a square to walk there. Z undo, R restart. Use Hint in the menu."};
     for (int index = 0; index < 3; ++index) {
         const std::string paragraph = paragraphs[index];
         text(paragraph, wx + 14, ly, kInk, 10, 0, ww - 28);

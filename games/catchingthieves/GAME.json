@@ -52,10 +52,12 @@
     "src/level.cpp",
     "src/solver.cpp",
     "src/gen.cpp",
+    "src/tiers.cpp",
     "src/levelset.cpp",
     "src/critters.cpp",
     "src/garden.cpp",
     "src/show.cpp",
+    "src/lines.cpp",
     "src/save.cpp"
   ],
   "core_tests": [
@@ -72,16 +74,12 @@
     "src/garden.hpp",
     "src/level.cpp",
     "src/level.hpp",
-    "src/levelset.cpp",
-    "src/levelset.hpp",
     "src/platform/mesh.cpp",
     "src/platform/mesh.hpp",
     "src/platform/r3d.cpp",
     "src/platform/r3d.hpp",
     "src/platform/raster.cpp",
-    "src/platform/raster.hpp",
-    "src/save.hpp",
-    "tools/levelgen.cpp"
+    "src/platform/raster.hpp"
   ],
   "rules_target": "ct_rules_tests"
 }

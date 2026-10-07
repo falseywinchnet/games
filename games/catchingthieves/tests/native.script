@@ -1,8 +1,8 @@
 # Run with --game catchingthieves --standalone --dev --script <this-file>
 100 action close
 300 action sol
-4500 action map
-5000 action close
+4500 command level
+5000 action tier3
 5500 action lvl40
 5700 key up
 5900 key z
