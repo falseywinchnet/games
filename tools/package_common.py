@@ -11,11 +11,18 @@ ROOT = Path(__file__).resolve().parents[1]
 TOOLKIT_REVISION = "2ac5dcd84b8f5b0e241691e31880e36684e0cfcf"
 
 
-def runtime_exclusions(directory, names):
-    # Also handle incremental builds that still contain the old duplicate PNGs.
-    if Path(directory).name == "cards":
-        return [name for name in names if Path(name).suffix.lower() == ".png"]
-    return []
+def missing_prepared_files(assets):
+    """Every card, sound and game resource the prepared manifests list, absent from `assets`."""
+    listed = []
+    cards = assets / "cards/manifest.json"
+    if cards.is_file():
+        listed += ["cards/" + record["file"] for record in json.loads(cards.read_text(encoding="utf-8"))]
+    audio = assets / "audio/portable_manifest.json"
+    if audio.is_file():
+        manifest = json.loads(audio.read_text(encoding="utf-8"))
+        listed += ["audio/" + record["file"] for record in manifest.get("files", [])]
+        listed += [record["file"] for record in manifest.get("module_resources", [])]
+    return [name for name in listed if not (assets / name).is_file()]
 
 
 def project_version():
@@ -34,7 +41,11 @@ def copy_resources(build, toolkit, destination):
     assets = build / "assets"
     if not assets.is_dir():
         assets = build / "games.app/Contents/Resources/assets"
-    shutil.copytree(assets, destination / "assets", dirs_exist_ok=True, ignore=runtime_exclusions)
+    shutil.copytree(assets, destination / "assets", dirs_exist_ok=True)
+    # A package that lost a prepared file would only show it when the game opens.
+    missing = missing_prepared_files(destination / "assets")
+    if missing:
+        raise RuntimeError("Packaged assets are missing prepared files: " + ", ".join(missing[:10]))
     shutil.copytree(toolkit / "assets/fonts", destination / "fonts", dirs_exist_ok=True)
     notices = destination / "licenses"
     notices.mkdir(exist_ok=True)

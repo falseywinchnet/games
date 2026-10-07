@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 from prepare_portable_assets import asset_inventory, audio_verification, card_verification
 from verify_portable_assets import verify
 from publication_version import select
+from package_common import missing_prepared_files
 
 
 def digest(data):
@@ -180,6 +181,23 @@ class ModuleAssets(unittest.TestCase):
         (runtime / "obsolete/scene.txt").write_text("old")
         with self.assertRaisesRegex(ValueError, "unexpected"):
             verify(self.source, runtime)
+
+
+class PackagedAssets(unittest.TestCase):
+    def test_every_prepared_file_must_be_packaged(self):
+        with tempfile.TemporaryDirectory() as directory:
+            assets = Path(directory)
+            (assets / "cards").mkdir()
+            (assets / "audio").mkdir()
+            (assets / "game").mkdir()
+            (assets / "cards/manifest.json").write_text(json.dumps([{"file": "hana_00.png"}]))
+            (assets / "audio/portable_manifest.json").write_text(json.dumps(
+                {"files": [{"file": "tap.ogg"}], "module_resources": [{"file": "game/levels.txt"}]}))
+            self.assertEqual(missing_prepared_files(assets), ["cards/hana_00.png", "audio/tap.ogg", "game/levels.txt"])
+            (assets / "cards/hana_00.png").write_bytes(CARD)
+            (assets / "audio/tap.ogg").write_bytes(b"OggS")
+            (assets / "game/levels.txt").write_text("1")
+            self.assertEqual(missing_prepared_files(assets), [])
 
 
 class PublicationVersions(unittest.TestCase):
