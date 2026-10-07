@@ -14,6 +14,7 @@
 // Shading decisions belong to the scene's Look; buffers, order and cost belong here.
 #include "ambient_math.hpp"
 #include "archive.hpp"
+#include "caustics.hpp"
 #include "motion.hpp"
 #include "raster3d.hpp"
 
@@ -58,6 +59,7 @@ struct SwayShade {
     Rgb front{};
     Rgb back{};
     float alpha{1};
+    Rgb light_boost{};  // display colour added at full caustic light (zero when none)
 };
 
 struct ActorSample {
@@ -71,6 +73,7 @@ struct ActorSample {
     Rgb tint{};
     std::uint32_t material{};
     float screen_v{};  // 0 top .. 1 bottom of the view
+    float light{};     // caustic light strength here, 0..1 (zero when the look has none)
 };
 
 class Look {
@@ -81,8 +84,15 @@ class Look {
     // The light the shadow map is rendered from.
     [[nodiscard]] virtual LightFrame light_frame() const = 0;
     [[nodiscard]] virtual FixedShade shade_fixed(const FixedSample& sample, const SceneData& scene) const = 0;
-    // Strength 0..1 of the animated light at a world position and time.
+    // Strength 0..1 of the animated light at a world position and time. Used only
+    // when the look has no caustic field.
     [[nodiscard]] virtual float animated_light(float x, float z, float time) const = 0;
+    // The caustic pattern lighting this scene, or null for the simpler animated light
+    // above. With one, foliage (SwayShade::light_boost) and creatures
+    // (ActorSample::light) take the light as well as fixed surfaces.
+    [[nodiscard]] virtual const CausticField* caustics() const {
+        return nullptr;
+    }
     [[nodiscard]] virtual SwayShade shade_sway(const SwaySample& sample) const = 0;
     // Material-specific motion of a creature vertex in mesh space; may tilt the normal.
     virtual void deform_actor(std::uint32_t material, const ActorVertex& vertex, float creature, float time,
@@ -105,7 +115,7 @@ struct FixedLayer {
     std::vector<std::uint32_t> color{};      // width * height, 0x00RRGGBB display colour
     std::vector<float> depth{};              // reciprocal depth; 0 where nothing is drawn
     std::vector<std::uint32_t> boost{};      // 0x00RRGGBB animated light at full strength
-    std::vector<float> light_position{};     // width * height * 2: world x, z where boost != 0
+    std::vector<float> light_position{};     // width * height * 3: world x, y, z where boost != 0
     std::vector<std::uint8_t> settled{};     // per foliage triangle: 1 when drawn here, at rest
     std::vector<std::uint8_t> hidden{};      // per foliage triangle: 1 when this layer hides it however it sways
 };
@@ -119,6 +129,7 @@ struct Foliage {
     std::vector<SwayShade> gradient{};     // per vertex change of shade per unit bend slope
     std::vector<float> reach{};            // per vertex largest displacement, world units
     std::vector<std::uint32_t> order{};    // triangle draw order
+    std::vector<std::uint32_t> boost{};    // per vertex caustic light at full strength, 0x00RRGGBB
 };
 [[nodiscard]] Foliage prepare_foliage(const SceneData& scene, const Look& look, const ShadowMap& shadows);
 // Per foliage triangle: 1 when none of its vertices can move `threshold_pixels`
@@ -198,7 +209,7 @@ class Stage final {
     }
 
   private:
-    void draw_actors(double time, const std::vector<Creature>& creatures);
+    void draw_actors(double time, float light_time, const std::vector<Creature>& creatures);
     void draw_risers(double time);
 
     const SceneData& scene_;
@@ -211,6 +222,13 @@ class Stage final {
     std::vector<std::uint32_t> sway_color_[2]{};
     std::vector<float> sway_depth_[2]{};
     std::vector<std::uint32_t> lit_pixels_[2]{};  // pixels still taking animated light
+    // Per pixel, with a caustic field: the light's tap (CausticField::tap) and the
+    // display colour it adds at full strength. Fixed surfaces once per layer;
+    // the sway layers add the foliage's own.
+    std::vector<std::uint32_t> fixed_tap_{};
+    std::vector<std::uint32_t> sway_tap_[2]{};
+    std::vector<std::uint32_t> sway_boost_[2]{};
+    std::vector<CausticPoint> sway_light_{};  // this update, per moving foliage vertex
     int shown_{};
     std::vector<std::uint8_t> lit_mask_{};     // 1 where the fixed surface still shows
     std::vector<std::uint8_t> fixed_lit_{};    // 1 where the fixed layer takes animated light

@@ -9,6 +9,7 @@
 #include "island_voice.hpp"
 #include "stage.hpp"
 #include "tank_voice.hpp"
+#include "tanks.hpp"
 #include "treasure.hpp"
 
 #include <algorithm>
@@ -49,7 +50,7 @@ void test_look_ranges(const sw::RiverscapeLook& look) {
         previous = out.y;
     }
     require(sw::display_aces({0, 0, 0}).y < 0.02F, "black stays black");
-    // The animated light is a pattern in 0..1 that moves with time.
+    // The caustics: a pattern in 0..1 that moves with time.
     float lowest = 1;
     float highest = 0;
     int changed = 0;
@@ -62,7 +63,14 @@ void test_look_ranges(const sw::RiverscapeLook& look) {
         highest = std::max(highest, a);
         changed += std::abs(a - b) > 0.01F ? 1 : 0;
     }
-    require(lowest == 0 && highest > 0.8F, "the light forms bright ridges between dark water");
+    require(lowest == 0 && highest > 0.8F, "the light forms bright lines between dark water");
+    // The pattern loops: one period on, the same light.
+    const ambient::CausticField& field = *look.caustics();
+    const float period = static_cast<float>(sw::tank_style(sw::Tank::planted).caustics.period);
+    for (int k = 0; k < 200; ++k) {
+        const ambient::Vec3 at{-6.0F + 0.06F * static_cast<float>(k), 0.3F, 0.5F};
+        require(std::abs(field.at(at, 3.0F) - field.at(at, 3.0F + period)) < 1e-4F, "the caustics loop");
+    }
     require(changed > 200, "the light pattern moves");
 }
 
@@ -134,11 +142,59 @@ void test_treasure(const ambient::SceneData& original) {
             "the chest is sunk in the sand");
 }
 
+// Another tank's archive: it loads, keeps within its budget, draws its own colours,
+// its fish, its foliage and its caustics.
+void test_tank(const std::string& path, sw::Tank tank) {
+    ambient::SceneData scene{};
+    std::string error{};
+    require(ambient::load_scene(path, scene, error), "the tank's archive loads and validates");
+    require(scene.textures.size() == 6 && scene.actors.size() >= 15, "the tank has its fish");
+    require(scene.sway.indices.size() / 3 > 2000 && scene.sway.indices.size() / 3 < 60000,
+            "the tank's foliage is within budget");
+    sw::dress_tank(tank, scene);
+    const sw::RiverscapeLook look(scene, sw::tank_style(tank));
+    require(look.caustics() != nullptr && !(*look.caustics()).empty(), "the tank has caustics");
+    const ambient::ShadowMap shadows = ambient::build_shadow_map(scene, look, 512);
+    const ambient::Foliage foliage = ambient::prepare_foliage(scene, look, shadows);
+    ambient::FixedLayer layer = ambient::build_fixed_layer(scene, look, shadows, foliage, 236, 152, 2, 0.5F);
+    std::size_t lit = 0;
+    for (const std::uint32_t boost : layer.boost)
+        lit += boost != 0 ? 1 : 0;
+    require(lit > 2000, "the tank's floor and stones take the caustics");
+    ambient::Stage stage(scene, look, foliage);
+    stage.adopt(std::move(layer));
+    std::vector<ambient::Creature> creatures = ambient::creatures_from(scene.actors);
+    stage.update_sway(10.0);
+    stage.compose(10.0, 10.0, creatures);
+    const std::vector<std::uint32_t> frame = stage.frame();
+    require(stage.counters().actor_fragments > 200, "the tank's fish are drawn");
+    double red = 0;
+    double green = 0;
+    double blue = 0;
+    for (const std::uint32_t pixel : frame) {
+        red += static_cast<double>((pixel >> 16U) & 255U);
+        green += static_cast<double>((pixel >> 8U) & 255U);
+        blue += static_cast<double>(pixel & 255U);
+    }
+    if (tank == sw::Tank::reef)
+        require(blue > green * 1.15 && blue > red * 1.5, "the reef's water is blue");
+    else
+        require(red > blue * 1.2 && green > blue * 1.2, "the river pool's water is brown");
+    stage.compose(10.0, 13.0, creatures);
+    require(differing(stage.frame(), frame) > 300, "the tank's caustics move");
+    stage.update_sway(14.0);
+    stage.compose(10.0, 10.0, creatures);
+    require(differing(stage.frame(), frame) > 50, "the tank's foliage sways");
+    stage.update_sway(10.0);
+    stage.compose(10.0, 10.0, creatures);
+    require(differing(stage.frame(), frame) == 0, "the tank's frames are reproducible");
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        std::fprintf(stderr, "usage: %s riverscape.ambient\n", argv[0]);
+        std::fprintf(stderr, "usage: %s riverscape.ambient (reef.ambient and pool.ambient beside it)\n", argv[0]);
         return 2;
     }
     ambient::SceneData scene{};
@@ -151,7 +207,7 @@ int main(int argc, char** argv) {
             "the foliage is within its processor budget");
     require(scene.actors.size() == 18 && scene.risers.size() == 30, "sixteen fish, two crabs and the air stone");
 
-    const sw::RiverscapeLook look(scene);
+    const sw::RiverscapeLook look(scene, sw::tank_style(sw::Tank::planted));
     test_look_ranges(look);
     test_voices();
     test_treasure(scene);
@@ -193,10 +249,13 @@ int main(int argc, char** argv) {
     // Same inputs, same frame.
     stage.compose(10.0, 10.0, creatures);
     require(differing(stage.frame(), frame) == 0, "composing is reproducible");
-    // Only the light's clock: some sand changes, the grass does not.
+    // Only the light's clock: the caustics move over sand, stone, leaves and fish,
+    // and setting the clock back gives the same picture.
     stage.compose(10.0, 13.0, creatures);
     const int by_light = differing(stage.frame(), frame);
-    require(by_light > 100 && by_light < static_cast<int>(frame.size()) / 3, "the light moves on the sand only");
+    require(by_light > 1000 && by_light < static_cast<int>(frame.size()) * 3 / 4, "the caustics move");
+    stage.compose(10.0, 10.0, creatures);
+    require(differing(stage.frame(), frame) == 0, "the caustics are a function of their clock");
     // Creatures' clock: a little of the picture changes.
     stage.compose(10.5, 10.0, creatures);
     const int by_fish = differing(stage.frame(), frame);
@@ -239,6 +298,10 @@ int main(int argc, char** argv) {
                                                   static_cast<float>(before.position.z)}));
     const ambient::ScreenTap tap{at.x / width, at.y / height, static_cast<double>(width) / height, 0.05};
     require(ambient::startle(creatures, projection, tap, 12.0, ambient::Bounds{}) >= 1, "a tap startles the fish beside it");
+    // The other tanks, beside the planted tank's archive.
+    const std::string folder = std::string(argv[1]).substr(0, std::string(argv[1]).find_last_of("/\\") + 1);
+    test_tank(folder + "reef.ambient", sw::Tank::reef);
+    test_tank(folder + "pool.ambient", sw::Tank::pool);
     std::printf("stillwater: %d checks passed\n", checks);
     return 0;
 }

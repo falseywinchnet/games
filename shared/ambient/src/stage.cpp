@@ -8,6 +8,16 @@
 namespace ambient {
 namespace {
 
+// Marks a lit pixel that a leaf covers (Stage::lit_pixels_).
+constexpr std::uint32_t leaf_bit = 0x80000000U;
+
+// A boost that can change a pixel by at least two display levels somewhere: smaller
+// ones are not worth a pixel's work every frame.
+bool visible_boost(std::uint32_t boost) {
+    const bool result = ((boost >> 16U) & 255U) >= 2 || ((boost >> 8U) & 255U) >= 2 || (boost & 255U) >= 2;
+    return result;
+}
+
 // ------------------------------------------------------------------ material maps
 
 float channel(const Texture& level, int x, int y, int c) {
@@ -78,6 +88,16 @@ struct GouraudPolicy {
     const SwayShade* s1{};
     const SwayShade* s2{};
     std::uint64_t pixels{};
+    // Caustic light on the leaves, when the look has a field: the per-vertex
+    // texel positions are interpolated, and each pixel keeps its tap and boost.
+    const CausticField* field{};
+    std::uint32_t* tap{};
+    std::uint32_t* boost{};
+    const CausticPoint* l0{};
+    const CausticPoint* l1{};
+    const CausticPoint* l2{};
+    std::uint32_t triangle_boost{};
+    std::uint32_t tap_bits{};  // the triangle's sharpness and gain (CausticField::tap_bits)
     bool test(int x, int y, float inverse_depth) {
         const std::size_t index =
             static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x);
@@ -100,6 +120,15 @@ struct GouraudPolicy {
         depth[index] = c.inverse_depth;
         lit[index] = 0;
         ++pixels;
+        if (field != nullptr) {
+            boost[index] = triangle_boost;
+            if (triangle_boost != 0) {
+                lit[index] = 2;  // lit by the leaf's own tap and boost
+                const float u = (*l0).u * c.weight0 + (*l1).u * c.weight1 + (*l2).u * c.weight2;
+                const float v = (*l0).v * c.weight0 + (*l1).v * c.weight1 + (*l2).v * c.weight2;
+                tap[index] = (*field).texel_index(u, v) | tap_bits;
+            }
+        }
         const std::uint32_t source = (std::min(r, 255U) << 16U) | (std::min(g, 255U) << 8U) | std::min(bl, 255U);
         if (alpha >= 0.999F) {
             color[index] = source;
@@ -115,16 +144,21 @@ struct GouraudPolicy {
 };
 
 // Settled foliage in the supersampled fixed layer: display colour per sample,
-// blended for see-through leaf tips; leaves take no animated light.
+// blended for see-through leaf tips. Leaves take caustic light when the look gives
+// them a boost (SwayShade::light_boost); otherwise none.
 struct RestFoliagePolicy {
     static constexpr bool perspective = false;
     int width{};
     float* depth{};
     std::uint32_t* color{};
     std::uint32_t* boost{};
+    float* light_xyz{};
     const SwayShade* s0{};
     const SwayShade* s1{};
     const SwayShade* s2{};
+    Vec3 p0{};
+    Vec3 p1{};
+    Vec3 p2{};
     bool test(int x, int y, float inverse_depth) {
         const std::size_t index =
             static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x);
@@ -141,7 +175,15 @@ struct RestFoliagePolicy {
         const float alpha = (*s0).alpha * c.weight0 + (*s1).alpha * c.weight1 + (*s2).alpha * c.weight2;
         depth[index] = c.inverse_depth;
         color[index] = pack_rgb(alpha >= 0.999F ? shade : mix(unpack_rgb(color[index]), shade, alpha));
-        boost[index] = 0;
+        const Rgb light = add(add(scale((*s0).light_boost, c.weight0), scale((*s1).light_boost, c.weight1)),
+                              scale((*s2).light_boost, c.weight2));
+        boost[index] = pack_rgb(light);
+        if (boost[index] != 0) {
+            const Vec3 at = add(add(scale(p0, c.weight0), scale(p1, c.weight1)), scale(p2, c.weight2));
+            light_xyz[index * 3] = at.x;
+            light_xyz[index * 3 + 1] = at.y;
+            light_xyz[index * 3 + 2] = at.z;
+        }
     }
 };
 
@@ -379,7 +421,7 @@ FixedLayer build_fixed_layer(const SceneData& scene, const Look& look, const Sha
     // which bounds the build's transient memory; four samples average to one pixel.
     std::vector<std::uint32_t> color(samples, 0);
     std::vector<std::uint32_t> boost(samples, 0);
-    std::vector<float> light_xz(samples * 2U, 0.0F);
+    std::vector<float> light_xyz(samples * 3U, 0.0F);
     for (int y = 0; y < big_h; ++y) {
         for (int x = 0; x < big_w; ++x) {
             const std::size_t index = static_cast<std::size_t>(y) * static_cast<std::size_t>(big_w) +
@@ -455,8 +497,9 @@ FixedLayer build_fixed_layer(const SceneData& scene, const Look& look, const Sha
             const FixedShade shade = look.shade_fixed(s, scene);
             color[index] = pack_rgb(shade.color);
             boost[index] = pack_rgb(shade.light_boost);
-            light_xz[index * 2] = s.world.x;
-            light_xz[index * 2 + 1] = s.world.z;
+            light_xyz[index * 3] = s.world.x;
+            light_xyz[index * 3 + 1] = s.world.y;
+            light_xyz[index * 3 + 2] = s.world.z;
         }
     }
 
@@ -470,7 +513,12 @@ FixedLayer build_fixed_layer(const SceneData& scene, const Look& look, const Sha
         std::vector<ViewPoint> rest_view(vertices.size());
         for (std::size_t index = 0; index < vertices.size(); ++index)
             rest_view[index] = to_view(projection, position_of(vertices[index].position));
-        RestFoliagePolicy rest{big_w, depth.data(), color.data(), boost.data(), nullptr, nullptr, nullptr};
+        RestFoliagePolicy rest{};
+        rest.width = big_w;
+        rest.depth = depth.data();
+        rest.color = color.data();
+        rest.boost = boost.data();
+        rest.light_xyz = light_xyz.data();
         const std::vector<std::uint32_t>& indices = scene.sway.indices;
         for (const std::uint32_t triangle : foliage.order) {
             if (settled[triangle] == 0)
@@ -479,6 +527,9 @@ FixedLayer build_fixed_layer(const SceneData& scene, const Look& look, const Sha
             rest.s0 = &foliage.rest[indices[t]];
             rest.s1 = &foliage.rest[indices[t + 1]];
             rest.s2 = &foliage.rest[indices[t + 2]];
+            rest.p0 = position_of(vertices[indices[t]].position);
+            rest.p1 = position_of(vertices[indices[t + 1]].position);
+            rest.p2 = position_of(vertices[indices[t + 2]].position);
             rasterize(rest, projection, rest_view[indices[t]], rest_view[indices[t + 1]], rest_view[indices[t + 2]],
                       Cull::none);
         }
@@ -491,7 +542,7 @@ FixedLayer build_fixed_layer(const SceneData& scene, const Look& look, const Sha
     layer.color.assign(pixels, 0);
     layer.depth.assign(pixels, 0.0F);
     layer.boost.assign(pixels, 0);
-    layer.light_position.assign(pixels * 2U, 0.0F);
+    layer.light_position.assign(pixels * 3U, 0.0F);
     const float inverse_count = 1.0F / static_cast<float>(ss * ss);
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
@@ -499,6 +550,7 @@ FixedLayer build_fixed_layer(const SceneData& scene, const Look& look, const Sha
             Rgb boost_sum{};
             float nearest = 0;
             float lx = 0;
+            float ly = 0;
             float lz = 0;
             int lit = 0;
             for (int sy = 0; sy < ss; ++sy) {
@@ -509,8 +561,9 @@ FixedLayer build_fixed_layer(const SceneData& scene, const Look& look, const Sha
                     boost_sum = add(boost_sum, unpack_rgb(boost[index]));
                     nearest = std::max(nearest, depth[index]);
                     if (boost[index] != 0) {
-                        lx += light_xz[index * 2];
-                        lz += light_xz[index * 2 + 1];
+                        lx += light_xyz[index * 3];
+                        ly += light_xyz[index * 3 + 1];
+                        lz += light_xyz[index * 3 + 2];
                         ++lit;
                     }
                 }
@@ -522,8 +575,9 @@ FixedLayer build_fixed_layer(const SceneData& scene, const Look& look, const Sha
             const std::uint32_t packed_boost = pack_rgb(scale(boost_sum, inverse_count));
             layer.boost[out] = lit > 0 ? packed_boost : 0;
             if (lit > 0) {
-                layer.light_position[out * 2] = lx / static_cast<float>(lit);
-                layer.light_position[out * 2 + 1] = lz / static_cast<float>(lit);
+                layer.light_position[out * 3] = lx / static_cast<float>(lit);
+                layer.light_position[out * 3 + 1] = ly / static_cast<float>(lit);
+                layer.light_position[out * 3 + 2] = lz / static_cast<float>(lit);
             }
         }
     }
@@ -565,6 +619,7 @@ Foliage prepare_foliage(const SceneData& scene, const Look& look, const ShadowMa
     foliage.rest.resize(vertices.size());
     foliage.gradient.resize(vertices.size());
     foliage.reach.resize(vertices.size());
+    foliage.boost.resize(vertices.size());
     for (std::size_t index = 0; index < vertices.size(); ++index) {
         const SwayVertex& source = vertices[index];
         const Vec3 bend{source.bend[0] / 127.0F, source.bend[1] / 127.0F, source.bend[2] / 127.0F};
@@ -581,6 +636,7 @@ Foliage prepare_foliage(const SceneData& scene, const Look& look, const ShadowMa
         sample.normal = normalize(subtract(rest_normal, scale(along, probe * dot(bend, rest_normal))));
         const SwayShade tilted = look.shade_sway(sample);
         foliage.rest[index] = rest;
+        foliage.boost[index] = visible_boost(pack_rgb(rest.light_boost)) ? pack_rgb(rest.light_boost) : 0U;
         SwayShade gradient{};
         gradient.front = scale(subtract(tilted.front, rest.front), 1.0F / probe);
         gradient.back = scale(subtract(tilted.back, rest.back), 1.0F / probe);
@@ -762,6 +818,7 @@ Stage::Stage(const SceneData& scene, const Look& look, const Foliage& foliage)
     sway_screen_.resize(scene_.sway.vertices.size());
     sway_in_front_.resize(scene_.sway.vertices.size());
     sway_shade_.resize(scene_.sway.vertices.size());
+    sway_light_.resize(scene_.sway.vertices.size());
     std::size_t total = 0;
     part_vertex_base_.resize(scene_.parts.size());
     for (std::size_t index = 0; index < scene_.parts.size(); ++index) {
@@ -807,7 +864,11 @@ void Stage::adopt(FixedLayer layer) {
     fixed_ = std::move(layer);
     projection_ = make_projection(scene_.camera, fixed_.width, fixed_.height);
     const std::size_t pixels = static_cast<std::size_t>(fixed_.width) * static_cast<std::size_t>(fixed_.height);
+    const CausticField* field = look_.caustics();
+    const bool caustic = field != nullptr && !(*field).empty();
     for (int k = 0; k < 2; ++k) {
+        sway_tap_[k].assign(caustic ? pixels : 0U, 0);
+        sway_boost_[k].assign(caustic ? pixels : 0U, 0);
         sway_color_[k].assign(pixels, 0);
         sway_depth_[k].assign(pixels, 0.0F);
         lit_pixels_[k].clear();
@@ -818,7 +879,15 @@ void Stage::adopt(FixedLayer layer) {
     frame_depth_.assign(pixels, 0.0F);
     fixed_lit_.resize(pixels);
     for (std::size_t index = 0; index < pixels; ++index)
-        fixed_lit_[index] = fixed_.boost[index] != 0 ? 1 : 0;
+        fixed_lit_[index] = (caustic ? visible_boost(fixed_.boost[index]) : fixed_.boost[index] != 0) ? 1 : 0;
+    fixed_tap_.assign(caustic ? pixels : 0U, 0);
+    for (std::size_t index = 0; caustic && index < pixels; ++index) {
+        if (fixed_.boost[index] == 0)
+            continue;
+        const Vec3 at{fixed_.light_position[index * 3U], fixed_.light_position[index * 3U + 1U],
+                      fixed_.light_position[index * 3U + 2U]};
+        fixed_tap_[index] = (*field).tap(at);
+    }
     // Only foliage the fixed layer did not settle is redrawn on the sway cadence.
     const std::vector<std::uint32_t>& indices = scene_.sway.indices;
     moving_order_.clear();
@@ -865,6 +934,8 @@ void Stage::build_sway(double time) {
     std::memcpy(sway_depth.data(), fixed_.depth.data(), pixels * sizeof(float));
     std::vector<std::uint8_t>& lit = lit_mask_;
     lit = fixed_lit_;
+    const CausticField* field = look_.caustics();
+    const bool caustic = field != nullptr && !(*field).empty() && !fixed_tap_.empty();
 
     update_current_roots(scene_.sway_roots, time, roots_);
     const std::vector<SwayVertex>& vertices = scene_.sway.vertices;
@@ -884,12 +955,22 @@ void Stage::build_sway(double time) {
         shade.front = display_levels(add(rest.front, scale(gradient.front, sway.slope)));
         shade.back = display_levels(add(rest.back, scale(gradient.back, sway.slope)));
         shade.alpha = rest.alpha;
+        if (caustic && foliage_.boost[index] != 0) {
+            CausticPoint& light = sway_light_[index];
+            (*field).texel_of(world, light.u, light.v);
+            light.height = world.y;
+        }
     }
     GouraudPolicy policy{};
     policy.width = fixed_.width;
     policy.depth = sway_depth.data();
     policy.color = sway_color.data();
     policy.lit = lit.data();
+    if (caustic) {
+        policy.field = field;
+        policy.tap = sway_tap_[target].data();
+        policy.boost = sway_boost_[target].data();
+    }
     const std::vector<std::uint32_t>& indices = scene_.sway.indices;
     for (const std::uint32_t triangle : moving_order_) {
         const std::size_t t = static_cast<std::size_t>(triangle) * 3U;
@@ -899,6 +980,19 @@ void Stage::build_sway(double time) {
         policy.s0 = &sway_shade_[i0];
         policy.s1 = &sway_shade_[i1];
         policy.s2 = &sway_shade_[i2];
+        if (caustic) {
+            // A leaf triangle is a few pixels: one boost for it, from its first corner.
+            policy.triangle_boost = foliage_.boost[i0] != 0 && foliage_.boost[i1] != 0 && foliage_.boost[i2] != 0
+                                        ? foliage_.boost[i0]
+                                        : 0;
+            // Leaves take the soft light only: thin blades seen edge-on would turn
+            // the sharp lines into dashes.
+            if (policy.triangle_boost != 0)
+                policy.tap_bits = (*field).tap_bits(sway_light_[i0].height, 0.0F);
+            policy.l0 = &sway_light_[i0];
+            policy.l1 = &sway_light_[i1];
+            policy.l2 = &sway_light_[i2];
+        }
         if ((sway_in_front_[i0] & sway_in_front_[i1] & sway_in_front_[i2]) != 0)
             rasterize_projected(policy, projection_, sway_screen_[i0], sway_screen_[i1], sway_screen_[i2], Cull::none);
         else
@@ -906,8 +1000,10 @@ void Stage::build_sway(double time) {
     }
     lit_pixels.clear();
     for (std::size_t index = 0; index < pixels; ++index) {
+        // Leaf pixels are marked (top bit): their tap and boost are in this sway
+        // buffer; the others read the fixed layer's.
         if (lit[index] != 0)
-            lit_pixels.push_back(static_cast<std::uint32_t>(index));
+            lit_pixels.push_back(static_cast<std::uint32_t>(index) | (lit[index] == 2 ? leaf_bit : 0U));
     }
     counters_.sway_triangles += moving_order_.size();
     ++counters_.sway_updates;
@@ -921,31 +1017,63 @@ void Stage::compose(double time, double light_time, const std::vector<Creature>&
     std::memcpy(frame_color_.data(), sway_color.data(), pixels * sizeof(std::uint32_t));
     std::memcpy(frame_depth_.data(), sway_depth_[shown_].data(), pixels * sizeof(float));
     const float t = static_cast<float>(light_time);
-    for (const std::uint32_t index : lit_pixels_[shown_]) {
-        const float strength = look_.animated_light(fixed_.light_position[index * 2U],
-                                                    fixed_.light_position[index * 2U + 1U], t);
-        if (strength <= 0.002F)
-            continue;
-        const std::uint32_t base = frame_color_[index];
-        const std::uint32_t add_light = fixed_.boost[index];
-        std::uint32_t out = 0;
-        for (std::uint32_t shift = 0; shift <= 16; shift += 8) {
-            const float channel_value = static_cast<float>((base >> shift) & 255U) +
-                                        static_cast<float>((add_light >> shift) & 255U) * strength;
-            const std::uint32_t c = static_cast<std::uint32_t>(std::min(255.0F, channel_value + 0.5F));
-            out |= c << shift;
+    const CausticField* field = look_.caustics();
+    const bool caustic = field != nullptr && !(*field).empty() && !sway_tap_[shown_].empty();
+    if (caustic) {
+        // Integer arithmetic on packed channels: the boost scaled by the light's level
+        // (0..256), added with saturation (red with blue, green alone).
+        const CausticField::Phase phase = (*field).phase(t);
+        const std::uint32_t* leaf_taps = sway_tap_[shown_].data();
+        const std::uint32_t* leaf_boosts = sway_boost_[shown_].data();
+        const std::uint32_t* fixed_taps = fixed_tap_.data();
+        const std::uint32_t* fixed_boosts = fixed_.boost.data();
+        for (const std::uint32_t entry : lit_pixels_[shown_]) {
+            const std::uint32_t index = entry & ~leaf_bit;
+            const bool leaf = (entry & leaf_bit) != 0;
+            const std::uint32_t level = CausticField::light_level(phase, leaf ? leaf_taps[index] : fixed_taps[index]);
+            if (level == 0)
+                continue;
+            const std::uint32_t add_light = leaf ? leaf_boosts[index] : fixed_boosts[index];
+            const std::uint32_t base = frame_color_[index];
+            std::uint32_t red_blue = (base & 0xFF00FFU) + ((((add_light & 0xFF00FFU) * level) >> 8U) & 0xFF00FFU);
+            std::uint32_t green = (base & 0x00FF00U) + ((((add_light & 0x00FF00U) * level) >> 8U) & 0x00FF00U);
+            const std::uint32_t red_blue_over = red_blue & 0x01000100U;
+            const std::uint32_t green_over = green & 0x00010000U;
+            red_blue = (red_blue | (red_blue_over - (red_blue_over >> 8U))) & 0xFF00FFU;
+            green = (green | (green_over - (green_over >> 8U))) & 0x00FF00U;
+            frame_color_[index] = red_blue | green;
         }
-        frame_color_[index] = out;
+    } else {
+        for (const std::uint32_t entry : lit_pixels_[shown_]) {
+            const std::uint32_t index = entry & ~leaf_bit;
+            const float strength = look_.animated_light(fixed_.light_position[index * 3U],
+                                                        fixed_.light_position[index * 3U + 2U], t);
+            if (strength <= 0.002F)
+                continue;
+            const std::uint32_t base = frame_color_[index];
+            const std::uint32_t add_light = fixed_.boost[index];
+            std::uint32_t out = 0;
+            for (std::uint32_t shift = 0; shift <= 16; shift += 8) {
+                const float channel_value = static_cast<float>((base >> shift) & 255U) +
+                                            static_cast<float>((add_light >> shift) & 255U) * strength;
+                const std::uint32_t c = static_cast<std::uint32_t>(std::min(255.0F, channel_value + 0.5F));
+                out |= c << shift;
+            }
+            frame_color_[index] = out;
+        }
     }
-    draw_actors(time, creatures);
+    draw_actors(time, t, creatures);
     draw_risers(time);
     for (std::uint32_t& pixel : frame_color_)
         pixel |= 0xFF000000U;
     ++counters_.frames;
 }
 
-void Stage::draw_actors(double time, const std::vector<Creature>& creatures) {
+void Stage::draw_actors(double time, float light_time, const std::vector<Creature>& creatures) {
     const float t = static_cast<float>(time);
+    const CausticField* field = look_.caustics();
+    const bool caustic = field != nullptr && !(*field).empty();
+    const CausticField::Phase phase = caustic ? (*field).phase(light_time) : CausticField::Phase{};
     // Which creatures are in view at all: a bounding sphere around each pose. A
     // creature wholly outside the view costs nothing more this frame.
     creature_visible_.assign(creatures.size(), 0);
@@ -1070,6 +1198,8 @@ void Stage::draw_actors(double time, const std::vector<Creature>& creatures) {
         sample.material = part.material;
         sample.screen_v = static_cast<float>(fragment.pixel / static_cast<std::uint32_t>(projection_.width)) *
                           inverse_height;
+        if (caustic)
+            sample.light = CausticField::strength(phase, (*field).tap(sample.world));
         float alpha = 1;
         const Rgb shade = look_.shade_actor(sample, alpha);
         if (alpha >= 0.999F) {

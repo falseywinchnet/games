@@ -82,7 +82,7 @@ On the M4 Mac mini (macOS, LLVM 22, toolkit `d58f530`, Skia CPU), 2026-10-04:
 - **Sound.** The ambience follows the Music master and stops while paused; the tap
   follows the Sound master. The 12 MB ambience master WAV is not committed:
   `audio_src/make_audio.py` regenerates it and the shipped files deterministically.
-- **Saves.** `stillwater-v1.txt` holds paused and detail only; there is no progress.
+- **Saves.** `stillwater-v1.txt` holds paused, detail and (since the tanks) scene; there is no progress.
 - **Provenance.** Riverscape geometry and formulas: Desktop Habitats, Chase Lean,
   MIT (`assets/licenses/desktop-habitats-MIT.txt`). Material maps: Poly Haven,
   CC0. ACES fit: Three.js, MIT. Fish, crab and bubble motion, the audio and all
@@ -209,3 +209,64 @@ spinning would burn energy just to improve the number, so it was not done.
 About 20 % of the active samples are the toolkit's full-window repaint of the live
 surface on macOS (a clear, a blend and a byte-order swap). That is recorded in
 `docs/TOOLKIT_REQUESTS.md`.
+
+## 2026-10-06: caustics and a choice of tanks
+
+On the M4 Mac mini (`.build/opaque-app`, LLVM 22, toolkit `toolkit-opaque`, Skia CPU),
+all 60 tests pass, including `ambient_engine` (46,353 checks), `stillwater_rules`
+(5,816) and `stillwater_view_contract`; Mowing's six tests pass unchanged. The game's
+own headless build (`cmake -S games/stillwater`) has no warnings.
+
+- **Caustics** replace the labelled wave approximation. `ambient::CausticField`
+  (`shared/ambient/src/caustics.*`) traces light through a tileable, looping
+  rippled surface once per look (about 20 ms on the loading worker, 1 MB) and keeps
+  32 steps, sharp and soft. Surfaces are reduced to taps per layer; a frame reads two
+  bytes per lit pixel and blends with packed integer arithmetic. The light falls on
+  sand, stones, wood, coral and the chest (sharp near the surface, soft and dimmer on
+  the floor), on the swaying leaves (soft only: sharp lines turned into dashes on
+  edge-on blades) and on the fish and crabs. In the look, the share of sunlight the
+  ripples gather (`TankStyle::caustic_share`) leaves the even light and returns in
+  the lines, so the tank is not brighter overall. `SW_CAUSTIC_TILE=file.png` and
+  `SW_CAUSTIC_STATS=1` make `sw_preview` show the pattern and its strength by height;
+  `SW_NO_CAUSTICS=1` draws a tank without them.
+- **Tanks.** `Scene` (S, and the capsule) cycles the planted tank, a coral reef and a
+  river pool. `scene_src/build_tanks.py` writes `assets/scene/reef.ambient` and
+  `pool.ambient` (deterministic; `--check` compares) from new procedural content
+  (staghorn and brain corals, sea fans, soft corals, anemones with swaying tentacles,
+  sea grass and sea whips; tree roots, sunken branches, leaf litter, gravel and
+  eelgrass) and from the planted archive's shared parts (camera, sand floor, material
+  maps, boulders, fish meshes, crab). Each tank has a `TankStyle` (`src/tanks.cpp`):
+  water, light, fog, sand and rock tints, caustics and three fish colourings, chosen
+  per fish by its archive tint (tangs, clownfish with bands, yellow tangs; minnows,
+  red-finned rudd, banded darters). The chest dresses the planted tank and the reef.
+- **Engine** (`shared/ambient`): `DioramaScene` and `SceneSetup::scenes`; the Diorama
+  loads and builds the next scene on workers while the shown one dims (0.45 s), then
+  swaps and brightens it (0.6 s), on the wall clock so it completes while paused
+  (`SceneContext::redraw` keeps the view drawing); a second press redirects a change
+  in flight. `FixedLayer::light_position` now keeps x, y, z. Looks without a field
+  keep `animated_light` unchanged (Mowing does not use the stage).
+- **Saves.** The choice is the `scene` line of `stillwater-v1.txt`; a file without
+  one opens the planted tank (tested in `stillwater_view_contract` with a pre-scene
+  file, then cycling while paused, saving, a double press and reopening).
+
+Cost, planted tank (the default), measured before and after on the same machine:
+
+| Measure | Before | After |
+|---|---|---|
+| Headless compose (`sw_preview`, 590 x 380, 240 frames) | 1.39 ms | 1.56 ms |
+| Headless sway update | 8.81 ms | 9.71 ms |
+| Headless scene work at 24 fps + 8 sway | 104 ms/s | 115 ms/s |
+| App draw per frame (`--profile-idle 20`, 530 x 309 scene) | 7.81 ms | 7.82-7.91 ms |
+| App process CPU over 10 s (rates at their floors, 12 + 3) | 27.2 % | 27.7-28.7 % |
+| Resident memory | 200 MiB | 208 MiB |
+
+The extra work is the light on leaves and fish, which the old pattern did not reach;
+the budget (10 % of a core for the scene's own work) and the governor are unchanged,
+so the frame and sway rates absorb it. Reef: compose 1.90 ms, sway 0.52 ms, app
+23.0 %, 168 MiB. River pool: compose 1.65 ms, sway 1.89 ms, app 23.4 %, 166 MiB.
+Opening a tank costs about 130-180 ms on workers (archive, look and caustics, shadow
+map, fixed layer).
+
+Not verified: a Retina window; the look of the new tanks on other displays; the
+caustic pattern's repetition (one tile is 3.2 units, turned 27 degrees) at Fine on a
+very large window.

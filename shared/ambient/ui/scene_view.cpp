@@ -265,7 +265,7 @@ void SceneView::tick() {
     SceneContext work = context();
     const bool was_ready = scene_ready();
     const bool pending = (*scenery_).poll(work);
-    if (scene_ready() != was_ready)
+    if (scene_ready() != was_ready || work.redraw)
         render_dirty_ = true;
     // Expensive rebuilds wait until a resize has stopped for a moment.
     if (seconds_since(last_arrange_) > 0.15)

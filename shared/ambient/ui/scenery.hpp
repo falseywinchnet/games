@@ -31,13 +31,15 @@ struct SceneContext {
     bool sound_on{};       // the Sound master and the scene is in front
     double charged{};      // seconds of this call's work the scenery already charged to the governor
     bool persist{};        // set true to have the view save the settings
+    bool redraw{};         // set true (in poll) to have the view draw a picture even while paused
 };
 
 class Scenery {
   public:
     virtual ~Scenery() = default;
 
-    // Polls background work (loading, rebuilding); true while any is still pending.
+    // Polls background work (loading, rebuilding, a transition); true while any is
+    // still pending, which keeps the view ticking even while paused.
     virtual bool poll(SceneContext& context) = 0;
     // True once a picture can be drawn.
     [[nodiscard]] virtual bool ready() const = 0;

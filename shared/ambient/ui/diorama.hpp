@@ -2,15 +2,22 @@
 // A retained 3D scene (Stage) as a Scenery: loads its archive and builds its fixed
 // layers off the UI thread, sways its foliage on the governed cadence, and startles
 // its creatures when the glass is tapped. Stillwater is a Diorama.
+//
+// A diorama may offer several scenes (tanks, say). The player moves between them
+// with the Scene command; the choice is remembered in the settings ("scene <id>").
+// The next scene loads and builds on workers while the current one keeps playing
+// and dims; it fades in once its first picture is ready.
 #include "archive.hpp"
 #include "motion.hpp"
 #include "scenery.hpp"
 #include "stage.hpp"
 
+#include <chrono>
 #include <filesystem>
 #include <future>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace ambient {
 
@@ -24,9 +31,19 @@ using SceneDressing = void (*)(SceneData& scene);
 using VoiceFactory = std::shared_ptr<gui_forms::AudioGenerator> (*)();
 #endif
 
-struct DioramaSetup {
-    std::string id;         // the game id: the archive is read from <assets>/<id>/
+// One scene a diorama can show.
+struct DioramaScene {
+    std::string id;         // saved in the settings; a single word
+    std::string name;       // shown in the Scene command
     std::string archive;    // below the game's asset folder, e.g. "scene/riverscape.ambient"
+    LookFactory make_look{};
+    SceneDressing dress{};
+    Bounds bounds{};        // where startled creatures may go
+};
+
+struct DioramaSetup {
+    std::string id;         // the game id: archives are read from <assets>/<id>/
+    std::string archive;    // a single scene's archive (when `scenes` is empty)
     std::string ambience;   // looping sound bed stem (the Sound master); empty for none
     std::string music;      // looping music stem (the Music master); empty for none
     std::string tap_sound;  // effect stem for a tap on the glass; empty for none
@@ -38,6 +55,9 @@ struct DioramaSetup {
     VoiceFactory live_music{};     // the Music master
 #endif
     Bounds bounds{};        // where startled creatures may go
+    // Several scenes to choose between; the first is the default. When empty, the
+    // single scene above (archive, make_look, dress, bounds) is the only one.
+    std::vector<DioramaScene> scenes{};
 };
 
 class Diorama final : public Scenery {
@@ -54,8 +74,23 @@ class Diorama final : public Scenery {
     void advance(double seconds, SceneContext& context) override;
     const std::vector<std::uint32_t>& draw(SceneContext& context, int& width, int& height) override;
     void press(double x, double y, SceneContext& context) override;
+    void add_commands(std::vector<games::GameCommand>& list, const Settings& settings) const override;
+    bool run_command(std::string_view id, SceneContext& context) override;
+    [[nodiscard]] std::string key_command(std::uint32_t key) const override;
     bool scripted_action(std::string_view action, SceneContext& context) override;
     void sound(bool running, SceneContext& context) override;
+
+    // The scenes on offer and the one shown (or being faded to).
+    [[nodiscard]] const std::vector<DioramaScene>& scenes() const {
+        return scenes_;
+    }
+    [[nodiscard]] std::size_t chosen() const {
+        return chosen_;
+    }
+    // True while a change of scene is under way.
+    [[nodiscard]] bool changing() const {
+        return fade_ != Fade::none || loading_.valid() || next_building_.valid() || next_.stage != nullptr;
+    }
 
   private:
     struct Bundle {
@@ -65,25 +100,50 @@ class Diorama final : public Scenery {
         Foliage foliage{};
         std::string error{};
     };
+    // A loaded scene and its stage.
+    struct Showing {
+        std::unique_ptr<Bundle> bundle{};  // must outlive stage
+        std::unique_ptr<Stage> stage{};
+        std::vector<Creature> creatures{};
+        std::size_t scene{};
+    };
+    enum class Fade : std::uint8_t { none, out, in };
     static std::unique_ptr<Bundle> load_bundle(std::filesystem::path archive, LookFactory make_look,
                                                SceneDressing dress);
+    void start_loading(std::size_t scene);
     void start_build();
     void finish_sway(SceneContext* context);
     static double sway_job(Stage* stage, double time);
     void tap(double x, double y, SceneContext& context);
+    void choose(std::size_t scene, SceneContext& context);
+    void swap_in();
+    [[nodiscard]] double fade_level() const;
 
     DioramaSetup setup_;
+    std::vector<DioramaScene> scenes_{};
+    bool started_{};
+    std::size_t chosen_{};  // the scene saved and shown, or being faded to
+    Showing shown_{};
+    // The next scene: loading, then its first fixed layer, while the shown one plays.
     std::future<std::unique_ptr<Bundle>> loading_{};
-    std::unique_ptr<Bundle> bundle_{};  // must outlive stage_
+    std::size_t loading_scene_{};
+    Showing next_{};
+    std::future<FixedLayer> next_building_{};
+    SceneSize next_size_{};
+    std::string error_{};
+    // The fade between scenes, timed on the wall clock so it also runs while paused.
+    Fade fade_{Fade::none};
+    std::chrono::steady_clock::time_point fade_start_{};
+    double fade_from_{1};
+    std::vector<std::uint32_t> faded_{};
+
     std::future<FixedLayer> building_{};
     SceneSize building_size_{};
     SceneSize wanted_{};
     bool settled_{};
-    std::unique_ptr<Stage> stage_{};
     // The foliage is redrawn on a worker into the stage's hidden sway layer while
     // frames keep composing over the shown one; the result is the worker's seconds.
     std::future<double> swaying_{};
-    std::vector<Creature> creatures_{};
     double light_time_{};   // the animated light's clock; held under reduced motion
     double last_sway_{-1};  // scene time of the last foliage update
     std::vector<std::uint32_t> empty_{};

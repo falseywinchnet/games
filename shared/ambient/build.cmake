@@ -6,6 +6,7 @@ endif()
 add_library(ambient_core STATIC
   "${ENGINE_DIR}/src/archive.cpp"
   "${ENGINE_DIR}/src/cadence.cpp"
+  "${ENGINE_DIR}/src/caustics.cpp"
   "${ENGINE_DIR}/src/inflate.cpp"
   "${ENGINE_DIR}/src/motion.cpp"
   "${ENGINE_DIR}/src/present.cpp"

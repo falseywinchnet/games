@@ -499,6 +499,10 @@ void test_settings() {
 
 class FlatLook final : public Look {
   public:
+    const CausticField* field{};  // caustics when set; the plain animated light otherwise
+    const CausticField* caustics() const override {
+        return field;
+    }
     Rgb background(float, float v) const override {
         return {0.0F, 0.1F, 0.2F + 0.1F * v};
     }
@@ -526,15 +530,17 @@ class FlatLook final : public Look {
         shade.front = sample.albedo;
         shade.back = scale(sample.albedo, 0.5F);
         shade.alpha = 1;
+        if (field != nullptr)
+            shade.light_boost = {0.3F, 0.3F, 0.3F};
         return shade;
     }
     void deform_actor(std::uint32_t, const ActorVertex&, float, float, Vec3&, Vec3&) const override {}
     bool closed_actor(std::uint32_t) const override {
         return false;
     }
-    Rgb shade_actor(const ActorSample&, float& alpha) const override {
+    Rgb shade_actor(const ActorSample& sample, float& alpha) const override {
         alpha = 1;
-        return {1, 0, 0};
+        return {1, sample.light, 0};
     }
     Rgb shade_riser(Vec3, Vec3, float) const override {
         return {1, 1, 1};
@@ -586,6 +592,83 @@ void test_stage() {
     require(stage.counters().sway_updates == 1 && stage.counters().frames == 4, "work is counted");
 }
 
+// The caustic pattern: valid sizes only, in range, looping, sharp near the surface
+// and soft near the floor, the same every time; and on a stage, it lights the
+// ground, the leaves and the creatures and moves with its own clock.
+void test_caustics() {
+    CausticSpec bad{};
+    bad.size = 100;
+    require(CausticField(bad, {0, 1, 0}).empty(), "a caustic tile must be a power of two");
+    CausticSpec spec{};
+    spec.size = 64;
+    spec.frames = 8;
+    spec.period = 8;
+    spec.tile = 2;
+    spec.surface = 5;
+    spec.floor = 0;
+    const CausticField field(spec, {0, 1, 0.4F});
+    require(!field.empty() && field.size() == 64 && field.frames() == 8, "the pattern is built");
+    const CausticField twin(spec, {0, 1, 0.4F});
+    bool same = true;
+    for (int index = 0; index < 64 * 64; index += 7)
+        same = same && field.texel(3, index) == twin.texel(3, index);
+    require(same, "the pattern is deterministic");
+    double surface_sum = 0;
+    double surface_square = 0;
+    double floor_square = 0;
+    double floor_sum = 0;
+    int samples = 0;
+    float highest = 0;
+    for (int k = 0; k < 4000; ++k) {
+        const float x = -3.0F + 0.0015F * static_cast<float>(k);
+        const float z = 0.37F * static_cast<float>(k % 29);
+        const float top = field.at({x, 4.8F, z}, 1.3F);
+        const float bottom = field.at({x, 0.0F, z}, 1.3F);
+        require(top >= 0 && top <= 1 && bottom >= 0 && bottom <= 1, "caustic light is between 0 and 1");
+        require(std::abs(top - field.at({x, 4.8F, z}, 1.3F + 8.0F)) < 1e-5F, "the pattern loops in its period");
+        surface_sum += top;
+        surface_square += static_cast<double>(top) * top;
+        floor_sum += bottom;
+        floor_square += static_cast<double>(bottom) * bottom;
+        highest = std::max(highest, top);
+        ++samples;
+    }
+    const double surface_mean = surface_sum / samples;
+    const double floor_mean = floor_sum / samples;
+    const double surface_spread = surface_square / samples - surface_mean * surface_mean;
+    const double floor_spread = floor_square / samples - floor_mean * floor_mean;
+    require(surface_mean > 0.03 && surface_mean < 0.4 && highest > 0.8F, "bright lines over darker water");
+    require(surface_spread > floor_spread * 1.2, "the lines are sharper near the surface than on the floor");
+    require(surface_mean > floor_mean, "and brighter");
+    // Neighbouring frames differ a little; the pattern moves rather than jumping.
+    int moved = 0;
+    for (int index = 0; index < 64 * 64; ++index)
+        moved += field.texel(0, index) != field.texel(1, index) ? 1 : 0;
+    require(moved > 200, "the pattern moves from frame to frame");
+
+    const SceneData scene = synthetic_scene();
+    FlatLook look{};
+    look.field = &field;
+    const ShadowMap shadows = build_shadow_map(scene, look, 128);
+    const Foliage foliage = prepare_foliage(scene, look, shadows);
+    FixedLayer layer = build_fixed_layer(scene, look, shadows, foliage, 160, 100, 2, 0.5F);
+    require(layer.light_position.size() == layer.color.size() * 3, "lit surfaces keep their world position");
+    Stage stage(scene, look, foliage);
+    stage.adopt(std::move(layer));
+    std::vector<Creature> creatures = creatures_from(scene.actors);
+    stage.update_sway(2.0);
+    stage.compose(2.0, 2.0, creatures);
+    const std::vector<std::uint32_t> first = stage.frame();
+    stage.compose(2.0, 3.0, creatures);
+    const std::vector<std::uint32_t> later = stage.frame();
+    int changed = 0;
+    for (std::size_t index = 0; index < first.size(); ++index)
+        changed += first[index] != later[index] ? 1 : 0;
+    require(changed > 200, "the caustics move with their clock");
+    stage.compose(2.0, 2.0, creatures);
+    require(stage.frame() == first, "and return with it");
+}
+
 } // namespace
 
 int main() {
@@ -597,6 +680,7 @@ int main() {
     test_presentation();
     test_settings();
     test_stage();
+    test_caustics();
     std::printf("ambient engine: %d checks passed\n", checks);
     return 0;
 }

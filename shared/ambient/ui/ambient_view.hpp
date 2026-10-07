@@ -28,6 +28,9 @@ struct SceneSetup {
     VoiceFactory live_music{};     // synthesized in place of `music` where possible
 #endif
     Bounds bounds{};              // where startled creatures may go
+    // Several scenes the player can choose between with the Scene command (S); the
+    // first is the default. When empty, archive/make_look/dress/bounds are the scene.
+    std::vector<DioramaScene> scenes{};
     CadenceLimits limits{};
     std::uint32_t backdrop{0x0B1A14};  // 0xRRGGBB shown until the scene is ready
 };

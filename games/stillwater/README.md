@@ -12,6 +12,20 @@ tetras with blue sheen and red fins swim slow loops at different depths; two cra
 shuffle on the sand; an air stone sends up a thin column of bubbles. A little
 treasure chest lies half sunk in the sand, its lid ajar over a heap of gold that
 glints as the light ripples across it, and now and then a bubble escapes from it.
+Sunlight through the rippling surface throws caustics, a slowly moving, branching
+net of bright lines, over the sand, the stones, the leaves and the fish: crisp near
+the surface, softer and dimmer on the floor.
+
+Two more tanks can be chosen with the Scene command:
+
+- **Reef**: white coral sand under a low ridge of live rock, staghorn and brain
+  corals, sea fans, sea whips and soft-coral mounds; blue and yellow tangs over the
+  reef, clownfish keeping close to three anemones, a red hermit crab, sea grass at
+  the sides and the chest in the sand.
+- **River pool**: dim, tea-coloured water under tree roots reaching down from the
+  bank, sunken branches, smooth stones, gravel and leaf litter, long eelgrass in the
+  current; a shoal of olive minnows, a few bronze rudd with red fins, darters on the
+  bottom and a dull crab under a branch.
 
 There are no rules, no score and nothing to lose. It serves the collection's fourth
 purpose more purely than any game on the shelf: something pleasant to glance at
@@ -27,9 +41,13 @@ beside real work, that asks for nothing and can be left at any moment.
   moment.
 - **Detail** (Q or the capsule): Light, Balanced (default) or Fine, the size of the
   scene's pixels and the processor budget.
+- **Scene** (S or the capsule): the planted tank (default), the reef or the river
+  pool, in turn. The tank dims to dark water while the next one is prepared on a
+  worker, then brightens; this works while paused too.
 - **Help** (F1 or H).
 
-Settings (paused, detail) persist in `stillwater-v1.txt`. There is no progress to
+Settings (paused, detail, scene) persist in `stillwater-v1.txt`; a file from before
+there was a choice opens the planted tank. There is no progress to
 save; the fish start their loops afresh each session.
 
 ## Look and sound
@@ -66,6 +84,9 @@ frame with Metal; this port keeps the picture by doing less, not by drawing less
   triangles); foliage that cannot move half a pixel at the current size is drawn
   once with the fixed scenery; the rest is redrawn about eight times a second;
 - fish are decimated (11,916 → 1,500 body triangles) and shaded per pixel;
+- the caustics are traced once as a tank opens (about 20 ms on a worker) into a
+  looping, tileable pattern of 32 steps, kept sharp and soft; a frame then reads two
+  bytes per lit pixel;
 - the engine measures its own cost and holds the tank within a processor budget,
   half of it while another window is in front, none while paused or hidden.
 

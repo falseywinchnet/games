@@ -1,1 +1,1 @@
-A living aquarium to leave running: tetras over swaying grass, crabs, driftwood and a sunken treasure chest, with an island band improvising on lap steel and ukulele. Tap the glass to scatter the fish.
+A living aquarium to leave running: tetras over swaying grass, a coral reef of tangs and clownfish, or a dim river pool under tree roots, all under shifting sunlit caustics, with an island band improvising on lap steel and ukulele. Tap the glass to scatter the fish.
