@@ -1,6 +1,7 @@
 #include "puzzle_render.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 namespace games {
 void PuzzleRaster::resize(int w, int h) {
@@ -522,6 +523,443 @@ void PuzzleRaster::cube(const PuzzleGame& game, double yaw, double pitch, int ho
                     disc({pf.x, pf.y}, width * .5, color, b, front);
                 }
             }
+        }
+}
+// Puzzle Solve art -----------------------------------------------------------------------
+namespace {
+struct Rgb {
+    float r = 0, g = 0, b = 0;
+};
+Rgb mix(Rgb a, Rgb b, float t) {
+    return {a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t};
+}
+Rgb scaled_rgb(Rgb a, float k) {
+    return {a.r * k, a.g * k, a.b * k};
+}
+struct RampStop {
+    float at;
+    Rgb color;
+};
+Rgb ramp(const RampStop* stops, int count, float t) {
+    if (t <= stops[0].at)
+        return stops[0].color;
+    for (int i = 1; i < count; ++i)
+        if (t <= stops[i].at) {
+            const float span = stops[i].at - stops[i - 1].at;
+            return mix(stops[i - 1].color, stops[i].color, (t - stops[i - 1].at) / span);
+        }
+    return stops[count - 1].color;
+}
+float smooth01(float t) {
+    const float c = std::clamp(t, 0.0f, 1.0f);
+    return c * c * (3 - 2 * c);
+}
+// The light, from the upper left and a little more from above. Normals of the grid's
+// edges and diagonals are never perpendicular to it, so every edge is lit or shaded.
+const float light_x = -.479f, light_y = -.878f;
+// Glass across a bar, from the side facing the light (0) to the far side (1): a bright
+// rim, the pale highlight, saturated body color, and deep color at the far edge.
+const RampStop blue_glass[] = {{0.00f, {44, 112, 222}},  {0.06f, {104, 178, 252}},
+                               {0.15f, {200, 238, 255}}, {0.24f, {104, 178, 254}},
+                               {0.40f, {32, 116, 240}},  {0.66f, {18, 74, 204}},
+                               {0.88f, {10, 42, 142}},   {1.00f, {12, 30, 100}}};
+const RampStop gold_glass[] = {{0.00f, {236, 146, 28}},  {0.06f, {255, 208, 84}},
+                               {0.15f, {255, 248, 200}}, {0.24f, {255, 226, 98}},
+                               {0.40f, {253, 198, 42}},  {0.66f, {244, 156, 22}},
+                               {0.88f, {216, 106, 10}},  {1.00f, {176, 72, 8}}};
+const int glass_stops = 8;
+const Rgb lead{44, 48, 56};
+// A polygon's edges in device pixels, for exact signed distances (positive inside).
+struct EdgeField {
+    struct Segment {
+        double ax, ay, dx, dy, length2, nx, ny; // nx, ny: unit outward normal
+    };
+    std::vector<Segment> segments;
+    double left = 0, top = 0, right = 0, bottom = 0;
+    void build(const std::vector<Point2>& outline, double origin_x, double origin_y,
+               double unit) {
+        segments.clear();
+        left = top = 1e9;
+        right = bottom = -1e9;
+        for (std::size_t i = 0; i < outline.size(); ++i) {
+            const Point2 a = outline[i], b = outline[(i + 1) % outline.size()];
+            const double ax = origin_x + a.x * unit, ay = origin_y + a.y * unit;
+            const double dx = (b.x - a.x) * unit, dy = (b.y - a.y) * unit;
+            const double length = std::sqrt(dx * dx + dy * dy);
+            segments.push_back({ax, ay, dx, dy, dx * dx + dy * dy, dy / length, -dx / length});
+            left = std::min(left, ax);
+            right = std::max(right, ax);
+            top = std::min(top, ay);
+            bottom = std::max(bottom, ay);
+        }
+    }
+    // Signed distance at (x, y); `edge` receives the nearest segment.
+    double distance(double x, double y, int& edge) const {
+        double best = 1e18;
+        bool inside = false;
+        edge = 0;
+        for (std::size_t i = 0; i < segments.size(); ++i) {
+            const Segment& s = segments[i];
+            const double px = x - s.ax, py = y - s.ay;
+            const double t = std::clamp((px * s.dx + py * s.dy) / s.length2, 0.0, 1.0);
+            const double ex = px - s.dx * t, ey = py - s.dy * t;
+            const double d2 = ex * ex + ey * ey;
+            if (d2 < best) {
+                best = d2;
+                edge = static_cast<int>(i);
+            }
+            const double by = s.ay + s.dy;
+            if ((s.ay > y) != (by > y)) {
+                const double crossing = s.ax + (y - s.ay) * s.dx / s.dy;
+                if (x < crossing)
+                    inside = !inside;
+            }
+        }
+        const double d = std::sqrt(best);
+        return inside ? d : -d;
+    }
+};
+void put_pixel(GlassImage& out, int x, int y, Rgb color, float alpha) {
+    const std::size_t at = (static_cast<std::size_t>(y) * out.width + x) * 4;
+    const float a = std::clamp(alpha, 0.0f, 1.0f);
+    out.pixels[at] = static_cast<std::byte>(std::lround(std::clamp(color.b, 0.0f, 255.0f) * a));
+    out.pixels[at + 1] =
+        static_cast<std::byte>(std::lround(std::clamp(color.g, 0.0f, 255.0f) * a));
+    out.pixels[at + 2] =
+        static_cast<std::byte>(std::lround(std::clamp(color.r, 0.0f, 255.0f) * a));
+    out.pixels[at + 3] = static_cast<std::byte>(std::lround(a * 255));
+}
+// Which atom of a cell holds the point (fx, fy) in [0, 1): top, right, bottom or left.
+int wedge_at(double fx, double fy) {
+    if (fy < fx)
+        return fy < 1 - fx ? 0 : 1;
+    return fy < 1 - fx ? 3 : 2;
+}
+// Lattice noise that repeats every `period` cells, for seamless plaster.
+float lattice(int x, int y, int period, std::uint32_t seed) {
+    std::uint32_t h = static_cast<std::uint32_t>(((x % period) + period) % period) * 73856093u ^
+                      static_cast<std::uint32_t>(((y % period) + period) % period) * 19349663u ^
+                      seed * 83492791u;
+    h ^= h >> 13;
+    h *= 0x5bd1e995u;
+    h ^= h >> 15;
+    return static_cast<float>(h & 0xffffu) / 65535.0f;
+}
+float value_noise(double x, double y, int period, std::uint32_t seed) {
+    const int ix = static_cast<int>(std::floor(x)), iy = static_cast<int>(std::floor(y));
+    const float fx = smooth01(static_cast<float>(x - ix)), fy = smooth01(static_cast<float>(y - iy));
+    const float a = lattice(ix, iy, period, seed), b = lattice(ix + 1, iy, period, seed);
+    const float c = lattice(ix, iy + 1, period, seed), d = lattice(ix + 1, iy + 1, period, seed);
+    return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+}
+} // namespace
+double glass_margin(GlassLook look, double unit, double scale) {
+    if (look == GlassLook::lifted)
+        return std::ceil(unit * .24 + 3 * scale);
+    if (look == GlassLook::tray)
+        return std::ceil(unit * .10 + 3 * scale);
+    return std::ceil(2 * scale);
+}
+void render_glass(const GlassPiece& piece, GlassImage& out) {
+    int columns = 1, rows = 1;
+    for (const PieceCell& c : piece.cells) {
+        columns = std::max(columns, c.x + 1);
+        rows = std::max(rows, c.y + 1);
+    }
+    out.width = static_cast<int>(std::ceil(columns * piece.unit + 2 * piece.margin));
+    out.height = static_cast<int>(std::ceil(rows * piece.unit + 2 * piece.margin));
+    out.pixels.assign(static_cast<std::size_t>(out.width) * out.height * 4, std::byte{0});
+    const std::vector<Point2> outline = solve_outline(piece.cells);
+    if (outline.empty())
+        return;
+    EdgeField field;
+    field.build(outline, piece.margin, piece.margin, piece.unit);
+    // Atom colors, cell by cell, for two-color pieces from the original game.
+    std::vector<int> colors(static_cast<std::size_t>(columns * rows * 4), 0);
+    int first_color = 0;
+    bool one_color = true;
+    for (const PieceCell& c : piece.cells) {
+        colors[static_cast<std::size_t>((c.y * columns + c.x) * 4 + c.wedge)] = c.color;
+        if (first_color && c.color != first_color)
+            one_color = false;
+        first_color = first_color ? first_color : c.color;
+    }
+    // The sheen runs along the longest edge; among equal edges, the one facing the light.
+    int axis = 0;
+    double longest = 0, facing = -2;
+    for (std::size_t i = 0; i < field.segments.size(); ++i) {
+        const EdgeField::Segment& s = field.segments[i];
+        const double length = std::sqrt(s.length2);
+        const double toward = s.nx * light_x + s.ny * light_y;
+        if (length > longest * 1.01 || (length > longest * .99 && toward > facing)) {
+            longest = std::max(longest, length);
+            facing = toward;
+            axis = static_cast<int>(i);
+        }
+    }
+    const EdgeField::Segment& a = field.segments[static_cast<std::size_t>(axis)];
+    double extent = 1e-6, along_min = 1e18, along_max = -1e18;
+    // Along the axis, the end nearer the light is a little brighter.
+    double ex = a.dx / std::sqrt(a.length2), ey = a.dy / std::sqrt(a.length2);
+    if (ex * light_x + ey * light_y > 0) {
+        ex = -ex;
+        ey = -ey;
+    }
+    for (const EdgeField::Segment& s : field.segments) {
+        extent = std::max(extent, -((s.ax - a.ax) * a.nx + (s.ay - a.ay) * a.ny));
+        const double along = s.ax * ex + s.ay * ey;
+        along_min = std::min(along_min, along);
+        along_max = std::max(along_max, along);
+    }
+    const bool axis_lit = a.nx * light_x + a.ny * light_y > 0;
+    const double scale = piece.scale;
+    const double line = 1.15 * scale;
+    const double bevel = std::max(1.6 * scale, piece.unit * .065);
+    const bool shadowed = piece.look == GlassLook::lifted || piece.look == GlassLook::tray;
+    const bool lifted = piece.look == GlassLook::lifted;
+    const double shadow_x = lifted ? piece.unit * .06 : piece.unit * .015 + scale,
+                 shadow_y = lifted ? piece.unit * .11 : piece.unit * .03 + scale;
+    const double blur = lifted ? piece.unit * .11 + 2 * scale : piece.unit * .03 + 1.5 * scale;
+    const float shadow_strength = lifted ? .34f : .30f;
+    for (int y = 0; y < out.height; ++y)
+        for (int x = 0; x < out.width; ++x) {
+            const double px = x + .5, py = y + .5;
+            int edge = 0;
+            const double d = field.distance(px, py, edge);
+            float shadow = 0;
+            if (shadowed && d < .5) {
+                int shadow_edge = 0;
+                const double ds = field.distance(px - shadow_x, py - shadow_y, shadow_edge);
+                shadow = shadow_strength * smooth01(static_cast<float>((ds + blur) / (2 * blur)));
+            }
+            const float cover = std::clamp(static_cast<float>(d + .5), 0.0f, 1.0f);
+            if (cover <= 0) {
+                if (shadow > 0)
+                    put_pixel(out, x, y, {8, 10, 16}, shadow);
+                continue;
+            }
+            Rgb color{};
+            float alpha = cover;
+            if (piece.look == GlassLook::used) {
+                const float ring = std::clamp(static_cast<float>(line - d + .5), 0.0f, 1.0f);
+                color = mix(Rgb{96, 102, 114}, Rgb{70, 76, 88}, ring);
+                alpha = cover * (.13f + .37f * ring);
+                put_pixel(out, x, y, color, alpha);
+                continue;
+            }
+            // The atom under the pixel decides its color (nearest inside atom at the rim).
+            int tone = first_color;
+            if (!one_color) {
+                const double cx = std::clamp((px - piece.margin) / piece.unit, 0.0, columns - 1e-6),
+                             cy = std::clamp((py - piece.margin) / piece.unit, 0.0, rows - 1e-6);
+                const int ix = static_cast<int>(cx), iy = static_cast<int>(cy);
+                const int found = colors[static_cast<std::size_t>(
+                    (iy * columns + ix) * 4 + wedge_at(cx - ix, cy - iy))];
+                tone = found ? found : first_color;
+            }
+            const RampStop* stops = tone == 2 ? gold_glass : blue_glass;
+            const double across = -((px - a.ax) * a.nx + (py - a.ay) * a.ny) / extent;
+            const float t = static_cast<float>(axis_lit ? across : 1 - across);
+            color = ramp(stops, glass_stops, std::clamp(t, 0.0f, 1.0f));
+            const double along = (px * ex + py * ey - along_min) / std::max(1.0, along_max - along_min);
+            color = scaled_rgb(color, static_cast<float>(1.05 - .11 * std::clamp(along, 0.0, 1.0)));
+            // Bevel: the rim facing the light catches it, the far rim falls into shade.
+            const EdgeField::Segment& s = field.segments[static_cast<std::size_t>(edge)];
+            const double inner = d - line;
+            if (inner < bevel) {
+                const float w = smooth01(static_cast<float>(1 - std::max(0.0, inner) / bevel));
+                const float lit = static_cast<float>(s.nx * light_x + s.ny * light_y);
+                if (lit > 0)
+                    color = mix(color, Rgb{255, 255, 255}, .62f * lit * w);
+                else
+                    color = mix(color, scaled_rgb(ramp(stops, glass_stops, 1), .55f), -.55f * lit * w);
+            }
+            // The lead line around the piece.
+            const float ring = std::clamp(static_cast<float>(line - d + .5), 0.0f, 1.0f);
+            color = mix(color, lead, ring);
+            if (shadow > 0 && cover < 1) {
+                // Blend the rim over the shadow beneath it.
+                const float under = shadow * (1 - cover);
+                const float total = cover + under;
+                color = mix(Rgb{8, 10, 16}, color, cover / total);
+                alpha = total;
+            }
+            put_pixel(out, x, y, color, alpha);
+        }
+}
+void render_solve_tray(const SolveTrayArt& art, GlassImage& out) {
+    const double inset = art.margin + art.border;
+    out.width = static_cast<int>(std::ceil(art.columns * art.unit + 2 * inset));
+    out.height = static_cast<int>(std::ceil(art.rows * art.unit + 2 * inset));
+    out.pixels.assign(static_cast<std::size_t>(out.width) * out.height * 4, std::byte{0});
+    if (art.outline.size() < 3)
+        return;
+    EdgeField field;
+    field.build(art.outline, inset, inset, art.unit);
+    const double scale = art.scale, border = art.border;
+    const double shadow_x = border * .25 + scale, shadow_y = border * .45 + 2 * scale,
+                 blur = border * .6 + 2 * scale;
+    for (int y = 0; y < out.height; ++y)
+        for (int x = 0; x < out.width; ++x) {
+            const double px = x + .5, py = y + .5;
+            int edge = 0;
+            const double d = -field.distance(px, py, edge); // positive outside the frame
+            const EdgeField::Segment& s = field.segments[static_cast<std::size_t>(edge)];
+            const float lit = static_cast<float>(s.nx * light_x + s.ny * light_y);
+            if (d > border - .5) {
+                int shadow_edge = 0;
+                const double ds = -field.distance(px - shadow_x, py - shadow_y, shadow_edge);
+                const float shadow = .32f * (1 - smooth01(static_cast<float>((ds - border + blur) /
+                                                                             (2 * blur))));
+                const float cover = std::clamp(static_cast<float>(border - d + .5), 0.0f, 1.0f);
+                if (cover <= 0) {
+                    if (shadow > 0)
+                        put_pixel(out, x, y, {20, 18, 16}, shadow);
+                    continue;
+                }
+            }
+            Rgb color{};
+            float alpha = 1;
+            if (d <= .5) {
+                // The well: plaster a shade cooler than the wall, shaded by the steel rim on
+                // the sides facing the light, with a faint grid of cells and diagonals.
+                const double inside = -d;
+                const double fx = (px - inset) / art.unit, fy = (py - inset) / art.unit;
+                const float grain =
+                    value_noise(px / (3 * scale), py / (3 * scale), 1 << 20, 7u) * .5f +
+                    value_noise(px / (9 * scale), py / (9 * scale), 1 << 20, 11u) * .5f;
+                color = scaled_rgb(Rgb{196, 198, 200}, .96f + .07f * grain);
+                const double gx = std::abs(fx - std::round(fx)) * art.unit,
+                             gy = std::abs(fy - std::round(fy)) * art.unit;
+                const double gd = std::min(gx, gy);
+                const float grid = std::clamp(static_cast<float>(.6 * scale - gd + .5), 0.0f, 1.0f);
+                const double u = fx - std::floor(fx), v = fy - std::floor(fy);
+                const double dd = std::min(std::abs(u - v), std::abs(u + v - 1)) * art.unit * .7071;
+                const float diagonal =
+                    std::clamp(static_cast<float>(.5 * scale - dd + .5), 0.0f, 1.0f);
+                color = mix(color, Rgb{150, 154, 162}, .55f * grid + .22f * diagonal);
+                const float rim_shade =
+                    std::exp(-static_cast<float>(inside / (art.unit * .10 + 2 * scale)));
+                const float occlusion =
+                    std::exp(-static_cast<float>(inside / (art.unit * .035 + scale)));
+                color = scaled_rgb(color, 1 - .30f * rim_shade * std::max(0.0f, lit) - .14f * occlusion);
+                if (d > -.5) {
+                    // Antialias into the steel's dark inner lip.
+                    const float to_lip = static_cast<float>(d + .5);
+                    color = mix(color, Rgb{58, 62, 70}, to_lip);
+                }
+            } else {
+                // Steel: brushed along the nearest edge, lit from above, with a rounded
+                // outer edge and a bevel falling into the well.
+                const double q = d / border;
+                const double dir_x = s.dx / std::sqrt(s.length2), dir_y = s.dy / std::sqrt(s.length2);
+                const double across = px * -dir_y + py * dir_x;
+                const float brush = value_noise(across / (.7 * scale), (px * dir_x + py * dir_y) / (40 * scale),
+                                                1 << 20, 3u);
+                const float height_light = static_cast<float>(.5 - .5 * (py - inset) / (art.rows * art.unit));
+                color = mix(Rgb{150, 156, 166}, Rgb{222, 226, 232}, .35f + .5f * height_light);
+                color = scaled_rgb(color, .95f + .09f * brush);
+                // Slopes: inner bevel rises outward (faces -normal), outer edge falls outward.
+                float slope = 0;
+                if (q < .26)
+                    slope = static_cast<float>(-(1 - q / .26)) * .9f;
+                else if (q > .56)
+                    slope = static_cast<float>(std::pow((q - .56) / .44, .8));
+                const float shade = slope * lit;
+                if (shade > 0)
+                    color = mix(color, Rgb{255, 255, 255}, .85f * shade);
+                else
+                    color = mix(color, Rgb{62, 66, 76}, -.8f * shade);
+                // Fine dark lines at the steel's inner and outer edges.
+                const float lip = std::clamp(static_cast<float>(1.0 * scale - d + .5), 0.0f, 1.0f);
+                const float rim = std::clamp(static_cast<float>(d - (border - 1.0 * scale) + .5), 0.0f, 1.0f);
+                color = mix(color, Rgb{58, 62, 70}, std::max(lip, rim * .8f));
+                alpha = std::clamp(static_cast<float>(border - d + .5), 0.0f, 1.0f);
+                if (alpha < 1) {
+                    int shadow_edge = 0;
+                    const double ds = -field.distance(px - shadow_x, py - shadow_y, shadow_edge);
+                    const float shadow = .32f * (1 - smooth01(static_cast<float>(
+                                                          (ds - border + blur) / (2 * blur))));
+                    const float under = shadow * (1 - alpha);
+                    const float total = alpha + under;
+                    color = mix(Rgb{20, 18, 16}, color, alpha / std::max(total, 1e-4f));
+                    alpha = total;
+                }
+            }
+            put_pixel(out, x, y, color, alpha);
+        }
+}
+void render_solve_design(const SolveDesignArt& art, GlassImage& out) {
+    out.width = static_cast<int>(std::ceil(art.columns * art.unit + 2 * art.margin));
+    out.height = static_cast<int>(std::ceil(art.rows * art.unit + 2 * art.margin));
+    out.pixels.assign(static_cast<std::size_t>(out.width) * out.height * 4, std::byte{0});
+    if (art.outline.size() < 3)
+        return;
+    EdgeField field;
+    field.build(art.outline, art.margin, art.margin, art.unit);
+    const Rgb blue_top{36, 98, 226}, blue_bottom{16, 58, 178};
+    const Rgb gold_top{255, 214, 58}, gold_bottom{246, 172, 22};
+    const double line = 1.2 * art.scale;
+    for (int y = 0; y < out.height; ++y)
+        for (int x = 0; x < out.width; ++x) {
+            const double px = x + .5, py = y + .5;
+            int edge = 0;
+            const double d = field.distance(px, py, edge);
+            const float cover = std::clamp(static_cast<float>(d + line + .5), 0.0f, 1.0f);
+            if (cover <= 0)
+                continue;
+            // Four samples per pixel keep the color boundaries as smooth as the outline.
+            Rgb sum{};
+            const float height = static_cast<float>((py - art.margin) / (art.rows * art.unit));
+            for (int k = 0; k < 4; ++k) {
+                const double sx = (x + .25 + .5 * (k % 2) - art.margin) / art.unit,
+                             sy = (y + .25 + .5 * (k / 2) - art.margin) / art.unit;
+                const int ix = std::clamp(static_cast<int>(std::floor(sx)), 0, art.columns - 1),
+                          iy = std::clamp(static_cast<int>(std::floor(sy)), 0, art.rows - 1);
+                const int value = art.picture[static_cast<std::size_t>(
+                    (iy * art.columns + ix) * 4 + wedge_at(sx - ix, sy - iy))];
+                const float h = std::clamp(height, 0.0f, 1.0f);
+                const Rgb sample = value == 2   ? mix(gold_top, gold_bottom, h)
+                                   : value == 1 ? mix(blue_top, blue_bottom, h)
+                                                : Rgb{58, 62, 70};
+                sum = {sum.r + sample.r * .25f, sum.g + sample.g * .25f, sum.b + sample.b * .25f};
+            }
+            const float ring = std::clamp(static_cast<float>(line - d + .5), 0.0f, 1.0f);
+            put_pixel(out, x, y, mix(sum, Rgb{58, 62, 70}, ring), cover);
+        }
+}
+void render_plaster(int side, double scale, GlassImage& out) {
+    out.width = side;
+    out.height = side;
+    out.pixels.assign(static_cast<std::size_t>(side) * side * 4, std::byte{0});
+    // Height from four octaves of repeating noise, lit from the upper left: the trowelled
+    // bumps of lime plaster. Periods divide the tile, so it repeats without a seam.
+    const int periods[] = {12, 32, 64, 128};
+    const float weights[] = {.30f, .30f, .24f, .16f};
+    std::vector<float> height(static_cast<std::size_t>(side) * side, 0);
+    for (int y = 0; y < side; ++y)
+        for (int x = 0; x < side; ++x) {
+            float h = 0;
+            for (int o = 0; o < 4; ++o) {
+                const double f = static_cast<double>(periods[o]) / side;
+                h += weights[o] * value_noise(x * f, y * f, periods[o], 17u + o);
+            }
+            height[static_cast<std::size_t>(y) * side + x] = h;
+        }
+    const float relief = static_cast<float>(7.0 / scale);
+    for (int y = 0; y < side; ++y)
+        for (int x = 0; x < side; ++x) {
+            const float right = height[static_cast<std::size_t>(y) * side + (x + 1) % side],
+                        left = height[static_cast<std::size_t>(y) * side + (x + side - 1) % side],
+                        down = height[static_cast<std::size_t>((y + 1) % side) * side + x],
+                        up = height[static_cast<std::size_t>((y + side - 1) % side) * side + x];
+            const float gx = (right - left) * relief, gy = (down - up) * relief;
+            const float shade = std::clamp(-(gx * light_x + gy * light_y), -1.0f, 1.0f);
+            const float h = height[static_cast<std::size_t>(y) * side + x];
+            Rgb color = mix(Rgb{210, 207, 200}, Rgb{226, 224, 218}, h);
+            color = shade > 0 ? mix(color, Rgb{244, 243, 238}, .5f * shade)
+                              : mix(color, Rgb{170, 165, 156}, -.5f * shade);
+            put_pixel(out, x, y, color, 1);
         }
 }
 } // namespace games

@@ -3,6 +3,7 @@
 #include <cmath>
 #include <fstream>
 #include <iomanip>
+#include <map>
 #include <set>
 #include <sstream>
 namespace games {
@@ -61,28 +62,9 @@ void PuzzleGame::deal(std::uint32_t seed) {
         generate_cube();
     else if (kind == PuzzleKind::atom)
         generate_atoms();
-    else if (kind == PuzzleKind::solve) {
-        // Seven diagonal polyforms partition a 4x4 square. Four exact triangle
-        // atoms per square preserve both shape and two-color artwork under D4.
-        state.aux[95] = 3;
-        for (int p = 0; p < 7; ++p) {
-            state.aux[48 + p] = p;
-            state.aux[64 + p] = random(4);
-            state.aux[72 + p] = random(2);
-            state.aux[80 + p] = 1 + random(2);
-        }
-        for (int p = 6; p > 0; --p)
-            std::swap(state.aux[48 + p], state.aux[48 + random(p + 1)]);
-        const int origins[7][2] = {{0, 0}, {0, 0}, {2, 2}, {2, 1}, {1, 2}, {3, 0}, {0, 3}};
-        for (int p = 0; p < 7; ++p) {
-            int source = state.aux[48 + p];
-            state.solution_paths.push_back({p, origins[source][0], origins[source][1], 0, 0});
-            for (const PieceCell& c : piece_cells(p, 0, false))
-                state.secret[((c.y + origins[source][1]) * 4 + c.x + origins[source][0]) * 4 +
-                             c.wedge] = c.color;
-        }
-        message = "Reconstruct the target with seven diagonal, two-color pieces.";
-    } else if (kind == PuzzleKind::sticks) {
+    else if (kind == PuzzleKind::solve)
+        static_cast<void>(generate_solve());
+    else if (kind == PuzzleKind::sticks) {
         std::vector<Point2> cells = hex_cells();
         for (int i = 0; i < static_cast<int>(cells.size()); ++i)
             state.secret[i] = random(3) == 0 ? 1 : 2 + random(6);
@@ -873,16 +855,572 @@ bool PuzzleGame::submit_atoms() {
                         : "The atoms are revealed. Try a new configuration.";
     return true;
 }
+// Puzzle Solve -----------------------------------------------------------------------------
+namespace {
+// Where each wedge's centroid sits inside its cell.
+const double atom_dx[] = {.5, 5.0 / 6, .5, 1.0 / 6}, atom_dy[] = {1.0 / 6, .5, 5.0 / 6, .5};
+// The classic seven-piece tangram on a 4 x 4 square, clockwise on screen.
+std::vector<Point2> tangram_polygon(int piece) {
+    switch (piece) {
+    case 0:
+        return {{0, 0}, {4, 0}, {2, 2}};
+    case 1:
+        return {{0, 0}, {2, 2}, {0, 4}};
+    case 2:
+        return {{4, 2}, {4, 4}, {2, 4}};
+    case 3:
+        return {{2, 2}, {3, 1}, {3, 3}};
+    case 4:
+        return {{2, 2}, {3, 3}, {2, 4}, {1, 3}};
+    case 5:
+        return {{4, 0}, {4, 2}, {3, 3}, {3, 1}};
+    default:
+        return {{0, 4}, {1, 3}, {2, 4}};
+    }
+}
+// Frames are numbered permanently; a game keeps its frame's number in aux[90]. Every edge
+// runs along the grid or a cell diagonal, so each frame is a union of whole atoms.
+struct SolveFrameShape {
+    int columns = 4, rows = 4;
+    std::vector<Point2> outline;
+};
+SolveFrameShape solve_frame_shape(int frame) {
+    switch (frame) {
+    case 1: // small square
+        return {3, 3, {{0, 0}, {3, 0}, {3, 3}, {0, 3}}};
+    case 2: // short oblong
+        return {4, 3, {{0, 0}, {4, 0}, {4, 3}, {0, 3}}};
+    case 3: // diamond
+        return {4, 4, {{2, 0}, {4, 2}, {2, 4}, {0, 2}}};
+    case 4: // set square
+        return {4, 4, {{0, 0}, {4, 0}, {0, 4}}};
+    case 5: // octagon
+        return {4, 4, {{1, 0}, {3, 0}, {4, 1}, {4, 3}, {3, 4}, {1, 4}, {0, 3}, {0, 1}}};
+    case 6: // oblong
+        return {5, 4, {{0, 0}, {5, 0}, {5, 4}, {0, 4}}};
+    case 7: // long oblong
+        return {6, 4, {{0, 0}, {6, 0}, {6, 4}, {0, 4}}};
+    case 8: // hexagon
+        return {6, 4, {{2, 0}, {4, 0}, {6, 2}, {4, 4}, {2, 4}, {0, 2}}};
+    case 9: // house
+        return {4, 5, {{2, 0}, {4, 2}, {4, 5}, {0, 5}, {0, 2}}};
+    case 10: // long octagon
+        return {6, 4, {{1, 0}, {5, 0}, {6, 1}, {6, 3}, {5, 4}, {1, 4}, {0, 3}, {0, 1}}};
+    default: // square
+        return {4, 4, {{0, 0}, {4, 0}, {4, 4}, {0, 4}}};
+    }
+}
+bool inside_polygon(Point2 q, const std::vector<Point2>& polygon) {
+    bool inside = false;
+    std::size_t previous = polygon.size() - 1;
+    for (std::size_t i = 0; i < polygon.size(); ++i) {
+        const Point2 a = polygon[i], b = polygon[previous];
+        previous = i;
+        if ((a.y > q.y) == (b.y > q.y))
+            continue;
+        const double crossing = a.x + (q.y - a.y) * (b.x - a.x) / (b.y - a.y);
+        if (q.x < crossing)
+            inside = !inside;
+    }
+    return inside;
+}
+// The three atoms sharing an edge with `atom`: its two cell neighbors, then the atom across
+// the cell side (or -1 at the frame's bounding box).
+std::array<int, 3> atom_neighbors(int atom, int columns, int rows) {
+    const int cell = atom / 4, wedge = atom % 4;
+    const int x = cell % columns, y = cell / columns;
+    const int step_x[] = {0, 1, 0, -1}, step_y[] = {-1, 0, 1, 0};
+    const int nx = x + step_x[wedge], ny = y + step_y[wedge];
+    const bool outside = nx < 0 || ny < 0 || nx >= columns || ny >= rows;
+    const int across = outside ? -1 : (ny * columns + nx) * 4 + (wedge + 2) % 4;
+    return {cell * 4 + (wedge + 1) % 4, cell * 4 + (wedge + 3) % 4, across};
+}
+std::vector<PieceCell> atoms_to_cells(const std::vector<int>& atoms, int columns) {
+    std::vector<PieceCell> cells;
+    for (int atom : atoms)
+        cells.push_back({(atom / 4) % columns, atom / 4 / columns, 0, atom % 4});
+    return cells;
+}
+// Sorted (y, x, wedge, color) codes of normalized cells: equal codes, equal pieces.
+std::vector<int> cell_codes(const std::vector<PieceCell>& cells) {
+    std::vector<int> codes;
+    for (const PieceCell& c : cells)
+        codes.push_back(((c.y * 8 + c.x) * 4 + c.wedge) * 4 + c.color);
+    std::sort(codes.begin(), codes.end());
+    return codes;
+}
+// The smallest code list over all eight orientations: equal keys, congruent pieces.
+std::vector<int> shape_key(const std::vector<PieceCell>& cells, bool allow_flip) {
+    std::vector<int> best;
+    for (int orientation = 0; orientation < (allow_flip ? 8 : 4); ++orientation) {
+        const std::vector<int> codes =
+            cell_codes(solve_transform(cells, orientation % 4, orientation >= 4));
+        if (best.empty() || codes < best)
+            best = codes;
+    }
+    return best;
+}
+// A chiral piece cannot be turned into its mirror image: a player must flip it.
+bool chiral(const std::vector<PieceCell>& cells) {
+    std::vector<PieceCell> mirrored = solve_transform(cells, 0, true);
+    return shape_key(cells, false) != shape_key(mirrored, false);
+}
+bool convex(const std::vector<Point2>& outline) {
+    for (std::size_t i = 0; i < outline.size(); ++i) {
+        const Point2 a = outline[i], b = outline[(i + 1) % outline.size()],
+                     c = outline[(i + 2) % outline.size()];
+        const double turn = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+        if (turn <= 0)
+            return false;
+    }
+    return true;
+}
+bool whole_cells(const std::vector<int>& atoms) {
+    std::set<int> present(atoms.begin(), atoms.end());
+    for (int atom : atoms)
+        for (int wedge = 0; wedge < 4; ++wedge)
+            if (!present.count(atom / 4 * 4 + wedge))
+                return false;
+    return true;
+}
+enum SolveFamily { blocks = 0, tans = 1, tangram = 2, blocks_and_tans = 3 };
+// Whether a merged piece is a shape the family allows: blocks are polyominoes; tans are
+// triangles and four-sided pieces (squares, oblongs, parallelograms, trapezoids, kites);
+// the mixed family allows either, with polyominoes of at most four cells.
+bool allowed_piece(const std::vector<int>& atoms, int family, int columns, int max_atoms) {
+    if (static_cast<int>(atoms.size()) > max_atoms)
+        return false;
+    const std::vector<Point2> outline = solve_outline(atoms_to_cells(atoms, columns));
+    if (outline.empty())
+        return false;
+    const bool tan = outline.size() <= 4 && convex(outline);
+    if (family == blocks)
+        return whole_cells(atoms);
+    if (family == tans)
+        return tan;
+    return tan || (whole_cells(atoms) && atoms.size() <= 16);
+}
+} // namespace
+std::vector<Point2> solve_outline(const std::vector<PieceCell>& cells) {
+    // In doubled coordinates every atom vertex is a lattice point: corners (2x, 2y) and
+    // the cell center (2x + 1, 2y + 1). Each atom adds its three edges turning the same
+    // way; an edge shared by two atoms arrives once in each direction and cancels.
+    const int corner_x[] = {0, 2, 2, 0}, corner_y[] = {0, 0, 2, 2};
+    std::set<std::pair<int, int>> edges;
+    for (const PieceCell& c : cells) {
+        if (c.x < 0 || c.y < 0 || c.x > 30 || c.y > 30 || c.wedge < 0 || c.wedge > 3)
+            return {};
+        const int a = (2 * c.y + corner_y[c.wedge]) * 64 + 2 * c.x + corner_x[c.wedge];
+        const int b = (2 * c.y + corner_y[(c.wedge + 1) % 4]) * 64 + 2 * c.x +
+                      corner_x[(c.wedge + 1) % 4];
+        const int center = (2 * c.y + 1) * 64 + 2 * c.x + 1;
+        const std::pair<int, int> sides[] = {{a, b}, {b, center}, {center, a}};
+        for (const std::pair<int, int>& side : sides) {
+            if (edges.count(side))
+                return {}; // the same atom twice
+            const std::pair<int, int> reverse{side.second, side.first};
+            if (edges.count(reverse))
+                edges.erase(reverse);
+            else
+                edges.insert(side);
+        }
+    }
+    std::map<int, int> next;
+    for (const std::pair<int, int>& edge : edges) {
+        if (next.count(edge.first))
+            return {}; // two regions touching at a corner
+        next[edge.first] = edge.second;
+    }
+    if (next.empty())
+        return {};
+    std::vector<int> loop;
+    const int start = (*next.begin()).first;
+    int at = start;
+    do {
+        loop.push_back(at);
+        at = next[at];
+    } while (at != start && loop.size() <= next.size());
+    if (loop.size() != next.size())
+        return {}; // a hole or a second region
+    std::vector<Point2> outline;
+    for (std::size_t i = 0; i < loop.size(); ++i) {
+        const int previous = loop[(i + loop.size() - 1) % loop.size()], here = loop[i],
+                  following = loop[(i + 1) % loop.size()];
+        const int ax = here % 64 - previous % 64, ay = here / 64 - previous / 64;
+        const int bx = following % 64 - here % 64, by = following / 64 - here / 64;
+        if (ax * by - ay * bx != 0)
+            outline.push_back({(here % 64) * .5, (here / 64) * .5});
+    }
+    return outline;
+}
+std::vector<PieceCell> solve_transform(const std::vector<PieceCell>& cells, int rotation,
+                                       bool flip) {
+    std::vector<PieceCell> result;
+    for (PieceCell c : cells) {
+        if (flip) {
+            c.x = -c.x - 1;
+            c.wedge = (4 - c.wedge) % 4;
+        }
+        for (int r = 0; r < ((rotation % 4) + 4) % 4; ++r) {
+            const int x = c.x;
+            c.x = -c.y - 1;
+            c.y = x;
+            c.wedge = (c.wedge + 1) % 4;
+        }
+        result.push_back(c);
+    }
+    int minx = 1000, miny = 1000;
+    for (const PieceCell& c : result) {
+        minx = std::min(minx, c.x);
+        miny = std::min(miny, c.y);
+    }
+    for (PieceCell& c : result) {
+        c.x -= minx;
+        c.y -= miny;
+    }
+    return result;
+}
+std::vector<Point2> PuzzleGame::solve_frame() const {
+    std::vector<PieceCell> cells;
+    for (int atom = 0; atom < solve_atoms(); ++atom)
+        if (state.secret[atom])
+            cells.push_back({(atom / 4) % solve_columns(), atom / 4 / solve_columns(), 0,
+                             atom % 4});
+    return solve_outline(cells);
+}
+// A Puzzle Solve game is a real tiling. The generator picks a frame, cuts it into pieces of
+// one family by merging neighboring half squares (or whole cells) while the merged piece
+// remains a shape of that family, colors a connected group of pieces yellow and the rest
+// blue, and turns every piece to a new orientation for the tray. The cut itself is the
+// witness: each piece's tray shape, turned by its witness orientation, lands exactly where
+// it was cut. Easy games are short lessons in one idea each: turning, mirroring, or
+// slanted cuts. Medium has six to eight pieces; Hard nine to twelve in larger frames.
+namespace {
+// Orders piece numbers by size, smallest first; equal sizes keep their order.
+struct SmallerPiece {
+    const std::vector<std::vector<int>>* pieces = nullptr;
+    bool operator()(int a, int b) const {
+        return (*pieces)[static_cast<std::size_t>(a)].size() <
+               (*pieces)[static_cast<std::size_t>(b)].size();
+    }
+};
+bool connected_pieces(int mask, const std::vector<int>& adjacency) {
+    int first = 0;
+    while (first < 31 && !(mask >> first & 1))
+        ++first;
+    int reached = 1 << first, frontier = reached;
+    while (frontier) {
+        int next = 0;
+        for (int p = 0; p < static_cast<int>(adjacency.size()); ++p)
+            if (frontier >> p & 1)
+                next |= adjacency[static_cast<std::size_t>(p)] & mask & ~reached;
+        reached |= next;
+        frontier = next;
+    }
+    return reached == mask;
+}
+int bit_count(int mask) {
+    int bits = 0;
+    for (; mask; mask &= mask - 1)
+        ++bits;
+    return bits;
+}
+} // namespace
+void PuzzleGame::shuffle_values(std::vector<int>& values) {
+    for (int i = static_cast<int>(values.size()) - 1; i > 0; --i)
+        std::swap(values[static_cast<std::size_t>(i)],
+                  values[static_cast<std::size_t>(random(i + 1))]);
+}
+// A Puzzle Solve game is a real tiling. The generator picks a frame, cuts it into pieces of
+// one family by merging neighboring half squares (or whole cells) while each merged piece
+// remains a shape of that family, colors a connected group of pieces yellow and the rest
+// blue, and turns every piece to a new orientation for the tray. The cut is the witness:
+// each tray shape, turned by its witness orientation, lands exactly where it was cut.
+// Easy games are short lessons in one idea each: turning, mirroring, or slanted cuts.
+// Medium cuts six to eight pieces; Hard nine to twelve, mostly in larger frames.
+bool PuzzleGame::generate_solve() {
+    const int lv = std::clamp(level, 0, 2);
+    // Stir the seed: nearby seeds should not choose nearby recipes.
+    for (int i = 0; i < 3; ++i)
+        static_cast<void>(random(2));
+    int frame = 0, family = tans, count = 7, lesson = -1;
+    if (lv == 0) {
+        lesson = random(3);
+        if (lesson == 2) {
+            const int frames[] = {1, 3, 4, 2};
+            frame = frames[random(4)];
+            family = tans;
+        } else {
+            const int frames[] = {1, 2, 0};
+            frame = frames[random(3)];
+            family = blocks;
+        }
+        count = frame == 1 || frame == 3 || frame == 4 ? 4 : 4 + random(2);
+    } else if (lv == 1) {
+        const int pick = random(7);
+        if (pick == 0) {
+            family = tangram;
+        } else if (pick == 1) {
+            family = blocks;
+            frame = random(2) ? 0 : 6;
+            count = frame == 0 ? 6 + random(2) : 7 + random(2);
+        } else {
+            const int frames[] = {0, 5, 8, 9, 0};
+            frame = frames[pick - 2];
+            count = 6 + random(3);
+        }
+    } else {
+        const int pick = random(6);
+        const int frames[] = {7, 10, 6, 8, 9, 0};
+        frame = frames[pick];
+        family = pick < 3 && random(2) ? blocks_and_tans : tans;
+        count = pick < 3 ? 9 + random(4) : 9 + random(2);
+    }
+    const bool cut = cut_solve(frame, family, count, lesson) || cut_solve(0, tangram, 7, -1);
+    if (!cut)
+        return false;
+    state.aux[94] = lv;
+    if (lesson == 0)
+        message = "Turn each piece with R until it fits the picture.";
+    else if (lesson == 1)
+        message = "One piece is mirrored. Flip it with F, then turn it to fit.";
+    else if (lesson == 2)
+        message = "Slanted cuts: turn each piece until its edges meet the frame.";
+    else
+        message = "Rebuild the blue and yellow picture with all " +
+                  std::to_string(state.aux[93]) + " pieces.";
+    return true;
+}
+bool PuzzleGame::cut_solve(int frame, int family, int count, int lesson) {
+    const SolveFrameShape shape = solve_frame_shape(frame);
+    const int columns = shape.columns, rows = shape.rows, atoms = columns * rows * 4;
+    std::vector<bool> inside(static_cast<std::size_t>(atoms), false);
+    int frame_atoms = 0;
+    for (int a = 0; a < atoms; ++a) {
+        const Point2 centroid{(a / 4) % columns + atom_dx[a % 4],
+                              a / 4 / columns + atom_dy[a % 4]};
+        inside[static_cast<std::size_t>(a)] = inside_polygon(centroid, shape.outline);
+        frame_atoms += inside[static_cast<std::size_t>(a)] ? 1 : 0;
+    }
+    const int max_atoms = std::clamp(frame_atoms * 2 / count, 8, 32);
+    for (int attempt = 0; attempt < 400; ++attempt) {
+        // Units: whole cells for blocks, half squares otherwise; a cell crossed by the
+        // frame's edge keeps its inside half. The tangram is cut once and for all.
+        std::vector<std::vector<int>> pieces;
+        for (int cell = 0; cell < columns * rows && family != tangram; ++cell) {
+            std::vector<int> present;
+            for (int w = 0; w < 4; ++w)
+                if (inside[static_cast<std::size_t>(cell * 4 + w)])
+                    present.push_back(cell * 4 + w);
+            if (present.size() == 4 && family == blocks) {
+                pieces.push_back(present);
+            } else if (present.size() == 4) {
+                // Top with right and bottom with left, or top with left and right with bottom.
+                const int turn = random(2);
+                pieces.push_back({cell * 4, cell * 4 + 1 + 2 * turn});
+                pieces.push_back({cell * 4 + 2, cell * 4 + 3 - 2 * turn});
+            } else if (present.size() == 2) {
+                pieces.push_back(present);
+            }
+        }
+        for (int p = 0; p < 7 && family == tangram; ++p) {
+            pieces.push_back({});
+            for (int a = 0; a < atoms; ++a)
+                if (inside_polygon({(a / 4) % columns + atom_dx[a % 4],
+                                    a / 4 / columns + atom_dy[a % 4]},
+                                   tangram_polygon(p)))
+                    pieces.back().push_back(a);
+        }
+        std::vector<int> owner(static_cast<std::size_t>(atoms), -1);
+        for (std::size_t p = 0; p < pieces.size(); ++p)
+            for (int a : pieces[p])
+                owner[static_cast<std::size_t>(a)] = static_cast<int>(p);
+        int live = static_cast<int>(pieces.size());
+        const SmallerPiece smaller{&pieces};
+        while (live > count) {
+            // Merge the smallest piece (now and then any piece) into its smallest neighbor
+            // that keeps an allowed shape.
+            std::vector<int> order;
+            for (int p = 0; p < static_cast<int>(pieces.size()); ++p)
+                if (!pieces[static_cast<std::size_t>(p)].empty())
+                    order.push_back(p);
+            shuffle_values(order);
+            if (random(4))
+                std::stable_sort(order.begin(), order.end(), smaller);
+            bool merged = false;
+            for (std::size_t i = 0; i < order.size() && !merged; ++i) {
+                const int a = order[i];
+                std::vector<int> partners;
+                for (int atom : pieces[static_cast<std::size_t>(a)])
+                    for (int n : atom_neighbors(atom, columns, rows)) {
+                        const int b = n < 0 ? -1 : owner[static_cast<std::size_t>(n)];
+                        if (b >= 0 && b != a &&
+                            std::find(partners.begin(), partners.end(), b) == partners.end())
+                            partners.push_back(b);
+                    }
+                shuffle_values(partners);
+                std::stable_sort(partners.begin(), partners.end(), smaller);
+                for (int b : partners) {
+                    std::vector<int> joined = pieces[static_cast<std::size_t>(a)];
+                    const std::vector<int>& other = pieces[static_cast<std::size_t>(b)];
+                    joined.insert(joined.end(), other.begin(), other.end());
+                    if (!allowed_piece(joined, family, columns, max_atoms))
+                        continue;
+                    for (int atom : other)
+                        owner[static_cast<std::size_t>(atom)] = a;
+                    pieces[static_cast<std::size_t>(b)].clear();
+                    pieces[static_cast<std::size_t>(a)] = joined;
+                    --live;
+                    merged = true;
+                    break;
+                }
+            }
+            if (!merged)
+                break;
+        }
+        if (live != count)
+            continue;
+        std::vector<std::vector<int>> cut;
+        for (const std::vector<int>& p : pieces)
+            if (!p.empty())
+                cut.push_back(p);
+        if (!finish_solve(cut, columns, rows, lesson))
+            continue;
+        state.aux[88] = columns;
+        state.aux[89] = rows;
+        state.aux[90] = frame;
+        state.aux[91] = lesson;
+        state.aux[92] = family;
+        state.aux[93] = count;
+        state.aux[95] = 4;
+        return true;
+    }
+    return false;
+}
+// Checks a cut against its lesson, colors it, and records the picture, the tray shapes
+// and the witness.
+bool PuzzleGame::finish_solve(const std::vector<std::vector<int>>& cut, int columns, int rows,
+                              int lesson) {
+    const int count = static_cast<int>(cut.size());
+    if (count < 2 || count > 12)
+        return false;
+    std::vector<std::vector<PieceCell>> shapes;
+    std::set<std::vector<int>> kinds;
+    int chiral_pieces = 0, slanted = 0, total = 0;
+    for (const std::vector<int>& piece : cut) {
+        if (piece.size() < 4)
+            return false; // every piece covers at least one cell's area
+        const std::vector<PieceCell> cells = solve_transform(atoms_to_cells(piece, columns), 0, false);
+        kinds.insert(shape_key(cells, true));
+        chiral_pieces += chiral(cells) ? 1 : 0;
+        slanted += whole_cells(piece) ? 0 : 1;
+        total += static_cast<int>(piece.size());
+        shapes.push_back(cells);
+    }
+    if (static_cast<int>(kinds.size()) < (count >= 6 ? 3 : 2))
+        return false;
+    if ((lesson == 0 && chiral_pieces) || (lesson == 1 && !chiral_pieces) ||
+        (lesson == 2 && slanted < 2))
+        return false;
+    // Pieces are neighbors when they share an edge; both colors must stay connected.
+    std::vector<int> owner(static_cast<std::size_t>(columns * rows * 4), -1);
+    for (int p = 0; p < count; ++p)
+        for (int a : cut[static_cast<std::size_t>(p)])
+            owner[static_cast<std::size_t>(a)] = p;
+    std::vector<int> adjacency(static_cast<std::size_t>(count), 0);
+    for (int p = 0; p < count; ++p)
+        for (int a : cut[static_cast<std::size_t>(p)])
+            for (int n : atom_neighbors(a, columns, rows))
+                if (n >= 0 && owner[static_cast<std::size_t>(n)] >= 0 &&
+                    owner[static_cast<std::size_t>(n)] != p)
+                    adjacency[static_cast<std::size_t>(p)] |= 1 << owner[static_cast<std::size_t>(n)];
+    const int all = (1 << count) - 1;
+    const double low = lesson >= 0 ? .25 : .3, high = lesson >= 0 ? .75 : .6;
+    std::vector<int> colorings;
+    for (int mask = 1; mask < all; ++mask) {
+        const int yellow_pieces = bit_count(mask);
+        if (yellow_pieces < 2 || count - yellow_pieces < 2)
+            continue;
+        int yellow = 0;
+        for (int p = 0; p < count; ++p)
+            if (mask >> p & 1)
+                yellow += static_cast<int>(cut[static_cast<std::size_t>(p)].size());
+        const double share = static_cast<double>(yellow) / total;
+        if (share < low || share > high || !connected_pieces(mask, adjacency) ||
+            !connected_pieces(all & ~mask, adjacency))
+            continue;
+        colorings.push_back(mask);
+    }
+    if (colorings.empty())
+        return false;
+    const int yellow = colorings[static_cast<std::size_t>(random(static_cast<int>(colorings.size())))];
+    // The tray order says nothing about where a piece belongs.
+    std::vector<int> order;
+    for (int p = 0; p < count; ++p)
+        order.push_back(p);
+    shuffle_values(order);
+    state.secret.fill(0);
+    state.grid.fill(0);
+    state.marks.fill(0);
+    state.paths.clear();
+    state.solution_paths.clear();
+    for (int p = 0; p < count; ++p) {
+        const int source = order[static_cast<std::size_t>(p)];
+        const int color = yellow >> source & 1 ? 2 : 1;
+        std::vector<PieceCell> solved = shapes[static_cast<std::size_t>(source)];
+        for (PieceCell& c : solved)
+            c.color = color;
+        int turn = random(4);
+        bool mirror = random(2) == 1;
+        if (lesson == 0) {
+            turn = 1 + random(3);
+            mirror = false;
+        } else if (lesson == 1)
+            mirror = chiral(solved);
+        else if (lesson == 2)
+            mirror = false;
+        const std::vector<PieceCell> tray = solve_transform(solved, turn, mirror);
+        const std::vector<int> target = cell_codes(solved);
+        int rotation = -1;
+        bool flip = false;
+        for (int o = 0; o < 8 && rotation < 0; ++o)
+            if (cell_codes(solve_transform(tray, o % 4, o >= 4)) == target) {
+                rotation = o % 4;
+                flip = o >= 4;
+            }
+        if (rotation < 0)
+            return false;
+        int x0 = 1000, y0 = 1000;
+        for (int a : cut[static_cast<std::size_t>(source)]) {
+            x0 = std::min(x0, (a / 4) % columns);
+            y0 = std::min(y0, a / 4 / columns);
+            state.secret[static_cast<std::size_t>(a)] = color;
+        }
+        std::vector<int> witness{p, x0, y0, rotation, flip ? 1 : 0};
+        for (const PieceCell& c : tray)
+            witness.push_back(((c.y * 6 + c.x) * 4 + c.wedge) * 2 + c.color - 1);
+        state.solution_paths.push_back(witness);
+    }
+    return true;
+}
 std::vector<PieceCell> PuzzleGame::piece_cells(int piece, int rotation, bool flip) const {
+    if (state.aux[95] == 4) {
+        if (piece < 0 || piece >= piece_count() ||
+            piece >= static_cast<int>(state.solution_paths.size()))
+            return {};
+        const std::vector<int>& witness = state.solution_paths[static_cast<std::size_t>(piece)];
+        std::vector<PieceCell> cells;
+        for (std::size_t i = 5; i < witness.size(); ++i) {
+            const int code = witness[i];
+            const int atom = code / 2;
+            cells.push_back({(atom / 4) % 6, atom / 24, code % 2 + 1, atom % 4});
+        }
+        return solve_transform(cells, rotation, flip);
+    }
     if (state.aux[95] == 3) {
         if (piece < 0 || piece >= 7)
             return {};
-        static const std::vector<Point2> polygons[] = {
-            {{0, 0}, {4, 0}, {2, 2}},         {{0, 0}, {2, 2}, {0, 4}},
-            {{4, 2}, {4, 4}, {2, 4}},         {{2, 2}, {3, 1}, {3, 3}},
-            {{2, 2}, {3, 3}, {2, 4}, {1, 3}}, {{4, 0}, {4, 2}, {3, 3}, {3, 1}},
-            {{0, 4}, {1, 3}, {2, 4}}};
-        const std::vector<Point2>& poly = polygons[state.aux[48 + piece]];
+        const std::vector<Point2> poly = tangram_polygon(state.aux[48 + piece]);
         const double dx[] = {.5, 5.0 / 6, .5, 1.0 / 6}, dy[] = {1.0 / 6, .5, 5.0 / 6, .5};
         std::vector<PieceCell> result;
         for (int y = 0; y < 4; ++y)
@@ -966,7 +1504,13 @@ bool PuzzleGame::place_piece(int piece, int x, int y, int rotation, bool flip) {
     if (state.over || piece < 0 || piece >= piece_count())
         return false;
     std::vector<PieceCell> cells = piece_cells(piece, rotation, flip);
-    int size = state.aux[95] == 3 ? 4 : 6, atoms = state.aux[95] == 3 ? 4 : 1;
+    if (cells.empty())
+        return false;
+    // Triangle-atom frames (versions 3 and 4) are columns x rows cells of four atoms; the
+    // oldest version was a 6 x 6 grid of whole cells.
+    const bool atoms = state.aux[95] == 3 || state.aux[95] == 4;
+    const int columns = atoms ? solve_columns() : 6, rows = atoms ? solve_rows() : 6,
+              per_cell = atoms ? 4 : 1, total = columns * rows * per_cell;
     int minx = 10, miny = 10;
     for (const PieceCell& c : cells) {
         minx = std::min(minx, c.x);
@@ -977,19 +1521,23 @@ bool PuzzleGame::place_piece(int piece, int x, int y, int rotation, bool flip) {
         c.y -= miny;
     }
     for (const PieceCell& c : cells) {
-        int xx = x + c.x, yy = y + c.y, i = (yy * size + xx) * atoms + c.wedge;
-        if (xx < 0 || xx >= size || yy < 0 || yy >= size ||
+        const int xx = x + c.x, yy = y + c.y;
+        if (xx < 0 || xx >= columns || yy < 0 || yy >= rows)
+            return false;
+        const int i = (yy * columns + xx) * per_cell + c.wedge;
+        if ((state.aux[95] == 4 && !state.secret[i]) ||
             (state.grid[i] && state.grid[i] / 4 != piece + 1))
             return false;
     }
-    for (int i = 0; i < size * size * atoms; ++i)
+    for (int i = 0; i < total; ++i)
         if (state.grid[i] / 4 == piece + 1)
             state.grid[i] = 0;
     for (const PieceCell& c : cells)
-        state.grid[((y + c.y) * size + x + c.x) * atoms + c.wedge] = (piece + 1) * 4 + c.color;
+        state.grid[((y + c.y) * columns + x + c.x) * per_cell + c.wedge] =
+            (piece + 1) * 4 + c.color;
     ++state.moves;
     state.won = true;
-    for (int i = 0; i < size * size * atoms; ++i)
+    for (int i = 0; i < total; ++i)
         if (state.grid[i] % 4 != state.secret[i])
             state.won = false;
     state.over = state.won;
@@ -1108,6 +1656,42 @@ bool PuzzleGame::invariant() const {
             if (e.a < 0 || e.b < 0 || e.a >= static_cast<int>(state.nodes.size()) ||
                 e.b >= static_cast<int>(state.nodes.size()))
                 return false;
+    }
+    if (kind == PuzzleKind::solve && state.aux[95] == 4) {
+        // A generated tiling: the frame, the picture, every placed atom, and the witness,
+        // which must rebuild the picture through the real rules.
+        const int columns = state.aux[88], rows = state.aux[89], count = state.aux[93];
+        if (columns < 2 || columns > 6 || rows < 2 || rows > 6 || columns * rows > 24 ||
+            count < 2 || count > 12 || state.aux[94] < 0 || state.aux[94] > 2 ||
+            state.aux[92] < 0 || state.aux[92] > 3 || state.aux[91] < -1 || state.aux[91] > 2 ||
+            state.aux[90] < 0 || state.aux[90] > 10 ||
+            static_cast<int>(state.solution_paths.size()) != count)
+            return false;
+        const int atoms = columns * rows * 4;
+        for (int i = 0; i < 96; ++i) {
+            const int v = state.grid[i], s = state.secret[i];
+            if (s < 0 || s > 2 || (i >= atoms && s) || (!s && v) ||
+                (v && (v / 4 < 1 || v / 4 > count || v % 4 < 1 || v % 4 > 2)))
+                return false;
+        }
+        for (int p = 0; p < count; ++p) {
+            const std::vector<int>& w = state.solution_paths[static_cast<std::size_t>(p)];
+            if (w.size() < 6 || w.size() > 96 || w[0] != p || w[3] < 0 || w[3] > 3 || w[4] < 0 ||
+                w[4] > 1)
+                return false;
+            std::set<int> codes;
+            for (std::size_t i = 5; i < w.size(); ++i)
+                if (w[i] < 0 || w[i] >= 6 * 6 * 4 * 2 || !codes.insert(w[i] / 2).second)
+                    return false;
+        }
+        PuzzleGame witness = *this;
+        witness.state.grid = {};
+        witness.state.over = witness.state.won = false;
+        for (const std::vector<int>& w : state.solution_paths)
+            if (!witness.place_piece(w[0], w[1], w[2], w[3], w[4]))
+                return false;
+        if (!witness.state.won)
+            return false;
     }
     if (kind == PuzzleKind::solve && state.aux[95] == 3) {
         std::set<int> sources;
@@ -1252,7 +1836,7 @@ bool PuzzleGame::load(const std::filesystem::path& path) {
     for (int which = 0; which < 2; ++which) {
         int count = 0;
         in >> count;
-        if (count < 0 || count > (kind == PuzzleKind::solve ? 7 : 9))
+        if (count < 0 || count > (kind == PuzzleKind::solve ? 12 : 9))
             return false;
         std::vector<std::vector<int>>& paths = which == 0 ? s.paths : s.solution_paths;
         for (int i = 0; i < count; ++i) {

@@ -9,6 +9,7 @@
 #include <cstring>
 #include <fstream>
 #include <map>
+#include <sstream>
 namespace games {
 // Retain scenery, animation and foreground text independently, in authored order.
 // These controls own no input; all game interaction stays on PuzzleView.
@@ -44,6 +45,7 @@ class PuzzleScenePart final : public gf::Control {
     int part_;
 };
 void PuzzleView::invalidate_scene() {
+    solve_prepare();
     refresh_scene();
     if (!surface_ || panel_)
         invalidate(gf::Dirty::paint);
@@ -241,6 +243,8 @@ PuzzleView::PuzzleView(gf::StableId id, PuzzleKind kind) : Control(std::move(id)
     // The level of the game on the table is also the level of the next one.
     if (game.kind == PuzzleKind::cube || game.kind == PuzzleKind::untangle)
         game.level = std::clamp(game.state.aux[94], 0, 2);
+    if (game.kind == PuzzleKind::solve)
+        game.level = game.solve_level();
 }
 std::filesystem::path PuzzleView::path() const {
     return cabinet_path().parent_path() /
@@ -310,6 +314,7 @@ void PuzzleView::on_detaching_from_window(gf::Window& window) noexcept {
     for (gf::ImageId id : {image_, nature_, curator_})
         if (id.value)
             static_cast<void>(window.remove_image(id));
+    solve_release_images(window);
 }
 void PuzzleView::activate() {
     refresh_scene();
@@ -1519,199 +1524,449 @@ void sparkle(gf::Painter& p, gf::Point c, double r, gf::Color color) {
                   color);
 }
 } // namespace
-// Puzzle Solve: target picture on the left (or above the tray when narrow), the frame,
-// and a tray of the seven pieces. Everything scales with the window.
+// Puzzle Solve: a glazier's bench. The design is pinned to the plaster at the left (above
+// the pieces when narrow), the steel tray holds the frame, and the pieces lie loose at
+// the right, all at one scale so their sizes compare truly. Cells are a whole number of
+// device pixels, so every edge lands on a pixel at any display scale.
 void PuzzleView::layout_solve(gf::Rect b) {
-    const double top = 62, bottom = b.height - 26, gap = std::clamp(b.width * .02, 10.0, 22.0);
+    const double scale = attached_window() ? (*attached_window()).scale() : 1.0;
+    solve_scale_ = scale > 0 ? scale : 1.0;
+    const int columns = game.solve_columns(), rows = game.solve_rows();
+    const double top = 62, bottom = b.height - 30, gap = std::clamp(b.width * .02, 10.0, 22.0);
     const double avail = std::max(120.0, bottom - top);
     const bool wide = b.width >= 820;
-    const double column =
-        wide ? std::clamp(b.width * .19, 150.0, 230.0) : std::clamp(b.width * .34, 150.0, 240.0);
-    const double frame = 12;
-    double side = wide ? std::min(avail - 2 * frame, b.width - 2 * column - 4 * gap - 2 * frame)
-                       : std::min(avail - 2 * frame, b.width - column - 3 * gap - 2 * frame);
-    side = std::max(120.0, std::min(side, 620.0));
+    const double left_column = wide ? std::clamp(b.width * .17, 150.0, 210.0) : 0;
+    const double right_column =
+        wide ? std::clamp(b.width * .25, 200.0, 320.0) : std::clamp(b.width * .4, 190.0, 300.0);
+    const double area_x = wide ? gap + left_column + gap : gap;
+    const double area_w = b.width - area_x - right_column - 2 * gap;
+    solve_border_ = std::clamp(std::min(area_w, avail) * .04, 11.0, 22.0);
+    double unit = std::min((area_w - 2 * solve_border_) / columns,
+                           (avail - 2 * solve_border_) / rows);
+    unit = std::floor(std::clamp(unit, 16.0, 150.0) * solve_scale_) / solve_scale_;
+    const double snap = 1 / solve_scale_;
+    const double board_x = area_x + (area_w - unit * columns) * .5,
+                 board_y = top + (avail - unit * rows) * .5;
+    board_ = {std::round(board_x / snap) * snap, std::round(board_y / snap) * snap,
+              unit * columns, unit * rows};
+    const double right_x = board_.x + board_.width + solve_border_ + gap;
+    const double right_w = b.width - right_x - gap;
     if (wide) {
-        const double total = column * 2 + side + 2 * frame + gap * 2;
-        const double x0 = (b.width - total) * .5;
-        target_ = {x0, top, column, std::min(avail, column * 1.32)};
-        board_ = {x0 + column + gap + frame, top + (avail - side) * .5, side, side};
-        tray_ = {board_.x + side + frame + gap, top, column, avail};
+        target_ = {gap, top, left_column, std::min(avail, left_column * 1.45)};
+        tray_ = {right_x, top, right_w, avail};
     } else {
-        board_ = {gap + frame, top + (avail - side) * .5, side, side};
-        const double x = board_.x + side + frame + gap, w = b.width - x - gap;
-        target_ = {x, top, w, std::min(avail * .42, w * 1.05)};
-        tray_ = {x, target_.y + target_.height + 8, w, bottom - target_.y - target_.height - 8};
+        const double design = std::min(avail * .24, right_w * .5);
+        target_ = {right_x, top, right_w, design + 48};
+        tray_ = {right_x, target_.y + target_.height + 8, right_w,
+                 bottom - target_.y - target_.height - 8};
     }
-    // Tray slots: two or three columns, sized to fit seven pieces.
+    // The design keeps the frame's proportions inside its card.
+    const double picture_w = target_.width - 24,
+                 picture_h = target_.height - 24 - (wide ? 58 : 46);
+    const double picture_unit =
+        std::floor(std::max(4.0, std::min(picture_w / columns, picture_h / rows)) * solve_scale_) /
+        solve_scale_;
+    solve_design_ = {std::round((target_.x + (target_.width - picture_unit * columns) * .5) / snap) * snap,
+                     std::round((target_.y + 28) / snap) * snap, picture_unit * columns,
+                     picture_unit * rows};
+    // Pieces lie in rows, each in a square as wide as its longest side so turning it never
+    // moves another piece. The largest common scale that fits wins, never larger than the
+    // frame's own.
+    const int count = game.piece_count();
+    std::vector<int> spans;
+    for (int piece = 0; piece < count; ++piece) {
+        int span = 1;
+        for (const PieceCell& c : game.piece_cells(piece, 0, false))
+            span = std::max({span, c.x + 1, c.y + 1});
+        spans.push_back(span);
+    }
+    const double inner_x = tray_.x + 8, inner_w = tray_.width - 16, inner_y = tray_.y + 26,
+                 inner_h = tray_.height - 26 - 22;
+    double tray_unit = std::min(unit, 80.0);
+    for (; tray_unit > 6; tray_unit -= .5) {
+        const double pad = std::clamp(tray_unit * .3, 6.0, 14.0);
+        double x = 0, y = 0, row = 0;
+        bool fits = true;
+        for (int span : spans) {
+            const double side = span * tray_unit + pad;
+            if (x > 0 && x + side > inner_w) {
+                x = 0;
+                y += row;
+                row = 0;
+            }
+            fits = fits && side <= inner_w;
+            x += side;
+            row = std::max(row, side);
+        }
+        if (fits && y + row <= inner_h)
+            break;
+    }
+    solve_tray_unit_ = std::floor(tray_unit * solve_scale_) / solve_scale_;
+    const double pad = std::clamp(solve_tray_unit_ * .3, 6.0, 14.0);
     cells_.clear();
-    const double inner_top = tray_.y + 26, inner_h = tray_.height - 26 - 22;
-    const int cols = tray_.width >= 210 && inner_h < tray_.width * 1.6 ? 3 : 2;
-    const int rows = (7 + cols - 1) / cols;
-    const double slot = std::min((tray_.width - 16) / cols, inner_h / rows);
-    const double ox = tray_.x + (tray_.width - slot * cols) * .5;
-    for (int piece = 0; piece < 7; ++piece)
-        cells_.push_back({ox + (piece % cols) * slot + 3, inner_top + (piece / cols) * slot + 3,
-                          slot - 6, slot - 6});
+    std::vector<int> row_of;
+    std::vector<double> row_width;
+    double x = 0, y = 0, row = 0;
+    for (int span : spans) {
+        const double side = span * solve_tray_unit_ + pad;
+        if (x > 0 && x + side > inner_w) {
+            x = 0;
+            y += row;
+            row = 0;
+            row_width.push_back(0);
+        }
+        if (row_width.empty())
+            row_width.push_back(0);
+        cells_.push_back({inner_x + x, inner_y + y, side, side});
+        row_of.push_back(static_cast<int>(row_width.size()) - 1);
+        x += side;
+        row = std::max(row, side);
+        row_width.back() = x;
+    }
+    // Center each row.
+    for (std::size_t i = 0; i < cells_.size(); ++i)
+        cells_[i].x += (inner_w - row_width[static_cast<std::size_t>(row_of[i])]) * .5;
+    solve_prepare();
+}
+double PuzzleView::solve_unit() const {
+    return board_.width / std::max(1, game.solve_columns());
+}
+// The atom of the frame under a point, or -1.
+int PuzzleView::solve_atom_at(gf::Point local) const {
+    const int columns = game.solve_columns(), rows = game.solve_rows();
+    const double unit = solve_unit();
+    const double fx = (local.x - board_.x) / unit, fy = (local.y - board_.y) / unit;
+    if (fx < 0 || fy < 0 || fx >= columns || fy >= rows)
+        return -1;
+    const int x = static_cast<int>(fx), y = static_cast<int>(fy);
+    const double u = fx - x, v = fy - y;
+    const int wedge = v < u ? (v < 1 - u ? 0 : 1) : (v < 1 - u ? 3 : 2);
+    return (y * columns + x) * 4 + wedge;
+}
+// A placed piece's atoms, normalized, and the cell where its corner sits.
+std::vector<PieceCell> PuzzleView::solve_placed(int piece, int& x, int& y) const {
+    const int columns = game.solve_columns();
+    std::vector<PieceCell> cells;
+    x = y = 1000;
+    for (int i = 0; i < game.solve_atoms(); ++i)
+        if (game.state.grid[i] / 4 == piece + 1) {
+            const PieceCell c{(i / 4) % columns, i / 4 / columns, game.state.grid[i] % 4, i % 4};
+            cells.push_back(c);
+            x = std::min(x, c.x);
+            y = std::min(y, c.y);
+        }
+    for (PieceCell& c : cells) {
+        c.x -= x;
+        c.y -= y;
+    }
+    return cells;
+}
+void PuzzleView::solve_upload(SolveSprite& sprite, const std::vector<int>& key,
+                              const GlassImage& image, double margin) {
+    gf::Window& window = *attached_window();
+    if (image.width <= 0 || image.height <= 0)
+        return;
+    const std::uint32_t width = static_cast<std::uint32_t>(image.width),
+                        height = static_cast<std::uint32_t>(image.height);
+    gf::ImageLoadResult result =
+        sprite.image.value
+            ? window.replace_bgra32_premultiplied(sprite.image, width, height, width * 4U,
+                                                  image.pixels, *this)
+            : window.load_bgra32_premultiplied(width, height, width * 4U, image.pixels);
+    if (!result)
+        return;
+    sprite.image = result.image;
+    sprite.key = key;
+    sprite.margin = margin;
+    sprite.width = image.width;
+    sprite.height = image.height;
+}
+void PuzzleView::solve_glass(SolveSprite& sprite, const std::vector<PieceCell>& cells,
+                             double unit, GlassLook look) {
+    const int device_unit = static_cast<int>(std::lround(unit * solve_scale_));
+    std::vector<int> key{static_cast<int>(look), device_unit,
+                         static_cast<int>(std::lround(solve_scale_ * 100))};
+    for (const PieceCell& c : cells)
+        key.push_back(((c.y * 8 + c.x) * 4 + c.wedge) * 4 + c.color);
+    if (sprite.image.value && sprite.key == key)
+        return;
+    GlassPiece piece;
+    piece.cells = cells;
+    piece.unit = device_unit;
+    piece.scale = solve_scale_;
+    piece.look = look;
+    piece.margin = glass_margin(look, piece.unit, solve_scale_);
+    GlassImage image;
+    render_glass(piece, image);
+    solve_upload(sprite, key, image, piece.margin);
+}
+void PuzzleView::solve_prepare() {
+    if (game.kind != PuzzleKind::solve || !attached_window() || board_.width <= 0)
+        return;
+    const double scale = (*attached_window()).scale() > 0 ? (*attached_window()).scale() : 1.0;
+    if (scale != solve_scale_) {
+        // A new display scale changes every cell's pixel size: lay out again.
+        solve_scale_ = scale;
+        layout_solve(client_rectangle());
+        return;
+    }
+    const int columns = game.solve_columns(), rows = game.solve_rows();
+    const int scale_key = static_cast<int>(std::lround(solve_scale_ * 100));
+    const double unit = solve_unit();
+    // Plaster wall: one seamless tile at the display's own pixels.
+    if (!solve_plaster_.image.value || solve_plaster_.key != std::vector<int>{scale_key}) {
+        GlassImage tile;
+        render_plaster(static_cast<int>(std::lround(192 * solve_scale_)), solve_scale_, tile);
+        solve_upload(solve_plaster_, {scale_key}, tile, 0);
+    }
+    // The steel tray and its well.
+    const std::vector<Point2> frame = game.solve_frame();
+    const int device_unit = static_cast<int>(std::lround(unit * solve_scale_));
+    const int border = static_cast<int>(std::lround(solve_border_ * solve_scale_));
+    const int margin = static_cast<int>(std::lround(10 * solve_scale_));
+    std::vector<int> frame_key{columns, rows, device_unit, border, margin, scale_key};
+    for (Point2 q : frame) {
+        frame_key.push_back(static_cast<int>(std::lround(q.x * 2)));
+        frame_key.push_back(static_cast<int>(std::lround(q.y * 2)));
+    }
+    if (!solve_frame_sprite_.image.value || solve_frame_sprite_.key != frame_key) {
+        SolveTrayArt art;
+        art.outline = frame;
+        art.columns = columns;
+        art.rows = rows;
+        art.unit = device_unit;
+        art.scale = solve_scale_;
+        art.border = border;
+        art.margin = margin;
+        GlassImage image;
+        render_solve_tray(art, image);
+        solve_upload(solve_frame_sprite_, frame_key, image, margin + border);
+    }
+    // The design.
+    const int design_unit =
+        static_cast<int>(std::lround(solve_design_.width / columns * solve_scale_));
+    const int design_margin = static_cast<int>(std::lround(3 * solve_scale_));
+    std::vector<int> design_key{columns, rows, design_unit, design_margin, scale_key};
+    for (int i = 0; i < game.solve_atoms(); ++i)
+        design_key.push_back(game.state.secret[i]);
+    if (design_unit > 0 &&
+        (!solve_design_sprite_.image.value || solve_design_sprite_.key != design_key)) {
+        SolveDesignArt art;
+        art.picture = game.state.secret;
+        art.outline = frame;
+        art.columns = columns;
+        art.rows = rows;
+        art.unit = design_unit;
+        art.scale = solve_scale_;
+        art.margin = design_margin;
+        GlassImage image;
+        render_solve_design(art, image);
+        solve_upload(solve_design_sprite_, design_key, image, design_margin);
+    }
+    // Pieces in the frame, in the tray, and in hand.
+    const int count = game.piece_count();
+    for (int piece = 0; piece < count && piece < 12; ++piece) {
+        int x = 0, y = 0;
+        const std::vector<PieceCell> placed = solve_placed(piece, x, y);
+        solve_board_origin_[static_cast<std::size_t>(piece)] = {x * unit, y * unit};
+        if (!placed.empty())
+            solve_glass(solve_board_sprites_[static_cast<std::size_t>(piece)], placed, unit,
+                        GlassLook::placed);
+        const bool chosen = piece == selection_;
+        const std::vector<PieceCell> shape = game.piece_cells(
+            piece, chosen ? rotation_ : piece_rotation_[static_cast<std::size_t>(piece)],
+            chosen ? flip_ : piece_flip_[static_cast<std::size_t>(piece)]);
+        solve_glass(solve_tray_sprites_[static_cast<std::size_t>(piece)], shape, solve_tray_unit_,
+                    placed.empty() ? GlassLook::tray : GlassLook::used);
+    }
+    if (drag_ >= 0) {
+        const std::vector<PieceCell> shape = game.piece_cells(selection_, rotation_, flip_);
+        solve_glass(solve_lift_sprite_, shape, unit, GlassLook::lifted);
+        solve_glass(solve_ghost_sprite_, shape, unit, GlassLook::placed);
+    }
+}
+void PuzzleView::solve_draw(gf::Painter& p, const SolveSprite& sprite, double x, double y,
+                            double opacity) const {
+    if (!sprite.image.value)
+        return;
+    const double left = std::round(x * solve_scale_) - sprite.margin,
+                 top = std::round(y * solve_scale_) - sprite.margin;
+    p.draw_image(sprite.image,
+                 {left / solve_scale_, top / solve_scale_, sprite.width / solve_scale_,
+                  sprite.height / solve_scale_},
+                 opacity);
+}
+void PuzzleView::solve_release_images(gf::Window& window) {
+    for (SolveSprite& sprite : solve_board_sprites_)
+        if (sprite.image.value)
+            static_cast<void>(window.remove_image(sprite.image));
+    for (SolveSprite& sprite : solve_tray_sprites_)
+        if (sprite.image.value)
+            static_cast<void>(window.remove_image(sprite.image));
+    for (SolveSprite* sprite : {&solve_lift_sprite_, &solve_ghost_sprite_, &solve_frame_sprite_,
+                                &solve_design_sprite_, &solve_plaster_})
+        if ((*sprite).image.value)
+            static_cast<void>(window.remove_image((*sprite).image));
+    solve_board_sprites_ = {};
+    solve_tray_sprites_ = {};
+    solve_lift_sprite_ = solve_ghost_sprite_ = solve_frame_sprite_ = solve_design_sprite_ =
+        solve_plaster_ = SolveSprite{};
 }
 void PuzzleView::paint_solve(gf::Painter& p) {
     const gf::Rect b = client_rectangle();
-    const double unit = board_.width / 4;
-    // Workspace: deep navy blotter under a soft lamp.
-    p.fill_rect(b, gf::Color::rgba(18, 26, 44));
-    const gf::GradientStop lamp[] = {{0, gf::Color::rgba(64, 92, 140, 255)},
-                                     {1, gf::Color::rgba(18, 26, 44, 255)}};
-    p.fill_radial_gradient(b, {board_.x + board_.width * .5, board_.y + board_.height * .4},
-                           {b.width * .7, b.height * .8}, lamp);
-    // Frame: gilded wood around an ivory card with a faint construction grid.
+    const double unit = solve_unit();
+    const int columns = game.solve_columns(), count = game.piece_count();
+    // The wall: lime plaster, warmer where the lamp falls on the bench.
+    p.fill_rect(b, gf::Color::rgba(214, 211, 204));
+    if (solve_plaster_.image.value)
+        p.fill_image_pattern(solve_plaster_.image, {solve_plaster_.width, solve_plaster_.height}, b,
+                             {solve_plaster_.width / solve_scale_,
+                              solve_plaster_.height / solve_scale_});
+    const gf::GradientStop lamp[] = {{0, gf::Color::rgba(255, 246, 226, 60)},
+                                     {.6, gf::Color::rgba(255, 246, 226, 0)},
+                                     {1, gf::Color::rgba(40, 34, 26, 70)}};
+    p.fill_radial_gradient(b, {board_.x + board_.width * .5, board_.y + board_.height * .45},
+                           {b.width * .75, b.height * .9}, lamp);
     const double celebrate = game.state.won && animation_duration_ > 0
                                  ? std::clamp(elapsed() / animation_duration_, 0.0, 1.0)
                                  : -1;
-    const gf::Rect outer{board_.x - 12, board_.y - 12, board_.width + 24, board_.height + 24};
-    p.draw_box_shadow(outer, 6, {0, 8}, 22, 0, gf::Color::rgba(0, 0, 0, 140));
+    const gf::Rect outer{board_.x - solve_border_, board_.y - solve_border_,
+                         board_.width + 2 * solve_border_, board_.height + 2 * solve_border_};
     if (celebrate >= 0 || game.state.won)
         p.draw_box_shadow(outer, 8, {0, 0}, 26, 4,
                           gf::Color::rgba(255, 214, 120,
                                           static_cast<unsigned char>(
                                               game.state.won && celebrate < 0
-                                                  ? 90
-                                                  : 90 + 120 * std::sin(celebrate * 3.14159))));
-    const gf::GradientStop wood[] = {{0, gf::Color::rgba(222, 182, 104)},
-                                     {.5, gf::Color::rgba(176, 128, 58)},
-                                     {1, gf::Color::rgba(132, 88, 36)}};
-    p.fill_linear_gradient(outer, {outer.x, outer.y},
-                           {outer.x + outer.width, outer.y + outer.height}, wood);
-    p.stroke_rect(outer, gf::Color::rgba(90, 58, 22), 1);
-    p.stroke_rect({outer.x + 4, outer.y + 4, outer.width - 8, outer.height - 8},
-                  gf::Color::rgba(255, 232, 170, 160), 1);
-    p.fill_rect({board_.x - 2, board_.y - 2, board_.width + 4, board_.height + 4},
-                gf::Color::rgba(98, 66, 30));
-    fill_vertical(p, board_, gf::Color::rgba(250, 245, 232), gf::Color::rgba(236, 228, 208));
-    for (int i = 1; i < 4; ++i) {
-        p.draw_line({board_.x + i * unit, board_.y},
-                    {board_.x + i * unit, board_.y + board_.height},
-                    gf::Color::rgba(196, 184, 156, 110), 1);
-        p.draw_line({board_.x, board_.y + i * unit}, {board_.x + board_.width, board_.y + i * unit},
-                    gf::Color::rgba(196, 184, 156, 110), 1);
+                                                  ? 110
+                                                  : 110 + 120 * std::sin(celebrate * 3.14159))));
+    if (solve_frame_sprite_.image.value)
+        solve_draw(p, solve_frame_sprite_, board_.x, board_.y);
+    else {
+        p.fill_rect(outer, gf::Color::rgba(170, 176, 186));
+        p.fill_rect(board_, gf::Color::rgba(196, 198, 200));
     }
-    for (int k = 0; k <= 8; k += 2) {
-        p.draw_line({board_.x + k * unit * .5, board_.y}, {board_.x, board_.y + k * unit * .5},
-                    gf::Color::rgba(196, 184, 156, 45), 1);
-        p.draw_line({board_.x + board_.width - k * unit * .5, board_.y},
-                    {board_.x + board_.width, board_.y + k * unit * .5},
-                    gf::Color::rgba(196, 184, 156, 45), 1);
-    }
-    for (int piece = 0; piece < 7; ++piece) {
+    for (int piece = 0; piece < count && piece < 12; ++piece) {
         if (piece == drag_)
             continue;
-        std::vector<PieceCell> shape;
-        for (int i = 0; i < 64; ++i)
-            if (game.state.grid[i] / 4 == piece + 1)
-                shape.push_back({(i / 4) % 4, i / 16, game.state.grid[i] % 4, i % 4});
-        if (!shape.empty())
-            draw_piece(p, shape, board_.x, board_.y, unit, PieceLook::placed);
+        int x = 0, y = 0;
+        const std::vector<PieceCell> shape = solve_placed(piece, x, y);
+        if (shape.empty())
+            continue;
+        const SolveSprite& sprite = solve_board_sprites_[static_cast<std::size_t>(piece)];
+        if (sprite.image.value)
+            solve_draw(p, sprite, board_.x + x * unit, board_.y + y * unit);
+        else
+            draw_piece(p, shape, board_.x + x * unit, board_.y + y * unit, unit, PieceLook::placed);
     }
     if (drag_ >= 0 && !game.state.over && in_rect(board_, solve_pointer_)) {
         int sx = 0, sy = 0;
         const bool valid = solve_snap(sx, sy);
-        std::vector<PieceCell> shape = game.piece_cells(selection_, rotation_, flip_);
-        for (PieceCell& c : shape) {
-            c.x += sx;
-            c.y += sy;
+        if (valid && solve_ghost_sprite_.image.value)
+            solve_draw(p, solve_ghost_sprite_, board_.x + sx * unit, board_.y + sy * unit, .5);
+        else {
+            std::vector<PieceCell> shape = game.piece_cells(selection_, rotation_, flip_);
+            for (PieceCell& c : shape) {
+                c.x += sx;
+                c.y += sy;
+            }
+            p.save();
+            p.clip_rect(board_);
+            draw_piece(p, shape, board_.x, board_.y, unit,
+                       valid ? PieceLook::ghost_ok : PieceLook::ghost_bad);
+            p.restore();
         }
-        p.save();
-        p.clip_rect(board_);
-        draw_piece(p, shape, board_.x, board_.y, unit,
-                   valid ? PieceLook::ghost_ok : PieceLook::ghost_bad);
-        p.restore();
     }
-    // Target card.
-    const gf::Color label = gf::Color::rgba(255, 222, 150),
-                    muted_ink = gf::Color::rgba(176, 192, 220);
+    // The design, pinned to the wall on a card.
+    const gf::Color ink = gf::Color::rgba(46, 52, 62), soft_ink = gf::Color::rgba(88, 94, 104);
     const gf::FontSpec caps{gf::FontRole::content, 11, 700, false, 1.2};
-    p.draw_box_shadow(target_, 6, {0, 4}, 12, 0, gf::Color::rgba(0, 0, 0, 110));
-    fill_vertical(p, target_, gf::Color::rgba(38, 52, 82), gf::Color::rgba(26, 36, 60));
-    p.stroke_rounded_rect(target_, 6, gf::Color::rgba(255, 210, 122, 90), 1);
-    p.draw_text_utf8({target_.x + 12, target_.y + 20}, "THE PICTURE", caps, label);
-    const double picture = std::min(target_.width - 24, target_.height - 62);
-    if (picture > 30) {
-        const gf::Rect pic{target_.x + (target_.width - picture) * .5, target_.y + 30, picture,
-                           picture};
-        p.fill_rect({pic.x - 3, pic.y - 3, pic.width + 6, pic.height + 6},
-                    gf::Color::rgba(250, 245, 232));
-        std::vector<PieceCell> target;
-        for (int i = 0; i < 64; ++i)
-            target.push_back({(i / 4) % 4, i / 16, game.state.secret[i], i % 4});
-        for (const PieceCell& c : target) {
-            std::vector<gf::Point> pts;
-            for (std::pair<int, int> v : atom_vertices(c))
-                pts.push_back({pic.x + v.first * picture / 8, pic.y + v.second * picture / 8});
-            paint_polygon(p, pts, c.color == 1 ? solve_blue : solve_gold, false);
-        }
-        int placed = 0;
-        for (int piece = 0; piece < 7; ++piece)
-            for (int i = 0; i < 64; ++i)
-                if (game.state.grid[i] / 4 == piece + 1) {
-                    ++placed;
-                    break;
-                }
-        const std::string progress =
-            game.state.won ? "Solved in " + std::to_string(game.state.moves) + " moves"
-                           : std::to_string(placed) + " of 7 pieces placed";
-        p.draw_text_utf8({target_.x + 12, pic.y + pic.height + 22}, progress,
-                         {gf::FontRole::content, 13, 600, false},
-                         game.state.won ? label : muted_ink);
-    }
-    // Tray.
-    p.draw_box_shadow(tray_, 6, {0, 4}, 12, 0, gf::Color::rgba(0, 0, 0, 110));
-    fill_vertical(p, tray_, gf::Color::rgba(38, 52, 82), gf::Color::rgba(26, 36, 60));
-    p.stroke_rounded_rect(tray_, 6, gf::Color::rgba(255, 210, 122, 90), 1);
-    p.draw_text_utf8({tray_.x + 12, tray_.y + 18}, "PIECES", caps, label);
-    for (int piece = 0; piece < 7 && piece < static_cast<int>(cells_.size()); ++piece) {
+    const double card_w = std::max(solve_design_.width + 20, std::min(target_.width, 220.0));
+    const gf::Rect card{solve_design_.x + solve_design_.width * .5 - card_w * .5, target_.y, card_w,
+                        solve_design_.height + 28 + 54.0};
+    p.draw_box_shadow(card, 4, {1, 3}, 8, 0, gf::Color::rgba(40, 32, 20, 70));
+    fill_vertical(p, card, gf::Color::rgba(250, 248, 242), gf::Color::rgba(236, 232, 222));
+    p.stroke_rounded_rect(card, 4, gf::Color::rgba(160, 150, 130, 140), 1);
+    p.draw_text_utf8({card.x + 10, card.y + 18}, "THE DESIGN", caps, soft_ink);
+    if (solve_design_sprite_.image.value)
+        solve_draw(p, solve_design_sprite_, solve_design_.x, solve_design_.y);
+    int placed = 0;
+    for (int piece = 0; piece < count; ++piece)
+        for (int i = 0; i < game.solve_atoms(); ++i)
+            if (game.state.grid[i] / 4 == piece + 1) {
+                ++placed;
+                break;
+            }
+    const std::string progress =
+        game.state.won ? "Solved in " + std::to_string(game.state.moves) + " moves"
+                       : std::to_string(placed) + " of " + std::to_string(count) + " placed";
+    const double text_y = solve_design_.y + solve_design_.height + 20;
+    p.draw_text_utf8({card.x + 10, text_y}, progress, {gf::FontRole::content, 13, 700, false},
+                     game.state.won ? gf::Color::rgba(168, 98, 10) : ink);
+    const char* levels[] = {"Easy", "Medium", "Hard"};
+    const char* lessons[] = {"turning", "mirroring", "slanted cuts"};
+    const int lesson = game.solve_lesson();
+    const std::string level = std::string(levels[std::clamp(game.solve_level(), 0, 2)]) +
+                              (lesson >= 0 ? std::string(" · ") + lessons[lesson]
+                               : game.solve_family() == 2 ? " · tangram"
+                                                          : "");
+    p.draw_text_utf8({card.x + 10, text_y + 18}, level, {gf::FontRole::content, 12, 400, false},
+                     soft_ink);
+    // The pieces.
+    p.draw_text_utf8({tray_.x + 10, tray_.y + 16}, "PIECES", caps, soft_ink);
+    for (int piece = 0; piece < count && piece < static_cast<int>(cells_.size()); ++piece) {
         const gf::Rect r = cells_[static_cast<std::size_t>(piece)];
-        bool used = false;
-        for (int i = 0; i < 64; ++i)
-            used = used || game.state.grid[i] / 4 == piece + 1;
         const bool chosen = piece == selection_;
-        p.fill_rounded_rect(
-            r, 5, chosen ? gf::Color::rgba(62, 84, 126) : gf::Color::rgba(16, 24, 42, 170));
-        p.draw_inset_box_shadow(r, 5, {0, 2}, 5, 0, gf::Color::rgba(0, 0, 0, 120));
-        if (chosen)
-            p.stroke_rounded_rect(r, 5, gf::Color::rgba(255, 210, 122), 1.5);
+        if (chosen) {
+            const gf::Rect plate{r.x + 2, r.y + 2, r.width - 4, r.height - 4};
+            p.fill_rounded_rect(plate, 6, gf::Color::rgba(255, 252, 240, 120));
+            p.stroke_rounded_rect(plate, 6, gf::Color::rgba(196, 128, 24, 220), 1.5);
+        }
         if (piece == drag_)
             continue;
-        std::vector<PieceCell> shape =
-            game.piece_cells(piece, chosen ? rotation_ : piece_rotation_[piece],
-                             chosen ? flip_ : piece_flip_[piece]);
+        const std::vector<PieceCell> shape = game.piece_cells(
+            piece, chosen ? rotation_ : piece_rotation_[static_cast<std::size_t>(piece)],
+            chosen ? flip_ : piece_flip_[static_cast<std::size_t>(piece)]);
         int mx = 0, my = 0;
         for (const PieceCell& c : shape) {
             mx = std::max(mx, c.x + 1);
             my = std::max(my, c.y + 1);
         }
-        const double u = std::min((r.width - 14) / mx, (r.height - 14) / my);
-        draw_piece(p, shape, r.x + (r.width - mx * u) * .5, r.y + (r.height - my * u) * .5, u,
-                   used ? PieceLook::used : PieceLook::tray);
+        const double u = solve_tray_unit_;
+        const double px = r.x + (r.width - mx * u) * .5, py = r.y + (r.height - my * u) * .5;
+        const SolveSprite& sprite = solve_tray_sprites_[static_cast<std::size_t>(piece)];
+        bool used = false;
+        for (int i = 0; i < game.solve_atoms() && !used; ++i)
+            used = game.state.grid[i] / 4 == piece + 1;
+        if (sprite.image.value)
+            solve_draw(p, sprite, px, py);
+        else
+            draw_piece(p, shape, px, py, u, used ? PieceLook::used : PieceLook::tray);
     }
-    p.draw_text_utf8({tray_.x + 12, tray_.y + tray_.height - 8},
-                     tray_.width > 200 ? "Drag to the frame · R turns · F flips"
+    p.draw_text_utf8({tray_.x + 10, tray_.y + tray_.height - 6},
+                     tray_.width > 230 ? "Drag to the frame · R turns · F flips"
                                        : "R turns · F flips",
-                     {gf::FontRole::content, 11, 400, false}, muted_ink);
+                     {gf::FontRole::content, 11, 400, false}, soft_ink);
     if (drag_ >= 0) {
         // The lifted piece rides under the pointer at frame scale, above everything else.
-        std::vector<PieceCell> shape = game.piece_cells(selection_, rotation_, flip_);
-        draw_piece(p, shape, solve_pointer_.x - grab_.x * unit, solve_pointer_.y - grab_.y * unit,
-                   unit, PieceLook::lifted);
+        const double x = solve_pointer_.x - grab_.x * unit, y = solve_pointer_.y - grab_.y * unit;
+        if (solve_lift_sprite_.image.value)
+            solve_draw(p, solve_lift_sprite_, x, y);
+        else
+            draw_piece(p, game.piece_cells(selection_, rotation_, flip_), x, y, unit,
+                       PieceLook::lifted);
     }
     if (celebrate >= 0) {
         // Sparkles drift around the frame while the solved picture glows.
         for (int i = 0; i < 14; ++i) {
             const double a = i * 2.39996 + celebrate * 2.2,
-                         rr = outer.width * (.52 + .06 * std::sin(i * 1.7 + celebrate * 6));
-            const gf::Point c{outer.x + outer.width * .5 + std::cos(a) * rr,
-                              outer.y + outer.height * .5 + std::sin(a) * rr};
+                         rr = std::max(outer.width, outer.height) *
+                              (.52 + .06 * std::sin(i * 1.7 + celebrate * 6));
+            const gf::Point c{outer.x + outer.width * .5 + std::cos(a) * rr * outer.width /
+                                                             std::max(outer.width, outer.height),
+                              outer.y + outer.height * .5 + std::sin(a) * rr * outer.height /
+                                                              std::max(outer.width, outer.height)};
             const double life = std::sin(std::clamp(celebrate * 1.3 - i * .03, 0.0, 1.0) * 3.14159);
             sparkle(p, c, 4 + 9 * life,
-                    gf::Color::rgba(255, 236, 170, static_cast<unsigned char>(220 * life)));
+                    gf::Color::rgba(255, 228, 140, static_cast<unsigned char>(230 * life)));
         }
         const gf::Rect banner{board_.x + board_.width * .5 - 110,
                               board_.y + board_.height * .5 - 30, 220, 60};
@@ -1722,15 +1977,60 @@ void PuzzleView::paint_solve(gf::Painter& p) {
         p.draw_text_utf8({banner.x + (banner.width - m.width) * .5, banner.y + 41}, "Solved!", big,
                          gloss_ink(GlossTone::gold));
     }
+    static_cast<void>(columns);
+}
+bool PuzzleView::scripted_action(std::string_view requested) {
+    if (!development || game.kind != PuzzleKind::solve || requested.size() > 64)
+        return false;
+    std::istringstream in{std::string(requested)};
+    std::string verb;
+    in >> verb;
+    if (verb == "deal") {
+        int level = 1;
+        std::uint32_t seed = 1;
+        in >> level >> seed;
+        if (!in || level < 0 || level > 2)
+            return false;
+        game.level = level;
+        new_game();
+        game.deal(seed);
+        layout_solve(client_rectangle());
+        persist();
+    } else if (verb == "witness") {
+        int pieces = 0;
+        in >> pieces;
+        if (!in || pieces < 0 || pieces > game.piece_count())
+            return false;
+        for (int k = 0; k < pieces; ++k) {
+            const std::vector<int>& w = game.state.solution_paths[static_cast<std::size_t>(k)];
+            static_cast<void>(game.place_piece(w[0], w[1], w[2], w[3], w[4]));
+        }
+        changed("puzzle_solve_place");
+    } else if (verb == "drag") {
+        int piece = 0;
+        double x = 0, y = 0;
+        in >> piece >> x >> y;
+        if (!in || piece < 0 || piece >= game.piece_count() || game.state.over)
+            return false;
+        solve_select(piece);
+        static_cast<void>(game.remove_piece(piece));
+        lifted_ = false;
+        drag_ = piece;
+        solve_recenter();
+        solve_pointer_ = {board_.x + x * solve_unit(), board_.y + y * solve_unit()};
+    } else
+        return false;
+    invalidate_scene();
+    return true;
 }
 void PuzzleView::solve_select(int piece) {
     if (piece == selection_)
         return;
-    piece_rotation_[selection_] = rotation_;
-    piece_flip_[selection_] = flip_;
+    piece_rotation_[static_cast<std::size_t>(selection_)] = rotation_;
+    piece_flip_[static_cast<std::size_t>(selection_)] = flip_;
     selection_ = piece;
-    rotation_ = piece_rotation_[piece];
-    flip_ = piece_flip_[piece];
+    rotation_ = piece_rotation_[static_cast<std::size_t>(piece)];
+    flip_ = piece_flip_[static_cast<std::size_t>(piece)];
 }
 void PuzzleView::solve_recenter() {
     int mx = 0, my = 0;
@@ -1741,14 +2041,18 @@ void PuzzleView::solve_recenter() {
     grab_ = {mx * .5, my * .5};
 }
 bool PuzzleView::solve_snap(int& x, int& y) const {
-    double unit = board_.width / 4;
+    const double unit = solve_unit();
+    const int columns = game.solve_columns(), rows = game.solve_rows();
     x = static_cast<int>(std::lround((solve_pointer_.x - board_.x) / unit - grab_.x));
     y = static_cast<int>(std::lround((solve_pointer_.y - board_.y) / unit - grab_.y));
     for (const PieceCell& c : game.piece_cells(selection_, rotation_, flip_)) {
-        int xx = x + c.x, yy = y + c.y;
-        if (xx < 0 || yy < 0 || xx >= 4 || yy >= 4)
+        const int xx = x + c.x, yy = y + c.y;
+        if (xx < 0 || yy < 0 || xx >= columns || yy >= rows)
             return false;
-        int value = game.state.grid[(yy * 4 + xx) * 4 + c.wedge];
+        const int atom = (yy * columns + xx) * 4 + c.wedge;
+        if (!game.solve_inside(atom))
+            return false;
+        const int value = game.state.grid[atom];
         if (value && value / 4 != selection_ + 1)
             return false;
     }
@@ -1756,15 +2060,9 @@ bool PuzzleView::solve_snap(int& x, int& y) const {
 }
 // Recovers the orientation and origin of a placed piece, then removes it so it can be carried.
 bool PuzzleView::solve_lift(int piece) {
-    std::vector<std::pair<int, int>> placed;
-    int minx = 10, miny = 10;
-    for (int i = 0; i < 64; ++i)
-        if (game.state.grid[i] / 4 == piece + 1) {
-            int x = (i / 4) % 4, y = i / 16;
-            placed.push_back({(y * 4 + x) * 4 + i % 4, 0});
-            minx = std::min(minx, x);
-            miny = std::min(miny, y);
-        }
+    const int columns = game.solve_columns(), rows = game.solve_rows();
+    int minx = 0, miny = 0;
+    const std::vector<PieceCell> placed = solve_placed(piece, minx, miny);
     if (placed.empty())
         return false;
     for (int orientation = 0; orientation < 8; ++orientation) {
@@ -1773,8 +2071,8 @@ bool PuzzleView::solve_lift(int piece) {
             continue;
         bool match = true;
         for (const PieceCell& c : cells) {
-            int i = ((miny + c.y) * 4 + minx + c.x) * 4 + c.wedge;
-            if (minx + c.x >= 4 || miny + c.y >= 4 ||
+            const int i = ((miny + c.y) * columns + minx + c.x) * 4 + c.wedge;
+            if (minx + c.x >= columns || miny + c.y >= rows ||
                 game.state.grid[i] != (piece + 1) * 4 + c.color)
                 match = false;
         }
@@ -1790,7 +2088,7 @@ bool PuzzleView::solve_lift(int piece) {
         lift_y_ = miny;
         lift_rotation_ = rotation_;
         lift_flip_ = flip_;
-        double unit = board_.width / 4;
+        const double unit = solve_unit();
         grab_ = {(solve_pointer_.x - board_.x) / unit - minx,
                  (solve_pointer_.y - board_.y) / unit - miny};
         return true;
@@ -1974,13 +2272,13 @@ void PuzzleView::paint_help(gf::Painter& p) {
                  "Click squares to mark exactly three atoms, then Submit your deduction.",
                  "The generator rejects boards with identical complete probe signatures."};
     else if (game.kind == PuzzleKind::solve)
-        lines = {"Rebuild the blue and yellow picture using all seven pieces.",
-                 "Drag a piece from the tray into the frame; it snaps into place.",
+        lines = {"Rebuild the blue and yellow design using every piece.",
+                 "Drag a piece into the frame; it snaps into place.",
                  "While dragging, R or a right click turns it and F mirrors it.",
-                 "Click the chosen piece in the tray to turn it before you drag.",
+                 "Click the chosen piece to turn it before you drag.",
                  "Drag placed pieces to move them. Right click one to return it.",
-                 "The target is generated from an actual tiling, so a solution always exists.",
-                 "An alternative arrangement with the same colors is also a solution."};
+                 "Each design is cut from a real tiling, so a solution always exists;",
+                 "any arrangement with the same colors also counts."};
     else
         lines = {"Fill all 37 hexagons with a stick or stone.",
                  "Each perimeter clue reads number of sticks / number of stones.",
@@ -2050,8 +2348,12 @@ void PuzzleView::on_paint(gf::Painter& p, gf::Rect) {
             paint_solve(p);
         else if (game.kind == PuzzleKind::sticks)
             paint_sticks(p);
-        text(p, 17, b.height - 11, game.message, 13, gf::Color::rgba(0, 0, 0, 120));
-        text(p, 16, b.height - 12, game.message, 13, ink);
+        // Puzzle Solve's wall is light plaster: its status line is dark ink.
+        const bool plaster = game.kind == PuzzleKind::solve;
+        text(p, 17, b.height - 11, game.message, 13,
+             plaster ? gf::Color::rgba(255, 255, 255, 140) : gf::Color::rgba(0, 0, 0, 120));
+        text(p, 16, b.height - 12, game.message, 13,
+             plaster ? gf::Color::rgba(46, 52, 62) : ink);
     }
     if (!panel_)
         return;
@@ -2148,6 +2450,8 @@ void PuzzleView::new_game() {
     piece_rotation_.fill(0);
     piece_flip_.fill(false);
     lifted_ = false;
+    if (game.kind == PuzzleKind::solve)
+        layout_solve(client_rectangle()); // a new frame and new pieces
     gem_pick_ = gem_spring_ = gem_hint_ = gem_hint_to_ = -1;
     gem_dragging_ = false;
     gem_offset_ = {};
@@ -2172,7 +2476,8 @@ void PuzzleView::new_game() {
 }
 std::vector<GameCommand> PuzzleView::commands() const {
     std::vector<GameCommand> list{{"new", "New game", true, false, true}};
-    if (game.kind == PuzzleKind::cube || game.kind == PuzzleKind::untangle) {
+    if (game.kind == PuzzleKind::cube || game.kind == PuzzleKind::untangle ||
+        game.kind == PuzzleKind::solve) {
         const char* levels[] = {"Easy", "Medium", "Hard"};
         list.push_back({"level", std::string("Next: ") + levels[std::clamp(game.level, 0, 2)]});
     }
@@ -2743,7 +3048,7 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                 tray_turn_ = cell == selection_;
                 press_point_ = local_position;
                 solve_select(cell);
-                for (int i = 0; i < 64; ++i)
+                for (int i = 0; i < game.solve_atoms(); ++i)
                     if (game.state.grid[i] / 4 == cell + 1) {
                         game.remove_piece(cell);
                         break;
@@ -2754,14 +3059,8 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                 drag_ = cell;
                 set_pointer_capture(true);
             } else if (in_rect(board_, local_position) && !game.state.over) {
-                int x = std::clamp(
-                        static_cast<int>((local_position.x - board_.x) * 4 / board_.width), 0, 3),
-                    y = std::clamp(
-                        static_cast<int>((local_position.y - board_.y) * 4 / board_.height), 0, 3);
-                double fx = (local_position.x - board_.x) * 4 / board_.width - x,
-                       fy = (local_position.y - board_.y) * 4 / board_.height - y;
-                int wedge = fy < fx ? (fy < 1 - fx ? 0 : 1) : (fy < 1 - fx ? 3 : 2);
-                int piece = game.state.grid[(y * 4 + x) * 4 + wedge] / 4 - 1;
+                const int atom = solve_atom_at(local_position);
+                const int piece = atom < 0 ? -1 : game.state.grid[atom] / 4 - 1;
                 if (piece >= 0 && secondary) {
                     // Right click returns a placed piece to the tray.
                     if (game.remove_piece(piece)) {
@@ -2780,13 +3079,13 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                         mx = std::max(mx, c.x + 1);
                         my = std::max(my, c.y + 1);
                     }
-                    double unit = board_.width / 4;
-                    int px = std::clamp(static_cast<int>(std::lround(
-                                            (local_position.x - board_.x) / unit - mx * .5)),
-                                        0, 4 - mx),
-                        py = std::clamp(static_cast<int>(std::lround(
-                                            (local_position.y - board_.y) / unit - my * .5)),
-                                        0, 4 - my);
+                    const double unit = solve_unit();
+                    const int px = std::clamp(static_cast<int>(std::lround(
+                                                  (local_position.x - board_.x) / unit - mx * .5)),
+                                              0, std::max(0, game.solve_columns() - mx)),
+                              py = std::clamp(static_cast<int>(std::lround(
+                                                  (local_position.y - board_.y) / unit - my * .5)),
+                                              0, std::max(0, game.solve_rows() - my));
                     if (game.place_piece(selection_, px, py, rotation_, flip_))
                         changed("puzzle_solve_place");
                     else
