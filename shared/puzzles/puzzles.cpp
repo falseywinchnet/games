@@ -1088,13 +1088,6 @@ std::vector<Point2> PuzzleGame::solve_frame() const {
                              atom % 4});
     return solve_outline(cells);
 }
-// A Puzzle Solve game is a real tiling. The generator picks a frame, cuts it into pieces of
-// one family by merging neighboring half squares (or whole cells) while the merged piece
-// remains a shape of that family, colors a connected group of pieces yellow and the rest
-// blue, and turns every piece to a new orientation for the tray. The cut itself is the
-// witness: each piece's tray shape, turned by its witness orientation, lands exactly where
-// it was cut. Easy games are short lessons in one idea each: turning, mirroring, or
-// slanted cuts. Medium has six to eight pieces; Hard nine to twelve in larger frames.
 namespace {
 // Orders piece numbers by size, smallest first; equal sizes keep their order.
 struct SmallerPiece {
@@ -1125,16 +1118,93 @@ int bit_count(int mask) {
         ++bits;
     return bits;
 }
+// The symmetries a design can have, as maps of atoms: mirrored left to right, top to
+// bottom, both (a half turn), a quarter turn and a mirror in the diagonal. The last two
+// need a square frame.
+enum SolveSymmetry { mirror_x = 0, mirror_y = 1, half_turn = 2, quarter_turn = 3, diagonal = 4 };
+int map_atom(int atom, int symmetry, int columns, int rows) {
+    const int cell = atom / 4, wedge = atom % 4;
+    const int x = cell % columns, y = cell / columns;
+    // wedges: 0 top, 1 right, 2 bottom, 3 left
+    switch (symmetry) {
+    case mirror_x: {
+        const int flipped[] = {0, 3, 2, 1};
+        return (y * columns + columns - 1 - x) * 4 + flipped[wedge];
+    }
+    case mirror_y: {
+        const int flipped[] = {2, 1, 0, 3};
+        return ((rows - 1 - y) * columns + x) * 4 + flipped[wedge];
+    }
+    case half_turn:
+        return ((rows - 1 - y) * columns + columns - 1 - x) * 4 + (wedge + 2) % 4;
+    case quarter_turn:
+        return (x * columns + columns - 1 - y) * 4 + (wedge + 1) % 4;
+    default: {
+        const int flipped[] = {3, 2, 1, 0};
+        return (x * columns + y) * 4 + flipped[wedge];
+    }
+    }
+}
+// Whether the frame looks the same under a symmetry, so a design can share it.
+bool frame_keeps(int symmetry, int columns, int rows, const std::vector<bool>& inside) {
+    if ((symmetry == quarter_turn || symmetry == diagonal) && columns != rows)
+        return false;
+    for (int a = 0; a < columns * rows * 4; ++a)
+        if (inside[static_cast<std::size_t>(a)] !=
+            inside[static_cast<std::size_t>(map_atom(a, symmetry, columns, rows))])
+            return false;
+    return true;
+}
+// Atoms joined across an edge, counted once each: how long the picture's outline is.
+int outline_length(const std::vector<int>& colour, int columns, int rows) {
+    int length = 0;
+    for (int a = 0; a < columns * rows * 4; ++a) {
+        if (!colour[static_cast<std::size_t>(a)])
+            continue;
+        for (int n : atom_neighbors(a, columns, rows))
+            if (n > a && colour[static_cast<std::size_t>(n)] &&
+                colour[static_cast<std::size_t>(n)] != colour[static_cast<std::size_t>(a)])
+                ++length;
+    }
+    return length;
+}
+// The connected areas of each colour: how many, and the smallest one's size in atoms.
+void colour_areas(const std::vector<int>& colour, int columns, int rows, int& areas, int& smallest) {
+    std::vector<bool> seen(colour.size(), false);
+    areas = 0;
+    smallest = 1 << 20;
+    for (int a = 0; a < static_cast<int>(colour.size()); ++a) {
+        if (!colour[static_cast<std::size_t>(a)] || seen[static_cast<std::size_t>(a)])
+            continue;
+        ++areas;
+        int size = 0;
+        std::vector<int> stack{a};
+        seen[static_cast<std::size_t>(a)] = true;
+        while (!stack.empty()) {
+            const int at = stack.back();
+            stack.pop_back();
+            ++size;
+            for (int n : atom_neighbors(at, columns, rows))
+                if (n >= 0 && !seen[static_cast<std::size_t>(n)] &&
+                    colour[static_cast<std::size_t>(n)] == colour[static_cast<std::size_t>(a)]) {
+                    seen[static_cast<std::size_t>(n)] = true;
+                    stack.push_back(n);
+                }
+        }
+        smallest = std::min(smallest, size);
+    }
+}
 } // namespace
 void PuzzleGame::shuffle_values(std::vector<int>& values) {
     for (int i = static_cast<int>(values.size()) - 1; i > 0; --i)
         std::swap(values[static_cast<std::size_t>(i)],
                   values[static_cast<std::size_t>(random(i + 1))]);
 }
-// A Puzzle Solve game is a real tiling. The generator picks a frame, cuts it into pieces of
-// one family by merging neighboring half squares (or whole cells) while each merged piece
-// remains a shape of that family, colors a connected group of pieces yellow and the rest
-// blue, and turns every piece to a new orientation for the tray. The cut is the witness:
+// A Puzzle Solve game is a real tiling. The generator picks a frame, draws a yellow figure
+// on blue (design_solve), cuts the frame into pieces of one family by merging neighboring
+// half squares (or whole cells) of one colour while each merged piece remains a shape of
+// that family, and turns every piece to a new orientation for the tray. (The tangram keeps
+// its own cut and has a connected group of its pieces coloured yellow.) The cut is the witness:
 // each tray shape, turned by its witness orientation, lands exactly where it was cut.
 // Easy games are short lessons in one idea each: turning, mirroring, or slanted cuts.
 // Medium cuts six to eight pieces; Hard nine to twelve, mostly in larger frames.
@@ -1191,6 +1261,152 @@ bool PuzzleGame::generate_solve() {
                   std::to_string(state.aux[93]) + " pieces.";
     return true;
 }
+// A picture worth rebuilding: a yellow figure on blue (atoms 2 and 1; 0 outside the frame).
+// It is grown cell by cell from one or two seeds, the same everywhere a chosen symmetry
+// carries it (a mirror, both mirrors, a half or quarter turn, the diagonal), and its
+// stepped corners are then filled or cut on the diagonal, the same way all round so the
+// symmetry holds. Pictures that are a plain split, scattered into crumbs or nearly one
+// colour are refused, and the caller draws again.
+bool PuzzleGame::design_solve(int columns, int rows, const std::vector<bool>& inside,
+                              bool whole, std::vector<int>& colour) {
+    const int cells = columns * rows, atoms = cells * 4;
+    // The symmetry: usually a mirror, as most emblems have; sometimes a turn or none.
+    std::vector<int> symmetries;
+    const int roll = random(20);
+    if (roll < 8)
+        symmetries = {mirror_x};
+    else if (roll < 10)
+        symmetries = {mirror_x, mirror_y};
+    else if (roll < 12)
+        symmetries = {half_turn};
+    else if (roll < 15)
+        symmetries = {quarter_turn};
+    else if (roll < 17)
+        symmetries = {diagonal};
+    for (int symmetry : symmetries)
+        if (!frame_keeps(symmetry, columns, rows, inside))
+            symmetries = {mirror_x};
+    if (!symmetries.empty() && !frame_keeps(symmetries[0], columns, rows, inside))
+        symmetries.clear();
+    // Cells, and each cell's orbit under the symmetry.
+    std::vector<bool> present(static_cast<std::size_t>(cells), false);
+    int frame_atoms = 0;
+    for (int a = 0; a < atoms; ++a)
+        if (inside[static_cast<std::size_t>(a)]) {
+            present[static_cast<std::size_t>(a / 4)] = true;
+            ++frame_atoms;
+        }
+    std::vector<bool> yellow(static_cast<std::size_t>(cells), false);
+    const double target = (36 + random(20)) / 100.0;
+    int yellow_atoms = 0;
+    const int seeds = random(10) < 7 ? 1 : 2;
+    for (int round = 0; round < 64 && yellow_atoms < target * frame_atoms; ++round) {
+        // A seed anywhere, or a cell beside the figure, liked more for each yellow side.
+        std::vector<int> choices;
+        for (int c = 0; c < cells; ++c) {
+            if (!present[static_cast<std::size_t>(c)] || yellow[static_cast<std::size_t>(c)])
+                continue;
+            const int x = c % columns, y = c / columns;
+            int sides = 0;
+            sides += x > 0 && yellow[static_cast<std::size_t>(c - 1)];
+            sides += x + 1 < columns && yellow[static_cast<std::size_t>(c + 1)];
+            sides += y > 0 && yellow[static_cast<std::size_t>(c - columns)];
+            sides += y + 1 < rows && yellow[static_cast<std::size_t>(c + columns)];
+            const bool seeding = round < seeds;
+            if (seeding || sides > 0)
+                for (int w = 0; w < (seeding ? 1 : sides * sides); ++w)
+                    choices.push_back(c);
+        }
+        if (choices.empty())
+            break;
+        std::vector<int> orbit{choices[static_cast<std::size_t>(random(static_cast<int>(choices.size())))] * 4};
+        for (std::size_t i = 0; i < orbit.size(); ++i)
+            for (int symmetry : symmetries) {
+                const int image = map_atom(orbit[i], symmetry, columns, rows) / 4 * 4;
+                if (std::find(orbit.begin(), orbit.end(), image) == orbit.end())
+                    orbit.push_back(image);
+            }
+        for (int atom : orbit) {
+            if (yellow[static_cast<std::size_t>(atom / 4)])
+                continue;
+            yellow[static_cast<std::size_t>(atom / 4)] = true;
+            for (int w = 0; w < 4; ++w)
+                yellow_atoms += inside[static_cast<std::size_t>(atom + w)] ? 1 : 0;
+        }
+    }
+    colour.assign(static_cast<std::size_t>(atoms), 0);
+    for (int a = 0; a < atoms; ++a)
+        if (inside[static_cast<std::size_t>(a)])
+            colour[static_cast<std::size_t>(a)] = yellow[static_cast<std::size_t>(a / 4)] ? 2 : 1;
+    // The diagonal corners: a blue cell in a yellow nook takes the nook's half (filled),
+    // and a yellow cell standing out at a corner loses that half (cut). Whole-cell pieces
+    // keep the steps.
+    const int style = whole ? 0 : 1 + random(3);
+    const std::vector<int> before = colour;
+    for (int c = 0; c < cells && style; ++c) {
+        bool full = true;
+        for (int w = 0; w < 4; ++w)
+            full = full && inside[static_cast<std::size_t>(c * 4 + w)];
+        if (!full)
+            continue;
+        const int x = c % columns, y = c / columns;
+        // the colour across each side (0 off the frame), top, right, bottom, left
+        int side[4];
+        const int across[4] = {y > 0 ? (c - columns) * 4 + 2 : -1, x + 1 < columns ? (c + 1) * 4 + 3 : -1,
+                               y + 1 < rows ? (c + columns) * 4 : -1, x > 0 ? (c - 1) * 4 + 1 : -1};
+        for (int k = 0; k < 4; ++k)
+            side[k] = across[k] < 0 ? 0 : before[static_cast<std::size_t>(across[k])];
+        const int own = before[static_cast<std::size_t>(c * 4)];
+        for (int k = 0; k < 4; ++k) {
+            // the corner between side k and side k + 1; the other two sides face away
+            const int a = k, b = (k + 1) % 4, c2 = (k + 2) % 4, d = (k + 3) % 4;
+            const bool fill = (style & 1) && own == 1 && side[a] == 2 && side[b] == 2 &&
+                              side[c2] != 2 && side[d] != 2;
+            const bool cut = (style & 2) && own == 2 && side[a] != 2 && side[b] != 2 &&
+                             side[c2] == 2 && side[d] == 2;
+            if (fill || cut) {
+                colour[static_cast<std::size_t>(c * 4 + a)] = fill ? 2 : 1;
+                colour[static_cast<std::size_t>(c * 4 + b)] = fill ? 2 : 1;
+            }
+        }
+    }
+    // Worth rebuilding: a fair share of each colour, an outline with some shape, and no
+    // crumbs too small for a piece.
+    int yellow_share = 0;
+    for (int a = 0; a < atoms; ++a)
+        yellow_share += colour[static_cast<std::size_t>(a)] == 2;
+    const double share = static_cast<double>(yellow_share) / frame_atoms;
+    if (share < .28 || share > .62)
+        return false;
+    const int length = outline_length(colour, columns, rows);
+    if (length < columns + rows + (cells > 9 ? 2 : 0) || length > 3 * (columns + rows))
+        return false;
+    int areas = 0, smallest = 0;
+    colour_areas(colour, columns, rows, areas, smallest);
+    if (areas > 6 || smallest < 4)
+        return false;
+    // Not just stripes: some row and some column of the frame holds both colours.
+    bool mixed_row = false, mixed_column = false;
+    for (int y = 0; y < rows; ++y)
+        for (int x = 0; x < columns; ++x)
+            for (int w = 0; w < 4; ++w) {
+                const int a = (y * columns + x) * 4 + w;
+                const int here = colour[static_cast<std::size_t>(a)];
+                if (!here)
+                    continue;
+                for (int x2 = 0; x2 < columns && !mixed_row; ++x2)
+                    for (int w2 = 0; w2 < 4; ++w2) {
+                        const int other = colour[static_cast<std::size_t>((y * columns + x2) * 4 + w2)];
+                        mixed_row = mixed_row || (other && other != here);
+                    }
+                for (int y2 = 0; y2 < rows && !mixed_column; ++y2)
+                    for (int w2 = 0; w2 < 4; ++w2) {
+                        const int other = colour[static_cast<std::size_t>((y2 * columns + x) * 4 + w2)];
+                        mixed_column = mixed_column || (other && other != here);
+                    }
+            }
+    return mixed_row && mixed_column;
+}
 bool PuzzleGame::cut_solve(int frame, int family, int count, int lesson) {
     const SolveFrameShape shape = solve_frame_shape(frame);
     const int columns = shape.columns, rows = shape.rows, atoms = columns * rows * 4;
@@ -1203,7 +1419,14 @@ bool PuzzleGame::cut_solve(int frame, int family, int count, int lesson) {
         frame_atoms += inside[static_cast<std::size_t>(a)] ? 1 : 0;
     }
     const int max_atoms = std::clamp(frame_atoms * 2 / count, 8, 32);
+    std::vector<int> design;
     for (int attempt = 0; attempt < 400; ++attempt) {
+        // The picture comes first and the cut follows it; the tangram keeps its own cut
+        // and is coloured afterwards.
+        design.clear();
+        if (family != tangram && attempt < 300 &&
+            !design_solve(columns, rows, inside, family == blocks, design))
+            continue;
         // Units: whole cells for blocks, half squares otherwise; a cell crossed by the
         // frame's edge keeps its inside half. The tangram is cut once and for all.
         std::vector<std::vector<int>> pieces;
@@ -1212,8 +1435,22 @@ bool PuzzleGame::cut_solve(int frame, int family, int count, int lesson) {
             for (int w = 0; w < 4; ++w)
                 if (inside[static_cast<std::size_t>(cell * 4 + w)])
                     present.push_back(cell * 4 + w);
+            const bool two_colours =
+                present.size() == 4 &&
+                design[static_cast<std::size_t>(cell * 4)] != design[static_cast<std::size_t>(cell * 4 + 2)];
+            const bool split = present.size() == 4 &&
+                               (two_colours || design[static_cast<std::size_t>(cell * 4)] !=
+                                                   design[static_cast<std::size_t>(cell * 4 + 1)] ||
+                                design[static_cast<std::size_t>(cell * 4)] !=
+                                    design[static_cast<std::size_t>(cell * 4 + 3)]);
             if (present.size() == 4 && family == blocks) {
                 pieces.push_back(present);
+            } else if (split) {
+                // The picture halves this cell on a diagonal: each half keeps its colour.
+                const bool top_with_right = design[static_cast<std::size_t>(cell * 4)] ==
+                                            design[static_cast<std::size_t>(cell * 4 + 1)];
+                pieces.push_back({cell * 4, cell * 4 + (top_with_right ? 1 : 3)});
+                pieces.push_back({cell * 4 + 2, cell * 4 + (top_with_right ? 3 : 1)});
             } else if (present.size() == 4) {
                 // Top with right and bottom with left, or top with left and right with bottom.
                 const int turn = random(2);
@@ -1263,6 +1500,10 @@ bool PuzzleGame::cut_solve(int frame, int family, int count, int lesson) {
                 for (int b : partners) {
                     std::vector<int> joined = pieces[static_cast<std::size_t>(a)];
                     const std::vector<int>& other = pieces[static_cast<std::size_t>(b)];
+                    // a piece is one colour of the picture
+                    if (!design.empty() &&
+                        design[static_cast<std::size_t>(joined[0])] != design[static_cast<std::size_t>(other[0])])
+                        continue;
                     joined.insert(joined.end(), other.begin(), other.end());
                     if (!allowed_piece(joined, family, columns, max_atoms))
                         continue;
@@ -1278,20 +1519,23 @@ bool PuzzleGame::cut_solve(int frame, int family, int count, int lesson) {
             if (!merged)
                 break;
         }
-        if (live != count)
+        // A picture may leave one piece more than asked, never more than the level allows
+        // (Easy five, Medium eight, Hard twelve).
+        const int most = count <= 5 ? 5 : count <= 8 ? 8 : 12;
+        if (live != count && !(!design.empty() && live == count + 1 && live <= most))
             continue;
         std::vector<std::vector<int>> cut;
         for (const std::vector<int>& p : pieces)
             if (!p.empty())
                 cut.push_back(p);
-        if (!finish_solve(cut, columns, rows, lesson))
+        if (!finish_solve(cut, columns, rows, lesson, design))
             continue;
         state.aux[88] = columns;
         state.aux[89] = rows;
         state.aux[90] = frame;
         state.aux[91] = lesson;
         state.aux[92] = family;
-        state.aux[93] = count;
+        state.aux[93] = live;
         state.aux[95] = 4;
         return true;
     }
@@ -1300,7 +1544,7 @@ bool PuzzleGame::cut_solve(int frame, int family, int count, int lesson) {
 // Checks a cut against its lesson, colors it, and records the picture, the tray shapes
 // and the witness.
 bool PuzzleGame::finish_solve(const std::vector<std::vector<int>>& cut, int columns, int rows,
-                              int lesson) {
+                              int lesson, const std::vector<int>& design) {
     const int count = static_cast<int>(cut.size());
     if (count < 2 || count > 12)
         return false;
@@ -1337,7 +1581,17 @@ bool PuzzleGame::finish_solve(const std::vector<std::vector<int>>& cut, int colu
     const int all = (1 << count) - 1;
     const double low = lesson >= 0 ? .25 : .3, high = lesson >= 0 ? .75 : .6;
     std::vector<int> colorings;
-    for (int mask = 1; mask < all; ++mask) {
+    if (!design.empty()) {
+        // The picture was drawn first: each piece already has its colour.
+        int mask = 0;
+        for (int p = 0; p < count; ++p)
+            if (design[static_cast<std::size_t>(cut[static_cast<std::size_t>(p)][0])] == 2)
+                mask |= 1 << p;
+        if (mask == 0 || mask == all)
+            return false;
+        colorings.push_back(mask);
+    }
+    for (int mask = 1; mask < all && design.empty(); ++mask) {
         const int yellow_pieces = bit_count(mask);
         if (yellow_pieces < 2 || count - yellow_pieces < 2)
             continue;

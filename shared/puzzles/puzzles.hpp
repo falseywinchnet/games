@@ -144,9 +144,11 @@ class PuzzleGame {
     void thaw();
     void generate_atoms();
     bool generate_solve();
+    bool design_solve(int columns, int rows, const std::vector<bool>& inside, bool whole,
+                      std::vector<int>& colour);
     bool cut_solve(int frame, int family, int count, int lesson);
     bool finish_solve(const std::vector<std::vector<int>>& cut, int columns, int rows,
-                      int lesson);
+                      int lesson, const std::vector<int>& design);
     void shuffle_values(std::vector<int>& values);
 };
 const char* puzzle_title(PuzzleKind kind);
