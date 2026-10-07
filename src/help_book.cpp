@@ -10,13 +10,17 @@ class TopicHeading final : public gf::Button {
     TopicHeading(gf::StableId id, std::string title) : Button(std::move(id), std::move(title)) {
         set_font({gf::FontRole::content, 18, 600, false});
         set_accessible_name(text());
+        // A disclosure: assistive technology hears whether its topic is open.
+        set_expanded_state(false);
     }
-    bool expanded = false;
+    [[nodiscard]] bool expanded() const {
+        return expanded_state().value_or(false);
+    }
     void on_paint(gf::Painter& p, gf::Rect) override {
         const gf::Rect r = client_rectangle();
         p.fill_rect(r, hovered_visual() ? gf::Color::rgba(236, 226, 156)
                                         : gf::Color::rgba(244, 235, 175));
-        p.draw_text_utf8({9, 25}, expanded ? "−" : "+", font(), gf::Color::rgba(66, 58, 33));
+        p.draw_text_utf8({9, 25}, expanded() ? "−" : "+", font(), gf::Color::rgba(66, 58, 33));
         p.draw_text_utf8({32, 25}, text(), font(), gf::Color::rgba(42, 38, 24));
         if (focus_cue_visible())
             p.stroke_rect({1, 1, r.width - 2, r.height - 2}, gf::Color::rgba(110, 91, 37), 1);
@@ -54,8 +58,7 @@ void HelpPages::add_topic(int entry, std::string topic, std::string title,
     (*label).set_visible(false);
     (*heading).set_paint_plane(gf::PaintPlane::overlay);
     (*label).set_paint_plane(gf::PaintPlane::overlay);
-    subscriptions_.push_back((*heading).clicked().subscribe(
-        *this, gf::Delegate<gf::ButtonBase&>::bind<HelpPages, &HelpPages::toggle>(*this)));
+    gf::on((*heading).clicked(), *this, &HelpPages::toggle, index);
     topics_.push_back({entry, std::move(topic)});
     headings_.push_back(heading);
     bodies_.push_back(label);
@@ -93,7 +96,7 @@ void HelpPages::select(int entry, std::string_view topic) {
     order_.push_back(selected);
     for (int i = 0; i < static_cast<int>(bodies_.size()); ++i) {
         (*bodies_[i]).set_visible(i == selected);
-        (*std::static_pointer_cast<TopicHeading>(headings_[i])).expanded = i == selected;
+        (*headings_[i]).set_expanded_state(i == selected);
         (*headings_[i]).invalidate(gf::Dirty::paint);
         if (i != selected)
             order_.push_back(i);
@@ -101,16 +104,13 @@ void HelpPages::select(int entry, std::string_view topic) {
     static_cast<void>(scroll_to({0, 0}));
     invalidate(gf::Dirty::layout | gf::Dirty::paint);
 }
-void HelpPages::toggle(gf::ButtonBase& button) {
-    for (std::size_t i = 0; i < headings_.size(); ++i)
-        if (headings_[i].get() == &button) {
-            const bool expanded = !(*bodies_[i]).visible();
-            (*bodies_[i]).set_visible(expanded);
-            (*std::static_pointer_cast<TopicHeading>(headings_[i])).expanded = expanded;
-            (*headings_[i]).invalidate(gf::Dirty::paint);
-            invalidate(gf::Dirty::layout | gf::Dirty::paint);
-            return;
-        }
+void HelpPages::toggle(int index) {
+    const std::size_t i = static_cast<std::size_t>(index);
+    const bool expanded = !(*bodies_[i]).visible();
+    (*bodies_[i]).set_visible(expanded);
+    (*headings_[i]).set_expanded_state(expanded);
+    (*headings_[i]).invalidate(gf::Dirty::paint);
+    invalidate(gf::Dirty::layout | gf::Dirty::paint);
 }
 void HelpPages::arrange(gf::Rect bounds) {
     arrange_self(bounds);
@@ -157,15 +157,14 @@ void HelpBook::initialize_control_tree() {
     close_ = gf::make_control<HelpGlyph>(gf::StableId("help.close"), "×");
     (*close_).set_paint_plane(gf::PaintPlane::overlay);
     (*close_).set_accessible_name("Close PlaySuite help (H or Escape)");
-    close_subscription_ = (*close_).clicked().subscribe(
-        *this, gf::Delegate<gf::ButtonBase&>::bind<HelpBook, &HelpBook::clicked_close>(*this));
+    gf::on((*close_).clicked(), *this, &HelpBook::clicked_close);
     add_child(pages_);
     add_child(close_);
 }
 void HelpBook::on_key_bubble(gf::KeyEvent& event) {
     (*pages_).on_key_bubble(event);
 }
-void HelpBook::clicked_close(gf::ButtonBase&) {
+void HelpBook::clicked_close() {
     if (close)
         close();
 }

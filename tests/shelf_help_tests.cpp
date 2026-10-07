@@ -29,7 +29,7 @@ static void key(gf::Window& window, std::uint32_t physical) {
 }
 static void assert_revealed(gf::Control& control, const ShelfRows& rows) {
     const gf::Rect bounds = control.committed_arranged_bounds();
-    const gf::Rect viewport = rows.viewport_rectangle();
+    const gf::Rect viewport = rows.client_rectangle();
     assert(bounds.y >= -.01);
     assert(bounds.bottom() <= viewport.height + .01);
 }
@@ -39,13 +39,13 @@ int main() {
     for (gf::Size size : sizes) {
         std::shared_ptr<ShelfView> shelf =
             gf::make_control<ShelfView>(gf::StableId("test.shelf"), sprites);
-        (*shelf).set_preferences(false, false, true);
+        (*shelf).set_reduced(true);
         gf::Window window(shelf, size);
         window.perform_layout();
         const std::shared_ptr<ShelfRows> rows =
             std::dynamic_pointer_cast<ShelfRows>(find_control(*shelf, "shelf.rows"));
-        assert(rows && !(*rows).hscroll());
-        assert((*rows).children().size() == entries.size());
+        assert(rows);
+        assert((*rows).children().size() == entries.size() + 2); // every box and two arrows
         const std::shared_ptr<gf::Control> credits = find_control(*shelf, "shelf.credits");
         const std::shared_ptr<gf::Control> music = find_control(*shelf, "shelf.Music");
         assert(credits && music);
@@ -89,13 +89,32 @@ int main() {
         window.perform_layout();
         assert((*shelf).selection() == entries.front());
         assert_revealed(*box(*shelf, entries.front()), *rows);
-        if ((*rows).vscroll()) {
+        // The side arrows: dimmed toward an end with no more shelf; a press moves a shelf.
+        const std::shared_ptr<gf::Button> up =
+            std::dynamic_pointer_cast<gf::Button>(find_control(*shelf, "shelf.rows.up"));
+        const std::shared_ptr<gf::Button> down =
+            std::dynamic_pointer_cast<gf::Button>(find_control(*shelf, "shelf.rows.down"));
+        assert(up && down && (*up).visible() && (*down).visible() && !(*up).enabled());
+        assert((*down).enabled() == (*rows).scrollable());
+        if ((*rows).scrollable()) {
+            assert((*down).perform_click());
+            while ((*rows).step(1.0 / 60, false)) {
+            }
+            window.perform_layout();
+            assert((*rows).scroll_offset() > 0 && (*up).enabled());
+            assert((*up).perform_click());
+            while ((*rows).step(1.0 / 60, false)) {
+            }
+            window.perform_layout();
+            assert((*rows).scroll_offset() == 0 && !(*up).enabled() && (*down).enabled());
+        }
+        if ((*rows).scrollable()) {
             gf::PointerEvent wheel;
             wheel.action = gf::PointerAction::wheel;
             wheel.wheel_delta = {0, -3};
             (*rows).on_pointer(wheel);
             window.perform_layout();
-            assert(wheel.handled && (*rows).scroll_position().y > 0);
+            assert(wheel.handled && (*rows).scroll_offset() > 0);
         }
     }
     std::shared_ptr<HelpPages> pages = gf::make_control<HelpPages>(gf::StableId("test.help"));

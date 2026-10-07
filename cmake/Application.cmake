@@ -22,7 +22,7 @@ target_link_libraries(vendor_game_ui ${module_link_scope} ${GAMES_MODULE_LIBRARI
 target_compile_definitions(vendor_game_ui INTERFACE _USE_MATH_DEFINES)
 add_library(game_ui ${GAMES_MODULE_SOURCES} "${GAMES_CATALOG_DIR}/game_registry.cpp" shared/cards/table.cpp src/presentation.cpp shared/puzzles/puzzle_view.cpp src/collection.cpp
     games/sudoku/src/sudoku_view.cpp src/suite.cpp src/text_sprites.cpp src/shelf.cpp src/capsule.cpp shared/puzzles/kitten.cpp
-    src/help_book.cpp src/help_content.cpp src/settings_sheet.cpp)
+    src/help_book.cpp src/help_content.cpp src/settings_sheet.cpp src/suite_model.cpp)
 target_include_directories(game_ui PUBLIC src PRIVATE shared/felt)
 target_link_libraries(game_ui PUBLIC game_rules game_solver game_raster sudoku_generator vendor_game_ui)
 if(NOT MSVC)

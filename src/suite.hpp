@@ -74,6 +74,10 @@ gf::Color gloss_ink(GlossTone tone, bool enabled = true);
 enum class Glyph { none, back, play, music, sound, motion, more, settings };
 void paint_glyph(gf::Painter& p, gf::Rect r, Glyph glyph, gf::Color ink, bool crossed = false);
 
+// How a switch bound to a command shows the command's checked state (the button's
+// selected state): slashed in red, or lit gold.
+enum class SwitchLook { none, crossed_when_off, crossed_when_on, lit_when_on };
+
 class SuiteButton : public gf::Button {
   public:
     SuiteButton(gf::StableId id, std::string text, GlossTone tone = GlossTone::chrome);
@@ -81,12 +85,11 @@ class SuiteButton : public gf::Button {
     void set_glyph(Glyph glyph, bool crossed = false);
     void set_radius(double radius);
     void set_checked(bool checked);
-    [[nodiscard]] bool crossed() const {
-        return crossed_;
-    }
-    [[nodiscard]] bool checked() const {
-        return checked_;
-    }
+    // Makes this a switch: bind it to a command and it shows the command's state,
+    // naming itself for assistive technology by whether it is on.
+    void set_switch(SwitchLook look, std::string on_name, std::string off_name);
+    [[nodiscard]] bool crossed() const;
+    [[nodiscard]] bool checked() const;
     [[nodiscard]] double preferred_width() const;
     void on_paint(gf::Painter& painter, gf::Rect damage) override;
 
@@ -95,5 +98,8 @@ class SuiteButton : public gf::Button {
     Glyph glyph_ = Glyph::none;
     bool crossed_ = false, checked_ = false;
     double radius_ = 4;
+    SwitchLook look_ = SwitchLook::none;
+    std::string on_name_, off_name_;
+    void switched(bool on);
 };
 } // namespace games

@@ -70,26 +70,26 @@ void Collection::initialize_control_tree() {
     shelf_ = gf::make_control<ShelfView>(gf::StableId("collection.shelf"), sprites_);
     add_child(shelf_);
     (*shelf_).open = std::bind_front(&Collection::open_entry, this);
-    (*shelf_).toggle = std::bind_front(&Collection::toggle, this);
+    (*shelf_).bind_masters(model_);
     (*shelf_).select(active_);
     capsule_ = gf::make_control<CommandCapsule>(gf::StableId("collection.capsule"), sprites_);
     add_child(capsule_);
     (*capsule_).back = std::bind_front(&Collection::show_shelf, this);
     (*capsule_).command = std::bind_front(&Collection::run_command, this);
-    (*capsule_).toggle = std::bind_front(&Collection::toggle, this);
+    (*capsule_).bind_masters(model_);
+    gf::on(model_.music.invoked(), *this, &Collection::toggle, 0);
+    gf::on(model_.sound.invoked(), *this, &Collection::toggle, 1);
+    gf::on(model_.reduced.invoked(), *this, &Collection::toggle, 2);
+    gf::on(model_.settings.invoked(), *this, &Collection::toggle, 3);
     help_link_ = gf::make_control<HelpGlyph>(gf::StableId("collection.help"), "?");
     (*help_link_).set_accessible_name("PlaySuite help (H)");
     (*help_link_).set_paint_plane(gf::PaintPlane::overlay);
-    subscriptions_.push_back(
-        (*help_link_)
-            .clicked()
-            .subscribe(
-                *this,
-                gf::Delegate<gf::ButtonBase&>::bind<Collection, &Collection::clicked_help>(*this)));
+    gf::on((*help_link_).clicked(), *this, &Collection::clicked_help);
     help_ = gf::make_control<HelpBook>(gf::StableId("collection.help-book"));
     (*help_).close = std::bind_front(&Collection::close_help, this);
     (*help_).set_visible(false);
     settings_ = gf::make_control<SettingsSheet>(gf::StableId("collection.settings"));
+    (*settings_).bind_masters(model_);
     (*settings_).close = std::bind_front(&Collection::close_settings, this);
     (*settings_).set_visible(false);
     add_child(help_link_);
@@ -122,8 +122,7 @@ void Collection::ensure_view(Entry entry) {
 }
 void Collection::on_attached_to_window() {
     timer_ = std::make_unique<gf::Timer>(*attached_window(), std::chrono::milliseconds(16));
-    subscriptions_.push_back((*timer_).tick().subscribe(
-        *this, gf::Delegate<>::bind<Collection, &Collection::tick>(*this)));
+    gf::on((*timer_).tick(), *this, &Collection::tick);
     last_tick_ = std::chrono::steady_clock::now();
     (*timer_).start();
 }
@@ -357,8 +356,7 @@ void Collection::preferences() {
     for (const std::pair<const Entry,std::unique_ptr<GameInstance>>& game : games_)
         (*game.second).preferences(!shelf_open_ && active_ == game.first,
                                    masters.music, masters.sound, masters.reduced);
-    (*shelf_).set_preferences(masters.music, masters.sound, masters.reduced);
-    (*capsule_).set_preferences(masters.music, masters.sound, masters.reduced);
+    (*shelf_).set_reduced(masters.reduced);
     if (settings_open())
         (*settings_).refresh();
 }
@@ -453,8 +451,7 @@ void Collection::show_settings() {
     (*settings_).show_for(shelf_open_ ? std::string() : std::string(entry_info(active_).title),
                           shelf_open_ ? nullptr : source(active_));
     (*settings_).set_visible(true);
-    (*capsule_).set_settings_open(true);
-    (*shelf_).set_settings_open(true);
+    model_.settings.set_checked(true);
     if (!was_open && attached_window()) {
         settings_focus_ = (*attached_window()).begin_focus_scope(settings_);
         static_cast<void>((*attached_window()).request_focus((*settings_).first_control()));
@@ -468,13 +465,12 @@ void Collection::close_settings() {
         static_cast<void>((*attached_window()).end_focus_scope(settings_focus_));
     settings_focus_ = {};
     (*settings_).set_visible(false);
-    (*capsule_).set_settings_open(false);
-    (*shelf_).set_settings_open(false);
+    model_.settings.set_checked(false);
     if (!shelf_open_)
         refresh_commands();
     invalidate(gf::Dirty::paint);
 }
-void Collection::clicked_help(gf::ButtonBase&) {
+void Collection::clicked_help() {
     show_help();
 }
 void Collection::show_help(std::string_view topic) {

@@ -34,28 +34,31 @@ void CommandCapsule::initialize_control_tree() {
     (*more_).set_radius(15);
     (*more_).set_accessible_name("Keep the commands open");
     add_child(more_);
-    const char* names[] = {"Music", "Sound", "Motion", "Settings"};
-    const Glyph glyphs[] = {Glyph::music, Glyph::sound, Glyph::motion, Glyph::settings};
     for (int i = 0; i < 4; ++i) {
-        switches_[i] = gf::make_control<SuiteButton>(
-            gf::StableId(std::string("capsule.") + names[i]), "", GlossTone::smoke);
-        (*switches_[i]).set_glyph(glyphs[i]);
-        (*switches_[i]).set_radius(15);
-        (*switches_[i]).set_accessible_name(names[i]);
+        switches_[i] = make_master_switch("capsule.", i);
         add_child(switches_[i]);
     }
-    (*switches_[3]).set_accessible_name("Settings");
-    for (const std::shared_ptr<SuiteButton>& b :
-         {back_, more_, switches_[0], switches_[1], switches_[2], switches_[3]})
-        subscriptions_.push_back((*b).clicked().subscribe(
-            *this,
-            gf::Delegate<gf::ButtonBase&>::bind<CommandCapsule, &CommandCapsule::clicked>(*this)));
-    masters_ = SettingsStore::shared().observe(std::bind_front(&CommandCapsule::masters_changed, this));
-    masters_changed();
+    gf::on((*back_).clicked(), *this, &CommandCapsule::on_back);
+    gf::on((*more_).clicked(), *this, &CommandCapsule::on_more);
 }
-void CommandCapsule::masters_changed() {
-    const SuiteSettings& masters = SettingsStore::shared().values();
-    set_preferences(masters.music, masters.sound, masters.reduced);
+void CommandCapsule::bind_masters(SuiteModel& model) {
+    bind_master_switches(switches_, model);
+}
+void CommandCapsule::on_back() {
+    if (back)
+        back();
+}
+void CommandCapsule::on_more() {
+    pinned_ = !pinned_;
+    (*more_).set_checked(pinned_);
+    if (!pinned_)
+        idle_ = .3;
+}
+void CommandCapsule::on_command(int index) {
+    if (command && index < static_cast<int>(commands_.size())) {
+        const std::string id = commands_[static_cast<std::size_t>(index)].id;
+        command(id);
+    }
 }
 void CommandCapsule::set_game(std::string title, std::vector<GameCommand> commands) {
     bool same = title == title_ && commands.size() == commands_.size();
@@ -74,7 +77,6 @@ void CommandCapsule::set_game(std::string title, std::vector<GameCommand> comman
     for (const std::shared_ptr<SuiteButton>& b : buttons_)
         static_cast<void>(remove_child((*b).runtime_id()));
     buttons_.clear();
-    command_subscriptions_.clear();
     title_ = std::move(title);
     commands_ = std::move(commands);
     for (const GameCommand& c : commands_) {
@@ -87,24 +89,11 @@ void CommandCapsule::set_game(std::string title, std::vector<GameCommand> comman
         (*b).set_checked(c.checked);
         (*b).set_accessible_name(c.label);
         add_child(b);
-        command_subscriptions_.push_back((*b).clicked().subscribe(
-            *this,
-            gf::Delegate<gf::ButtonBase&>::bind<CommandCapsule, &CommandCapsule::clicked>(*this)));
+        gf::on((*b).clicked(), *this, &CommandCapsule::on_command, static_cast<int>(buttons_.size()));
         buttons_.push_back(std::move(b));
     }
     layout_slots();
     invalidate(gf::Dirty::layout | gf::Dirty::paint);
-}
-void CommandCapsule::set_settings_open(bool open) {
-    (*switches_[3]).set_checked(open);
-}
-void CommandCapsule::set_preferences(bool music, bool sound, bool reduced) {
-    (*switches_[0]).set_glyph(Glyph::music, !music);
-    (*switches_[1]).set_glyph(Glyph::sound, !sound);
-    (*switches_[2]).set_glyph(Glyph::motion, reduced);
-    (*switches_[0]).set_accessible_name(music ? "Music on" : "Music off");
-    (*switches_[1]).set_accessible_name(sound ? "Sound on" : "Sound off");
-    (*switches_[2]).set_accessible_name(reduced ? "Reduced motion" : "Full motion");
 }
 void CommandCapsule::set_maximum_width(double width) {
     max_width_ = std::max(200.0, width);
@@ -215,31 +204,5 @@ void CommandCapsule::on_paint(gf::Painter& p, gf::Rect) {
     const gf::Size ts = sprites_.measure(title);
     sprites_.draw(p, title,
                   {kMargin + kPad + kIcon + kGap + 9, kMargin + kPad + (kButton - ts.height) * .5});
-}
-void CommandCapsule::clicked(gf::ButtonBase& button) {
-    if (&button == back_.get()) {
-        if (back)
-            back();
-        return;
-    }
-    if (&button == more_.get()) {
-        pinned_ = !pinned_;
-        (*more_).set_checked(pinned_);
-        if (!pinned_)
-            idle_ = .3;
-        return;
-    }
-    for (int i = 0; i < 4; ++i)
-        if (&button == switches_[i].get()) {
-            if (toggle)
-                toggle(i);
-            return;
-        }
-    for (std::size_t i = 0; i < buttons_.size(); ++i)
-        if (&button == buttons_[i].get() && command) {
-            const std::string id = commands_[i].id;
-            command(id);
-            return;
-        }
 }
 } // namespace games

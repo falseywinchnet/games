@@ -190,6 +190,26 @@ void SuiteButton::set_checked(bool checked) {
     checked_ = checked;
     invalidate(gf::Dirty::paint);
 }
+void SuiteButton::set_switch(SwitchLook look, std::string on_name, std::string off_name) {
+    const bool first = look_ == SwitchLook::none;
+    look_ = look;
+    on_name_ = std::move(on_name);
+    off_name_ = std::move(off_name);
+    if (first)
+        gf::on(selected_changed(), *this, &SuiteButton::switched);
+    switched(selected());
+}
+void SuiteButton::switched(bool on) {
+    set_accessible_name(on ? on_name_ : off_name_);
+    invalidate(gf::Dirty::paint);
+}
+bool SuiteButton::crossed() const {
+    return crossed_ || (look_ == SwitchLook::crossed_when_off && !selected()) ||
+           (look_ == SwitchLook::crossed_when_on && selected());
+}
+bool SuiteButton::checked() const {
+    return checked_ || (look_ == SwitchLook::lit_when_on && selected());
+}
 double SuiteButton::preferred_width() const {
     const double chars = static_cast<double>(text().size());
     const double label = chars > 0 ? chars * 7.3 + 24 : 0;
@@ -199,9 +219,11 @@ double SuiteButton::preferred_width() const {
 void SuiteButton::on_paint(gf::Painter& p, gf::Rect) {
     gf::Rect b = client_rectangle();
     gf::Rect r{2, 2, b.width - 4, b.height - 5};
-    GlossTone tone = checked_ ? GlossTone::gold : tone_;
+    GlossTone tone = checked() ? GlossTone::gold : tone_;
+    // A switch's selected state is its command's; other buttons show selection as focus.
+    const bool selection_cue = look_ == SwitchLook::none && selected();
     paint_gloss(p, r, radius_, tone,
-                {hovered_visual(), pressed_visual(), enabled(), focus_cue_visible() || selected()});
+                {hovered_visual(), pressed_visual(), enabled(), focus_cue_visible() || selection_cue});
     gf::Color ink = gloss_ink(tone, enabled());
     double x = r.x + 10;
     const double shift = pressed_visual() ? 1 : 0;
@@ -209,7 +231,7 @@ void SuiteButton::on_paint(gf::Painter& p, gf::Rect) {
         double s = std::min(20.0, r.height - 8);
         double gx = text().empty() ? r.x + (r.width - s) * .5 : x;
         paint_glyph(p, {gx + shift, r.y + (r.height - s) * .5 + shift, s, s}, glyph_, ink,
-                    crossed_);
+                    crossed());
         x = gx + s + 4;
     }
     if (!text().empty()) {

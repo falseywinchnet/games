@@ -17,27 +17,14 @@ const char* const back_names[card_back_count] = {"Sapphire clubs", "Ruby diamond
                                                  "Emerald hearts", "Amethyst spades"};
 // Master rows use these ids; a game's ids never start with "suite.".
 const std::string music_id = "suite.music", sound_id = "suite.sound",
-                  reduced_id = "suite.reduced", music_volume_id = "suite.music_volume",
-                  sound_volume_id = "suite.sound_volume", backs_id = "suite.card_back";
+                  reduced_id = "suite.reduced", backs_id = "suite.card_back";
 constexpr double kRow = 34, kGap = 8;
 } // namespace
 
-SettingSlider::SettingSlider(gf::StableId id, std::string setting)
-    : TrackBar(std::move(id)), setting_(std::move(setting)) {
+SettingSlider::SettingSlider(gf::StableId id) : TrackBar(std::move(id)) {
     set_show_ticks(false);
     set_visual_style(gf::TrackBarVisualStyle::filled);
     set_paint_plane(gf::PaintPlane::overlay);
-}
-void SettingSlider::initialize_control_tree() {
-    subscription_ = value_changed().subscribe(
-        *this, gf::Delegate<double>::bind<SettingSlider, &SettingSlider::changed>(*this));
-}
-void SettingSlider::show_value(double value) {
-    if (value == TrackBar::value())
-        return;
-    quiet_ = true;
-    set_value(value);
-    quiet_ = false;
 }
 void SettingSlider::on_paint(gf::Painter& p, gf::Rect) {
     const gf::Rect b = client_rectangle();
@@ -64,10 +51,6 @@ void SettingSlider::on_focus_changed(bool focused) {
     TrackBar::on_focus_changed(focused);
     focused_ = focused;
     invalidate(gf::Dirty::paint);
-}
-void SettingSlider::changed(double value) {
-    if (!quiet_ && moved)
-        moved(setting_, value);
 }
 
 SettingCheck::SettingCheck(gf::StableId id, std::string text) : CheckBox(std::move(id), std::move(text)) {
@@ -149,28 +132,28 @@ std::shared_ptr<gf::Label> SettingsPage::heading(const std::string& text) {
 std::shared_ptr<gf::CheckBox> SettingsPage::check(const std::string& key, const std::string& text) {
     std::shared_ptr<gf::CheckBox> box = gf::make_control<SettingCheck>(
         gf::StableId("settings." + std::to_string(built_) + ".check." + key), text);
-    (*box).set_auto_check(false); // the store or the game decides; refresh() shows it
+    // The masters' commands or the game decide; the box shows what they decided.
+    (*box).set_auto_check(false);
     (*box).set_font({gf::FontRole::content, 16, 600, false});
     (*box).set_accessible_name(text);
     (*box).set_paint_plane(gf::PaintPlane::overlay);
-    subscriptions_.push_back((*box).clicked().subscribe(
-        *this, gf::Delegate<gf::ButtonBase&>::bind<SettingsPage, &SettingsPage::clicked>(*this)));
     add_child(box);
     return box;
 }
 std::shared_ptr<SettingSlider> SettingsPage::slider(const std::string& key,
-                                                    const std::string& setting,
                                                     const std::string& name, double minimum,
                                                     double maximum, double step) {
     std::shared_ptr<SettingSlider> bar = gf::make_control<SettingSlider>(
-        gf::StableId("settings." + std::to_string(built_) + ".slider." + key), setting);
+        gf::StableId("settings." + std::to_string(built_) + ".slider." + key));
     (*bar).set_range(minimum, maximum);
     (*bar).set_small_change(step);
     (*bar).set_large_change(std::max(step, (maximum - minimum) / 5));
     (*bar).set_accessible_name(name);
-    (*bar).moved = std::bind_front(&SettingsPage::slid, this);
     add_child(bar);
     return bar;
+}
+void SettingsPage::bind_masters(SuiteModel& model) {
+    model_ = &model;
 }
 void SettingsPage::add_row(Row row) {
     rows_.push_back(std::move(row));
@@ -186,7 +169,6 @@ void SettingsPage::build(CommandSource* game, const std::string& game_title) {
                 static_cast<void>(remove_child((*part).runtime_id()));
     }
     rows_.clear();
-    subscriptions_.clear();
     ++built_;
     game_ = game;
     game_title_ = game_title;
@@ -195,21 +177,29 @@ void SettingsPage::build(CommandSource* game, const std::string& game_title) {
     add_row({Shape::heading, "", heading("Sound and music"), {}, nullptr, nullptr});
     struct Master {
         const std::string& toggle;
-        const std::string& volume;
         const char* name;
         const char* key;
     };
-    const Master masters[] = {{music_id, music_volume_id, "Music", "music"},
-                              {sound_id, sound_volume_id, "Sound", "sound"}};
+    const Master masters[] = {{music_id, "Music", "music"}, {sound_id, "Sound", "sound"}};
     for (const Master& m : masters) {
-        Row row{Shape::volume, m.toggle, check(m.key, m.name), {}, nullptr, nullptr};
-        row.items.push_back(slider(m.key, m.volume, std::string(m.name) + " volume", 0, 100, 5));
+        const std::shared_ptr<gf::CheckBox> box = check(m.key, m.name);
+        const std::shared_ptr<SettingSlider> bar =
+            slider(m.key, std::string(m.name) + " volume", 0, 100, 5);
+        if (model_) {
+            const bool music = m.toggle == music_id;
+            (*box).bind(music ? (*model_).music : (*model_).sound);
+            (*bar).bind(music ? (*model_).music_volume : (*model_).sound_volume);
+        }
+        Row row{Shape::volume, m.toggle, box, {bar}, nullptr, nullptr};
         row.readout = text_label("", 15, 600);
         (*row.readout).set_alignment(gf::HorizontalAlignment::far);
         add_row(std::move(row));
     }
     add_row({Shape::heading, "", heading("Motion"), {}, nullptr, nullptr});
-    add_row({Shape::check, reduced_id, check("reduced", "Reduce motion"), {}, nullptr,
+    const std::shared_ptr<gf::CheckBox> reduce = check("reduced", "Reduce motion");
+    if (model_)
+        (*reduce).bind((*model_).reduced);
+    add_row({Shape::check, reduced_id, reduce, {}, nullptr,
              text_label("Shortens or removes animation wherever a game offers that.", 13, 400)});
     if (game && (*game).uses_card_backs()) {
         add_row({Shape::heading, "", heading("Card back"), {}, nullptr, nullptr});
@@ -219,9 +209,7 @@ void SettingsPage::build(CommandSource* game, const std::string& game_title) {
                 gf::StableId("settings." + std::to_string(built_) + ".back." + std::to_string(i)),
                 back_names[i], i);
             (*choice).set_image(back_images_[static_cast<std::size_t>(i)]);
-            subscriptions_.push_back((*choice).clicked().subscribe(
-                *this,
-                gf::Delegate<gf::ButtonBase&>::bind<SettingsPage, &SettingsPage::clicked>(*this)));
+            gf::on((*choice).clicked(), *this, &SettingsPage::chose_back, i);
             add_child(choice);
             row.items.push_back(choice);
         }
@@ -231,9 +219,12 @@ void SettingsPage::build(CommandSource* game, const std::string& game_title) {
         add_row({Shape::heading, "", heading(game_title), {}, nullptr, nullptr});
         for (const GameSetting& s : shape_) {
             const std::string key = "game." + s.id;
+            const int at = static_cast<int>(rows_.size());
             Row row{Shape::check, s.id, nullptr, {}, nullptr, nullptr};
             if (s.kind == GameSetting::Kind::toggle) {
                 row.lead = check(key, s.label);
+                gf::on((*std::static_pointer_cast<gf::CheckBox>(row.lead)).clicked(), *this,
+                       &SettingsPage::toggled, at);
             } else if (s.kind == GameSetting::Kind::choice) {
                 row.shape = Shape::chips;
                 row.lead = text_label(s.label, 16, 600);
@@ -245,16 +236,17 @@ void SettingsPage::build(CommandSource* game, const std::string& game_title) {
                     (*chip).set_radius(15);
                     (*chip).set_accessible_name(s.label + ": " + s.choices[k]);
                     (*chip).set_paint_plane(gf::PaintPlane::overlay);
-                    subscriptions_.push_back((*chip).clicked().subscribe(
-                        *this, gf::Delegate<gf::ButtonBase&>::bind<SettingsPage,
-                                                                   &SettingsPage::clicked>(*this)));
+                    gf::on((*chip).clicked(), *this, &SettingsPage::chose, at, static_cast<int>(k));
                     add_child(chip);
                     row.items.push_back(chip);
                 }
             } else {
                 row.shape = Shape::slider;
                 row.lead = text_label(s.label, 16, 600);
-                row.items.push_back(slider(key, s.id, s.label, s.minimum, s.maximum, s.step));
+                const std::shared_ptr<SettingSlider> bar =
+                    slider(key, s.label, s.minimum, s.maximum, s.step);
+                gf::on((*bar).scroll(), *this, &SettingsPage::slid, at);
+                row.items.push_back(bar);
                 row.readout = text_label("", 15, 600);
                 (*row.readout).set_alignment(gf::HorizontalAlignment::far);
             }
@@ -301,13 +293,12 @@ void SettingsPage::refresh() {
             const bool music = row.setting == music_id;
             const bool on = music ? masters.music : masters.sound;
             const double volume = (music ? masters.music_volume : masters.sound_volume) * 100;
-            (*std::static_pointer_cast<gf::CheckBox>(row.lead)).set_checked(on);
+            // The box and the slider are bound to the masters; only the words follow here.
             (*std::static_pointer_cast<gf::CheckBox>(row.lead))
                 .set_accessible_name(std::string(music ? "Music" : "Sound") + (on ? " on" : " off"));
-            (*std::static_pointer_cast<SettingSlider>(row.items.front())).show_value(volume);
             (*row.readout).set_text(percent(volume));
         } else if (row.setting == reduced_id) {
-            (*std::static_pointer_cast<gf::CheckBox>(row.lead)).set_checked(masters.reduced);
+            // Bound to the masters' command; nothing to copy.
         } else if (row.setting == backs_id) {
             for (const std::shared_ptr<gf::Control>& item : row.items) {
                 CardBackChoice& choice = *std::static_pointer_cast<CardBackChoice>(item);
@@ -324,7 +315,7 @@ void SettingsPage::refresh() {
                         (*std::static_pointer_cast<SuiteButton>(row.items[k]))
                             .set_checked(static_cast<std::size_t>(std::lround(s.value)) == k);
                 else if (row.shape == Shape::slider) {
-                    (*std::static_pointer_cast<SettingSlider>(row.items.front())).show_value(s.value);
+                    (*std::static_pointer_cast<SettingSlider>(row.items.front())).set_value(s.value);
                     (*row.readout).set_text(slider_text(s, s.value));
                 }
             }
@@ -340,44 +331,29 @@ void SettingsPage::set_card_back_images(const std::array<gf::ImageId, card_back_
                 choice.set_image(back_images_[static_cast<std::size_t>(choice.back())]);
             }
 }
-void SettingsPage::clicked(gf::ButtonBase& button) {
-    SettingsStore& store = SettingsStore::shared();
-    for (const Row& row : rows_) {
-        if (row.lead.get() == &button) {
-            if (row.setting == music_id)
-                store.toggle_music();
-            else if (row.setting == sound_id)
-                store.toggle_sound();
-            else if (row.setting == reduced_id)
-                store.toggle_reduced();
-            else if (game_)
-                (*game_).change_setting(
-                    row.setting, (*std::static_pointer_cast<gf::CheckBox>(row.lead)).checked() ? 0 : 1);
-            refresh();
-            return;
-        }
-        for (std::size_t k = 0; k < row.items.size(); ++k) {
-            if (row.items[k].get() != &button)
-                continue;
-            if (row.setting == backs_id) {
-                SuiteSettings next = store.values();
-                next.card_back = static_cast<int>(k);
-                store.set(next);
-            } else if (game_)
-                (*game_).change_setting(row.setting, static_cast<double>(k));
-            refresh();
-            return;
-        }
-    }
+void SettingsPage::toggled(int row) {
+    const Row& r = rows_[static_cast<std::size_t>(row)];
+    if (game_)
+        (*game_).change_setting(r.setting,
+                                (*std::static_pointer_cast<gf::CheckBox>(r.lead)).checked() ? 0 : 1);
+    refresh();
 }
-void SettingsPage::slid(const std::string& setting, double value) {
-    SettingsStore& store = SettingsStore::shared();
-    if (setting == music_volume_id || setting == sound_volume_id) {
-        SuiteSettings next = store.values();
-        (setting == music_volume_id ? next.music_volume : next.sound_volume) = value / 100;
-        store.set(next);
-    } else if (game_)
-        (*game_).change_setting(setting, value);
+void SettingsPage::chose(int row, int choice) {
+    if (game_)
+        (*game_).change_setting(rows_[static_cast<std::size_t>(row)].setting,
+                                static_cast<double>(choice));
+    refresh();
+}
+void SettingsPage::slid(int row) {
+    const Row& r = rows_[static_cast<std::size_t>(row)];
+    if (game_)
+        (*game_).change_setting(r.setting,
+                                (*std::static_pointer_cast<SettingSlider>(r.items.front())).value());
+    refresh();
+}
+void SettingsPage::chose_back(int back) {
+    if (model_)
+        (*model_).card_back.set(back);
     refresh();
 }
 double SettingsPage::content_height(double width) const {
@@ -482,9 +458,7 @@ void SettingsSheet::initialize_control_tree() {
     close_ = gf::make_control<HelpGlyph>(gf::StableId("settings.close"), "×");
     (*close_).set_paint_plane(gf::PaintPlane::overlay);
     (*close_).set_accessible_name("Close settings (Escape)");
-    close_subscription_ = (*close_).clicked().subscribe(
-        *this,
-        gf::Delegate<gf::ButtonBase&>::bind<SettingsSheet, &SettingsSheet::clicked_close>(*this));
+    gf::on((*close_).clicked(), *this, &SettingsSheet::clicked_close);
     add_child(page_);
     add_child(close_);
 }
@@ -531,7 +505,10 @@ std::shared_ptr<gf::Control> SettingsSheet::first_control() const {
 void SettingsSheet::on_key_bubble(gf::KeyEvent& event) {
     (*page_).on_key_bubble(event);
 }
-void SettingsSheet::clicked_close(gf::ButtonBase&) {
+void SettingsSheet::bind_masters(SuiteModel& model) {
+    (*page_).bind_masters(model);
+}
+void SettingsSheet::clicked_close() {
     if (close)
         close();
 }

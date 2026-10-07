@@ -21,7 +21,6 @@ class HelpPages final : public gf::ScrollableControl {
   private:
     std::vector<std::shared_ptr<gf::Button>> headings_;
     std::vector<std::shared_ptr<gf::Label>> bodies_;
-    std::vector<gf::SubscriptionToken> subscriptions_;
     struct TopicKey {
         int entry;
         std::string topic;
@@ -29,7 +28,7 @@ class HelpPages final : public gf::ScrollableControl {
     std::vector<TopicKey> topics_;
     std::vector<int> order_;
     void add_topic(int entry, std::string topic, std::string title, std::string_view body);
-    void toggle(gf::ButtonBase& button);
+    void toggle(int index);
 };
 class HelpBook final : public gf::Control {
   public:
@@ -45,7 +44,6 @@ class HelpBook final : public gf::Control {
   private:
     std::shared_ptr<HelpPages> pages_;
     std::shared_ptr<HelpGlyph> close_;
-    gf::SubscriptionToken close_subscription_;
-    void clicked_close(gf::ButtonBase& button);
+    void clicked_close();
 };
 } // namespace games

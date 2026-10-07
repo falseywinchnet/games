@@ -53,6 +53,7 @@ class Collection final : public gf::Control, public HelpHost {
 
   private:
     TextSprites sprites_;
+    SuiteModel model_; // the masters every switch, check box and slider binds to
     std::shared_ptr<ShelfView> shelf_;
     std::shared_ptr<CommandCapsule> capsule_;
     std::shared_ptr<HelpGlyph> help_link_;
@@ -64,7 +65,6 @@ class Collection final : public gf::Control, public HelpHost {
     bool music_shown_ = true, sound_shown_ = true, reduced_shown_ = false;
     ModuleContext modules_;
     std::map<Entry,std::unique_ptr<GameInstance>> games_;
-    std::vector<gf::SubscriptionToken> subscriptions_;
     std::unique_ptr<gf::Timer> timer_{};
     std::chrono::steady_clock::time_point last_tick_{};
     double refresh_ = 0;
@@ -87,7 +87,7 @@ class Collection final : public gf::Control, public HelpHost {
     void refresh_commands();
     void run_command(const std::string& id);
     void toggle(int which);
-    void clicked_help(gf::ButtonBase& button);
+    void clicked_help();
     [[nodiscard]] bool uses_rail(Entry entry) const;
     [[nodiscard]] std::shared_ptr<gf::Control> view(Entry entry) const;
     [[nodiscard]] CommandSource* source(Entry entry) const;

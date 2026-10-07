@@ -4,33 +4,22 @@
 #include "gui_forms/controls/scrollable_control/scrollable_control.hpp"
 #include "help_book.hpp"
 #include "suite.hpp"
-#include "suite_settings.hpp"
+#include "suite_model.hpp"
 #include <array>
 #include <functional>
 namespace games {
 
-// A TrackBar that names the setting it moves.
+// A TrackBar in the shell's look: a gold groove and a round gloss knob. Input, keys
+// (arrows, Page Up/Down, Home/End) and accessibility stay the TrackBar's; a master
+// volume binds it to the model, a game's slider listens to its input (`scroll`).
 class SettingSlider final : public gf::TrackBar {
   public:
-    SettingSlider(gf::StableId id, std::string setting);
-    static constexpr bool initialize_tree_after_construction = true;
-    void initialize_control_tree();
-    // Sets the value without reporting it as the player's change.
-    void show_value(double value);
-    // The shell's look: a gold groove and a round gloss knob. Input, keys (arrows,
-    // Page Up/Down, Home/End) and accessibility stay the TrackBar's.
+    explicit SettingSlider(gf::StableId id);
     void on_paint(gf::Painter& painter, gf::Rect damage) override;
     void on_focus_changed(bool focused) override;
-    [[nodiscard]] const std::string& setting() const {
-        return setting_;
-    }
-    std::function<void(const std::string&, double)> moved;
 
   private:
-    std::string setting_;
-    gf::SubscriptionToken subscription_{};
-    bool quiet_ = false, focused_ = false;
-    void changed(double value);
+    bool focused_ = false;
 };
 
 // A CheckBox in the shell's look: a gold box, and a soft gold outline for focus that
@@ -65,6 +54,8 @@ class SettingsPage final : public gf::ScrollableControl {
     explicit SettingsPage(gf::StableId id);
     void arrange(gf::Rect bounds) override;
     void on_key_bubble(gf::KeyEvent& event) override;
+    // The masters' check boxes and volume sliders bind to the model from the next build.
+    void bind_masters(SuiteModel& model);
     // Rebuilds the rows: the masters, then card backs and the game's own section.
     void build(CommandSource* game, const std::string& game_title);
     // Re-reads every value; rebuilds only when the game's entries changed shape.
@@ -83,11 +74,11 @@ class SettingsPage final : public gf::ScrollableControl {
         std::shared_ptr<gf::Label> readout;             // a slider's value
         std::shared_ptr<gf::Label> note;
     };
+    SuiteModel* model_ = nullptr;
     CommandSource* game_ = nullptr;
     std::string game_title_;
     std::vector<GameSetting> shape_;   // the game's entries as last built
     std::vector<Row> rows_;
-    std::vector<gf::SubscriptionToken> subscriptions_;
     std::array<gf::ImageId, card_back_count> back_images_{};
     using Placement = std::vector<std::pair<std::shared_ptr<gf::Control>, gf::Rect>>;
     // Lays the rows out at a width; returns the total height.
@@ -96,12 +87,14 @@ class SettingsPage final : public gf::ScrollableControl {
     std::shared_ptr<gf::Label> heading(const std::string& text);
     std::shared_ptr<gf::Label> text_label(const std::string& text, double size, int weight);
     std::shared_ptr<gf::CheckBox> check(const std::string& key, const std::string& text);
-    std::shared_ptr<SettingSlider> slider(const std::string& key, const std::string& setting,
-                                          const std::string& name, double minimum,
-                                          double maximum, double step);
+    std::shared_ptr<SettingSlider> slider(const std::string& key, const std::string& name,
+                                          double minimum, double maximum, double step);
     void add_row(Row row);
-    void clicked(gf::ButtonBase& button);
-    void slid(const std::string& setting, double value);
+    // A game's own rows, by row index (and choice).
+    void toggled(int row);
+    void chose(int row, int choice);
+    void slid(int row);
+    void chose_back(int back);
     [[nodiscard]] static bool same_shape(const std::vector<GameSetting>& a,
                                          const std::vector<GameSetting>& b);
     [[nodiscard]] static std::string percent(double value);
@@ -120,6 +113,7 @@ class SettingsSheet final : public gf::Control {
     void arrange(gf::Rect bounds) override;
     void on_paint(gf::Painter& painter, gf::Rect damage) override;
     void on_key_bubble(gf::KeyEvent& event) override;
+    void bind_masters(SuiteModel& model);
     // `game` is null on the shelf. The sheet keeps the pointer while it is shown.
     void show_for(const std::string& title, CommandSource* game);
     void refresh();
@@ -135,11 +129,10 @@ class SettingsSheet final : public gf::Control {
   private:
     std::shared_ptr<SettingsPage> page_;
     std::shared_ptr<HelpGlyph> close_;
-    gf::SubscriptionToken close_subscription_{};
     std::array<gf::ImageId, card_back_count> backs_{};
     std::string title_;
     gf::Rect paper_{};
-    void clicked_close(gf::ButtonBase& button);
+    void clicked_close();
     void on_attached_to_window() override;
     void on_detaching_from_window(gf::Window& window) noexcept override;
 };

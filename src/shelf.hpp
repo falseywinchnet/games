@@ -1,8 +1,7 @@
 #pragma once
 #include "gui_forms/timer.hpp"
-#include "gui_forms/controls/scrollable_control/scrollable_control.hpp"
 #include "suite.hpp"
-#include "suite_settings.hpp"
+#include "suite_model.hpp"
 #include "text_sprites.hpp"
 #include <functional>
 #include <memory>
@@ -30,25 +29,54 @@ class ShelfBox final : public gf::Button {
     double lift_ = 0;
 };
 
-// The scrolling part of the shelf owns box layout and the planks beneath them.
-// Its native viewport clips paint and hit tests while the surrounding sign stays fixed.
-class ShelfRows final : public gf::ScrollableControl {
+// One of the shelf's scroll arrows: a plump candy arrow in the game bar's smoky blue,
+// with a pale bevelled rim, lit from above (the October 1 shelf proposal).
+class ShelfArrow final : public gf::Button {
+  public:
+    ShelfArrow(gf::StableId id, bool up);
+    void on_paint(gf::Painter& painter, gf::Rect damage) override;
+
+  private:
+    bool up_;
+};
+
+// The scrolling part of the shelf owns box layout and the planks beneath them. It
+// clips its boxes while the surrounding sign stays fixed. It has no scroll bar: the
+// wheel scrolls it, the keyboard reveals the chosen box, and two candy arrows hover
+// one above the other at its right side, over the wall beside the boxes; each press
+// glides one shelf, and an arrow dims when there is no more shelf its way.
+class ShelfRows final : public gf::Control {
   public:
     explicit ShelfRows(gf::StableId id);
     void add_box(const std::shared_ptr<ShelfBox>& box);
+    // Adds the two arrows, after the boxes so they float above them.
+    void add_arrows();
     void arrange(gf::Rect bounds) override;
     void on_paint(gf::Painter& painter, gf::Rect damage) override;
+    void on_pointer(gf::PointerEvent& event) override;
+    void on_pointer_bubble(gf::PointerEvent& event) override;
     void reveal(Entry entry);
+    // Advances a glide started by an arrow; returns true while still moving.
+    bool step(double dt, bool reduced);
     [[nodiscard]] int columns() const { return columns_; }
     [[nodiscard]] int page_rows() const;
+    [[nodiscard]] bool scrollable() const { return limit() > 0; }
+    [[nodiscard]] double scroll_offset() const { return offset_; }
+    // Asks the shelf for animation frames while a glide runs.
+    std::function<void()> wake;
 
   private:
     std::vector<std::shared_ptr<ShelfBox>> boxes_;
     std::vector<gf::Rect> slots_;
     std::vector<double> shelf_lines_;
+    std::shared_ptr<ShelfArrow> up_, down_;
     int columns_ = 1;
-    double pitch_ = 1;
+    double pitch_ = 1, content_ = 0, offset_ = 0, target_ = 0;
+    [[nodiscard]] double limit() const;
+    void scroll_shelves(int shelves);
+    void jump_to(double offset);
     void arrange_boxes();
+    void wheel(gf::PointerEvent& event);
 };
 
 // Paints the launch transition above the shelf: the chosen box's art grows to fill
@@ -81,13 +109,12 @@ class ShelfView final : public gf::Control {
     [[nodiscard]] Entry selection() const {
         return selection_;
     }
-    void set_preferences(bool music, bool sound, bool reduced);
-    // The Settings cog stays lit while the Settings screen is open.
-    void set_settings_open(bool open);
+    // Binds the sign's switches to the masters; the model must outlive this use of it.
+    void bind_masters(SuiteModel& model);
+    void set_reduced(bool reduced);
     void set_progress(Entry entry, bool started);
     void focus_selection();
     std::function<void(Entry)> open;
-    std::function<void(int)> toggle; // 0 music, 1 sound, 2 motion, 3 open Settings
 
   private:
     TextSprites& sprites_;
@@ -99,9 +126,6 @@ class ShelfView final : public gf::Control {
     double launch_t_ = 0;
     void launch(Entry entry);
     std::array<std::shared_ptr<SuiteButton>, 4> switches_{};
-    SettingsObservation masters_{};
-    void masters_changed();
-    std::vector<gf::SubscriptionToken> subscriptions_;
     std::unique_ptr<gf::Timer> timer_;
     std::chrono::steady_clock::time_point last_{};
     Entry selection_ = entries.front();
@@ -114,7 +138,5 @@ class ShelfView final : public gf::Control {
     void tick();
     void request_animation();
     void focused_box(Entry entry);
-    void clicked_box(gf::ButtonBase& button);
-    void clicked_switch(gf::ButtonBase& button);
 };
 } // namespace games

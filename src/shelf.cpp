@@ -114,10 +114,105 @@ void ShelfBox::on_paint(gf::Painter& p, gf::Rect) {
         p.stroke_rect({c.x - 3, c.y - 3, c.width + 6, c.height + 6}, with_alpha(gold, 200), 1);
 }
 
-ShelfRows::ShelfRows(gf::StableId id) : ScrollableControl(std::move(id)) {
-    set_auto_scroll(true);
+namespace {
+// The candy arrow's outline on a 60-unit square, pointing up:
+// M 24 7 Q 30 1 36 7 L 53 23 Q 60 31 50 32 L 44 32 L 44 48 Q 44 57 35 57 L 25 57
+// Q 16 57 16 48 L 16 32 L 10 32 Q 0 31 7 23 Z
+struct CandySegment {
+    bool curve;
+    gf::Point control, end;
+};
+constexpr gf::Point candy_start{24, 7};
+constexpr CandySegment candy_path[] = {
+    {true, {30, 1}, {36, 7}},   {false, {}, {53, 23}},      {true, {60, 31}, {50, 32}},
+    {false, {}, {44, 32}},      {false, {}, {44, 48}},      {true, {44, 57}, {35, 57}},
+    {false, {}, {25, 57}},      {true, {16, 57}, {16, 48}}, {false, {}, {16, 32}},
+    {false, {}, {10, 32}},      {true, {0, 31}, {7, 23}}};
+// The outline fitted to `r`, shrunk about its centre by `scale`; a down arrow is mirrored.
+std::vector<gf::Point> candy_outline(gf::Rect r, bool up, double scale) {
+    const double cx = r.x + r.width * .5, cy = r.y + r.height * .5;
+    const double sx = r.width / 60 * scale, sy = r.height / 60 * scale;
+    struct Place {
+        double cx, cy, sx, sy;
+        bool up;
+        gf::Point operator()(gf::Point q) const {
+            return {cx + (q.x - 30) * sx, cy + ((up ? q.y : 60 - q.y) - 30) * sy};
+        }
+    };
+    const Place place{cx, cy, sx, sy, up};
+    std::vector<gf::Point> out{place(candy_start)};
+    gf::Point from = candy_start;
+    for (const CandySegment& segment : candy_path) {
+        if (segment.curve)
+            for (int i = 1; i <= 10; ++i) {
+                const double t = i / 10.0, u = 1 - t;
+                out.push_back(place({u * u * from.x + 2 * u * t * segment.control.x + t * t * segment.end.x,
+                                     u * u * from.y + 2 * u * t * segment.control.y + t * t * segment.end.y}));
+            }
+        else
+            out.push_back(place(segment.end));
+        from = segment.end;
+    }
+    return out;
+}
+constexpr gf::Color hex(unsigned value, int alpha = 255) {
+    return gf::Color::rgba(static_cast<unsigned char>(value >> 16), static_cast<unsigned char>(value >> 8),
+                           static_cast<unsigned char>(value), static_cast<unsigned char>(alpha));
+}
+// Scales every color's opacity, for a dimmed arrow.
+PolygonShade faded(PolygonShade shade, double opacity) {
+    for (gf::Color& c : shade.stops)
+        c.alpha = static_cast<unsigned char>(std::lround(c.alpha * opacity));
+    return shade;
+}
+} // namespace
+ShelfArrow::ShelfArrow(gf::StableId id, bool up) : Button(std::move(id)), up_(up) {
+    set_accessible_name(up ? "Move the shelves up" : "Move the shelves down");
+    // The keyboard already moves through the shelves; the arrows are for the pointer.
+    set_focusable(false);
+}
+void ShelfArrow::on_paint(gf::Painter& p, gf::Rect) {
+    const gf::Rect b = client_rectangle();
+    const bool hot = hovered_visual() && enabled(), down = pressed_visual() && enabled();
+    const double opacity = enabled() ? 1 : .36;
+    // The candy fills the button less a little room for its shadow (60 in 64 by 62).
+    const double size = std::min(b.width * 60 / 64, b.height * 60 / 62), unit = size / 60;
+    const gf::Rect candy{(b.width - size) * .5, (b.height - size) * .5 - unit + (down ? 2 * unit : 0),
+                         size, size};
+    // The drop shadow, softened by a wider, fainter copy.
+    const double drop = (down ? 1 : 3) * unit;
+    const int shadow = static_cast<int>((down ? 0x40 : hot ? 0x70 : 0x46) * opacity);
+    const gf::Rect below{candy.x, candy.y + drop, candy.width, candy.height};
+    paint_polygon(p, candy_outline(below, up_, 1.04), hex(0x0a1228, shadow / 2));
+    paint_polygon(p, candy_outline(below, up_, 1), hex(0x0a1228, shadow));
+    // The pale bevelled rim, then the gloss inside it.
+    const PolygonShade rim{{hex(0xc4cbd7), hex(0x8390a6), hex(0x424d65), hex(0x1d2538)},
+                           candy.y, candy.y + candy.height, {0, .35, .75, 1}};
+    paint_polygon(p, candy_outline(candy, up_, 1), faded(rim, opacity));
+    PolygonShade gloss{{hex(0x586480), hex(0x3a445c), hex(0x283044), hex(0x343e54)},
+                       candy.y, candy.y + candy.height};
+    if (hot)
+        gloss.stops = {hex(0x707e9e), hex(0x4c5874), hex(0x364058), hex(0x46526c)};
+    if (down)
+        gloss.stops = {hex(0x283044), hex(0x283044), hex(0x3a445c), hex(0x586480)};
+    const std::vector<gf::Point> inside = candy_outline(candy, up_, .956);
+    paint_polygon(p, inside, faded(gloss, opacity));
+    // A soft light across the top of the candy.
+    const PolygonShade light{{hex(0xedf2ff, 0x40), hex(0xedf2ff, 0x0a), hex(0xedf2ff, 0), hex(0xedf2ff, 0)},
+                             candy.y, candy.y + candy.height, {0, .37, .55, 1}};
+    paint_polygon(p, inside, faded(light, opacity));
+}
+ShelfRows::ShelfRows(gf::StableId id) : Control(std::move(id)) {
     set_focusable(false);
     set_accessible_name("Game shelves");
+}
+void ShelfRows::add_arrows() {
+    up_ = gf::make_control<ShelfArrow>(gf::StableId("shelf.rows.up"), true);
+    down_ = gf::make_control<ShelfArrow>(gf::StableId("shelf.rows.down"), false);
+    gf::on((*up_).clicked(), *this, &ShelfRows::scroll_shelves, -1);
+    gf::on((*down_).clicked(), *this, &ShelfRows::scroll_shelves, 1);
+    add_child(up_);
+    add_child(down_);
 }
 void ShelfRows::add_box(const std::shared_ptr<ShelfBox>& box) {
     boxes_.push_back(box);
@@ -125,7 +220,8 @@ void ShelfRows::add_box(const std::shared_ptr<ShelfBox>& box) {
 }
 void ShelfRows::arrange(gf::Rect bounds) {
     arrange_self(bounds);
-    // Reserve the native bar's lane so adding a row never changes the column count.
+    // The boxes keep the shelf's own sizes and columns (as wide as when it had a native
+    // scroll bar); the arrows hover in the room left over at the right.
     const double width = std::max(1.0, bounds.width - 24);
     const double margin = 14;
     const double gap = 18;
@@ -143,8 +239,9 @@ void ShelfRows::arrange(gf::Rect bounds) {
     double y = 8;
     for (std::size_t index = 0; index < boxes_.size();) {
         const int count = std::min(columns_, static_cast<int>(boxes_.size() - index));
-        const double row_width = count * box_width + (count - 1) * gap;
-        double x = std::max(margin, (width - row_width) * .5);
+        // Rows start at the left so the spare width gathers at the right, for the arrows.
+        const double full_row = columns_ * box_width + (columns_ - 1) * gap;
+        double x = std::max(margin, std::min((width - full_row) * .5, margin + 6));
         for (int column = 0; column < count; ++column, ++index) {
             slots_.push_back({x, y, box_width, box_height});
             x += box_width + gap;
@@ -152,41 +249,106 @@ void ShelfRows::arrange(gf::Rect bounds) {
         shelf_lines_.push_back(y + box_height);
         y += pitch_;
     }
-    arrange_scroll_viewport({bounds.width, bounds.height}, {width, y});
+    content_ = y;
+    // Half as large again as the game bar's buttons and a button's height apart, as far
+    // as the spare width at the right and the shelves' height allow.
+    double row_right = 0;
+    for (const gf::Rect& slot : slots_)
+        row_right = std::max(row_right, slot.x + slot.width);
+    const double room = std::max(1.0, bounds.width - row_right - 6);
+    const double scale = std::clamp(std::min({(bounds.height - 16) / (62 * 3), room / 64, 1.5}), .6, 1.5);
+    const double arrow_width = 64 * scale, arrow_height = 62 * scale, arrow_gap = arrow_height;
+    if (up_) {
+        const double x = row_right + (bounds.width - row_right - arrow_width) * .5;
+        const double y = (bounds.height - arrow_height * 2 - arrow_gap) * .5;
+        set_child_layout(up_, {x, y, arrow_width, arrow_height});
+        set_child_layout(down_, {x, y + arrow_height + arrow_gap, arrow_width, arrow_height});
+    }
+    offset_ = std::clamp(offset_, 0.0, limit());
+    target_ = std::clamp(target_, 0.0, limit());
     arrange_boxes();
 }
+double ShelfRows::limit() const {
+    return std::max(0.0, content_ - client_rectangle().height);
+}
 void ShelfRows::arrange_boxes() {
-    const gf::Point offset = scroll_position();
     for (std::size_t index = 0; index < slots_.size(); ++index) {
         gf::Rect slot = slots_[index];
-        slot.y -= offset.y;
+        slot.y -= offset_;
         set_child_layout(boxes_[index], slot);
     }
+    // An arrow dims when its end is reached (judged by where the glide is going, so it
+    // does not flicker during one).
+    if (up_) {
+        (*up_).set_enabled(target_ > .5);
+        (*down_).set_enabled(target_ < limit() - .5);
+    }
+    invalidate(gf::Dirty::paint);
+}
+void ShelfRows::jump_to(double offset) {
+    offset = std::clamp(offset, 0.0, limit());
+    if (offset == offset_ && offset == target_)
+        return;
+    offset_ = target_ = offset;
+    arrange_boxes();
+}
+void ShelfRows::scroll_shelves(int shelves) {
+    // Whole shelves: from wherever the wheel left it, the next plank lines up at the top.
+    const double shelf = shelves < 0 ? std::ceil(target_ / pitch_ - .01) : std::floor(target_ / pitch_ + .01);
+    target_ = std::clamp((shelf + shelves) * pitch_, 0.0, limit());
+    arrange_boxes();
+    if (wake)
+        wake();
+}
+bool ShelfRows::step(double dt, bool reduced) {
+    if (offset_ == target_)
+        return false;
+    const double next = offset_ + (target_ - offset_) * std::min(1.0, dt * 14);
+    offset_ = reduced || std::abs(target_ - next) < .5 ? target_ : next;
+    arrange_boxes();
+    return offset_ != target_;
+}
+void ShelfRows::wheel(gf::PointerEvent& event) {
+    if (event.action != gf::PointerAction::wheel || event.handled || !scrollable())
+        return;
+    // Wheel notches arrive as small numbers, trackpads as points.
+    const double delta = std::abs(event.wheel_delta.y) <= 8 ? event.wheel_delta.y * 48
+                                                            : event.wheel_delta.y;
+    const double before = offset_;
+    jump_to(offset_ - delta);
+    event.handled = offset_ != before;
+}
+void ShelfRows::on_pointer(gf::PointerEvent& event) {
+    wheel(event);
+}
+void ShelfRows::on_pointer_bubble(gf::PointerEvent& event) {
+    wheel(event);
 }
 void ShelfRows::reveal(Entry entry) {
     const int index = entry_index(entry);
     if (index < 0 || static_cast<std::size_t>(index) >= slots_.size())
         return;
     const gf::Rect slot = slots_[static_cast<std::size_t>(index)];
-    const double height = viewport_rectangle().height;
+    const double height = client_rectangle().height;
     if (height <= 0)
         return;
-    double y = scroll_position().y;
+    double y = offset_;
+    // Keep the margin above a revealed box, so the top row reveals the shelf's top.
     if (slot.height > height || slot.y < y)
-        y = slot.y;
+        y = slot.y - 8;
     else if (slot.bottom() > y + height)
         y = slot.bottom() - height;
-    if (scroll_to({0, y}))
-        arrange_boxes();
+    jump_to(y);
 }
 int ShelfRows::page_rows() const {
-    return std::max(1, static_cast<int>(viewport_rectangle().height / pitch_));
+    return std::max(1, static_cast<int>(client_rectangle().height / pitch_));
 }
 void ShelfRows::on_paint(gf::Painter& p, gf::Rect) {
+    const gf::Rect view = client_rectangle();
     p.save();
-    p.clip_rect(viewport_rectangle());
+    p.clip_rect(view);
     for (double line : shelf_lines_)
-        paint_plank(p, 10, line - scroll_position().y, viewport_rectangle().width - 20, 14);
+        paint_plank(p, 10, line - offset_, view.width - 20, 14);
     p.restore();
 }
 
@@ -230,40 +392,21 @@ void ShelfView::initialize_control_tree() {
                                                entries[i], sprites_);
         (*boxes_[i]).focused = std::bind(&ShelfView::focused_box, this, entries[i]);
         (*rows_).add_box(boxes_[i]);
-        subscriptions_.push_back(
-            (*boxes_[i])
-                .clicked()
-                .subscribe(*this,
-                           gf::Delegate<gf::ButtonBase&>::bind<ShelfView, &ShelfView::clicked_box>(
-                               *this)));
+        gf::on((*boxes_[i]).clicked(), *this, &ShelfView::launch, entries[i]);
     }
-    const char* names[] = {"Music", "Sound", "Motion", "Settings"};
-    const Glyph glyphs[] = {Glyph::music, Glyph::sound, Glyph::motion, Glyph::settings};
+    (*rows_).add_arrows();
+    (*rows_).wake = std::bind_front(&ShelfView::request_animation, this);
     for (int i = 0; i < 4; ++i) {
-        switches_[i] = gf::make_control<SuiteButton>(gf::StableId(std::string("shelf.") + names[i]),
-                                                     "", GlossTone::smoke);
-        (*switches_[i]).set_glyph(glyphs[i]);
-        (*switches_[i]).set_radius(15);
-        (*switches_[i]).set_accessible_name(names[i]);
+        switches_[i] = make_master_switch("shelf.", i);
         add_child(switches_[i]);
-        subscriptions_.push_back(
-            (*switches_[i])
-                .clicked()
-                .subscribe(
-                    *this,
-                    gf::Delegate<gf::ButtonBase&>::bind<ShelfView, &ShelfView::clicked_switch>(
-                        *this)));
     }
     curtain_ = gf::make_control<LaunchCurtain>(gf::StableId("shelf.curtain"));
     (*curtain_).set_visible(false);
     add_child(curtain_);
     select(selection_);
-    masters_ = SettingsStore::shared().observe(std::bind_front(&ShelfView::masters_changed, this));
-    masters_changed();
 }
-void ShelfView::masters_changed() {
-    const SuiteSettings& masters = SettingsStore::shared().values();
-    set_preferences(masters.music, masters.sound, masters.reduced);
+void ShelfView::bind_masters(SuiteModel& model) {
+    bind_master_switches(switches_, model);
 }
 void ShelfView::launch(Entry entry) {
     if (launching_ || !valid_entry(entry))
@@ -289,8 +432,7 @@ void ShelfView::launch(Entry entry) {
 }
 void ShelfView::on_attached_to_window() {
     timer_ = std::make_unique<gf::Timer>(*attached_window(), std::chrono::milliseconds(16));
-    subscriptions_.push_back((*timer_).tick().subscribe(
-        *this, gf::Delegate<>::bind<ShelfView, &ShelfView::tick>(*this)));
+    gf::on((*timer_).tick(), *this, &ShelfView::tick);
     last_ = std::chrono::steady_clock::now();
     (*timer_).start();
 }
@@ -319,7 +461,7 @@ void ShelfView::tick() {
             (*timer_).stop();
         return;
     }
-    bool moving = launching_;
+    bool moving = (*rows_).step(dt, reduced_) || launching_;
     Entry shown = selection_;
     for (const std::shared_ptr<ShelfBox>& box : boxes_) {
         moving = (*box).step(dt, reduced_) || moving;
@@ -345,18 +487,9 @@ void ShelfView::tick() {
     if (!moving && timer_)
         (*timer_).stop();
 }
-void ShelfView::set_settings_open(bool open) {
-    (*switches_[3]).set_checked(open);
-}
-void ShelfView::set_preferences(bool music, bool sound, bool reduced) {
+void ShelfView::set_reduced(bool reduced) {
     reduced_ = reduced;
     request_animation();
-    (*switches_[0]).set_glyph(Glyph::music, !music);
-    (*switches_[1]).set_glyph(Glyph::sound, !sound);
-    (*switches_[2]).set_glyph(Glyph::motion, reduced);
-    (*switches_[0]).set_accessible_name(music ? "Music on" : "Music off");
-    (*switches_[1]).set_accessible_name(sound ? "Sound on" : "Sound off");
-    (*switches_[2]).set_accessible_name(reduced ? "Reduced motion" : "Full motion");
 }
 void ShelfView::set_progress(Entry entry, bool started) {
     const int index = entry_index(entry);
@@ -386,17 +519,6 @@ void ShelfView::focus_selection() {
 void ShelfView::focused_box(Entry entry) {
     select(entry);
     (*rows_).reveal(entry);
-}
-void ShelfView::clicked_box(gf::ButtonBase& button) {
-    const ShelfBox* box = dynamic_cast<ShelfBox*>(&button);
-    if (!box)
-        return;
-    launch((*box).entry());
-}
-void ShelfView::clicked_switch(gf::ButtonBase& button) {
-    for (int i = 0; i < 4; ++i)
-        if (&button == switches_[i].get() && toggle)
-            toggle(i);
 }
 void ShelfView::on_key_bubble(gf::KeyEvent& e) {
     if (e.handled || e.action != gf::KeyAction::down)

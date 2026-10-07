@@ -115,10 +115,36 @@ static double polygon_scale = 1;
 void set_polygon_scale(double device_scale) {
     polygon_scale = std::clamp(device_scale, 1.0, 4.0);
 }
-// Fills one device row per scanline, so translucent fills never overlap themselves, and
-// blends the partly covered pixel at each end of a span for smoother slanted edges.
+namespace {
+gf::Color shade_at(const PolygonShade& shade, double y) {
+    const double t = std::clamp((y - shade.top) / std::max(1e-6, shade.bottom - shade.top), 0.0, 1.0);
+    const std::array<double, 4>& at = shade.at;
+    std::size_t i = 0;
+    while (i < 2 && t > at[i + 1])
+        ++i;
+    const double f = std::clamp((t - at[i]) / std::max(1e-6, at[i + 1] - at[i]), 0.0, 1.0);
+    const gf::Color a = shade.stops[i];
+    const gf::Color b = shade.stops[i + 1];
+    return gf::Color::rgba(static_cast<unsigned char>(std::lround(a.red + (b.red - a.red) * f)),
+                           static_cast<unsigned char>(std::lround(a.green + (b.green - a.green) * f)),
+                           static_cast<unsigned char>(std::lround(a.blue + (b.blue - a.blue) * f)),
+                           static_cast<unsigned char>(std::lround(a.alpha + (b.alpha - a.alpha) * f)));
+}
+void fill_polygon_rows(gf::Painter& p, const std::vector<gf::Point>& points, gf::Color solid,
+                       const PolygonShade* shade, bool smooth);
+} // namespace
 void paint_polygon(gf::Painter& p, const std::vector<gf::Point>& points, gf::Color color,
                    bool smooth) {
+    fill_polygon_rows(p, points, color, nullptr, smooth);
+}
+void paint_polygon(gf::Painter& p, const std::vector<gf::Point>& points, const PolygonShade& shade) {
+    fill_polygon_rows(p, points, shade.stops[0], &shade, true);
+}
+namespace {
+// Fills one device row per scanline, so translucent fills never overlap themselves, and
+// blends the partly covered pixel at each end of a span for smoother slanted edges.
+void fill_polygon_rows(gf::Painter& p, const std::vector<gf::Point>& points, gf::Color solid,
+                       const PolygonShade* shade, bool smooth) {
     if (points.size() < 3)
         return;
     double ymin = 100000, ymax = -100000;
@@ -130,6 +156,7 @@ void paint_polygon(gf::Painter& p, const std::vector<gf::Point>& points, gf::Col
     std::vector<double> intersections;
     for (double top = std::floor(ymin * polygon_scale) * step; top < ymax; top += step) {
         const double y = top + step * .5;
+        const gf::Color color = shade ? shade_at(*shade, y) : solid;
         intersections.clear();
         for (std::size_t i = 0; i < points.size(); ++i) {
             gf::Point a = points[i], b = points[(i + 1) % points.size()];
@@ -169,6 +196,7 @@ void paint_polygon(gf::Painter& p, const std::vector<gf::Point>& points, gf::Col
         }
     }
 }
+} // namespace
 void paint_dialog(gf::Painter& p, gf::Rect r, const std::string& title, gf::Color accent) {
     p.draw_box_shadow(r, 10, {0, 12}, 30, 0, gf::Color::rgba(0, 4, 12, 160));
     p.fill_rounded_rect(r, 10, gf::Color::rgba(25, 42, 61));
