@@ -11,6 +11,30 @@
 #include <map>
 #include <sstream>
 namespace games {
+namespace {
+// Nature Cube's sound for a path that just changed: it grew, shrank or reached its pair.
+std::string cube_step_sound(const PuzzleGame& game, std::size_t before) {
+    const int pair = game.state.stage - 1;
+    if (pair < 0 || pair >= game.cube_pairs())
+        return "nature_cube_trace";
+    const std::vector<int>& path = game.state.paths[pair];
+    if (path.size() < before)
+        return "nature_cube_erase";
+    if (path.size() > 1 && game.cube_pair(path.back()) == pair + 1)
+        return "nature_cube_connect";
+    return "nature_cube_trace";
+}
+// True when the pointer reached a neighbour of an unfinished path's end that the path
+// may not enter.
+bool cube_refused(const PuzzleGame& game, int cell) {
+    const std::vector<int>& path = game.state.paths[game.state.stage - 1];
+    if (path.empty() || !PuzzleGame::cube_adjacent(path.back(), cell))
+        return false;
+    if (path.size() > 1 && game.cube_pair(path.back()) == game.state.stage)
+        return false;
+    return std::find(path.begin(), path.end(), cell) == path.end();
+}
+} // namespace
 // Retain scenery, animation and foreground text independently, in authored order.
 // These controls own no input; all game interaction stays on PuzzleView.
 class PuzzleScenePart final : public gf::Control {
@@ -2933,9 +2957,11 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                     (*timer_).start();
             }
             if (tracing_ && cell >= 0) {
+                const int pair = game.state.stage - 1;
+                const bool held = pair >= 0 && pair < game.cube_pairs();
+                const std::size_t before = held ? game.state.paths[pair].size() : 0;
                 bool extended = game.cube_extend(cell);
                 // A quick diagonal flick skips a cell; route through the free corner cell.
-                const int pair = game.state.stage - 1;
                 if (!extended && pair >= 0 && pair < game.cube_pairs() &&
                     !game.state.paths[pair].empty()) {
                     const int back = game.state.paths[pair].back();
@@ -2950,7 +2976,9 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                         }
                 }
                 if (extended)
-                    changed("nature_cube_trace");
+                    changed(cube_step_sound(game, before));
+                else if (held && cell != hover_ && cube_refused(game, cell))
+                    sound_play("nature_cube_blocked", sound_);
             }
             if (hover_ != cell)
                 raster_dirty_ = true;
@@ -2987,7 +3015,7 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                     set_pointer_capture(true);
                     target_yaw_ = yaw_;
                     target_pitch_ = pitch_;
-                    changed("nature_cube_connect");
+                    changed("nature_cube_pick");
                 }
             }
             return;

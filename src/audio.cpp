@@ -9,7 +9,12 @@ PcmPlayer player{};
 std::string current{};
 bool music_enabled{};
 std::map<std::string, unsigned> variants{};
-std::array<std::string, 30> effects{};
+std::array<std::string, 29> effects{};
+// Live scores by music name, and the one of the game now playing. Its effects use the
+// last slot.
+std::map<std::string, std::shared_ptr<LiveScore>> scores{};
+std::shared_ptr<LiveScore> live{};
+constexpr std::size_t live_effects_slot = PcmPlayer::slot_count - 1;
 std::size_t next_effect{};
 std::string track_name(const std::string& name) { return name == "solitaire" ? "klondike" : name; }
 std::string effect_name(const std::string& name) {
@@ -35,19 +40,37 @@ std::string effect_name(const std::string& name) {
     }
     return count ? base + "_0" + std::to_string(1 + variants[base]++ % count) : base;
 }
+void attach_score(const std::string& game) {
+    const std::map<std::string, std::shared_ptr<LiveScore>>::const_iterator found = scores.find(game);
+    const std::shared_ptr<LiveScore> score = found == scores.end() ? nullptr : (*found).second;
+    if (score == live) { return; }
+    player.clear(live_effects_slot);
+    live = score;
+#ifdef GUI_FORMS_AUDIO_GENERATOR
+    if (live) { player.generate(live_effects_slot, (*live).effects(), 1); }
+#endif
+}
+}
+void live_score(const std::string& game, std::shared_ptr<LiveScore> score) {
+    scores[game] = std::move(score);
 }
 void music_play(const std::string& game, bool enabled) {
     music_enabled = enabled;
-    if (game.empty()) { player.shutdown(); effects.fill({}); current.clear(); return; }
+    if (game.empty()) { player.shutdown(); effects.fill({}); current.clear(); live.reset(); return; }
+    attach_score(game);
     if (!enabled) { player.pause(0); return; }
     if (current != game) {
         player.clear(1);
         player.route(0, AudioBus::music);
+#ifdef GUI_FORMS_AUDIO_GENERATOR
+        if (live) { player.generate(0, (*live).music(), .4); current = game; return; }
+#endif
         player.start(0, "music_" + track_name(game) + "_loop", true, .4);
         current = game;
     } else { player.resume(0); }
 }
 void sound_play(const std::string& name, bool enabled) {
+    if (live && (*live).cue(name, enabled)) { return; }
     if (!enabled) { return; }
     const std::string mapped = effect_name(name);
     if (name == "win" || mapped.rfind("stinger_", 0) == 0) {

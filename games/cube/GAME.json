@@ -29,7 +29,11 @@
   "cover": "cover.cpp",
   "build": "build.cmake",
   "ui_sources": [],
-  "audio_sources": [],
+  "audio_sources": [
+    "src/glass_music.cpp",
+    "src/glass_effects.cpp",
+    "src/cube_score.cpp"
+  ],
   "libraries": [],
   "rail": false
 }
