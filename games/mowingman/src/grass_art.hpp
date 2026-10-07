@@ -11,7 +11,9 @@
 //   crowns       the trees' canopies, cut out, drawn over whatever is beneath them
 //
 // Each covers the whole lawn at `ppm` pixels per metre (no tiling, so no repeats),
-// opaque, 0xAARRGGBB, row-major. The generator is lawn_art.*.
+// opaque, 0xAARRGGBB, row-major. The generator is the shared grass engine (shared/grass).
+#include "lawn.hpp"
+
 #include <atomic>
 #include <cstdint>
 #include <vector>
@@ -20,22 +22,9 @@ namespace mm {
 
 struct Garden;
 
-struct Layer {
-    int width{};
-    int height{};
-    std::vector<std::uint32_t> px{};
-    [[nodiscard]] bool empty() const {
-        return width <= 0 || height <= 0;
-    }
-};
-
-// A picture with a soft edge (premultiplied) and the point in it that stands on the lawn.
-struct Cutout {
-    Layer image{};
-    double ppm{};
-    double root_x{};
-    double root_y{};
-};
+using grass::Cutout;
+using grass::Layer;
+using grass::sample_clamped;
 
 struct GrassArt {
     Layer tall{};
@@ -56,8 +45,5 @@ struct GrassArt {
 // of a second the first time (the kits of plants are made once), about a tenth after;
 // `cancel` is checked between layers.
 [[nodiscard]] GrassArt make_grass_art(const Garden& garden, const std::atomic<bool>* cancel);
-
-// Bilinear sample of a layer at pixel coordinates, clamped at its edges.
-[[nodiscard]] std::uint32_t sample_clamped(const Layer& layer, double x, double y);
 
 } // namespace mm

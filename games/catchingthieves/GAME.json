@@ -23,6 +23,10 @@
       36
     ]
   ],
+  "engines": [
+    "grass",
+    "soil"
+  ],
   "help": "help.md",
   "module": "module.cpp",
   "cover": "cover.cpp",
@@ -55,7 +59,10 @@
     "src/tiers.cpp",
     "src/levelset.cpp",
     "src/critters.cpp",
+    "src/ground.cpp",
     "src/garden.cpp",
+    "src/hedge.cpp",
+    "src/field.cpp",
     "src/show.cpp",
     "src/lines.cpp",
     "src/save.cpp"
@@ -70,8 +77,6 @@
   "borrowed": [
     "src/critters.cpp",
     "src/critters.hpp",
-    "src/garden.cpp",
-    "src/garden.hpp",
     "src/level.cpp",
     "src/level.hpp",
     "src/platform/mesh.cpp",

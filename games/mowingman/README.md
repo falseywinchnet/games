@@ -48,7 +48,7 @@ Top-down, lit from the upper left. Long grass is drawn blade by blade (each
 garden's grass is grown fresh); mown grass comes from the suite's felt generator
 and is striped light and dark by the direction it was cut, as a real lawn is. Cut
 edges cast the long grass's shadow and a fringe of overhanging blades. The grass
-art sits behind one seam (`src/grass_art.*`) so better grass can replace it
+art sits behind one seam (`src/grass_art.*`, grown by the shared grass engine in `shared/grass`) so better grass can replace it
 without touching anything else.
 
 The mower's sound is synthesized as it plays: a V-twin at 3600 rpm with a

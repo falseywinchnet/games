@@ -9,8 +9,6 @@
 namespace ct {
 
 namespace {
-const Col kWhite{1, 1, 1, 1};
-constexpr double kHedgeH = .5;
 
 M34 at(V3 v) { return M34::translate(v.x, v.y, v.z); }
 M34 sc(double x, double y, double z) { return M34::scale(x, y, z); }
@@ -30,14 +28,15 @@ Palette palette(Season s) {
     return palette(Season::spring);
 }
 
+unsigned unpremultiply(unsigned v, unsigned a) { return a ? std::min(255u, v * 255 / a) : 0u; }
+
 Tex tex_from(const Canvas& c) {
     Tex t;
     t.make(c.w, c.h);
     for (size_t i = 0; i < t.px.size(); ++i) {
         const std::uint8_t* p = &c.px[i * 4];
         const unsigned a = p[3];
-        auto un = [&](unsigned v) { return a ? std::min(255u, v * 255 / a) : 0u; };
-        t.px[i] = a << 24 | un(p[2]) << 16 | un(p[1]) << 8 | un(p[0]);
+        t.px[i] = a << 24 | unpremultiply(p[2], a) << 16 | unpremultiply(p[1], a) << 8 | unpremultiply(p[0], a);
     }
     t.build_mips();
     return t;
@@ -50,7 +49,7 @@ std::uint32_t hsh(std::uint32_t x) {
 double h01(std::uint32_t x) { return (hsh(x) & 0xFFFF) / 65535.0; }
 
 struct Textures {
-    Tex grass, soil, leaves, glow, puff, petal, leaf, flake, ring, chevron, cross;
+    Tex grass, leaves, glow, puff, petal, leaf, flake, ring, chevron, cross;
     Textures() {
         Canvas c;
         // grass: white-based so the season tints it; tufts of lighter and darker strokes
@@ -61,12 +60,6 @@ struct Textures {
             c.fill_rect(x, y, 1, 2, k > .55 ? hex(0xFFFFFF) : k < .3 ? hex(0xD6D6D6) : hex(0xE6E6E6));
         }
         grass = tex_from(c);
-        // tilled soil: furrows across, flecks of grit
-        c.clear(hex(0xE8E8E8));
-        for (int i = 0; i < 40; ++i) c.fill_ellipse(h01(i + 300) * 64, h01(i + 400) * 64, 3 + h01(i + 450) * 4, 2 + h01(i + 470) * 2, h01(i + 490) > .5 ? hex(0xF6F6F6) : hex(0xD8D8D8));
-        for (int i = 0; i < 110; ++i) c.fill_rect(h01(i + 500) * 64, h01(i + 700) * 64, 1 + (h01(i + 800) > .8), 1, h01(i + 900) > .5 ? hex(0xFFFFFF) : hex(0xB4B4B4));
-        c.fill_rect(0, 31, 64, 2, hex(0xD2D2D2, .6f));
-        soil = tex_from(c);
         // hedge leaves: clusters of light and dark leaf blobs
         c.clear(hex(0xE0E0E0));
         for (int i = 0; i < 120; ++i) {
@@ -215,20 +208,16 @@ void Garden::draw_ground(const GardenState& s, double t) {
         float* o = r.rgb.data() + static_cast<size_t>(y) * r.W * 3;
         for (int x = 0; x < r.W; ++x, o += 3) { o[0] = P.bg.r; o[1] = P.bg.g; o[2] = P.bg.b; }
     }
-    // the lawn, wide enough to fill the view
-    // in small tiles: textures here are mapped without perspective correction, so one huge quad would warp
-    const int L = 14;
+    // the field (field.cpp); until it has grown, a plain lawn, wide enough to fill the view
+    // in small tiles: textures here are mapped without perspective correction, so one huge quad would warp.
+    // It leaves the depth alone: the burrows' pits go down below it, and everything else stands on top.
+    const int L = draw_field(s) ? 0 : 14;
     for (int gy = -L; gy < L; gy += 2)
         for (int gx = -L; gx < L; gx += 2)
-            quad(r, {double(gx), double(gy), -.01}, {double(gx + 2), double(gy), -.01}, {double(gx + 2), double(gy + 2), -.01}, {double(gx), double(gy + 2), -.01}, &tx().grass, P.lawn, unlit, 0, 0, 1.8, 1.8);
-    // the soil beds, one tile per walkable square, slightly raised
-    for (int i = 0; i < lv_.w * lv_.h; ++i) {
-        if (lv_.tiles[static_cast<size_t>(i)] != Tile::floor) continue;
-        const V3 c = cell_pos(i);
-        const int x = i % lv_.w, y = i / lv_.w;
-        const Col col = mix(P.soil, P.soil2, (x + y) % 2 ? .15f : 0.f);
-        quad(r, c + V3{-.5, -.5, 0}, c + V3{.5, -.5, 0}, c + V3{.5, .5, 0}, c + V3{-.5, .5, 0}, &tx().soil, col, unlit, 0, 0, 1, 1);
-    }
+            quad(r, {double(gx), double(gy), -.01}, {double(gx + 2), double(gy), -.01}, {double(gx + 2), double(gy + 2), -.01}, {double(gx), double(gy + 2), -.01}, &tx().grass, P.lawn, static_cast<std::uint16_t>(unlit | no_depth_write), 0, 0, 1.8, 1.8);
+    // the soil beds (burrow squares with their holes cut) and the spoil thrown out of the burrows
+    ground_.draw_beds(r, lv_, static_cast<std::uint32_t>(lv_.player * 131 + lv_.w * 17 + lv_.h));
+    ground_.draw_spoil(r, lv_);
     // little flowers and things on the lawn outside the hedges
     for (int i = 0; i < lv_.w * lv_.h; ++i) {
         const int k = deco_.empty() ? 0 : deco_[static_cast<size_t>(i)];
@@ -268,61 +257,17 @@ void Garden::draw_ground(const GardenState& s, double t) {
     static_cast<void>(t);
 }
 
-// ------------------------------------------------------------------ hedges
-void Garden::draw_hedges(const GardenState& s, double t) {
-    const Palette P = palette(s.season);
-    const bool snow = s.season == Season::winter || s.season == Season::night;
-    auto wall = [&](int x, int y) { return lv_.in(x, y) && lv_.tiles[static_cast<size_t>(lv_.idx(x, y))] == Tile::wall; };
-    for (int i = 0; i < lv_.w * lv_.h; ++i) {
-        if (lv_.tiles[static_cast<size_t>(i)] != Tile::wall) continue;
-        const int x = i % lv_.w, y = i / lv_.w;
-        const V3 c = cell_pos(i);
-        const double hh = kHedgeH + .06 * h01(static_cast<std::uint32_t>(i) * 5 + 1);
-        // the clipped block, drawn to meet its neighbours
-        const double x0 = wall(x - 1, y) ? -.5 : -.44, x1 = wall(x + 1, y) ? .5 : .44;
-        const double y0 = wall(x, y + 1) ? -.5 : -.44, y1 = wall(x, y - 1) ? .5 : .44;
-        const M34 m = at(c + V3{(x0 + x1) / 2, (y0 + y1) / 2, 0}) * sc((x1 - x0) / 2, (y1 - y0) / 2, hh - .06);
-        draw_mesh(r, box_mesh(), m, &tx().leaves, P.hedge, toon, 1.5);
-        // a crown of leafy puffs, reaching across to its neighbours so a run reads as one hedge
-        const Col crown = snow ? hex(0xF6FAFF) : mix(P.hedge, kWhite, .14f);
-        for (int q = 0; q < 3; ++q) {
-            const std::uint32_t hq = static_cast<std::uint32_t>(i) * 9 + static_cast<std::uint32_t>(q);
-            const double px = (q == 0 ? -.2 : q == 1 ? .2 : 0) + (h01(hq) - .5) * .12, py = (q == 2 ? .18 : -.12) + (h01(hq + 3) - .5) * .12;
-            const double rr = .27 + .05 * h01(hq + 5);
-            draw_mesh(r, sphere_mesh(10, 6), at(c + V3{px, py, hh - .06}) * sc(rr, rr, .15 + .04 * h01(hq + 7)), &tx().leaves, crown, toon, 1.0);
-        }
-        // ink only along the outside edges of the run
-        if (!wall(x, y + 1)) {
-            quad(r, c + V3{x0, -.505, 0}, c + V3{x1, -.505, 0}, c + V3{x1, -.505, .06}, c + V3{x0, -.505, .06}, nullptr, P.hedge_dark, unlit);
-        }
-    }
-    // a soft shadow along the foot of each hedge onto the soil
-    for (int i = 0; i < lv_.w * lv_.h; ++i) {
-        if (lv_.tiles[static_cast<size_t>(i)] != Tile::floor) continue;
-        const int x = i % lv_.w, y = i / lv_.w;
-        if (wall(x, y - 1)) quad(r, cell_pos(i) + V3{-.5, .32, .004}, cell_pos(i) + V3{.5, .32, .004}, cell_pos(i) + V3{.5, .5, .004}, cell_pos(i) + V3{-.5, .5, .004}, nullptr, hex(0x000000, .22f), kSoft);
-        if (wall(x - 1, y)) quad(r, cell_pos(i) + V3{-.5, -.5, .004}, cell_pos(i) + V3{-.38, -.5, .004}, cell_pos(i) + V3{-.38, .5, .004}, cell_pos(i) + V3{-.5, .5, .004}, nullptr, hex(0x000000, .15f), kSoft);
-    }
-    static_cast<void>(t);
-}
+// ------------------------------------------------------------------ hedges: hedge.cpp
 
 // ------------------------------------------------------------------ burrows
 void Garden::draw_burrows(const GardenState& s, double t) {
-    const Palette P = palette(s.season);
     int k = 0;
     for (int i = 0; i < lv_.w * lv_.h; ++i) {
         if (!lv_.goal[static_cast<size_t>(i)]) continue;
-        const V3 c = cell_pos(i);
-        draw_mesh(r, disc_mesh(20), at(c + V3{0, 0, .006}) * sc(.34, .3, 1), nullptr, P.burrow, unlit);
-        draw_mesh(r, torus_mesh(20, 6, .3), at(c + V3{0, 0, .0}) * sc(.38, .34, .22), nullptr, P.mound, toon);
-        draw_outline(r, torus_mesh(20, 6, .3), at(c + V3{0, 0, .0}) * sc(.38, .34, .22), .015, mix(P.mound, hex(0x000000), .6f));
-        // pebbles on the mound
-        for (int q = 0; q < 3; ++q) {
-            const double a = h01(i * 11 + q) * 6.28;
-            draw_mesh(r, sphere_mesh(6, 4), at(c + V3{std::cos(a) * .38, std::sin(a) * .34, .04}) * sc(.04, .035, .03), nullptr, hex(0xB8B0A8), toon);
-        }
-        // its raccoon (hidden, peeking, out and taunting)
+        // the pit, its raccoon (hidden, peeking, out and taunting), then the dark over what is still below
+        ground_.draw_pit(r, lv_, i);
         if (k < static_cast<int>(s.coons.size())) draw_raccoon(r, s.coons[static_cast<size_t>(k)], t);
+        ground_.shade_pit(r, lv_, i);
         ++k;
     }
 }
@@ -446,6 +391,7 @@ void Garden::render(const GardenState& s, double t) {
     r.tris_drawn = 0;
     r.light.sun_col = P.sun;
     r.light.amb_col = P.amb;
+    ground_.prepare(s.season, r.scale);
     draw_ground(s, t);
     draw_marks(s, t);
     draw_burrows(s, t);

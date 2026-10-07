@@ -1,5 +1,5 @@
 # Included by the generated registry (and by CMakeLists.txt), with GAME_MODULE_DIR set
-# to this folder. The ambient and coverage engines are built first.
+# to this folder. The ambient, coverage and grass engines are built first.
 #
 # The mown turf comes from the suite's felt generator (shared/felt), linked once by
 # the application as game_felt; headless builds compile the same sources here.
@@ -16,7 +16,6 @@ add_library(mm_core STATIC
   "${GAME_MODULE_DIR}/src/garden.cpp"
   "${GAME_MODULE_DIR}/src/sim.cpp"
   "${GAME_MODULE_DIR}/src/grass_art.cpp"
-  "${GAME_MODULE_DIR}/src/lawn_art.cpp"
   "${GAME_MODULE_DIR}/src/mower_voice.cpp"
   "${GAME_MODULE_DIR}/src/chipper_voice.cpp"
   "${GAME_MODULE_DIR}/src/ambience_voice.cpp"
@@ -36,7 +35,7 @@ add_library(mm_core STATIC
   "${GAME_MODULE_DIR}/src/platform/raster.cpp")
 target_include_directories(mm_core PUBLIC "${GAME_MODULE_DIR}/src" "${GAME_MODULE_DIR}/../../shared/felt")
 find_package(Threads REQUIRED)
-target_link_libraries(mm_core PUBLIC coverage_core ${MM_FELT} Threads::Threads)
+target_link_libraries(mm_core PUBLIC coverage_core grass_core ${MM_FELT} Threads::Threads)
 target_compile_definitions(mm_core PRIVATE _USE_MATH_DEFINES)
 if(MSVC)
   target_compile_options(mm_core PRIVATE /utf-8 /W4 /fp:precise)

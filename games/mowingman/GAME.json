@@ -26,7 +26,8 @@
   ],
   "engines": [
     "ambient",
-    "coverage"
+    "coverage",
+    "grass"
   ],
   "help": "help.md",
   "module": "module.cpp",
@@ -51,7 +52,6 @@
     "src/garden.cpp",
     "src/sim.cpp",
     "src/grass_art.cpp",
-    "src/lawn_art.cpp",
     "src/mower_voice.cpp",
     "src/chipper_voice.cpp",
     "src/ambience_voice.cpp",

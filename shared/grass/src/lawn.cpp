@@ -1,5 +1,5 @@
 // The lawn's pictures: long grass with its flowers, short grass laid each way, and bark mulch, each made for the
-// whole lawn at once. See lawn_art.hpp.
+// whole lawn at once. See lawn.hpp.
 //
 //   1. A kit of ready-drawn pieces is made once per look: a few hundred plants, flowers or bark pieces, each drawn
 //      as chains of round segments into a height buffer, lit as thin pigmented leaves (or matte petals, or bark),
@@ -10,9 +10,10 @@
 //      the close shadows.
 //
 // The field is cut into tiles so every core works at once; tiles share nothing but the read-only maps.
-#include "lawn_art.hpp"
+#include "lawn.hpp"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cmath>
 #include <map>
@@ -21,7 +22,7 @@
 #include <numbers>
 #include <thread>
 
-namespace mm {
+namespace grass {
 namespace {
 
 constexpr double pi = std::numbers::pi;
@@ -175,6 +176,7 @@ struct GrassParameters {
     const LawnScene* scene = nullptr;
     bool mulch = false;
     double mulch_tint[3] = {.070, .023, .014};  // the one dye the whole bed shares, linear: mahogany
+    LawnWeather weather{};
 };
 
 const double sun_azimuth = 140 * pi / 180, sun_elevation = 50 * pi / 180;
@@ -399,8 +401,12 @@ void lit(const GrassParameters& p, const Surface& s, double z, double tall, Vec 
     const double hl = std::sqrt(L.x * L.x + L.y * L.y + (L.z + 1) * (L.z + 1));
     const Vec H{L.x / hl, L.y / hl, (L.z + 1) / hl};
     const double sheen = .05 * std::pow(std::max(dot(N, H), 0.0), 24) + wet * .16 * std::pow(std::max(dot(raw, L), 0.0), 3);
+    // spring leaves carry less pigment, and less of it in the red: lighter and yellower
+    const double absorb_fresh[3] = {1.95, 1.30, 3.85};
     for (int c = 0; c < 3; ++c) {
-        const double pigment = absorb_green[c] + (absorb_tip[c] - absorb_green[c]) * tip_w * .55;
+        double pigment = absorb_green[c] + (absorb_tip[c] - absorb_green[c]) * tip_w * .55;
+        if (p.weather.fresh > 0)
+            pigment += (absorb_fresh[c] - pigment) * p.weather.fresh * (.55 + .45 * (1 - tipness));
         const double survival = std::exp(-(pigment + (absorb_dry[c] - pigment) * dry));
         double refl = .955 * survival * (1 - forward) * green * shaft * (1 - .10 * wet);
         const double trans = .955 * survival * forward;
@@ -408,6 +414,18 @@ void lit(const GrassParameters& p, const Surface& s, double z, double tall, Vec 
             refl += (tip[c] - refl) * .22;
         sky_out[c] = (refl + trans * .75) * sky[c] * facing * sky_vis + refl * bounce[c] * (.25 + .75 * canopy);
         sun_out[c] = sun_colour[c] * (refl * std::max(nl, 0.0) + trans * std::max(-nl, 0.0) + sheen * std::max(nl, 0.0)) * 2.5;
+    }
+    if (p.weather.frost > 0) {
+        // rime on every edge, and snow lying on what faces the sky, thickest on the tops
+        const double rime = .22 + .30 * tipness, lying = smooth_between(.05, .75, raw.z) * (.45 + .55 * smooth_between(.25, .9, z / std::max(tall, 1e-6)));
+        const double cover = clamp01(p.weather.frost * (rime + .85 * lying));
+        const double snow[3] = {.80, .85, .92};
+        for (int c = 0; c < 3; ++c) {
+            const double snow_sky = snow[c] * sky[c] * (.30 + .70 * sky_vis) * (.55 + .45 * std::max(raw.z, 0.0));
+            const double snow_sun = snow[c] * sun_colour[c] * std::max(dot(raw, L), 0.0) * .9;
+            sky_out[c] += (snow_sky - sky_out[c]) * cover;
+            sun_out[c] += (snow_sun - sun_out[c]) * cover;
+        }
     }
 }
 
@@ -451,6 +469,12 @@ void emit_plant(const GrassParameters& p, double vigour, double length_factor, d
                 leaf.tilt += .58 * p.lay;
             }
             leaf.length *= length_factor;
+            if (p.weather.dry > 0) {
+                // the season dries the older leaves first, and some whole leaves to straw
+                dry += p.weather.dry * (.20 + .80 * smooth_between(.15, .95, age)) * (.55 + .75 * random.uniform());
+                if (random.uniform() < p.weather.dry * .22)
+                    dry += .45;
+            }
             leaf.dry = clamp01(dry + .35 * edge_dry * random.uniform());
             leaf.green = 1 / (.78 + .40 * random.uniform());
             emit_leaf(leaf, cut, k, random, camera, shadow);
@@ -1294,6 +1318,11 @@ void tile_work(void* data, int index) {
                             double soil = (lo[c] + (hi[c] - lo[c]) * clump) * (.65 + grit * .72) * (.80 + .35 * broad);
                             soil += (moss[c] - soil) * .19;
                             soil += (dirt[c] * (.55 + .9 * grit * clump) - soil) * bare;
+                            if (p.weather.frost > 0) {
+                                // snow between the stems, thinner where the grass is thick over it
+                                const double snow[3] = {.62, .67, .74};
+                                soil += (snow[c] * (.82 + .3 * grit) - soil) * p.weather.frost * (.55 + .45 * clump);
+                            }
                             sum[c] += static_cast<float>(soil * (.30 + sun_z * 1.2 * reach[0] * close) * shade) * sun_colour[c];
                         }
                         continue;
@@ -1384,18 +1413,60 @@ Layer render_field(const LawnLibrary& library, const GrassParameters& p, int wid
 
 struct Kits {
     std::mutex guard;
-    std::map<std::pair<int, int>, std::shared_ptr<const LawnLibrary>> made;
+    std::map<std::array<int, 5>, std::shared_ptr<const LawnLibrary>> made;
 };
 Kits& kits() {
     static Kits all;
     return all;
 }
 
+std::uint32_t lerp_pixel(std::uint32_t a, std::uint32_t b, std::uint32_t weight) {
+    // weight 0..256, per channel including alpha.
+    const std::uint32_t keep = 256U - weight;
+    const std::uint32_t red_blue = (((a & 0x00FF00FFU) * keep + (b & 0x00FF00FFU) * weight) >> 8U) & 0x00FF00FFU;
+    const std::uint32_t alpha_green = ((((a >> 8U) & 0x00FF00FFU) * keep + ((b >> 8U) & 0x00FF00FFU) * weight) >> 8U) & 0x00FF00FFU;
+    return red_blue | (alpha_green << 8U);
+}
+
+std::uint32_t bilinear(const Layer& layer, int x0, int y0, int x1, int y1, double fx, double fy) {
+    const std::size_t w = static_cast<std::size_t>(layer.width);
+    const std::uint32_t wx = static_cast<std::uint32_t>(fx * 256.0);
+    const std::uint32_t wy = static_cast<std::uint32_t>(fy * 256.0);
+    const std::uint32_t top = lerp_pixel(layer.px[static_cast<std::size_t>(y0) * w + static_cast<std::size_t>(x0)],
+                                         layer.px[static_cast<std::size_t>(y0) * w + static_cast<std::size_t>(x1)], wx);
+    const std::uint32_t bottom = lerp_pixel(layer.px[static_cast<std::size_t>(y1) * w + static_cast<std::size_t>(x0)],
+                                            layer.px[static_cast<std::size_t>(y1) * w + static_cast<std::size_t>(x1)], wx);
+    return lerp_pixel(top, bottom, wy);
+}
+
+// The kits are shared by every call with the same look, scale and weather.
+int weather_key(double amount) {
+    return static_cast<int>(std::lround(std::clamp(amount, 0.0, 1.0) * 1000));
+}
+
 } // namespace
 
-Layer render_lawn(LawnLook look, const LawnScene& scene, std::uint64_t seed, double metres_w, double metres_h, double pixels_per_metre) {
+std::uint32_t sample_clamped(const Layer& layer, double x, double y) {
+    if (layer.empty())
+        return 0;
+    const double cx = std::clamp(x, 0.0, static_cast<double>(layer.width - 1));
+    const double cy = std::clamp(y, 0.0, static_cast<double>(layer.height - 1));
+    const double fx = std::floor(cx);
+    const double fy = std::floor(cy);
+    const int x0 = static_cast<int>(fx);
+    const int y0 = static_cast<int>(fy);
+    const int x1 = std::min(x0 + 1, layer.width - 1);
+    const int y1 = std::min(y0 + 1, layer.height - 1);
+    return bilinear(layer, x0, y0, x1, y1, cx - fx, cy - fy);
+}
+
+Layer render_lawn(LawnLook look, const LawnScene& scene, std::uint64_t seed, double metres_w, double metres_h, double pixels_per_metre,
+                  const LawnWeather& weather) {
     GrassParameters p;
     p.pixels_per_metre = pixels_per_metre;
+    p.weather.fresh = std::clamp(weather.fresh, 0.0, 1.0);
+    p.weather.dry = std::clamp(weather.dry, 0.0, 1.0);
+    p.weather.frost = std::clamp(weather.frost, 0.0, 1.0);
     p.mown = look != LawnLook::tall;
     p.mulch = look == LawnLook::mulch || look == LawnLook::beds;
     if (look == LawnLook::mown_dark || look == LawnLook::mown_light || look == LawnLook::mown_quarter || look == LawnLook::mown_three_quarter) {
@@ -1407,7 +1478,8 @@ Layer render_lawn(LawnLook look, const LawnScene& scene, std::uint64_t seed, dou
     {
         Kits& all = kits();
         const std::lock_guard<std::mutex> lock(all.guard);
-        const std::pair<int, int> key{static_cast<int>(p.mulch ? LawnLook::mulch : look), static_cast<int>(std::lround(pixels_per_metre * 16))};
+        const std::array<int, 5> key{static_cast<int>(p.mulch ? LawnLook::mulch : look), static_cast<int>(std::lround(pixels_per_metre * 16)),
+                                     weather_key(p.weather.fresh), weather_key(p.weather.dry), weather_key(p.weather.frost)};
         std::shared_ptr<const LawnLibrary>& slot = all.made[key];
         if (!slot)
             slot = std::make_shared<const LawnLibrary>(make_lawn_library(p, true));
@@ -1528,4 +1600,4 @@ Cutout render_tree(int kind, double reach, std::uint64_t seed, double pixels_per
     return cut;
 }
 
-} // namespace mm
+} // namespace grass

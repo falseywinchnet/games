@@ -133,6 +133,7 @@ With `--dev` (a separate save), `CT_SCRIPT="0.5:lvl40,1.5:sol"` replays inputs:
 - `z` undo, `rs` start over, `h` hint, `n` the next garden
 - `sol` plays the recorded solution
 - `stuckme` finds the shortest way to wedge a pumpkin for good
+- `season<k>` shows the garden in season k (0 spring, 1 summer, 2 autumn, 3 winter, 4 night)
 - `lvl<id>` opens table garden id, `tier<d>` chooses difficulty d (0 Tutorial to 3 Hard) and deals, `fresh<d>` grows one there and then
 - `menu`, `help` and `close` open and close the panels
 

@@ -5,6 +5,7 @@
 // gardens grown on a worker), speech bubbles, dialogs and autosave. The frame
 // is a small pixel-art image the compositor magnifies; text is drawn crisply on
 // top as cached layers.
+#include "field.hpp"
 #include "garden.hpp"
 #include "level.hpp"
 #include "levelset.hpp"
@@ -108,6 +109,20 @@ private:
         int tier = 0;
     };
     std::unique_ptr<Worker> hint_, gen_;
+    // the field round the garden grows on its own worker when the season changes
+    struct FieldWorker {
+        std::thread th;
+        std::atomic<bool> done{false};
+        std::atomic<bool> cancel{false};
+        Season season = Season::spring;
+        std::shared_ptr<const FieldArt> art;
+    };
+    std::unique_ptr<FieldWorker> field_;
+    bool field_shown_ = false;
+    Season field_season_ = Season::spring;
+    void grow_field(Season season);
+    void join_field();
+    static void field_worker(FieldWorker* worker);
     std::string hint_for_;      // the board history the hint was asked for
     void start_hint();
     void start_gen(int tier);

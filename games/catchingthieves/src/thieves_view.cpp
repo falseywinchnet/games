@@ -106,6 +106,36 @@ ThievesView::~ThievesView() {
     audio_stop();
     join(hint_);
     join(gen_);
+    join_field();
+}
+
+void ThievesView::join_field() {
+    if (field_) { (*field_).cancel = true; if ((*field_).th.joinable()) (*field_).th.join(); }
+    field_.reset();
+}
+
+// Only from the frame loop, so the field grows only while the game is in front.
+void ThievesView::grow_field(Season season) {
+    if (field_shown_ && field_season_ == season) return;
+    if (field_ && (*field_).season == season && !(*field_).cancel) {
+        if (!(*field_).done) return;
+        // a field that failed to grow is not tried again for this season: the plain lawn stays
+        if ((*field_).art && (*(*field_).art).ready()) garden_.set_field((*field_).art);
+        field_shown_ = true;
+        field_season_ = season;
+        render_dirty_ = true;
+        join_field();
+        return;
+    }
+    join_field();
+    field_ = std::make_unique<FieldWorker>();
+    (*field_).season = season;
+    (*field_).th = std::thread(&ThievesView::field_worker, field_.get());
+}
+
+void ThievesView::field_worker(FieldWorker* worker) {
+    (*worker).art = std::make_shared<const FieldArt>(make_field((*worker).season, &(*worker).cancel));
+    (*worker).done = true;
 }
 
 void ThievesView::join(std::unique_ptr<Worker>& w) {
@@ -129,6 +159,7 @@ void ThievesView::on_detaching_from_window(gf::Window&) noexcept {
     surface_.reset();
     if (hint_) (*hint_).cancellation.request_stop();
     if (gen_) (*gen_).cancellation.request_stop();
+    if (field_) (*field_).cancel = true;
     audio_stop();
 }
 
@@ -155,6 +186,7 @@ void ThievesView::set_cabinet(bool foreground, bool music, bool sound, bool redu
         set_cursor(gf::CursorKind::arrow);
         if (hint_) (*hint_).cancellation.request_stop();
         if (gen_) (*gen_).cancellation.request_stop();
+        if (field_) (*field_).cancel = true;
         persist();
         return;
     }
@@ -667,6 +699,7 @@ bool ThievesView::scripted_action(std::string_view requested) {
     if (requested.starts_with("tier") && !script_index(requested.substr(4), kDifficulties, numeric)) return false;
     if (requested.starts_with("fresh") && !script_index(requested.substr(5), kDifficulties, numeric)) return false;
     if (requested.starts_with("mv") && !script_index(requested.substr(2), board_.level().w * board_.level().h, numeric)) return false;
+    if (requested.starts_with("season") && !script_index(requested.substr(6), 5, numeric)) return false;
         if (code == "u") step(kUp);
         else if (code == "d") step(kDown);
         else if (code == "l") step(kLeft);
@@ -685,6 +718,11 @@ bool ThievesView::scripted_action(std::string_view requested) {
         else if (code.rfind("lvl", 0) == 0) {
             // a table garden by its id
             if (!enter(numeric)) return false;
+        }
+        else if (code.rfind("season", 0) == 0) {
+            // dev: show this garden in another season (0 spring .. 4 night), to judge the scene
+            save_.season = numeric;
+            begin_level();
         }
         else if (code.rfind("tier", 0) == 0) {
             // choose a difficulty and deal at it
@@ -738,6 +776,7 @@ void ThievesView::tick() {
     const double dt = std::clamp(std::chrono::duration<double>(now - last_).count(), 0.0, .25);
     last_ = now; t_ += dt;
     run_script(); poll_workers(); commit_queued_moves();
+    grow_field(show_.state().season);
     const bool active = !attached_window() || (*attached_window()).active();
     const bool animate = !cab_reduced_ && active;
     if (animate) show_.update(queue_.size() > 2 ? dt * 1.6 : dt, board_);
@@ -758,7 +797,7 @@ void ThievesView::tick() {
     if (!hidden && !garden_.r.rgb.empty() && !frame_.px.empty() && (render_dirty_ || animate)) {
         garden_.render(state, cab_reduced_ ? 0 : t_); compose(); publish(); render_dirty_ = false;
     }
-    const bool worker_pending = (hint_ && !(*hint_).done) || (gen_ && !(*gen_).done);
+    const bool worker_pending = (hint_ && !(*hint_).done) || (gen_ && !(*gen_).done) || field_;
     const bool ongoing = animate || worker_pending || !queue_.empty() || !script_.empty() ||
                          message_t_ < 4.5 || audio_needs_tick();
     if (timer_) {
