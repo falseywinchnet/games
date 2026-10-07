@@ -246,29 +246,58 @@ def main() -> None:
     unexpected = ".ogg" if extension == ".wav" else ".wav"
     if any(audio.glob("*" + unexpected)):
         raise ValueError("Use a separate output directory for each runtime audio format")
+    # Incremental: a file prepared before (an output directory restored from a cache, or
+    # left by the last run) is kept when its source bytes, loop bounds and format are
+    # unchanged and its own bytes are intact. Only new or changed sources are encoded,
+    # so adding a game costs its own sounds, not the whole collection's.
+    previous: dict[str, dict] = {}
+    audio_format = "IEEE float32 LE" if options.audio_format == "pcm" else "Ogg Vorbis quality 6"
+    previous_manifest = audio / "portable_manifest.json"
+    if previous_manifest.is_file():
+        try:
+            old = json.loads(previous_manifest.read_text(encoding="utf-8"))
+            if old.get("format") == audio_format:
+                previous = {record["source"]: record for record in old.get("files", [])}
+        except (ValueError, KeyError, TypeError):
+            previous = {}
     records: list[dict] = []
+    reused = 0
     for entry in inventory["audio"]:
         bounds = inventory["loops"].get(entry["stem"], {"start": 0, "end": 0})
-        record = prepare_audio(options.ffmpeg, entry["path"], audio / (entry["stem"] + extension),
+        destination = audio / (entry["stem"] + extension)
+        looped = entry["stem"] in inventory["loops"]
+        old = previous.get(entry["source"])
+        if (old is not None and old.get("source_sha256") == entry["source_sha256"]
+                and old.get("file") == destination.name and old.get("producer_loop") == (bounds if looped else None)
+                and destination.is_file() and hashlib.sha256(destination.read_bytes()).hexdigest() == old.get("sha256")):
+            records.append(old)
+            reused += 1
+            continue
+        record = prepare_audio(options.ffmpeg, entry["path"], destination,
                                bounds["end"] - bounds["start"], options.audio_format, bounds["start"])
         record["source"] = entry["source"]
-        if entry["stem"] in inventory["loops"]:
+        if looped:
             record["producer_loop"] = bounds
         records.append(record)
+    # Whatever no source produced this time (a removed or renamed sound) is stale.
+    kept = {record["file"] for record in records} | {"portable_manifest.json", "verification.tsv"}
+    for path in audio.iterdir():
+        if path.is_file() and path.name not in kept:
+            path.unlink()
     resources = []
     for entry in inventory["resources"]:
         target = output / entry["file"]
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(entry["path"], target)
         resources.append({key: entry[key] for key in ("file", "source_sha256")})
-    audio_format = "IEEE float32 LE" if options.audio_format == "pcm" else "Ogg Vorbis quality 6"
     manifest = {"schema_version": 2, "sample_rate": 48000, "channels": 2, "format": audio_format,
                 "files": records, "module_resources": resources,
                 "producer_manifests": inventory["producer_manifests"],
                 "module_manifests": inventory["module_manifests"]}
     (audio / "portable_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     (audio / "verification.tsv").write_text(audio_verification(manifest), encoding="utf-8")
-    print("Prepared environment pixels and", len(records), audio_format, "assets at", output)
+    print("Prepared environment pixels and", len(records), audio_format, "assets at", output,
+          f"({reused} unchanged and reused, {len(records) - reused} encoded)")
 
 
 if __name__ == "__main__":
