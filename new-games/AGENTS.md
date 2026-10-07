@@ -34,7 +34,8 @@ headings. The gate refuses a brief containing `TODO`.
   finds on returning mid-move.
 - **Replayability.** What varies between games, the difficulty levels, and the
   tutorial levels if any.
-- **Passive mode.** How the engine plays, and how the player takes over.
+- **Passive mode.** For a long real-time game (README requirement 4), how the
+  engine plays and how the player takes over; otherwise, why none is needed.
 - **Rules.** Complete enough for a stranger to referee. How generated content is
   proven finishable. How computer players decide, without cheating.
 - **Look, sound and words.** The style (README rule 3), the scene, the palette,

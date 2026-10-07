@@ -52,10 +52,10 @@ These are checked when the game is built and reviewed.
    after every committed change, and resumes it on reopening.
 3. **Compute.** When nothing moves, the game does no work. While it animates, it
    uses less than 30% of one core. When hidden, it stops entirely.
-4. **Passive mode.** The game's own engine can play it. A game that no engine can
-   play is too complex for the collection. The more complex the game, the more it
-   is expected to offer this as a passive mode the player can watch and take over
-   at any moment.
+4. **Passive mode for long real-time games.** A game played with continuous,
+   real-time control over a long session, such as a long climb, offers a passive
+   mode: its own engine plays, and the player can watch and take over at any
+   moment. Puzzles, card games and other turn-based games do not need one.
 5. **Size.** The game adds at most 32 MB to the installer. Most add far less.
 6. **Windows and sizes.** The game works on all three systems, in a window as
    small as 600 × 420, at display scales 1 to 2.
@@ -78,7 +78,7 @@ These are checked when the game is built and reviewed.
 
 4. Open a pull request that adds only `games/<id>/`. In its description, say
    whether the game is a classic or new (rule 2), how it is replayable (rule 4),
-   and what its passive mode does (requirement 4).
+   and, if requirement 4 applies, what its passive mode does.
 
 The pull request is built and tested on all three systems. If it is accepted and
 merged, the next release includes it.
