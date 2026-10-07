@@ -89,3 +89,4 @@ game whose sounds the engine plays may omit `audio_adapter`.
 | Engine | For | Games |
 |---|---|---|
 | [`ambient`](../../shared/ambient/README.md) | Living scenes drawn on the processor alone: retained 3D scenery, swaying foliage, creatures, animated light, all under a measured CPU budget | Stillwater |
+| [`grass`](../../shared/grass/README.md) | Whole-lawn pictures grown blade by blade: long grass with wildflowers, mown turf, bark mulch and canopies, in any season | Mowing, Catching Thieves |

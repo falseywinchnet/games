@@ -1,6 +1,7 @@
 // Headless frame renders for look development: writes PPM images.
 //   preview cast out.ppm      the bear and the raccoons in a row of poses and expressions
 #include "critters.hpp"
+#include "field.hpp"
 #include "garden.hpp"
 #include "levelset.hpp"
 
@@ -42,6 +43,12 @@ static int garden(const char* out, int index, double t, int W, int H) {
     g.resize(W, H, 120);
     GardenState s;
     s.season = season_for(e.section);
+    if (const char* forced = std::getenv("SEASON")) s.season = static_cast<Season>(std::clamp(std::atoi(forced), 0, 4));
+    if (!std::getenv("NO_FIELD")) {
+        const std::chrono::steady_clock::time_point grow = std::chrono::steady_clock::now();
+        g.set_field(std::make_shared<const FieldArt>(make_field(s.season, nullptr)));
+        std::printf("field %.0f ms\n", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - grow).count());
+    }
     const Level& lv = e.level;
     for (int b : lv.boxes) {
         PumpkinView pv;

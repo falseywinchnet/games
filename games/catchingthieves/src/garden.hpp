@@ -7,9 +7,13 @@
 #include "level.hpp"
 #include "platform/r3d.hpp"
 
+#include <memory>
 #include <vector>
 
 namespace ct {
+
+struct FieldArt;    // field.hpp
+struct HedgeCache;  // hedge.hpp
 
 enum class Season { spring, summer, autumn, winter, night };
 Season season_for(const std::string& section);
@@ -59,11 +63,16 @@ public:
     int pick_cell(double sx, double sy) const;
     void to_screen(V3 p, double& sx, double& sy) const;
     const Level& level() const { return lv_; }
+    // the field around the garden, once it has grown (the plain lawn until then)
+    void set_field(std::shared_ptr<const FieldArt> field) { field_ = std::move(field); }
 
 private:
     Level lv_;
     int hud_w_ = 0;
     std::vector<int> deco_;  // per outside cell next to the garden: a decoration kind (0 none)
+    std::shared_ptr<const FieldArt> field_;
+    std::shared_ptr<HedgeCache> hedge_;  // the hedge's shell and shade, made once per garden (hedge.cpp)
+    bool draw_field(const GardenState& s);  // field.cpp; false until the field for this season has grown
     void fit_camera();
     void draw_ground(const GardenState& s, double t);
     void draw_hedges(const GardenState& s, double t);
