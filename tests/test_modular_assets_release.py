@@ -8,16 +8,26 @@ import sys
 import tempfile
 import types
 import unittest
+import zlib
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from prepare_portable_assets import asset_inventory, audio_verification
+from prepare_portable_assets import asset_inventory, audio_verification, card_verification
 from verify_portable_assets import verify
 from publication_version import select
 
 
 def digest(data):
     return hashlib.sha256(data).hexdigest()
+
+
+def png_chunk(kind, body):
+    return struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
+
+
+# One opaque white RGBA pixel, in the layout the card decoder accepts.
+CARD = (b"\x89PNG\r\n\x1a\n" + png_chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 6, 0, 0, 0))
+        + png_chunk(b"IDAT", zlib.compress(b"\0\xff\xff\xff\xff")) + png_chunk(b"IEND", b""))
 
 
 class ModuleAssets(unittest.TestCase):
@@ -51,7 +61,7 @@ class ModuleAssets(unittest.TestCase):
     def runtime(self):
         self.audio(self.source, "music_menu_loop")
         for name, data in {"fonts/manifest.json": b'{"files": []}', "fonts/ATTRIBUTION.md": b"notice",
-                           "cards/card.png": b"source", "nature-lake.png": b"source", "sudoku/engine.js": b"engine"}.items():
+                           "cards/card.png": CARD, "nature-lake.png": b"source", "sudoku/engine.js": b"engine"}.items():
             target = self.source / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
@@ -64,10 +74,12 @@ class ModuleAssets(unittest.TestCase):
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(path.read_bytes())
         (runtime / "cards").mkdir()
-        pixels = b"BGPX" + struct.pack("<III", 1, 1, 1) + b"\0\0\0\xff"
-        (runtime / "cards/card.bgpix").write_bytes(pixels)
-        (runtime / "cards/manifest.json").write_text(json.dumps([{"source": "card.png", "file": "card.bgpix",
-            "source_sha256": digest(b"source"), "sha256": digest(pixels)}]))
+        pixels = b"\xff\xff\xff\xff"
+        (runtime / "cards/card.png").write_bytes(CARD)
+        cards = [{"source": "card.png", "file": "card.png", "source_sha256": digest(CARD), "sha256": digest(CARD),
+                  "width": 1, "height": 1, "pixels_sha256": digest(pixels), "pixels_crc32": zlib.crc32(pixels)}]
+        (runtime / "cards/manifest.json").write_text(json.dumps(cards))
+        (runtime / "cards/verification.tsv").write_text(card_verification(cards))
         (runtime / "nature-lake.gpix").write_bytes(b"GPIX" + struct.pack("<III", 1, 1024, 512) + b"\0\0\0\xff" * (1024 * 512))
         (runtime / "audio").mkdir()
         records = []
@@ -127,6 +139,17 @@ class ModuleAssets(unittest.TestCase):
         manifest["files"] = []
         (runtime / "audio/portable_manifest.json").write_text(json.dumps(manifest))
         with self.assertRaisesRegex(ValueError, "Incomplete"):
+            verify(self.source, runtime)
+
+    def test_card_art_is_compressed_and_verified(self):
+        runtime, _ = self.runtime()
+        verify(self.source, runtime)
+        (runtime / "cards/card.bgpix").write_bytes(b"BGPX")
+        with self.assertRaisesRegex(ValueError, "stale raw pixels"):
+            verify(self.source, runtime)
+        (runtime / "cards/card.bgpix").unlink()
+        (runtime / "cards/verification.tsv").write_text("1\ncard.png\t1\t1\t00000000\n")
+        with self.assertRaisesRegex(ValueError, "card verification"):
             verify(self.source, runtime)
 
     def test_altered_loop_rejected(self):

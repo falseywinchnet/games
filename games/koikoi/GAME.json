@@ -35,6 +35,9 @@
     "src/card_finish.cpp",
     "src/platform/image.cpp"
   ],
+  "engines": [
+    "ambient"
+  ],
   "audio_sources": [
     "src/platform/audio.cpp"
   ],

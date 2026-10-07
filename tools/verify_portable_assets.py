@@ -6,7 +6,7 @@ import json
 import os
 import struct
 from pathlib import Path
-from prepare_portable_assets import asset_inventory, audio_verification
+from prepare_portable_assets import asset_inventory, audio_verification, card_verification, png_layout
 
 
 def digest(path: Path) -> str:
@@ -64,28 +64,25 @@ def verify(source: Path, runtime: Path, extra_dirs=()) -> dict:
     actual_outputs = {path.name for path in audio.iterdir() if path.is_file()}
     if actual_outputs != seen_outputs | {"portable_manifest.json", "verification.tsv"}:
         raise ValueError("Runtime audio contains stale or unexpected files")
-    expected_cards = {path.with_suffix(".bgpix").name for path in (source / "cards").glob("*.png")}
-    actual_cards = {path.name for path in (runtime / "cards").glob("*.bgpix")}
+    expected_cards = {path.name for path in (source / "cards").glob("*.png")}
+    actual_cards = {path.name for path in (runtime / "cards").glob("*.png")}
     if actual_cards != expected_cards:
         raise ValueError("Incomplete prepared hanafuda deck")
-    if any((runtime / "cards").glob("*.png")):
-        raise ValueError("Runtime cards contain redundant authoring PNGs")
+    if any((runtime / "cards").glob("*.bgpix")):
+        raise ValueError("Runtime cards contain stale raw pixels")
     card_records = json.loads((runtime / "cards/manifest.json").read_text(encoding="utf-8"))
     if len(card_records) != len(expected_cards) or {record["file"] for record in card_records} != expected_cards:
         raise ValueError("Incomplete card provenance inventory")
     for record in card_records:
         name = record["source"]
-        if Path(name).name != name or Path(name).with_suffix(".bgpix").name != record["file"]:
+        if Path(name).name != name or record["file"] != name:
             raise ValueError("Invalid source card name")
         if digest(source / "cards" / name) != record["source_sha256"] or digest(runtime / "cards" / record["file"]) != record["sha256"]:
             raise ValueError("Card provenance differs: " + name)
-    for name in expected_cards:
-        data = (runtime / "cards" / name).read_bytes()
-        if len(data) < 16 or data[:4] != b"BGPX":
-            raise ValueError("Invalid prepared card: " + name)
-        version, width, height = struct.unpack("<III", data[4:16])
-        if version != 1 or not 0 < width <= 4096 or not 0 < height <= 4096 or len(data) != 16 + width * height * 4:
-            raise ValueError("Truncated prepared card: " + name)
+        if png_layout((runtime / "cards" / name).read_bytes()) != (record["width"], record["height"]):
+            raise ValueError("Prepared card is not an 8-bit RGBA PNG of the recorded size: " + name)
+    if (runtime / "cards/verification.tsv").read_text(encoding="utf-8") != card_verification(card_records):
+        raise ValueError("Native card verification contract differs from the card manifest")
     source_fonts = source / "fonts"
     fonts = runtime / "fonts"
     for name in ("manifest.json", "ATTRIBUTION.md"):
@@ -114,7 +111,7 @@ def verify(source: Path, runtime: Path, extra_dirs=()) -> dict:
                       if path.is_file() and path.relative_to(source).parts[0] != "audio"
                       and not (path.relative_to(source).parts[0] == "cards" and path.suffix.lower() == ".png")}
     expected_paths.update("cards/" + name for name in expected_cards)
-    expected_paths.update({"cards/manifest.json", "nature-lake.gpix", "audio/portable_manifest.json", "audio/verification.tsv"})
+    expected_paths.update({"cards/manifest.json", "cards/verification.tsv", "nature-lake.gpix", "audio/portable_manifest.json", "audio/verification.tsv"})
     expected_paths.update("audio/" + name for name in seen_outputs)
     expected_paths.update(entry["file"] for entry in expected_resources)
     actual_paths = {path.relative_to(runtime).as_posix() for path in runtime.rglob("*") if path.is_file()}

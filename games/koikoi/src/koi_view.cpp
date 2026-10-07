@@ -50,9 +50,20 @@ KoiView::KoiView(gf::StableId id, Options opt) : Control(std::move(id)), opt_(op
     }
     set_accessible_name("Koi-Koi, the hanafuda game. Match cards by month, collect sets, and decide when to stop.");
     slots_.fill(-1);
-    for (int c = 0; c < 48; ++c) load_png(asset_dir() + "/cards/hana_" + (c < 10 ? "0" : "") + std::to_string(c) + ".png", art_[static_cast<size_t>(c)]);
-    load_png(asset_dir() + "/cards/hana_back.png", art_back_);
-    load_png(asset_dir() + "/cards/card_shadow.png", art_shadow_);
+    {
+        // the deck ships as compressed PNG; the fifty cards decode side by side on worker threads
+        std::vector<std::string> paths;
+        std::vector<Canvas*> art;
+        for (int c = 0; c < 48; ++c) {
+            paths.push_back(asset_dir() + "/cards/hana_" + (c < 10 ? "0" : "") + std::to_string(c) + ".png");
+            art.push_back(&art_[static_cast<size_t>(c)]);
+        }
+        paths.push_back(asset_dir() + "/cards/hana_back.png");
+        art.push_back(&art_back_);
+        paths.push_back(asset_dir() + "/cards/card_shadow.png");
+        art.push_back(&art_shadow_);
+        static_cast<void>(load_pngs(paths, art));
+    }
     if (!load()) new_match();
     if (const char* sc = std::getenv("KK_SCRIPT"); sc && opt_.dev) {
         std::string all = sc;

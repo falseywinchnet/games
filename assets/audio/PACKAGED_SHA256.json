@@ -505,11 +505,6 @@
     "sha256": "836c9c4b90782aa29d850698fc5d3c57e22a73225278fca7c596f9f989dbf40c"
   },
   {
-    "file": "music_sticks_stones_loop.m4a",
-    "batch": 2,
-    "sha256": "fe29d8c9962c1678cd26a80786bc85ba51a42ce702563081c9a93fa0a62d84de"
-  },
-  {
     "file": "music_sudoku_day_loop.m4a",
     "batch": "playsuite-v2",
     "sha256": "18e23ff0ed0037b428ccb17f9812437d318dceed0caffb0c16eb331d8d0317b1"
@@ -615,56 +610,6 @@
     "sha256": "5b4ac262121891260b5b0d1635b1a6c1e232b6d9412b306388cd97f693fd3cf4"
   },
   {
-    "file": "sticks_stones_constraint_broken.m4a",
-    "batch": 2,
-    "sha256": "6d9dd2d14eb2134061db34d5a4c8e3352941b01b4b4a1f783b42811038201752"
-  },
-  {
-    "file": "sticks_stones_constraint_ok_01.m4a",
-    "batch": 2,
-    "sha256": "b6da80fb4c1a74e3296acfd67cf9d57c5b04ed8dea0be6237af6a346e617ce0d"
-  },
-  {
-    "file": "sticks_stones_constraint_ok_02.m4a",
-    "batch": 2,
-    "sha256": "6451613953c8a9ea2b0abdb8241fc41071c3bcf2d39c272d44b4e3029ae23424"
-  },
-  {
-    "file": "sticks_stones_remove.m4a",
-    "batch": 2,
-    "sha256": "db8992fc7039d2d2511bbc686cf38c5782d1211c4b19afd7f2c42d0d9ea5cf3a"
-  },
-  {
-    "file": "sticks_stones_stick_place_01.m4a",
-    "batch": 2,
-    "sha256": "67a131d85921869075c6c596dbf45c8a6da9632244ab527d7e2006d67b2f9da2"
-  },
-  {
-    "file": "sticks_stones_stick_place_02.m4a",
-    "batch": 2,
-    "sha256": "c4196d7ffbbd97302ba36920c3ace7b77337cd6f888657ce2e0a7c876d1d7555"
-  },
-  {
-    "file": "sticks_stones_stick_place_03.m4a",
-    "batch": 2,
-    "sha256": "2a676ace3985501ee48ac0f10d4c896ff0678b1053f471e7549a605caf304d3b"
-  },
-  {
-    "file": "sticks_stones_stone_place_01.m4a",
-    "batch": 2,
-    "sha256": "4f0f1e02b73a98bf1af4b41f41909f2ca050b582f490799a557f0aa6370115c2"
-  },
-  {
-    "file": "sticks_stones_stone_place_02.m4a",
-    "batch": 2,
-    "sha256": "a89013468603f3590b06c0ae0e95a3627a35c4a4fa89bd837525118699ddb4a4"
-  },
-  {
-    "file": "sticks_stones_stone_place_03.m4a",
-    "batch": 2,
-    "sha256": "c117d8042da1a1575f17efa7502d7be3427a58cd216ea91abc6599156e9885f9"
-  },
-  {
     "file": "stinger_topscore_atom_probe.m4a",
     "batch": 2,
     "sha256": "8be655e891294de8af6357f09291a44b66688113ddbe8d356d3c5ac8f4957f3b"
@@ -688,11 +633,6 @@
     "file": "stinger_topscore_puzzle_solve.m4a",
     "batch": "playsuite-v2",
     "sha256": "a60ac6142540bdb90be6b200cb4097268e9a3c20e2d4fe392a5d4a75caf0f887"
-  },
-  {
-    "file": "stinger_topscore_sticks_stones.m4a",
-    "batch": 2,
-    "sha256": "6dc85d1e2f9e0a2c36617b8493d3083f44b64cab437250fedeb2cda7f9d73ca1"
   },
   {
     "file": "stinger_topscore_sudoku.m4a",
@@ -733,11 +673,6 @@
     "file": "stinger_win_puzzle_solve.m4a",
     "batch": "playsuite-v2",
     "sha256": "0a3292a806410d5a8b7a0f812bae9e02f19d0b179fd29ebbc799b721e784d03b"
-  },
-  {
-    "file": "stinger_win_sticks_stones.m4a",
-    "batch": 2,
-    "sha256": "8ef0f3a299400eea60d24efb0e459011d431cecc6b2f96b0ae76fdae041ebcb9"
   },
   {
     "file": "stinger_win_sudoku.m4a",
