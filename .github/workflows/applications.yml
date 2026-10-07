@@ -38,7 +38,11 @@ jobs:
         id: runtime-cache
         with:
           path: build/runtime-assets
-          key: runtime-v2-${{ hashFiles('assets/**', 'games/**', 'shared/**', 'tools/*portable_assets.py', 'tools/game_catalog.py') }}
+          # Only what feeds preparation: shared assets, each game's assets and manifest, the
+          # engines' manifests and the tools. A miss restores the last runtime and the
+          # preparation encodes only the sounds whose sources changed.
+          key: runtime-v3-${{ hashFiles('assets/**', 'games/*/assets/**', 'games/*/GAME.json', 'shared/*/assets/**', 'shared/*/ENGINE.json', 'tools/*portable_assets.py', 'tools/game_catalog.py') }}
+          restore-keys: runtime-v3-
       - name: Install authoring tools
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         run: sudo apt-get update && sudo apt-get install -y ffmpeg python3-pil
