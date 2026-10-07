@@ -285,7 +285,17 @@ void CubeView::after_step(std::size_t before, int pair) {
         finished();
         return;
     }
-    games::sound_play("nature_cube_trace", sound_ && front_);
+    // Each change to a line has its own short sound (the live score answers these names).
+    const char* effect = "nature_cube_trace";
+    if (path.size() < before) {
+        effect = "nature_cube_erase";
+    } else if (path.size() == before + 2) {
+        effect = "nature_cube_portal";
+    }
+    if (complete(session_.puzzle, path, pair)) {
+        effect = "nature_cube_connect";
+    }
+    games::sound_play(effect, sound_ && front_);
     request_frame();
 }
 
@@ -820,6 +830,10 @@ void CubeView::lean_toward(gf::Point local) {
     }
     const double yaw = std::clamp(rest_yaw + (local.x / bounds.width - .5) * .8, .40, 1.10);
     const double pitch = std::clamp(rest_pitch + (local.y / bounds.height - .5) * .55, -.78, -.34);
+    // A sweep of the cube moves air across the glass.
+    if (std::fabs(yaw - motion_.yaw) + std::fabs(pitch - motion_.pitch) > .06 && motion_.phase == Phase::resting) {
+        games::sound_play("nature_cube_turn", sound_ && front_);
+    }
     lean(motion_, yaw, pitch);
     request_frame();
 }
@@ -871,6 +885,11 @@ void CubeView::on_pointer(gf::PointerEvent& event) {
             }
             if (stepped) {
                 after_step(before, pair);
+            } else if (!seeking_ && held && cell != hover_ && head >= 0 &&
+                       adjacent(session_.puzzle.geometry, head, cell) &&
+                       owner(session_.play, cell) != pair) {
+                // The pointer reached a neighbour the line may not enter.
+                games::sound_play("nature_cube_blocked", sound_ && front_);
             }
         }
         if (cell != hover_) {
@@ -901,7 +920,7 @@ void CubeView::on_pointer(gf::PointerEvent& event) {
             hold_tilt(motion_);
             note_lines(motion_, session_.puzzle, session_.play, reduced_);
             persist();
-            games::sound_play("nature_cube_connect", sound_ && front_);
+            games::sound_play("nature_cube_pick", sound_ && front_);
             request_frame();
         }
         event.handled = true;

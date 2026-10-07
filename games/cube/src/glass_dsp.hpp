@@ -15,7 +15,7 @@ constexpr double pi = 3.14159265358979323846;
 
 // What just happened in the game. Posted from the interface thread, taken on the audio
 // thread.
-enum class Cue : int { none, pick, step, erase, connect, blocked, turn, level, win };
+enum class Cue : int { none, pick, step, erase, connect, blocked, turn, level, win, portal };
 
 // The cue for a sound name the puzzle view sends, or Cue::none when it is not one of the
 // cube's: those still play from the shared sound files.
@@ -30,6 +30,8 @@ inline Cue cue_for(std::string_view name) {
         return Cue::connect;
     if (name == "nature_cube_blocked")
         return Cue::blocked;
+    if (name == "nature_cube_portal")
+        return Cue::portal;
     if (name == "nature_cube_turn")
         return Cue::turn;
     if (name == "ui_new_game")
