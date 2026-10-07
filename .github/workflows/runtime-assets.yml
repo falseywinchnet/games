@@ -1,7 +1,7 @@
 name: Runtime assets and portable audio
 on:
   push:
-    branches: [main, 'codex/**']
+    branches: [main]
     paths:
       - 'assets/**'
       - 'src/*audio*'
