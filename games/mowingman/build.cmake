@@ -60,6 +60,11 @@ add_executable(mowingman_voice_tests "${GAME_MODULE_DIR}/tests/mower_voice_tests
 target_link_libraries(mowingman_voice_tests PRIVATE mm_core)
 add_test(NAME mowingman_voice COMMAND mowingman_voice_tests)
 set_tests_properties(mowingman_voice PROPERTIES TIMEOUT 120)
+# The music: the banjo band improvising live, and its renderer (any style, one part alone).
+add_executable(mowingman_banjo_tests "${GAME_MODULE_DIR}/tests/banjo_voice_tests.cpp")
+target_link_libraries(mowingman_banjo_tests PRIVATE mm_core)
+add_test(NAME mowingman_banjo COMMAND mowingman_banjo_tests)
+set_tests_properties(mowingman_banjo PROPERTIES TIMEOUT 120)
 add_executable(mm_mower_loops "${GAME_MODULE_DIR}/tools/mower_loops.cpp")
 target_link_libraries(mm_mower_loops PRIVATE mm_core)
 add_executable(mm_bee_render "${GAME_MODULE_DIR}/tools/bee_render.cpp")

@@ -1,102 +1,232 @@
 #pragma once
-// The game's music: a bluegrass band that never stops improvising. A five-string banjo
-// in open G picks Scruggs rolls round the chords, finding a melody on the strong beats
-// and throwing in hammer-ons, slides and the old G lick; an upright bass walks root and
-// fifth; a flat-top guitar chops the off-beats. It plays in acts (a breakdown, a B part,
-// a minor bridge, a quiet vamp, a turn in C or D) and moves from one to the next by a
-// lick and a bass walk, easing its tempo and loudness rather than jumping.
+// The game's music: a bluegrass band making up fiddle tunes as it plays. A five-string
+// banjo in open G (gDGBD) leads. In the Scruggs styles it picks steady sixteenth-note
+// rolls with three fingers (forward, backward, alternating thumb, forward-reverse), the
+// melody accented inside the roll on the 3-3-2 beats, the short fifth string droning
+// its high g, the fretting hand hammering on, pulling off and sliding, and every part
+// closing on the G lick. In the clawhammer style it frails "bum-ditty": a melody note
+// struck down with the nail, a brush, the thumb on the drone. Tunes are fiddle-tune
+// shaped, AABB in eight-bar parts over I, IV and V; between tunes the band rests or
+// plays a quieter passage. An upright bass and a guitar's boom-chuck sit underneath,
+// and in the full bluegrass style a mandolin chops the off-beat; all of them softer
+// than the banjo. The full bluegrass style (the game's) is arranged like an old Flatt
+// and Scruggs record: the lead passes round. The banjo kicks off with a break, then a
+// fiddle sings the tune in long bowed notes with double stops while the banjo backs it
+// quietly and the guitar closes each verse with a G run; then the banjo breaks again.
 //
-// Every string is a plucked delay line (Karplus-Strong) with a fractional delay, so a
-// note can slide; the banjo's strings ring through the twang of a tight drum head.
+// The banjo's strings are plucked delay lines (Karplus-Strong) with a bright loop, a
+// little stiffness (an allpass in the loop sharpens the upper partials), a pitch that
+// starts a touch sharp and settles (tension), and a loud start that falls away fast.
+// They drive the head: a bank of resonators for the drum's modes, which gives the
+// nasal honk, with a click of the pick or nail at each note. A resonator banjo is
+// brighter and punchier; an open-back one is plunkier and darker.
 #include <cstdint>
 #include <span>
 #include <vector>
 
 namespace mm {
 
+// Which band plays. Scruggs (the game's) is full bluegrass on a resonator banjo, the
+// lead passing between banjo and fiddle; clawhammer is a mellower open-back banjo
+// frailing old-time tunes; porch is Scruggs rolling at an easier tempo with a quieter
+// band and gentler passages between tunes.
+enum class BanjoStyle { scruggs = 0, clawhammer = 1, porch = 2 };
+
 class BanjoVoice final {
   public:
     static constexpr int sample_rate = 48000;
-    explicit BanjoVoice(std::uint32_t seed = 21);
+    // Parts, for solo(): the banjo, the upright bass, the guitar, the mandolin, the fiddle.
+    static constexpr int part_banjo = 0;
+    static constexpr int part_bass = 1;
+    static constexpr int part_guitar = 2;
+    static constexpr int part_mandolin = 3;
+
+    static constexpr int part_fiddle = 4;
+
+    explicit BanjoVoice(std::uint32_t seed = 21, BanjoStyle style = BanjoStyle::scruggs);
     // Adds the band to interleaved stereo frames at the given gain (glided).
     void render_add(std::span<float> stereo, double gain);
+    // For tools: hear one part alone, or -1 for the whole band.
+    void solo(int part) {
+        solo_ = part;
+    }
+    // For tools and tests.
+    [[nodiscard]] int tunes_played() const {
+        return tunes_;
+    }
+    [[nodiscard]] long notes_picked(int part) const {
+        return picked_[part];
+    }
+    [[nodiscard]] double tempo() const {
+        return tempo_;
+    }
 
     struct String {
         std::vector<float> line{};
         int write{};
-        double delay{100};       // samples, may glide (a slide)
+        double delay{100};       // samples, glides on a slide or a hammer
         double delay_to{100};
-        double glide{};          // per-sample approach to delay_to
+        double glide{};          // per-sample approach to delay_to, 0 when settled
+        double bend{};           // the tension's sharpening, fraction of pitch
         float last{};
+        float ap_x{};            // the stiffness allpass
+        float ap_y{};
         float loss{0.996F};      // per-period damping
-        float bright{0.5F};      // loop low-pass mix: higher is brighter
-        float pan{};
-        float level{1};
-        float ap_state{};
+        float bright{0.5F};      // loop low-pass: higher is brighter
+        float stiff{};           // allpass coefficient (negative sharpens)
+        float punch{};           // the extra loudness of a fresh pluck, decaying
+        float punch_decay{0.999F};
         double mute_in{-1};      // seconds until a damp, -1 none
+        float mute_loss{0.93F};
+        int sounding{-1};        // the note it rings, for damping on a chord change
+        int quiet{1 << 20};      // samples it has been silent
+        int pending{-1};         // samples until a scheduled pluck (a strum's spread)
+        double pending_midi{};
+        double pending_strength{};
+        double pending_hardness{};
+        double pending_where{};
+    };
+
+    // A bowed fiddle string: a bright sawtooth (the bow's stick and slip) with a
+    // vibrato that comes in once the note has settled.
+    struct Bow {
+        double phase{};
+        double hz{};
+        double target_hz{};
+        double glide{};          // per-sample approach of hz to target_hz
+        double vibrato_phase{};
+        double age{};            // seconds since the note was bowed
+        double env{};
+        double level{};
+        double attack{};         // per-sample approach of env to level
+        double hold{};           // seconds the bow stays on the string
+    };
+
+    // A note the fiddle bows at a sixteenth of the bar: the tune or a long double stop.
+    struct BowPlan {
+        int midi{};              // 0 for none
+        int harmony{};           // the double stop's lower note, 0 for none
+        int sixteenths{};
+        double level{};
+        double attack{};         // seconds
     };
 
     struct Chord {
-        int root{};  // semitones above G
+        int root{};  // semitones above the key's tonic
         int kind{};  // 0 major, 1 minor, 2 dominant seventh
     };
 
-    struct Act {
-        const char* name{};
-        Chord bars[16]{};
-        int length{8};
-        double tempo{124};
-        double loud{1};
-        int style{};  // 0 forward rolls, 1 mixed rolls, 2 melodic, 3 sparse vamp
-        int bass{1};  // 0 none, 1 two-beat, 2 walking
-        int guitar{1};
+    // One sixteenth of a bar of banjo: what is played on which string.
+    struct Slot {
+        int string{};       // 1 first .. 5 drone, 0 rest
+        int midi{};
+        int pinch{};        // a second string picked at once (0 none)
+        int pinch_midi{};
+        int how{};          // see banjo_voice.cpp: pick, hammer, slide, pull, brush
+        double strength{};
     };
 
   private:
     double uniform();
     int pick(int n);
-    void pluck(String& s, double midi, double strength, double hardness);
-    void slide_to(String& s, double midi, double seconds);
+    [[nodiscard]] double part_gain(int part) const {
+        return solo_ < 0 || solo_ == part ? 1.0 : 0.0;
+    }
+    void pluck_banjo(int string, int midi, double strength, double hardness_scale);
+    void pluck(String& s, double midi, double strength, double hardness, double where, double keep);
+    void set_pitch(String& s, double midi, double seconds);
     float run(String& s);
-    void step_eighth();
-    void plan_act();
-    int voice_on(int string, const Chord& chord, int pos) const;
+    void step_slot();
+    void plan_tune();
+    void plan_bar();
+    void plan_lick(int half);
+    void plan_scruggs_bar(bool gentle);
+    void plan_clawhammer_bar();
+    void place_melody(int slot, int midi, double strength, bool ornament);
+    int fret_note(int string, const Chord& chord) const;
+    int drone() const;
     bool tone_in(int midi, const Chord& chord) const;
-    int scale_degree_near(int midi, int dir, const Chord& chord, bool strong);
+    bool in_scale(int midi) const;
+    int nearest_chord_tone(int midi, const Chord& chord) const;
+    int step_scale(int midi, int steps) const;
+    void play_slot(const Slot& slot);
+    void play_band(int slot);
+    void plan_backup_bar();
+    void plan_fiddle_bar();
+    void bow(Bow& b, int midi, double seconds, double level, double attack_seconds, bool scoop);
+    float run_bow(Bow& b);
+    void guitar_note(int string, int midi, double strength, bool hammer);
 
     std::uint32_t state_;
+    BanjoStyle style_;
+    int solo_{-1};
     String banjo_[5]{};
     String bass_{};
     String guitar_[6]{};
+    String mandolin_[4]{};
+    Bow fiddle_[2]{};             // the tune, and the double stop under it
+    BowPlan fiddle_plan_[8]{};
+    double fiddle_y1_[4]{};       // the fiddle's body: four resonances
+    double fiddle_y2_[4]{};
+    double fiddle_a1_[4]{};
+    double fiddle_a2_[4]{};
+    double fiddle_g_[4]{};
+    double fiddle_tone_{};
     std::vector<float> burst_{};  // scratch for a pluck, kept so the audio thread never allocates
-    // the head: three resonant bands over the strings
-    double head_y1_[3]{};
-    double head_y2_[3]{};
-    double head_a1_[3]{};
-    double head_a2_[3]{};
-    double head_g_[3]{};
-    double lp_left_{};
-    double lp_right_{};
-    double dc_left_{};
-    double dc_right_{};
+
+    // the head: modal resonators under the bridge
+    static constexpr int head_modes = 7;
+    double head_y1_[head_modes]{};
+    double head_y2_[head_modes]{};
+    double head_a1_[head_modes]{};
+    double head_a2_[head_modes]{};
+    double head_g_[head_modes]{};
+    double head_direct_{};
+    double head_top_{};          // the head's high end: one-pole coefficient
+    double head_lift_{};         // its radiation's rise to the top
+    double head_last_{};
+    double head_tone_{};
+    // the pick or nail on the string, and the hand on the head
+    double click_env_{};
+    double click_y1_{};
+    double click_y2_{};
+    double click_a1_{};
+    double click_a2_{};
+    double thump_env_{};
+    double thump_y1_{};
+    double thump_y2_{};
+    // the guitar's and the bass's warmth, and a little room
+    double guitar_body_{};
+    double bass_tone_{};
+    std::vector<float> room_{};
+    int room_write_{};
+    double hp_left_{};
+    double hp_right_{};
     double gain_{};
 
     // the score
-    Act act_{};
-    int act_index_{-1};
-    int key_{};           // semitones above G the act is played in
+    Slot bar_plan_[8]{};
+    Chord chord_{};
+    Chord progression_[2][8] = {};  // the A and B parts
+    int melody_[2][8][3] = {};   // the melody's three accents in each bar of each part
+    int key_{};                  // semitones above G
+    int part_{};                 // 0 A, 1 B
+    int pass_{};                 // first or second time through the part
     int bar_{};
-    int eighth_{};
-    double clock_{};      // seconds until the next eighth
-    double tempo_{124};
+    int slot_{};
+    int section_{};              // 0 a tune, 1 a quiet passage, 2 a rest between
+    int rest_bars_{};
+    int hand_{};                 // the fretting hand's position
+    bool licking_{};             // this pass ends on the G lick
+    int lead_{};                 // who has the tune this pass: 0 the banjo, 1 the fiddle
+    double clock_{};             // seconds until the next sixteenth
+    double tempo_{116};
+    double tune_tempo_{116};
     double loud_{0.9};
-    int roll_[8]{};
-    int melody_{67};      // the last melody note
-    int hand_{0};         // the fretting hand's position
-    int lick_{-1};        // eighth within a lick, -1 none
-    int lick_kind_{};
-    int acts_played_{};
-    int last_style_{-1};
+    double tune_loud_{0.9};
+    int tunes_{};
+    long picked_[5]{};
+    double swing_{};             // the on-beat sixteenth's share of each pair
 };
 
 } // namespace mm

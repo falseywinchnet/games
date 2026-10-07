@@ -56,6 +56,19 @@ three-spindle deck, driven by the key and the grass under the deck (see
 `audio_src/README.md`). Builds whose toolkit cannot play a live source use the same
 voice rendered to clips. `E` turns the engine off and on.
 
+The music is a bluegrass band making up fiddle tunes as it plays
+(`src/banjo_voice.*`), under the Music master and `M`. It is arranged like an old
+Flatt and Scruggs record: a five-string banjo in open G kicks off with a Scruggs
+break (the melody on the roll's accents, the fifth string droning, the G lick to
+close), a fiddle then bows the tune in long notes with double stops while the banjo
+backs it quietly and the guitar closes the verse with a G run, and the banjo breaks
+again to finish. An upright bass, the guitar's boom-chuck and a mandolin chop sit
+well below. The banjo's strings are plucked delay lines driving a set of head
+resonances; the fiddle is a bowed sawtooth through its body's resonances. Two other
+bands are kept selectable in code (`BanjoStyle`): a gentler porch band with quiet
+passages between tunes, and an open-back clawhammer. `mm_banjo_render out.wav 90 21
+scruggs fiddle` renders any style, or one part alone.
+
 ## Out of scope
 
 Edging and trimming the strip against the beds (a real mower cannot reach it
