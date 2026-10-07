@@ -1,134 +1,87 @@
-# Make a game for PlaySuite
+# Submitting a game to PlaySuite
 
-PlaySuite is a shelf of small games: card tables, logic puzzles, a sheep that
-won't stay penned, a butler who guards a code, a toy crane stacking river stones.
-Every one of them was made the way you can make the next one: a person had an
-idea, described it to an AI model, played what came back, and kept saying what was
-wrong until it was right.
+PlaySuite is a collection of small games for Windows, macOS and Linux. It runs on
+any computer made since about 2015 and is played by anyone, anywhere. A game joins
+when it meets every rule and requirement below. Submissions are judged against
+these and nothing else, and every decision comes with its reasons.
 
-This folder is everything that process needs. You bring the idea and the judgment.
-The model does the building, and this folder tells it how.
+## Rules
 
-## Could you come up with one?
+1. **Casual.** A player can begin without instruction, stop at any moment, and
+   return to exactly where they stopped. A game that depends on sustained
+   attention, punishes a pause, or asks for a long investment of time or effort
+   does not qualify. Adventure and combat games do not qualify.
 
-Probably. The ideas that have worked were not clever inventions. They were small
-things someone was fond of:
+2. **A classic or something new.** The game is either a classic, presented with
+   care and its complete rules, or an original game that nobody has made before.
+   An original game has depth: its decisions stay interesting after many plays. A
+   single reflex or a single repeated action is a demo, not a game.
 
-- A puzzle from an old magazine or an old computer that nobody remade.
-- A game a grandparent played at the kitchen table.
-- A toy on a desk, turned into something you can click.
-- A familiar puzzle with someone in it: a character who watches, comments, sulks
-  when you win and gloats when you lose.
+3. **Style.** The game uses one of three looks:
+   - isometric;
+   - the house 3D style: a low-resolution, software-rendered 3D scene, textured
+     and lit, enlarged with visible pixels, under sharp text;
+   - polished 2D: vector drawing with depth, shading and texture.
 
-If you can explain your game to a friend in two sentences and they want a turn,
-that is enough to start.
+   It is finished at every window size and stands beside the games already in the
+   collection without looking unfinished.
 
-## What belongs on this shelf
+4. **Replayable.** The game stays worth playing for a long time, through generated
+   content, chosen difficulty, or both. If it needs teaching, the teaching is its
+   easiest difficulty: short levels that each show one mechanism, chosen at random.
+   There is no fixed tutorial sequence.
 
-PlaySuite is a collection for the workplace. Its games are for the ten minutes
-between two tasks, and they are chosen with care. A game belongs when it does at
-least one of these four things, and gets in the way of none of them:
+5. **Positive.** Content suits every age and any public place. Characters are
+   warm, humour is aimed at no one, and stakes are theatrical.
 
-1. **Entertains.** It is something to do when you are bored.
-2. **Trains the mind.** There is a little thinking in it.
-3. **Lightens the heart.** Life is often hard. A game that makes someone smile is
-   doing real work.
-4. **Occupies time without competing with what matters.** It is distracting, but
-   not too distracting. You can stop at any moment and lose nothing.
+6. **Self-contained and original.** No network, accounts, advertising, purchases,
+   streaks or notifications. Every character, image, sound and line of text is
+   original to the game or licensed for redistribution under the repository's
+   licence. No brands, and nothing taken from another work.
 
-That last one rules out more than you might expect. A game that needs an hour, or
-your full concentration, or quick reflexes, or daily visits, is a good game for
-somewhere else.
+## Requirements
 
-A few more things the shelf's games have in common:
+These are checked when the game is built and reviewed.
 
-- **They are short and safe to leave.** Close the window in the middle and the
-  game is exactly there when you come back.
-- **They are fair.** Every puzzle can be solved. Nothing is hidden that the rules
-  don't let you find. Luck may deal the cards, but it never cheats.
-- **They are not clichés.** The well-known classics are already here. Another
-  version of something every phone already has would be the boring choice. A
-  classic that almost nobody remembers is welcome.
-- **They add something.** A game that only repeats what three others on the shelf
-  already do does not earn a box.
-- **They have warmth.** The best ones have a character you get fond of. Cute is
-  good. Funny is good. The stakes are theatrical, never grim.
-- **They ask for nothing.** No accounts, no internet, no streaks, no daily
-  rewards, no shop. The game works on a laptop with no connection, forever.
+1. **Standard controls.** The game uses the collection's controls: the command
+   bar with New game, shared help (H or F1), the Music and Sound masters (M toggles
+   music), Escape to close a panel, Enter or Space to confirm, Z or Backspace to
+   undo where undo exists, and the arrow keys wherever the rules allow keyboard
+   play.
+2. **Saves.** A game with state saves it, through the collection's save format,
+   after every committed change, and resumes it on reopening.
+3. **Compute.** When nothing moves, the game does no work. While it animates, it
+   uses less than 30% of one core. When hidden, it stops entirely.
+4. **Passive mode.** The game's own engine can play it. A game that no engine can
+   play is too complex for the collection. The more complex the game, the more it
+   is expected to offer this as a passive mode the player can watch and take over
+   at any moment.
+5. **Size.** The game adds at most 32 MB to the installer. Most add far less.
+6. **Windows and sizes.** The game works on all three systems, in a window as
+   small as 600 × 420, at display scales 1 to 2.
+7. **Sound.** Music follows the Music master and everything else follows the
+   Sound master. All audio is made by the game's own code.
+8. **Tests.** Rules, saves and layout are tested, and the game passes the
+   submission check.
 
-[What belongs](guide/01-what-belongs.md) has the longer version, with the games
-already on the shelf and examples of ideas that fit and ideas that don't.
+## How to submit
 
-## How it goes
+1. Fork [falseywinchnet/games](https://github.com/falseywinchnet/games).
+2. Build the game in one folder, `games/<id>/`. With an AI coding model, open the
+   repository and say: "Read `new-games/AGENTS.md`. Build this game: …". Without
+   one, follow the same file.
+3. Run the submission check until it passes:
 
-1. **Get the repository.** Download or clone
-   [falseywinchnet/games](https://github.com/falseywinchnet/games).
-2. **Open it with an AI coding model.** Claude Code and Codex both work. Point it
-   at this folder and say what you want:
+   ```sh
+   python3 new-games/tools/check_game.py <id> --fetch-toolkit
+   ```
 
-   > Read `new-games/AGENTS.md`. I want to make a new game for the shelf.
-   > Here's my idea: ...
+4. Open a pull request that adds only `games/<id>/`. In its description, say
+   whether the game is a classic or new (rule 2), how it is replayable (rule 4),
+   and what its passive mode does (requirement 4).
 
-3. **Talk it through.** Describe who is in the game, how a turn goes and what
-   winning feels like. The model asks about gaps that matter and starts from
-   decisions you have already made. You do not need to know programming.
-4. **Look at what it makes.** The model can show you pictures of the game at
-   every stage, at the sizes the shelf uses. Say what's wrong. "The sheep faces
-   the wrong way." "The help text is too small." "He isn't villainous enough."
-   Plain complaints are the most useful thing you can give it.
-5. **Publish the folder.** After testing the game locally, an authorized model
-   commits its one folder and pushes to `main`. GitHub automatically tests the
-   suite and publishes the next revision for Windows, macOS and Linux. There are
-   no registration or version edits, package-building steps or manual releases.
-   External contributors use a pull request; merging it starts the same pipeline.
+The pull request is built and tested on all three systems. If it is accepted and
+merged, the next release includes it.
 
-The model can compile the full application locally when the pinned toolkit and
-platform dependencies are available. Test the game in its own native window
-first, then in the suite. The same folder supplies both. Pictures and rule tests
-remain useful, but playing exposes timing, pointer and sound problems they cannot.
-
-## What you'll be asked to decide
-
-The model will bring you choices. These are yours to make, and they are what
-make the game yours:
-
-- **The name.** Short enough for a box. Say what it is.
-- **Who is in it.** A name, a manner, how they talk.
-- **What a session is.** One puzzle? Best of three? An endless supply?
-- **How hard.** The shelf prefers difficulty the player chooses for themselves.
-- **When it's done.** You are the one who says the game is finished. Take your
-  time. Polished beats early.
-
-## What happens to your game
-
-For external submissions, the maintainer decides whether the game joins the shelf.
-Some good games will be turned down because they don't suit this particular
-collection. That is a judgment about the shelf, and the reasons will be given.
-
-By contributing, you agree to the repository's [license](../LICENSE): your game
-becomes part of PlaySuite, free for anyone to play, with the maintainer free to
-change and distribute it. Everything in it must be yours to give. That means
-original characters, original art, original music, and no brand names or logos.
-
-## For the model
-
-Start at [AGENTS.md](AGENTS.md). It is the whole procedure, and it links to each
-guide where that guide is needed.
-
-| | |
-|---|---|
-| [AGENTS.md](AGENTS.md) | The procedure, start to finish |
-| [guide/01-what-belongs.md](guide/01-what-belongs.md) | The shelf's taste, and the games already on it |
-| [guide/02-the-brief.md](guide/02-the-brief.md) | Turning an idea into a brief worth building |
-| [guide/03-anatomy.md](guide/03-anatomy.md) | How a game is laid out, and what "standalone" means |
-| [guide/04-the-shell.md](guide/04-the-shell.md) | The shelf, the command capsule and what the shell expects |
-| [guide/05-performance.md](guide/05-performance.md) | Doing no work when nothing changes |
-| [guide/06-look-sound-words.md](guide/06-look-sound-words.md) | Art, sound and writing |
-| [guide/07-primitives.md](guide/07-primitives.md) | The drawing, text, sound and 3D pieces you can borrow |
-| [guide/08-on-the-shelf.md](guide/08-on-the-shelf.md) | The folder contract and automatic discovery |
-| [guide/09-deliver.md](guide/09-deliver.md) | One-folder push and automatic publication |
-| [guide/10-house-style.md](guide/10-house-style.md) | How the C++ is written |
-| [guide/11-shared-engines.md](guide/11-shared-engines.md) | Engines shared by a series of games (`shared/`), and when to make one |
-| `template/` | A complete small game to start from |
-| `tools/` | `new_game.py`, `wire_shelf.py`, `check_game.py`, `shrink_png.py` |
-| `kit/` | The headless harness: real fonts and PNG output with no window |
+By submitting, you agree that the game is distributed under the repository's
+[licence](../LICENSE), and that the maintainer may change it.

@@ -5,7 +5,7 @@ borrowed tunes. Keep the scripts that render this game's music and effects in th
 folder so anyone can rebuild them. `make_sfx.py` is a small standard-library
 starting point; for richer instruments, copy
 `games/zenconstruction/audio_src/engine/synth.py` into this folder (it needs NumPy)
-and write the score beside it. See `new-games/guide/06-look-sound-words.md`.
+and write the score beside it. See the Craft section of `new-games/AGENTS.md`.
 
 Render into this game's `assets/audio/` with the `tg_` file prefix. The generator
 already uses that destination. The build discovers these files automatically;

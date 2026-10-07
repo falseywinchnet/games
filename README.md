@@ -147,9 +147,9 @@ PlaySuite has **22 games**: Solitaire, Spider, FreeCell, Hearts, Sudoku, Gems, N
 </table>
 <!-- games:end -->
 
-## Make a game for the shelf
+## Submit a game
 
-Anyone with an idea for a small game can build one with an AI model and offer it for the shelf. [new-games/](new-games/README.md) explains what kind of game belongs here and holds the whole kit: a template game, a headless harness that renders a game's frames without the application, the tools that put a box on the shelf, and the procedure a model follows ([new-games/AGENTS.md](new-games/AGENTS.md)).
+[new-games/README.md](new-games/README.md) states the rules and requirements a game must meet and how to submit one. [new-games/AGENTS.md](new-games/AGENTS.md) is the procedure for building it, alone or with an AI model, and `new-games/` holds the template game and tools.
 
 A game's folder holds everything about it: `GAME.json` (its identity on the shelf), its code, assets, help, tests and tools, `about.md` (its description on this page) and `screens/readme.jpg` (its picture here). This page's game list is regenerated from those files by `tools/make_readme.py`, automatically after every push to `main`.
 

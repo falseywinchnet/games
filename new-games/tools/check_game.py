@@ -234,7 +234,7 @@ def check_documents(directory: Path, manifest: dict, report: Report) -> None:
     if manifest["id"] == "templategame":
         report.ok("template documents are placeholders")
         return
-    report.require("TODO" not in brief and len(brief) > 600, "README.md holds the brief", "README.md: write the brief (no TODO left, see guide/02-the-brief.md)")
+    report.require("TODO" not in brief and len(brief) > 600, "README.md holds the brief", "README.md: write the brief (no TODO left, see new-games/AGENTS.md section 1)")
     for heading in ("VERIFIED", "NOT VERIFIED", "DECISIONS"):
         report.require(re.search(r"^#+\s*%s\b" % heading, handoff, re.MULTILINE | re.IGNORECASE) is not None,
                        f"HANDOFF.md has a {heading} section", f"HANDOFF.md needs a {heading} section")
