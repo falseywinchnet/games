@@ -324,7 +324,13 @@ void Diorama::tap(double x, double y, SceneContext& context) {
     const ScreenTap at{x, y, static_cast<double>(projection.width) / std::max(1, projection.height), 0.2};
     const std::size_t startled =
         startle(shown_.creatures, projection, at, context.time, scenes_[shown_.scene].bounds);
-    if (!setup_.tap_sound.empty())
+    bool voiced = false;
+#ifdef GUI_FORMS_AUDIO_GENERATOR
+    // A live bed plays the tap itself (varied and placed); the clip is the fallback.
+    if (ambience_voice_ && context.sound_on)
+        voiced = (*ambience_voice_).tap(x, y, startled);
+#endif
+    if (!voiced && !setup_.tap_sound.empty())
         context.sound.effect(setup_.tap_sound, startled > 0 ? 0.85 : 0.6, 1.0, x * 2 - 1);
 }
 
@@ -391,7 +397,12 @@ void Diorama::sound(bool running, SceneContext& context) {
     if (setup_.live_ambience != nullptr) {
         if (!ambience_voice_)
             ambience_voice_ = setup_.live_ambience();
-        context.sound.live(ambience_voice_, 1.0);
+        if (ambience_voice_ && shown_.stage && voiced_scene_ != shown_.scene) {
+            voiced_scene_ = shown_.scene;
+            (*ambience_voice_).show_scene(voiced_scene_);
+        }
+        const std::shared_ptr<gui_forms::AudioGenerator> voice = ambience_voice_;
+        context.sound.live(voice, 1.0);
     } else {
         context.sound.bed(setup_.ambience, 1.0);
     }

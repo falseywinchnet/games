@@ -38,12 +38,20 @@ ambient::DioramaScene tank_scene(const char* id, const char* name, const char* a
 }
 
 #ifdef GUI_FORMS_AUDIO_GENERATOR
-// The tank's water, synthesized as it plays (tank_voice.hpp), under the Sound master.
-class LiveTank final : public gui_forms::AudioGenerator {
+// The tank's water, synthesized as it plays (tank_voice.hpp), under the Sound master. It
+// follows the tank shown (the scenes are in Tank order) and plays the taps on the glass.
+class LiveTank final : public ambient::SceneVoice {
   public:
     void render(std::span<float> stereo) noexcept override {
         std::fill(stereo.begin(), stereo.end(), 0.0F);
-        tank_.render_add(stereo, 1.0);
+        tank_.render_add(stereo, TankVoice::suite_level);
+    }
+    void show_scene(std::size_t scene) noexcept override {
+        tank_.set_tank(static_cast<int>(scene));
+    }
+    bool tap(double x, double, std::size_t) noexcept override {
+        tank_.knock(x * 2 - 1);
+        return true;
     }
 
   private:
@@ -63,8 +71,8 @@ class LiveIsland final : public gui_forms::AudioGenerator {
     IslandVoice band_{static_cast<std::uint32_t>(std::random_device{}())};
 };
 
-std::shared_ptr<gui_forms::AudioGenerator> make_tank() {
-    std::shared_ptr<gui_forms::AudioGenerator> voice = std::make_shared<LiveTank>();
+std::shared_ptr<ambient::SceneVoice> make_tank() {
+    std::shared_ptr<ambient::SceneVoice> voice = std::make_shared<LiveTank>();
     return voice;
 }
 

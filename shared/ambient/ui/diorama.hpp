@@ -29,6 +29,22 @@ using SceneDressing = void (*)(SceneData& scene);
 #ifdef GUI_FORMS_AUDIO_GENERATOR
 // Creates a voice the scene synthesizes as it plays.
 using VoiceFactory = std::shared_ptr<gui_forms::AudioGenerator> (*)();
+
+// A live sound bed that answers its diorama: it hears which scene is shown and the
+// taps on the glass. Both calls come from the UI thread while the device renders on
+// its own, so an implementation hands them over without locking.
+class SceneVoice : public gui_forms::AudioGenerator {
+  public:
+    // The scene now shown (an index into the diorama's scenes). The first call comes
+    // before the voice is first heard.
+    virtual void show_scene(std::size_t) noexcept {}
+    // A tap on the glass at x, y (fractions of the view) that startled `startled`
+    // creatures. True when the voice plays the tap itself; the tap clip is then not played.
+    virtual bool tap(double, double, std::size_t) noexcept {
+        return false;
+    }
+};
+using SceneVoiceFactory = std::shared_ptr<SceneVoice> (*)();
 #endif
 
 // One scene a diorama can show.
@@ -51,7 +67,7 @@ struct DioramaSetup {
     SceneDressing dress{};
 #ifdef GUI_FORMS_AUDIO_GENERATOR
     // Live voices, preferred to the clips above where the toolkit can play them.
-    VoiceFactory live_ambience{};  // the Sound master, like the bed
+    SceneVoiceFactory live_ambience{};  // the Sound master, like the bed
     VoiceFactory live_music{};     // the Music master
 #endif
     Bounds bounds{};        // where startled creatures may go
@@ -148,8 +164,9 @@ class Diorama final : public Scenery {
     double last_sway_{-1};  // scene time of the last foliage update
     std::vector<std::uint32_t> empty_{};
 #ifdef GUI_FORMS_AUDIO_GENERATOR
-    std::shared_ptr<gui_forms::AudioGenerator> ambience_voice_{};
+    std::shared_ptr<SceneVoice> ambience_voice_{};
     std::shared_ptr<gui_forms::AudioGenerator> music_voice_{};
+    std::size_t voiced_scene_{static_cast<std::size_t>(-1)};  // the scene the voice was last told of
 #endif
 };
 

@@ -114,7 +114,11 @@ tap sound, the help words, the look factory, an optional dressing that adds the
 game's own props to the archive as it loads, the creatures' bounds, the cadence
 limits and a backdrop colour shown while loading. Where the toolkit plays
 generators, `live_ambience` and `live_music` name voices synthesized as they play
-(`SoundDesk::live` and `SoundDesk::live_music`); the clips are the fallback.
+(`SoundDesk::live` and `SoundDesk::live_music`); the clips are the fallback. The
+live ambience is a `SceneVoice`: it hears which scene is shown (`show_scene`) and may
+play the taps on the glass itself (`tap` returns true, and the tap clip is skipped).
+Both calls come from the UI thread, so a voice hands them to its audio thread
+without locking.
 
 Set `GAMES_SCENE_TRACE` to have a scene print its frame pacing (interval, spread,
 late frames), drawing and presentation times and missed surface leases when it

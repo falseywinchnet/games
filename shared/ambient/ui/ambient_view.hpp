@@ -24,7 +24,7 @@ struct SceneSetup {
     LookFactory make_look{};
     SceneDressing dress{};        // the game's own props, added to the archive as it loads
 #ifdef GUI_FORMS_AUDIO_GENERATOR
-    VoiceFactory live_ambience{};  // synthesized in place of `ambience` where possible
+    SceneVoiceFactory live_ambience{};  // synthesized in place of `ambience` (and the tap) where possible
     VoiceFactory live_music{};     // synthesized in place of `music` where possible
 #endif
     Bounds bounds{};              // where startled creatures may go

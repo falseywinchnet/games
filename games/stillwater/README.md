@@ -18,14 +18,20 @@ the surface, softer and dimmer on the floor.
 
 Two more tanks can be chosen with the Scene command:
 
-- **Reef**: white coral sand under a low ridge of live rock, staghorn and brain
-  corals, sea fans, sea whips and soft-coral mounds; blue and yellow tangs over the
-  reef, clownfish keeping close to three anemones, a red hermit crab, sea grass at
-  the sides and the chest in the sand.
+- **Reef**: white coral sand under a wall of live rock crusted pink and purple with
+  coralline algae, and two bommies with a channel of sand between them running back
+  from the glass. Table corals stand out from the rock at several heights over
+  staghorn and bushy thickets, finger, brain and plate corals, leather toadstools,
+  mushroom discs, zoanthid mats and tube sponges, with lace sea fans behind and
+  rubble along the channel. A cloud of small green chromis and a school of lyretail
+  anthias hang over the reef, a few yellow and blue tangs graze along it, clownfish
+  keep to their three anemones, and a red hermit crab walks by the chest. Sunbeams
+  slant down through the blue water.
 - **River pool**: dim, tea-coloured water under tree roots reaching down from the
-  bank, sunken branches, smooth stones, gravel and leaf litter, long eelgrass in the
-  current; a shoal of olive minnows, a few bronze rudd with red fins, darters on the
-  bottom and a dull crab under a branch.
+  bank, a far bank of stones rising out of the murk, sunbeams through the brown
+  water, sunken branches, smooth stones, gravel and leaf litter, long eelgrass in the
+  current; a shoal of olive minnows keeping together, a few bronze rudd with red fins,
+  darters on the bottom and a dull crab under a branch.
 
 There are no rules, no score and nothing to lose. It serves the collection's fourth
 purpose more purely than any game on the shelf: something pleasant to glance at
@@ -60,9 +66,15 @@ re-implemented for the processor. Sand, rock and wood use Poly Haven's CC0 maps.
 House look applies: the scene is drawn at one pixel per two points (Balanced) and
 enlarged exactly, like the collection's other 3D games. Fine draws smaller pixels.
 
-Sound is the tank itself: the filter's pump hum, moving water and an air stone's
-small bubbles, synthesized as it plays (`src/tank_voice.cpp`), and a glass tap. Both
-follow the Sound master (and the scene's Sound command).
+Sound is the tank itself, synthesized as it plays (`src/tank_voice.cpp`) to the
+native Stillwater's recipe: the filter motor's quiet 60 Hz hum, strongest at 120 Hz
+and stirred by mechanical noise; a very quiet, continuous band of return water; and
+the air stone's bubbles, each a short ring at the Minnaert pitch of its size, formed
+at random moments whose pace slowly wanders, sounding from where the column rises.
+Each tank has its own mix: the reef's stronger circulation; in the river pool a far
+filter, the current and the odd larger bubble of gas from the silt. A tap on the glass
+is a dull fingertip, placed where the glass was touched and a little different each
+time. All of it is faint, under the Sound master; it stops while paused or hidden.
 
 Music is an island band on an old library record, making up lazy Hawaiian tunes as
 it plays (`src/island_voice.cpp`): a lap steel sliding into the melody (sometimes in
@@ -70,8 +82,8 @@ sixths), a ukulele strumming the island rhythm, an upright bass, vibraphone and
 marimba answers, a shaker and a few bubbles, in a swung 4/4 on sixth and seventh
 chords joined by the II7-V7 vamp, through a spring reverb and a worn tape. It follows the
 Music master and M. Where the toolkit cannot play live voices, the same recipes are
-played from loops: `audio_src/make_audio.py` (the water) and `sw_music_render loop`
-(96 seconds of the band). A paused tank is silent.
+played from clips the same code renders (`audio_src/make_audio.py`: 64 seconds of the
+planted tank's water, one tap, and 96 seconds of the band). A paused tank is silent.
 
 ## Processor, not graphics card
 

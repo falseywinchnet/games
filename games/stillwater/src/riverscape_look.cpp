@@ -102,7 +102,8 @@ Water water_at(const TankStyle& style, Vec3 eye, Vec3 world) {
 }
 
 const FishColors& fish_colors(const TankStyle& style, const ambient::ActorSample& in) {
-    const int kind = std::clamp(static_cast<int>(in.tint.x + 0.5F) - 1, 0, 2);
+    const int last = static_cast<int>(style.fish.size()) - 1;
+    const int kind = std::clamp(static_cast<int>(in.tint.x + 0.5F) - 1, 0, last);
     return style.fish[static_cast<std::size_t>(kind)];
 }
 
@@ -189,8 +190,23 @@ RiverscapeLook::RiverscapeLook(const ambient::SceneData& scene, const TankStyle&
     }
 }
 
-Rgb RiverscapeLook::background(float, float v) const {
-    const Rgb result = display_tank(ambient::scale(water_color(style_, 1.0F - v), 1.0F));
+Rgb RiverscapeLook::background(float u, float v) const {
+    const float up = 1.0F - v;
+    float glow = up * up;
+    if (style_.shafts > 0) {
+        // Five soft shafts leaning a little, spreading as they fall, fading with depth.
+        constexpr float centres[5] = {0.12F, 0.31F, 0.47F, 0.66F, 0.86F};
+        constexpr float widths[5] = {0.035F, 0.05F, 0.03F, 0.06F, 0.04F};
+        constexpr float strengths[5] = {0.7F, 1.0F, 0.6F, 0.9F, 0.65F};
+        float shaft = 0;
+        for (int k = 0; k < 5; ++k) {
+            const float across = (u - centres[k] + 0.12F * v) / (widths[k] * (1.0F + 1.5F * v));
+            shaft += strengths[k] * std::exp(-across * across);
+        }
+        glow += style_.shafts * shaft * std::pow(up, 1.6F);
+    }
+    const Vec3 water = ambient::add(water_color(style_, up), ambient::scale(style_.surface_glow, glow));
+    const Rgb result = display_tank(water);
     return result;
 }
 
@@ -233,8 +249,8 @@ ambient::FixedShade RiverscapeLook::shade_fixed(const ambient::FixedSample& in, 
         }
         const float fine = value_noise(ambient::scale(in.world, 9)) * 0.6F + value_noise(ambient::scale(in.world, 27)) * 0.4F;
         const float moss = ambient::smoothstep(0.07F, 0.5F, in.moss + (fine - 0.5F) * 0.45F) * style_.moss;
-        const Vec3 film = material == sand ? Vec3{0.10F, 0.10F, 0.02F} : Vec3{0.03F, 0.055F, 0.007F};
-        const Vec3 turf{0.0035F, 0.013F, 0.0025F};
+        const Vec3 film = material == sand ? Vec3{0.10F, 0.10F, 0.02F} : style_.film;
+        const Vec3 turf = style_.turf;
         const Vec3 moss_color =
             ambient::scale(ambient::mix(film, turf, ambient::smoothstep(0.15F, 0.85F, in.moss)), 0.6F + 0.8F * fine);
         albedo = ambient::mix(tinted, ambient::multiply(moss_color, albedo), moss);

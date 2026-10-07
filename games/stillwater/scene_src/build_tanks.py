@@ -95,6 +95,7 @@ class Statics:
         self.base = base
         self.borrowed = {}
         self.rock_points = []
+        self.rock_normals = []
 
     def top(self, x, z, reach=0.25):
         """The height of the rock (or sand) surface at x, z: something to set coral on."""
@@ -122,6 +123,8 @@ class Statics:
             m = np.asarray(transform, dtype=np.float64).reshape(3, 4)
             points = self.meshes[mesh][0]["p"].astype(np.float64)
             self.rock_points.append(points @ m[:, :3].T + m[:, 3])
+            normals = self.meshes[mesh][0]["n"].astype(np.float64) / 127.0
+            self.rock_normals.append(unit(normals @ np.linalg.inv(m[:, :3])))
         record = np.zeros(1, PLACEMENT)
         record["mesh"] = mesh
         record["m"] = np.asarray(transform, dtype=np.float32).ravel()
@@ -376,84 +379,753 @@ def boulder_pile(statics, rng, centre, count, spread, size, height, tint, flatte
 
 # ---------------------------------------------------------------------- the reef
 
-def staghorn(builder, rng, base, colour, tip, height=1.0, depth=3, spread=0.5, radius=0.05):
-    def grow(start, direction, length, r, level):
-        rows = 4
-        path = curve(start, direction, length, rows, wobble=0.6, rng=rng)
-        t = np.linspace(0, 1, rows + 1)[:, None]
-        last = level == depth
-        colours = colour * (1 - t * (0.4 if last else 0.15)) + tip * t * (0.4 if last else 0.15)
-        builder.tube(path, np.linspace(r, r * 0.72, rows + 1), colours, sides=5, cap=last)
-        if last:
-            return
-        end = path[-1]
-        heading = unit(path[-1] - path[-2])
-        for _ in range(int(rng.integers(2, 4))):
-            twist = rng.normal(0, 1, 3)
-            twist[1] = abs(twist[1]) * 0.3
-            child = unit(heading + unit(twist) * spread)
-            grow(end, child, length * rng.uniform(0.62, 0.8), r * 0.72, level + 1)
+class RockMap:
+    """The highest rock (or sand) under each 0.1-unit cell: where coral can sit."""
 
-    for _ in range(int(rng.integers(3, 5))):
-        lean = rng.normal(0, 0.35, 3)
-        lean[1] = 1.0
-        grow(np.asarray(base, dtype=np.float64), lean, height * 0.42 * rng.uniform(0.8, 1.2), radius, 1)
+    cell = 0.1
+    x0, x1, z0, z1 = -14.0, 14.0, -11.0, 7.0
+
+    def __init__(self, statics: Statics):
+        nx = int(round((self.x1 - self.x0) / self.cell))
+        nz = int(round((self.z1 - self.z0) / self.cell))
+        xs = self.x0 + (np.arange(nx) + 0.5) * self.cell
+        zs = self.z0 + (np.arange(nz) + 0.5) * self.cell
+        self.height = np.array([[ground_height(x, z) for x in xs] for z in zs])
+        self.sand = self.height.copy()
+        points = np.concatenate(statics.rock_points)
+        ix = np.clip(((points[:, 0] - self.x0) / self.cell).astype(int), 0, nx - 1)
+        iz = np.clip(((points[:, 2] - self.z0) / self.cell).astype(int), 0, nz - 1)
+        np.maximum.at(self.height, (iz, ix), points[:, 1])
+
+    def _index(self, x, z):
+        ix = int(np.clip((x - self.x0) / self.cell, 0, self.height.shape[1] - 1))
+        iz = int(np.clip((z - self.z0) / self.cell, 0, self.height.shape[0] - 1))
+        return iz, ix
+
+    def top(self, x, z, reach=0.15):
+        iz, ix = self._index(x, z)
+        k = max(1, int(round(reach / self.cell)))
+        return float(self.height[max(0, iz - k):iz + k + 1, max(0, ix - k):ix + k + 1].max())
+
+    def rock_above_sand(self, x, z):
+        iz, ix = self._index(x, z)
+        return float(self.height[iz, ix] - self.sand[iz, ix])
+
+    def normal(self, x, z, step=0.3):
+        dx = self.top(x + step, z) - self.top(x - step, z)
+        dz = self.top(x, z + step) - self.top(x, z - step)
+        return unit(np.array([-dx, 2 * step, -dz]))
 
 
-def brain_coral(builder, centre, radius, ridge, valley, squash=0.7):
+def grid_triangles(rows, cols, wrap=False):
+    """Two triangles per quad of a rows x cols lattice of points (row-major)."""
+    triangles = []
+    span = cols if wrap else cols - 1
+    for i in range(rows - 1):
+        for j in range(span):
+            a = i * cols + j
+            b = i * cols + (j + 1) % cols
+            c = a + cols
+            d = b + cols
+            triangles += [(a, c, b), (b, c, d)]
+    return triangles
+
+
+def smooth_normals(points, triangles, outward=None):
+    """Vertex normals from the faces; flipped toward `outward` (per vertex) where given."""
+    points = np.asarray(points, dtype=np.float64)
+    tri = np.asarray(triangles, dtype=np.int64)
+    face = np.cross(points[tri[:, 1]] - points[tri[:, 0]], points[tri[:, 2]] - points[tri[:, 0]])
+    accumulated = np.zeros_like(points)
+    for k in range(3):
+        np.add.at(accumulated, tri[:, k], face)
+    normals = unit(accumulated)
+    if outward is not None:
+        flip = np.sum(normals * np.asarray(outward), axis=1) < 0
+        normals[flip] *= -1
+    return normals
+
+
+def speckle(rng, colours, amount=0.12):
+    """Per-vertex brightness variation: the grain of polyps over a colony."""
+    colours = np.asarray(colours, dtype=np.float64)
+    return colours * rng.uniform(1 - amount, 1 + amount, (len(colours), 1))
+
+
+def brain_coral(builder, rng, centre, radius, ridge, valley, squash=0.72):
+    """A dome of meandering ridges and valleys."""
+    phase = rng.uniform(0, 6.3, 4)
+    lump = rng.uniform(0.04, 0.09)
+
+    def meander(d):
+        lon = math.atan2(d[2], d[0])
+        lat = math.acos(max(-1.0, min(1.0, d[1])))
+        return math.sin(17 * lat + 2.6 * math.sin(5 * lon + 3 * lat + phase[0]) +
+                        1.7 * math.sin(7 * lat - 4 * lon + phase[1]))
+
     def r_of(d):
         lon = math.atan2(d[2], d[0])
         lat = math.acos(max(-1.0, min(1.0, d[1])))
-        meander = math.sin(14 * lat + 2.2 * math.sin(5 * lon) + 1.4 * math.sin(3 * lat * 2 + lon * 7))
-        return radius * (1 + 0.035 * meander)
+        shape = 1 + lump * math.sin(3 * lon + phase[2]) * math.sin(2 * lat + phase[3])
+        return radius * shape * (1 + 0.05 * meander(d))
 
     def c_of(d):
-        lon = math.atan2(d[2], d[0])
-        lat = math.acos(max(-1.0, min(1.0, d[1])))
-        meander = math.sin(14 * lat + 2.2 * math.sin(5 * lon) + 1.4 * math.sin(3 * lat * 2 + lon * 7))
-        return valley + (ridge - valley) * (0.5 + 0.5 * meander)
+        m = meander(d)
+        t = min(1.0, max(0.0, (m + 0.2) / 0.9))
+        return valley + (ridge - valley) * t * t * (3 - 2 * t)
 
-    points, normals, colours, tri = lathe_sphere(14, 28, r_of, c_of, cut=-0.25)
+    rings = 20 if radius > 0.42 else 12
+    points, normals, colours, tri = lathe_sphere(rings, rings * 2, r_of, c_of, cut=-0.3)
     points[:, 1] *= squash
     normals = unit(normals * np.array([1, 1 / squash, 1]))
     builder.add(points + np.asarray(centre), normals, colours, tri)
 
 
-def sea_fan(builder, rng, base, height, colour, facing_yaw):
-    """A gorgonian: a flat, fine branching fan."""
-    right = np.array([math.cos(facing_yaw), 0, -math.sin(facing_yaw)])
-
-    def grow(start, angle, length, r, level):
-        direction = unit(right * math.sin(angle) + np.array([0, math.cos(angle), 0]))
-        path = curve(start, direction, length, 3, wobble=0.3, rng=rng)
-        builder.tube(path, np.linspace(r, r * 0.8, 4), colour, sides=4, cap=level == 5)
-        if level == 5:
-            return
-        for side in (-1, 1):
-            grow(path[-1], angle + side * rng.uniform(0.18, 0.42), length * rng.uniform(0.7, 0.86), r * 0.8, level + 1)
-
-    grow(np.asarray(base, dtype=np.float64), 0.0, height * 0.3, 0.035, 1)
-
-
-def anemone(statics_builder, foliage, rng, base, radius, column, tentacle, tip, count=46, length=0.5):
+def table_coral(builder, rng, base, radius, stalk, colour, rim, tilt=None):
+    """A table (plate) coral: a broad, slightly dished plate on a short stalk."""
     base = np.asarray(base, dtype=np.float64)
-    top = base + np.array([0, radius * 0.9, 0])
-    statics_builder.tube([base, base + np.array([0, radius * 0.5, 0]), top], [radius * 0.9, radius * 0.95, radius * 0.85],
-                         column, sides=10, cap=True)
+    top = base + np.array([0, stalk, 0])
+    builder.tube([base, base + np.array([0, stalk * 0.5, 0]), top], [radius * 0.13, radius * 0.1, radius * 0.08],
+                 colour * 0.55, sides=7, cap=False)
+    tilt = np.zeros(3) if tilt is None else np.asarray(tilt, dtype=np.float64)
+    phase = rng.uniform(0, 6.3, 3)
+    rings, segments = 7, 32
+    upper, lower, colours_up, colours_down = [], [], [], []
+    for i in range(rings + 1):
+        t = i / rings
+        for j in range(segments):
+            a = 2 * math.pi * j / segments
+            edge = radius * (1 + 0.12 * math.sin(5 * a + phase[0]) + 0.06 * math.sin(9 * a + phase[1]))
+            r = edge * t
+            x, z = math.cos(a) * r, math.sin(a) * r
+            lift = 0.22 * radius * t * t + 0.03 * radius * math.sin(3 * a + phase[2]) * t + x * tilt[0] + z * tilt[2]
+            thickness = 0.035 + 0.045 * (1 - t)
+            upper.append(top + np.array([x, 0.04 + lift, z]))
+            lower.append(top + np.array([x, 0.04 + lift - thickness, z]))
+            growing = colour * (1 - t ** 4) + rim * t ** 4
+            colours_up.append(growing)
+            colours_down.append(colour * 0.7 * (1 - t ** 4) + rim * 0.8 * t ** 4)
+    cols = segments
+    tri_up = grid_triangles(rings + 1, cols, wrap=True)
+    count = len(upper)
+    tri_down = [(a + count, c + count, b + count) for (a, b, c) in tri_up]
+    # The rim joins the last rows of the two surfaces.
+    last = rings * cols
+    rim_tri = []
+    for j in range(cols):
+        a, b = last + j, last + (j + 1) % cols
+        rim_tri += [(a, b, a + count), (b, b + count, a + count)]
+    points = np.array(upper + lower)
+    triangles = tri_up + tri_down + rim_tri
+    up = np.tile([0.0, 1.0, 0.0], (count, 1))
+    outward = np.concatenate([up, -up])
+    normals = smooth_normals(points, triangles, outward)
+    colours = speckle(rng, np.array(colours_up + colours_down), 0.2)
+    builder.add(points, normals, colours, triangles)
+
+
+def thicket(builder, rng, rocks, centre, radius, height, colour, tip, branch_radius=0.07):
+    """Staghorn or bushy Acropora: a dense clump of short, thick, forking branches."""
+    count = int(10 + 26 * radius)
+    for _ in range(count):
+        a = rng.uniform(0, 2 * math.pi)
+        d = radius * math.sqrt(rng.uniform(0, 1))
+        x, z = centre[0] + math.cos(a) * d, centre[1] + math.sin(a) * d
+        y = rocks.top(x, z, 0.1) - 0.05
+        outward = np.array([math.cos(a), 0, math.sin(a)]) * (0.3 + 0.7 * d / max(radius, 1e-6))
+        direction = unit(outward * 0.8 + np.array([0, 1.0, 0]) + rng.normal(0, 0.15, 3))
+        length = height * rng.uniform(0.55, 1.0) * (1 - 0.35 * d / max(radius, 1e-6))
+        r0 = branch_radius * rng.uniform(0.85, 1.15)
+        _branch(builder, rng, np.array([x, y, z]), direction, length, r0, colour, tip, 2)
+
+
+def _branch(builder, rng, start, direction, length, r0, colour, tip, levels):
+    rows = 3
+    path = curve(start, direction, length, rows, wobble=0.35, rng=rng)
+    t = np.linspace(0, 1, rows + 1)[:, None]
+    end_tip = levels == 1
+    shade = colour * (1 - t * 0.35) + tip * t * 0.35 if not end_tip else colour * (1 - t ** 2) + tip * t ** 2
+    builder.tube(path, np.linspace(r0, r0 * 0.78, rows + 1), shade, sides=5, cap=True)
+    if levels <= 1:
+        return
+    for _ in range(int(rng.integers(1, 3))):
+        k = int(rng.integers(1, rows))
+        heading = unit(path[k + 1] - path[k])
+        side = unit(np.cross(heading, rng.normal(0, 1, 3)))
+        child = unit(heading + side * rng.uniform(0.5, 0.9) + np.array([0, 0.25, 0]))
+        _branch(builder, rng, path[k], child, length * rng.uniform(0.45, 0.65), r0 * 0.8, colour, tip, levels - 1)
+
+
+def finger_coral(builder, rng, rocks, centre, radius, height, colour, tip):
+    """Finger or pillar coral: upright, blunt, thick fingers."""
+    for _ in range(int(7 + 18 * radius)):
+        a = rng.uniform(0, 2 * math.pi)
+        d = radius * math.sqrt(rng.uniform(0, 1))
+        x, z = centre[0] + math.cos(a) * d, centre[1] + math.sin(a) * d
+        y = rocks.top(x, z, 0.1) - 0.05
+        lean = np.array([math.cos(a), 0, math.sin(a)]) * 0.25 * d / max(radius, 1e-6)
+        length = height * rng.uniform(0.5, 1.0)
+        path = curve((x, y, z), lean + np.array([0, 1.0, 0]), length, 3, wobble=0.15, rng=rng)
+        t = np.linspace(0, 1, 4)[:, None]
+        r = rng.uniform(0.07, 0.11)
+        builder.tube(path, np.full(4, r), colour * (1 - t * 0.25) + tip * t * 0.25, sides=6, cap=True)
+
+
+def plate_whorl(builder, rng, centre, colour, rim, plates=4, size=0.6):
+    """Montipora-like plates: thin, tilted, wavy-edged plates stacked in a loose spiral."""
+    centre = np.asarray(centre, dtype=np.float64)
+    start = rng.uniform(0, 2 * math.pi)
+    for k in range(plates):
+        heading = start + k * rng.uniform(1.6, 2.4)
+        radius = size * rng.uniform(0.6, 1.0)
+        origin = centre + np.array([0, k * size * 0.28, 0])
+        span = rng.uniform(2.2, 3.6)
+        out = np.array([math.cos(heading), 0, math.sin(heading)])
+        rings, segments = 4, 12
+        top, bottom, colours = [], [], []
+        for i in range(rings + 1):
+            t = i / rings
+            for j in range(segments + 1):
+                a = heading - span / 2 + span * j / segments
+                edge = radius * (1 + 0.1 * math.sin(6 * a + k))
+                r = 0.08 + edge * t
+                p = origin + np.array([math.cos(a) * r, 0, math.sin(a) * r])
+                # Tilted up toward the light along the plate's outward direction.
+                p[1] += 0.35 * np.dot(p - origin, out) * t + 0.05 * math.sin(5 * a) * t
+                top.append(p + np.array([0, 0.025, 0]))
+                bottom.append(p - np.array([0, 0.025, 0]))
+                colours.append(colour * (1 - t ** 2) + rim * t ** 2)
+        cols = segments + 1
+        tri = grid_triangles(rings + 1, cols)
+        n = len(top)
+        tri_b = [(a + n, c + n, b + n) for (a, b, c) in tri]
+        points = np.array(top + bottom)
+        up = np.tile([0.0, 1.0, 0.0], (n, 1))
+        normals = smooth_normals(points, tri + tri_b, np.concatenate([up, -up]))
+        shade = np.concatenate([np.array(colours), np.array(colours) * 0.5])
+        builder.add(points, normals, speckle(rng, shade, 0.08), tri + tri_b)
+
+
+def leather_coral(builder, rng, base, radius, colour, rim):
+    """A toadstool leather coral: a thick stalk under a broad cap with a folded edge."""
+    base = np.asarray(base, dtype=np.float64)
+    stalk = radius * rng.uniform(0.7, 1.0)
+    builder.tube([base, base + np.array([0, stalk * 0.6, 0]), base + np.array([0, stalk, 0])],
+                 [radius * 0.38, radius * 0.32, radius * 0.4], colour * 0.85, sides=8, cap=False)
+    centre = base + np.array([0, stalk, 0])
+    rings, segments = 6, 28
+    folds = int(rng.integers(5, 8))
+    phase = rng.uniform(0, 6.3)
+    top, bottom, colours = [], [], []
+    for i in range(rings + 1):
+        t = i / rings
+        for j in range(segments):
+            a = 2 * math.pi * j / segments
+            r = radius * t * (1 + 0.08 * math.sin(folds * a + phase))
+            y = radius * 0.18 * (1 - t * t) + radius * 0.12 * math.sin(folds * a + phase) * t ** 3
+            top.append(centre + np.array([math.cos(a) * r, y, math.sin(a) * r]))
+            bottom.append(centre + np.array([math.cos(a) * r * 0.92, y - radius * 0.12 * (1 - 0.5 * t) - 0.02,
+                                             math.sin(a) * r * 0.92]))
+            colours.append(colour * (1 - t ** 3) + rim * t ** 3)
+    tri = grid_triangles(rings + 1, segments, wrap=True)
+    n = len(top)
+    tri_b = [(a + n, c + n, b + n) for (a, b, c) in tri]
+    last = rings * segments
+    edge = []
+    for j in range(segments):
+        a, b = last + j, last + (j + 1) % segments
+        edge += [(a, b, a + n), (b, b + n, a + n)]
+    points = np.array(top + bottom)
+    up = np.tile([0.0, 1.0, 0.0], (n, 1))
+    normals = smooth_normals(points, tri + tri_b + edge, np.concatenate([up, -up]))
+    shade = np.concatenate([np.array(colours), np.array(colours) * 0.7])
+    builder.add(points, normals, speckle(rng, shade, 0.15), tri + tri_b + edge)
+
+
+def disc_corals(builder, rng, rocks, centre, spread, count, colour, mouth):
+    """Mushroom corals: a scatter of small flat discs on the rock, each with its mouth."""
+    for _ in range(count):
+        x = centre[0] + rng.normal(0, spread)
+        z = centre[1] + rng.normal(0, spread * 0.7)
+        y = rocks.top(x, z, 0.08)
+        size = rng.uniform(0.1, 0.19)
+        tint = colour * rng.uniform(0.8, 1.15)
+
+        def c_of(d, tint=tint):
+            centre_weight = max(0.0, d[1]) ** 8
+            return tint * (1 - centre_weight) + mouth * centre_weight
+
+        points, normals, colours, tri = lathe_sphere(4, 10, lambda d, s=size: s, c_of, cut=0.15)
+        points[:, 1] *= 0.3
+        normal = rocks.normal(x, z)
+        builder.add(points + np.array([x, y - 0.02, z]) + normal * 0.01, unit(normals + normal * 0.3), colours, tri)
+
+
+def tube_sponge(builder, rng, rocks, centre, colour, inside, tubes=4, height=1.0):
+    """Tube sponges: open-topped tubes, darker within."""
+    for _ in range(tubes):
+        x = centre[0] + rng.normal(0, 0.18)
+        z = centre[1] + rng.normal(0, 0.14)
+        y = rocks.top(x, z, 0.08) - 0.05
+        r = rng.uniform(0.11, 0.17)
+        length = height * rng.uniform(0.55, 1.0)
+        path = curve((x, y, z), (rng.normal(0, 0.12), 1.0, rng.normal(0, 0.12)), length, 4, wobble=0.1, rng=rng)
+        radii = np.linspace(r * 0.85, r * 1.1, 5)
+        t = np.linspace(0, 1, 5)[:, None]
+        builder.tube(path, radii, colour * (0.75 + 0.35 * t), sides=9, cap=False)
+        inner = Builder()
+        inner.tube(path[1:], radii[1:] * 0.78, inside, sides=9, cap=False)
+        points, normals, colours, uv, triangles = (inner.points[0], -inner.normals[0], inner.rgb[0], inner.uv[0],
+                                                   inner.triangles[0][:, ::-1])
+        builder.add(points, normals, colours, triangles, uv)
+        # The lip, from the outer wall to the inner one.
+        sides = 9
+        lip_points, lip_normals = [], []
+        for radius_scale in (1.0, 0.78):
+            for s in range(sides + 1):
+                a = 2 * math.pi * s / sides
+                lip_points.append(path[-1] + np.array([math.cos(a), 0, math.sin(a)]) * radii[-1] * radius_scale
+                                  + np.array([0, 0.01, 0]))
+                lip_normals.append((0.0, 1.0, 0.0))
+        lip = []
+        for s in range(sides):
+            a, b = s, s + 1
+            lip += [(a, a + sides + 1, b), (b, a + sides + 1, b + sides + 1)]
+        builder.add(lip_points, lip_normals, colour * 1.05, lip)
+
+
+def zoanthids(builder, rng, rocks, centre, spread, count, colour, eye):
+    """A mat of small colonial polyps: each a short dome with a bright centre."""
+    for _ in range(count):
+        x = centre[0] + rng.normal(0, spread)
+        z = centre[1] + rng.normal(0, spread * 0.7)
+        y = rocks.top(x, z, 0.06)
+        size = rng.uniform(0.045, 0.07)
+
+        def c_of(d):
+            ring = max(0.0, d[1]) ** 6
+            return colour * (1 - ring) + eye * ring
+
+        points, normals, colours, tri = lathe_sphere(3, 7, lambda d, s=size: s, c_of, cut=-0.1)
+        points[:, 1] *= 0.7
+        builder.add(points + np.array([x, y, z]), normals, colours, tri)
+
+
+def sea_fan(builder, rng, base, height, colour, facing_yaw):
+    """A gorgonian: a fan of fine lace, open between its branches, across the current."""
+    base = np.asarray(base, dtype=np.float64)
+    right = np.array([math.cos(facing_yaw), 0, -math.sin(facing_yaw)])
+    up = np.array([0.0, 1.0, 0.0])
+    facing = np.cross(right, up)
+    rows, cols = 24, 48
+    phase = rng.uniform(0, 6.3, 4)
+    points, colours = [], []
+    for i in range(rows + 1):
+        t = i / rows
+        for j in range(cols + 1):
+            a = -1.05 + 2.1 * j / cols
+            reach = height * (0.1 + 0.9 * t) * (1 + 0.1 * math.sin(3 * a + phase[0]))
+            bow = 0.1 * height * math.sin(a * 1.4 + phase[1]) * t
+            points.append(base + right * math.sin(a) * reach * 0.85 + up * math.cos(a) * reach + facing * bow)
+            colours.append(colour * (0.8 + 0.35 * t) * rng.uniform(0.75, 1.15))
+    cols1 = cols + 1
+    # The lace: small openings scattered through it, more of them toward the rim.
+    front = []
+    for i in range(rows):
+        for j in range(cols):
+            if rng.uniform() < 0.1 + 0.4 * (i / rows):
+                continue
+            a = i * cols1 + j
+            front += [(a, a + cols1, a + 1), (a + 1, a + cols1, a + cols1 + 1)]
+    count = len(points)
+    back = [(a + count, c + count, b + count) for (a, b, c) in front]
+    all_points = np.array(points + [q - facing * 0.012 for q in points])
+    normals = np.concatenate([np.tile(facing, (count, 1)), np.tile(-facing, (count, 1))])
+    builder.add(all_points, normals, np.array(colours + colours), front + back)
+    for a in (-0.7, -0.25, 0.2, 0.62):
+        a += rng.uniform(-0.1, 0.1)
+        path = [base + right * math.sin(a) * height * k * 0.85 * 0.8 + up * math.cos(a) * height * k * 0.8
+                for k in np.linspace(0, 1, 5)]
+        builder.tube(path, np.linspace(0.04, 0.018, 5), colour * 0.8, sides=4, cap=True)
+
+
+def anemone(statics_builder, foliage, rng, base, radius, column, tentacle, tip, count=46, length=0.5, bulb=1.0):
+    """An anemone: a column under a crown of swaying tentacles, swollen toward their tips."""
+    base = np.asarray(base, dtype=np.float64)
+    top = base + np.array([0, radius * 0.7, 0])
+    statics_builder.tube([base, base + np.array([0, radius * 0.4, 0]), top],
+                         [radius * 0.85, radius * 0.9, radius * 0.95], column, sides=10, cap=True)
     root = foliage.root(tuple(top))
     for k in range(count):
         a = 2 * math.pi * (k * 0.618034 % 1.0)
-        ring = radius * math.sqrt(rng.uniform(0.15, 1.0)) * 0.8
+        ring = radius * math.sqrt(rng.uniform(0.1, 1.0)) * 0.95
         start = top + np.array([math.cos(a) * ring, 0.02, math.sin(a) * ring])
         outward = np.array([math.cos(a), 0, math.sin(a)])
-        direction = unit(outward * (0.35 + ring / radius) + np.array([0, 1.0, 0]))
+        direction = unit(outward * (0.45 + ring / radius) + np.array([0, 1.0, 0]))
         rows = 5
-        path = curve(start, direction, length * rng.uniform(0.75, 1.15), rows, droop=-0.2, wobble=0.5, rng=rng,
-                     lean=outward * 0.6)
-        t = np.linspace(0, 1, rows + 1)[:, None]
-        colours = tentacle * (1 - t ** 2) + tip * t ** 2
-        widths = np.linspace(0.055, 0.03, rows + 1)
+        path = curve(start, direction, length * rng.uniform(0.7, 1.15), rows, droop=-0.2, wobble=0.5, rng=rng,
+                     lean=outward * 0.7)
+        t = np.linspace(0, 1, rows + 1)
+        colours = tentacle * (1 - t[:, None] ** 2) + tip * t[:, None] ** 2
+        widths = 0.06 + 0.05 * bulb * np.sin(np.pi * np.clip(t * 1.15 - 0.15, 0, 1)) ** 2
+        widths[-1] *= 0.6
         foliage.ribbon(root, path, widths, colours, translucency=0.6, compliance=1.1, start=0.25)
+
+
+def encrust(builder, rng, rocks, palette, count):
+    """Fills the rock: small coral heads, polyp mats, discs and clumps on every upward face."""
+    taken = []
+    names = list(palette)
+    tries = 0
+    placed = 0
+    while placed < count and tries < count * 12:
+        tries += 1
+        x, z = rng.uniform(-12.5, 12.5), rng.uniform(-8.5, 0.6)
+        if rocks.rock_above_sand(x, z) < 0.3:
+            continue
+        normal = rocks.normal(x, z)
+        if normal[1] < 0.5:
+            continue
+        size = rng.uniform(0.18, 0.4)
+        if any((x - tx) ** 2 + (z - tz) ** 2 < (size + ts) ** 2 * 0.8 for tx, tz, ts in taken):
+            continue
+        taken.append((x, z, size))
+        placed += 1
+        y = rocks.top(x, z, 0.08)
+        colour, tip = palette[names[int(rng.integers(0, len(names)))]]
+        kind = rng.uniform()
+        if kind < 0.22:
+            brain_coral(builder, rng, (x, y - size * 0.3, z), size, tip * 0.8, colour * 0.5)
+        elif kind < 0.42:
+            zoanthids(builder, rng, rocks, (x, z), size * 0.5, 18, colour, tip)
+        elif kind < 0.58:
+            thicket(builder, rng, rocks, (x, z), size, size * 1.6, colour, tip, 0.055)
+        elif kind < 0.7:
+            finger_coral(builder, rng, rocks, (x, z), size * 0.6, size * 1.4, colour, tip)
+        elif kind < 0.82:
+            disc_corals(builder, rng, rocks, (x, z), size * 0.5, 5, colour * 1.1, tip)
+        else:
+            plate_whorl(builder, rng, (x, y - 0.05, z), colour, tip, 2, size)
+
+
+def encrust_faces(builder, rng, statics, palette, count):
+    """Coral on the rock's faces toward the glass: polyp mats, discs, small heads and shelves."""
+    points = np.concatenate(statics.rock_points)
+    normals = np.concatenate(statics.rock_normals)
+    facing = np.flatnonzero((normals[:, 2] > 0.4) & (normals[:, 1] > -0.3) & (points[:, 1] > 0.4))
+    names = list(palette)
+    taken = []
+    for index in rng.permutation(facing):
+        if len(taken) >= count:
+            break
+        p, n = points[index], normals[index]
+        size = rng.uniform(0.16, 0.32)
+        if any(np.sum((p - q) ** 2) < (size + r) ** 2 for q, r in taken):
+            continue
+        taken.append((p, size))
+        colour, tip = palette[names[int(rng.integers(0, len(names)))]]
+        kind = rng.uniform()
+        if kind < 0.3:
+            # A mat of polyps spread over the face.
+            for _ in range(14):
+                offset = unit(np.cross(n, rng.normal(0, 1, 3))) * rng.uniform(0, size)
+                q = p + offset + n * 0.02
+                r = rng.uniform(0.04, 0.06)
+                pts, nrm, col, tri = lathe_sphere(3, 7, lambda d, r=r: r, lambda d: polyp(colour, tip, d, 6))
+                builder.add(orient(pts, n) + q, orient(nrm, n), col, tri)
+        elif kind < 0.55:
+            pts, nrm, col, tri = lathe_sphere(8, 14, lambda d: size, lambda d: colour * (0.7 + 0.3 * d[1]), cut=0.0)
+            pts[:, 1] *= 0.55
+            builder.add(orient(pts, n) + p - n * size * 0.1, orient(unit(nrm * np.array([1, 1 / 0.55, 1])), n),
+                        speckle(rng, col, 0.15), tri)
+        elif kind < 0.75:
+            # A shelf of plate coral jutting from the face.
+            plate_whorl(builder, rng, p + n * 0.05 - np.array([0, 0.05, 0]), colour, tip, 1, size * 1.2)
+        else:
+            for _ in range(5):
+                offset = unit(np.cross(n, rng.normal(0, 1, 3))) * rng.uniform(0, size)
+                r = rng.uniform(0.09, 0.15)
+                pts, nrm, col, tri = lathe_sphere(4, 10, lambda d, r=r: r, lambda d: polyp(colour, tip, d, 8),
+                                                  cut=0.15)
+                pts[:, 1] *= 0.3
+                builder.add(orient(pts, n) + p + offset + n * 0.01, orient(nrm, n), col, tri)
+
+
+def polyp(colour, centre, d, sharpness):
+    """A polyp's colour toward its top: its own centre colour in a small spot."""
+    spot = max(0.0, d[1]) ** sharpness
+    return colour * (1 - spot) + centre * spot
+
+
+def orient(vectors, normal):
+    """Turns vectors so that +y points along `normal`."""
+    y = unit(normal)
+    x = unit(np.cross(np.array([0.0, 0.0, 1.0]) if abs(y[2]) < 0.9 else np.array([1.0, 0.0, 0.0]), y))
+    z = np.cross(x, y)
+    return np.asarray(vectors) @ np.array([x, y, z])
+
+
+def rubble_mesh(rng):
+    """A broken piece of branching coral, bleached: the reef's rubble."""
+    builder = Builder()
+    path = curve((-0.5, 0, 0), (1, 0.1, 0), 1.0, 3, wobble=0.4, rng=rng)
+    builder.tube(path, np.linspace(0.13, 0.1, 4), np.array([1.0, 1.0, 1.0]), sides=5, cap=True)
+    fork = curve(path[1], (0.6, 0.15, 0.7), 0.55, 2, wobble=0.3, rng=rng)
+    builder.tube(fork, np.linspace(0.1, 0.08, 3), np.array([1.0, 1.0, 1.0]), sides=5, cap=True)
+    points = np.concatenate(builder.points)
+    vertices = static_vertices(points, np.concatenate(builder.normals), np.concatenate(builder.rgb),
+                               np.concatenate(builder.uv))
+    return vertices, np.concatenate(builder.triangles)
+
+
+REEF_LAYOUT_SEED = 31415
+
+
+def build_reef(base: Archive) -> Archive:
+    rng = np.random.default_rng(REEF_LAYOUT_SEED)
+    statics = Statics(base)
+    # The floor: white coral sand.
+    statics.place(statics.borrow(0), affine(), (1.0, 0.97, 0.9), (10, 6), SAND)
+    rock = (0.36, 0.27, 0.31)
+    # Live rock: a wall along the back, rising toward the sides; a bommie to the left, a
+    # taller one to the right and a low outcrop behind the middle. A channel of sand runs
+    # from the glass to the wall between them.
+    for x in np.linspace(-12, 12, 13):
+        lift = 1.2 + 2.6 * (abs(x) / 12) ** 1.4
+        boulder_pile(statics, rng, (x + rng.uniform(-0.4, 0.4), -7.6 + rng.uniform(-0.5, 0.5)), 3, 1.0, 2.0,
+                     lift, rock, 0.7)
+    for x in (-8.5, -4.2, 4.8, 8.8):
+        boulder_pile(statics, rng, (x, -5.6 + rng.uniform(-0.4, 0.4)), 2, 0.8, 1.6, 0.6, rock, 0.65)
+    boulder_pile(statics, rng, (-6.3, -1.4), 5, 1.0, 1.5, 1.3, rock, 0.75)
+    boulder_pile(statics, rng, (6.0, -2.4), 6, 1.1, 1.6, 1.8, rock, 0.75)
+    boulder_pile(statics, rng, (1.6, -4.4), 2, 0.5, 1.2, 0.5, rock, 0.65)
+    rocks = RockMap(statics)
+
+    coral = Builder()
+    foliage = Foliage()
+    c = srgb
+    # Mostly the browns, tans, olives and creams of living coral, with the reef's
+    # brighter accents in the tips, the soft corals and the anemones.
+    palette = {
+        "tan": (c("#b08a5a"), c("#f0dcb0")), "brown": (c("#7a5a3a"), c("#d8b890")),
+        "olive": (c("#6f7a3e"), c("#c8d890")), "purple": (c("#6c4a8c"), c("#d8c0ff")),
+        "blue": (c("#4f6f9a"), c("#b8e0ff")), "pink": (c("#b0607a"), c("#ffd0e0")),
+        "cream": (c("#c8b890"), c("#fff4d8")), "green": (c("#4f8a5a"), c("#b8f0b0")),
+        "rust": (c("#a05a3a"), c("#ffc8a0")),
+    }
+
+    # Table corals: broad plates standing out from the wall and the bommies, at several heights.
+    for x, z, radius, stalk, name in ((-7.4, -6.2, 1.25, 0.35, "cream"), (3.2, -6.8, 1.45, 0.4, "tan"),
+                                      (6.4, -2.6, 1.05, 0.3, "olive"), (-5.4, -1.8, 0.9, 0.25, "cream"),
+                                      (1.6, -4.4, 1.15, 0.45, "tan"), (9.6, -6.6, 1.1, 0.3, "cream"),
+                                      (-10.2, -7.0, 1.0, 0.3, "olive")):
+        colour, rim = palette[name]
+        # Tipped a little toward the glass, so their tops show from the low viewpoint.
+        table_coral(coral, rng, (x, rocks.top(x, z, 0.2) - 0.05, z), radius, stalk, colour, rim,
+                    tilt=rng.normal(0, 0.05, 3) + np.array([0, 0, -0.16]))
+    # Staghorn and bushy thickets.
+    for x, z, radius, height, name in ((-8.8, -6.0, 1.0, 1.0, "purple"), (-2.6, -7.0, 1.1, 1.1, "tan"),
+                                       (0.2, -6.6, 0.8, 0.9, "blue"), (5.2, -6.6, 0.9, 1.0, "cream"),
+                                       (-6.9, -0.8, 0.7, 0.8, "pink"), (7.1, -1.8, 0.7, 0.9, "purple"),
+                                       (5.0, -1.7, 0.6, 0.7, "tan"), (10.4, -5.4, 0.9, 1.0, "blue"),
+                                       (-11.0, -5.6, 0.9, 1.0, "tan"), (-4.0, -5.4, 0.6, 0.8, "rust")):
+        colour, tip = palette[name]
+        thicket(coral, rng, rocks, (x, z), radius, height, colour, tip)
+    # Finger corals.
+    for x, z, radius, height, name in ((-5.6, -0.6, 0.45, 0.6, "cream"), (7.4, -3.0, 0.5, 0.7, "brown"),
+                                       (-1.0, -6.4, 0.5, 0.75, "purple"), (8.2, -6.2, 0.5, 0.7, "olive"),
+                                       (-9.6, -6.8, 0.45, 0.6, "pink")):
+        colour, tip = palette[name]
+        finger_coral(coral, rng, rocks, (x, z), radius, height, colour, tip)
+    # Brain corals: on the rock and in the sand.
+    for x, z, r, ridge, valley in ((-2.8, 1.4, 0.55, "#b8b070", "#4a4a24"), (3.6, 0.8, 0.45, "#c89c6a", "#58401e"),
+                                   (-7.6, 0.8, 0.6, "#8aa898", "#2e4038"), (8.0, 0.2, 0.55, "#c79c86", "#5a3a2e"),
+                                   (-4.8, -3.4, 0.5, "#a8a8c8", "#3c3c58"), (4.2, -4.2, 0.45, "#b8b070", "#4a4a24"),
+                                   (-1.2, -5.2, 0.4, "#c8a070", "#584020"), (6.8, -0.6, 0.35, "#a0b080", "#405020")):
+        y = rocks.top(x, z, r * 0.6)
+        brain_coral(coral, rng, (x, y - r * 0.2, z), r, c(ridge), c(valley))
+    # Plates, leathers, discs, zoanthids and sponges in the gaps.
+    for x, z, name, plates, size in ((-6.0, -2.2, "brown", 4, 0.55), (5.6, -3.4, "rust", 5, 0.6),
+                                     (-3.2, -6.0, "olive", 4, 0.6), (7.6, -5.2, "brown", 4, 0.55)):
+        colour, rim = palette[name]
+        plate_whorl(coral, rng, (x, rocks.top(x, z, 0.3) - 0.05, z), colour, rim, plates, size)
+    for x, z, radius, name in ((-4.6, -0.9, 0.55, "cream"), (4.4, -2.6, 0.6, "olive"), (-0.6, -5.8, 0.5, "cream"),
+                               (9.2, -4.6, 0.6, "tan")):
+        colour, rim = palette[name]
+        leather_coral(coral, rng, (x, rocks.top(x, z, 0.2) - 0.05, z), radius, colour, rim)
+    for x, z, name, mouth in ((-7.0, -2.0, "#a02838", "#ffd040"), (6.6, -3.6, "#2a8a7a", "#e0ff90"),
+                              (-1.8, -6.2, "#6a2a8a", "#ff90d0"), (2.8, -6.2, "#a02838", "#ffd040")):
+        disc_corals(coral, rng, rocks, (x, z), 0.35, 12, c(name), c(mouth))
+    for x, z, colour, eye in ((-5.0, -1.6, "#3f9a4a", "#ffb030"), (5.4, -1.2, "#d0602a", "#60ff90"),
+                              (0.8, -5.8, "#3f7aa0", "#a0ffe0"), (-8.4, -5.4, "#d0602a", "#ffe060")):
+        zoanthids(coral, rng, rocks, (x, z), 0.25, 70, c(colour), c(eye))
+    for x, z, colour, inside, height in ((8.4, -2.4, "#c8601a", "#4a1a08", 1.2),
+                                         (-9.2, -4.8, "#7a3a9a", "#2a0e3a", 1.3),
+                                         (2.4, -5.2, "#c8a01a", "#4a3808", 0.9)):
+        tube_sponge(coral, rng, rocks, (x, z), c(colour), c(inside), 4, height)
+    # Sea fans at the back, standing across the current.
+    for x, z, h, colour, yaw in ((-5.6, -8.2, 1.9, "#8a2a5a", 0.2), (7.4, -7.8, 1.7, "#b8602a", -0.3),
+                                 (0.6, -8.6, 1.5, "#6a3a8a", 0.05)):
+        sea_fan(coral, rng, (x, rocks.top(x, z, 0.3) - 0.1, z), h, c(colour), yaw)
+    # Everything else that grows on the rock: small heads, mats and clumps wherever the
+    # rock faces up and nothing larger stands.
+    encrust(coral, rng, rocks, palette, 260)
+    encrust_faces(coral, rng, statics, palette, 260)
+    # Anemones on each bommie and one in the sand, where the clownfish live.
+    anemones = ((-6.1, -0.2, 0.42, "#a8556a", "#f0a0a8", "#ffd0f0"), (6.0, -1.2, 0.4, "#8a6a3a", "#e6c27a", "#ffa070"),
+                (2.4, 2.0, 0.36, "#3d6b3f", "#9fe08a", "#f08ac0"))
+    for x, z, r, column, tentacle, tip in anemones:
+        anemone(coral, foliage, rng, (x, rocks.top(x, z, 0.3) - 0.08, z), r, c(column), c(tentacle), c(tip), 90,
+                0.42, 1.0)
+    statics.place(statics.add_mesh(*coral.mesh()), affine(), (1, 1, 1), (1, 1), CORAL)
+
+    # Rubble along the channel's edges and at the foot of the rock; shell grit over the sand.
+    rubble = statics.add_mesh(*rubble_mesh(rng))
+    for _ in range(170):
+        side = rng.choice([-1, 1])
+        x = side * rng.uniform(1.8, 4.2) + 0.4
+        z = rng.uniform(-5, 3)
+        if abs(x - 0.4) < 1.3 and abs(z - 1.0) < 1.0:
+            continue
+        s = rng.uniform(0.12, 0.26)
+        shade = rng.choice([(0.85, 0.82, 0.78), (0.75, 0.7, 0.66), (0.8, 0.62, 0.62), (0.62, 0.6, 0.55)])
+        statics.place(rubble, affine((x, ground_height(x, z) + s * 0.05, z), (s, s, s), rng.uniform(0, 6.3),
+                                     rng.uniform(-0.3, 0.3), rng.uniform(-0.3, 0.3)), shade, (1, 1), PEBBLE)
+    pebble = statics.borrow(12)
+    for _ in range(220):
+        x, z = rng.uniform(-11, 11), rng.uniform(-4, 7)
+        if abs(x - 0.4) < 1.3 and abs(z - 1.0) < 1.0:
+            continue
+        s = rng.uniform(0.03, 0.08)
+        shade = rng.choice([(0.95, 0.9, 0.85), (0.9, 0.7, 0.7), (0.8, 0.78, 0.7), (0.6, 0.55, 0.5)])
+        statics.place(pebble, affine((x, ground_height(x, z) + s * 0.3, z), (s, s * 0.6, s), rng.uniform(0, 6.3)),
+                      shade, (1, 1), PEBBLE)
+    # Sea grass in the sand at the sides, and sea whips rising from the wall.
+    grass_tuft(foliage, rng, (-9.6, 2.8), 50, 1.4, c("#4e7a2a"), c("#a9c96a"), 0.07, 0.7)
+    grass_tuft(foliage, rng, (9.4, 2.4), 44, 1.3, c("#4e7a2a"), c("#a9c96a"), 0.07, 0.7)
+    for x, z, colour, length in ((-3.6, -7.8, c("#e0a030"), 2.6), (9.0, -7.0, c("#d0603a"), 2.4)):
+        base_y = rocks.top(x, z, 0.3) - 0.1
+        for k in range(4):
+            root = foliage.root((x, base_y, z))
+            lean = np.array([rng.normal(0, 0.25), 1.0, rng.normal(0, 0.15)])
+            l = length * rng.uniform(0.6, 1.05)
+            rows = int(l * 3)
+            path = curve((x + rng.normal(0, 0.15), base_y, z + rng.normal(0, 0.1)), lean, l, rows, wobble=0.2, rng=rng)
+            foliage.ribbon(root, path, np.full(rows + 1, 0.09), colour, translucency=0.3, compliance=0.5)
+
+    parts, actors = [], []
+    meshes = list(base.actor_meshes)
+    chromis = reshaped_fish(base, meshes, outline(0.125, 0.31, 0.01, 0.7), tail_fork=1.1, tail_length=1.15)
+    anthias = reshaped_fish(base, meshes, outline(0.11, 0.33, 0.0, 0.7), tail_fork=1.9, tail_length=1.35,
+                            dorsal=(1.6, 1.3))
+    yellow_tang = reshaped_fish(base, meshes, outline(0.22, 0.29, -0.01, 0.55), tail_fork=0.2, tail_length=0.95,
+                                dorsal=(5.0, 0.55), anal=(2.6, 0.6), snout=1.12)
+    blue_tang = reshaped_fish(base, meshes, outline(0.16, 0.31, -0.01, 0.6), tail_fork=0.6, tail_length=1.0,
+                              dorsal=(5.0, 0.5), anal=(2.4, 0.55))
+    clown = reshaped_fish(base, meshes, outline(0.105, 0.31, 0.02, 0.7), tail_fork=-0.4, tail_length=0.8,
+                          dorsal=(2.4, 0.9))
+
+    def school(count, centre, spread, scale, radius, vertical, speed, phase, shape, kind):
+        for _ in range(count):
+            offset = rng.normal(0, 1, 3) * np.array(spread)
+            actors.append(swimmer(centre[0] + offset[0], centre[1] + offset[1], centre[2] + offset[2],
+                                  scale * rng.uniform(0.9, 1.1), radius, vertical, speed, phase + rng.normal(0, 0.12)))
+            parts.append(fish_parts(base, len(actors) - 1, shape, kind))
+
+    # Green chromis hanging in a cloud over the left of the reef; a school of lyretail
+    # anthias over the right; a few yellow and blue tangs grazing along it; clownfish at
+    # their anemones. Kinds 1..5 (TankStyle::fish).
+    school(13, (-2.6, 3.6, -1.2), (1.0, 0.55, 0.8), 0.62, 1.4, 0.22, 0.11, 0.4, chromis, 4)
+    school(10, (4.4, 4.4, -2.6), (0.9, 0.5, 0.7), 0.66, 1.1, 0.2, 0.13, 2.1, anthias, 5)
+    for k in range(3):
+        actors.append(swimmer(rng.uniform(-5, 5), rng.uniform(2.4, 3.8), rng.uniform(-3.5, -1.0),
+                              rng.uniform(0.95, 1.05), 2.4, 0.3, 0.07 + 0.006 * k, 1 + k * 2.1))
+        parts.append(fish_parts(base, len(actors) - 1, yellow_tang, 3))
+    for k in range(2):
+        actors.append(swimmer(rng.uniform(-4, 4), rng.uniform(3.0, 4.6), rng.uniform(-2.5, 0.5),
+                              rng.uniform(1.0, 1.1), 2.0, 0.3, 0.075 + 0.008 * k, 4 + k * 2.5))
+        parts.append(fish_parts(base, len(actors) - 1, blue_tang, 1))
+    for (x, z) in ((-6.1, 0.0), (-5.9, -0.3), (6.0, -1.0), (2.4, 2.2)):
+        y = rocks.top(x, z, 0.3) + 0.45
+        actors.append(swimmer(x, y, z, rng.uniform(0.62, 0.7), 0.4, 0.07, 0.22 + rng.uniform(0, 0.05),
+                              rng.uniform(0, 6.3)))
+        parts.append(fish_parts(base, len(actors) - 1, clown, 2))
+    # A red hermit crab on the sand.
+    x, z = 1.9, 2.9
+    actors.append(swimmer(x, ground_height(x, z) + 0.23, z, 0.75, 0.9, 0.0, 0.08, 1.0, kind=1))
+    parts.append(crab(base, len(actors) - 1, (0.55, 0.09, 0.05)))
+    archive = finish(base, statics, foliage, parts, actors, base.risers.copy())
+    archive.actor_meshes = meshes
+    return archive
+
+
+# The tetra's body runs nose +x, its mid-line near this height; its half-height along
+# it, measured from the mesh and smoothed.
+FISH_MIDLINE = -0.009
+TETRA_X = np.array([-0.44, -0.3, -0.24, -0.18, -0.12, -0.06, 0.0, 0.06, 0.12, 0.18, 0.24, 0.3, 0.36])
+TETRA_HALF = np.array([0.03, 0.035, 0.045, 0.062, 0.078, 0.086, 0.089, 0.087, 0.084, 0.08, 0.068, 0.044, 0.02])
+
+
+def tetra_half(x):
+    return np.interp(x, TETRA_X, TETRA_HALF)
+
+
+def outline(height, length, centre=0.0, power=0.6):
+    """A body outline: half-height along x, a rounded disc or oval `length` either side of `centre`."""
+    def half(x):
+        t = np.clip(1 - ((np.asarray(x) - centre) / length) ** 2, 0, 1)
+        return height * t ** power
+    return half
+
+
+def reshaped_fish(base, meshes, half, tail_fork=0.0, tail_length=1.0, dorsal=(1.0, 1.0), anal=(1.0, 1.0),
+                  snout=1.0):
+    """New body and fin meshes from the tetra's, appended to `meshes`; returns their indices.
+
+    The body is made at least as deep as the outline `half(x)` (half-heights along it), and
+    the fins attached to it follow. The dorsal and anal fins are stretched along the back
+    and belly by `stretch` and made taller or lower by `lift`, (stretch, lift); the tail is
+    lengthened, forked (positive) or rounded (negative)."""
+    shaped = []
+    for index in (0, 1):
+        vertices, triangles = base.actor_meshes[index]
+        v = vertices.copy()
+        p = v["p"].astype(np.float64)
+        n = v["n"].astype(np.float64) / 127.0
+        part = v["part"]
+        if index == 1:
+            for fin, (stretch, lift), root, seat in ((2, dorsal, 0.069, 0.85), (3, anal, -0.044, -0.6)):
+                mask = part == fin
+                centre = 0.5 * (p[mask, 0].min() + p[mask, 0].max())
+                p[mask, 0] = centre + (p[mask, 0] - centre) * stretch
+                # Re-seated on the body's outline where the stretch has taken it.
+                p[mask, 1] = FISH_MIDLINE + seat * tetra_half(p[mask, 0]) + (p[mask, 1] - root) * lift
+            tail = part == 1
+            start = -0.27
+            behind = np.minimum(p[:, 0] - start, 0)
+            spread = np.abs(p[:, 1] - FISH_MIDLINE) / 0.09
+            p[tail, 0] = start + behind[tail] * tail_length * (1 + tail_fork * (spread[tail] ** 2 - 0.35))
+        if snout != 1.0:
+            ahead = np.maximum(p[:, 0] - 0.2, 0)
+            p[:, 0] += ahead * (snout - 1)
+        d = np.clip(half(p[:, 0]) / tetra_half(p[:, 0]), 1.0, 4.0)
+        p[:, 1] = FISH_MIDLINE + (p[:, 1] - FISH_MIDLINE) * d
+        n[:, 1] = n[:, 1] / d
+        v["p"] = p.astype(np.float32)
+        v["n"] = snorm8(unit(n))
+        meshes.append((v, triangles))
+        shaped.append(len(meshes) - 1)
+    return tuple(shaped)
+
+
+def fish_parts(base: Archive, actor: int, shape, kind: int):
+    """A fish's body and fins on the reshaped meshes `shape`, coloured as `kind` (1..6)."""
+    parts = base.parts[base.parts["actor"] == 0].copy()
+    for p, mesh in zip(parts, shape):
+        p["mesh"] = mesh
+        p["rgb"] = (kind, 1, 1)
+        p["actor"] = actor
+    return parts
 
 
 def grass_tuft(foliage, rng, centre, blades, length, colour, tip, width=0.07, spread=0.5, lean=0.25,
@@ -474,118 +1146,6 @@ def grass_tuft(foliage, rng, centre, blades, length, colour, tip, width=0.07, sp
         yaw = rng.uniform(0, math.pi)
         face = np.array([math.sin(yaw), 0.0, math.cos(yaw)])
         foliage.ribbon(root, path, widths, colours, translucency=translucency, compliance=compliance, face=face)
-
-
-def polyp_colony(builder, rng, centre, radius, colour, count=40):
-    """Soft coral or zoanthids: a mound of small round polyps."""
-    for _ in range(count):
-        a = rng.uniform(0, 2 * math.pi)
-        r = radius * math.sqrt(rng.uniform(0, 1))
-        p = np.asarray(centre) + np.array([math.cos(a) * r, (radius - r) * 0.5, math.sin(a) * r])
-        size = rng.uniform(0.05, 0.1)
-        points, normals, colours, tri = lathe_sphere(4, 6, lambda d: size, lambda d: colour * (0.7 + 0.3 * d[1]))
-        builder.add(points + p, normals, colours, tri)
-
-
-def build_reef(base: Archive) -> Archive:
-    rng = np.random.default_rng(31415)
-    statics = Statics(base)
-    # The floor: white coral sand.
-    statics.place(statics.borrow(0), affine(), (1.0, 0.97, 0.9), (10, 6), SAND)
-    rock = (0.34, 0.27, 0.29)
-    # The reef behind: a low ridge of live rock, higher at the ends, and two outcrops
-    # in front of it to either side; the middle stays open water over the sand.
-    for x in np.linspace(-11, 11, 14):
-        lift = 0.5 + 1.6 * (abs(x) / 11) ** 1.5
-        boulder_pile(statics, rng, (x + rng.uniform(-0.5, 0.5), -6.4 + rng.uniform(-0.6, 0.6)), 3, 1.1, 1.9,
-                     lift, rock, 0.6)
-    boulder_pile(statics, rng, (-5.6, -0.6), 5, 1.0, 1.35, 0.9, rock, 0.7)
-    boulder_pile(statics, rng, (5.8, -1.2), 5, 1.1, 1.45, 1.1, rock, 0.7)
-    boulder_pile(statics, rng, (-2.4, -3.6), 2, 0.6, 1.0, 0.4, rock, 0.6)
-    boulder_pile(statics, rng, (2.6, -4.2), 2, 0.6, 1.1, 0.5, rock, 0.6)
-    # Shell grit on the sand, kept clear of the chest.
-    pebble = statics.borrow(12)
-    for _ in range(900):
-        x, z = rng.uniform(-11, 11), rng.uniform(-3, 7)
-        if abs(x - 0.4) < 1.3 and abs(z - 1.0) < 1.0:
-            continue
-        s = rng.uniform(0.03, 0.09)
-        shade = rng.choice([(0.95, 0.9, 0.85), (0.9, 0.7, 0.7), (0.8, 0.78, 0.7), (0.6, 0.55, 0.5)])
-        statics.place(pebble, affine((x, ground_height(x, z) + s * 0.3, z), (s, s * 0.6, s), rng.uniform(0, 6.3)),
-                      shade, (1, 1), PEBBLE)
-
-    coral = Builder()
-    foliage = Foliage()
-    purple, gold, pink, blue, rust = (srgb("#8a66d8"), srgb("#d8ac4a"), srgb("#d877b0"), srgb("#6fa6e0"),
-                                      srgb("#cf7a4e"))
-    tips = {id(purple): srgb("#e4d8ff"), id(gold): srgb("#fbecb0"), id(pink): srgb("#ffd8f0"),
-            id(blue): srgb("#e0f2ff"), id(rust): srgb("#ffd0a8")}
-    # Staghorn and branching corals on the rock: on the outcrops, along the ridge.
-    stag = [(-6.2, -0.4, purple, 1.9), (-5.0, -0.9, gold, 1.5), (-4.6, 0.0, rust, 1.2),
-            (5.2, -1.0, pink, 1.8), (6.4, -1.5, blue, 1.7), (6.0, -0.2, gold, 1.2),
-            (-9.2, -6.0, gold, 2.2), (-7.0, -6.4, purple, 2.4), (-4.2, -6.2, blue, 1.9), (-1.6, -6.6, rust, 1.8),
-            (1.2, -6.2, purple, 1.9), (3.8, -6.6, gold, 2.1), (6.6, -6.0, pink, 2.3), (9.0, -6.4, blue, 2.2),
-            (-2.4, -3.6, pink, 1.4), (2.6, -4.2, blue, 1.5)]
-    for x, z, colour, height in stag:
-        staghorn(coral, rng, (x, statics.top(x, z) - 0.05, z), colour, tips[id(colour)], height, radius=0.075)
-    # Brain corals: domes in the sand and on the rock.
-    for x, z, r, ridge, valley in ((-2.6, 1.6, 0.55, "#b5c27a", "#4c5a2a"), (3.4, 0.6, 0.45, "#d0ac66", "#5c4320"),
-                                   (-7.4, 0.6, 0.6, "#94b2ae", "#3a4f4a"), (7.6, 0.4, 0.55, "#c79c86", "#5a3a2e"),
-                                   (-5.6, -2.0, 0.5, "#a8b0d0", "#3c4060")):
-        brain_coral(coral, (x, min(statics.top(x, z, 0.4), ground_height(x, z) + 1.6) - r * 0.25, z), r,
-                    srgb(ridge), srgb(valley))
-    # Sea fans standing in the current behind.
-    for x, z, h, colour, yaw in ((-3.2, -7.2, 3.4, "#b8386a", 0.2), (8.0, -5.4, 2.8, "#e07a32", -0.4),
-                                 (2.0, -7.6, 3.0, "#8a48b8", 0.0), (-8.4, -5.6, 2.6, "#e07a32", 0.3)):
-        sea_fan(coral, rng, (x, statics.top(x, z) - 0.1, z), h, srgb(colour), yaw)
-    # Soft corals and zoanthid mats on the rock.
-    for x, z, colour in ((-6.0, -1.4, "#58c0a0"), (5.4, -2.0, "#e8a040"), (-4.4, -1.2, "#e868a0"),
-                         (6.8, -0.8, "#70d070"), (-8.2, -6.0, "#e868a0"), (7.6, -6.6, "#58c0a0")):
-        polyp_colony(coral, rng, (x, statics.top(x, z) - 0.05, z), 0.45, srgb(colour))
-    # Anemones on each outcrop and one in the sand, where the clownfish live.
-    for x, z, r, column, tentacle, tip, count, length in (
-            (-5.3, 0.3, 0.42, "#a8556a", "#f08aa0", "#c8c0ff", 64, 0.6),
-            (2.9, 2.4, 0.34, "#3d6b3f", "#7fd08a", "#f07ab8", 52, 0.5),
-            (5.4, -0.2, 0.4, "#8a6a3a", "#e6c27a", "#ff9f6a", 58, 0.58)):
-        top = statics.top(x, z, 0.3)
-        anemone(coral, foliage, rng, (x, top - 0.08, z), r, srgb(column), srgb(tentacle), srgb(tip), count, length)
-    statics.place(statics.add_mesh(*coral.mesh()), affine(), (1, 1, 1), (1, 1), CORAL)
-    # Sea grass in the sand to either side, and sea whips rising from the reef.
-    grass_tuft(foliage, rng, (-9.0, 2.6), 70, 1.6, srgb("#4e7a2a"), srgb("#a9c96a"), 0.07, 0.8)
-    grass_tuft(foliage, rng, (8.8, 2.2), 60, 1.5, srgb("#4e7a2a"), srgb("#a9c96a"), 0.07, 0.8)
-    grass_tuft(foliage, rng, (-1.2, 4.6), 26, 0.9, srgb("#5a842e"), srgb("#b7d47a"), 0.06, 0.6)
-    for x, z, colour, length in ((-7.8, -6.2, srgb("#c0482a"), 3.0), (-2.8, -6.6, srgb("#e0a030"), 3.4),
-                                 (3.0, -6.8, srgb("#8a3ab0"), 3.8), (7.2, -5.8, srgb("#c0482a"), 2.8),
-                                 (-0.4, -6.9, srgb("#e0a030"), 2.6)):
-        base_y = statics.top(x, z) - 0.1
-        for k in range(5):
-            root = foliage.root((x, base_y, z))
-            lean = np.array([rng.normal(0, 0.25), 1.0, rng.normal(0, 0.15)])
-            l = length * rng.uniform(0.6, 1.05)
-            rows = int(l * 3)
-            path = curve((x + rng.normal(0, 0.15), base_y, z + rng.normal(0, 0.1)), lean, l, rows, wobble=0.2, rng=rng)
-            foliage.ribbon(root, path, np.full(rows + 1, 0.07), colour, translucency=0.3, compliance=0.5)
-
-    parts, actors = [], []
-    # Blue tangs, clownfish by their anemones, yellow tangs: kinds 1, 2, 3 (TankStyle::fish).
-    for k in range(8):
-        actors.append(swimmer(rng.uniform(-5, 4.5), rng.uniform(2.6, 5.8), rng.uniform(-1.5, 1.8),
-                              rng.uniform(1.45, 1.7), 1.6, 0.2, 0.085 + 0.004 * k, k * 2.6))
-        parts.append(fish(base, len(actors) - 1, 1, depth=1.65, length=1.05))
-    for (x, z) in ((-5.3, 0.5), (-5.1, 0.2), (2.9, 2.6), (3.1, 2.3), (5.4, 0.0)):
-        y = statics.top(x, z, 0.3) + 0.55
-        actors.append(swimmer(x, y, z, rng.uniform(1.0, 1.15), 0.5, 0.08, 0.2 + rng.uniform(0, 0.05),
-                              rng.uniform(0, 6.3)))
-        parts.append(fish(base, len(actors) - 1, 2, depth=1.35, length=0.9))
-    for k in range(6):
-        actors.append(swimmer(rng.uniform(-4, 5), rng.uniform(3.2, 6.8), rng.uniform(-2.5, 0.8),
-                              rng.uniform(1.3, 1.5), 1.4, 0.25, 0.1 + 0.005 * k, 1 + k * 3.1))
-        parts.append(fish(base, len(actors) - 1, 3, depth=1.9, length=0.92))
-    # A red hermit crab on the sand.
-    x, z = 1.9, 2.9
-    actors.append(swimmer(x, ground_height(x, z) + 0.23, z, 0.75, 0.9, 0.0, 0.08, 1.0, kind=1))
-    parts.append(crab(base, len(actors) - 1, (0.55, 0.09, 0.05)))
-    return finish(base, statics, foliage, parts, actors, base.risers.copy())
 
 
 # ---------------------------------------------------------------------- the pool
@@ -635,6 +1195,13 @@ def build_pool(base: Archive) -> Archive:
         shade = rng.choice([(0.27, 0.24, 0.2), (0.18, 0.17, 0.14), (0.32, 0.27, 0.2), (0.15, 0.13, 0.12)])
         statics.place(pebble, affine((x, ground_height(x, z) + s * 0.25, z), (s, s * 0.6, s * 0.8), rng.uniform(0, 6.3)),
                       shade, (1, 1), PEBBLE)
+    # The far bank: a slope of stones and silt rising out of the murk behind the bed, so the
+    # pool has a back rather than a horizon. A generator of its own keeps the rest as it was.
+    bank = np.random.default_rng(16180)
+    for x in np.linspace(-12, 12, 11):
+        lift = 1.0 + 1.4 * bank.uniform() + 1.2 * (abs(x) / 12) ** 2
+        boulder_pile(statics, bank, (x + bank.uniform(-0.6, 0.6), -9.0 + bank.uniform(-0.6, 0.6)), 3, 1.2, 2.2, lift,
+                     (0.3, 0.27, 0.21), 0.55)
     wood = Builder()
     # Roots reaching down from the bank on the left and over the back.
     for k in range(9):
@@ -687,9 +1254,12 @@ def build_pool(base: Archive) -> Archive:
 
     parts, actors = [], []
     # A shoal of minnows, a few rudd, and darters along the bottom: kinds 1, 2, 3.
+    # The minnows keep together: one loop, each a little off the shoal's centre.
+    shoal = np.random.default_rng(14142)
     for k in range(11):
-        actors.append(swimmer(rng.uniform(-4.5, 4.5), rng.uniform(2.6, 6.0), rng.uniform(-1.0, 2.0),
-                              rng.uniform(1.15, 1.35), 1.5, 0.22, 0.11 + 0.004 * k, k * 2.2))
+        offset = shoal.normal(0, 1, 3) * np.array([1.1, 0.5, 0.8])
+        actors.append(swimmer(-0.5 + offset[0], 4.2 + offset[1], 0.4 + offset[2], shoal.uniform(1.1, 1.3), 2.6, 0.3,
+                              0.1, 0.7 + shoal.normal(0, 0.1)))
         parts.append(fish(base, len(actors) - 1, 1, depth=1.05, length=1.1))
     for k in range(4):
         actors.append(swimmer(rng.uniform(-4, 4), rng.uniform(3.0, 5.0), rng.uniform(-2.0, 1.0),

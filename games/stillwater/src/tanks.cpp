@@ -28,9 +28,14 @@ TankStyle reef_style() {
     style.tank_absorption = {0.045F, 0.012F, 0.006F};
     style.sand_tint = {1.25F, 1.2F, 1.1F};
     style.rock_tint = {1.25F, 0.95F, 1.05F};
-    style.moss = 0.35F;
+    // Live rock: crusted with pink and purple coralline algae, a little turf between.
+    style.moss = 0.85F;
+    style.film = {0.13F, 0.035F, 0.075F};
+    style.turf = {0.045F, 0.012F, 0.035F};
     style.bubble = {0.07F, 0.16F, 0.22F};
     style.bubble_rim = {0.42F, 0.6F, 0.72F};
+    style.surface_glow = {0.02F, 0.09F, 0.14F};
+    style.shafts = 0.8F;
     style.caustics.seed = 7;
     style.caustics.tile = 3.0F;
     // Blue tang: royal blue with a black sweep and a yellow tail.
@@ -80,6 +85,37 @@ TankStyle reef_style() {
     yellow.fin_root = {0.8F, 0.58F, 0.0F};
     yellow.fin_tip = {0.9F, 0.7F, 0.05F};
     yellow.reflect = 0.12F;
+    // Green chromis: pale blue-green, with a glint as they turn.
+    FishColors& chromis = style.fish[3];
+    chromis.back = {0.02F, 0.10F, 0.10F};
+    chromis.upper = {0.06F, 0.28F, 0.26F};
+    chromis.flank = {0.22F, 0.58F, 0.52F};
+    chromis.belly = {0.42F, 0.66F, 0.6F};
+    chromis.sheen = {0.15F, 0.55F, 0.75F};
+    chromis.sheen_amount = 0.45F;
+    chromis.warm_amount = 0;
+    chromis.cheek_dark = {0.05F, 0.2F, 0.2F};
+    chromis.cheek_light = {0.3F, 0.6F, 0.55F};
+    chromis.snout = {0.08F, 0.25F, 0.24F};
+    chromis.fin_root = {0.2F, 0.5F, 0.45F};
+    chromis.fin_tip = {0.35F, 0.6F, 0.6F};
+    chromis.reflect = 0.55F;
+    // Lyretail anthias: orange-gold, pinker below, with a violet streak under the eye.
+    FishColors& anthias = style.fish[4];
+    anthias.back = {0.45F, 0.10F, 0.02F};
+    anthias.upper = {0.8F, 0.2F, 0.02F};
+    anthias.flank = {0.92F, 0.3F, 0.06F};
+    anthias.belly = {0.85F, 0.42F, 0.42F};
+    anthias.sheen = {0.55F, 0.12F, 0.5F};
+    anthias.sheen_amount = 0.5F;
+    anthias.warm = {0.95F, 0.55F, 0.05F};
+    anthias.warm_amount = 0.4F;
+    anthias.cheek_dark = {0.5F, 0.12F, 0.3F};
+    anthias.cheek_light = {0.85F, 0.35F, 0.25F};
+    anthias.snout = {0.8F, 0.3F, 0.08F};
+    anthias.fin_root = {0.85F, 0.35F, 0.05F};
+    anthias.fin_tip = {0.95F, 0.6F, 0.08F};
+    anthias.reflect = 0.05F;
     return style;
 }
 
@@ -99,6 +135,9 @@ TankStyle pool_style() {
     style.rock_tint = {0.9F, 0.85F, 0.75F};
     style.bubble = {0.1F, 0.09F, 0.05F};
     style.bubble_rim = {0.5F, 0.45F, 0.3F};
+    // Sun through the canopy and the brown water: a warm glow overhead and its beams.
+    style.surface_glow = {0.03F, 0.028F, 0.009F};
+    style.shafts = 1.1F;
     style.caustics.seed = 3;
     style.caustics.floor_gain = 0.5F;
     style.caustics.period = 24;

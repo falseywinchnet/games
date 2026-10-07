@@ -34,7 +34,7 @@ enum Material : std::uint32_t {
 };
 
 // One kind of fish's colouring. The planted tank's tetra is the default; a fish's
-// archive tint picks its kind: red channel 1, 2 or 3 for the first, second or third.
+// archive tint picks its kind: red channel 1 to 6 for the first to the sixth.
 struct FishColors {
     ambient::Vec3 back{0.0105F, 0.015F, 0.0125F};   // along the spine
     ambient::Vec3 upper{0.034F, 0.049F, 0.043F};    // just below it
@@ -77,9 +77,19 @@ struct TankStyle {
     ambient::Vec3 sand_tint{1, 1, 1};
     ambient::Vec3 rock_tint{1, 1, 1};
     float moss{1};  // how much moss and film the surfaces carry
+    // What grows on stone and wood: a thin film, and a denser turf where the coverage is
+    // heavy (algae in fresh water; pink coralline crust on a reef's live rock).
+    ambient::Vec3 film{0.03F, 0.055F, 0.007F};
+    ambient::Vec3 turf{0.0035F, 0.013F, 0.0025F};
     ambient::Vec3 bubble{0.08F, 0.19F, 0.18F};
     ambient::Vec3 bubble_rim{0.4F, 0.62F, 0.56F};
-    std::array<FishColors, 3> fish{};
+    // Light from the surface brightening the open water toward the top of the view
+    // (added to the water behind everything; none in the planted tank).
+    ambient::Vec3 surface_glow{0, 0, 0};
+    // Shafts of sunlight slanting down through the open water, as a share of the glow
+    // (0 for none). They stand still: the water behind is drawn once per size.
+    float shafts{0};
+    std::array<FishColors, 6> fish{};
     ambient::CausticSpec caustics{};
 };
 
