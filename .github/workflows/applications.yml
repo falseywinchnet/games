@@ -93,12 +93,13 @@ jobs:
       - uses: msys2/setup-msys2@v2
         if: runner.os == 'Windows'
         with:
-          msystem: MINGW64
+          msystem: CLANG64
           update: true
           install: >-
-            mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-ninja mingw-w64-x86_64-python
-            mingw-w64-x86_64-nsis mingw-w64-x86_64-ccache git
+            mingw-w64-clang-x86_64-clang mingw-w64-clang-x86_64-lld
+            mingw-w64-clang-x86_64-llvm-tools mingw-w64-clang-x86_64-cmake
+            mingw-w64-clang-x86_64-ninja mingw-w64-clang-x86_64-python
+            mingw-w64-clang-x86_64-nsis mingw-w64-clang-x86_64-ccache git
       - name: Install macOS C++20 compiler and runtime
         if: runner.os == 'macOS'
         run: |
@@ -194,7 +195,7 @@ jobs:
           ctest --test-dir build/message-tests -R '^gui_forms_windows_message_queue_tests$' --output-on-failure
       - name: Package Windows application and installer
         if: runner.os == 'Windows'
-        run: python tools/package_windows.py --build build/app --toolkit toolkit/gui_forms --runtime-dir /mingw64/bin --installer
+        run: python tools/package_windows.py --build build/app --toolkit toolkit/gui_forms --runtime-dir /clang64/bin --installer
       - name: Package macOS application and installer
         if: runner.os == 'macOS'
         run: python3 tools/package_macos.py --build build/app --toolkit toolkit/gui_forms --llvm "$(brew --prefix llvm@20)"
