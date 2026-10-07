@@ -36,6 +36,7 @@ void gameplay_contract(const std::string& previews) {
     const ct::Options options{.hosted = true, .dev = true};
     std::string history;
     int easy_garden = -1;
+    ct::SaveData before_reopening;
     {
         std::shared_ptr<ct::ThievesView> view = gui_forms::make_control<ct::ThievesView>(gui_forms::StableId("ct.contract"), options);
         (*view).set_cabinet(true, false, false, true);
@@ -96,6 +97,11 @@ void gameplay_contract(const std::string& previews) {
         kit::contract_require((*view).solved(), "an Easy table garden is won");
         easy_garden = (*view).current_level();
         history = (*view).move_history();
+        // The Easy garden may come from the table or, if one finished growing first, be
+        // freshly grown; either way its result is on record now.
+        kit::contract_require(ct::load_save(ct::save_path(true), before_reopening) &&
+                                  before_reopening.tiers[ct::kEasy].cleared == 1,
+                              "the Easy win is on record");
         (*view).set_cabinet(false, false, false, true);
         const std::uint64_t callbacks = (*view).timer_callbacks(), published = (*view).published_frames();
         kit::contract_require(!(*view).scripted_action("lvl9"), "hidden game rejects test input");
@@ -108,7 +114,8 @@ void gameplay_contract(const std::string& previews) {
         kit::contract_require((*resumed).current_level() == easy_garden && (*resumed).move_history() == history && (*resumed).solved() &&
                               (*resumed).difficulty() == ct::kEasy, "reopening restores completed position exactly");
         ct::SaveData stored;
-        kit::contract_require(ct::load_save(ct::save_path(true), stored) && stored.records.size() == 2 && stored.tiers[ct::kEasy].cleared == 1,
+        kit::contract_require(ct::load_save(ct::save_path(true), stored) && stored.records.size() == before_reopening.records.size() &&
+                                  stored.tiers[ct::kEasy].cleared == before_reopening.tiers[ct::kEasy].cleared,
                               "reopening cannot award a duplicate result");
         (*resumed).set_cabinet(true, false, false, true);
         // a garden grown fresh: played, saved and resumed exactly
