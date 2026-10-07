@@ -30,6 +30,22 @@ double h01(std::uint64_t a, std::uint64_t b) {
 }
 Col lerpc(Col a, Col b, double t) { return mix(a, b, static_cast<float>(std::clamp(t, 0.0, 1.0))); }
 double approach(double cur, double target, double rate, double dt) { return cur + (target - cur) * std::min(1.0, dt * rate); }
+
+// A soft contact shadow under a tree, bush or stone: tilted to the slope and
+// pushed a little away from the sun, so props stand on the mountain instead
+// of floating over it.
+void ground_shadow(R3D& r, const World& w, double x, double y, double radius, float strength) {
+    const double e = .3;
+    const double gz = w.ground(x, y);
+    const double dx = (w.ground(x + e, y) - w.ground(x - e, y)) / (2 * e) * g_zscale, dy = (w.ground(x, y + e) - w.ground(x, y - e)) / (2 * e) * g_zscale;
+    const double sx = r.light.sun.x, sy = r.light.sun.y, sl = std::max(.2, std::hypot(sx, sy));
+    const double ox = -sx / sl * radius * .22, oy = -sy / sl * radius * .22;
+    M34 tilt;
+    tilt.m[8] = dx;
+    tilt.m[9] = dy;
+    draw_mesh(r, disc_mesh(10), at(x + ox, y + oy, Z(gz) + .03 + dx * ox + dy * oy) * tilt * sc(radius, radius * .92, 1), &textures().shadow, hex(0x000000, strength),
+              translucent | unlit);
+}
 }  // namespace
 
 void Scene::resize(int w, int h) { r.resize(w, h); }
@@ -539,6 +555,7 @@ void Scene::props(const Sim& s) {
     const Flora& F = flora();
     const World& w = s.world;
     const double wind = s.wind_vis;
+    const float shadow_k = static_cast<float>(.3 + .18 * sun_);  // contact shadows: firmer in daylight
     const std::int64_t v0 = std::max<std::int64_t>(0, static_cast<std::int64_t>(cam_v - 14 / zoom));
     const std::int64_t v1 = static_cast<std::int64_t>(cam_v + 22 / zoom);
     auto hsh = [&](int u, std::int64_t v, unsigned salt) {
@@ -621,11 +638,20 @@ void Scene::props(const Sim& s) {
                     if (k >= 1 && rt_ - fall_start_ < 2.45) spawn(Particle::dust, {fx + std::cos(fall_dir_) * 1.2, fy + std::sin(fall_dir_) * 1.2, gz}, 14, .9, hex(0xB8A07A));
                     g_tree_pre = at(fx, fy, Z(gz)) * M34::rot_z(fall_dir_) * M34::rot_x(-ang) * M34::rot_z(-fall_dir_) * at(-fx, -fy, -Z(gz));
                 }
-                draw_tree(r, F.trees[static_cast<size_t>(tree_for(row.biome, hv))], fx, fy, Z(gz), falling ? 0 : sway, 1.15, snowy, M(opaque), FD(kW));
+                const TreeLook look = tree_look(row.biome, TreeSite::flank, fx, fy, hv);
+                if (!falling) ground_shadow(r, w, fx, fy, tree_crown(look, 1.15) * .85 + .12, shadow_k);
+                draw_tree(r, look, fx, fy, Z(gz), falling ? 0 : sway, 1.15, snowy, M(opaque), FD(kW));
                 g_tree_pre = M34{};
             }
-            else if (kind < 8 && !snowy) draw_bush(r, F.bushes[hv % kBushes], fx, fy, Z(gz), sway, hv, M(opaque), FD(kW));
-            else draw_rock(r, F.rocks[static_cast<size_t>(rock_for(row.biome, hv))], fx, fy, Z(gz), .45 + .2 * (hv % 3), snowy, M(opaque), FD(kW));
+            else if (kind < 8 && !snowy) {
+                ground_shadow(r, w, fx, fy, F.bushes[hv % kBushes].radius * 1.5 + .06, shadow_k);
+                draw_bush(r, F.bushes[hv % kBushes], fx, fy, Z(gz), sway, hv, M(opaque), FD(kW));
+            } else {
+                const RockSpecies& rk = F.rocks[static_cast<size_t>(rock_for(row.biome, hv))];
+                const double size = .45 + .2 * (hv % 3);
+                ground_shadow(r, w, fx, fy, size * std::max(rk.sx, rk.sy) * 1.05, shadow_k);
+                draw_rock(r, rk, fx, fy, Z(gz), size, snowy, M(opaque), FD(kW));
+            }
             g_fade = false;
         }
         for (int u = 0; u < kWidth; ++u) {
@@ -641,10 +667,22 @@ void Scene::props(const Sim& s) {
                      fx > s.d.u + .25 && std::fabs(fy - s.d.v) < 2.2 && fx - s.d.u < 4.5;
             switch (t.feature) {
                 case Feature::tree: case Feature::pine:
-                    draw_tree(r, F.trees[static_cast<size_t>(tree_for(t.biome, hv + (t.feature == Feature::pine ? 7u : 0u)))], fx, fy, Z(gz), sway, 1.0, snowy, M(opaque), FD(kW));
+                {
+                    const TreeLook look = tree_look(t.biome, t.feature == Feature::pine ? TreeSite::conifer : TreeSite::broadleaf, fx, fy, hv);
+                    ground_shadow(r, w, fx, fy, tree_crown(look, 1.0) * .85 + .12, shadow_k);
+                    draw_tree(r, look, fx, fy, Z(gz), sway, 1.0, snowy, M(opaque), FD(kW));
+                }
                     break;
-                case Feature::bush: draw_bush(r, F.bushes[hv % kBushes], fx, fy, Z(gz), sway, hv, M(opaque), FD(kW)); break;
-                case Feature::boulder: draw_rock(r, F.rocks[static_cast<size_t>(rock_for(t.biome, hv))], fx, fy, Z(gz), .36, snowy, M(opaque), FD(kW)); break;
+                case Feature::bush:
+                    ground_shadow(r, w, fx, fy, F.bushes[hv % kBushes].radius * 1.5 + .06, shadow_k);
+                    draw_bush(r, F.bushes[hv % kBushes], fx, fy, Z(gz), sway, hv, M(opaque), FD(kW));
+                    break;
+                case Feature::boulder: {
+                    const RockSpecies& rk = F.rocks[static_cast<size_t>(rock_for(t.biome, hv))];
+                    ground_shadow(r, w, fx, fy, .36 * std::max(rk.sx, rk.sy) * 1.05, shadow_k);
+                    draw_rock(r, rk, fx, fy, Z(gz), .36, snowy, M(opaque), FD(kW));
+                    break;
+                }
                 case Feature::rock: draw_rock(r, F.rocks[static_cast<size_t>(rock_for(t.biome, hv))], fx, fy, Z(gz), .2, false, opaque, kW); break;
                 case Feature::pebble:
                     for (int k = 0; k < 2 + static_cast<int>(hv % 3); ++k) {
@@ -729,7 +767,12 @@ void Scene::props(const Sim& s) {
                         draw_mesh(r, cone_mesh(4), at(fx + (k - 1) * .09, fy, Z(gz)) * M34::rot_y((k - 1) * .3) * sc(.06, .06, .3 - k * .06), nullptr, hex(0xBFF0FF), opaque);
                     break;
                 case Feature::snowdrift:
-                    draw_mesh(r, hemisphere_mesh(9, 4), at(fx, fy, Z(gz) - .02) * sc(.36, .32, .26), &ground().tex[g_snow], kW, opaque, 1);
+                {   // a wind-carved drift: a long low ridge with a smaller lobe beside it
+                    const double turn = 2.5 + ((hv >> 3) % 7) * .08;
+                    draw_mesh(r, F.blob_meshes[hv % 6], at(fx, fy, Z(gz) - .03) * M34::rot_z(turn) * sc(.46, .26, .2), &ground().tex[g_snow], kW, opaque, 1);
+                    draw_mesh(r, F.blob_meshes[(hv + 3) % 6], at(fx + std::cos(turn + 1.4) * .16, fy + std::sin(turn + 1.4) * .16, Z(gz) - .03) * M34::rot_z(turn + .4) *
+                              sc(.24, .17, .12), &ground().tex[g_snow], kW, opaque, 1);
+                }
                     break;
                 case Feature::flags: {
                     const double z2 = Z(gz);

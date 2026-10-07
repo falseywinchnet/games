@@ -31,6 +31,7 @@ INTEGRATING INTO THE CABINET (not done; Astra's tree was not modified)
   7. Frame pacing: 20 fps while helped, 12 fps while watching, 5 fps in the background, none while occluded or hidden. The simulation keeps running throughout.
   8. Controls: arrows/WASD, Space hop, hold mouse to guide. Keys: F1 help, T scores, M music, N sound, +/- zoom, Esc. Accessible name set on the control.
   9. Dev flags (separate dev save): --summit, --storm, --warp=<row>, --dev.
+     In the collection's --dev scripts, "action warp:<row>", "seed:<n>", "hour:<0..1>", "summit", "storm" and "play" drive the climb (EggyView::scripted_action).
 
 POLICY NOTES
   The HUD shows only achievements: altitude reached, stars collected, time climbing, breath. It never shows remaining distance or total stars. The autopilot never collects stars. Animals (deer, cat, frogs, fish) are rare background life only. Eggy does not meet or talk about them, per the original brief. The help panel carries the requested screensaver joke.

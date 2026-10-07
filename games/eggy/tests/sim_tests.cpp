@@ -1,3 +1,4 @@
+#include "flora.hpp"
 #include "sim.hpp"
 #include <cstdio>
 #include <cmath>
@@ -38,6 +39,33 @@ int main() {
       Sim s(9); s.place_at(500); double start = s.d.v;
       for (int i = 0; i < 600 * 30; ++i) { s.in.has_target = true; s.in.tu = s.world.lane(s.d.v + 12); s.in.tv = s.d.v + 12; s.step(1.0 / 30); s.events.clear(); }
       double r = (s.d.v - start) / 600; std::printf("helper (target ahead) 600s: %.3f rows/s -> %.1f years for length %lld\n", r, s.world.length() / r / 3.156e7, (long long)s.world.length()); }
+    // 4. trees: deterministic, suited to the climb, and never twins side by side
+    {
+        const Flora& f = flora();
+        if (static_cast<int>(f.tree_models.size()) != kTreeKinds * kTreeForms) { std::printf("tree model count\n"); ++failures; }
+        for (const TreeModel& m : f.tree_models)
+            if (m.wood.empty() || m.height < .3 || m.height > 2.4 || m.crown > 1.0) { std::printf("tree model out of bounds\n"); ++failures; }
+        int twins = 0, pairs = 0;
+        for (int bi = 0; bi < static_cast<int>(Biome::count); ++bi)
+            for (int site = 0; site < 3; ++site) {
+                const Biome b = static_cast<Biome>(bi);
+                TreeLook prev = tree_look(b, static_cast<TreeSite>(site), -2.5, 0, 1);
+                for (int k = 1; k < 400; ++k) {
+                    const double u = -2.5 - (k % 3), v = k / 3;
+                    const unsigned h = static_cast<unsigned>(mix64(static_cast<std::uint64_t>(k) * 977 + static_cast<std::uint64_t>(bi * 7 + site)) >> 20);
+                    const TreeLook a = tree_look(b, static_cast<TreeSite>(site), u, v, h), again = tree_look(b, static_cast<TreeSite>(site), u, v, h);
+                    if (a.kind != again.kind || a.form != again.form || a.yaw != again.yaw || a.size != again.size) { std::printf("tree look not deterministic\n"); ++failures; }
+                    const bool high = b == Biome::snow || b == Biome::ice || b == Biome::ridge || b == Biome::summit;
+                    if (high && static_cast<int>(a.kind) < static_cast<int>(TreeKind::spruce)) { std::printf("broadleaf above the treeline in %s\n", biome_name(b)); ++failures; }
+                    if (site == static_cast<int>(TreeSite::conifer) && static_cast<int>(a.kind) < static_cast<int>(TreeKind::spruce)) { std::printf("broadleaf on a conifer site\n"); ++failures; }
+                    ++pairs;
+                    if (a.kind == prev.kind && a.form == prev.form && std::fabs(a.size - prev.size) < .02 && std::fabs(a.yaw - prev.yaw) < .2) ++twins;
+                    prev = a;
+                }
+            }
+        if (twins * 200 > pairs) { std::printf("too many identical neighbouring trees: %d of %d\n", twins, pairs); ++failures; }
+        std::printf("trees: %d species x %d forms, %d near-identical neighbours in %d\n", kTreeKinds, kTreeForms, twins, pairs);
+    }
     std::printf("%s (%d failures)\n", failures ? "FAIL" : "PASS", failures);
     return failures ? 1 : 0;
 }

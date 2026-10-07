@@ -40,12 +40,22 @@ void Tex::build_mips() {
         m.make(src->w / 2, src->h / 2);
         for (int y = 0; y < m.h; ++y)
             for (int x = 0; x < m.w; ++x) {
-                unsigned acc[4] = {0, 0, 0, 0};
+                // colour is averaged over the covered texels only (weighted by alpha), so
+                // cut-out sprites keep their colour when small instead of darkening
+                // toward the black of their transparent surround
+                unsigned acc[3] = {0, 0, 0}, plain[3] = {0, 0, 0}, alpha_sum = 0;
                 for (int k = 0; k < 4; ++k) {
                     const std::uint32_t c = src->px[static_cast<size_t>((y * 2 + k / 2) * src->w + x * 2 + k % 2)];
-                    for (int ch = 0; ch < 4; ++ch) acc[ch] += (c >> (ch * 8)) & 255;
+                    const unsigned a = c >> 24;
+                    alpha_sum += a;
+                    for (int ch = 0; ch < 3; ++ch) {
+                        acc[ch] += ((c >> (ch * 8)) & 255) * a;
+                        plain[ch] += (c >> (ch * 8)) & 255;
+                    }
                 }
-                m.px[static_cast<size_t>(y * m.w + x)] = (acc[0] / 4) | ((acc[1] / 4) << 8) | ((acc[2] / 4) << 16) | ((acc[3] / 4) << 24);
+                std::uint32_t out = (alpha_sum / 4) << 24;
+                for (int ch = 0; ch < 3; ++ch) out |= (alpha_sum ? acc[ch] / alpha_sum : plain[ch] / 4) << (ch * 8);
+                m.px[static_cast<size_t>(y * m.w + x)] = out;
             }
         m.mips.clear();
         mips.push_back(std::move(m));
@@ -124,6 +134,13 @@ void R3D::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint8_t mat
                 f = std::clamp((dist - light.fog_near) / (light.fog_far - light.fog_near), 0.0, 1.0) * .85;
             }
             sv[k].f = f;
+        }
+        {   // Texture coordinates grow with the climb (hundreds of millions of rows), far
+            // beyond float precision. Textures repeat, so move each triangle's
+            // coordinates near zero by a whole number of repeats (a multiple of 16
+            // keeps every texture and the splat noise in step) before the float planes.
+            const double s0 = std::floor(std::min({sv[0].s, sv[1].s, sv[2].s}) / 16) * 16, t0 = std::floor(std::min({sv[0].t, sv[1].t, sv[2].t}) / 16) * 16;
+            for (int k = 0; k < 3; ++k) { sv[k].s -= s0; sv[k].t -= t0; }
         }
         const double area = (sv[1].x - sv[0].x) * (sv[2].y - sv[0].y) - (sv[2].x - sv[0].x) * (sv[1].y - sv[0].y);
         if (std::fabs(area) < 1e-9) continue;
@@ -229,7 +246,9 @@ void R3D::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint8_t mat
 void R3D::billboard(V3 p, double w, double h, const Tex* tex, Col tint, std::uint8_t mat, double s0, double s1) {
     const V3 r = R_ * (w * .5);
     const V3 up{0, 0, h / height_scale};
-    const V3 n = F_ * -1.0;
+    // lit mostly from above, like the ground the sprite stands on, rather than
+    // edge-on to the sun (which left flowers and grasses dull and dark)
+    const V3 n = norm(F_ * -1.0 + V3{0, 0, 2});
     Vtx q[6];
     const V3 a = p - r, b = p + r, c = p + r + up, d = p - r + up;
     q[0] = {a, n, s0, 1, tint}; q[1] = {b, n, s1, 1, tint}; q[2] = {c, n, s1, 0, tint};
