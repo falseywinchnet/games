@@ -7,8 +7,8 @@ machinery: each copy diverges, and an improvement reaches only the game it was m
 in. The owner's rule for that case: an engine anticipated for a large collection, or
 shared between games, is promoted ("upstaged") to collection infrastructure.
 
-A shared engine lives once, in `engines/<id>/`, and games declare that they build on
-it. The card and puzzle engines in `src/` were the first shared engines; `engines/`
+A shared engine lives once, in `shared/<id>/`, and games declare that they build on
+it. The card and puzzle engines in `src/` were the first shared engines; `shared/`
 is where new ones go, discovered like games, with no edits to the shell.
 
 ## When to make one
@@ -27,7 +27,7 @@ Otherwise, borrow by copying, as before.
 ## The folder
 
 ```
-engines/<id>/
+shared/<id>/
   ENGINE.json          id, namespace, title, summary, build file, file lists
   README.md            what it does, its interface, its costs, its limits
   build.cmake          its core library, interface target and tests; ENGINE_DIR is set
@@ -82,10 +82,10 @@ game whose sounds the engine plays may omit `audio_adapter`.
 - Write down what it costs. An engine that animates owns its processor budget and
   says in its README how it keeps it.
 - Follow the [house style](10-house-style.md); `scripts/check-style.py` checks
-  `engines/` by default.
+  `shared/` by default.
 
 ## The engines
 
 | Engine | For | Games |
 |---|---|---|
-| [`ambient`](../../engines/ambient/README.md) | Living scenes drawn on the processor alone: retained 3D scenery, swaying foliage, creatures, animated light, all under a measured CPU budget | Stillwater |
+| [`ambient`](../../shared/ambient/README.md) | Living scenes drawn on the processor alone: retained 3D scenery, swaying foliage, creatures, animated light, all under a measured CPU budget | Stillwater |

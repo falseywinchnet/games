@@ -35,16 +35,16 @@ add_library(game_audio_adapters STATIC
     "${games_root}/src/scene_audio.cpp"
     "${games_root}/src/audio.cpp"
     "${games_root}/src/runtime_paths.cpp"
-    "${games_root}/vendor/eggy/src/audio.cpp"
-    "${games_root}/vendor/switchbox/src/platform/audio.cpp"
-    "${games_root}/vendor/atomprobe/src/platform/audio.cpp")
+    "${games_root}/games/eggy/src/audio.cpp"
+    "${games_root}/games/switchbox/src/platform/audio.cpp"
+    "${games_root}/games/atomprobe/src/platform/audio.cpp")
 target_compile_features(game_audio_adapters PUBLIC cxx_std_20)
 target_include_directories(game_audio_adapters PUBLIC "${games_root}/src")
 target_link_libraries(game_audio_adapters PUBLIC GUIForms::Audio)
 if(GAMES_AUDIO_SOURCE_DIR)
     target_sources(game_audio_adapters PRIVATE
         "${games_root}/src/fourpegs_audio.cpp"
-        "${games_root}/vendor/fourpegs/src/platform/audio.cpp")
+        "${games_root}/games/fourpegs/src/platform/audio.cpp")
     add_executable(fourpegs_audio "${games_root}/tests/fourpegs_audio_tests.cpp")
     target_link_libraries(fourpegs_audio PRIVATE game_audio_adapters)
     add_executable(audio_device_smoke "${games_root}/tools/audio_device_smoke.cpp")

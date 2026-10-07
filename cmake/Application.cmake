@@ -9,7 +9,7 @@ target_link_libraries(game_audio_adapters PUBLIC GUIForms::Audio game_paths)
 add_library(game_text_frames STATIC src/text_requests.cpp src/game_text.cpp)
 target_include_directories(game_text_frames PUBLIC src)
 target_link_libraries(game_text_frames PUBLIC gui_forms_text_masks)
-add_library(game_felt STATIC vendor/paint/carpet.cpp vendor/paint/image.cpp)
+add_library(game_felt STATIC shared/felt/carpet.cpp shared/felt/image.cpp)
 if(GAMES_MODULE_UI)
     add_library(vendor_game_ui STATIC ${GAMES_MODULE_UI})
     set(module_link_scope PUBLIC)
@@ -20,10 +20,10 @@ endif()
 target_link_libraries(vendor_game_ui ${module_link_scope} ${GAMES_MODULE_LIBRARIES}
     game_audio_adapters game_text_frames game_felt GUIForms::Application)
 target_compile_definitions(vendor_game_ui INTERFACE _USE_MATH_DEFINES)
-add_library(game_ui ${GAMES_MODULE_SOURCES} "${GAMES_CATALOG_DIR}/game_registry.cpp" src/table.cpp src/presentation.cpp src/puzzle_view.cpp src/collection.cpp
-    src/sudoku_view.cpp src/suite.cpp src/text_sprites.cpp src/shelf.cpp src/capsule.cpp src/kitten.cpp
+add_library(game_ui ${GAMES_MODULE_SOURCES} "${GAMES_CATALOG_DIR}/game_registry.cpp" shared/cards/table.cpp src/presentation.cpp shared/puzzles/puzzle_view.cpp src/collection.cpp
+    games/sudoku/src/sudoku_view.cpp src/suite.cpp src/text_sprites.cpp src/shelf.cpp src/capsule.cpp shared/puzzles/kitten.cpp
     src/help_book.cpp src/help_content.cpp)
-target_include_directories(game_ui PUBLIC src PRIVATE vendor/paint)
+target_include_directories(game_ui PUBLIC src PRIVATE shared/felt)
 target_link_libraries(game_ui PUBLIC game_rules game_solver game_raster sudoku_generator vendor_game_ui)
 if(NOT MSVC)
     target_compile_options(game_ui PRIVATE -Wall -Wextra)

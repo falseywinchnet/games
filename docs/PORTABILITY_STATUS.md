@@ -5,7 +5,7 @@ The complete collection remains the target. Platform success must be validated
 independently before publishing release artifacts.
 
 Switchbox's replacement source is copied from `incoming/game-switchbox-01` at
-commit `de23ab8` into `vendor/switchbox`. The incoming delivery is unchanged.
+commit `de23ab8` into `games/switchbox`. The incoming delivery is unchanged.
 The collection edits select the new control at slot 7, retain enum identity 5,
 and do not restore the removed implementation. Its dialogue has a separate
 `assets/lines/switchbox` directory. Production and development saves use
@@ -30,7 +30,7 @@ into the application's SDK or wired into the main application build.
 - Finish and adopt GUI.Forms owned text masks with word wrapping, newlines,
   metrics and grayscale/monochrome profiles. Replace the remaining text adapters.
 - Finish the shared window-scoped cursor visibility and placement capability.
-  `vendor/switchbox/src/platform/cursor.hpp` currently declares the required
+  `games/switchbox/src/platform/cursor.hpp` currently declares the required
   seam but has no implementation. No successful no-op is substituted.
 - Wire `sbx_ui`, the portable audio adapters and their shared dependencies into
   the main CMake application targets. The application still references legacy

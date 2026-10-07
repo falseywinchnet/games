@@ -38,7 +38,7 @@ jobs:
         id: runtime-cache
         with:
           path: build/runtime-assets
-          key: runtime-v2-${{ hashFiles('assets/**', 'vendor/**', 'engines/**', 'tools/*portable_assets.py', 'tools/game_catalog.py') }}
+          key: runtime-v2-${{ hashFiles('assets/**', 'games/**', 'shared/**', 'tools/*portable_assets.py', 'tools/game_catalog.py') }}
       - name: Install authoring tools
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         run: sudo apt-get update && sudo apt-get install -y ffmpeg python3-pil
@@ -124,7 +124,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .ccache
-          key: games-objects-v1-${{ matrix.platform }}-${{ hashFiles('CMakeLists.txt', 'cmake/**', 'src/**', 'tests/**', 'vendor/**', 'engines/**') }}
+          key: games-objects-v1-${{ matrix.platform }}-${{ hashFiles('CMakeLists.txt', 'cmake/**', 'src/**', 'tests/**', 'games/**', 'shared/**') }}
           restore-keys: games-objects-v1-${{ matrix.platform }}-
       - name: Configure compiler cache
         run: |

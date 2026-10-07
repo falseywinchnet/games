@@ -124,7 +124,7 @@ remain on the game surface.
 A game does not need a score table; a single best, or stars per level, is often
 right. There is no shared top-ten helper for kit games yet: a game that wants the
 full table draws its own panel and name entry (Atom Probe's `scores` panel in
-`vendor/atomprobe` is the model).
+`games/atomprobe` is the model).
 
 The collection's policy: running scores are not shown as statistics. When a game
 ends with a result worth keeping, it may enter a named, arcade-style top-ten for

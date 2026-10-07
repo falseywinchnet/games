@@ -14,7 +14,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # The kit lives in the repository's new-games folder. In the template that is two
-# levels up; in vendor/<game> it is ../../new-games/kit.
+# levels up; in games/<game> it is ../../new-games/kit.
 set(TG_KIT_DIR "" CACHE PATH "The repository's new-games/kit directory")
 if(NOT TG_KIT_DIR)
   foreach(candidate "${CMAKE_CURRENT_SOURCE_DIR}/../kit" "${CMAKE_CURRENT_SOURCE_DIR}/../../new-games/kit")

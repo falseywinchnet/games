@@ -35,7 +35,7 @@ RULES: tuple[tuple[str, str], ...] = (
     ("lambda-review", r"\[(?:\s*|[^\[\];]*?)\]\s*(?:<[^;{}]+>\s*)?(?:\([^;{}]*?\)\s*)?(?:mutable\s*)?(?:noexcept\s*)?(?:->[^{};]+)?\{"),
 )
 EXTENSIONS: tuple[str, ...] = (".cpp", ".cc", ".cxx", ".hpp", ".hh", ".h", ".mm")
-EXCLUDED: tuple[str, ...] = (".git", ".build", "build", "third_party", "vendor", "node_modules")
+EXCLUDED: tuple[str, ...] = (".git", ".build", "build", "third_party", "games", "node_modules")
 
 
 def mask_literal(match: re.Match[str]) -> str:
@@ -96,7 +96,7 @@ def collect(paths: list[str]) -> list[Path]:
 
 def main() -> int:
     parser: argparse.ArgumentParser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("paths", nargs="*", default=["src", "tests", "tools", "engines"])
+    parser.add_argument("paths", nargs="*", default=["src", "tests", "tools", "shared"])
     arguments: argparse.Namespace = parser.parse_args()
     paths: list[Path] = collect(arguments.paths)
     if not paths:

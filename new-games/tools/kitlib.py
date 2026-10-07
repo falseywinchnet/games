@@ -9,8 +9,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 KIT = REPO / "new-games"
 TEMPLATE = KIT / "template"
-VENDOR = REPO / "vendor"
-ENGINES = REPO / "engines"
+VENDOR = REPO / "games"
+ENGINES = REPO / "shared"
 
 # Names a game may not take as its namespace: C++ and shell names, and the kit's own.
 RESERVED_NAMESPACES = {"std", "gf", "games", "kit", "gui", "tg", "detail", "test"}
@@ -49,7 +49,7 @@ def used_namespaces() -> dict[str, str]:
 
 
 def engines() -> dict[str, dict]:
-    """Shared engines (engines/<id>/ENGINE.json), by id."""
+    """Shared engines (shared/<id>/ENGINE.json), by id."""
     sys.path.insert(0, str(REPO / "tools"))
     from game_catalog import discover_engines
     return discover_engines(REPO)
@@ -62,7 +62,7 @@ def engine_directories(manifest: dict) -> list[Path]:
     for engine_id in manifest.get("engines", []):
         engine = found.get(engine_id)
         if engine is None:
-            raise SystemExit(f"GAME.json names engine {engine_id!r}, which is not in engines/")
+            raise SystemExit(f"GAME.json names engine {engine_id!r}, which is not in shared/")
         for key in ("source_directories", "ui_directories"):
             result += [engine["directory"] / value for value in engine.get(key, [])]
     return result

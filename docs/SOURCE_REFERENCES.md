@@ -10,7 +10,7 @@ The attached `programming-house-style (2).md` is a coding reference: explicit ty
 
 - Plan Paint source: `/Users/joshuahkuttenkuler/Developer/Projects/rainstar-paint`.
 - Actual felt mapping: `src/canvas_backing.cpp`; billiard green maps to carpet preset 3.
-- Fiber and lighting renderer: `src/carpet.cpp`, `src/carpet.hpp`, `src/image.cpp`, `src/image.hpp`. These four files were copied unchanged into `vendor/paint` with the original MIT license. No sibling checkout was edited.
+- Fiber and lighting renderer: `src/carpet.cpp`, `src/carpet.hpp`, `src/image.cpp`, `src/image.hpp`. These four files were copied unchanged into `shared/felt` with the original MIT license. No sibling checkout was edited.
 - GUI.Forms texture publication/pattern fill reference: Paint's `src/forms/surface.cpp`.
 - In-app help reference: Paint's `src/forms/help.cpp` and `src/forms/help.hpp`. Games implements its own warm paper popup with game-specific rules, controls, and about pages; it does not depend on the Paint application.
 - Installed GUI.Forms SDK: `/Users/joshuahkuttenkuler/Developer/Projects/gui-forms-investigation/paint-port-sdk`.

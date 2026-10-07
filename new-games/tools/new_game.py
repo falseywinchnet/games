@@ -3,7 +3,7 @@
 
     python3 new-games/tools/new_game.py --id tidepools --namespace tp --title "Tide Pools"
 
-Creates vendor/<id>/ as a complete, building, tested game (the template's lamps
+Creates games/<id>/ as a complete, building, tested game (the template's lamps
 puzzle under your names), ready for you to replace its rules, scene and words.
 It changes nothing else: CMake discovers the folder automatically.
 """
@@ -55,7 +55,7 @@ def main() -> int:
     parser.add_argument("--kind", default="Puzzle", help='two or three words under the title, e.g. "Shore puzzle"')
     parser.add_argument("--blurb", default="", help="one sentence for the shelf ticket")
     parser.add_argument("--entry-id", type=int, help="permanent saved-game id; defaults to the next unreserved number")
-    parser.add_argument("--directory", type=Path, help="external destination folder instead of vendor/<id>")
+    parser.add_argument("--directory", type=Path, help="external destination folder instead of games/<id>")
     options = parser.parse_args()
 
     if not re.fullmatch(r"[a-z][a-z0-9]{2,19}", options.id):

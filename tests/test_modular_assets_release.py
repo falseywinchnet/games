@@ -34,7 +34,7 @@ class ModuleAssets(unittest.TestCase):
         self.addCleanup(self.patch.stop)
 
     def module(self, name="sample"):
-        directory = self.root / "vendor" / name
+        directory = self.root / "games" / name
         (directory / "assets/audio").mkdir(parents=True)
         manifest = directory / "GAME.json"
         manifest.write_text(json.dumps({"id": name, "schema_version": 1, "entry_id": 100}))

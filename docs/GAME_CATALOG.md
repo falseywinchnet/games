@@ -94,7 +94,7 @@ Before implementing: fix the movement and victory rules, choose the new original
 
 ## Sudoku engine provenance
 
-The user-authorized handoff came from “Build an offline Sudoku generator.” The replaceable M4 mirror was `/Users/joshuahkuttenkuler/Developer/CodexBuilds/sudoku-offline-f74d1316f7bd`. Its canonical engine, calibration, independent oracle/tests, and original reports are preserved under `vendor/sudoku/`. The engine SHA-256 is `e6c1324a58ab7ebe3521ede26cda78a179843ed86af47a7eb2a268438f0a642d`.
+The user-authorized handoff came from “Build an offline Sudoku generator.” The replaceable M4 mirror was `/Users/joshuahkuttenkuler/Developer/CodexBuilds/sudoku-offline-f74d1316f7bd`. Its canonical engine, calibration, independent oracle/tests, and original reports are preserved under `games/sudoku/`. The engine SHA-256 is `e6c1324a58ab7ebe3521ede26cda78a179843ed86af47a7eb2a268438f0a642d`.
 
 The app uses pinned QuickJS in a background job; no server or external Node installation is required. The runtime adapter removes only ES-module export syntax and supplies a clock. Three native integration fixtures match the original Node engine exactly and pass the independent Algorithm X oracle and logical trace replay. Original warmed-Node benchmark timings are not native cold-start timings.
 
@@ -104,4 +104,4 @@ Gems begins with five colors and adds a color each 1,800 internal points, up to 
 
 Atom Probe gives an immediate forward atom priority (absorption). A single forward diagonal atom turns the ray away; two forward diagonals reflect it. An entry-edge deflection, loop, or return through the same port is a reflection. Other exits identify the paired boundary port. These rules are in Help and are exhaustively compared with a separately written tracer.
 
-Nature Cube allows unused cells. Its generated witness establishes existence of a valid connection set, not uniqueness. Untangle and Puzzle Solve also use construction witnesses. Card deals use this application's seeded shuffle, without Microsoft deal numbering. Solitaire, Spider and FreeCell deal from tables of seeds whose winning lines were found by `src/solitaire_solver.cpp` and replayed through the game rules, graded Easy, Medium and Hard (`tools/deal_grader.cpp` regenerates `src/deal_tables.cpp`).
+Nature Cube allows unused cells. Its generated witness establishes existence of a valid connection set, not uniqueness. Untangle and Puzzle Solve also use construction witnesses. Card deals use this application's seeded shuffle, without Microsoft deal numbering. Solitaire, Spider and FreeCell deal from tables of seeds whose winning lines were found by `shared/cards/solitaire_solver.cpp` and replayed through the game rules, graded Easy, Medium and Hard (`tools/deal_grader.cpp` regenerates `shared/cards/deal_tables.cpp`).

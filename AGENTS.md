@@ -1,6 +1,6 @@
 # Games (PlaySuite) development
 
-The product is now named PlaySuite. Internal identifiers (the `games` executable and CMake project, the `Rainstar/Games` save folders, the Linux package id and the Windows uninstall key) keep their names so builds, saves and installs carry over. The shell is the shelf (`src/shelf.*`) plus the command capsule (`src/capsule.*`); games expose their commands through `CommandSource` (`src/suite.hpp`) or, for vendor views, `host_command`/`host_panel`. Toolkit gaps found during the rework are listed in `docs/TOOLKIT_REQUESTS.md` for the GUI.Forms owner. The window minimum is 600 × 420; check new layouts at that size. Solitaire, Spider and FreeCell deal only from the verified, graded tables in `src/deal_tables.cpp`: if their rules in `game.cpp`, `src/solitaire_solver.cpp` or its grading limits change, regenerate the tables (`cmake --build .build/portable-core --target deal_grader -j 1`, then `.build/portable-core/deal_grader generate src/deal_tables.cpp 500 12`, about 21 minutes single-threaded) or the `solver` test fails. Card handling sounds are rendered by `playsuite_music sfx` (see `authoring/playsuite_music/README.md`).
+The product is now named PlaySuite. Internal identifiers (the `games` executable and CMake project, the `Rainstar/Games` save folders, the Linux package id and the Windows uninstall key) keep their names so builds, saves and installs carry over. The shell is the shelf (`src/shelf.*`) plus the command capsule (`src/capsule.*`); games expose their commands through `CommandSource` (`src/suite.hpp`) or, for vendor views, `host_command`/`host_panel`. Toolkit gaps found during the rework are listed in `docs/TOOLKIT_REQUESTS.md` for the GUI.Forms owner. The window minimum is 600 × 420; check new layouts at that size. Solitaire, Spider and FreeCell deal only from the verified, graded tables in `shared/cards/deal_tables.cpp`: if their rules in `game.cpp`, `shared/cards/solitaire_solver.cpp` or its grading limits change, regenerate the tables (`cmake --build .build/portable-core --target deal_grader -j 1`, then `.build/portable-core/deal_grader generate shared/cards/deal_tables.cpp 500 12`, about 21 minutes single-threaded) or the `solver` test fails. Card handling sounds are rendered by `playsuite_music sfx` (see `authoring/playsuite_music/README.md`).
 
 The complete application now builds from pinned GUI.Forms source using `GAMES_TOOLKIT_SOURCE_DIR` and prepared `GAMES_RUNTIME_ASSET_DIR`. Follow `docs/BUILDING.md` and `.github/workflows/applications.yml` for current native application and packaging commands. The full Windows profile passes 39 tests and a packaged native-window smoke; earlier subset commands below remain useful but are not the complete application recipe. Do not modify the shared toolkit checkout to fix application builds.
 
@@ -37,7 +37,7 @@ cmake --build .build/portable-audio -j 2
 ctest --test-dir .build/portable-audio --output-on-failure
 ```
 
-Atom Probe now uses `vendor/atomprobe` and `atom_probe-v2.txt`. Four Pegs uses the editable `vendor/fourpegs` copy and reserves `four_pegs-v2.txt`; Switchbox uses `vendor/switchbox` and `switchbox-v2.txt`. Keep their incoming packages and v1 saves unchanged. Collection source selects the new views in slots 5, 6 and 7 while retaining their enum values. Full UI linking, shared prepared-text wrapping, native audio playback, native cursor interaction and release packaging remain separate validation requirements.
+Atom Probe now uses `games/atomprobe` and `atom_probe-v2.txt`. Four Pegs uses the editable `games/fourpegs` copy and reserves `four_pegs-v2.txt`; Switchbox uses `games/switchbox` and `switchbox-v2.txt`. Keep their incoming packages and v1 saves unchanged. Collection source selects the new views in slots 5, 6 and 7 while retaining their enum values. Full UI linking, shared prepared-text wrapping, native audio playback, native cursor interaction and release packaging remain separate validation requirements.
 
 Four Pegs bar scheduling has a separate development consumer test against GUI.Forms source, because the draft transport is not exported in an installed SDK:
 
@@ -61,7 +61,9 @@ ctest --test-dir .build/portable-core --output-on-failure --timeout 120
 
 The `Native game core checks` workflow runs that profile on native Windows x64, macOS arm64, Linux x64 and Linux arm64 runners. Test reports and scene previews are diagnostic artifacts, not application packages.
 
-New games are built with the kit in `new-games/`; a model starting one reads `new-games/AGENTS.md` first. Shared engines live in `engines/<id>/` (see `new-games/guide/11-shared-engines.md`); games declare them in `GAME.json`. `engines/ambient` draws living 3D scenes on the processor alone under a measured CPU budget; Stillwater is its first scene. Kit games are written portable from the start, live only in `vendor/<id>/`, and are discovered automatically from `GAME.json`; `new-games/tools/wire_shelf.py` validates without changing files; they have no `incoming/` package. `new-games/tools/check_game.py <id> --fetch-toolkit` is their gate, and each adds a `<id>_view_contract` application test.
+Every game lives in its own folder, `games/<id>/`, discovered from its `GAME.json`. Code several games use lives in `shared/` (`cards`, `puzzles`, `ambient`, `coverage`, `felt`); `src/` is only the PlaySuite shell and its services. The README's game list is generated from each game's `GAME.json`, `about.md` and `screens/readme.jpg` by `tools/make_readme.py`, which the `readme.yml` workflow runs after every push to `main`; edit those files, not the generated list.
+
+New games are built with the kit in `new-games/`; a model starting one reads `new-games/AGENTS.md` first. Shared engines live in `shared/<id>/` (see `new-games/guide/11-shared-engines.md`); games declare them in `GAME.json`. `shared/ambient` draws living 3D scenes on the processor alone under a measured CPU budget; Stillwater is its first scene. Kit games are written portable from the start, live only in `games/<id>/`, and are discovered automatically from `GAME.json`; `new-games/tools/wire_shelf.py` validates without changing files; they have no `incoming/` package. `new-games/tools/check_game.py <id> --fetch-toolkit` is their gate, and each adds a `<id>_view_contract` application test.
 
 The 0.4 integrations and adapter boundaries are documented in docs/NEW_GAME_INTEGRATION.md. Run `python3 scripts/check-style.py` before publishing. New incoming packages remain unchanged; vendor copies are the integration surface.
 
@@ -125,7 +127,7 @@ The native executable is `.build/modular-app/games.app/Contents/MacOS/games`.
 Use `--list-games`, `--game catchingthieves --standalone --dev`, or
 `--game maze --dev --script <finite-script>` for isolated native validation.
 `GAMES_EXTRA_GAME_DIRS` allows a complete external game folder to be tested before
-copying it into `vendor/`. Clear that cache option after the experiment. Never
+copying it into `games/`. Clear that cache option after the experiment. Never
 commit fixture games or generated catalog files. Test module addition/removal,
 sparse permanent IDs, help, scrolling and old save migration without editing the
 shell. Run the full native suite after finalizing the catalog.

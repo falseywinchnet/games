@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compress the PNGs the kit's preview tools write.
 
-    python3 new-games/tools/shrink_png.py vendor/<id>/screens
+    python3 new-games/tools/shrink_png.py games/<id>/screens
 
 The harness writes PNGs with their pixels stored uncompressed, which keeps the
 C++ side tiny but makes files of several megabytes. This rewrites each file in

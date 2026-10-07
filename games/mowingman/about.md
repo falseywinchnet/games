@@ -1,0 +1,1 @@
+Eggy mows the garden on a ride-on mower, striping the lawn on his own. Take the wheel if you like, but keep off the flower beds or the old lady comes after you, and watch out for the gnome peeking from the grass.

@@ -1,7 +1,7 @@
 # The brief
 
 A brief is one page that says what the game is, agreed with the person before
-any of it is built. It lives in `vendor/<id>/README.md` and stays true as the
+any of it is built. It lives in `games/<id>/README.md` and stays true as the
 game changes. The gate refuses a brief with `TODO` left in it.
 
 The brief exists because the expensive mistakes are made in the first hour: a

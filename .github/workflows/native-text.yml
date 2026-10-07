@@ -2,9 +2,9 @@ name: Native portable text
 on:
   push:
     branches: [main, 'codex/**']
-    paths: ['src/text_requests.*', 'src/game_text.*', 'vendor/**', 'engines/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', '.github/workflows/native-text.yml']
+    paths: ['src/text_requests.*', 'src/game_text.*', 'games/**', 'shared/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', '.github/workflows/native-text.yml']
   pull_request:
-    paths: ['src/text_requests.*', 'src/game_text.*', 'vendor/**', 'engines/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', '.github/workflows/native-text.yml']
+    paths: ['src/text_requests.*', 'src/game_text.*', 'games/**', 'shared/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', '.github/workflows/native-text.yml']
   workflow_dispatch:
 permissions:
   contents: read

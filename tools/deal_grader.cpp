@@ -7,10 +7,10 @@
 //       Scans seeds 1, 2, 3, ... for each game/option, grades each deal with
 //       games::grade_deal and writes the verified seed tables. Single threaded.
 //
-// Regenerate src/deal_tables.cpp (after changing the solver, the grading limits or
+// Regenerate shared/cards/deal_tables.cpp (after changing the solver, the grading limits or
 // the rules in game.cpp) from a portable-core build:
 //   cmake --build .build/portable-core --target deal_grader -j 1
-//   .build/portable-core/deal_grader generate src/deal_tables.cpp
+//   .build/portable-core/deal_grader generate shared/cards/deal_tables.cpp
 #include "solitaire_solver.hpp"
 #include <algorithm>
 #include <array>
@@ -214,7 +214,7 @@ int generate(const char* path, int per_bucket, double minutes) {
                "// Easy/Medium/Hard by games::grade_deal (see solitaire_solver.cpp).\n"
                "// Regenerate from a portable-core build:\n"
                "//   cmake --build .build/portable-core --target deal_grader -j 1\n"
-               "//   .build/portable-core/deal_grader generate src/deal_tables.cpp\n",
+               "//   .build/portable-core/deal_grader generate shared/cards/deal_tables.cpp\n",
                f);
     std::fprintf(f, "// Per-bucket target %d seeds.\n", per_bucket);
     std::fputs(summary.c_str(), f);

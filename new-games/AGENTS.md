@@ -1,7 +1,7 @@
 # Building a PlaySuite game
 
 Read the repository's root `AGENTS.md` and this procedure first. A game is one
-folder, `vendor/<id>/`. Its manifest, build rules, factory, cover, help, assets,
+folder, `games/<id>/`. Its manifest, build rules, factory, cover, help, assets,
 tests and handoff live there. CMake discovers the folder. Adding a game requires
 no edits to the collection, shelf, shared help, asset inventory or release version.
 
@@ -50,7 +50,7 @@ solvability by replaying witnesses through the actual rules. Test saves, damaged
 input, outcomes, layout and animation transitions.
 
 ```sh
-cmake -S vendor/<id> -B .build/new-games/<id> -DCMAKE_BUILD_TYPE=Release
+cmake -S games/<id> -B .build/new-games/<id> -DCMAKE_BUILD_TYPE=Release
 cmake --build .build/new-games/<id> --parallel 2
 ctest --test-dir .build/new-games/<id> --output-on-failure --timeout 120
 ```
@@ -67,7 +67,7 @@ Make previews of start, active play, every outcome and panel. Inspect them at
 1100 × 760, 600 × 370 and 600 × 320, and scales 1, 1.5 and 2. Keep the inspected
 PNG files in `screens/`, including a filename containing `600x370`.
 
-A game built on a shared engine (for example a living scene on `engines/ambient`)
+A game built on a shared engine (for example a living scene on `shared/ambient`)
 supplies the engine's data and interface instead of writing that machinery; read
 the engine's README and [shared engines](guide/11-shared-engines.md).
 
@@ -165,7 +165,7 @@ publication before claiming that outcome.
 
 - One game folder and namespace; no dependency on another game's private files.
   Shared engines are collection infrastructure: the card/puzzle engines in `src/`,
-  and engines in `engines/<id>/` that a game declares in `GAME.json`
+  and engines in `shared/<id>/` that a game declares in `GAME.json`
   (`"engines": [...]`). Machinery anticipated for a series of games, or shared by
   several, is promoted to an engine rather than copied into each; content stays in
   the games. See [shared engines](guide/11-shared-engines.md).

@@ -1,6 +1,6 @@
 # Four additional games in PlaySuite 0.4
 
-Koi-Koi, The Parrot's Table, Liar's Dice and Pen the Sheep join the existing thirteen games. Their persisted `Entry` values are appended; every earlier entry and `PuzzleKind` keeps its value. The delivered `incoming/game-*-01` packages remain unchanged. Editable copies live under `vendor/koikoi`, `vendor/parrots`, `vendor/liarsdice` and `vendor/penthesheep`.
+Koi-Koi, The Parrot's Table, Liar's Dice and Pen the Sheep join the existing thirteen games. Their persisted `Entry` values are appended; every earlier entry and `PuzzleKind` keeps its value. The delivered `incoming/game-*-01` packages remain unchanged. Editable copies live under `games/koikoi`, `games/parrots`, `games/liarsdice` and `games/penthesheep`.
 
 The shared shelf and command capsule host all four games. Help, sets, crew, records and meadow selection use each game's own panels through `CommandSource`. Card choices, bids, parrot marks and fence placement stay on the boards. The capsule owns music, sound and reduced motion in hosted mode. Hidden games stop audio and pause their simulation; returning resumes the existing position. A wrapping capsule expands the reserved rail so its buttons cannot overlap a live game surface.
 

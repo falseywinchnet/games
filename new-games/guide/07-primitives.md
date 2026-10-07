@@ -114,7 +114,7 @@ no audio count is hard-coded.
 **More than this.** Music that changes on a bar line (Four Pegs, Liar's Dice) and
 looping beds whose volume and pitch follow the game (Rock Stack's brook and
 motor) need a few more lines in your audio adapter. Copy the pattern from
-`vendor/zenconstruction/src/platform/audio.cpp` (beds on `games::PcmPlayer`) or
+`games/zenconstruction/src/platform/audio.cpp` (beds on `games::PcmPlayer`) or
 `src/fourpegs_audio.*` (bar transport), and keep the extra functions in your
 `platform/audio.hpp`.
 
@@ -128,14 +128,14 @@ checksum, atomic replacement. See [anatomy](03-anatomy.md).
 `next_random(state)` is splitmix64: integer-only, identical everywhere. Derive
 separate streams by seeding separate states (seed, seed + 1, ...).
 
-## Shared engines (`engines/`)
+## Shared engines (`shared/`)
 
 Some machinery is shared rather than copied: a game declares the engine in
 `GAME.json` and links its library. See [shared engines](11-shared-engines.md).
 
 | Engine | What it gives you |
 |---|---|
-| [`ambient`](../../engines/ambient/README.md) | Living 3D scenes on the processor alone: retained fixed scenery, foliage swaying in a current, creatures on routes with startles, animated light, a CPU budget governor, and a complete PlaySuite view (`AmbientView`) with pause, detail, help, taps and sound. A scene game supplies an archive and a `Look`. |
+| [`ambient`](../../shared/ambient/README.md) | Living 3D scenes on the processor alone: retained fixed scenery, foliage swaying in a current, creatures on routes with startles, animated light, a CPU budget governor, and a complete PlaySuite view (`AmbientView`) with pause, detail, help, taps and sound. A scene game supplies an archive and a `Look`. |
 
 ## The headless harness (`new-games/kit/`)
 
@@ -160,19 +160,19 @@ record the source in `HANDOFF.md`. Take the newest copy; older ones lack fixes.
 
 | What | Newest copy | Notes |
 |---|---|---|
-| Software 3D renderer | `vendor/zenconstruction/src/platform/r3d.*` | Orthographic or perspective camera, z-buffer, textured triangles with nearest sampling and mip levels, Gouraud or toon lighting, fog, cut-out and translucent materials, sun shadows, low-resolution output with dithered upscale (`present`). `project` and `unproject_plane` for picking. This copy fills in bands on worker threads; if you do not need that, `vendor/penthesheep/src/platform/r3d.*` is the single-threaded version. |
-| Mesh helpers | `vendor/zenconstruction/src/platform/mesh.*` | Sphere, hemisphere, cylinder, cone, box, disc, torus, star, lumpy rock; `draw_mesh`, inverted-hull `draw_outline`, `tint` |
-| Procedural textures, ground, plants, creatures | `vendor/eggy/src/textures.*`, `ground.*`, `flora.*`, `critters.*` | Generated, tileable |
-| Character posing and faces | `vendor/switchbox/src/` (`girl.*`, `face.*`, `actor.*`) | A jointed, expressive 3D character with speech timing |
-| Speech lines and typewriter text | `vendor/switchbox/src/platform/lines.*` | Line pools and reveal timing |
-| Felt and cloth | `vendor/paint/carpet.*`, `image.*` | Fibre-rendered felt (`paint::render_carpet_tile`), under its own MIT license. This one is linked once by the suite; use it through `paint::` as `vendor/koikoi` does, do not copy it. |
-| Card finish | `vendor/koikoi/src/card_finish.*` | The lit, slightly raised card look |
-| Rigid-body physics | `vendor/zenconstruction/phys/` | Convex hulls, friction, sleeping, deterministic. Read `vendor/zenconstruction/PHYSICS_SPEC.md` and `phys/NOTES.md` first. |
-| Hex-grid puzzle generation with a proving solver | `vendor/penthesheep/src/field.*` | The pattern for "generate, then prove solvable" |
-| Deduction puzzle generation | `vendor/parrots/src/logic.*` | Generating a logic puzzle and checking its solution |
-| Sound synthesis | `vendor/zenconstruction/audio_src/engine/synth.py` | Plucks, mallets, pads, flutes, percussion, a loop mixer and a reverb (NumPy). The template's `make_sfx.py` is the no-dependency starting point. |
-| Low-resolution scene with crisp text on top | `vendor/penthesheep/src/sheep_view.cpp` (`publish`, `blit_texts`) | The house 3D look: scene at one pixel per two points, text blended at device resolution afterwards |
-| Background generation on a future | `vendor/penthesheep/src/sheep_view.cpp` (`pending_`) | `std::async`, polled on a tick, awaited in the destructor |
+| Software 3D renderer | `games/zenconstruction/src/platform/r3d.*` | Orthographic or perspective camera, z-buffer, textured triangles with nearest sampling and mip levels, Gouraud or toon lighting, fog, cut-out and translucent materials, sun shadows, low-resolution output with dithered upscale (`present`). `project` and `unproject_plane` for picking. This copy fills in bands on worker threads; if you do not need that, `games/penthesheep/src/platform/r3d.*` is the single-threaded version. |
+| Mesh helpers | `games/zenconstruction/src/platform/mesh.*` | Sphere, hemisphere, cylinder, cone, box, disc, torus, star, lumpy rock; `draw_mesh`, inverted-hull `draw_outline`, `tint` |
+| Procedural textures, ground, plants, creatures | `games/eggy/src/textures.*`, `ground.*`, `flora.*`, `critters.*` | Generated, tileable |
+| Character posing and faces | `games/switchbox/src/` (`girl.*`, `face.*`, `actor.*`) | A jointed, expressive 3D character with speech timing |
+| Speech lines and typewriter text | `games/switchbox/src/platform/lines.*` | Line pools and reveal timing |
+| Felt and cloth | `shared/felt/carpet.*`, `image.*` | Fibre-rendered felt (`paint::render_carpet_tile`), under its own MIT license. This one is linked once by the suite; use it through `paint::` as `games/koikoi` does, do not copy it. |
+| Card finish | `games/koikoi/src/card_finish.*` | The lit, slightly raised card look |
+| Rigid-body physics | `games/zenconstruction/phys/` | Convex hulls, friction, sleeping, deterministic. Read `games/zenconstruction/PHYSICS_SPEC.md` and `phys/NOTES.md` first. |
+| Hex-grid puzzle generation with a proving solver | `games/penthesheep/src/field.*` | The pattern for "generate, then prove solvable" |
+| Deduction puzzle generation | `games/parrots/src/logic.*` | Generating a logic puzzle and checking its solution |
+| Sound synthesis | `games/zenconstruction/audio_src/engine/synth.py` | Plucks, mallets, pads, flutes, percussion, a loop mixer and a reverb (NumPy). The template's `make_sfx.py` is the no-dependency starting point. |
+| Low-resolution scene with crisp text on top | `games/penthesheep/src/sheep_view.cpp` (`publish`, `blit_texts`) | The house 3D look: scene at one pixel per two points, text blended at device resolution afterwards |
+| Background generation on a future | `games/penthesheep/src/sheep_view.cpp` (`pending_`) | `std::async`, polled on a tick, awaited in the destructor |
 
 The older games' views contain platform adapters (`*.mm`) and style that predate
 this kit. Borrow their techniques and their portable files; do not copy their

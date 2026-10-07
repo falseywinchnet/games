@@ -27,12 +27,12 @@ def cpp_identifier(value):
 
 
 def discover_engines(root: Path) -> dict[str, dict]:
-    """Shared engines: engines/<id>/ENGINE.json. Collection infrastructure that several
+    """Shared engines: shared/<id>/ENGINE.json. Collection infrastructure that several
     games build on, discovered like games and validated before any game uses one."""
     root = Path(root).resolve()
     engines = {}
     namespaces = {}
-    for path in sorted((root / 'engines').glob('*/ENGINE.json')):
+    for path in sorted((root / 'shared').glob('*/ENGINE.json')):
         def fail(message):
             raise ValueError(f'{path}: {message}')
         try:
@@ -92,7 +92,7 @@ def discover(root: Path, extra_dirs=(), include_disabled=False) -> list[dict]:
     root = Path(root).resolve()
     engines = discover_engines(root)
     engine_namespaces = {e['namespace']: e['manifest_path'] for e in engines.values()}
-    paths = set((root / 'vendor').glob('*/GAME.json'))
+    paths = set((root / 'games').glob('*/GAME.json'))
     paths.update(Path(d).resolve() / 'GAME.json' for d in extra_dirs)
     result = []
     used = {key: {} for key in ('id', 'entry_id', 'entry_name', 'namespace')}
@@ -121,7 +121,7 @@ def discover(root: Path, extra_dirs=(), include_disabled=False) -> list[dict]:
             fail('engines must be a list of distinct engine ids')
         for engine in data['engines']:
             if engine not in engines:
-                fail(f'unknown engine {engine!r}; engines live in engines/<id>/ENGINE.json')
+                fail(f'unknown engine {engine!r}; engines live in shared/<id>/ENGINE.json')
         if type(data.get('entry_id')) is not int or not 0 <= data['entry_id'] <= 2147483647:
             fail('entry_id must be a permanent integer from 0 to 2147483647')
         for key in used:

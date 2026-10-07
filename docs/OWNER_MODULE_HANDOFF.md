@@ -4,9 +4,9 @@ The delivered replacement sources are integrated through editable vendor copies.
 
 | Incoming package | Working copy | Collection slot | Preserved enum | New save |
 | --- | --- | --- | --- | --- |
-| `game-atomprobe-01` | `vendor/atomprobe` | 5 | `PuzzleKind::atom` (3) | `atom_probe-v2.txt` |
-| `game-fourpegs-01` | `vendor/fourpegs` | 6 | `PuzzleKind::pegs` (4) | `four_pegs-v2.txt` |
-| `game-switchbox-01` | `vendor/switchbox` | 7 | Switchbox kind 5 | `switchbox-v2.txt` |
+| `game-atomprobe-01` | `games/atomprobe` | 5 | `PuzzleKind::atom` (3) | `atom_probe-v2.txt` |
+| `game-fourpegs-01` | `games/fourpegs` | 6 | `PuzzleKind::pegs` (4) | `four_pegs-v2.txt` |
+| `game-switchbox-01` | `games/switchbox` | 7 | Switchbox kind 5 | `switchbox-v2.txt` |
 
 Keep each incoming package unchanged. Its `INTEGRATION_HANDOFF.txt`, validation record and fingerprints describe the delivered baseline. Keep every corresponding `-v1.txt` save untouched. Development saves use separate `-dev-v2.txt` names, and `GAMES_STATE_DIR` isolates tests.
 
@@ -27,7 +27,7 @@ Four new games from the owner's 2026-10-02 brief (Parrot's Table, Liar's Dice, B
 | `game-penthesheep-01` | Pen the Sheep (the hex trapping puzzle) | `sh` | `sh::SheepView` | `pen_the_sheep-v1.txt` |
 | `game-koikoi-01` | Koi-Koi, the fifth card game | `games::koi` rules, `kk` table | `kk::KoiView` | `koikoi-v1.txt` |
 
-Keep each package unchanged and work from vendor copies, as above. All four reflow from 600 x 370 points (the window minimum less the rail) to full screen. Koi-Koi's package carries verbatim copies of `vendor/paint` and of the card table's `card_finish`; link the cabinet's own `vendor/paint` instead of the copy. These packages' `platform/raster.cpp` includes a fix to `accumulate()` (an intermittent one-float overread); the Switchbox, Four Pegs and Atom Probe vendor copies predate it.
+Keep each package unchanged and work from vendor copies, as above. All four reflow from 600 x 370 points (the window minimum less the rail) to full screen. Koi-Koi's package carries verbatim copies of `shared/felt` and of the card table's `card_finish`; link the cabinet's own `shared/felt` instead of the copy. These packages' `platform/raster.cpp` includes a fix to `accumulate()` (an intermittent one-float overread); the Switchbox, Four Pegs and Atom Probe vendor copies predate it.
 
 ### Zen Construction (delivered 2026-10-03)
 
