@@ -136,7 +136,7 @@ PlaySuite has **22 games**: Solitaire, Spider, FreeCell, Hearts, Sudoku, Gems, N
 <td width="50%" valign="top">
 <a href="games/stillwater"><img src="games/stillwater/screens/readme.jpg" alt="Stillwater" width="100%"></a>
 <br><b><a href="games/stillwater">Stillwater</a></b> · Living aquarium
-<br>A living aquarium to leave running: tetras over swaying grass, crabs, driftwood and a sunken treasure chest, with an island band improvising on lap steel and ukulele. Tap the glass to scatter the fish.
+<br>A living aquarium to leave running: tetras over swaying grass, a coral reef of tangs and clownfish, or a dim river pool under tree roots, all under shifting sunlit caustics, with an island band improvising on lap steel and ukulele. Tap the glass to scatter the fish.
 </td>
 <td width="50%" valign="top">
 <a href="games/mowingman"><img src="games/mowingman/screens/readme.jpg" alt="Mowing" width="100%"></a>
