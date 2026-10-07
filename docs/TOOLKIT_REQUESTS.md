@@ -29,6 +29,15 @@ AGENTS.md asks for reusable capabilities to become GUI.Forms enhancements, coord
    view contract currently requires device-sized frames, so (a) also needs a
    contract revision.
 
+6. **Decode a PNG into CPU pixels.** `Window::load_png` validates a PNG and hands
+   it to the host renderer, but nothing public returns its pixels, and the
+   Windows host decodes through WIC while Skia hosts decode internally. Koi-Koi
+   keeps its own CPU raster (area-averaged card reduction, card finish), so it
+   decodes its compressed deck itself with the ambient engine's zlib decoder
+   (`games/koikoi/src/platform/image.cpp`, 8-bit RGBA only). What would replace
+   it: a portable `decode_png(bytes) -> premultiplied BGRA` in GUI.Forms, with
+   the registry's limits, usable off the UI thread.
+
 ## Host behavior found on Windows
 
 **Idle live-surface clock and registration lifecycle.** In pinned `7b260cf`,

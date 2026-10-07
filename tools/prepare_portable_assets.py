@@ -8,6 +8,7 @@ import re
 import shutil
 import struct
 import subprocess
+import zlib
 from pathlib import Path
 
 
@@ -22,29 +23,98 @@ def prepare_image(source: Path, destination: Path) -> None:
     destination.write_bytes(b"GPIX" + struct.pack("<III", 1, 1024, 512) + image.tobytes())
 
 
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+def png_layout(data: bytes):
+    """(width, height) when data is the PNG layout Koi-Koi decodes: 8-bit RGBA, not interlaced,
+    valid chunk checksums, and no critical chunk besides IHDR, IDAT and IEND. None otherwise."""
+    if data[:8] != PNG_SIGNATURE:
+        return None
+    at, size = 8, None
+    while at + 12 <= len(data):
+        length, kind = struct.unpack(">I4s", data[at:at + 8])
+        body = data[at + 8:at + 8 + length]
+        if len(body) != length or at + 12 + length > len(data):
+            return None
+        if struct.unpack(">I", data[at + 8 + length:at + 12 + length])[0] != zlib.crc32(kind + body):
+            return None
+        if kind == b"IHDR":
+            if at != 8 or length != 13:
+                return None
+            width, height, depth, color, compression, filtering, interlace = struct.unpack(">IIBBBBB", body)
+            if (depth, color, compression, filtering, interlace) != (8, 6, 0, 0, 0) or not 0 < width <= 4096 or not 0 < height <= 4096:
+                return None
+            size = (width, height)
+        elif kind == b"IEND":
+            return size if at + 12 + length == len(data) else None
+        elif kind != b"IDAT" and not kind[0] & 32:
+            return None
+        elif size is None:
+            return None
+        at += 12 + length
+    return None
+
+
+def premultiplied_bgra(image) -> bytes:
+    """The pixels exactly as Koi-Koi holds them: premultiplied BGRA, (c * a + 127) // 255."""
+    data = bytearray(image.tobytes())
+    for i in range(0, len(data), 4):
+        r, g, b, a = data[i:i + 4]
+        data[i:i + 4] = bytes(((b * a + 127) // 255, (g * a + 127) // 255, (r * a + 127) // 255, a))
+    return bytes(data)
+
+
+def card_verification(records: list) -> str:
+    """Native-test contract: each card's size and the CRC-32 of its premultiplied BGRA pixels."""
+    lines = [str(len(records))]
+    for record in sorted(records, key=lambda record: record["file"]):
+        lines.append("\t".join((record["file"], str(record["width"]), str(record["height"]),
+                                 "%08x" % record["pixels_crc32"])))
+    return "\n".join(lines) + "\n"
+
+
 def prepare_cards(source: Path, destination: Path) -> None:
+    """Card art ships as compressed, lossless PNG in the one layout the game decodes.
+
+    A source already in that layout is shipped byte for byte; any other is re-encoded.
+    Either way the decoded pixels equal the source's, which is checked here, and the
+    manifest records the premultiplied pixels' digests for the native decoder test.
+    """
+    import io
     from PIL import Image
     destination.mkdir(parents=True, exist_ok=True)
     records = []
+    produced = {"manifest.json", "verification.tsv"}
     for path in sorted(source.glob("*.png")):
-        with Image.open(path) as original:
-            image = original.convert("RGBA")
-        data = bytearray(image.tobytes())
-        for i in range(0, len(data), 4):
-            r, g, b, a = data[i:i + 4]
-            data[i:i + 4] = bytes(((b * a + 127) // 255, (g * a + 127) // 255, (r * a + 127) // 255, a))
-        name = path.with_suffix(".bgpix").name
-        prepared = b"BGPX" + struct.pack("<III", 1, *image.size) + data
-        (destination / name).write_bytes(prepared)
-        records.append({"source": path.name, "source_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-                        "file": name, "sha256": hashlib.sha256(prepared).hexdigest()})
-        # Older runtime directories carried both representations. Only prepared
-        # pixels are used by Koi-Koi; the original artwork stays in source control.
-        (destination / path.name).unlink(missing_ok=True)
-    (destination / "manifest.json").write_text(json.dumps(records, indent=2) + "\n", encoding="utf-8")
+        original = path.read_bytes()
+        with Image.open(io.BytesIO(original)) as opened:
+            image = opened.convert("RGBA")
+        prepared = original
+        if png_layout(original) != image.size:
+            buffer = io.BytesIO()
+            image.save(buffer, "PNG", optimize=True)
+            prepared = buffer.getvalue()
+        with Image.open(io.BytesIO(prepared)) as reopened:
+            if png_layout(prepared) != image.size or reopened.convert("RGBA").tobytes() != image.tobytes():
+                raise ValueError("Prepared card is not a lossless RGBA PNG: " + path.name)
+        pixels = premultiplied_bgra(image)
+        (destination / path.name).write_bytes(prepared)
+        produced.add(path.name)
+        records.append({"source": path.name, "source_sha256": hashlib.sha256(original).hexdigest(),
+                        "file": path.name, "sha256": hashlib.sha256(prepared).hexdigest(),
+                        "width": image.size[0], "height": image.size[1],
+                        "pixels_sha256": hashlib.sha256(pixels).hexdigest(), "pixels_crc32": zlib.crc32(pixels)})
     for path in source.iterdir():
         if path.is_file() and path.suffix.lower() != ".png":
             shutil.copy2(path, destination / path.name)
+            produced.add(path.name)
+    # Older runtime directories (a restored cache) held raw .bgpix pixels; nothing reads them now.
+    for path in destination.iterdir():
+        if path.is_file() and path.name not in produced:
+            path.unlink()
+    (destination / "manifest.json").write_text(json.dumps(records, indent=2) + "\n", encoding="utf-8")
+    (destination / "verification.tsv").write_text(card_verification(records), encoding="utf-8")
 
 
 def prepare_fonts(source: Path, destination: Path) -> None:

@@ -6,7 +6,7 @@ The month, ribbon color and special-card identities follow the delivered Koi-Koi
 
 `assemble.py` crops the regular atlas cells and resizes them into the delivered cards' 308 × 420 artwork insets. It preserves the original 360 × 504 frame and the deterministic month/type labels. Run it with Python and Pillow from any directory. The original incoming package is read-only input. Full sheets are authoring files and are not included in installed packages.
 
-Release preparation converts each PNG to a bounded, premultiplied BGRA pixel file. The game reads those prepared pixels using portable C++; neither ImageIO nor a runtime Python installation is needed. The final art was inspected as a complete small-card gallery and in the rendered Koi-Koi table.
+Release preparation ships each card as compressed, lossless PNG (8-bit RGBA, not interlaced; a source already in that layout is shipped byte for byte) and records the premultiplied BGRA pixels' digests in `cards/manifest.json` and `cards/verification.tsv`. The game decodes the PNGs in portable C++ with the ambient engine's zlib decoder, on worker threads, to exactly those pixels (`koikoi_card_art` checks every card); neither ImageIO nor a runtime Python installation is needed. The final art was inspected as a complete small-card gallery and in the rendered Koi-Koi table.
 
 Author: Astra
 Sponsor: Rainstar

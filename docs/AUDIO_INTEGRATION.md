@@ -1,6 +1,6 @@
 # Delivered audio integration
 
-Both original music/effect batches from the user's Neo/Claude Opus workflow are integrated. Producer documentation is preserved as `assets/audio/AUDIO_MANIFEST.md` and `AUDIO_BATCH_02.md`; the merged `audio_manifest.json` retains original names, sample counts, and producer measurements. `PACKAGED_SHA256.json` describes the 187 packaged AAC files: 17 loops, 24 stingers, and 146 effects. Some tracks support the separately planned Catching Thieves module.
+Both original music/effect batches from the user's Neo/Claude Opus workflow are integrated. Producer documentation is preserved as `assets/audio/AUDIO_MANIFEST.md` and `AUDIO_BATCH_02.md`; the merged `audio_manifest.json` retains original names, sample counts, and producer measurements. `PACKAGED_SHA256.json` describes the 174 packaged AAC files: 16 loops, 22 stingers, and 136 effects. The retired Sticks & Stones loop, stingers and effects (13 files) remain in `incoming/audio-batch-02` only; `tools/package_audio.py` skips them. Some tracks support the separately planned Catching Thieves module.
 
 `tools/package_audio.py` combines both delivered batches without overwriting one with the other, preserves producer manifests, verifies source availability, and writes package hashes. Runtime music aliases map Solitaire to Klondike and Nature Cube to nature_cube. Sudoku switches between day and night music. Numbered action variants cycle; Gems' match sounds follow cascade depth, with bomb/star/hypercube cues for special clears.
 

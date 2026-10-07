@@ -12,7 +12,7 @@ Text uses the existing GUI.Forms text-mask service and bundled fonts. `PortableM
 
 Audio uses the existing shared Vorbis decoder and scene players. Liar's Dice uses the same real bar transport as Four Pegs: both arrangements have 1,570,896 frames at 48 kHz, with 65,454-frame bars. A sample-by-sample test checks the actual transition and outgoing fade against independently decoded reference clips. All 392 source audio files are prepared, decoded and verified.
 
-Koi-Koi PNGs are converted at build-resource preparation time to bounded premultiplied BGRA files. The runtime reader validates the header, dimensions and exact payload length. The shared felt renderer is linked once. The 48 new woodblock faces retain deterministic month and type labels; see [artwork provenance](../authoring/hanafuda/README.md).
+Koi-Koi's card PNGs ship compressed (lossless 8-bit RGBA PNG, checked at preparation). The runtime decoder accepts only that layout, verifies chunk checksums and the zlib Adler-32, and premultiplies exactly as the preparation records; `koikoi_card_art` compares every decoded card with the recorded pixels. The shared felt renderer is linked once. The 48 new woodblock faces retain deterministic month and type labels; see [artwork provenance](../authoring/hanafuda/README.md).
 
 No changes to GUI.Forms or new Apple framework adapter code were required. The only no-op seam is the standalone deliveries' developer-only window resize command; normal application resizing remains native and functional.
 
