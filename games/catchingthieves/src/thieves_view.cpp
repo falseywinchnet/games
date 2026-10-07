@@ -699,6 +699,7 @@ bool ThievesView::scripted_action(std::string_view requested) {
     if (requested.starts_with("tier") && !script_index(requested.substr(4), kDifficulties, numeric)) return false;
     if (requested.starts_with("fresh") && !script_index(requested.substr(5), kDifficulties, numeric)) return false;
     if (requested.starts_with("mv") && !script_index(requested.substr(2), board_.level().w * board_.level().h, numeric)) return false;
+    if (requested.starts_with("season") && !script_index(requested.substr(6), 5, numeric)) return false;
         if (code == "u") step(kUp);
         else if (code == "d") step(kDown);
         else if (code == "l") step(kLeft);
@@ -717,6 +718,11 @@ bool ThievesView::scripted_action(std::string_view requested) {
         else if (code.rfind("lvl", 0) == 0) {
             // a table garden by its id
             if (!enter(numeric)) return false;
+        }
+        else if (code.rfind("season", 0) == 0) {
+            // dev: show this garden in another season (0 spring .. 4 night), to judge the scene
+            save_.season = numeric;
+            begin_level();
         }
         else if (code.rfind("tier", 0) == 0) {
             // choose a difficulty and deal at it

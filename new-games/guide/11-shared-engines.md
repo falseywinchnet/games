@@ -90,3 +90,4 @@ game whose sounds the engine plays may omit `audio_adapter`.
 |---|---|---|
 | [`ambient`](../../shared/ambient/README.md) | Living scenes drawn on the processor alone: retained 3D scenery, swaying foliage, creatures, animated light, all under a measured CPU budget | Stillwater |
 | [`grass`](../../shared/grass/README.md) | Whole-lawn pictures grown blade by blade: long grass with wildflowers, mown turf, bark mulch and canopies, in any season | Mowing, Catching Thieves |
+| [`soil`](../../shared/soil/README.md) | Garden ground painted once per scene and size: clods and crumbs with soft self-shadowing, rows, stones, straw and leaves, damp, cracks, frost and snow, as repeating surfaces or the spoil round a hole | Catching Thieves |

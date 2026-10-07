@@ -4,6 +4,7 @@
 // through (petals, butterflies, falling leaves, snow, fireflies at night).
 // Draws the scene from a three-quarter view above and answers picking.
 #include "critters.hpp"
+#include "ground.hpp"
 #include "level.hpp"
 #include "platform/r3d.hpp"
 
@@ -73,6 +74,7 @@ private:
     std::shared_ptr<const FieldArt> field_;
     std::shared_ptr<HedgeCache> hedge_;  // the hedge's shell and shade, made once per garden (hedge.cpp)
     bool draw_field(const GardenState& s);  // field.cpp; false until the field for this season has grown
+    Ground ground_;          // the soil of the beds and the burrows, painted once per season and size
     void fit_camera();
     void draw_ground(const GardenState& s, double t);
     void draw_hedges(const GardenState& s, double t);

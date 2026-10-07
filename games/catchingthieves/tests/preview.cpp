@@ -30,7 +30,7 @@ static void write_ppm(const char* path, const Canvas& c) {
     std::fclose(f);
 }
 
-static int garden(const char* out, int index, double t, int W, int H) {
+static int garden(const char* out, int index, double t, int W, int H, double rise) {
     std::ifstream f(std::filesystem::path(__FILE__).parent_path().parent_path() / "assets/levels/gardens.txt");
     std::stringstream ss;
     ss << f.rdbuf();
@@ -62,7 +62,7 @@ static int garden(const char* out, int index, double t, int W, int H) {
         if (!lv.goal[static_cast<size_t>(i)]) continue;
         CoonPose c;
         c.pos = g.cell_pos(i);
-        c.rise = k % 3 == 0 ? 1.6 : k % 3 == 1 ? 1.0 : .55;
+        c.rise = rise >= 0 ? rise : k % 3 == 0 ? 1.6 : k % 3 == 1 ? 1.0 : .55;
         c.prop = k % 3 == 0 ? 2 : k % 3 == 1 ? 1 : 0;
         c.prop_t = t;
         c.tail = t * 3;
@@ -75,7 +75,10 @@ static int garden(const char* out, int index, double t, int W, int H) {
     }
     s.bear.pos = g.cell_pos(lv.player);
     s.bear.face.mouth = BMouth::smile;
+    // The first frame of a season and size also paints its soil.
+    const std::chrono::steady_clock::time_point first = std::chrono::steady_clock::now();
     g.render(s, t);
+    std::printf("first frame (soil painted) %.1f ms\n", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - first).count());
     if (std::getenv("BENCH")) {
         const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
         for (int i = 0; i < 30; ++i) g.render(s, t + i * .033);
@@ -89,9 +92,63 @@ static int garden(const char* out, int index, double t, int W, int H) {
     return 0;
 }
 
+// Burrows close up, one of each: empty, a raccoon peeking, out to the shoulders
+// with a carrot, standing on the rim waving, trapped under a pumpkin with a paw
+// out, and the bear standing over one.
+static int burrows(const char* out, int season, int W, int H, double t) {
+    const char* xsb =
+        "###########\n"
+        "#$       $#\n"
+        "# .  .  . #\n"
+        "#         #\n"
+        "# .  *  + #\n"
+        "#$   $   $#\n"
+        "###########\n";
+    Level lv;
+    std::string err;
+    if (!Level::parse(xsb, lv, &err)) { std::fprintf(stderr, "%s\n", err.c_str()); return 1; }
+    Garden g;
+    g.set_level(lv);
+    g.resize(W, H, 120);
+    GardenState s;
+    s.season = static_cast<Season>(std::clamp(season, 0, 4));
+    for (int b : lv.boxes) {
+        PumpkinView pv;
+        pv.pos = g.cell_pos(b);
+        pv.seed = b;
+        pv.on_burrow = true;
+        s.pumpkins.push_back(pv);
+    }
+    const double rises[6] = {0, .55, 1.0, 1.6, 0, 0};
+    int k = 0;
+    for (int i = 0; i < lv.w * lv.h; ++i) {
+        if (!lv.goal[static_cast<size_t>(i)]) continue;
+        CoonPose c;
+        c.pos = g.cell_pos(i);
+        c.rise = rises[k];
+        c.prop = k == 2 ? 1 : 0;
+        c.prop_t = t;
+        c.tail = t * 3;
+        if (k == 3) { c.left.hand = {-.22, -.1, .45}; c.right.hand = {.24, -.12, .5}; c.face.eyes = CEyes::laugh; c.face.mouth = CMouth::laugh; }
+        if (k == 1) c.face.eyes = CEyes::sly;
+        s.coons.push_back(c);
+        s.trapped.push_back(k == 4 ? 1 : 0);
+        s.paw_wiggle.push_back(1.2);
+        ++k;
+    }
+    s.bear.pos = g.cell_pos(lv.player);
+    g.render(s, t);
+    Canvas c;
+    c.resize(W, H);
+    g.r.present(c, 1, 0, 0, true);
+    write_ppm(out, c);
+    return 0;
+}
+
 int main(int argc, char** argv) {
-    if (argc < 3) { std::fprintf(stderr, "usage: preview cast out.ppm | preview garden out.ppm INDEX [t]\n"); return 1; }
-    if (!std::strcmp(argv[1], "garden")) return garden(argv[2], argc > 3 ? std::atoi(argv[3]) : 0, argc > 4 ? std::atof(argv[4]) : 1.0, argc > 5 ? std::atoi(argv[5]) : 550, argc > 6 ? std::atoi(argv[6]) : 380);
+    if (argc < 3) { std::fprintf(stderr, "usage: preview cast out.ppm | preview garden out.ppm INDEX [t] [W] [H] [raccoon rise, -1 mixed] | preview burrows out.ppm [season 0-4] [W] [H] [t]\n"); return 1; }
+    if (!std::strcmp(argv[1], "burrows")) return burrows(argv[2], argc > 3 ? std::atoi(argv[3]) : 0, argc > 4 ? std::atoi(argv[4]) : 550, argc > 5 ? std::atoi(argv[5]) : 380, argc > 6 ? std::atof(argv[6]) : 1.0);
+    if (!std::strcmp(argv[1], "garden")) return garden(argv[2], argc > 3 ? std::atoi(argv[3]) : 0, argc > 4 ? std::atof(argv[4]) : 1.0, argc > 5 ? std::atoi(argv[5]) : 550, argc > 6 ? std::atoi(argv[6]) : 380, argc > 7 ? std::atof(argv[7]) : -1.0);
     const int W = 640, H = 300;
     const double zoom = argc > 4 ? std::atof(argv[4]) : 1.0;
     R3D r;

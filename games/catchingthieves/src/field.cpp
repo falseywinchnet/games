@@ -169,7 +169,8 @@ bool Garden::draw_field(const GardenState& s) {
             const double ax = gx, ay = gy, bx = gx + 2, by = gy + 2;
             Vtx q[6] = {{{ax, ay, -.01}, n, ax * k, ay * k, tint}, {{bx, ay, -.01}, n, bx * k, ay * k, tint}, {{bx, by, -.01}, n, bx * k, by * k, tint},
                         {{ax, ay, -.01}, n, ax * k, ay * k, tint}, {{bx, by, -.01}, n, bx * k, by * k, tint}, {{ax, by, -.01}, n, ax * k, by * k, tint}};
-            r.draw(q, 6, &tex, unlit);
+            // no depth: the burrows' pits go down below the field (ground.cpp)
+            r.draw(q, 6, &tex, static_cast<std::uint16_t>(unlit | no_depth_write));
         }
     return true;
 }

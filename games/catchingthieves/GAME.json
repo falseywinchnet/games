@@ -24,7 +24,8 @@
     ]
   ],
   "engines": [
-    "grass"
+    "grass",
+    "soil"
   ],
   "help": "help.md",
   "module": "module.cpp",
@@ -58,6 +59,7 @@
     "src/tiers.cpp",
     "src/levelset.cpp",
     "src/critters.cpp",
+    "src/ground.cpp",
     "src/garden.cpp",
     "src/hedge.cpp",
     "src/field.cpp",

@@ -1,0 +1,21 @@
+# The soil engine. Included once by the generated registry (and by a game's own
+# standalone build) with ENGINE_DIR set to this folder.
+if(TARGET soil_core)
+  return()
+endif()
+add_library(soil_core STATIC "${ENGINE_DIR}/src/soil.cpp")
+target_include_directories(soil_core PUBLIC "${ENGINE_DIR}/src")
+target_compile_features(soil_core PUBLIC cxx_std_20)
+if(MSVC)
+  target_compile_options(soil_core PRIVATE /utf-8 /W4 /fp:precise)
+else()
+  target_compile_options(soil_core PRIVATE -Wall -Wextra -ffp-contract=off)
+endif()
+include(CTest)
+add_executable(soil_tests "${ENGINE_DIR}/tests/soil_tests.cpp")
+target_link_libraries(soil_tests PRIVATE soil_core)
+add_test(NAME soil_engine COMMAND soil_tests)
+set_tests_properties(soil_engine PROPERTIES TIMEOUT 120)
+# Not a test: writes a swatch sheet of every preset for a person to judge.
+add_executable(soil_swatches "${ENGINE_DIR}/tests/soil_swatches.cpp")
+target_link_libraries(soil_swatches PRIVATE soil_core)
