@@ -1,7 +1,8 @@
 #pragma once
 // The game as a GUI.Forms control: frame loop, input (arrows or WASD, or
-// click where the bear should go), undo, restart and hints, the campaign and
-// its map, the endless garden, speech bubbles, dialogs and autosave. The frame
+// click where the bear should go), undo, restart and hints, the difficulty
+// and dealing gardens at it (hand-made lessons, verified tables and fresh
+// gardens grown on a worker), speech bubbles, dialogs and autosave. The frame
 // is a small pixel-art image the compositor magnifies; text is drawn crisply on
 // top as cached layers.
 #include "garden.hpp"
@@ -11,6 +12,7 @@
 #include "show.hpp"
 #include "solver.hpp"
 #include "suite.hpp"
+#include "tiers.hpp"
 
 #include "gui_forms/basic_controls.hpp"
 #include "gui_forms/live_surface.hpp"
@@ -19,6 +21,7 @@
 #include <atomic>
 #include <chrono>
 #include <deque>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -52,8 +55,13 @@ public:
     void run_command(std::string_view id) override;
     // Only dev views accept scripted gameplay. No filesystem or arbitrary command access.
     bool scripted_action(std::string_view code);
-    int campaign_size() const { return static_cast<int>(levels_.size()); }
-    int current_level() const { return save_.level; }
+    int table_size() const { return static_cast<int>(table_.size()); }
+    int current_level() const { return save_.level; }  // the garden's table id, or -1 for a fresh one
+    int difficulty() const { return save_.difficulty; }
+    int garden_tier() const { return save_.garden_tier; }
+    // The difficulty, declared to the shell's Settings screen.
+    std::vector<games::GameSetting> settings() const override;
+    void change_setting(std::string_view id, double value) override;
     std::string move_history() const { return board_.history(); }
     bool solved() const { return won_; }
     bool reduced_motion() const { return cab_reduced_; }
@@ -62,14 +70,15 @@ public:
     bool controls_fit() const;
 
 private:
-    enum class Panel { none, help, map, menu };
+    enum class Panel { none, help, menu };
     struct Button { std::string id, label; int x, y, w, h; int style = 0; bool enabled = true; };
     struct HiText { std::string s; int font; double size; int wrap; int x, y; Col c; };
 
     Options opt_;
     SaveData save_;
-    std::vector<LevelEntry> levels_;
-    LevelEntry current_;        // the garden in play (a campaign level, or the endless one)
+    std::vector<LevelEntry> table_;   // the verified gardens: lessons, then Easy, Medium and Hard
+    std::map<int, size_t> by_id_;
+    LevelEntry current_;        // the garden in play (from the table, or freshly grown)
     Board board_;
     Garden garden_;
     Show show_;
@@ -83,13 +92,12 @@ private:
 
     std::deque<int> queue_;     // moves waiting for the bear
     bool won_ = false;
-    bool waiting_endless_ = false;  // the next endless garden is still growing; enter it when ready
     double won_t_ = 0;
     bool stuck_ = false;
     std::string message_;
     double message_t_ = 99;
 
-    // hints and the endless garden come from worker threads
+    // hints and fresh gardens come from worker threads; the next garden grows while this one is played
     struct Worker {
         std::thread th;
         std::atomic<bool> done{false};
@@ -97,11 +105,12 @@ private:
         std::mutex m;
         SolveResult solve;
         LevelEntry level;
+        int tier = 0;
     };
     std::unique_ptr<Worker> hint_, gen_;
     std::string hint_for_;      // the board history the hint was asked for
     void start_hint();
-    void start_endless_gen(int tier);
+    void start_gen(int tier);
     void poll_workers();
     void join(std::unique_ptr<Worker>& w);
     static void generate_worker(Worker* worker, int tier, std::uint64_t seed);
@@ -119,7 +128,7 @@ private:
     std::string pressed_, hover_;
     bool cab_front_ = true, cab_music_ = true, cab_sound_ = true, cab_reduced_ = false;
     bool render_dirty_ = true;
-    int map_section_ = 0;
+    std::uint64_t rng_ = 1;
     std::uint64_t published_frames_ = 0, timer_callbacks_ = 0;
     std::vector<std::pair<double, std::string>> script_;  // dev: CT_SCRIPT="t:code,..."
 
@@ -136,9 +145,14 @@ private:
     void tick();
     void publish();
     // game
-    void load_campaign();
-    void enter(int index, const std::string& history = {});
-    void enter_endless(const LevelEntry& e, const std::string& history = {});
+    void load_tables();
+    void deal();                                   // a new garden at the chosen difficulty
+    bool enter(int id, const std::string& history = {});
+    void enter_fresh(const LevelEntry& e, const std::string& history = {});
+    void set_difficulty(int difficulty);
+    void choose_difficulty(int difficulty);
+    int pick_season();
+    int random(int n);
     void begin_level();
     void step(int dir);
     void walk_to(int cell);
@@ -147,9 +161,7 @@ private:
     void next();
     void after_move();
     void finish();
-    bool section_open(const std::string& section) const;
-    int section_solved(const std::string& section) const;
-    int medal(int index) const;   // 0 none, 1 bronze, 2 silver, 3 gold
+    int medal(int pushes) const;  // for this garden: 0 none, 1 bronze, 2 silver, 3 gold
     std::vector<int> path_to(int cell) const;
     void say(const std::string& s, Col c = {1, 1, 1, 1});
     void persist();
@@ -164,7 +176,6 @@ private:
     void draw_bubbles();
     void draw_win_card();
     void draw_panel();
-    void draw_map();
     void draw_button(const Button& b);
     const Mask& tmask(const std::string& s, int font, double size, int wrap_game) const;
     int text(const std::string& s, int x, int y, Col c, double size = 11, int font = 0, int wrap = 0);

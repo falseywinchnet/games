@@ -3,6 +3,7 @@
 #include "solver.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <unordered_set>
 #include <vector>
 
@@ -18,7 +19,7 @@ struct Rng {
 };
 
 // --- carving the garden
-bool carve(Level& lv, int w, int h, int boxes, Rng& rng) {
+bool carve(Level& lv, int w, int h, int boxes, double hedges, Rng& rng) {
     lv = Level{};
     lv.w = w + 2;
     lv.h = h + 2;
@@ -42,7 +43,7 @@ bool carve(Level& lv, int w, int h, int boxes, Rng& rng) {
     // hedges scattered inside: singles, pairs and corners
     static const int shapes[][3][2] = {{{0, 0}, {0, 0}, {0, 0}}, {{0, 0}, {1, 0}, {1, 0}}, {{0, 0}, {0, 1}, {0, 1}},
                                        {{0, 0}, {1, 0}, {0, 1}}, {{0, 0}, {1, 0}, {1, 1}}, {{0, 0}, {0, 1}, {1, 1}}};
-    const int pieces = static_cast<int>(w * h * (.07 + .05 * rng.unit() + .004 * std::max(0, w * h - 49) / 8.0));
+    const int pieces = static_cast<int>(hedges * w * h * (.07 + .05 * rng.unit() + .004 * std::max(0, w * h - 49) / 8.0));
     for (int k = 0; k < pieces; ++k) {
         const int (&sh)[3][2] = shapes[rng.range(0, 5)];
         const int x = rng.range(1, w), y = rng.range(1, h);
@@ -151,6 +152,68 @@ int box_switches(const Level& level, const std::string& lurd) {
     return n;
 }
 
+double GardenMetrics::score() const {
+    return 3.0 * std::log2(1.0 + static_cast<double>(nodes)) + pushes + 1.5 * switches + 40.0 * trap_share();
+}
+
+GardenMetrics measure(const Level& level, long long nodes) {
+    GardenMetrics m;
+    m.boxes = static_cast<int>(level.boxes.size());
+    int narrow = 0;
+    for (int c = 0; c < level.w * level.h; ++c) {
+        if (!level.floor(c)) continue;
+        ++m.soil;
+        int open = 0;
+        for (int d = 0; d < 4; ++d) open += level.floor(level.step(c, d));
+        narrow += open <= 2;
+    }
+    m.corridor = m.soil > 0 ? narrow * 100 / m.soil : 0;
+    if (nodes <= 0) nodes = solve(level, 6000000).nodes;
+    m.nodes = nodes;
+    m.moves = static_cast<int>(level.solution.size());
+    m.switches = box_switches(level, level.solution);
+    Board board;
+    if (!board.load(level)) return m;
+    std::vector<int> seen(static_cast<size_t>(level.w * level.h), 0);
+    int stamp = 0;
+    for (char c : level.solution) {
+        const int dir = dir_of(c);
+        if (dir < 0) break;
+        if (c >= 'A' && c <= 'Z') {
+            // every push the bear could make from here instead, and which of them wedge a pumpkin
+            ++stamp;
+            std::vector<int> stack{board.player()};
+            seen[static_cast<size_t>(board.player())] = stamp;
+            while (!stack.empty()) {
+                const int at = stack.back();
+                stack.pop_back();
+                for (int d = 0; d < 4; ++d) {
+                    const int n = level.step(at, d);
+                    if (!level.floor(n) || seen[static_cast<size_t>(n)] == stamp) continue;
+                    if (board.box_at(n) >= 0) {
+                        const int beyond = level.step(n, d);
+                        if (!level.floor(beyond) || board.box_at(beyond) >= 0) continue;
+                        ++m.offered;
+                        Level here = level;
+                        here.boxes = board.boxes();
+                        here.player = at;
+                        Board trial;
+                        trial.load(here);
+                        trial.move(d);
+                        m.traps += trial.stuck();
+                        continue;
+                    }
+                    seen[static_cast<size_t>(n)] = stamp;
+                    stack.push_back(n);
+                }
+            }
+            ++m.pushes;
+        }
+        if (!board.move(dir)) break;
+    }
+    return m;
+}
+
 GenResult generate(const GenParams& p, CancellationToken stop) {
     GenResult res;
     Rng rng(p.seed);
@@ -158,7 +221,7 @@ GenResult generate(const GenParams& p, CancellationToken stop) {
         if (stop.stop_requested()) return res;
         res.attempts = attempt;
         Level lv;
-        if (!carve(lv, p.w, p.h, p.boxes, rng)) { ++res.carve_rejects; continue; }
+        if (!carve(lv, p.w, p.h, p.boxes, p.hedges, rng)) { ++res.carve_rejects; continue; }
         const int N = lv.w * lv.h;
         std::vector<int> floors;
         for (int i = 0; i < N; ++i)

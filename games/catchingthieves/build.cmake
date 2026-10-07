@@ -1,7 +1,7 @@
 add_library(ct_core STATIC
     ${GAME_MODULE_DIR}/src/platform/raster.cpp ${GAME_MODULE_DIR}/src/platform/r3d.cpp ${GAME_MODULE_DIR}/src/platform/mesh.cpp
-    ${GAME_MODULE_DIR}/src/level.cpp ${GAME_MODULE_DIR}/src/solver.cpp ${GAME_MODULE_DIR}/src/gen.cpp ${GAME_MODULE_DIR}/src/levelset.cpp ${GAME_MODULE_DIR}/src/critters.cpp
-    ${GAME_MODULE_DIR}/src/garden.cpp ${GAME_MODULE_DIR}/src/show.cpp ${GAME_MODULE_DIR}/src/save.cpp)
+    ${GAME_MODULE_DIR}/src/level.cpp ${GAME_MODULE_DIR}/src/solver.cpp ${GAME_MODULE_DIR}/src/gen.cpp ${GAME_MODULE_DIR}/src/tiers.cpp ${GAME_MODULE_DIR}/src/levelset.cpp ${GAME_MODULE_DIR}/src/critters.cpp
+    ${GAME_MODULE_DIR}/src/garden.cpp ${GAME_MODULE_DIR}/src/show.cpp ${GAME_MODULE_DIR}/src/lines.cpp ${GAME_MODULE_DIR}/src/save.cpp)
 target_include_directories(ct_core PUBLIC "${GAME_MODULE_DIR}/src")
 target_compile_definitions(ct_core PRIVATE _USE_MATH_DEFINES)
 if(MSVC)
@@ -12,7 +12,7 @@ endif()
 include(CTest)
 add_executable(ct_rules_tests ${GAME_MODULE_DIR}/tests/thieves_tests.cpp)
 target_link_libraries(ct_rules_tests PRIVATE ct_core)
-add_test(NAME catchingthieves_rules COMMAND ct_rules_tests "${GAME_MODULE_DIR}/assets/levels/campaign.txt")
+add_test(NAME catchingthieves_rules COMMAND ct_rules_tests "${GAME_MODULE_DIR}/assets/levels/gardens.txt")
 set_tests_properties(catchingthieves_rules PROPERTIES TIMEOUT 600)
 add_executable(ct_contract_tests ${GAME_MODULE_DIR}/tests/core_contract_tests.cpp)
 target_link_libraries(ct_contract_tests PRIVATE ct_core)

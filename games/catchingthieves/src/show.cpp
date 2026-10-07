@@ -8,17 +8,6 @@ namespace ct {
 namespace {
 struct ExpiredPuff { bool operator()(const Puff& puff) const { return puff.age >= puff.life; } };
 struct ExpiredBubble { bool operator()(const Bubble& bubble) const { return bubble.age >= bubble.life; } };
-const char* const kTaunt[] = {"Too slow!", "Nice hat, bear!", "Finders keepers!", "Can't catch me!", "Yoink!", "Nyah nyah!", "Over here!",
-                              "Is that all?", "Missed me!", "Lovely carrots!", "Smell ya later!", "Ooh, a pumpkin. Scary."};
-const char* const kTrapped[] = {"Mmmph!", "Hey! It's dark!", "Let me ouuut!", "Who turned off the sun?", "This pumpkin smells.", "Mmf mmf!", "Rude!"};
-const char* const kFreed[] = {"Freedom!", "Ha! Thanks, bear!", "Fresh air!", "Woo hoo!", "Back in business!"};
-const char* const kDuck[] = {"Eep!", "Yikes!", "Nope!", "Duck!"};
-const char* const kLaugh[] = {"Ha ha ha!", "Stuck! Stuck!", "Now you've done it!", "That's not moving.", "Hee hee hee!", "Oh no, bear!"};
-const char* const kGiveUp[] = {"We give up!", "Curses!", "Fair cop.", "You win, bear.", "Can we keep one carrot?", "Not the pumpkins!"};
-const char* const kBearCatch[] = {"Gotcha!", "In you go!", "Got one!", "Stay put!", "Ha!"};
-const char* const kBearStuck[] = {"Oh dear.", "Oops...", "Hmm. That's stuck.", "Oh, bother."};
-const char* const kBearWin[] = {"All caught!", "Hooray!", "That's my garden!", "Tidy!"};
-template <size_t N> constexpr int count(const char* const (&)[N]) { return static_cast<int>(N); }
 
 double ease(double u) { u = std::clamp(u, 0.0, 1.0); return u * u * (3 - 2 * u); }
 double yaw_of(int dir) {
@@ -31,7 +20,17 @@ double yaw_of(int dir) {
 }
 }  // namespace
 
-Show::Show(std::uint64_t seed) : rng_(seed ? seed : 77) {}
+Show::Show(std::uint64_t seed)
+    : rng_(seed ? seed : 77), lines_(seed ^ 0x5A17EDULL), quiet_(static_cast<size_t>(Line::kinds), 0.0) {}
+
+bool Show::quiet(Line kind, double gap) {
+    // reactions to things the bear does over and over (bumping, starting over,
+    // asking for hints) are said now and then, not every time
+    double& left = quiet_[static_cast<size_t>(kind)];
+    if (left > 0) return false;
+    left = gap;
+    return true;
+}
 
 double Show::rand01() {
     rng_ ^= rng_ << 13;
@@ -41,20 +40,39 @@ double Show::rand01() {
 }
 int Show::rand_int(int n) { return std::min(n - 1, static_cast<int>(rand01() * n)); }
 
-void Show::say(int who, const std::string& text) {
+bool Show::can_say(int who) const {
     // never more than two voices at once, and not the same speaker twice
     int live = 0;
-    for (const Bubble& b : bubbles) { live += b.age < b.life; if (b.who == who && b.age < b.life) return; }
-    if (live >= 2) return;
+    for (const Bubble& b : bubbles) { live += b.age < b.life; if (b.who == who && b.age < b.life) return false; }
+    return live < 2;
+}
+
+void Show::say(int who, const std::string& text) {
+    if (!can_say(who)) return;
     bubbles.push_back({text, who, 0, 1.6 + .045 * static_cast<double>(text.size())});
     cues.push_back({Cue::say, text, 1, 1, who});
 }
 
-void Show::say_coon(int i, const char* const* lines, int n) {
+bool Show::say_coon(int i, Line kind) {
+    if (i < 0 || i >= static_cast<int>(coons_.size())) return false;
     Coon& c = coons_[static_cast<size_t>(i)];
-    if (c.say_cool > 0) return;
+    if (c.say_cool > 0 || !can_say(i)) return false;
     c.say_cool = 5 + rand01() * 5;
-    say(i, lines[rand_int(n)]);
+    say(i, lines_.pick(kind));
+    return true;
+}
+
+void Show::taunt(int i) {
+    if (chatter_ > 0) return;
+    const Line seasonal = static_cast<Line>(static_cast<int>(Line::spring) + static_cast<int>(st_.season));
+    if (say_coon(i, rand01() < .2 ? seasonal : Line::taunt)) chatter_ = 7 + rand01() * 6;
+}
+
+int Show::any_coon(bool free_only) {
+    std::vector<int> pick;
+    for (size_t i = 0; i < coons_.size(); ++i)
+        if (coons_[i].say_cool <= 0 && (!free_only || coons_[i].state != Coon::trapped)) pick.push_back(static_cast<int>(i));
+    return pick.empty() ? -1 : pick[static_cast<size_t>(rand_int(static_cast<int>(pick.size())))];
 }
 
 void Show::place_all(const Board& board) {
@@ -99,6 +117,11 @@ void Show::set_level(const Board& board, const Garden& garden, Season season) {
     win_t_ = -1;
     bear_yaw_ = yaw_target_ = 0;
     idle_ = 0;
+    mistakes_ = 0;
+    perfect_ = false;
+    idle_lines_ = 0;
+    greet_t_ = 1.2 + rand01();
+    chatter_ = std::max(chatter_, 3.0);
     place_all(board);
 }
 
@@ -107,6 +130,7 @@ void Show::restart(const Board& board) {
     win_t_ = -1;
     bubbles.clear();
     place_all(board);
+    if (rand01() < .7 && quiet(Line::restart, 50)) say_coon(any_coon(true), Line::restart);
     for (int i = 0; i < 3; ++i) st_.puffs.push_back({st_.bear.pos + V3{(rand01() - .5) * .6, (rand01() - .5) * .4, .1}, 0, .5, .5, hex(0xFFFFFF)});
 }
 
@@ -150,40 +174,61 @@ void Show::moved(const Board& board, const Move& m, bool undo) {
                     c.act = 6;  // relieved
                     c.rise_v = 9;
                     cues.push_back({Cue::sound, "ct_pop", .8f, 1.1f});
-                    if (!undo) say_coon(static_cast<int>(i), kFreed, count(kFreed));
+                    if (!undo) say_coon(static_cast<int>(i), Line::freed);
                 }
         }
     }
+    // a pumpkin pushed right up to a free burrow: its raccoon notices
+    if (m.push && !undo && m.box >= 0 && m.box < static_cast<int>(board.boxes().size()) && rand01() < .5) {
+        const int at = board.boxes()[static_cast<size_t>(m.box)];
+        for (size_t i = 0; i < coons_.size() && !lv.goal[static_cast<size_t>(at)]; ++i) {
+            const int burrow = coons_[i].burrow;
+            if (board.box_at(burrow) >= 0) continue;
+            bool next_to = false;
+            for (int d = 0; d < 4; ++d) next_to = next_to || lv.step(at, d) == burrow;
+            if (next_to && say_coon(static_cast<int>(i), Line::close)) break;
+        }
+    }
     cues.push_back({Cue::sound, "ct_step_0" + std::to_string(1 + rand_int(3)), undo ? .35f : .5f, .9f + .2f * static_cast<float>(rand01())});
-    if (undo) cues.push_back({Cue::sound, "ct_undo", .4f});
+    if (undo) {
+        cues.push_back({Cue::sound, "ct_undo", .4f});
+        if (!stuck_ && rand01() < .2 && quiet(Line::undo, 30)) say_coon(any_coon(true), Line::undo);
+    }
 }
 
 void Show::stuck(bool now) {
     if (now == stuck_) return;
     stuck_ = now;
     stuck_t_ = 0;
-    if (now) {
-        cues.push_back({Cue::sound, "ct_stinger_stuck", .9f});
-        say(-1, kBearStuck[rand_int(count(kBearStuck))]);
-        bool laughed = false;
-        for (size_t i = 0; i < coons_.size(); ++i) {
-            Coon& c = coons_[i];
-            if (c.state == Coon::trapped) continue;
-            c.state = Coon::up;
-            c.act = 7;  // laughing at him
-            c.t = 0;
-            c.dur = 3.5 + rand01();
-            c.say_cool = 0;
-            if (!laughed) { say_coon(static_cast<int>(i), kLaugh, count(kLaugh)); laughed = true; }
-        }
-        if (laughed) cues.push_back({Cue::sound, "ct_laugh", .8f});
+    if (!now) {
+        // undo took the wedged pumpkin back
+        say_coon(any_coon(true), Line::unstuck);
+        return;
     }
+    // the first time they laugh; the second, they cheer; after that they turn kind and point at Undo
+    ++mistakes_;
+    const bool gentle = mistakes_ >= 3;
+    cues.push_back({Cue::sound, "ct_stinger_stuck", .9f});
+    say(-1, lines_.pick(mistakes_ == 1 ? Line::bear_stuck : mistakes_ == 2 ? Line::bear_stuck_again : Line::bear_stuck_calm));
+    bool laughed = false;
+    for (size_t i = 0; i < coons_.size(); ++i) {
+        Coon& c = coons_[i];
+        if (c.state == Coon::trapped) continue;
+        c.state = Coon::up;
+        c.act = gentle ? 6 : 7;  // laughing at him, or arms open
+        c.t = 0;
+        c.dur = 3.5 + rand01();
+        c.say_cool = 0;
+        if (!laughed) laughed = say_coon(static_cast<int>(i), mistakes_ == 1 ? Line::laugh : mistakes_ == 2 ? Line::laugh_again : Line::laugh_soft);
+    }
+    if (laughed && !gentle) cues.push_back({Cue::sound, "ct_laugh", .8f});
 }
 
-void Show::won() {
+void Show::won(bool perfect) {
     win_t_ = 0;
+    perfect_ = perfect;
     cues.push_back({Cue::sound, "ct_stinger_win", .9f});
-    say(-1, kBearWin[rand_int(count(kBearWin))]);
+    say(-1, lines_.pick(perfect ? Line::bear_perfect : Line::bear_win));
     for (size_t i = 0; i < coons_.size(); ++i) { coons_[i].state = Coon::surrender; coons_[i].t = -static_cast<double>(i) * .25; }
 }
 
@@ -192,6 +237,11 @@ void Show::blocked(int dir) {
     bump_ = 1;
     idle_ = 0;
     cues.push_back({Cue::sound, "ct_bump", .5f});
+    if (rand01() < .25 && quiet(Line::bear_bump, 60)) say(-1, lines_.pick(Line::bear_bump));
+}
+
+void Show::hinted() {
+    if (rand01() < .6 && quiet(Line::hint, 50)) say_coon(any_coon(true), Line::hint);
 }
 
 // ------------------------------------------------------------------ the bear
@@ -290,8 +340,12 @@ void Show::coon_update(int i, double dt, const Board& board) {
                 pv.glow = 1;
                 pv.hop = .6;
                 st_.puffs.push_back({home + V3{0, 0, .1}, 0, .7, .6, hex(0xE8D8C0)});
-                if (win_t_ < 0 && !board.solved() && rand01() < .35) say(-1, kBearCatch[rand_int(count(kBearCatch))]);
-                else if (rand01() < .4) say_coon(i, kTrapped, count(kTrapped));
+                int free_burrows = 0, last = -1;
+                for (size_t j = 0; j < coons_.size(); ++j)
+                    if (board.box_at(coons_[j].burrow) < 0) { ++free_burrows; last = static_cast<int>(j); }
+                if (free_burrows == 1 && win_t_ < 0 && rand01() < .7) { coons_[static_cast<size_t>(last)].say_cool = 0; say_coon(last, Line::last_one); }
+                else if (win_t_ < 0 && !board.solved() && rand01() < .35 && quiet(Line::bear_catch, 20)) say(-1, lines_.pick(Line::bear_catch));
+                else if (rand01() < .4) say_coon(i, Line::trapped);
             }
         } else if (c.state == Coon::trapped) {
             c.state = Coon::hidden;
@@ -317,7 +371,7 @@ void Show::coon_update(int i, double dt, const Board& board) {
             if (box >= 0 && std::fmod(c.t + i * 1.3, 6.0) < dt && win_t_ < 0) {
                 st_.pumpkins[static_cast<size_t>(box)].wobble = 1;
                 cues.push_back({Cue::sound, "ct_muffle_0" + std::to_string(1 + rand_int(2)), .55f, .9f + .2f * static_cast<float>(rand01())});
-                if (rand01() < .25) say_coon(i, kTrapped, count(kTrapped));
+                if (rand01() < .25) say_coon(i, Line::trapped);
             }
             break;
         }
@@ -333,7 +387,7 @@ void Show::coon_update(int i, double dt, const Board& board) {
             p.face.mouth = CMouth::wobble;
             p.face.brow = 2;
             p.right.hand = {.15, -.1, .3 + .05 * std::sin(t_ * 8)};
-            if (c.t > .3 && c.t - dt <= .3 && i == 0) say_coon(i, kGiveUp, count(kGiveUp));
+            if (c.t > .3 && c.t - dt <= .3 && i == 0) { c.say_cool = 0; say_coon(i, perfect_ ? Line::give_up_perfect : Line::give_up); }
             break;
         }
         case Coon::hidden:
@@ -363,13 +417,13 @@ void Show::coon_update(int i, double dt, const Board& board) {
                 case 1:  // juggling stolen carrots
                     p.prop = 2; p.face.eyes = CEyes::open; p.face.mouth = CMouth::grin;
                     p.left.hand = {-.15, -.15, .35 + .08 * std::sin(t_ * 10)}; p.right.hand = {.15, -.15, .35 + .08 * std::cos(t_ * 10)};
-                    if (k < dt * 1.5) say_coon(i, kTaunt, count(kTaunt));
+                    if (k < dt * 1.5) taunt(i);
                     break;
                 case 2:  // waving a carrot about, then a crunch
                     p.prop = 1; p.face.eyes = CEyes::sly; p.face.mouth = std::fmod(k, 1.2) < .3 ? CMouth::o : CMouth::grin;
                     p.right.hand = {.18, -.15, .3 + .2 * std::fabs(std::sin(t_ * 4))};
                     if (std::fmod(k, 1.2) < dt) cues.push_back({Cue::sound, "ct_crunch", .4f, .9f + .2f * static_cast<float>(rand01())});
-                    if (k < dt * 1.5) say_coon(i, kTaunt, count(kTaunt));
+                    if (k < dt * 1.5) taunt(i);
                     break;
                 case 3:  // a little dance
                     p.sway = .25 * std::sin(t_ * 8); p.bounce = .05 * std::fabs(std::sin(t_ * 8));
@@ -379,7 +433,7 @@ void Show::coon_update(int i, double dt, const Board& board) {
                 case 4:  // pointing at the bear and laughing
                     p.face.eyes = CEyes::laugh; p.face.mouth = CMouth::laugh; p.bounce = .03 * std::fabs(std::sin(t_ * 12));
                     p.right.hand = {.25, -.3, .35}; p.left.hand = {-.1, -.15, .05};
-                    if (k < dt * 1.5) say_coon(i, kTaunt, count(kTaunt));
+                    if (k < dt * 1.5) taunt(i);
                     break;
                 case 5:  // a turnip, tossed and caught
                     p.prop = 4; p.face.eyes = CEyes::open; p.face.mouth = CMouth::smirk;
@@ -395,7 +449,7 @@ void Show::coon_update(int i, double dt, const Board& board) {
                     p.sway = .12 * std::sin(t_ * 7);
                     break;
             }
-            if (c.act != 7 && near <= 1.5) { c.state = Coon::ducking; c.t = 0; if (rand01() < .5) say_coon(i, kDuck, count(kDuck)); break; }
+            if (c.act != 7 && near <= 1.5) { c.state = Coon::ducking; c.t = 0; if (rand01() < .5) say_coon(i, Line::duck); break; }
             if (c.t > c.dur && !(c.act == 7 && stuck_)) { c.state = Coon::ducking; c.t = 0; }
             break;
         }
@@ -436,6 +490,27 @@ void Show::update(double dt, const Board& board) {
         if (u >= 1) { pv.pos = box_to_; pv.roll_x = pv.roll_y = 0; push_box_ = -1; }
     }
     bear_update(dt);
+    chatter_ = std::max(0.0, chatter_ - dt);
+    for (double& left : quiet_) left = std::max(0.0, left - dt);
+    if (greet_t_ > 0 && (greet_t_ -= dt) <= 0 && win_t_ < 0) {
+        // a raccoon pops up to greet the new garden
+        for (Coon& c : coons_) c.say_cool = 0;  // a new garden: everyone may speak
+        const int i = any_coon(true);
+        if (i >= 0) {
+            Coon& c = coons_[static_cast<size_t>(i)];
+            c.state = Coon::up; c.t = 0; c.dur = 2.6; c.act = 4; c.rise_v = 6;
+            cues.push_back({Cue::sound, "ct_pop", .6f, 1.05f});
+            const Line seasonal = static_cast<Line>(static_cast<int>(Line::spring) + static_cast<int>(st_.season));
+            if (say_coon(i, rand01() < .5 ? seasonal : Line::greet)) chatter_ = std::max(chatter_, 6.0);
+        }
+    }
+    // standing still: now and then someone fills the silence
+    if (idle_ < 1) idle_lines_ = 0;
+    if (win_t_ < 0 && !thinking_ && idle_ > 16 + 22 * idle_lines_) {
+        ++idle_lines_;
+        if (rand01() < .65) say_coon(any_coon(true), Line::idle);
+        else say(-1, lines_.pick(Line::bear_idle));
+    }
     if (stuck_) stuck_t_ += dt;
     if (win_t_ >= 0) win_t_ += dt;
     for (size_t i = 0; i < coons_.size(); ++i) coon_update(static_cast<int>(i), dt, board);

@@ -1,1 +1,1 @@
-Push pumpkins over the burrows before the raccoon bandits raid the bear's garden. 243 solver-verified gardens through the seasons, plus endless generated ones.
+Push pumpkins over the burrows before the raccoon bandits raid the bear's garden. Short lessons teach the rules; Easy, Medium and Hard gardens are grown fresh and proven solvable, and a chorus of cheeky raccoons reacts to every push.

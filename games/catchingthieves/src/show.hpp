@@ -8,6 +8,7 @@
 // the show only ever catches up with the board.
 #include "garden.hpp"
 #include "level.hpp"
+#include "lines.hpp"
 
 #include <cstdint>
 #include <deque>
@@ -37,8 +38,9 @@ public:
     void moved(const Board& board, const Move& m, bool undo);
     void restart(const Board& board);
     void stuck(bool now);        // the board has (or no longer has) a pumpkin that can never be saved
-    void won();
+    void won(bool perfect = false);  // perfect: in the fewest pushes possible
     void blocked(int dir);
+    void hinted();               // the bear asked for a hint
     void thinking(bool on) { thinking_ = on; }   // pondering a hint: a paw to the chin       // the bear tried to walk into a hedge or an immovable pumpkin
     void update(double dt, const Board& board);
     void settle(const Board& board);
@@ -82,8 +84,20 @@ private:
     double t_ = 0;
     double rand01();
     int rand_int(int n);
+    // what is said: see lines.hpp. Taunts share a cooldown so the garden never chatters.
+    Lines lines_;
+    int mistakes_ = 0;           // pumpkins wedged in this garden: the reactions escalate
+    bool perfect_ = false;
+    double chatter_ = 0;         // seconds until the next taunt may be said
+    double greet_t_ = -1;        // seconds until a raccoon greets a new garden
+    int idle_lines_ = 0;         // said while the bear has stood still
+    std::vector<double> quiet_;  // per kind of line: seconds until it may be said again
+    bool quiet(Line kind, double gap);  // false when said too recently; otherwise starts the gap
+    bool can_say(int who) const;
     void say(int who, const std::string& text);
-    void say_coon(int i, const char* const* lines, int n);
+    bool say_coon(int i, Line kind);
+    void taunt(int i);
+    int any_coon(bool free_only);  // a raccoon to speak, or -1
     void coon_update(int i, double dt, const Board& board);
     void bear_update(double dt);
     void place_all(const Board& board);

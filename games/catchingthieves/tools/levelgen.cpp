@@ -1,9 +1,12 @@
 // Level generation from the command line.
 //   levelgen sample W H BOXES MINPUSH COUNT [SEED]   print stats (and the levels) for a quick look
-//   levelgen campaign OUT.txt [PER_SECTION]           build the campaign: tutorials, then eight seasonal sections
+//   levelgen tables IN.txt OUT.txt                    the garden tables: the lessons, then IN's gardens measured into tiers
+//   levelgen measure TABLE.txt                        every garden's difficulty metrics
+//   levelgen timing COUNT [SEED]                      how long fresh gardens take to grow at each tier
 #include "gen.hpp"
 #include "levelset.hpp"
 #include "solver.hpp"
+#include "tiers.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -13,62 +16,160 @@
 #include <fstream>
 #include <cmath>
 #include <set>
+#include <sstream>
 #include <thread>
 
 using namespace ct;
 
 namespace {
-struct Section {
-    const char* name;
-    int w0, h0, w1, h1;   // garden sizes, varied across the section
-    int boxes0, boxes1;
-    int min_pushes;
-    long long budget;
-};
-const Section kSections[] = {
-    {"Spring Sprouts", 5, 5, 6, 6, 2, 2, 7, 150000},
-    {"Spring Rows", 6, 6, 7, 6, 2, 3, 12, 200000},
-    {"Summer Patch", 7, 6, 7, 7, 3, 3, 16, 250000},
-    {"Summer Orchard", 7, 7, 8, 7, 3, 3, 22, 300000},
-    {"Autumn Field", 8, 7, 8, 8, 3, 4, 26, 400000},
-    {"Autumn Maze", 8, 8, 9, 8, 4, 4, 30, 600000},
-    {"Winter Frost", 9, 8, 9, 9, 4, 5, 33, 900000},
-    {"Winter Night", 9, 9, 10, 9, 5, 6, 36, 1200000},
+// The tutorial: short gardens made by hand, each showing one mechanism. The
+// first three were the old book's openers and keep their ids.
+struct Lesson { int id; const char* title; const char* lesson; const char* xsb; };
+const Lesson kLessons[] = {
+    {0, "The First Burrow", "Walk into a pumpkin to push it. Roll it onto the burrow.",
+     "#######\n"
+     "#@ $ .#\n"
+     "#######\n"},
+    {1, "Round the Bend", "To push a pumpkin another way, walk round to its other side.",
+     "######\n"
+     "#    #\n"
+     "# $  #\n"
+     "#@ # #\n"
+     "#  #.#\n"
+     "#    #\n"
+     "######\n"},
+    {2, "Two of Them", "Every burrow needs a pumpkin. Cover them all to win.",
+     "########\n"
+     "#  .   #\n"
+     "# $##$ #\n"
+     "#@   . #\n"
+     "########\n"},
+    {243, "No Pulling", "The bear can push but never pull. Walk round behind the pumpkin.",
+     "########\n"
+     "#      #\n"
+     "#  .@$ #\n"
+     "#      #\n"
+     "########\n"},
+    {244, "Hedge Trouble", "A pumpkin against a hedge with no burrow along it is stuck for good.",
+     "########\n"
+     "#      #\n"
+     "#.  $  #\n"
+     "#   @  #\n"
+     "########\n"},
+    {245, "Along the Hedge", "A pumpkin against a hedge can still slide along it.",
+     "########\n"
+     "# $   .#\n"
+     "#      #\n"
+     "#@     #\n"
+     "########\n"},
+    {246, "The Far One First", "Fill the far burrow first, or one pumpkin blocks the other.",
+     "#########\n"
+     "#     ###\n"
+     "#@ $ $..#\n"
+     "#     ###\n"
+     "#########\n"},
+    {247, "One at a Time", "The bear can push only one pumpkin. Two in a row won't budge.",
+     "########\n"
+     "#      #\n"
+     "#      #\n"
+     "#@$$ ..#\n"
+     "#      #\n"
+     "#      #\n"
+     "########\n"},
+    {248, "Into the Corner", "A pumpkin in a corner can never move again, so only a burrow there will do.",
+     "#######\n"
+     "#.   .#\n"
+     "#  $  #\n"
+     "# $@  #\n"
+     "#     #\n"
+     "#######\n"},
+    {250, "Take It Back", "Z or Backspace takes back a step. Try a push, then undo it.",
+     "#######\n"
+     "#.  ###\n"
+     "# $   #\n"
+     "##$@  #\n"
+     "#.    #\n"
+     "#######\n"},
+    {249, "Ask for a Hint", "Not sure? Hint in the bar shows a good next push.",
+     "#######\n"
+     "#. #  #\n"
+     "# $$  #\n"
+     "#.  @ #\n"
+     "#  #  #\n"
+     "#######\n"},
 };
 
-// three gentle openers, made by hand
-const char* kTutorials[] = {
-    "; title: The First Burrow\n"
-    "#######\n"
-    "#@ $ .#\n"
-    "#######\n",
-    "; title: Round the Bend\n"
-    "######\n"
-    "#    #\n"
-    "# $  #\n"
-    "#@ # #\n"
-    "#  #.#\n"
-    "#    #\n"
-    "######\n",
-    "; title: Two of Them\n"
-    "########\n"
-    "#  .   #\n"
-    "# $##$ #\n"
-    "#@   . #\n"
-    "########\n",
-};
-
-std::string title_for(std::uint64_t h) {
-    static const char* a[] = {"Carrot", "Turnip", "Radish", "Cabbage", "Parsnip", "Pumpkin", "Bean", "Beet", "Leek", "Pea", "Onion", "Marrow", "Squash", "Lettuce",
-                              "Cucumber", "Potato", "Sprout", "Clover", "Thistle", "Bramble", "Mossy", "Muddy", "Rainy", "Sunny", "Windy", "Frosty", "Moonlit", "Dewy"};
-    static const char* b[] = {"Corner", "Row", "Patch", "Bed", "Lane", "Hollow", "Nook", "Bend", "Plot", "Path", "Trellis", "Hedge", "Gate", "Ditch", "Mound", "Yard",
-                              "Furrow", "Arbour", "Barrow", "Steps", "Loop", "Square", "Crossing", "Tangle", "Maze", "Muddle"};
-    h = h * 0x9E3779B97F4A7C15ULL;
-    return std::string(a[(h >> 20) % (sizeof a / sizeof *a)]) + " " + b[(h >> 40) % (sizeof b / sizeof *b)];
-}
 }  // namespace
 
 int main(int argc, char** argv) {
+    if (argc >= 3 && !std::strcmp(argv[1], "timing")) {
+        // how long a fresh garden takes to grow at each tier, single-threaded
+        const int count = std::atoi(argv[2]);
+        const std::uint64_t base = argc > 3 ? std::strtoull(argv[3], nullptr, 10) : 1;
+        for (int d = kEasy; d < kDifficulties; ++d) {
+            std::vector<double> times;
+            int failed = 0;
+            for (int i = 0; i < count; ++i) {
+                const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
+                const Grown g = grow(d, base + static_cast<std::uint64_t>(i) * 7919);
+                const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+                times.push_back(ms);
+                if (!g.ok) { ++failed; std::printf("%s seed %d: failed after %d tries (%.0f ms)\n", difficulty_name(d), i, g.tries, ms); continue; }
+                const GardenMetrics& m = g.metrics;
+                std::printf("%s %d: %.0f ms, %d tries, boxes %d soil %d corridor %d pushes %d moves %d switches %d nodes %lld traps %d/%d score %.1f\n",
+                            difficulty_name(d), i, ms, g.tries, m.boxes, m.soil, m.corridor, m.pushes, m.moves, m.switches, m.nodes, m.traps, m.offered, m.score());
+                std::fflush(stdout);
+            }
+            std::sort(times.begin(), times.end());
+            std::printf("== %s: median %.0f ms, 90th %.0f ms, worst %.0f ms, %d failed of %d\n", difficulty_name(d), times[times.size() / 2],
+                        times[times.size() * 9 / 10], times.back(), failed, count);
+        }
+        return 0;
+    }
+    if (argc >= 2 && !std::strcmp(argv[1], "lessons")) {
+        // each lesson's first pushes: which wedge a pumpkin at once, which leave it unsolvable
+        for (const Lesson& lesson : kLessons) {
+            Level level;
+            std::string error;
+            Level::parse(lesson.xsb, level, &error);
+            const SolveResult best = solve(level);
+            std::printf("%s: par %d %s\n", lesson.title, best.pushes, best.lurd.c_str());
+            Board board;
+            board.load(level);
+            for (int cell = 0; cell < level.w * level.h; ++cell) {
+                if (!level.floor(cell) || board.box_at(cell) >= 0) continue;
+                for (int d = 0; d < 4; ++d) {
+                    const int n = level.step(cell, d);
+                    if (board.box_at(n) < 0) continue;
+                    Level here = level;
+                    here.player = cell;
+                    Board trial;
+                    trial.load(here);
+                    if (!trial.move(d)) continue;
+                    const SolveResult after = solve(trial, 200000);
+                    std::printf("   push %c from %d,%d: %s%s\n", kPush[d], cell % level.w, cell / level.w, trial.stuck() ? "stuck " : "",
+                                after.solved ? "solvable" : "unsolvable");
+                }
+            }
+        }
+        return 0;
+    }
+    if (argc >= 3 && !std::strcmp(argv[1], "measure")) {
+        std::ifstream in(argv[2]);
+        std::stringstream text;
+        text << in.rdbuf();
+        std::vector<LevelEntry> levels;
+        std::string error;
+        if (!load_levels(text.str(), levels, &error)) { std::fprintf(stderr, "%s\n", error.c_str()); return 1; }
+        std::printf("index section boxes soil corridor pushes moves switches nodes offered traps share score\n");
+        for (size_t i = 0; i < levels.size(); ++i) {
+            const GardenMetrics m = measure(levels[i].level);
+            std::printf("%zu \"%s\" %d %d %d %d %d %d %lld %d %d %.3f %.1f\n", i, levels[i].section.c_str(), m.boxes, m.soil, m.corridor, m.pushes, m.moves,
+                        m.switches, m.nodes, m.offered, m.traps, m.trap_share(), m.score());
+            std::fflush(stdout);
+        }
+        return 0;
+    }
     if (argc >= 7 && !std::strcmp(argv[1], "sample")) {
         GenParams p;
         p.w = std::atoi(argv[2]); p.h = std::atoi(argv[3]); p.boxes = std::atoi(argv[4]); p.min_pushes = std::atoi(argv[5]);
@@ -76,7 +177,7 @@ int main(int argc, char** argv) {
         const std::uint64_t seed = argc > 7 ? std::strtoull(argv[7], nullptr, 10) : 1;
         for (int i = 0; i < count; ++i) {
             p.seed = seed + static_cast<std::uint64_t>(i) * 7919;
-            const auto t0 = std::chrono::steady_clock::now();
+            const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
             const GenResult r = generate(p);
             const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
             if (!r.ok) { std::printf("seed %llu: failed after %d attempts (%.0f ms): carve %d shallow %d unverified %d deepest %d\n", static_cast<unsigned long long>(p.seed), r.attempts, ms, r.carve_rejects, r.shallow, r.unverified, r.deepest); continue; }
@@ -85,81 +186,56 @@ int main(int argc, char** argv) {
         }
         return 0;
     }
-    if (argc >= 3 && !std::strcmp(argv[1], "campaign")) {
-        const int per = argc > 3 ? std::atoi(argv[3]) : 30;
-        std::vector<LevelEntry> all;
-        std::set<std::string> boards;
-        for (const char* t : kTutorials) {
-            std::vector<LevelEntry> one;
-            std::string err;
-            if (!load_levels(t, one, &err) || one.size() != 1) { std::fprintf(stderr, "tutorial: %s\n", err.c_str()); return 1; }
-            LevelEntry e = one[0];
+    if (argc >= 4 && !std::strcmp(argv[1], "tables")) {
+        // The garden tables: the hand-made lessons, then every generated garden of IN
+        // (the old book or an earlier table) measured and filed under its tier. Ids are kept.
+        std::ifstream in(argv[2]);
+        std::stringstream text;
+        text << in.rdbuf();
+        std::vector<LevelEntry> source, all;
+        std::string error;
+        if (!load_levels(text.str(), source, &error)) { std::fprintf(stderr, "%s\n", error.c_str()); return 1; }
+        for (const Lesson& lesson : kLessons) {
+            LevelEntry e;
+            if (!Level::parse(lesson.xsb, e.level, &error)) { std::fprintf(stderr, "lesson %s: %s\n", lesson.title, error.c_str()); return 1; }
             const SolveResult sr = solve(e.level);
-            if (!sr.solved) { std::fprintf(stderr, "tutorial %s does not solve\n", e.level.title.c_str()); return 1; }
-            e.section = "First Steps";
+            if (!sr.solved) { std::fprintf(stderr, "lesson %s does not solve\n", lesson.title); return 1; }
+            e.id = lesson.id;
+            e.tier = tier_rule(kTutorial).key;
+            e.lesson = lesson.lesson;
+            e.level.title = lesson.title;
+            e.section = difficulty_name(kTutorial);
             e.par = sr.pushes;
             e.level.solution = sr.lurd;
             e.switches = box_switches(e.level, sr.lurd);
+            e.nodes = sr.nodes;
             all.push_back(e);
+            std::fprintf(stderr, "lesson %-18s par %d, %lld nodes\n", lesson.title, sr.pushes, sr.nodes);
         }
-        int si = 0;
-        for (const Section& s : kSections) {
-            ++si;
-            std::vector<std::pair<double, LevelEntry>> got;
-            const auto t0 = std::chrono::steady_clock::now();
-            // candidates in parallel, in batches; kept in seed order so the result never depends on thread timing
-            const int threads = std::max(2u, std::thread::hardware_concurrency());
-            for (int base = 0; static_cast<int>(got.size()) < per && base < per * 4; base += threads) {
-                std::vector<GenResult> res(static_cast<size_t>(threads));
-                std::vector<GenParams> ps(static_cast<size_t>(threads));
-                std::vector<std::thread> pool;
-                for (int k = 0; k < threads; ++k) {
-                    const int i = base + k;
-                    GenParams& p = ps[static_cast<size_t>(k)];
-                    const double f = std::min(1.0, per > 1 ? static_cast<double>(i) / (per * 1.3) : 0);
-                    p.w = s.w0 + static_cast<int>(std::lround((s.w1 - s.w0) * f));
-                    p.h = s.h0 + static_cast<int>(std::lround((s.h1 - s.h0) * f));
-                    p.boxes = s.boxes0 + static_cast<int>(std::lround((s.boxes1 - s.boxes0) * f));
-                    p.min_pushes = s.min_pushes;
-                    p.reverse_budget = s.budget;
-                    p.seed = static_cast<std::uint64_t>(si) * 1000003ULL + static_cast<std::uint64_t>(i) * 7919ULL;
-                    pool.emplace_back([&res, &ps, k] { res[static_cast<size_t>(k)] = generate(ps[static_cast<size_t>(k)]); });
-                }
-                for (std::thread& t : pool) t.join();
-                for (int k = 0; k < threads && static_cast<int>(got.size()) < per; ++k) {
-                    const GenResult& r = res[static_cast<size_t>(k)];
-                    const GenParams& p = ps[static_cast<size_t>(k)];
-                    if (!r.ok) continue;
-                    const std::string key = r.level.xsb();
-                    if (!boards.insert(key).second) continue;
-                    LevelEntry e;
-                    e.level = r.level;
-                    e.section = s.name;
-                    e.par = r.pushes;
-                    e.switches = r.box_lines;
-                    char seed[96];
-                    std::snprintf(seed, sizeof seed, "%llu %dx%d %d", static_cast<unsigned long long>(p.seed), p.w, p.h, p.boxes);
-                    e.seed = seed;
-                    // difficulty: the solver's effort, the par and how much it switches between pumpkins
-                    const double d = std::log2(1.0 + static_cast<double>(r.solver_nodes)) * 3 + r.pushes + 1.5 * r.box_lines;
-                    got.push_back({d, e});
-                }
-            }
-            std::stable_sort(got.begin(), got.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
-            int k = 0;
-            for (auto& [d, e] : got) {
-                e.level.title = title_for(std::hash<std::string>{}(e.level.xsb()) ^ static_cast<std::uint64_t>(++k));
-                all.push_back(e);
-            }
-            std::fprintf(stderr, "%-16s %2zu levels  (%.1f s)\n", s.name, got.size(), std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
+        int counts[kDifficulties] = {};
+        for (size_t i = 0; i < source.size(); ++i) {
+            LevelEntry e = source[i];
+            if (e.id < 0) e.id = static_cast<int>(i);
+            if (e.tier == "tutorial" || e.section == "First Steps") continue;
+            const GardenMetrics m = measure(e.level, e.nodes);
+            const int d = classify(m);
+            if (d < 0) { std::fprintf(stderr, "garden %d (%s) fits no tier: score %.1f\n", e.id, e.level.title.c_str(), m.score()); return 1; }
+            e.tier = tier_rule(d).key;
+            e.section = difficulty_name(d);
+            e.nodes = m.nodes;
+            all.push_back(e);
+            ++counts[d];
         }
-        std::ofstream f(argv[2]);
-        f << "; Catching Thieves: the campaign. Generated by tools/levelgen.cpp (deterministic seeds).\n"
-             "; Every level was solved push-optimally by an independent forward solver and its solution replayed through the rules.\n\n";
+        std::ofstream f(argv[3]);
+        f << "; Catching Thieves: the garden tables. Made by tools/levelgen.cpp tables.\n"
+             "; Tutorial gardens are hand-made lessons. The rest were generated backwards from solved positions,\n"
+             "; solved push-optimally by an independent forward solver, replayed through the rules, measured and\n"
+             "; filed under the tier their metrics fall in (src/tiers.cpp). Ids are permanent: saves refer to them.\n\n";
         f << save_levels(all);
-        std::fprintf(stderr, "%zu levels written to %s\n", all.size(), argv[2]);
+        std::fprintf(stderr, "%zu gardens written to %s: easy %d, medium %d, hard %d\n", all.size(), argv[3], counts[kEasy], counts[kMedium], counts[kHard]);
         return 0;
     }
-    std::fprintf(stderr, "usage: levelgen sample W H BOXES MINPUSH COUNT [SEED]\n       levelgen campaign OUT.txt [PER_SECTION]\n");
+    std::fprintf(stderr, "usage: levelgen sample W H BOXES MINPUSH COUNT [SEED]\n       levelgen tables IN.txt OUT.txt\n"
+                         "       levelgen measure TABLE.txt\n       levelgen timing COUNT [SEED]\n");
     return 1;
 }

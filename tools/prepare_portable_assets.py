@@ -321,6 +321,7 @@ def main() -> None:
     # unchanged and its own bytes are intact. Only new or changed sources are encoded,
     # so adding a game costs its own sounds, not the whole collection's.
     previous: dict[str, dict] = {}
+    previous_resources: set[str] = set()
     audio_format = "IEEE float32 LE" if options.audio_format == "pcm" else "Ogg Vorbis quality 6"
     previous_manifest = audio / "portable_manifest.json"
     if previous_manifest.is_file():
@@ -328,6 +329,7 @@ def main() -> None:
             old = json.loads(previous_manifest.read_text(encoding="utf-8"))
             if old.get("format") == audio_format:
                 previous = {record["source"]: record for record in old.get("files", [])}
+            previous_resources = {record["file"] for record in old.get("module_resources", [])}
         except (ValueError, KeyError, TypeError):
             previous = {}
     records: list[dict] = []
@@ -354,6 +356,12 @@ def main() -> None:
     for path in audio.iterdir():
         if path.is_file() and path.name not in kept:
             path.unlink()
+    # A game resource the last run copied that no source provides now (a removed or
+    # renamed file) is stale too.
+    for name in previous_resources - {entry["file"] for entry in inventory["resources"]}:
+        stale = output / name
+        if stale.is_file() and output.resolve() in stale.resolve().parents:
+            stale.unlink()
     resources = []
     for entry in inventory["resources"]:
         target = output / entry["file"]

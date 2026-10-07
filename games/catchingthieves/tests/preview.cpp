@@ -30,7 +30,7 @@ static void write_ppm(const char* path, const Canvas& c) {
 }
 
 static int garden(const char* out, int index, double t, int W, int H) {
-    std::ifstream f(std::filesystem::path(__FILE__).parent_path().parent_path() / "assets/levels/campaign.txt");
+    std::ifstream f(std::filesystem::path(__FILE__).parent_path().parent_path() / "assets/levels/gardens.txt");
     std::stringstream ss;
     ss << f.rdbuf();
     std::vector<LevelEntry> levels;
