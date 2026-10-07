@@ -348,7 +348,7 @@ int main(int argc, char** argv) {
             std::string all;
             { std::ifstream f(p); std::stringstream ss; ss << f.rdbuf(); all = ss.str(); }
             all.replace(all.find("level=12"), 8, "level=99");
-            std::ofstream f(p, std::ios::trunc);
+            std::ofstream f(p, std::ios::binary | std::ios::trunc);
             f << all;
         }
         SaveData bad;
@@ -381,11 +381,11 @@ int main(int argc, char** argv) {
         const char* const bad[] = {"format=2\ndifficulty=4\n", "format=2\ntier=1 3 4\n", "format=2\nplayed=1 -3\n", "format=3\n",
                                    "format=2\nseason=5\n", "format=2\ngarden_title=Hi|there\n", "level=243\n", "format=2\nlevel=10000\n"};
         for (const char* body : bad) {
-            { std::ofstream f(p, std::ios::trunc); f << envelope(body); }
+            { std::ofstream f(p, std::ios::binary | std::ios::trunc); f << envelope(body); }
             SaveData x;
             CHECK(!load_save(p, x));
         }
-        { std::ofstream f(p, std::ios::trunc); f << envelope("format=2\nlevel=250\ndifficulty=0\n"); }
+        { std::ofstream f(p, std::ios::binary | std::ios::trunc); f << envelope("format=2\nlevel=250\ndifficulty=0\n"); }
         SaveData lesson;
         CHECK(load_save(p, lesson) && lesson.level == 250);  // an upgraded save may point at the new lessons
         std::filesystem::remove(p);
@@ -405,7 +405,7 @@ int main(int argc, char** argv) {
             body += "record=" + std::to_string(id) + " " + std::to_string(best * 4) + " " + std::to_string(best) + "\n";
         }
         body += "endless_season=0\nendless_tier=3\nendless_cleared=4\nsound=1\nmusic=0\n";
-        { std::ofstream f(p, std::ios::trunc); f << envelope(body); }
+        { std::ofstream f(p, std::ios::binary | std::ios::trunc); f << envelope(body); }
         SaveData d;
         CHECK(load_save(p, d) && d.format == 1 && d.level == 150 && d.history == half);
         CHECK(migrate(d, levels));
@@ -431,13 +431,13 @@ int main(int argc, char** argv) {
         Board resume;
         CHECK(resume.load(g150.level) && resume.replay(again.history));
         // the old endless garden in play: resumes with its par, its season and the tier for its season
-        { std::ofstream f(p, std::ios::trunc); f << envelope("level=-1\nhistory=rR\nendless=#######|#@ $ .#|#######\nendless_solution=rRR\nendless_tier=1\nendless_cleared=2\n"); }
+        { std::ofstream f(p, std::ios::binary | std::ios::trunc); f << envelope("level=-1\nhistory=rR\nendless=#######|#@ $ .#|#######\nendless_solution=rRR\nendless_tier=1\nendless_cleared=2\n"); }
         SaveData e;
         CHECK(load_save(p, e) && migrate(e, levels));
         CHECK(e.level == -1 && e.history == "rR" && e.garden_par == 2 && e.garden_tier == kMedium && e.difficulty == kMedium && e.season == 1 &&
               e.garden_title == "Summer garden" && e.tiers[kMedium].cleared == 2);
         // a player still in the first steps starts at the tutorial
-        { std::ofstream f(p, std::ios::trunc); f << envelope("level=1\nhistory=u\n"); }
+        { std::ofstream f(p, std::ios::binary | std::ios::trunc); f << envelope("level=1\nhistory=u\n"); }
         SaveData first;
         CHECK(load_save(p, first) && migrate(first, levels) && first.level == 1 && first.difficulty == kTutorial && first.history == "u");
         std::filesystem::remove(p);
