@@ -16,7 +16,14 @@ python3 new-games/tools/check_game.py <id> --fetch-toolkit --application <games-
 ```
 
 Fix failures. Keep the inspected pictures in the game's `screens/` directory;
-`shrink_png.py` can compress them. Keep `HANDOFF.md` short: what you actually tested,
+`shrink_png.py` can compress them.
+
+Give the game its entry on the repository's front page: `about.md` in its folder,
+two or three plain sentences saying what makes it worth playing (not its rules,
+which belong in `help.md`), and `screens/readme.jpg`, one 800-pixel-wide picture of
+it in play (`capture FILE.ppm` in a `--dev` script takes the window). After the push,
+a workflow regenerates the README's game list from every game folder; run
+`python3 tools/make_readme.py` to preview it. Keep `HANDOFF.md` short: what you actually tested,
 real limits such as unjudged sound quality, and relevant provenance or decisions.
 This is a game record, not a release report. Existing publication authorization
 remains valid; do not introduce another approval ceremony.
