@@ -8,6 +8,11 @@ if(NOT GAMES_RELEASE_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
   message(FATAL_ERROR "GAMES_RELEASE_VERSION must be a numeric major.minor.patch")
 endif()
 project(Games VERSION ${GAMES_RELEASE_VERSION} LANGUAGES C CXX)
+# Windows finds a program's DLLs beside it: build every program and DLL, GUI.Forms'
+# Application and Threading included, into one folder.
+if(WIN32)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+endif()
 set(GAMES_RUNTIME_ASSET_DIR "" CACHE PATH "Complete verified portable runtime assets")
 option(GAMES_BUILD_APPLICATION "Build the complete graphical game collection and UI tests" ON)
 enable_testing()

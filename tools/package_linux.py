@@ -18,12 +18,18 @@ def main():
     bundle = output / "PlaySuite"
     bundle.mkdir(parents=True, exist_ok=False)
     shutil.copy2(args.build / "games", bundle / "games")
-    imports = subprocess.check_output(["patchelf", "--print-needed", str(bundle / "games")], text=True).splitlines()
-    libraries = [name for name in imports if name.startswith("libgui_forms_application.so")]
-    if len(libraries) != 1:
-        raise RuntimeError("Expected one GUI.Forms application library import")
-    for name in libraries:
-        shutil.copy2(args.build / "toolkit" / name, bundle / name)
+    # GUI.Forms' shared libraries (Application, Threading) the bundle needs, followed
+    # through each one's own imports.
+    pending = [bundle / "games"]
+    while pending:
+        binary = pending.pop()
+        imports = subprocess.check_output(["patchelf", "--print-needed", str(binary)], text=True).splitlines()
+        for name in imports:
+            if name.startswith("libgui_forms_") and not (bundle / name).exists():
+                shutil.copy2(args.build / "toolkit" / name, bundle / name)
+                pending.append(bundle / name)
+    if not list(bundle.glob("libgui_forms_application.so*")):
+        raise RuntimeError("Expected the GUI.Forms application library import")
     for binary in [bundle / "games"] + list(bundle.glob("*.so*")):
         subprocess.run(["patchelf", "--set-rpath", "$ORIGIN", str(binary)], check=True)
         subprocess.run(["strip", "--strip-unneeded", str(binary)], check=True)

@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.25)
 project(GamesTextRequestTests LANGUAGES CXX)
+# Windows finds a program's DLLs beside it: build every program and DLL, GUI.Forms'
+# Application and Threading included, into one folder.
+if(WIN32)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+endif()
 set(GAMES_TEXT_SOURCE_DIR "" CACHE PATH "GUI.Forms development source with TextMaskService")
 if(NOT EXISTS "${GAMES_TEXT_SOURCE_DIR}/include/gui_forms/text_mask.hpp")
     message(FATAL_ERROR "Set GAMES_TEXT_SOURCE_DIR to the reviewed GUI.Forms text-mask source")
