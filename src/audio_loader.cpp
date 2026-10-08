@@ -1,14 +1,13 @@
 #include "audio_loader.hpp"
 #include "runtime_paths.hpp"
-#include "gui_forms/threading.hpp"
 #include <condition_variable>
 #include <deque>
 #include <mutex>
 
 namespace games {
 namespace {
-// The decoding thread is a GUI.Forms Worker. Each clip keeps a std::stop_source,
-// because GUI.Forms' Ogg decoder observes a std::stop_token.
+// The decoding thread is a GUI.Forms Worker; each clip carries its own
+// CancellationFlag, which GUI.Forms' Ogg decoder observes.
 class PcmLoader final {
 public:
     PcmLoader() : worker_(&PcmLoader::work, this) {}
@@ -16,14 +15,15 @@ public:
         {
             std::lock_guard<std::mutex> lock(mutex_);
             closing_ = true;
-            current_.request_stop();
-            for (Job& job : jobs_) { job.cancellation.request_stop(); }
+            if (current_) { (*current_).request(); }
+            for (Job& job : jobs_) { (*job.cancellation).request(); }
         }
         wake_.notify_one();
         worker_.request_cancel();
         worker_.join();
     }
-    std::future<gui_forms::AudioClipResult> request(const std::filesystem::path& path, std::stop_source cancellation) {
+    std::future<gui_forms::AudioClipResult> request(const std::filesystem::path& path,
+                                                    std::shared_ptr<gui_forms::CancellationFlag> cancellation) {
         Job job{};
         job.path = path;
         job.cancellation = std::move(cancellation);
@@ -43,13 +43,13 @@ private:
     struct Job final {
         std::filesystem::path path{};
         std::promise<gui_forms::AudioClipResult> result{};
-        std::stop_source cancellation{};
+        std::shared_ptr<gui_forms::CancellationFlag> cancellation{};
     };
     std::mutex mutex_{};
     std::condition_variable wake_{};
     std::deque<Job> jobs_{};
     bool closing_{};
-    std::stop_source current_{};
+    std::shared_ptr<gui_forms::CancellationFlag> current_{};
     gui_forms::Worker worker_; // declared after everything it uses
     static void work(const gui_forms::CancellationFlag&, void* context) {
         (*static_cast<PcmLoader*>(context)).run();
@@ -66,9 +66,9 @@ private:
                 current_ = job.cancellation;
             }
             try {
-                const std::stop_token cancellation = job.cancellation.get_token();
+                const gui_forms::CancellationFlag& cancellation = *job.cancellation;
                 gui_forms::AudioClipResult decoded{{}, gui_forms::AudioStatus::cancelled};
-                if (!cancellation.stop_requested()) {
+                if (!cancellation.requested()) {
                     std::filesystem::path compressed = job.path;
                     compressed += ".ogg";
                     const bool has_compressed = std::filesystem::exists(compressed);
@@ -79,7 +79,7 @@ private:
                         decoded = gui_forms::AudioClip::load_wav(pcm);
                     }
                 }
-                if (cancellation.stop_requested()) { decoded = {{}, gui_forms::AudioStatus::cancelled}; }
+                if (cancellation.requested()) { decoded = {{}, gui_forms::AudioStatus::cancelled}; }
                 job.result.set_value(std::move(decoded));
             }
             catch (...) { job.result.set_exception(std::current_exception()); }
@@ -87,8 +87,10 @@ private:
     }
 };
 }
-std::future<gui_forms::AudioClipResult> load_audio_clip(const std::string& name, std::stop_source cancellation) {
+std::future<gui_forms::AudioClipResult> load_audio_clip(
+    const std::string& name, std::shared_ptr<gui_forms::CancellationFlag> cancellation) {
     static PcmLoader decoder;
+    if (!cancellation) { cancellation = std::make_shared<gui_forms::CancellationFlag>(); }
     const std::filesystem::path path = std::filesystem::path(asset_directory()) / "audio" / name;
     std::future<gui_forms::AudioClipResult> result = decoder.request(path, std::move(cancellation));
     return result;

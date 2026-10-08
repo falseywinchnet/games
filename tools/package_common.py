@@ -8,7 +8,7 @@ import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-TOOLKIT_REVISION = "e589142ffc6f5c2aaed46754460031919c44aa2c"
+TOOLKIT_REVISION = "f57d0faa050f47b819f2f9e7dcfc2ab84fe4cb2b"
 
 
 def missing_prepared_files(assets):
@@ -71,12 +71,15 @@ def copy_resources(build, toolkit, destination):
             "Skia-FreeType.txt": skia / "third_party/externals/freetype/docs/FTL.TXT",
         }.items():
             shutil.copy2(source, notices / name)
-    # stb_vorbis' dual public-domain/MIT notice is retained verbatim.
-    vorbis = (build / "_deps/gui_forms_miniaudio-src/extras/stb_vorbis.c").read_text(encoding="utf-8")
-    start = vorbis.rfind("ALTERNATIVE A - MIT License")
-    if start < 0:
-        raise RuntimeError("Pinned Vorbis source is missing its license notice")
-    (notices / "stb_vorbis.txt").write_text(vorbis[start:], encoding="utf-8")
+    # Ogg Vorbis is decoded by GUI.Forms' stx_vorbis with its embedded BFFT, and
+    # threads run on GUI.Forms' copy of threadpool_atomic_fast.
+    for name, source in {
+        "stx_vorbis.txt": toolkit / "stx_vorbis/LICENSE",
+        "BFFT.txt": toolkit / "stx_vorbis/third_party/bfft/LICENSE",
+        "BFFT-provenance.json": toolkit / "stx_vorbis/third_party/bfft/provenance.json",
+        "threadpool_atomic_fast.txt": toolkit / "src/core/threading/atomic_pool/LICENSE",
+    }.items():
+        shutil.copy2(source, notices / name)
     (destination / "README.txt").write_text(
         "PlaySuite\n\nA native collection of card games, puzzles and arcade scenes.\n"
         "Click a box to play or continue. Each game has Help in its command capsule.\n"

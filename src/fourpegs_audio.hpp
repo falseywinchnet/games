@@ -30,7 +30,7 @@ private:
     gui_forms::AudioLoopTransport transport_{};
     FourPegsTrack wanted_{};
     std::future<gui_forms::AudioClipResult> loading_{};
-    std::stop_source cancellation_{};
+    std::shared_ptr<gui_forms::CancellationFlag> cancellation_{};
     std::shared_ptr<const gui_forms::AudioClip> loaded_{};
     std::uint64_t request_id_{}, cancel_id_{};
     std::size_t next_effect_{};

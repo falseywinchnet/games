@@ -23,9 +23,11 @@ FourPegsTrack fourpegs_track(std::string_view name) {
     return {};
 }
 void FourPegsAudio::discard_load() {
-    cancellation_.request_stop();
+    if (cancellation_) {
+        (*cancellation_).request();
+    }
     loading_ = {};
-    cancellation_ = std::stop_source{};
+    cancellation_.reset();
     loaded_.reset();
     load_failed_ = false;
 }
@@ -142,6 +144,7 @@ void FourPegsAudio::tick(double dt) {
         return;
     }
     if (!loaded_ && !loading_.valid() && !load_failed_) {
+        cancellation_ = std::make_shared<gui_forms::CancellationFlag>();
         loading_ = load_audio_clip(std::string(wanted_.name), cancellation_);
     }
     if (loading_.valid()) {

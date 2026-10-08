@@ -2,36 +2,28 @@ cmake_minimum_required(VERSION 3.25)
 project(GamesPortableAudioTests LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-include(CheckCXXSourceCompiles)
-check_cxx_source_compiles("
-#include <stop_token>
-int main() {
-    std::stop_source source;
-    const bool requested = source.request_stop();
-    return requested && source.get_token().stop_requested() ? 0 : 1;
-}" GAMES_HAS_CXX20_CANCELLATION)
-if(NOT GAMES_HAS_CXX20_CANCELLATION)
-    message(FATAL_ERROR "Games audio requires a C++20 library with std::stop_token. On macOS use GUI.Forms' LLVM 22 contract (gui_forms/cmake/llvm22.cmake and its macOS 14 runtime); see docs/BUILDING.md.")
-endif()
 set(GAMES_AUDIO_SOURCE_DIR "" CACHE PATH "Development GUI.Forms source root; leave empty for installed Audio SDK")
 if(GAMES_AUDIO_SOURCE_DIR)
     set(GUI_FORMS_BUILD_AUDIO_LOOP_TRANSPORT ON CACHE BOOL "Development transport" FORCE)
-    include("${GAMES_AUDIO_SOURCE_DIR}/cmake/Audio.cmake")
-    # The audio loader runs on GUI.Forms' Worker. Audio.cmake builds only audio, so
-    # compile GUI.Forms' two self-contained threading sources here rather than
-    # its whole core.
+    set(GUI_FORMS_AUDIO_VORBIS_BACKEND stx CACHE STRING "Vorbis decoder: stx (GUI.Forms) or stb")
+    # Audio.cmake links GUIForms::Threading, which GUI.Forms' full build defines.
+    # This audio-only build defines it from the same two sources.
     find_package(Threads REQUIRED)
-    add_library(games_gui_threading STATIC
-        "${GAMES_AUDIO_SOURCE_DIR}/src/core/threading/worker.cpp"
-        "${GAMES_AUDIO_SOURCE_DIR}/src/core/threading/atomic_pool/atomic_pool.c")
-    target_compile_features(games_gui_threading PUBLIC cxx_std_20)
-    target_include_directories(games_gui_threading PUBLIC "${GAMES_AUDIO_SOURCE_DIR}/include"
-        PRIVATE "${GAMES_AUDIO_SOURCE_DIR}/src/core/threading")
-    target_link_libraries(games_gui_threading PUBLIC Threads::Threads)
-    set(games_gui_threading_target games_gui_threading)
+    add_library(gui_forms_threading SHARED
+        "${GAMES_AUDIO_SOURCE_DIR}/src/core/threading/atomic_pool/atomic_pool.c"
+        "${GAMES_AUDIO_SOURCE_DIR}/src/core/threading/worker.cpp")
+    add_library(GUIForms::Threading ALIAS gui_forms_threading)
+    target_include_directories(gui_forms_threading PUBLIC "${GAMES_AUDIO_SOURCE_DIR}/include")
+    target_compile_features(gui_forms_threading PUBLIC cxx_std_20)
+    target_link_libraries(gui_forms_threading PRIVATE Threads::Threads)
+    if(WIN32)
+        target_compile_definitions(gui_forms_threading PUBLIC _WIN32_WINNT=0x0A00 WINVER=0x0A00)
+        target_link_libraries(gui_forms_threading PRIVATE winpthread)
+        target_link_options(gui_forms_threading PRIVATE "-Wl,--export-all-symbols")
+    endif()
+    include("${GAMES_AUDIO_SOURCE_DIR}/cmake/Audio.cmake")
 else()
-    find_package(GUIForms CONFIG REQUIRED COMPONENTS Audio Core)
-    set(games_gui_threading_target GUIForms::Core)
+    find_package(GUIForms CONFIG REQUIRED COMPONENTS Audio)
 endif()
 get_filename_component(games_root "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
 set(GAMES_AUDIO_ASSET_DIR "" CACHE PATH "Prepared Games runtime assets containing audio/")
@@ -53,7 +45,7 @@ add_library(game_audio_adapters STATIC
     "${games_root}/games/atomprobe/src/platform/audio.cpp")
 target_compile_features(game_audio_adapters PUBLIC cxx_std_20)
 target_include_directories(game_audio_adapters PUBLIC "${games_root}/src")
-target_link_libraries(game_audio_adapters PUBLIC GUIForms::Audio ${games_gui_threading_target})
+target_link_libraries(game_audio_adapters PUBLIC GUIForms::Audio)
 if(GAMES_AUDIO_SOURCE_DIR)
     target_sources(game_audio_adapters PRIVATE
         "${games_root}/src/fourpegs_audio.cpp"

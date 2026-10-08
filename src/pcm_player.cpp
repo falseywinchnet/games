@@ -92,6 +92,7 @@ void PcmPlayer::start(std::size_t index, const std::string& name, bool loop, dou
     if (slot.name != name || (!slot.clip && !slot.pending.valid())) {
         clear(index);
         slot.name = name;
+        slot.cancellation = std::make_shared<gui_forms::CancellationFlag>();
         slot.pending = load_audio_clip(name, slot.cancellation);
     }
     slot.loop = loop;
@@ -144,7 +145,7 @@ void PcmPlayer::resume(std::size_t index) {
 }
 void PcmPlayer::clear(std::size_t index) {
     Slot& slot = slots_.at(index);
-    slot.cancellation.request_stop();
+    if (slot.cancellation) { (*slot.cancellation).request(); }
     slot = Slot{};
 }
 bool PcmPlayer::playing(std::size_t index) const {

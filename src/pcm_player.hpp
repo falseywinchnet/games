@@ -1,8 +1,10 @@
 #pragma once
 #include "gui_forms/audio/audio.hpp"
+#include "gui_forms/threading.hpp"
 #include <array>
 #include <filesystem>
 #include <future>
+#include <memory>
 #include <string>
 
 namespace games {
@@ -53,7 +55,7 @@ private:
         std::shared_ptr<const gui_forms::AudioClip> clip{};
         std::future<gui_forms::AudioClipResult> pending{};
         gui_forms::AudioVoice voice{};
-        std::stop_source cancellation{};
+        std::shared_ptr<gui_forms::CancellationFlag> cancellation{};
         bool voice_ready{};
         bool loop{}, paused{};
         double gain{1}, rate{1}, pan{};

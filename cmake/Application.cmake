@@ -5,7 +5,7 @@ endif()
 add_library(game_audio_adapters STATIC ${GAMES_MODULE_AUDIO}
     src/audio_loader.cpp src/pcm_player.cpp src/scene_audio.cpp src/fourpegs_audio.cpp src/audio.cpp)
 target_include_directories(game_audio_adapters PUBLIC src)
-target_link_libraries(game_audio_adapters PUBLIC GUIForms::Audio GUIForms::Core game_paths)
+target_link_libraries(game_audio_adapters PUBLIC GUIForms::Audio game_paths)
 add_library(game_text_frames STATIC src/text_requests.cpp src/game_text.cpp)
 target_include_directories(game_text_frames PUBLIC src)
 target_link_libraries(game_text_frames PUBLIC gui_forms_text_masks)
