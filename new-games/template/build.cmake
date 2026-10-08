@@ -5,6 +5,8 @@ add_library(tg_core STATIC
   "${GAME_MODULE_DIR}/src/save.cpp"
   "${GAME_MODULE_DIR}/src/stage.cpp")
 target_include_directories(tg_core PUBLIC "${GAME_MODULE_DIR}/src")
+# Saves and assets come through PlaySuite (src/game_data.hpp).
+target_link_libraries(tg_core PUBLIC game_paths)
 target_compile_definitions(tg_core PRIVATE _USE_MATH_DEFINES)
 add_executable(templategame_rules_tests "${GAME_MODULE_DIR}/tests/rules_tests.cpp")
 target_link_libraries(templategame_rules_tests PRIVATE tg_core)

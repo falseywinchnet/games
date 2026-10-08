@@ -421,20 +421,19 @@ void TemplateView::run_command(std::string_view id) {
 
 // ---------------------------------------------------------------- the save
 
-std::filesystem::path TemplateView::save_path() const {
-    const char* name = options_.dev ? "template_game-dev-v1.txt" : "template_game-v1.txt";
-    // state_directory() honours GAMES_STATE_DIR, which tests use to isolate saves.
-    const std::filesystem::path path = games::state_directory() / name;
-    return path;
+std::string_view TemplateView::save_name() const {
+    // PlaySuite keeps it in this game's save folder, which GAMES_STATE_DIR moves
+    // for tests and development runs.
+    return options_.dev ? "template_game-dev-v1.txt" : "template_game-v1.txt";
 }
 
 void TemplateView::persist() {
-    static_cast<void>(write_save(save_path(), encode_session(session_)));
+    static_cast<void>(write_save(save_name(), encode_session(session_)));
 }
 
 bool TemplateView::restore() {
     std::string body;
-    if (!read_save(save_path(), body)) {
+    if (!read_save(save_name(), body)) {
         return false;
     }
     const bool ok = decode_session(body, session_);

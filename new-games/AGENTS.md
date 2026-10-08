@@ -119,6 +119,18 @@ page is generated from them.
 Keep `HANDOFF.md` short: tests run, known limits, provenance, and decisions a
 reader would not guess. Commit only the game folder.
 
+The pull request must also pass the contribution gate described in
+[README.md](README.md#what-is-checked-automatically): one folder, at most 32 MB of
+source and 16 MB shipped, a plain `build.cmake`, shipped code without raw pointer
+tricks, platform headers or assembly, and no file, environment, thread, network or
+process access of its own. Save through `games::save_game_data` and
+`games::load_game_data`, read extra assets with `games::load_game_asset`, and run
+background work on `gui_forms::Worker`, as the template does. Run it yourself:
+
+```sh
+python3 tools/check_contribution.py paths --base origin/main --fork
+```
+
 - **The owner, or someone with their authorization:**
   `git add games/<id> && git commit -m "Add <Title> to the shelf" && git push origin HEAD:main`.
 - **Anyone else:** a pull request adding only the folder, as in

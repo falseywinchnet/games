@@ -18,7 +18,6 @@
 #include "gui_forms/timer.hpp"
 
 #include <chrono>
-#include <filesystem>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -95,7 +94,7 @@ private:
     void move_cursor(int rows, int columns);
     void persist();
     [[nodiscard]] bool restore();
-    [[nodiscard]] std::filesystem::path save_path() const;
+    [[nodiscard]] std::string_view save_name() const;
 };
 
 }  // namespace tg

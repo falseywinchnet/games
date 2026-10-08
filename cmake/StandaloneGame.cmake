@@ -14,7 +14,7 @@ endif()
 enable_testing()
 find_package(Threads REQUIRED)
 set(GAMES_BUILD_APPLICATION OFF)
-add_library(game_paths "${PLAYSUITE_SOURCE_DIR}/src/runtime_paths.cpp")
+add_library(game_paths "${PLAYSUITE_SOURCE_DIR}/src/runtime_paths.cpp" "${PLAYSUITE_SOURCE_DIR}/src/game_data.cpp")
 target_include_directories(game_paths PUBLIC "${PLAYSUITE_SOURCE_DIR}/src")
 
 # These modules share the established card/puzzle rules and their acceptance suite.

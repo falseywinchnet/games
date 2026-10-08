@@ -1,8 +1,8 @@
 #include "save.hpp"
 
-#include <fstream>
-#include <sstream>
-#include <system_error>
+#include "game_data.hpp"
+
+#include <optional>
 
 namespace tg {
 
@@ -40,43 +40,20 @@ bool unseal(const std::string& sealed, std::string& body) {
     return true;
 }
 
-bool write_save(const std::filesystem::path& path, const std::string& body) {
+bool write_save(std::string_view name, const std::string& body) {
     const std::string sealed = seal(body);
     if (sealed.size() > save_limit_bytes) {
         return false;
     }
-    std::error_code error;
-    std::filesystem::create_directories(path.parent_path(), error);
-    std::filesystem::path temporary = path;
-    temporary += ".tmp";
-    {
-        std::ofstream file(temporary, std::ios::binary | std::ios::trunc);
-        if (!file) {
-            return false;
-        }
-        file << sealed;
-        file.flush();
-        if (!file) {
-            return false;
-        }
-    }
-    std::filesystem::rename(temporary, path, error);
-    if (error) {
-        std::filesystem::remove(temporary, error);
-        return false;
-    }
-    return true;
+    return games::save_game_data(save_game, name, sealed);
 }
 
-bool read_save(const std::filesystem::path& path, std::string& body) {
-    std::ifstream file(path, std::ios::binary);
-    if (!file) {
+bool read_save(std::string_view name, std::string& body) {
+    const std::optional<std::string> sealed = games::load_game_data(save_game, name);
+    if (!sealed) {
         return false;
     }
-    std::string sealed(save_limit_bytes + 1, '\0');
-    file.read(sealed.data(), static_cast<std::streamsize>(sealed.size()));
-    sealed.resize(static_cast<std::size_t>(file.gcount()));
-    const bool ok = unseal(sealed, body);
+    const bool ok = unseal(*sealed, body);
     return ok;
 }
 

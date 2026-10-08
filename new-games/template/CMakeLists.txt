@@ -29,9 +29,18 @@ if(NOT EXISTS "${TG_KIT_DIR}/headless_text.hpp")
 endif()
 get_filename_component(TG_FONT_DIR "${TG_KIT_DIR}/../../assets/fonts" ABSOLUTE)
 
+# PlaySuite's game API for saves and assets (src/game_data.hpp), which a game uses
+# instead of opening files itself.
+get_filename_component(TG_PLAYSUITE_SRC "${TG_KIT_DIR}/../../src" ABSOLUTE)
+if(NOT TARGET game_paths)
+  add_library(game_paths STATIC "${TG_PLAYSUITE_SRC}/runtime_paths.cpp" "${TG_PLAYSUITE_SRC}/game_data.cpp")
+  target_include_directories(game_paths PUBLIC "${TG_PLAYSUITE_SRC}")
+endif()
+
 # Pure game: rules, save, layout. This is what PlaySuite's portable-core profile builds.
 add_library(tg_core STATIC src/platform/raster.cpp src/rules.cpp src/save.cpp src/stage.cpp)
 target_include_directories(tg_core PUBLIC src)
+target_link_libraries(tg_core PUBLIC game_paths)
 target_compile_definitions(tg_core PRIVATE _USE_MATH_DEFINES)
 if(NOT MSVC)
   target_compile_options(tg_core PRIVATE -Wall -Wextra)

@@ -142,12 +142,22 @@ jobs:
         run: |
           mkdir -p build/runtime
           tar -xzf build/data/games-runtime-assets.tar.gz -C build/runtime
+      # Pinned dependency sources (QuickJS, miniaudio) are fetched once and kept;
+      # a changed pin repopulates only that dependency.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .build/fetch/*-src
+            .build/fetch/*-subbuild
+          key: fetch-v1-${{ matrix.platform }}-${{ hashFiles('CMakeLists.txt', 'cmake/*.cmake', 'tests/portable_*/CMakeLists.txt', 'gui_forms/cmake/Audio.cmake') }}
+          restore-keys: fetch-v1-${{ matrix.platform }}-
       - name: Configure source-only audio consumer tests
         run: >-
           cmake -S tests/portable_audio -B build/audio -G Ninja
           -DCMAKE_BUILD_TYPE=Release -DGUI_FORMS_BUILD_TESTS=ON
           -DGAMES_AUDIO_SOURCE_DIR="$PWD/gui_forms"
           -DCMAKE_TOOLCHAIN_FILE="$PWD/gui_forms/cmake/llvm22.cmake"
+          -DFETCHCONTENT_BASE_DIR="$PWD/.build/fetch" -DFETCHCONTENT_UPDATES_DISCONNECTED=ON
           -DGAMES_AUDIO_ASSET_DIR="$PWD/build/runtime"
       - name: Build shared audio and game adapters
         run: cmake --build build/audio --parallel 4

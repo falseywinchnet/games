@@ -171,16 +171,20 @@ void test_save() {
     check(!tg::decode_session("side=4\nseed=abc\n", untouched), "a malformed number is refused");
     check(untouched.next_side == 3, "a refused load leaves the destination untouched");
 
-    // A folder of this run's own, so two runs at once cannot collide.
+    // A save folder of this run's own, so two runs at once cannot collide.
     const long long stamp = std::chrono::steady_clock::now().time_since_epoch().count();
     const std::filesystem::path directory =
         std::filesystem::temp_directory_path() / ("tg-save-test-" + std::to_string(stamp));
     std::filesystem::remove_all(directory);
-    const std::filesystem::path file = directory / "nested" / "template_game-dev-v1.txt";
-    check(tg::write_save(file, body), "a save is written, creating its folder");
-    check(tg::read_save(file, body_out) && body_out == body, "the written save reads back");
-    check(!std::filesystem::exists(file.string() + ".tmp"), "no temporary file is left behind");
-    check(!tg::read_save(directory / "absent.txt", body_out), "a missing save reports false");
+#ifdef _WIN32
+    static_cast<void>(_putenv_s("GAMES_STATE_DIR", directory.string().c_str()));
+#else
+    static_cast<void>(setenv("GAMES_STATE_DIR", directory.string().c_str(), 1));
+#endif
+    check(tg::write_save("template_game-dev-v1.txt", body), "a save is written, creating its folder");
+    check(tg::read_save("template_game-dev-v1.txt", body_out) && body_out == body, "the written save reads back");
+    check(!tg::read_save("absent.txt", body_out), "a missing save reports false");
+    check(!tg::write_save("../escape.txt", body), "a save name cannot leave the game's folder");
     std::filesystem::remove_all(directory);
 }
 

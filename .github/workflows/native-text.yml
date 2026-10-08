@@ -50,7 +50,7 @@ jobs:
           install: >-
             mingw-w64-clang-x86_64-clang mingw-w64-clang-x86_64-lld
             mingw-w64-clang-x86_64-llvm-tools mingw-w64-clang-x86_64-cmake
-            mingw-w64-clang-x86_64-ninja mingw-w64-clang-x86_64-winpthreads git
+            mingw-w64-clang-x86_64-ninja mingw-w64-clang-x86_64-winpthreads mingw-w64-clang-x86_64-ccache git
       - name: Select Windows compiler
         if: runner.os == 'Windows'
         run: |
@@ -60,17 +60,38 @@ jobs:
       - name: Install macOS LLVM 22 compiler
         if: runner.os == 'macOS'
         run: |
-          brew install ninja llvm@22
+          brew install ninja llvm@22 ccache
           echo "$(brew --prefix llvm@22)/bin" >> "$GITHUB_PATH"
           echo "CC=clang" >> "$GITHUB_ENV"
           echo "CXX=clang++" >> "$GITHUB_ENV"
           echo "OBJCXX=clang++" >> "$GITHUB_ENV"
           echo "GUI_FORMS_LLVM_RUNTIME=$PWD/.build/toolchain/llvm-22.1.8-macos14" >> "$GITHUB_ENV"
-      - name: Restore GUI.Forms macOS 14 runtime
-        if: runner.os == 'macOS'
+      # The same GUI.Forms compiler cache (and on macOS its runtime) as the
+      # application build, under the same layout, plus this check's own objects.
+      - name: Restore GUI.Forms compiler cache and runtime
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 tools/restore_toolkit_cache.py macos-arm64
+        run: |
+          platform="${{ matrix.platform }}"
+          [ "$platform" = linux-x64 ] && platform=linux-amd64
+          python3 tools/restore_toolkit_cache.py "$platform" || python tools/restore_toolkit_cache.py "$platform"
+      - uses: actions/cache/restore@v4
+        id: objects
+        with:
+          path: .ccache
+          key: text-objects-v1-${{ matrix.platform }}-${{ hashFiles('src/text_requests.*', 'src/game_text.*', 'games/**', 'shared/**', 'tests/portable_text/**') }}
+          restore-keys: text-objects-v1-${{ matrix.platform }}-
+      - name: Configure compiler cache
+        run: |
+          cache_dir="$PWD/.ccache"
+          cache_base="$PWD"
+          if command -v cygpath >/dev/null; then cache_dir="$(cygpath -m "$cache_dir")"; cache_base="$(cygpath -m "$cache_base")"; fi
+          echo "CCACHE_DIR=$cache_dir" >> "$GITHUB_ENV"
+          echo "CCACHE_BASEDIR=$cache_base" >> "$GITHUB_ENV"
+          echo "CCACHE_COMPILERCHECK=content" >> "$GITHUB_ENV"
+          CCACHE_DIR="$cache_dir" ccache --max-size=900M
+          CCACHE_DIR="$cache_dir" ccache --zero-stats
       - name: Install Linux tools
         if: runner.os == 'Linux'
         # Current GUI.Forms needs the LLVM 22 series (Ubuntu's compilers reject it).
@@ -78,7 +99,7 @@ jobs:
           curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key -o "$RUNNER_TEMP/llvm-key.asc"
           sudo install -m 0644 "$RUNNER_TEMP/llvm-key.asc" /usr/share/keyrings/apt-llvm.asc
           echo 'deb [signed-by=/usr/share/keyrings/apt-llvm.asc] https://apt.llvm.org/noble/ llvm-toolchain-noble-22 main' | sudo tee /etc/apt/sources.list.d/llvm-22.list
-          sudo apt-get update && sudo apt-get install -y ninja-build clang-22
+          sudo apt-get update && sudo apt-get install -y ninja-build clang-22 ccache
           echo /usr/lib/llvm-22/bin >> "$GITHUB_PATH"
           echo "CC=clang" >> "$GITHUB_ENV"
           echo "CXX=clang++" >> "$GITHUB_ENV"
@@ -86,27 +107,47 @@ jobs:
         run: |
           sh gui_forms/third_party/fetch_text_stack.sh
           sh gui_forms/third_party/fetch_linebreak.sh
+      # Pinned dependency sources (QuickJS, miniaudio) are fetched once and kept;
+      # a changed pin repopulates only that dependency.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .build/fetch/*-src
+            .build/fetch/*-subbuild
+          key: fetch-v1-${{ matrix.platform }}-${{ hashFiles('CMakeLists.txt', 'cmake/*.cmake', 'tests/portable_*/CMakeLists.txt', 'gui_forms/cmake/Audio.cmake') }}
+          restore-keys: fetch-v1-${{ matrix.platform }}-
       - name: Configure public-API text consumer
         run: >-
-          cmake -S tests/portable_text -B build/text -G Ninja
+          cmake -S tests/portable_text -B .build/native/text -G Ninja
           -DCMAKE_BUILD_TYPE=Release -DGAMES_TEST_VENDOR_FRAMES=ON -DGAMES_TEXT_SOURCE_DIR="$PWD/gui_forms"
           -DCMAKE_TOOLCHAIN_FILE="$PWD/gui_forms/cmake/llvm22.cmake"
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_OBJCXX_COMPILER_LAUNCHER=ccache
+          -DFETCHCONTENT_BASE_DIR="$PWD/.build/fetch" -DFETCHCONTENT_UPDATES_DISCONNECTED=ON
       - name: Build native masks and Games adapters
-        run: cmake --build build/text --target text_request_tests text_native_consumer_tests game_text_frame_tests vendor_game_frame_tests --parallel 4
+        id: compile
+        run: cmake --build .build/native/text --target text_request_tests text_native_consumer_tests game_text_frame_tests vendor_game_frame_tests --parallel 4
+      - name: Report compiler cache statistics
+        if: always()
+        run: ccache --show-stats --verbose
+      - uses: actions/cache/save@v4
+        if: always() && steps.compile.outcome == 'success' && steps.objects.outputs.cache-hit != 'true'
+        with:
+          path: .ccache
+          key: ${{ steps.objects.outputs.cache-primary-key }}
       - name: Test lifecycle and actual native text
-        run: ctest --test-dir build/text --output-on-failure --timeout 120 --output-junit results.xml -R '^(text_request_lifecycle|text_native_consumer|game_text_frame_preparation|.+_native_frames)$'
+        run: ctest --test-dir .build/native/text --output-on-failure --timeout 120 --output-junit results.xml -R '^(text_request_lifecycle|text_native_consumer|game_text_frame_preparation|.+_native_frames)$'
       - name: Render actual text previews
         run: |
-          build/text/text_native_consumer_tests gui_forms/assets/fonts build/text/previews
+          .build/native/text/text_native_consumer_tests gui_forms/assets/fonts .build/native/text/previews
           for game in fourpegs atomprobe switchbox eggy; do
-            build/text/vendor_game_frame_tests assets "$game" build/text/previews
+            .build/native/text/vendor_game_frame_tests assets "$game" .build/native/text/previews
           done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: text-checks-${{ matrix.platform }}
           path: |
-            build/text/results.xml
-            build/text/Testing/Temporary/LastTest.log
-            build/text/previews/*
+            .build/native/text/results.xml
+            .build/native/text/Testing/Temporary/LastTest.log
+            .build/native/text/previews/*
           if-no-files-found: warn

@@ -56,13 +56,51 @@ These are checked when the game is built and reviewed.
    real-time control over a long session, such as a long climb, offers a passive
    mode: its own engine plays, and the player can watch and take over at any
    moment. Puzzles, card games and other turn-based games do not need one.
-5. **Size.** The game adds at most 32 MB to the installer. Most add far less.
+5. **Size.** The game's folder holds at most 32 MB, so source audio and artwork
+   can be kept at full quality, and what ships after PlaySuite transcodes its
+   audio and images is at most 16 MB. Most games ship far less.
 6. **Windows and sizes.** The game works on all three systems, in a window as
    small as 600 × 420, at display scales 1 to 2.
 7. **Sound.** Music follows the Music master and volume, everything else the
    Sound master and volume. All audio is made by the game's own code.
 8. **Tests.** Rules, saves and layout are tested, and the game passes the
    submission check.
+9. **Only what a game needs.** The game is ordinary C++20 that computes, draws
+   through GUI.Forms and the kit, and plays sound through PlaySuite. It saves and
+   loads through PlaySuite (`src/game_data.hpp`: `games::save_game_data`,
+   `games::load_game_data`, `games::load_game_asset`) and runs background work on
+   `gui_forms::Worker`. It does not open files, read the environment, start its
+   own threads, use the network, start programs or load libraries. The template
+   already works this way.
+
+## What is checked automatically
+
+Every pull request runs `tools/check_contribution.py`. A pull request from a fork
+must pass all of it; a failure says what was found and where.
+
+- **One folder.** The pull request changes only `games/<id>/`, for one game.
+- **Size.** The folder is at most 32 MB, and what ships at most 16 MB.
+- **Source only.** No compiled files (libraries, executables, object files), no
+  Objective-C or assembly sources, no symbolic links.
+- **A plain build.** `build.cmake` declares the game's libraries, tests and tools
+  with `add_library`, `add_executable`, `target_*` and `add_test`. It links only
+  its own targets and PlaySuite's (`vendor_game_ui`, `game_paths` and the like),
+  and does not download, run commands, include other files or install anything.
+- **Code that reads plainly.** Shipped code (everything outside `tests/`,
+  `tools/` and `dev/`) avoids constructs a game has no ordinary use for:
+  `reinterpret_cast`, `const_cast`, C-style pointer casts, `uintptr_t`, unions,
+  `setjmp`, `extern "C"`, compiler attributes and builtins, `#pragma` other than
+  `#pragma once`, `volatile`, `goto`, `alloca`, inline assembly, and platform,
+  file or thread headers. If the game truly needs one, say why in the pull
+  request; a maintainer reviews it.
+- **What the code can reach.** The compiled game is read on every platform:
+  everything it calls from outside itself must be computation, the C++ standard
+  library apart from files and threads, GUI.Forms or PlaySuite, and it may contain
+  no system-call instructions.
+
+PlaySuite keeps the list of approved exceptions in `tools/game_approvals.json`,
+outside every game folder. A contribution cannot change it. Review still reads
+every submission; the checks make sure nothing unusual goes unnoticed.
 
 ## How to submit
 
@@ -80,8 +118,8 @@ These are checked when the game is built and reviewed.
    whether the game is a classic or new (rule 2), how it is replayable (rule 4),
    and, if requirement 4 applies, what its passive mode does.
 
-The pull request is built and tested on all three systems. If it is accepted and
-merged, the next release includes it.
+The pull request is checked (above), built and tested on all three systems. If it
+is accepted and merged, the next release includes it.
 
 By submitting, you agree that the game is distributed under the repository's
 [licence](../LICENSE), and that the maintainer may change it.
