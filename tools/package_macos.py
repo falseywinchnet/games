@@ -94,11 +94,18 @@ def main():
                 run(["install_name_tool", "-id", "@rpath/" + name, str(destination)])
                 origins[name] = digest
                 pending.append((source, destination))
-            prefix = "@executable_path/../Frameworks/" if target == executable else "@loader_path/"
-            run(["install_name_tool", "-change", dependency, prefix + name, str(target)])
-        for path in rpaths(target):
+            # @rpath references stay (GUI.Forms' runtime contract); the image's own
+            # rpath below points them into Frameworks. Absolute ones are rewritten.
+            if not dependency.startswith("@rpath/"):
+                prefix = "@executable_path/../Frameworks/" if target == executable else "@loader_path/"
+                run(["install_name_tool", "-change", dependency, prefix + name, str(target)])
+        bundled = "@executable_path/../Frameworks" if target == executable else "@loader_path"
+        present = rpaths(target)
+        for path in present:
             if not path.startswith("@"):
                 run(["install_name_tool", "-delete_rpath", path, str(target)])
+        if bundled not in present:
+            run(["install_name_tool", "-add_rpath", bundled, str(target)])
     # CMake also copies the real versioned filename; remove only redundant
     # copies that are not members of the resolved dependency closure.
     for library in frameworks.iterdir():
@@ -110,7 +117,7 @@ def main():
         for dependency in dependencies(target):
             if dependency == own_id or dependency.startswith(("/System/", "/usr/lib/")):
                 continue
-            if not dependency.startswith(("@loader_path/", "@executable_path/../Frameworks/")):
+            if not dependency.startswith(("@rpath/", "@loader_path/", "@executable_path/../Frameworks/")):
                 raise RuntimeError("Nonportable dependency: " + dependency)
             if not (frameworks / Path(dependency).name).is_file():
                 raise RuntimeError("Missing bundled dependency: " + dependency)
