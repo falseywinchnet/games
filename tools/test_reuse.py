@@ -15,7 +15,11 @@ What a test depends on, from where CTest says it was declared:
 The common inputs are the build (CMakeLists.txt, cmake/), the shell (src/), the test
 sources (tests/), the new-game kit, the assets and the tools that pin and prepare them.
 
-  fetch   downloads this profile's results from the newest release that carries them.
+  fetch   gathers this profile's results: the newest release's, merged with those of
+          this workflow's last run for the same pull request (on main, the pull
+          request just merged), so neither a re-push nor the merge repeats a test.
+  same-tree  on a push to main: whether the merged pull request's last successful run
+          of this workflow tested exactly this tree (then the workflow has nothing to do).
   plan    reads the last results, writes the CTest exclusion for the tests that
           passed with the same key, and the keys of this run.
   record  adds this run's passing tests to the results (failed tests are dropped).
@@ -222,25 +226,122 @@ def newest_release_with(name: str) -> str | None:
     return None
 
 
+def workflow_file() -> str:
+    # owner/repo/.github/workflows/applications.yml@refs/heads/main
+    return os.environ.get("GITHUB_WORKFLOW_REF", "").split("@")[0].rsplit("/", 1)[-1]
+
+
+def pull_request_branch() -> str | None:
+    """The pull request this run belongs to: its own, or on main the one just merged."""
+    event = os.environ.get("GITHUB_EVENT_NAME", "")
+    if event == "pull_request":
+        return os.environ.get("GITHUB_HEAD_REF") or None
+    if event == "push":
+        pulls = json.loads(gh("api", "repos/" + REPOSITORY + "/commits/" + os.environ["GITHUB_SHA"] + "/pulls"))
+        for pull in pulls:
+            if pull.get("merged_at"):
+                return pull["head"]["ref"]
+    return None
+
+
+def latest_run(workflow: str, branch: str, successful: bool = False) -> dict | None:
+    runs = json.loads(gh("api", "repos/" + REPOSITORY + "/actions/workflows/" + workflow +
+                         "/runs?event=pull_request&per_page=20&branch=" + branch)).get("workflow_runs", [])
+    current = os.environ.get("GITHUB_RUN_ID", "")
+    for run in runs:
+        if str(run.get("id")) == current or run.get("status") != "completed":
+            continue
+        if successful and run.get("conclusion") != "success":
+            continue
+        return run
+    return None
+
+
+def tree_of(sha: str) -> str:
+    return gh("api", "repos/" + REPOSITORY + "/commits/" + sha, "--jq", ".commit.tree.sha").strip()
+
+
+def load_passed(path: Path) -> dict:
+    try:
+        stored = json.loads(path.read_text(encoding="utf-8"))
+        return stored.get("passed", {}) if stored.get("schema") == SCHEMA else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def run_artifact(run_id: int, name: str, directory: Path) -> Path | None:
+    """The results file a run uploaded as the artifact `name`, or None."""
+    directory.mkdir(parents=True, exist_ok=True)
+    result = subprocess.run(["gh", "run", "download", str(run_id), "--repo", REPOSITORY, "-n", name,
+                             "-D", str(directory)], capture_output=True, text=True, check=False)
+    found = sorted(directory.rglob("test-results-*.json"))
+    return found[0] if result.returncode == 0 and found else None
+
+
 def fetch(args: argparse.Namespace) -> None:
     target = Path(args.results)
     target.parent.mkdir(parents=True, exist_ok=True)
     try:
         tag = newest_release_with(target.name)
-        if tag is None:
-            print("No release carries " + target.name + " yet; every test runs", flush=True)
-            return
-        gh("release", "download", tag, "--repo", REPOSITORY, "--pattern", target.name,
-           "--dir", str(target.parent), "--clobber")
-        print("Test results from " + tag, flush=True)
+        if tag is not None:
+            gh("release", "download", tag, "--repo", REPOSITORY, "--pattern", target.name,
+               "--dir", str(target.parent), "--clobber")
+            print("Test results from " + tag, flush=True)
+        else:
+            print("No release carries " + target.name + " yet", flush=True)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
-        print("Could not fetch " + target.name + " (" + str(error).strip() + "); every test runs", flush=True)
+        print("Could not fetch " + target.name + " from a release (" + str(error).strip() + ")", flush=True)
+    try:
+        branch = pull_request_branch()
+        run = latest_run(workflow_file(), branch) if branch else None
+        if run is not None:
+            found = run_artifact(run["id"], target.stem, target.parent / ("run-" + str(run["id"])))
+            if found is not None:
+                passed = load_passed(target) if target.is_file() else {}
+                passed.update(load_passed(found))  # the pull request's are the newer
+                profile = json.loads(found.read_text(encoding="utf-8")).get("profile")
+                target.write_text(json.dumps({"schema": SCHEMA, "profile": profile, "passed": passed},
+                                             indent=1, sort_keys=True), encoding="utf-8")
+                print("Merged results from run " + str(run["id"]) + " of " + branch, flush=True)
+    except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
+        print("No pull request results merged (" + str(error).strip() + ")", flush=True)
+
+
+def same_tree(args: argparse.Namespace) -> None:
+    skip = False
+    try:
+        if os.environ.get("GITHUB_EVENT_NAME") == "push":
+            branch = pull_request_branch()
+            run = latest_run(args.workflow or workflow_file(), branch, successful=True) if branch else None
+            if run is not None and tree_of(run["head_sha"]) == tree_of(os.environ["GITHUB_SHA"]):
+                skip = True
+                print("Run " + str(run["id"]) + " of " + branch + " passed on this exact tree; nothing to do", flush=True)
+    except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
+        print("Cannot compare with the pull request (" + str(error).strip() + "); running", flush=True)
+    if "GITHUB_OUTPUT" in os.environ:
+        with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as stream:
+            stream.write("skip=" + ("true" if skip else "false") + "\n")
+    if not skip:
+        print("Running", flush=True)
 
 
 def collect(args: argparse.Namespace) -> None:
     """Fill the folder with every profile's results: fresh ones are already there."""
     folder = Path(args.results)
     folder.mkdir(parents=True, exist_ok=True)
+    # Results of another workflow (game-core checks run only on pull requests): from the
+    # merged pull request's last run of it.
+    try:
+        branch = pull_request_branch() if args.workflow else None
+        run = latest_run(args.workflow, branch) if branch else None
+        if run is not None:
+            for name in args.expect:
+                if not (folder / name).is_file():
+                    found = run_artifact(run["id"], Path(name).stem, folder / ("run-" + Path(name).stem))
+                    if found is not None:
+                        (folder / name).write_bytes(found.read_bytes())
+    except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
+        print("  no results from " + str(args.workflow) + " (" + str(error).strip() + ")", flush=True)
     for name in args.expect:
         if (folder / name).is_file():
             print("  " + name + ": this commit's", flush=True)
@@ -258,15 +359,18 @@ def collect(args: argparse.Namespace) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("fetch", "plan", "record", "collect"))
+    parser.add_argument("command", choices=("fetch", "plan", "record", "collect", "same-tree"))
     parser.add_argument("--build", help="the CTest build directory")
     parser.add_argument("--profile", help="platform and build profile, e.g. app-macos-arm64")
-    parser.add_argument("--results", required=True, help="the results file (collect: the folder)")
+    parser.add_argument("--results", help="the results file (collect: the folder)")
+    parser.add_argument("--workflow", help="collect, same-tree: the workflow file whose pull request run to use")
     parser.add_argument("--expect", nargs="*", default=[], help="collect: the results files a release carries")
     parser.add_argument("--exclude", default="test-reuse-exclude.txt", help="plan: where the CTest -E pattern goes")
     parser.add_argument("--junit", nargs="*", default=[], help="record: CTest JUnit reports of this run")
     args = parser.parse_args()
-    if args.command == "fetch":
+    if args.command == "same-tree":
+        same_tree(args)
+    elif args.command == "fetch":
         fetch(args)
     elif args.command == "collect":
         collect(args)

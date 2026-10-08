@@ -2,14 +2,13 @@ name: Native game core checks
 # On main the installable build already compiles and runs every one of these tests on
 # all four platforms, so this matrix runs only for pull requests.
 on:
-  # On main too: its test results reach the release (tools/test_reuse.py).
-  push:
-    branches: [main]
-    paths-ignore: ['docs/**', '*.md']
+  # Pull requests only: the release takes these results from the merged pull request's
+  # run (tools/test_reuse.py collect), and the application jobs test the same cores.
   pull_request:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read  # tools/test_reuse.py reads earlier runs' results
 concurrency:
   group: core-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true

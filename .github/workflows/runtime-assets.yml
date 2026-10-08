@@ -3,37 +3,57 @@ on:
   push:
     branches: [main]
     paths:
-      - 'assets/**'
+      # GUI.Forms Audio as an outside consumer. The application jobs already decode every
+      # prepared asset (tests/audio_tests.cpp), so assets and new games don't need this.
       - 'src/*audio*'
       - 'src/pcm_player.*'
       - 'tests/portable_audio/**'
       - 'tests/*audio*'
-      - 'games/**'
-      - 'shared/**'
-      - 'tools/game_catalog.py'
-      - 'tools/prepare_portable_assets.py'
-      - 'tools/verify_portable_assets.py'
+      - 'games/eggy/**'
+      - 'games/fourpegs/**'
+      - 'games/atomprobe/**'
+      - 'games/switchbox/**'
+      - 'tools/restore_*.py'
+      - 'tools/package_common.py'
       - '.github/workflows/runtime-assets.yml'
   pull_request:
     paths:
-      - 'assets/**'
+      # GUI.Forms Audio as an outside consumer. The application jobs already decode every
+      # prepared asset (tests/audio_tests.cpp), so assets and new games don't need this.
       - 'src/*audio*'
       - 'src/pcm_player.*'
       - 'tests/portable_audio/**'
       - 'tests/*audio*'
-      - 'games/**'
-      - 'shared/**'
-      - 'tools/game_catalog.py'
-      - 'tools/*portable_assets.py'
+      - 'games/eggy/**'
+      - 'games/fourpegs/**'
+      - 'games/atomprobe/**'
+      - 'games/switchbox/**'
+      - 'tools/restore_*.py'
+      - 'tools/package_common.py'
       - '.github/workflows/runtime-assets.yml'
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read  # tools/test_reuse.py reads earlier runs' results
 concurrency:
   group: assets-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 jobs:
+  # On main after a merge: nothing to do when the pull request's run passed on this
+  # exact tree (tools/test_reuse.py same-tree).
+  gate:
+    runs-on: ubuntu-24.04
+    outputs:
+      skip: ${{ steps.tree.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: tree
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/test_reuse.py same-tree
   prepare:
+    needs: gate
+    if: needs.gate.outputs.skip != 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
