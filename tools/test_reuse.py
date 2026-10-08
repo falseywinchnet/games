@@ -118,6 +118,7 @@ def plan(args: argparse.Namespace) -> None:
     build = Path(args.build)
     keys_path = build / "test-reuse-keys.json"
     exclude_path = Path(args.exclude)
+    exclude_path.parent.mkdir(parents=True, exist_ok=True)
     exclude_path.write_text("", encoding="utf-8")
     keys_path.write_text("{}", encoding="utf-8")
     try:
@@ -211,7 +212,12 @@ def main() -> None:
     parser.add_argument("--junit", nargs="*", default=[], help="record: CTest JUnit reports of this run")
     args = parser.parse_args()
     if args.command == "plan":
-        plan(args)
+        try:
+            plan(args)
+        except Exception as error:  # noqa: BLE001 - planning must never fail a job
+            print("Test reuse unavailable (" + type(error).__name__ + ": " + str(error) + "); every test runs", flush=True)
+            Path(args.exclude).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.exclude).write_text("", encoding="utf-8")
     else:
         record(args)
 
