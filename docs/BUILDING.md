@@ -59,3 +59,16 @@ To publish a release, push a `v<version>` tag matching `project(Games VERSION ..
 
 Author: Astra
 Sponsor: Rainstar
+
+## Test reuse in CI
+
+The application and game-core workflows do not rerun a test whose inputs are unchanged
+since it last passed (`tools/test_reuse.py`). Each test's key covers its platform and
+profile, command line and properties, the compiler, the runner image, and the git tree
+hashes of what it depends on: a game's tests its own folder, the engines its `GAME.json`
+lists and any `shared/` folder its build files name; an engine's tests that engine; the
+shell's tests every game and engine; all of them the build files, `src/`, `tests/`, the
+kit, `assets/` and the pinning and asset tools. A one-game change therefore runs that
+game's tests and the shell's, nothing else. Results live in the Actions cache: main's
+are visible to every pull request, a pull request's to its own re-runs. When the git
+trees or the CTest listing cannot be read, every test runs.

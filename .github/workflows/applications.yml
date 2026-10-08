@@ -275,8 +275,35 @@ jobs:
         if: needs.prepare.outputs.publish == 'true' || github.event_name == 'workflow_dispatch'
         continue-on-error: true
         run: ./.build/native/app/rockstack_physics_tests performance
+      # Tests whose inputs are unchanged since they last passed are not run again
+      # (tools/test_reuse.py). Main's results are visible to every pull request.
+      - name: Restore test results
+        uses: actions/cache/restore@v4
+        with:
+          path: .build/test-results
+          key: test-results-app-${{ matrix.platform }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: test-results-app-${{ matrix.platform }}-
+      - name: Plan tests
+        run: |
+          py=python3; command -v python3 >/dev/null || py=python
+          $py tools/test_reuse.py plan --build .build/native/app --profile app-${{ matrix.platform }} \
+            --results .build/test-results/results.json --exclude .build/test-results/exclude.txt
       - name: Test complete application
-        run: ctest --test-dir .build/native/app --output-on-failure --timeout 180 --parallel 4 --output-junit results.xml
+        run: |
+          skip=$(cat .build/test-results/exclude.txt 2>/dev/null || true)
+          ctest --test-dir .build/native/app --output-on-failure --timeout 180 --parallel 4 --output-junit results.xml --no-tests=ignore ${skip:+-E "$skip"}
+      - name: Record test results
+        if: always()
+        run: |
+          py=python3; command -v python3 >/dev/null || py=python
+          $py tools/test_reuse.py record --build .build/native/app --profile app-${{ matrix.platform }} \
+            --results .build/test-results/results.json --junit .build/native/app/results.xml
+      - name: Keep test results
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .build/test-results
+          key: test-results-app-${{ matrix.platform }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Test Windows native queue ordering
         if: runner.os == 'Windows'
         run: |

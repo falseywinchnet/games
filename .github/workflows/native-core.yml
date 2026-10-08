@@ -67,8 +67,35 @@ jobs:
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGAMES_BUILD_APPLICATION=OFF
       - name: Build
         run: cmake --build build --parallel 4
+      # Tests whose inputs are unchanged since they last passed are not run again
+      # (tools/test_reuse.py). Main's results are visible to every pull request.
+      - name: Restore test results
+        uses: actions/cache/restore@v4
+        with:
+          path: .build/test-results
+          key: test-results-core-${{ matrix.platform }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: test-results-core-${{ matrix.platform }}-
+      - name: Plan tests
+        run: |
+          py=python3; command -v python3 >/dev/null || py=python
+          $py tools/test_reuse.py plan --build build --profile core-${{ matrix.platform }} \
+            --results .build/test-results/results.json --exclude .build/test-results/exclude.txt
       - name: Test rules and storage
-        run: ctest --test-dir build --output-on-failure --timeout 180 --parallel 4 --output-junit results.xml
+        run: |
+          skip=$(cat .build/test-results/exclude.txt 2>/dev/null || true)
+          ctest --test-dir build --output-on-failure --timeout 180 --parallel 4 --output-junit results.xml --no-tests=ignore ${skip:+-E "$skip"}
+      - name: Record test results
+        if: always()
+        run: |
+          py=python3; command -v python3 >/dev/null || py=python
+          $py tools/test_reuse.py record --build build --profile core-${{ matrix.platform }} \
+            --results .build/test-results/results.json --junit build/results.xml
+      - name: Keep test results
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .build/test-results
+          key: test-results-core-${{ matrix.platform }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Render replacement game scenes
         run: |
           mkdir -p build/previews
