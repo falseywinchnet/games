@@ -79,7 +79,7 @@ int main(int argc, char** argv) {
         lair.render(s, 0);
         Canvas c;
         c.resize(W, H);
-        lair.r.present(c, 1, 0, 0, true);
+        lair.present(c);
         write_ppm(argv[2], c);
         std::printf("tris %lld\n", lair.r.tris_drawn);
         return 0;
@@ -154,7 +154,7 @@ int main(int argc, char** argv) {
             a.cues.clear();
             if (t + 1e-9 >= next_shot && shot < frames) {
                 lair.render(s, t);
-                lair.r.present(c, 1, 0, 0, true);
+                lair.present(c);
                 for (int y = 0; y < H; ++y)
                     std::memcpy(&sheet.px[static_cast<size_t>(((shot / cols) * H + y) * sheet.w + (shot % cols) * W) * 4], &c.px[static_cast<size_t>(y * W) * 4], static_cast<size_t>(W) * 4);
                 if (!a.speech.empty() && std::fmod(t, 1.0) < every) std::printf("%5.1f  %s\n", t, a.speech.front().text.c_str());

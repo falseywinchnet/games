@@ -103,7 +103,7 @@ class Table final : public gf::Control, public CommandSource {
     void draw_text(gf::Painter& painter, double x, double y, const std::string& text, double size,
                    gf::Color color);
     int hit_card(gf::Point point) const;
-    // The run under the pointer, when it can go somewhere: it gets a faint shadow.
+    // The run under the pointer, when it can go somewhere: its cards faintly darken.
     int lift_pile_ = -1, lift_index_ = -1;
     [[nodiscard]] bool movable(int pile, int index) const;
     void track_hover(gf::Point point);

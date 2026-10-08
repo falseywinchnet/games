@@ -841,7 +841,7 @@ void FourPegsView::draw_panel() {
 void FourPegsView::compose() {
     texts_.clear();
     layout_render_buttons();
-    lair_.r.present(frame_, 1, 0, 0, true);
+    lair_.present(frame_);
     if ((*rendering_).panel_ == Panel::gameover) { draw_panel(); return; }  // a full screen of its own: no text from the table beneath
     draw_sheet();
     if ((*rendering_).panel_ == Panel::none) for (const Button& b : (*rendering_).buttons_) draw_button(b);

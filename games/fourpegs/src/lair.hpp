@@ -37,7 +37,9 @@ struct LairState {
 class Lair {
 public:
     R3D r;
-    void resize(int w, int h);
+    static constexpr int kSamples = 2;  // samples per game pixel each way
+    void resize(int w, int h);  // in game pixels
+    void present(Canvas& out) const;  // the averaged picture, one game pixel each
     void render(const LairState& s, double t);
 
     // console geometry (world units, z up, the player looks toward +y)

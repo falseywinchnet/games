@@ -323,4 +323,37 @@ void R3D::present(Canvas& out, int s, int ox, int oy, bool dither) const {
     }
 }
 
+void R3D::present_supersampled(Canvas& out, int samples, bool dither) const {
+    static const int bayer[16] = {0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5};
+    const int ow = std::min(out.w, W / samples), oh = std::min(out.h, H / samples);
+    const float k = 1.f / static_cast<float>(samples * samples);
+    for (int y = 0; y < oh; ++y) {
+        std::uint8_t* row = out.px.data() + static_cast<size_t>(y) * out.w * 4;
+        for (int x = 0; x < ow; ++x) {
+            float sum[3] = {0, 0, 0};
+            for (int sy = 0; sy < samples; ++sy) {
+                const float* c = rgb.data() + (static_cast<size_t>(y * samples + sy) * W + static_cast<size_t>(x * samples)) * 3;
+                for (int sx = 0; sx < samples; ++sx, c += 3) {
+                    sum[0] += c[0];
+                    sum[1] += c[1];
+                    sum[2] += c[2];
+                }
+            }
+            std::uint8_t channel[3];
+            for (int i = 0; i < 3; ++i) {
+                const float v = std::clamp(sum[i] * k, 0.f, 1.f);
+                if (dither) {
+                    // 15-bit colour with the same 4x4 ordered dither as present
+                    const int level = std::min(31, (static_cast<int>(v * (31.f * 16.f)) + bayer[(y & 3) * 4 + (x & 3)]) >> 4);
+                    channel[i] = static_cast<std::uint8_t>(level * 255 / 31);
+                } else {
+                    channel[i] = static_cast<std::uint8_t>(v * 255);
+                }
+            }
+            std::uint8_t* o = row + x * 4;
+            o[0] = channel[2]; o[1] = channel[1]; o[2] = channel[0]; o[3] = 255;
+        }
+    }
+}
+
 }  // namespace fp

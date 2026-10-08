@@ -113,9 +113,9 @@ int main() {
         gf::Window window(host, {1320, 980});
         window.perform_layout();
         (*view).activate();
-        click(window, *view, {382, 122}, gf::PointerButton::secondary);
+        click(window, *view, {302, 122}, gf::PointerButton::secondary);
         assert((*view).game.grid.notes[0] == 1 && (*view).game.errors == 0);
-        click(window, *view, {382, 122});
+        click(window, *view, {302, 122});
         assert((*view).game.grid.values[0] == 1 && (*view).game.errors == 1);
         (*view).run_command("undo"); // Undo lives in the PlaySuite capsule.
         assert((*view).game.grid.values[0] == 0 && (*view).game.grid.notes[0] == 1 &&

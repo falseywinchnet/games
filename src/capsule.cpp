@@ -195,8 +195,6 @@ void CommandCapsule::on_paint(gf::Painter& p, gf::Rect) {
     p.save();
     p.clip_rounded_rect(b, radius);
     fill_vertical(p, b, rgb(40, 48, 72, 228), rgb(16, 20, 34, 236));
-    p.draw_line({b.x + radius, b.y + 1.5}, {b.x + b.width - radius, b.y + 1.5},
-                rgb(255, 255, 255, 60), 1);
     p.restore();
     p.stroke_rounded_rect(b, radius, rgb(255, 210, 122, 120), 1);
     const SpriteSpec title = title_spec(title_);

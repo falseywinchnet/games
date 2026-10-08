@@ -138,10 +138,10 @@ void SudokuView::arrange(gf::Rect bounds) {
                        22.0, 62.0);
     const double column = cell_ * 1.1, gap = cell_ * .2;
     const double left = std::round((bounds.width - column - gap - cell_ * 9) * .5);
-    board_ = {left + column + gap, kTop + 22, cell_ * 9, cell_ * 9};
+    board_ = {left, kTop + 22, cell_ * 9, cell_ * 9};
     const double unit = board_.height / 10;
     for (int i = 7; i < 17; ++i)
-        set_child_layout(buttons_[i], {left, board_.y + (i - 7) * unit, column, unit});
+        set_child_layout(buttons_[i], {board_.x + board_.width + gap, board_.y + (i - 7) * unit, column, unit});
     popup_ = {std::max(8.0, bounds.width * .5 - 310), kTop + 6, std::min(620.0, bounds.width - 16),
               std::min(515.0, bounds.height - kTop - 14)};
     set_child_layout(buttons_[17], {popup_.x + 512, popup_.y + 18, 85, 32});
@@ -271,11 +271,12 @@ void SudokuView::on_paint(gf::Painter& p, gf::Rect) {
                              "  ·  MISTAKES " + std::to_string(game.errors);
     p.draw_text_utf8({board_.x, board_.y - 16}, left, pill,
                      game.errors ? gf::Color::rgba(214, 64, 78) : ink);
-    const std::string right =
-        (notes_ ? std::string("NOTES ON  ·  ") : std::string()) +
-        (digit_ == 0 ? std::string("ERASER") : "DIGIT " + std::to_string(digit_));
-    const gf::Size rm = p.measure_text_utf8(right, pill);
-    p.draw_text_utf8({board_.x + board_.width - rm.width, board_.y - 16}, right, pill, blue);
+    // The lit numeral already shows the chosen digit; only notes mode needs saying.
+    if (notes_) {
+        const std::string right = "NOTES ON";
+        const gf::Size rm = p.measure_text_utf8(right, pill);
+        p.draw_text_utf8({board_.x + board_.width - rm.width, board_.y - 16}, right, pill, blue);
+    }
     if (busy_) {
         const gf::FontSpec note{gf::FontRole::content, 15, 600, false};
         const std::string making = "Making a new puzzle…";
@@ -293,7 +294,7 @@ void SudokuView::on_paint(gf::Painter& p, gf::Rect) {
     p.draw_line({popup_.x + 28, popup_.y + 54}, {popup_.x + 140, popup_.y + 54}, blue, 2);
     if (panel_ == 1) {
         const char* lines[] = {"Fill each row, column, and 3 × 3 box with digits 1–9.",
-                               "Choose a digit beside the board. Click to set; right click to note.",
+                               "Choose a digit right of the board. Click to set; right click to note.",
                                "Keyboard: arrows move; type a digit to set it; N toggles notes.",
                                "Backspace erases. Z undoes. Mistakes stay counted after undo.",
                                "Hover a filled square to highlight its digit, row, and column.",

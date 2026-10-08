@@ -648,8 +648,6 @@ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
     p.draw_image(shadow_,
                  {r.x - 40 * shadow_scale * grow + drop * .6, r.y - 40 * shadow_scale * grow + drop,
                   440 * shadow_scale * grow, 584 * shadow_scale * grow});
-    if (!selected && !lifted && s.pile == lift_pile_ && s.index >= lift_index_ && !animating_)
-        p.draw_box_shadow(r, 7, {0, 3}, 12, 1, gf::Color::rgba(0, 0, 0, 95));
     if (selected) {
         p.fill_rounded_rect(enlarged(r, 4), 9, gf::Color::rgba(248, 220, 119));
         p.draw_box_shadow(r, 7, {0, 0}, 9, 3, gf::Color::rgba(255, 220, 103, 100));
@@ -657,6 +655,9 @@ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
     p.draw_image(face_up ? faces_[s.card.suit * 13 + s.card.rank - 1] : backs_[back_], r);
     if (finish_.value)
         p.draw_image(finish_, r);
+    // A card the pointer is over that can go somewhere (with any run on it) faintly darkens.
+    if (!selected && !lifted && s.pile == lift_pile_ && s.index >= lift_index_ && !animating_)
+        p.fill_rounded_rect(r, 6, gf::Color::rgba(0, 0, 0, 38));
     if (game.state.kind == Kind::hearts && s.pile == 0 && !game.state.passing &&
         !game.legal_heart(0, s.index)) {
         p.fill_rounded_rect(r, 6, gf::Color::rgba(24, 67, 50, 70));

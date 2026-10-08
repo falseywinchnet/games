@@ -192,7 +192,11 @@ void decal(R3D& r, V3 p, double w, double h, const Tex* tex, Col col, std::uint1
 }  // namespace
 
 void Lair::resize(int w, int h) {
-    r.resize(w, h);
+    // Drawn at kSamples x kSamples per game pixel and averaged down in present: edges get
+    // in-between shades instead of stairs. Everything outside speaks in game pixels.
+    r.resize(w * kSamples, h * kSamples);
+    w *= kSamples;
+    h *= kSamples;
     r.yaw = 0;
     r.pitch = .3;
     r.persp = 7;
@@ -213,6 +217,12 @@ void Lair::resize(int w, int h) {
 void Lair::to_screen(V3 p, double& sx, double& sy) const {
     double sz;
     r.project(p, sx, sy, sz);
+    sx /= kSamples;
+    sy /= kSamples;
+}
+
+void Lair::present(Canvas& out) const {
+    r.present_supersampled(out, kSamples, true);
 }
 
 namespace {
@@ -441,7 +451,7 @@ void Lair::render(const LairState& s, double t) {
 
 int Lair::pick_socket(double sx, double sy) const {
     int best = -1;
-    double bd = r.scale * .3;
+    double bd = r.scale / kSamples * .3;
     for (int i = 0; i < kPegs; ++i) {
         double x, y;
         to_screen(socket(i) + V3{0, 0, .12}, x, y);
@@ -453,7 +463,7 @@ int Lair::pick_socket(double sx, double sy) const {
 
 int Lair::pick_palette(double sx, double sy) const {
     int best = -1;
-    double bd = r.scale * .3;
+    double bd = r.scale / kSamples * .3;
     for (int c = 0; c < kColors; ++c) {
         double x, y;
         to_screen(palette(c) + V3{0, 0, .12}, x, y);
@@ -467,18 +477,18 @@ bool Lair::pick_check(double sx, double sy) const {
     double x, y, lx, ly;
     to_screen(check_button() + V3{0, 0, .12}, x, y);
     to_screen(check_button() + V3{0, -.38, 0}, lx, ly);
-    return std::hypot(sx - x, sy - y) < r.scale * .3 || std::hypot(sx - lx, sy - ly) < r.scale * .2;
+    return std::hypot(sx - x, sy - y) < r.scale / kSamples * .3 || std::hypot(sx - lx, sy - ly) < r.scale / kSamples * .2;
 }
 
 bool Lair::pick_villain(double sx, double sy, const VillainPose& v) const {
     double x, y;
     to_screen(villain_head_center(v), x, y);
-    return std::hypot(sx - x, sy - y) < r.scale * .55;
+    return std::hypot(sx - x, sy - y) < r.scale / kSamples * .55;
 }
 
 bool Lair::console_point(double sx, double sy, V3& out) const {
     double wx, wy;
-    if (!r.unproject_plane(sx, sy, kDeskZ, wx, wy)) return false;
+    if (!r.unproject_plane(sx * kSamples, sy * kSamples, kDeskZ, wx, wy)) return false;
     out = {wx, wy, kDeskZ};
     return true;
 }

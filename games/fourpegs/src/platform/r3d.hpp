@@ -109,6 +109,9 @@ public:
     // 2D helpers on the low-res buffer (sky, overlays)
     void fill_rect2(int x0, int y0, int x1, int y1, Col c, float a = 1);
     void present(Canvas& out, int scale, int ox, int oy, bool dither) const;
+    // Presents a buffer drawn at `samples` x `samples` per output pixel: each block is
+    // averaged (smoothing edges) and then dithered like present, one output pixel each.
+    void present_supersampled(Canvas& out, int samples, bool dither) const;
 
     long long tris_drawn = 0;
 
