@@ -92,10 +92,9 @@ jobs:
       - name: Fetch reviewed development audio source
         uses: actions/checkout@v4
         with:
-          repository: falseywinchnet/file_manager
-          ref: c4e4d917f7f759d5dba4863ff5eae427cf7c201d
-          path: toolkit
-          sparse-checkout: gui_forms
+          repository: falseywinchnet/gui_forms
+          ref: e589142ffc6f5c2aaed46754460031919c44aa2c
+          path: gui_forms
       - uses: msys2/setup-msys2@v2
         if: runner.os == 'Windows'
         with:
@@ -104,18 +103,37 @@ jobs:
           install: >-
             mingw-w64-clang-x86_64-clang mingw-w64-clang-x86_64-lld
             mingw-w64-clang-x86_64-llvm-tools mingw-w64-clang-x86_64-cmake
-            mingw-w64-clang-x86_64-ninja git
-      - name: Install macOS C++20 compiler and runtime
+            mingw-w64-clang-x86_64-ninja mingw-w64-clang-x86_64-winpthreads git
+      # GUI.Forms' LLVM 22 contract, as in the application workflow.
+      - name: Select Windows compiler
+        if: runner.os == 'Windows'
+        run: |
+          echo "CC=clang" >> "$GITHUB_ENV"
+          echo "CXX=clang++" >> "$GITHUB_ENV"
+      - name: Install macOS LLVM 22 compiler
         if: runner.os == 'macOS'
         run: |
-          brew install ninja llvm@20
-          llvm_prefix="$(brew --prefix llvm@20)"
-          echo "CXX=$llvm_prefix/bin/clang++" >> "$GITHUB_ENV"
-          echo "CXXFLAGS=-nostdinc++ -isystem $llvm_prefix/include/c++/v1" >> "$GITHUB_ENV"
-          echo "LDFLAGS=-L$llvm_prefix/lib/c++ -Wl,-rpath,$llvm_prefix/lib/c++ -L$llvm_prefix/lib/unwind -Wl,-rpath,$llvm_prefix/lib/unwind -lunwind" >> "$GITHUB_ENV"
+          brew install ninja llvm@22
+          echo "$(brew --prefix llvm@22)/bin" >> "$GITHUB_PATH"
+          echo "CC=clang" >> "$GITHUB_ENV"
+          echo "CXX=clang++" >> "$GITHUB_ENV"
+          echo "OBJCXX=clang++" >> "$GITHUB_ENV"
+          echo "GUI_FORMS_LLVM_RUNTIME=$PWD/.build/toolchain/llvm-22.1.8-macos14" >> "$GITHUB_ENV"
+      - name: Restore GUI.Forms macOS 14 runtime
+        if: runner.os == 'macOS'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/restore_toolkit_cache.py macos-arm64
       - name: Install Linux tools
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y ninja-build
+        run: |
+          curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key -o "$RUNNER_TEMP/llvm-key.asc"
+          sudo install -m 0644 "$RUNNER_TEMP/llvm-key.asc" /usr/share/keyrings/apt-llvm.asc
+          echo 'deb [signed-by=/usr/share/keyrings/apt-llvm.asc] https://apt.llvm.org/noble/ llvm-toolchain-noble-22 main' | sudo tee /etc/apt/sources.list.d/llvm-22.list
+          sudo apt-get update && sudo apt-get install -y ninja-build clang-22
+          echo /usr/lib/llvm-22/bin >> "$GITHUB_PATH"
+          echo "CC=clang" >> "$GITHUB_ENV"
+          echo "CXX=clang++" >> "$GITHUB_ENV"
       - uses: actions/download-artifact@v4
         with:
           name: games-runtime-data
@@ -128,7 +146,8 @@ jobs:
         run: >-
           cmake -S tests/portable_audio -B build/audio -G Ninja
           -DCMAKE_BUILD_TYPE=Release -DGUI_FORMS_BUILD_TESTS=ON
-          -DGAMES_AUDIO_SOURCE_DIR="$PWD/toolkit/gui_forms"
+          -DGAMES_AUDIO_SOURCE_DIR="$PWD/gui_forms"
+          -DCMAKE_TOOLCHAIN_FILE="$PWD/gui_forms/cmake/llvm22.cmake"
           -DGAMES_AUDIO_ASSET_DIR="$PWD/build/runtime"
       - name: Build shared audio and game adapters
         run: cmake --build build/audio --parallel 4
