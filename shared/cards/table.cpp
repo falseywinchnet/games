@@ -655,13 +655,12 @@ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
     p.draw_image(face_up ? faces_[s.card.suit * 13 + s.card.rank - 1] : backs_[back_], r);
     if (finish_.value)
         p.draw_image(finish_, r);
-    // A card the pointer is over that can go somewhere (with any run on it) faintly darkens.
-    if (!selected && !lifted && s.pile == lift_pile_ && s.index >= lift_index_ && !animating_)
-        p.fill_rounded_rect(r, 6, gf::Color::rgba(0, 0, 0, 38));
-    if (game.state.kind == Kind::hearts && s.pile == 0 && !game.state.passing &&
-        !game.legal_heart(0, s.index)) {
+    // A card that cannot move now is dimmed; one that can, under the pointer (with any
+    // run on it), faintly brightens.
+    if (face_up && s.card.id >= 0 && s.card.id < 104 && dim_[static_cast<std::size_t>(s.card.id)] && !selected)
         p.fill_rounded_rect(r, 6, gf::Color::rgba(24, 67, 50, 70));
-    }
+    else if (!selected && !lifted && s.pile == lift_pile_ && s.index >= lift_index_ && !animating_)
+        p.fill_rounded_rect(r, 6, gf::Color::rgba(255, 255, 255, 46));
 }
 void Table::on_paint(gf::Painter& p, gf::Rect) {
     gf::Rect b = client_rectangle();
@@ -761,6 +760,7 @@ void Table::on_paint(gf::Painter& p, gf::Rect) {
                                       : "Hand complete · click Next hand",
                       18, cream);
     }
+    mark_dim();
     for (int pile = 0; pile < 20; ++pile)
         for (const Card& c : game.state.piles[pile]) {
             const Sprite& s = sprites_[c.id];
@@ -1309,6 +1309,24 @@ bool Table::movable(int pile, int index) const {
         if (to != pile && game.legal({pile, index, to}))
             return true;
     return false;
+}
+void Table::mark_dim() {
+    dim_.fill(false);
+    if (game.state.over || cascading_)
+        return;  // a finished game shows its cards plainly
+    const int columns = game.state.kind == Kind::spider ? 10 : game.state.kind == Kind::freecell ? 8 : 7;
+    for (int pile = 0; pile < 20; ++pile) {
+        // In play: the tableau, the waste and the free cells, or in Hearts your own hand.
+        // Face-down cards, the stock, the foundations and the trick are left as they are.
+        const bool in_play = game.state.kind == Kind::hearts ? pile == 0
+                                                             : pile < columns || pile == 15 || pile >= 16;
+        if (!in_play)
+            continue;
+        const Pile& cards = game.state.piles[static_cast<std::size_t>(pile)];
+        for (int index = 0; index < static_cast<int>(cards.size()); ++index)
+            if (cards[index].up && cards[index].id >= 0 && cards[index].id < 104 && !movable(pile, index))
+                dim_[static_cast<std::size_t>(cards[index].id)] = true;
+    }
 }
 void Table::track_hover(gf::Point point) {
     const int id = hit_card(point);
