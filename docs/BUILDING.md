@@ -73,8 +73,24 @@ the shell's, nothing else.
 
 Every release carries the results beside its packages, one small file per profile and
 platform (`test-results-app-<platform>.json`, `test-results-core-<platform>.json`), so
-they never expire. Each run starts from the newest release that carries its file. The
-release job attaches the application jobs' results and the game-core workflow's for the
-same commit (that workflow runs on main for this), or carries the previous release's
-forward when it has not finished. When the git trees, the CTest listing or the release
-cannot be read, every test runs.
+they never expire. A run starts from the newest release's file and merges in the
+results of the same workflow's last run for the same pull request; on main, the pull
+request just merged. A re-pushed pull request, and the merge itself, therefore repeat
+no test whose inputs are unchanged. When the git trees, the CTest listing or the
+results cannot be read, every test runs.
+
+What runs for a change:
+
+- **Pull request:** the application jobs (all four platforms) and the game-core checks
+  run the tests whose inputs changed. The text and audio workflows run only when their
+  own code, tests, the four legacy games they exercise or the GUI.Forms pin change;
+  assets and new games never trigger them (the application jobs already decode every
+  prepared asset).
+- **Main, after the merge:** the application jobs build, package and publish; their tests
+  are reused from the pull request. The game-core checks do not run on main: the release
+  takes their results from the merged pull request's run. The text and audio workflows,
+  when their paths changed, skip entirely if the pull request's run passed on the same
+  tree (`tools/test_reuse.py same-tree`).
+
+Adding a game therefore runs, in its pull request, that game's tests and the shell's;
+after the merge, only the packaging.

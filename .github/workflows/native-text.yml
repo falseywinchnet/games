@@ -2,17 +2,32 @@ name: Native portable text
 on:
   push:
     branches: [main]
-    paths: ['src/text_requests.*', 'src/game_text.*', 'games/**', 'shared/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', '.github/workflows/native-text.yml']
+    paths: ['src/text_requests.*', 'src/game_text.*', 'assets/fonts/**', 'games/eggy/**', 'games/fourpegs/**', 'games/atomprobe/**', 'games/switchbox/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', 'tools/restore_*.py', 'tools/package_common.py', '.github/workflows/native-text.yml']
   pull_request:
-    paths: ['src/text_requests.*', 'src/game_text.*', 'games/**', 'shared/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', '.github/workflows/native-text.yml']
+    paths: ['src/text_requests.*', 'src/game_text.*', 'assets/fonts/**', 'games/eggy/**', 'games/fourpegs/**', 'games/atomprobe/**', 'games/switchbox/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', 'tools/restore_*.py', 'tools/package_common.py', '.github/workflows/native-text.yml']
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read  # tools/test_reuse.py reads earlier runs' results
 concurrency:
   group: text-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 jobs:
+  # On main after a merge: nothing to do when the pull request's run passed on this
+  # exact tree (tools/test_reuse.py same-tree).
+  gate:
+    runs-on: ubuntu-24.04
+    outputs:
+      skip: ${{ steps.tree.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: tree
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/test_reuse.py same-tree
   native-text:
+    needs: gate
+    if: needs.gate.outputs.skip != 'true'
     strategy:
       fail-fast: false
       matrix:
