@@ -75,8 +75,6 @@ AtomProbeView::AtomProbeView(gf::StableId id, Options opt) : Control(std::move(i
             replays_ = static_cast<int>(box_.probes().size());
             locks_ = kAtoms;
             result_ = true;
-        } else {
-            say("Welcome back. The box is as you left it.", kText);
         }
     }
     name_entry_ = save_.settings.player_name;
@@ -206,7 +204,7 @@ void AtomProbeView::new_box() {
     replays_ = locks_ = 0;
     result_ = false;
     pending_score_ = 0;
-    say("A fresh box. Four atoms are hiding in the fog.", kText);
+    say("", kText);  // a fresh box needs no announcement
     dirty_ = true;
 }
 

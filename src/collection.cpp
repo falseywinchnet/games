@@ -173,12 +173,8 @@ void Collection::tick() {
     const gf::Rect area{0, 0, client_rectangle().width - 48, hosted(active_) ? current_rail_height_ : 60.0};
     gf::Rect r = (*capsule_).placement(area);
     // The placement includes the shadow margin, which doubles as a forgiving hover border.
-    // Help sits at the pill's end and moves with it: pointing at it keeps the pill as it is.
-    const gf::Rect help = help_slot_;
-    const bool inside = (pointer_.x >= r.x && pointer_.x <= r.x + r.width && pointer_.y >= r.y - 8 &&
-                         pointer_.y <= r.y + r.height) ||
-                        (pointer_.x >= help.x && pointer_.x <= help.x + help.width &&
-                         pointer_.y >= help.y && pointer_.y <= help.y + help.height);
+    const bool inside = pointer_.x >= r.x && pointer_.x <= r.x + r.width && pointer_.y >= r.y - 8 &&
+                        pointer_.y <= r.y + r.height;
     if ((*capsule_).step(dt, inside, reduced_))
         invalidate(gf::Dirty::layout);
     refresh_ += dt;
@@ -347,11 +343,9 @@ void Collection::arrange(gf::Rect b) {
     if (railed)
         capsule.height = std::min(capsule.height, current_rail_height_ - capsule.y);
     set_child_layout(capsule_, capsule);
-    // Help continues a row: the shelf's switches, or in a game the capsule's first row, just
-    // past the pill's right end, so the game's own top-right corner stays the game's.
-    help_slot_ = shelf_open_ ? ShelfView::help_slot({b.width, b.height})
-                             : gf::Rect{capsule.x + capsule.width - CommandCapsule::shadow_margin + 4, 8, 38, 38};
-    set_child_layout(help_link_, help_slot_);
+    // Help continues the shelf's row of switches; in a game it stands still at the top right.
+    set_child_layout(help_link_, shelf_open_ ? ShelfView::help_slot({b.width, b.height})
+                                             : gf::Rect{b.width - 46, 8, 38, 38});
     const double paper_width = std::min(780.0, b.width - 32);
     set_child_layout(help_, {b.width - paper_width - 16, 16, paper_width, b.height - 32});
     set_child_layout(settings_, full);

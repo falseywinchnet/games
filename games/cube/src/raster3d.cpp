@@ -252,7 +252,6 @@ void composite(const Raster3D& raster, std::uint8_t* frame, int frame_width, int
     std::vector<std::uint32_t> column_left(columns);
     std::vector<std::uint32_t> column_right(columns);
     std::vector<std::uint32_t> column_weight(columns);
-    std::vector<std::uint32_t> column_nearest(columns);
     for (std::size_t index = 0; index < columns; ++index) {
         const double fx = std::clamp((left + static_cast<double>(index) + .5 - x) * sx - .5, 0.0,
                                      static_cast<double>(last_x));
@@ -260,33 +259,9 @@ void composite(const Raster3D& raster, std::uint8_t* frame, int frame_width, int
         column_left[index] = static_cast<std::uint32_t>(x0) * 4;
         column_right[index] = static_cast<std::uint32_t>(std::min(x0 + 1, last_x)) * 4;
         column_weight[index] = static_cast<std::uint32_t>((fx - x0) * 256 + .5);
-        const int nearest = std::clamp(static_cast<int>((left + static_cast<double>(index) + .5 - x) * sx), 0, last_x);
-        column_nearest[index] = static_cast<std::uint32_t>(nearest) * 4;
     }
     const std::uint32_t fade = static_cast<std::uint32_t>(std::clamp(opacity, 0.0, 1.0) * 256 + .5);
-    if (raster.draft) {
-        // While the cube moves: nearest samples, a quarter of the work, and the motion
-        // hides the coarser edge.
-        for (int py = top; py < bottom; ++py) {
-            const int ry = std::clamp(static_cast<int>((py + .5 - y) * sy), 0, last_y);
-            const std::uint8_t* source = raster.pixels.data() + static_cast<std::size_t>(ry) * source_row;
-            std::uint8_t* out = frame + static_cast<std::size_t>(py) * row_bytes + static_cast<std::size_t>(left) * 4;
-            for (std::size_t index = 0; index < columns; ++index) {
-                const std::uint8_t* from = source + column_nearest[index];
-                const std::uint32_t alpha = (from[3] * fade) >> 8;
-                if (alpha == 0) {
-                    continue;
-                }
-                std::uint8_t* pixel = out + index * 4;
-                const std::uint32_t keep = 255 - alpha;
-                pixel[blue] = static_cast<std::uint8_t>(std::min<std::uint32_t>(255, ((from[0] * fade) >> 8) + ((pixel[blue] * keep * 257 + 32896) >> 16)));
-                pixel[1] = static_cast<std::uint8_t>(std::min<std::uint32_t>(255, ((from[1] * fade) >> 8) + ((pixel[1] * keep * 257 + 32896) >> 16)));
-                pixel[red] = static_cast<std::uint8_t>(std::min<std::uint32_t>(255, ((from[2] * fade) >> 8) + ((pixel[red] * keep * 257 + 32896) >> 16)));
-                pixel[3] = static_cast<std::uint8_t>(std::min<std::uint32_t>(255, alpha + ((pixel[3] * keep * 257 + 32896) >> 16)));
-            }
-        }
-        return;
-    }
+    // Bilinear in every state: a moving cube is drawn smaller, then smoothly enlarged.
     for (int py = top; py < bottom; ++py) {
         const double fy = std::clamp((py + .5 - y) * sy - .5, 0.0, static_cast<double>(last_y));
         const int y0 = static_cast<int>(fy);

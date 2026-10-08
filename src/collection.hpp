@@ -58,7 +58,6 @@ class Collection final : public gf::Control, public HelpHost {
     static constexpr double rail_height = 50;
     double current_rail_height_ = rail_height;
     std::shared_ptr<HelpGlyph> help_link_;
-    gf::Rect help_slot_{};  // where help sits, kept from layout: the tick must not read committed bounds
     std::shared_ptr<HelpBook> help_;
     gf::FocusScopeId help_focus_{};
     std::shared_ptr<SettingsSheet> settings_;

@@ -887,7 +887,7 @@ void PuzzleView::paint_gems(gf::Painter& p, int part) {
 double PuzzleView::untangle_radius() const {
     return std::clamp(board_.width * .026, 11.0, 17.0);
 }
-// Untangle: yarn tied to wooden pegs on a tufted cushion, watched by a cat. Each color of
+// Untangle: yarn tied to wooden pegs on a plain cushion, watched by a cat. Each color of
 // yarn is its own layer; snags mark where a thread crosses its own color. When the last snag
 // clears, the yarn warms to gold, a ripple runs outward and the cat curls up in the web.
 bool PuzzleView::update_untangle_geometry() {
@@ -950,7 +950,7 @@ void PuzzleView::paint_untangle(gf::Painter& p, int part) {
     const gf::Color yarn[] = {gf::Color::rgba(228, 76, 70), gf::Color::rgba(80, 136, 236),
                               gf::Color::rgba(240, 190, 58)};
     if (part < 0 || part == 0) {
-        // A warm wooden floor under a tufted velvet cushion.
+        // A warm wooden floor under a plain cushion.
         fill_vertical(p, b, gf::Color::rgba(94, 60, 38), gf::Color::rgba(60, 36, 22));
         for (double x = -40; x < b.width; x += 74) {
             p.draw_line({x, 0}, {x, b.height}, gf::Color::rgba(40, 22, 12, 120), 2);
@@ -963,76 +963,17 @@ void PuzzleView::paint_untangle(gf::Painter& p, int part) {
         p.draw_box_shadow(cushion, pad * 1.4, {0, 12}, 30, 0, gf::Color::rgba(20, 6, 10, 170));
         p.save();
         p.clip_rounded_rect(cushion, pad * 1.4);
-        const gf::GradientStop velvet[] = {{0, gf::Color::rgba(150, 62, 96)},
-                                           {.7, gf::Color::rgba(104, 36, 66)},
-                                           {1, gf::Color::rgba(70, 20, 44)}};
+        // A plain, quiet board: no seams or buttons to read as threads and pegs.
+        const gf::GradientStop velvet[] = {{0, gf::Color::rgba(64, 74, 72)},
+                                           {.7, gf::Color::rgba(46, 54, 54)},
+                                           {1, gf::Color::rgba(34, 40, 41)}};
         p.fill_radial_gradient(cushion,
                                {cushion.x + cushion.width * .45, cushion.y + cushion.height * .4},
                                {cushion.width * .75, cushion.height * .75}, velvet);
-        // Tufting: buttons on a diamond grid with soft creases between them.
-        const double pitch = board_.width / 4;
-        std::vector<gf::Point> tufts;
-        for (int row = 0; row <= 4; ++row)
-            for (int col = 0; col <= 4; ++col) {
-                const double x = board_.x + col * pitch + (row % 2 ? pitch * .5 : 0);
-                if (x > board_.x + board_.width + 1)
-                    continue;
-                tufts.push_back({x, board_.y + row * pitch});
-            }
-        for (const gf::Point a : tufts)
-            for (const gf::Point c : tufts) {
-                const double dx = c.x - a.x, dy = c.y - a.y;
-                if (dy > 0 && std::abs(std::abs(dx) - pitch * .5) < 1 && std::abs(dy - pitch) < 1) {
-                    p.draw_line(a, c, gf::Color::rgba(50, 10, 30, 70), 3);
-                    p.draw_line({a.x + 1.5, a.y}, {c.x + 1.5, c.y},
-                                gf::Color::rgba(220, 120, 160, 26), 1.5);
-                }
-            }
-        for (const gf::Point a : tufts) {
-            const double r = std::max(3.0, board_.width * .011);
-            p.fill_rounded_rect({a.x - r * 1.8, a.y - r * 1.8, r * 3.6, r * 3.6}, r * 1.8,
-                                gf::Color::rgba(40, 6, 24, 60));
-            const gf::Rect button{a.x - r, a.y - r, 2 * r, 2 * r};
-            const gf::GradientStop shine[] = {{0, gf::Color::rgba(236, 150, 186)},
-                                              {1, gf::Color::rgba(92, 24, 54)}};
-            p.save();
-            p.clip_rounded_rect(button, r);
-            p.fill_radial_gradient(button, {a.x - r * .35, a.y - r * .4}, {r * 1.6, r * 1.6},
-                                   shine);
-            p.restore();
-        }
         p.restore();
         // Gold piping round the edge.
         p.stroke_rounded_rect(cushion, pad * 1.4, gf::Color::rgba(120, 82, 30), 5);
         p.stroke_rounded_rect(cushion, pad * 1.4, gf::Color::rgba(232, 190, 104), 2.4);
-        // A ball of the first yarn in the corner, the end of its thread trailing off.
-        if (cushion.x > 110) {
-            const double r = std::min(46.0, cushion.x * .2);
-            const gf::Point ball{cushion.x - r - 16, cushion.y + cushion.height - r};
-            const gf::GradientStop shade[] = {{0, gf::Color::rgba(20, 6, 10, 130)},
-                                              {1, gf::Color::rgba(20, 6, 10, 0)}};
-            p.fill_radial_gradient({ball.x - r * 1.3, ball.y + r * .5, r * 2.6, r * .9},
-                                   {ball.x, ball.y + r * .92}, {r * 1.2, r * .4}, shade);
-            p.fill_rounded_rect({ball.x - r, ball.y - r, 2 * r, 2 * r}, r, yarn[0]);
-            for (int k = 0; k < 7; ++k) {
-                const double a = k * .45 - .6;
-                std::vector<gf::Point> arc;
-                for (int s = 0; s <= 12; ++s) {
-                    const double u = -1.3 + s * 2.6 / 12;
-                    arc.push_back(
-                        {ball.x + std::cos(a) * r * .9 * std::sin(u) - std::sin(a) * r * .3,
-                         ball.y + std::sin(a) * r * .9 * std::sin(u) +
-                             std::cos(a) * r * .9 * std::cos(u) * .35});
-                }
-                for (std::size_t s = 1; s < arc.size(); ++s)
-                    p.draw_line(arc[s - 1], arc[s],
-                                mix_color(yarn[0], gf::Color::rgba(0, 0, 0), .28), 1.6);
-            }
-            const gf::GradientStop gloss[] = {{0, gf::Color::rgba(255, 255, 255, 70)},
-                                              {1, gf::Color::rgba(255, 255, 255, 0)}};
-            p.fill_radial_gradient({ball.x - r, ball.y - r, 2 * r, 2 * r},
-                                   {ball.x - r * .4, ball.y - r * .45}, {r, r}, gloss);
-        }
     }
     if (part <= 0)
         static_cast<void>(update_untangle_geometry());
