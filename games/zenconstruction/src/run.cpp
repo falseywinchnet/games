@@ -716,7 +716,9 @@ void Run::update_supports() {
         if (rb >= 0) {
             seen[static_cast<size_t>(rb)] = 1;
         }
-        if (ra >= 0 && c.b == phys::kGround) {
+        // Only a contact that touches and bears weight: the engine also reports near
+        // misses a little apart, and a rock hovering over the grass has not fallen.
+        if (ra >= 0 && c.b == phys::kGround && c.separation <= 0.001 && c.normal_impulse > 1e-6) {
             grounded[static_cast<size_t>(ra)] = 1;
         }
         if (ra < 0 || rb < 0) {
