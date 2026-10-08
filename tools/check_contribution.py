@@ -60,7 +60,7 @@ __cxa_guard_abort __cxa_pure_virtual __cxa_deleted_virtual __cxa_atexit
 __cxa_thread_atexit __cxa_thread_atexit_impl __cxa_finalize __dynamic_cast
 __dso_handle __gxx_personality_v0 __gxx_personality_seh0 _Unwind_Resume
 __stack_chk_fail __stack_chk_guard __tlv_atexit __tlv_bootstrap _tlv_atexit _tlv_bootstrap __tls_get_addr
-__chkstk __chkstk_ms ___chkstk_ms __emutls_get_address _tls_index
+__chkstk __chkstk_ms ___chkstk_ms __chkstk_darwin __emutls_get_address _tls_index
 fprintf fputs fputc __stderrp stderr __acrt_iob_func __iob_func
 """.split())
 
@@ -203,6 +203,53 @@ def check_build_cmake(folder, problems):
                 problems.append(f"{script.relative_to(ROOT)}: links {item}, which a game may not link")
 
 
+def check_game_folder(folder, game, fork, limits, approvals, style):
+    """One game folder's rules: the source limit, and for a contribution the build,
+    house-style and code rules. The submission check (new-games/tools/check_game.py)
+    runs this too, so a contributor sees the same results before opening a PR."""
+    problems = []
+    approved = approvals.get(game, {})
+    folder_limit = approved.get("source_mb", limits["source_mb"]) * 1024 * 1024
+    total = 0
+    for path in sorted(folder.rglob("*")):
+        if not path.is_file() or path.is_symlink():
+            if path.is_symlink():
+                problems.append(f"{path.relative_to(ROOT)}: symbolic links are not allowed")
+            continue
+        total += path.stat().st_size
+        with path.open("rb") as stream:
+            head_bytes = stream.read(8)
+        if any(head_bytes.startswith(magic) for magic in BINARY_MAGIC):
+            problems.append(f"{path.relative_to(ROOT)}: prebuilt binaries are not allowed; ship source")
+        if fork and path.suffix in FORBIDDEN_SUFFIXES:
+            problems.append(f"{path.relative_to(ROOT)}: Objective-C and assembly sources are not allowed")
+        shipped = path.relative_to(folder).parts[0] not in UNSHIPPED
+        if fork and path.suffix in SOURCE_SUFFIXES:
+            raw = path.read_text(encoding="utf-8", errors="replace")
+            text = code_only(raw)
+            for finding in style.inspect(raw):
+                problems.append(f"{path.relative_to(ROOT)}:{finding.line}: breaks the house style "
+                                f"({finding.rule}); this cannot be waived")
+            for pattern, what in HOUSE_EXTRA:
+                match = pattern.search(text)
+                if match:
+                    line = text.count("\n", 0, match.start()) + 1
+                    problems.append(f"{path.relative_to(ROOT)}:{line}: breaks the house style ({what}); "
+                                    "this cannot be waived")
+            reviewed = set(approved.get("reviewed", []))
+            for pattern, what in SUSPICIOUS if shipped else []:
+                match = pattern.search(text)
+                if match and what not in reviewed:
+                    line = text.count("\n", 0, match.start()) + 1
+                    problems.append(f"{path.relative_to(ROOT)}:{line}: uses {what}, which needs a maintainer's review")
+    if total > folder_limit:
+        problems.append(f"games/{game}: {total / 1048576:.1f} MB of source exceeds the "
+                        f"{folder_limit / 1048576:.0f} MB limit")
+    if fork:
+        check_build_cmake(folder, problems)
+    return problems
+
+
 def check_paths(base, head, fork):
     limits, approvals = load_approvals()
     files = changed_files(base, head)
@@ -218,47 +265,8 @@ def check_paths(base, head, fork):
             problems.append("a contribution adds or changes one game; changed: " + ", ".join(games))
     for game in games:
         folder = ROOT / "games" / game
-        if not folder.is_dir():
-            continue
-        approved = approvals.get(game, {})
-        folder_limit = approved.get("source_mb", limits["source_mb"]) * 1024 * 1024
-        total = 0
-        for path in sorted(folder.rglob("*")):
-            if not path.is_file() or path.is_symlink():
-                if path.is_symlink():
-                    problems.append(f"{path.relative_to(ROOT)}: symbolic links are not allowed")
-                continue
-            total += path.stat().st_size
-            with path.open("rb") as stream:
-                head_bytes = stream.read(8)
-            if any(head_bytes.startswith(magic) for magic in BINARY_MAGIC):
-                problems.append(f"{path.relative_to(ROOT)}: prebuilt binaries are not allowed; ship source")
-            if fork and path.suffix in FORBIDDEN_SUFFIXES:
-                problems.append(f"{path.relative_to(ROOT)}: Objective-C and assembly sources are not allowed")
-            shipped = path.relative_to(folder).parts[0] not in UNSHIPPED
-            if fork and path.suffix in SOURCE_SUFFIXES:
-                raw = path.read_text(encoding="utf-8", errors="replace")
-                text = code_only(raw)
-                for finding in style.inspect(raw):
-                    problems.append(f"{path.relative_to(ROOT)}:{finding.line}: breaks the house style "
-                                    f"({finding.rule}); this cannot be waived")
-                for pattern, what in HOUSE_EXTRA:
-                    match = pattern.search(text)
-                    if match:
-                        line = text.count("\n", 0, match.start()) + 1
-                        problems.append(f"{path.relative_to(ROOT)}:{line}: breaks the house style ({what}); "
-                                        "this cannot be waived")
-                reviewed = set(approved.get("reviewed", []))
-                for pattern, what in SUSPICIOUS if shipped else []:
-                    match = pattern.search(text)
-                    if match and what not in reviewed:
-                        line = text.count("\n", 0, match.start()) + 1
-                        problems.append(f"{path.relative_to(ROOT)}:{line}: uses {what}, which needs a maintainer's review")
-        if total > folder_limit:
-            problems.append(f"games/{game}: {total / 1048576:.1f} MB of source exceeds the "
-                            f"{folder_limit / 1048576:.0f} MB limit")
-        if fork:
-            check_build_cmake(folder, problems)
+        if folder.is_dir():
+            problems.extend(check_game_folder(folder, game, fork, limits, approvals, style))
     return games, problems
 
 
@@ -353,10 +361,12 @@ def classify(plain, demangled):
     return None
 
 
-def check_symbols(build, nm, filt, objdump, suggest):
+def check_symbols(build, nm, filt, objdump, suggest, only=None):
     limits, approvals = load_approvals()
     problems, warnings, found = [], [], {}
     objects = game_objects(build)
+    if only is not None:
+        objects = {game: objs for game, objs in objects.items() if game in only}
     if not objects:
         return ["no game library objects found under " + str(build)], [], {}
     for game, objs in sorted(objects.items()):

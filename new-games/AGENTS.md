@@ -127,11 +127,10 @@ comparisons or `std::any`; these cannot be waived), shipped code without raw
 pointer tricks, platform headers or assembly, and no file, environment, thread,
 network or process access of its own. Save through `games::save_game_data` and
 `games::load_game_data`, read extra assets with `games::load_game_asset`, and run
-background work on `gui_forms::Worker`, as the template does. Run it yourself:
-
-```sh
-python3 tools/check_contribution.py paths --base origin/main --fork
-```
+background work on `gui_forms::Worker`, as the template does. The submission check
+above runs these rules too; [README.md](README.md#check-failures-and-how-to-fix-them)
+says how to fix each failure. The pull request template asks for the answers the
+reviewer needs.
 
 - **The owner, or someone with their authorization:**
   `git add games/<id> && git commit -m "Add <Title> to the shelf" && git push origin HEAD:main`.

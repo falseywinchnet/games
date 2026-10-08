@@ -207,8 +207,10 @@ def check_contract(directory: Path, manifest: dict, report: Report) -> None:
     primary = re.search(r'\{\s*"[a-z_]+"\s*,[^{};]*,\s*true\s*\}', text) or re.search(r"\.primary\s*=\s*true", text)
     report.require(primary is not None, "a primary command",
                    "mark one command primary: the fifth field of GameCommand, e.g. {\"new\", \"New game\", true, false, true}")
-    report.require("games::state_directory()" in text, "saves under games::state_directory()",
-                   "resolve the save path with games::state_directory(); do not build a path from HOME")
+    report.require(("write_save(" in text or "games::save_game_data" in text) and "state_directory" not in text,
+                   "saves through PlaySuite (games::save_game_data)",
+                   "save through games::save_game_data or the template's write_save(name, body); "
+                   "do not build save paths or open files yourself")
     report.require(manifest["save_file"] in text, f"saves to {manifest['save_file']}", f"{manifest['save_file']} does not appear in the view")
     report.require(re.search(r"\(\*timer_\)\.stop\(\)", text) is not None, "the timer can stop (idle and hidden)",
                    "the view never stops its timer; a settled or hidden game must do no work")
@@ -331,6 +333,51 @@ def check_collection_build(directory: Path, manifest: dict, report: Report) -> N
     report.require(tests.returncode == 0, "module rules pass in the collection build", "collection rules failed:\n" + tests.stdout[-2500:])
 
 
+def check_gate(directory: Path, manifest: dict, report: Report) -> None:
+    print("Contribution gate (tools/check_contribution.py, as a pull request from a fork)")
+    sys.path.insert(0, str(REPO / "tools"))
+    import check_contribution as gate
+    limits, approvals = gate.load_approvals()
+    problems = gate.check_game_folder(directory, manifest["id"], True, limits, approvals, gate.house_style())
+    for problem in problems:
+        report.fail(problem)
+    if not problems:
+        report.ok("one-folder rules, source limit, plain build.cmake, house style and plain code")
+    report.warn("the pull request must change only games/" + manifest["id"] + "/; CI checks that, "
+                "and the 16 MB limit on what ships")
+
+
+LLVM_TOOL_DIRS = ("/opt/homebrew/opt/llvm@22/bin", "/usr/lib/llvm-22/bin", "/usr/local/opt/llvm@22/bin")
+
+
+def llvm_tool(name: str) -> str | None:
+    found = shutil.which(name) or shutil.which(name + "-22")
+    if found:
+        return found
+    for folder in LLVM_TOOL_DIRS:
+        candidate = Path(folder) / name
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+def check_reach(directory: Path, manifest: dict, report: Report) -> None:
+    print("What the game's compiled code can reach (tools/check_contribution.py symbols)")
+    build = REPO / ".build" / "new-games" / (manifest["id"] + "-collection")
+    tools = [llvm_tool("llvm-nm"), llvm_tool("llvm-cxxfilt"), llvm_tool("llvm-objdump")]
+    if None in tools or not build.is_dir():
+        report.warn("not checked here (needs LLVM 22's llvm-nm, llvm-cxxfilt and llvm-objdump, and the "
+                    "collection build); CI checks it on every platform")
+        return
+    sys.path.insert(0, str(REPO / "tools"))
+    import check_contribution as gate
+    problems, warnings, found = gate.check_symbols(build, tools[0], tools[1], tools[2], False, {manifest["id"]})
+    for problem in problems:
+        report.fail(problem)
+    if not problems:
+        report.ok("only computation, the standard library (without files or threads), GUI.Forms and PlaySuite")
+
+
 def check_native(directory: Path, manifest: dict, report: Report, application: Path, script: Path | None) -> None:
     print("Native standalone window and scripted input")
     if not application.is_file() or (script is not None and not script.is_file()):
@@ -438,9 +485,11 @@ def main() -> int:
     check_documents(directory, manifest, report)
     check_assets(directory, manifest, report)
     check_wiring(directory, manifest, report)
+    check_gate(directory, manifest, report)
     if not options.no_build:
         check_build(directory, manifest, report)
         check_collection_build(directory, manifest, report)
+        check_reach(directory, manifest, report)
     check_syntax(directory, manifest, report, options.fetch_toolkit)
     if options.application:
         check_native(directory, manifest, report, options.application, options.script)

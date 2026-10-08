@@ -108,22 +108,65 @@ every submission; the checks make sure nothing unusual goes unnoticed.
 
 ## How to submit
 
-1. Fork [falseywinchnet/games](https://github.com/falseywinchnet/games).
-2. Build the game in one folder, `games/<id>/`. With an AI coding model, open the
-   repository and say: "Read `new-games/AGENTS.md`. Build this game: …". Without
-   one, follow the same file.
-3. Run the submission check until it passes:
+1. **Fork** [falseywinchnet/games](https://github.com/falseywinchnet/games) and
+   clone your fork.
+2. **Start from the template.** `python3 new-games/tools/new_game.py --id <id>
+   --namespace <ns> --title "<Title>"` creates `games/<id>/` as a complete,
+   building, tested game to replace piece by piece. With an AI coding model, open
+   the repository and say: "Read `new-games/AGENTS.md`. Build this game: …".
+   Without one, follow the same file.
+3. **Run the submission check until it passes:**
 
    ```sh
    python3 new-games/tools/check_game.py <id> --fetch-toolkit
    ```
 
-4. Open a pull request that adds only `games/<id>/`. In its description, say
-   whether the game is a classic or new (rule 2), how it is replayable (rule 4),
-   and, if requirement 4 applies, what its passive mode does.
+   It runs the same checks as the pull request, apart from the two that need the
+   pull request itself: that only `games/<id>/` changed, and the 16 MB limit on
+   what ships. The table below says how to fix what it reports.
+4. **Commit only `games/<id>/`** and push it to your fork.
+5. **Open a pull request** against `main`. The template asks what the reviewer
+   needs: whether the game is a classic or new (rule 2), how it is replayable
+   (rule 4), what its passive mode does if requirement 4 applies, and why, if the
+   game needs a construct the checks flag for review.
 
-The pull request is checked (above), built and tested on all three systems. If it
-is accepted and merged, the next release includes it.
+### After you open the pull request
+
+- **A maintainer starts the checks.** GitHub runs a first-time contributor's
+  workflows only after a maintainer approves them, so the checks may show as
+  waiting at first.
+- **The checks** are the *Build installable PlaySuite* workflow. Its *prepare* job
+  runs *Check contributed games* (one folder, size, build, house style, plain code)
+  and *Check each game's shipped size*. Each platform's *application* job runs
+  *Check games' shipped code* (what the compiled game can reach), then builds,
+  tests, packages and launches PlaySuite with your game. Open a failed step on the
+  pull request's *Checks* tab to read exactly what it found; each line names the
+  file and line.
+- **Push fixes to the same branch.** The checks run again on every push.
+- **Review** reads the game against the rules. Anything the checks flagged for
+  review is decided there; the reasons come with every decision.
+- **When it is merged**, the next release includes it.
+
+### Check failures and how to fix them
+
+| The check says | Fix |
+|---|---|
+| `breaks the house style (explicit-type)` | Write the type instead of `auto`. |
+| `breaks the house style (arrow-or-trailing-return)` | Write `(*p).member` instead of `p->member`; put return types first. |
+| `breaks the house style (lambda-review)` | Make the lambda a named function, method or functor. |
+| `breaks the house style (coroutine / ranges-or-views / defaulted-comparison / std::any)` | Write the loop, the comparison or the explicit type out. |
+| `uses reinterpret_cast` (or another construct) `, which needs a maintainer's review` | Find another way; if there is none, say why in the pull request. |
+| `uses platform or file/thread headers` | Use PlaySuite's API: `games::save_game_data`, `games::load_game_data`, `games::load_game_asset`, `gui_forms::Worker`. |
+| `needs the 'files' capability` | Save and load through `src/game_data.hpp`, as the template does. |
+| `needs the 'threads' capability` | Run background work on `gui_forms::Worker` instead of `std::thread`. |
+| `needs the 'environment' capability` | Remove `getenv`; PlaySuite already places saves and assets. |
+| `calls …, which no game capability covers` | The game calls something outside computation, GUI.Forms and PlaySuite; remove it. |
+| `contains a system-call instruction` | Remove the assembly or intrinsic that produced it. |
+| `MB of source exceeds the 64 MB limit` | Keep fewer or smaller source files; generated files need not be committed if a script in the folder makes them. |
+| `MB prepared exceeds the 16 MB limit` | Shorten or compress audio and images. |
+| `prebuilt binaries are not allowed` | Commit source only; remove libraries, executables and object files. |
+| `<call>() is not allowed in a game's build` or `links …, which a game may not link` | Keep `build.cmake` to the template's form. |
+| `changes only its own games/<id>/ folder` | Remove changes outside your game's folder from the pull request. |
 
 By submitting, you agree that the game is distributed under the repository's
 [licence](../LICENSE), and that the maintainer may change it.
