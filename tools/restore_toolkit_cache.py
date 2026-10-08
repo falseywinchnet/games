@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
-"""Restores the compiler cache GUI.Forms published for the pinned revision.
+"""Restores what GUI.Forms published for the pinned revision.
 
 GUI.Forms' CI publishes one archive per platform from each tested main build, as
 the prerelease build-<revision>. This downloads the archive for this platform,
 checks it against the digest recorded here and the revision in its manifest, and
-unpacks its .ccache into the workspace. Anything unexpected leaves the cache
-alone: the build then compiles the toolkit from source, which is always correct.
+unpacks its compiler cache (.ccache) and, on macOS, the LLVM 22 runtime built for
+macOS 14 (.build/toolchain). A missing or mismatched cache only means compiling
+from source. The macOS runtime is then verified against this machine's compiler
+and SDK, and rebuilt from GUI.Forms' pinned LLVM source when it does not match.
 """
 import hashlib
 import json
+import os
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -17,13 +21,23 @@ from pathlib import Path
 from package_common import TOOLKIT_REVISION
 
 # Our platform names to GUI.Forms' archive names.
-ARCHIVES = {"windows-x64": "windows-x64", "macos-arm64": "macos-arm64", "linux-amd64": "linux-x64"}
+ARCHIVES = {"windows-x64": "windows-x64", "macos-arm64": "macos-arm64",
+            "linux-amd64": "linux-x64", "linux-arm64": "linux-arm64"}
 # SHA-256 of each archive in release build-<TOOLKIT_REVISION>.
 DIGESTS = {
-    "linux-x64": "8fa14f5df1a998b3f3c4401d14af305d5f871444d8b13179f0e10ccaea9819ab",
-    "macos-arm64": "5a2a8110c62b60d5f8defebf5009c4766253e5aaa52460eb5514455ec249044b",
-    "windows-x64": "b8e5a8f440efa6b3184cfa41ab943889251b5357d961c84f2b68c601cbc7fb84",
+    "linux-arm64": "5a7dabec0c69a517c3d904f77d1b525ff6c5fd59cbc8150ec4f1d05b1758559f",
+    "linux-x64": "03a03c2fc04c60b62d21ba919907e06c9d3513fc0f345569cab713138a0c8103",
+    "macos-arm64": "7f735d7133786e5f8c4c0d29da596fc579ba84505c558ce92529207690eaf3c8",
+    "windows-x64": "c18ccd5020ffe133cf6386e5a26d21d32ae25cec53f70a88faae17ae7e227d8e",
 }
+RUNTIME = Path(".build/toolchain/llvm-22.1.8-macos14")
+
+
+def wanted(name: str) -> bool:
+    for root in (".ccache", ".build/toolchain"):
+        if name == root or name.startswith(root + "/"):
+            return True
+    return name == "cache-manifest.json"
 
 
 def restore(platform: str) -> str:
@@ -37,24 +51,45 @@ def restore(platform: str) -> str:
     if result.returncode != 0 or not archive.exists():
         return "release " + tag + " has no " + archive.name
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
-    expected = DIGESTS.get(name)
-    if expected != digest:
-        return archive.name + " digest " + digest + " is not the recorded " + str(expected)
+    if DIGESTS.get(name) != digest:
+        return archive.name + " digest " + digest + " is not the recorded " + str(DIGESTS.get(name))
     with tarfile.open(archive) as bundle:
-        members = [m for m in bundle.getmembers()
-                   if m.name == "cache-manifest.json" or m.name == ".ccache" or m.name.startswith(".ccache/")]
-        for member in members:
-            if member.issym() or member.islnk() or ".." in Path(member.name).parts:
+        members = []
+        for member in bundle.getmembers():
+            if not wanted(member.name):
+                continue
+            if member.islnk() or ".." in Path(member.name).parts or Path(member.name).is_absolute():
                 return archive.name + " holds an unsafe entry " + member.name
+            # The runtime's dylib version links stay inside lib/.
+            if member.issym() and ("/" in member.linkname or member.linkname.startswith(".")):
+                return archive.name + " holds an unsafe link " + member.name
+            members.append(member)
         bundle.extractall(".", members=members)
+    archive.unlink()
     manifest = json.loads(Path("cache-manifest.json").read_text(encoding="utf-8"))
     if manifest.get("revision") != TOOLKIT_REVISION:
         return "manifest revision " + str(manifest.get("revision")) + " is not the pin"
-    return "restored " + archive.name + " (" + str(manifest.get("compiler")) + ")"
+    return "restored " + name + " for " + TOOLKIT_REVISION[:7]
+
+
+def prepare_runtime() -> None:
+    tools = Path("gui_forms/tools")
+    check = subprocess.run([sys.executable, str(tools / "macos_runtime_manifest.py"), str(RUNTIME)], check=False)
+    if check.returncode != 0:
+        print("Building the LLVM 22 runtime for macOS 14 from GUI.Forms' pinned source", flush=True)
+        shutil.rmtree(RUNTIME, ignore_errors=True)
+        work = Path(os.environ.get("RUNNER_TEMP", ".build")) / "llvm-runtimes"
+        subprocess.run([sys.executable, str(tools / "build_macos_runtimes.py"), "--work", str(work),
+                        "--prefix", str(RUNTIME.resolve()), "--jobs", "4"], check=True)
+        subprocess.run([sys.executable, str(tools / "macos_runtime_manifest.py"), str(RUNTIME)], check=True)
+    subprocess.run([sys.executable, str(tools / "audit_macos_minimum.py"), str(RUNTIME / "lib")], check=True)
 
 
 def main() -> None:
-    print("GUI.Forms compiler cache: " + restore(sys.argv[1]))
+    platform = sys.argv[1]
+    print("GUI.Forms cache: " + restore(platform), flush=True)
+    if platform == "macos-arm64":
+        prepare_runtime()
 
 
 if __name__ == "__main__":

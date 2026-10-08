@@ -1,6 +1,7 @@
 """Bundle native Mach-O dependencies and produce an ad-hoc-signed app and installer."""
 import argparse
 import hashlib
+import json
 from pathlib import Path
 import plistlib
 import re
@@ -25,7 +26,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--build", type=Path, required=True)
     parser.add_argument("--toolkit", type=Path, required=True)
-    parser.add_argument("--llvm", type=Path, required=True)
+    # GUI.Forms' LLVM 22 runtime built for macOS 14 (GUI_FORMS_LLVM_RUNTIME), whose
+    # libc++, libc++abi and libunwind ship inside the app.
+    parser.add_argument("--runtime", type=Path, required=True)
     parser.add_argument("--output", type=Path, default=Path("dist"))
     args = parser.parse_args()
     build = args.build.resolve()
@@ -40,13 +43,14 @@ def main():
     frameworks.mkdir(exist_ok=True)
     resources = app / "Contents/Resources"
     copy_resources(build, args.toolkit, resources)
-    compiler = run([str(args.llvm / "bin/clang++"), "--version"])
-    if "20.1.8" not in compiler:
-        raise RuntimeError("Review the runtime license pin before packaging another LLVM version")
-    shutil.copytree(ROOT / "packaging/licenses/llvm", resources / "licenses/LLVM")
+    runtime = args.runtime.resolve()
+    built = json.loads((runtime / "runtime-manifest.json").read_text(encoding="utf-8"))
+    if built.get("llvm_version") != "22.1.8" or built.get("deployment_target") != "14.0":
+        raise RuntimeError("Review the runtime and its license notices before packaging another LLVM runtime")
+    shutil.copytree(runtime / "share/licenses/llvm-runtimes", resources / "licenses/LLVM")
     plist_path = app / "Contents/Info.plist"
     plist = plistlib.loads(plist_path.read_bytes())
-    plist["LSMinimumSystemVersion"] = "15.0"
+    plist["LSMinimumSystemVersion"] = "14.0"
     plist["CFBundleDisplayName"] = "PlaySuite"
     plist_path.write_bytes(plistlib.dumps(plist))
 
@@ -112,6 +116,8 @@ def main():
                 raise RuntimeError("Missing bundled dependency: " + dependency)
         run(["strip", "-S", "-x", str(target)])
         run(["codesign", "--force", "--sign", "-", str(target)])
+    # Every image is arm64, at most macOS 14.0, with no system or absolute libc++.
+    run(["python3", str(args.toolkit / "tools/audit_macos_minimum.py"), str(app)])
     write_manifest(resources, "macOS", "arm64")
     run(["codesign", "--force", "--deep", "--sign", "-", str(app)])
     run(["codesign", "--verify", "--deep", "--strict", str(app)])

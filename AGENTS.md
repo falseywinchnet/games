@@ -97,8 +97,8 @@ build uses the reviewed toolkit at
 runtime assets at `.../PlaysuiteDependencies/runtime-modular`, and the verified
 Skia CPU output at
 `/Users/joshuahkuttenkuler/Developer/Projects/gui-forms-investigation/skia-cpu`.
-Release CI now pins GUI.Forms `2cb2fc53bb26ff6c6cb2a856a60b0a6b9c854558` from its own repository, `falseywinchnet/gui_forms` (owner-held handlers, shared `Command`/`Value` state, collection controls; the shell's switches, Settings controls and shelf arrows use them), and restores that revision's published compiler cache (see docs/BUILDING.md). On the M4, `~/Developer/PlaysuiteDependencies/toolkit-f81ec0c/gui_forms` holds the PR head with its dependencies fetched. The `toolkit-opaque` and `toolkit-d58f530` paths above are earlier pins.
-The development compiler is Homebrew LLVM 22.1.8; release CI retains LLVM 20.1.8.
+Release CI pins GUI.Forms `e589142ffc6f5c2aaed46754460031919c44aa2c` from its own repository, `falseywinchnet/gui_forms`, and follows its LLVM 22.1.8 contract on every platform (macOS 14.0 Apple silicon with GUI.Forms' bundled LLVM runtime, Windows 10, Ubuntu 24.04), restoring that revision's published compiler cache; see docs/BUILDING.md. On the M4, `~/Developer/PlaysuiteDependencies/toolkit-e589142` holds that revision, its macOS 14 runtime (`toolchain/llvm-22.1.8-macos14`) and Skia (`skia-out`). Threads use GUI.Forms' `Worker`/`AtomicThreadPool`, not `std::thread`. The `toolkit-f81ec0c`, `toolkit-opaque` and `toolkit-d58f530` paths above are earlier pins.
+The development compiler is Homebrew LLVM 22.1.8, as release CI now uses.
 This developer build does not establish release packaging with a different LLVM.
 
 ```sh

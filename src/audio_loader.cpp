@@ -1,15 +1,17 @@
 #include "audio_loader.hpp"
 #include "runtime_paths.hpp"
+#include "gui_forms/threading.hpp"
 #include <condition_variable>
 #include <deque>
 #include <mutex>
-#include <thread>
 
 namespace games {
 namespace {
+// The decoding thread is a GUI.Forms Worker. Each clip keeps a std::stop_source,
+// because GUI.Forms' Ogg decoder observes a std::stop_token.
 class PcmLoader final {
 public:
-    PcmLoader() : worker_(&PcmLoader::run, this) {}
+    PcmLoader() : worker_(&PcmLoader::work, this) {}
     ~PcmLoader() {
         {
             std::lock_guard<std::mutex> lock(mutex_);
@@ -18,6 +20,7 @@ public:
             for (Job& job : jobs_) { job.cancellation.request_stop(); }
         }
         wake_.notify_one();
+        worker_.request_cancel();
         worker_.join();
     }
     std::future<gui_forms::AudioClipResult> request(const std::filesystem::path& path, std::stop_source cancellation) {
@@ -47,7 +50,10 @@ private:
     std::deque<Job> jobs_{};
     bool closing_{};
     std::stop_source current_{};
-    std::thread worker_;
+    gui_forms::Worker worker_; // declared after everything it uses
+    static void work(const gui_forms::CancellationFlag&, void* context) {
+        (*static_cast<PcmLoader*>(context)).run();
+    }
     void run() {
         for (;;) {
             Job job{};

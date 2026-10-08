@@ -94,7 +94,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: falseywinchnet/gui_forms
-          ref: 2cb2fc53bb26ff6c6cb2a856a60b0a6b9c854558
+          ref: e589142ffc6f5c2aaed46754460031919c44aa2c
           path: gui_forms
       - uses: msys2/setup-msys2@v2
         if: runner.os == 'Windows'
@@ -105,7 +105,8 @@ jobs:
             mingw-w64-clang-x86_64-clang mingw-w64-clang-x86_64-lld
             mingw-w64-clang-x86_64-llvm-tools mingw-w64-clang-x86_64-cmake
             mingw-w64-clang-x86_64-ninja mingw-w64-clang-x86_64-python
-            mingw-w64-clang-x86_64-nsis mingw-w64-clang-x86_64-ccache git
+            mingw-w64-clang-x86_64-nsis mingw-w64-clang-x86_64-ccache
+            mingw-w64-clang-x86_64-winpthreads git
       # Name the compiler as GUI.Forms' CI does. CMake otherwise picks cc.exe and
       # c++.exe: the same Clang, but different files to ccache, so none of the
       # published cache would match.
@@ -114,17 +115,19 @@ jobs:
         run: |
           echo "CC=clang" >> "$GITHUB_ENV"
           echo "CXX=clang++" >> "$GITHUB_ENV"
-      - name: Install macOS C++20 compiler and runtime
+      # GUI.Forms' LLVM 22 contract: Homebrew llvm@22 compiles; the libc++, libc++abi
+      # and libunwind the app ships are GUI.Forms' build of LLVM 22.1.8 for macOS
+      # 14 (Homebrew's own require macOS 26). gui_forms/cmake/llvm22.cmake supplies
+      # the flags, the arm64 architecture and the 14.0 minimum.
+      - name: Install macOS LLVM 22 compiler
         if: runner.os == 'macOS'
         run: |
-          brew install ninja llvm@20 ccache
-          llvm_prefix="$(brew --prefix llvm@20)"
-          echo "CXX=$llvm_prefix/bin/clang++" >> "$GITHUB_ENV"
-          echo "OBJCXX=$llvm_prefix/bin/clang++" >> "$GITHUB_ENV"
-          echo "CC=$llvm_prefix/bin/clang" >> "$GITHUB_ENV"
-          echo "CXXFLAGS=-nostdinc++ -isystem $llvm_prefix/include/c++/v1" >> "$GITHUB_ENV"
-          echo "OBJCXXFLAGS=-nostdinc++ -isystem $llvm_prefix/include/c++/v1" >> "$GITHUB_ENV"
-          echo "LDFLAGS=-L$llvm_prefix/lib/c++ -Wl,-rpath,$llvm_prefix/lib/c++ -L$llvm_prefix/lib/unwind -Wl,-rpath,$llvm_prefix/lib/unwind -lunwind" >> "$GITHUB_ENV"
+          brew install ninja llvm@22 ccache
+          echo "$(brew --prefix llvm@22)/bin" >> "$GITHUB_PATH"
+          echo "CC=clang" >> "$GITHUB_ENV"
+          echo "CXX=clang++" >> "$GITHUB_ENV"
+          echo "OBJCXX=clang++" >> "$GITHUB_ENV"
+          echo "GUI_FORMS_LLVM_RUNTIME=$PWD/.build/toolchain/llvm-22.1.8-macos14" >> "$GITHUB_ENV"
       # Ubuntu's Clang 18 rejects current GUI.Forms; use the LLVM 22 series, as
       # GUI.Forms' own CI does, which also lets its compiler cache match.
       - name: Install Linux compiler and desktop libraries
@@ -144,11 +147,10 @@ jobs:
         run: |
           sh gui_forms/third_party/fetch_text_stack.sh
           sh gui_forms/third_party/fetch_linebreak.sh
-      # GUI.Forms publishes a compiler cache from each tested main build. Restore
-      # the one for the pinned revision (Linux arm64 has none), checked against
+      # GUI.Forms publishes a compiler cache (and on macOS its runtime) from each
+      # tested main build. Restore the one for the pinned revision, checked against
       # its recorded digest; a miss only means compiling from source.
-      - name: Restore GUI.Forms compiler cache
-        if: matrix.platform != 'linux-arm64'
+      - name: Restore GUI.Forms compiler cache and runtime
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -161,8 +163,8 @@ jobs:
         id: objects
         with:
           path: .ccache
-          key: games-objects-v2-${{ matrix.platform }}-${{ hashFiles('CMakeLists.txt', 'cmake/**', 'src/**', 'tests/**', 'games/**', 'shared/**') }}
-          restore-keys: games-objects-v2-${{ matrix.platform }}-
+          key: games-objects-llvm22-v1-${{ matrix.platform }}-${{ hashFiles('CMakeLists.txt', 'cmake/**', 'src/**', 'tests/**', 'games/**', 'shared/**') }}
+          restore-keys: games-objects-llvm22-v1-${{ matrix.platform }}-
       - name: Configure compiler cache
         run: |
           cache_dir="$PWD/.ccache"
@@ -180,7 +182,7 @@ jobs:
         id: skia
         with:
           path: gui_forms/third_party/skia
-          key: games-skia-7b260cf-v2-${{ matrix.platform }}
+          key: games-skia-7b260cf-llvm22-v1-${{ matrix.platform }}
       - name: Build CPU renderer on Linux
         if: runner.os == 'Linux' && steps.skia.outputs.cache-hit != 'true'
         run: |
@@ -190,16 +192,12 @@ jobs:
         if: runner.os == 'macOS' && steps.skia.outputs.cache-hit != 'true'
         run: |
           sh gui_forms/third_party/fetch_skia_cpu.sh
-          skia="$PWD/gui_forms/third_party/skia"
-          mkdir -p "$skia/out/games"
-          cp gui_forms/third_party/skia_cpu_args.gn "$skia/out/games/args.gn"
-          "$skia/bin/gn" gen "$skia/out/games" --root="$skia"
-          "$skia/third_party/ninja/ninja" -C "$skia/out/games" -j4 skia
+          BUILD_JOBS=4 sh gui_forms/third_party/build_skia_cpu.sh "$PWD/gui_forms/third_party/skia/out/games"
       - uses: actions/cache/save@v4
         if: runner.os != 'Windows' && steps.skia.outputs.cache-hit != 'true'
         with:
           path: gui_forms/third_party/skia
-          key: games-skia-7b260cf-v2-${{ matrix.platform }}
+          key: games-skia-7b260cf-llvm22-v1-${{ matrix.platform }}
       - uses: actions/download-artifact@v4
         with:
           name: runtime
@@ -211,6 +209,7 @@ jobs:
           cmake -S . -B .build/native/app -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_OBJCXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_TOOLCHAIN_FILE="$PWD/gui_forms/cmake/llvm22.cmake" \
             -DGAMES_TOOLKIT_SOURCE_DIR="$PWD/gui_forms" \
             -DGAMES_RUNTIME_ASSET_DIR="$PWD/build/runtime" \
             -DGAMES_RELEASE_VERSION="$GAMES_RELEASE_VERSION" \
@@ -251,7 +250,7 @@ jobs:
         run: python tools/package_windows.py --build .build/native/app --toolkit gui_forms --runtime-dir /clang64/bin --installer
       - name: Package macOS application and installer
         if: runner.os == 'macOS'
-        run: python3 tools/package_macos.py --build .build/native/app --toolkit gui_forms --llvm "$(brew --prefix llvm@20)"
+        run: python3 tools/package_macos.py --build .build/native/app --toolkit gui_forms --runtime "$GUI_FORMS_LLVM_RUNTIME"
       - name: Package Linux application and installer
         if: runner.os == 'Linux'
         run: python3 tools/package_linux.py --build .build/native/app --toolkit gui_forms
