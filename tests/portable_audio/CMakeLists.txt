@@ -21,6 +21,12 @@ if(GAMES_AUDIO_SOURCE_DIR)
         target_link_libraries(gui_forms_threading PRIVATE winpthread)
         target_link_options(gui_forms_threading PRIVATE "-Wl,--export-all-symbols")
     endif()
+    # Audio.cmake exports gui_forms_audio, which needs its Threading dependency in
+    # an export set too; this project is never installed.
+    include(GNUInstallDirs)
+    install(TARGETS gui_forms_threading EXPORT GUIFormsAudioTargets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
     include("${GAMES_AUDIO_SOURCE_DIR}/cmake/Audio.cmake")
 else()
     find_package(GUIForms CONFIG REQUIRED COMPONENTS Audio)

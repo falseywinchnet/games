@@ -167,9 +167,16 @@ class CatalogTests(unittest.TestCase):
         directory, original = self.module()
         outside = directory.parent / "outside.cpp"
         outside.write_text("fixture", encoding="utf-8")
-        (directory / "linked.cpp").symlink_to(outside)
-        for filename in ("../outside.cpp", str(outside), "linked.cpp", 'odd"name.cpp',
-                         "dollar$name.cpp", "semi;name.cpp", "line\nname.cpp"):
+        names = ["../outside.cpp", str(outside), 'odd"name.cpp',
+                 "dollar$name.cpp", "semi;name.cpp", "line\nname.cpp"]
+        # Windows creates symlinks only with Developer Mode or elevation; elsewhere a
+        # link out of the folder must be rejected like any other escape.
+        try:
+            (directory / "linked.cpp").symlink_to(outside)
+            names.append("linked.cpp")
+        except OSError:
+            pass
+        for filename in names:
             with self.subTest(filename=filename):
                 self.save(directory, dict(original, module=filename))
                 # Invalid spelling is rejected before filesystem access, including

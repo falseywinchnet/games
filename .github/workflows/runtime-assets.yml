@@ -93,7 +93,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: falseywinchnet/gui_forms
-          ref: f57d0faa050f47b819f2f9e7dcfc2ab84fe4cb2b
+          ref: 4e126d6eb3ab837f1a44c0e9c9eb7901d50f80bb
           path: gui_forms
       - uses: msys2/setup-msys2@v2
         if: runner.os == 'Windows'
