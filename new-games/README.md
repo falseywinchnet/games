@@ -56,7 +56,7 @@ These are checked when the game is built and reviewed.
    real-time control over a long session, such as a long climb, offers a passive
    mode: its own engine plays, and the player can watch and take over at any
    moment. Puzzles, card games and other turn-based games do not need one.
-5. **Size.** The game's folder holds at most 32 MB, so source audio and artwork
+5. **Size.** The game's folder holds at most 64 MB, so source audio and artwork
    can be kept at full quality, and what ships after PlaySuite transcodes its
    audio and images is at most 16 MB. Most games ship far less.
 6. **Windows and sizes.** The game works on all three systems, in a window as
@@ -79,13 +79,17 @@ Every pull request runs `tools/check_contribution.py`. A pull request from a for
 must pass all of it; a failure says what was found and where.
 
 - **One folder.** The pull request changes only `games/<id>/`, for one game.
-- **Size.** The folder is at most 32 MB, and what ships at most 16 MB.
+- **Size.** The folder is at most 64 MB, and what ships at most 16 MB.
 - **Source only.** No compiled files (libraries, executables, object files), no
   Objective-C or assembly sources, no symbolic links.
 - **A plain build.** `build.cmake` declares the game's libraries, tests and tools
   with `add_library`, `add_executable`, `target_*` and `add_test`. It links only
   its own targets and PlaySuite's (`vendor_game_ui`, `game_paths` and the like),
   and does not download, run commands, include other files or install anything.
+- **The house style.** All of the game's C++, tests included, keeps the house
+  style's mechanical rules: no `auto`, no `->`, no lambdas, no coroutines, no
+  ranges or views pipelines, no defaulted comparisons and no `std::any`. Nothing
+  waives these. `python3 scripts/check-style.py games/<id>` shows them.
 - **Code that reads plainly.** Shipped code (everything outside `tests/`,
   `tools/` and `dev/`) avoids constructs a game has no ordinary use for:
   `reinterpret_cast`, `const_cast`, C-style pointer casts, `uintptr_t`, unions,

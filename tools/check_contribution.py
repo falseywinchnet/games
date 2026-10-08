@@ -4,9 +4,13 @@
 paths   The source limit for every game a change touches. For a pull request
         from a fork, also: the change stays inside one games/<id>/ folder, carries
         no prebuilt binaries, its build.cmake only declares ordinary library and
-        test targets, and its code avoids constructs that only make sense when
-        working around the language (raw pointer casts, pointer-sized integers,
-        platform headers, assembly, setjmp, compiler attributes and the like).
+        test targets, its C++ keeps the house style's mechanical rules (no auto,
+        no ->, no lambdas, no coroutines, no ranges pipelines, no defaulted
+        comparisons, no std::any), which nothing can waive, and its shipped code
+        avoids constructs that only make sense when working around the language
+        (raw pointer casts, pointer-sized integers, platform headers, assembly,
+        setjmp, compiler attributes and the like) unless a maintainer has
+        reviewed that use for that game.
 prepared
         The shipped limit: each game's transcoded audio and copied resources in
         a prepared runtime folder.
@@ -22,6 +26,7 @@ with the scan for code that looks like it is reaching around the language, they
 leave deliberate memory corruption as the remaining route, which review covers.
 """
 import argparse
+import importlib.util
 import json
 import re
 import subprocess
@@ -146,6 +151,18 @@ SUSPICIOUS = [
      "platform or file/thread headers (use PlaySuite's game API)"),
 ]
 SOURCE_SUFFIXES = (".cpp", ".hpp", ".h", ".c", ".cc", ".cxx", ".inl", ".ipp")
+
+
+def house_style():
+    """scripts/check-style.py: the house style's mechanical rules, which are absolute."""
+    spec = importlib.util.spec_from_file_location("check_style", ROOT / "scripts/check-style.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# Beyond scripts/check-style.py, the house style also excludes std::any.
+HOUSE_EXTRA = [(re.compile(r"\bstd\s*::\s*any\b"), "std::any")]
 # Folders that never ship: tests and tools run only in CI and development.
 UNSHIPPED = ("tests", "tools", "dev")
 CODE_NOISE = re.compile(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'', re.S)
@@ -191,6 +208,7 @@ def check_paths(base, head, fork):
     files = changed_files(base, head)
     games = sorted({game_of(f) for f in files if game_of(f)})
     problems = []
+    style = house_style()
     if fork:
         outside = [f for f in files if game_of(f) is None]
         if outside:
@@ -218,11 +236,22 @@ def check_paths(base, head, fork):
             if fork and path.suffix in FORBIDDEN_SUFFIXES:
                 problems.append(f"{path.relative_to(ROOT)}: Objective-C and assembly sources are not allowed")
             shipped = path.relative_to(folder).parts[0] not in UNSHIPPED
-            if fork and shipped and path.suffix in SOURCE_SUFFIXES:
-                text = code_only(path.read_text(encoding="utf-8", errors="replace"))
-                for pattern, what in SUSPICIOUS:
+            if fork and path.suffix in SOURCE_SUFFIXES:
+                raw = path.read_text(encoding="utf-8", errors="replace")
+                text = code_only(raw)
+                for finding in style.inspect(raw):
+                    problems.append(f"{path.relative_to(ROOT)}:{finding.line}: breaks the house style "
+                                    f"({finding.rule}); this cannot be waived")
+                for pattern, what in HOUSE_EXTRA:
                     match = pattern.search(text)
                     if match:
+                        line = text.count("\n", 0, match.start()) + 1
+                        problems.append(f"{path.relative_to(ROOT)}:{line}: breaks the house style ({what}); "
+                                        "this cannot be waived")
+                reviewed = set(approved.get("reviewed", []))
+                for pattern, what in SUSPICIOUS if shipped else []:
+                    match = pattern.search(text)
+                    if match and what not in reviewed:
                         line = text.count("\n", 0, match.start()) + 1
                         problems.append(f"{path.relative_to(ROOT)}:{line}: uses {what}, which needs a maintainer's review")
         if total > folder_limit:

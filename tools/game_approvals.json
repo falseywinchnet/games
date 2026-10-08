@@ -1,7 +1,7 @@
 {
-  "_about": "Maintained by PlaySuite. A contributed game's pull request cannot change this file. Limits are in MB: source is the game's folder, prepared is what ships after audio and images are transcoded. Capabilities: files, threads, environment, scripting. first_party games report unrecognised symbols as warnings; every other game fails on them.",
+  "_about": "Maintained by PlaySuite. A contributed game's pull request cannot change this file. Limits are in MB: source is the game's folder, prepared is what ships after audio and images are transcoded. capabilities: files, threads, environment, scripting. reviewed: constructs a maintainer has accepted in that game's shipped code (as the gate names them); house-style rules cannot be listed. first_party games report unrecognised symbols as warnings; every other game fails on them.",
   "limits": {
-    "source_mb": 32,
+    "source_mb": 64,
     "prepared_mb": 16
   },
   "games": {
@@ -19,8 +19,7 @@
         "environment",
         "files",
         "threads"
-      ],
-      "source_mb": 70
+      ]
     },
     "cube": {
       "first_party": true,
@@ -72,8 +71,7 @@
       "capabilities": [
         "environment",
         "files"
-      ],
-      "source_mb": 40
+      ]
     },
     "mowingman": {
       "first_party": true,

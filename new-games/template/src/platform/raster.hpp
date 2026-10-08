@@ -109,6 +109,10 @@ public:
 
 private:
     struct Pt { double x, y; };
+    // Makes a polygon wind counter-clockwise, so stroke pieces add up instead of cancelling.
+    static void orient(std::vector<Pt>& p);
+    // A round cap or joint: a circle of radius hw at q, with `segments` sides.
+    static void add_cap(std::vector<std::vector<Pt>>& polys, Pt q, double hw, int segments);
     std::vector<std::vector<Pt>> paths_;  // device space
     Mat m_{};
     std::vector<Mat> stack_;
