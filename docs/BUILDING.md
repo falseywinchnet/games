@@ -64,11 +64,17 @@ Sponsor: Rainstar
 
 The application and game-core workflows do not rerun a test whose inputs are unchanged
 since it last passed (`tools/test_reuse.py`). Each test's key covers its platform and
-profile, command line and properties, the compiler, the runner image, and the git tree
-hashes of what it depends on: a game's tests its own folder, the engines its `GAME.json`
-lists and any `shared/` folder its build files name; an engine's tests that engine; the
-shell's tests every game and engine; all of them the build files, `src/`, `tests/`, the
-kit, `assets/` and the pinning and asset tools. A one-game change therefore runs that
-game's tests and the shell's, nothing else. Results live in the Actions cache: main's
-are visible to every pull request, a pull request's to its own re-runs. When the git
-trees or the CTest listing cannot be read, every test runs.
+profile, command line and properties, the compiler, and the git tree hashes of what it
+depends on: a game's tests its own folder, the engines its `GAME.json` lists and any
+`shared/` folder its build files name; an engine's tests that engine; the shell's tests
+every game and engine; all of them the build files, `src/`, `tests/`, the kit, `assets/`
+and the pinning and asset tools. A one-game change therefore runs that game's tests and
+the shell's, nothing else.
+
+Every release carries the results beside its packages, one small file per profile and
+platform (`test-results-app-<platform>.json`, `test-results-core-<platform>.json`), so
+they never expire. Each run starts from the newest release that carries its file. The
+release job attaches the application jobs' results and the game-core workflow's for the
+same commit (that workflow runs on main for this), or carries the previous release's
+forward when it has not finished. When the git trees, the CTest listing or the release
+cannot be read, every test runs.

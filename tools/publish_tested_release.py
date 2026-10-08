@@ -8,6 +8,7 @@ version/commit; conflicting existing tags are always rejected.
 import argparse
 import hashlib
 import json
+import re
 import os
 from pathlib import Path
 import subprocess
@@ -33,6 +34,7 @@ def release_notes(root, version, sha, repo):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--artifacts", type=Path, required=True)
+    parser.add_argument("--test-results", type=Path, help="test-results-*.json to carry beside the packages")
     args = parser.parse_args()
     repo, sha = os.environ["GITHUB_REPOSITORY"], os.environ["GITHUB_SHA"]
     version, tag = os.environ["RELEASE_VERSION"], os.environ["RELEASE_TAG"]
@@ -55,6 +57,11 @@ def main():
     sums = args.artifacts / "SHA256SUMS.txt"
     sums.write_text("".join(hashlib.sha256(path.read_bytes()).hexdigest() + "  " + path.name + "\n" for path in files))
     files.append(sums)
+    # The test results (tools/test_reuse.py) travel with the release; they are not packages.
+    if args.test_results and args.test_results.is_dir():
+        for path in sorted(args.test_results.glob("test-results-*.json")):
+            if re.fullmatch(r"test-results-(app|core)-[a-z0-9-]+\.json", path.name):
+                files.append(path)
     # A missing ref is HTTP 404; the commits endpoint returns HTTP 422 for an
     # unresolved name. Probe the ref, then peel annotated tags with commits.
     probe = subprocess.run(["gh", "api", f"repos/{repo}/git/ref/tags/{tag}"], text=True, capture_output=True)

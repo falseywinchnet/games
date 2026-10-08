@@ -276,18 +276,19 @@ jobs:
         continue-on-error: true
         run: ./.build/native/app/rockstack_physics_tests performance
       # Tests whose inputs are unchanged since they last passed are not run again
-      # (tools/test_reuse.py). Main's results are visible to every pull request.
-      - name: Restore test results
-        uses: actions/cache/restore@v4
-        with:
-          path: .build/test-results
-          key: test-results-app-${{ matrix.platform }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: test-results-app-${{ matrix.platform }}-
+      # (tools/test_reuse.py). Every release carries the results; each run starts from
+      # the newest release's.
+      - name: Fetch test results
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          py=python3; command -v python3 >/dev/null || py=python
+          $py tools/test_reuse.py fetch --results .build/test-results/test-results-app-${{ matrix.platform }}.json
       - name: Plan tests
         run: |
           py=python3; command -v python3 >/dev/null || py=python
           $py tools/test_reuse.py plan --build .build/native/app --profile app-${{ matrix.platform }} \
-            --results .build/test-results/results.json --exclude .build/test-results/exclude.txt
+            --results .build/test-results/test-results-app-${{ matrix.platform }}.json --exclude .build/test-results/exclude.txt
       - name: Test complete application
         run: |
           skip=$(cat .build/test-results/exclude.txt 2>/dev/null || true)
@@ -297,13 +298,14 @@ jobs:
         run: |
           py=python3; command -v python3 >/dev/null || py=python
           $py tools/test_reuse.py record --build .build/native/app --profile app-${{ matrix.platform }} \
-            --results .build/test-results/results.json --junit .build/native/app/results.xml
+            --results .build/test-results/test-results-app-${{ matrix.platform }}.json --junit .build/native/app/results.xml
       - name: Keep test results
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/upload-artifact@v4
         with:
-          path: .build/test-results
-          key: test-results-app-${{ matrix.platform }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: test-results-app-${{ matrix.platform }}
+          path: .build/test-results/test-results-app-${{ matrix.platform }}.json
+          if-no-files-found: ignore
       - name: Test Windows native queue ordering
         if: runner.os == 'Windows'
         run: |
@@ -373,6 +375,7 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -380,10 +383,32 @@ jobs:
           pattern: games-*
           merge-multiple: true
           path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-app-*
+          merge-multiple: true
+          path: test-results
+      # The release carries every profile's test results: the game-core workflow's
+      # for this commit when it has finished, otherwise the previous release's.
+      - name: Collect test results
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow native-core.yml --commit "$GITHUB_SHA" \
+            --json databaseId,status,conclusion --jq '[.[] | select(.status=="completed" and .conclusion=="success")][0].databaseId // empty')
+          if [ -n "$run" ]; then
+            gh run download "$run" --repo "$GITHUB_REPOSITORY" --pattern 'test-results-core-*' --dir core-results || true
+            find core-results -name 'test-results-core-*.json' -exec cp {} test-results/ \; 2>/dev/null || true
+          fi
+          python3 tools/test_reuse.py collect --results test-results --expect \
+            test-results-app-windows-x64.json test-results-app-macos-arm64.json \
+            test-results-app-linux-amd64.json test-results-app-linux-arm64.json \
+            test-results-core-windows-x64.json test-results-core-macos-arm64.json \
+            test-results-core-linux-x64.json test-results-core-linux-arm64.json
       - name: Publish exactly the tested revision
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          python3 tools/publish_tested_release.py --artifacts dist
+          python3 tools/publish_tested_release.py --artifacts dist --test-results test-results

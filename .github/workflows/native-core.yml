@@ -2,6 +2,10 @@ name: Native game core checks
 # On main the installable build already compiles and runs every one of these tests on
 # all four platforms, so this matrix runs only for pull requests.
 on:
+  # On main too: its test results reach the release (tools/test_reuse.py).
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**', '*.md']
   pull_request:
   workflow_dispatch:
 permissions:
@@ -68,18 +72,19 @@ jobs:
       - name: Build
         run: cmake --build build --parallel 4
       # Tests whose inputs are unchanged since they last passed are not run again
-      # (tools/test_reuse.py). Main's results are visible to every pull request.
-      - name: Restore test results
-        uses: actions/cache/restore@v4
-        with:
-          path: .build/test-results
-          key: test-results-core-${{ matrix.platform }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: test-results-core-${{ matrix.platform }}-
+      # (tools/test_reuse.py). Every release carries the results; each run starts from
+      # the newest release's.
+      - name: Fetch test results
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          py=python3; command -v python3 >/dev/null || py=python
+          $py tools/test_reuse.py fetch --results .build/test-results/test-results-core-${{ matrix.platform }}.json
       - name: Plan tests
         run: |
           py=python3; command -v python3 >/dev/null || py=python
           $py tools/test_reuse.py plan --build build --profile core-${{ matrix.platform }} \
-            --results .build/test-results/results.json --exclude .build/test-results/exclude.txt
+            --results .build/test-results/test-results-core-${{ matrix.platform }}.json --exclude .build/test-results/exclude.txt
       - name: Test rules and storage
         run: |
           skip=$(cat .build/test-results/exclude.txt 2>/dev/null || true)
@@ -89,13 +94,14 @@ jobs:
         run: |
           py=python3; command -v python3 >/dev/null || py=python
           $py tools/test_reuse.py record --build build --profile core-${{ matrix.platform }} \
-            --results .build/test-results/results.json --junit build/results.xml
+            --results .build/test-results/test-results-core-${{ matrix.platform }}.json --junit build/results.xml
       - name: Keep test results
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/upload-artifact@v4
         with:
-          path: .build/test-results
-          key: test-results-core-${{ matrix.platform }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: test-results-core-${{ matrix.platform }}
+          path: .build/test-results/test-results-core-${{ matrix.platform }}.json
+          if-no-files-found: ignore
       - name: Render replacement game scenes
         run: |
           mkdir -p build/previews
