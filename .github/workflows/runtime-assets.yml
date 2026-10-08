@@ -93,10 +93,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: falseywinchnet/gui_forms
-          ref: 4e126d6eb3ab837f1a44c0e9c9eb7901d50f80bb
+          ref: 56e194f92adbdee2f29debda3a11287ae47cead5
           path: gui_forms
-      - uses: msys2/setup-msys2@v2
+      - uses: actions/setup-python@v5
         if: runner.os == 'Windows'
+        with:
+          python-version: '3.14'
+      # GUI.Forms publishes the MSYS2 tree its cache was compiled with; restoring it
+      # avoids the MSYS2 mirrors and guarantees the compiler the cache needs.
+      - name: Restore GUI.Forms' Windows toolchain
+        id: msys
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/restore_windows_toolchain.py
+      # Only when the published toolchain could not be restored.
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows' && steps.msys.outputs.restored != 'true'
         with:
           msystem: CLANG64
           update: true
