@@ -49,6 +49,10 @@ def copy_resources(build, toolkit, destination):
     shutil.copytree(toolkit / "assets/fonts", destination / "fonts", dirs_exist_ok=True)
     notices = destination / "licenses"
     notices.mkdir(exist_ok=True)
+    # Downloaded dependency sources: the build's _deps, or wherever the configure
+    # placed them (CI keeps them in a cached FETCHCONTENT_BASE_DIR).
+    base = re.search(r"^FETCHCONTENT_BASE_DIR:PATH=(.+)$", cache, re.MULTILINE)
+    fetched = Path(base.group(1)) if base else build / "_deps"
     entries = {
         "GUIForms.txt": toolkit / "LICENSE",
         "Unicode.txt": toolkit / "third_party/unicode/LICENSE.txt",
@@ -56,8 +60,8 @@ def copy_resources(build, toolkit, destination):
         "HarfBuzz.txt": toolkit / "third_party/harfbuzz/COPYING",
         "FreeType.txt": toolkit / "third_party/freetype/docs/FTL.TXT",
         "libunibreak.txt": toolkit / "third_party/libunibreak/LICENCE",
-        "QuickJS.txt": build / "_deps/quickjs-src/LICENSE",
-        "miniaudio.txt": build / "_deps/gui_forms_miniaudio-src/LICENSE",
+        "QuickJS.txt": fetched / "quickjs-src/LICENSE",
+        "miniaudio.txt": fetched / "gui_forms_miniaudio-src/LICENSE",
         "Plan-Paint.txt": ROOT / "shared/felt/LICENSE",
     }
     for name, source in entries.items():
