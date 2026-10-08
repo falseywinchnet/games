@@ -1,4 +1,5 @@
 #pragma once
+#include "gui_forms/controls/button_base/link_label/link_label.hpp"
 #include "gui_forms/controls/scrollable_control/scrollable_control.hpp"
 #include "suite.hpp"
 #include <functional>
@@ -7,7 +8,11 @@ namespace games {
 class HelpGlyph final : public gf::Button {
   public:
     HelpGlyph(gf::StableId id, std::string glyph);
+    void set_ink(gf::Color ink);
     void on_paint(gf::Painter& painter, gf::Rect damage) override;
+
+  private:
+    gf::Color ink_ = gf::Color::rgba(184, 137, 42);
 };
 class HelpPages final : public gf::ScrollableControl {
   public:
@@ -19,6 +24,9 @@ class HelpPages final : public gf::ScrollableControl {
     void select(int entry, std::string_view topic);
 
   private:
+    // The dedication and credits stand above every topic.
+    std::shared_ptr<gf::Label> dedication_, credits_, contact_, sponsor_;
+    std::shared_ptr<gf::LinkLabel> website_;
     std::vector<std::shared_ptr<gf::Button>> headings_;
     std::vector<std::shared_ptr<gf::Label>> bodies_;
     struct TopicKey {
@@ -29,6 +37,7 @@ class HelpPages final : public gf::ScrollableControl {
     std::vector<int> order_;
     void add_topic(int entry, std::string topic, std::string title, std::string_view body);
     void toggle(int index);
+    void visit_website();
 };
 class HelpBook final : public gf::Control {
   public:

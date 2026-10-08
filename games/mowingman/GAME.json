@@ -40,7 +40,7 @@
   "libraries": [
     "mm_core"
   ],
-  "rail": true,
+  "hosted": true,
   "assets": "assets",
   "audio_prefix": "mm_",
   "audio_manifest": "assets/audio/mowingman_audio_manifest.json",

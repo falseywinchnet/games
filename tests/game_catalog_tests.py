@@ -29,12 +29,13 @@ ORIGINAL_HELP = {'atom': 'ca18af9d89d615ad304a8208d958e7aace41d77f15a4e9ce7ca101
  'pegs': '183961b64a8360d584cdaeb5142f641af73293e7cd097a2558ecf2437a34f006',
  'penthesheep': '045390875c57892369bdcdcf784506f06459d57014930b42e2e14a1a3f91ef75',
  'rockstack': '44a440789430322b44d32b8df5ee3b3f13a9d28d04618544230bd5e96fea615a',
+ # Sudoku's digits moved beside the board and gained an eraser (2026-10-08).
  # Solitaire, Spider, Puzzle Solve, Nature Cube and Untangle: one sentence each now
  # names the shared Settings screen, which replaced the Options panel and Next command.
  'solitaire': 'cee297ec0e58760775836e3ae4ec3eb942fa45bae255bff03a59104fcb883c5d',
  'solve': 'ad54c2a2be773917f955cb662547f9d9a50feb6b9c42cd47193951101036599b',
  'spider': '266678a16d2fd59aca72e53af62221b24b0ae722e7cb87450423f209bd808b56',
- 'sudoku': '5a2e157274e6ea553bd624bf6962e8d9ef839e3502cb0386e903a24ee1b60133',
+ 'sudoku': '36083a613f70dd3740efb49056aecbac1259f3c89ba4da7d29bce37404510fae',
  'switchbox': 'a900bf901111325449ad65dea3871803b5e104ea4db4fdf90af72b7a32405c65',
  'untangle': 'b0483a2bf8beb2b26e37cded9a398f89cac57b3940b919d0427f71cb7c799d50'}
 

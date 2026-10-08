@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
     const double ppm = argc > 3 ? std::atof(argv[3]) : 300;
     const double heading = argc > 4 ? std::atof(argv[4]) : -0.6;
     const double time = argc > 5 ? std::atof(argv[5]) : 1.3;
-    const bool wide = what == "sheds";
+    const bool wide = what == "sheds" || what == "yard";
     const int width = static_cast<int>(ppm * (wide ? 9.0 : 3.2));
     const int height = static_cast<int>(ppm * (wide ? 8.0 : 2.6));
     mm::Canvas canvas;
@@ -106,6 +106,32 @@ int main(int argc, char** argv) {
                 granny.stride = time;
                 granny.clock = 0.2;
                 mm::draw_granny(canvas, frame, granny);
+            }
+        } else if (what == "yard") {
+            // every kind of the things left on the lawn: grills, sandboxes, chairs
+            struct Item {
+                mm::PropKind kind;
+                std::uint64_t style;
+                double rx, ry, x, y;
+                bool occupied;
+            };
+            const Item items[7] = {{mm::PropKind::grill, 0, 0.42, 0.34, -3.2, -2.4, false},
+                                   {mm::PropKind::grill, 2, 0.8, 0.34, -0.6, -2.4, false},
+                                   {mm::PropKind::chair, 1, 0.36, 0.82, 2.2, -2.4, false},
+                                   {mm::PropKind::sandbox, 0, 0.8, 0.8, -2.8, 1.2, false},
+                                   {mm::PropKind::sandbox, 1, 1.12, 0.62, 0.4, 1.4, false},
+                                   {mm::PropKind::chair, 2, 0.36, 0.82, 3.0, 1.2, true},
+                                   {mm::PropKind::chair, 0, 0.36, 0.82, 3.6, -2.4, false}};
+            for (const Item& item : items) {
+                mm::Prop prop{};
+                prop.kind = item.kind;
+                prop.rx = item.rx;
+                prop.ry = item.ry;
+                prop.x = item.x;
+                prop.y = item.y;
+                prop.occupied = item.occupied;
+                prop.seed = (item.style << 33U) | (17U + static_cast<std::uint64_t>(item.x * 10 + 50));
+                mm::draw_prop(canvas, frame, prop);
             }
         } else if (what == "sheds") {
             for (int k = 0; k < 6; ++k) {

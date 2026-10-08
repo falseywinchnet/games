@@ -279,8 +279,18 @@ Garden make_garden(std::uint64_t seed) {
             continue;
         Prop prop{};
         prop.kind = extra.kind;
-        prop.rx = turned ? extra.ry : extra.rx;
-        prop.ry = turned ? extra.rx : extra.ry;
+        prop.seed = prop_seed;
+        // the long barrel grill and the turtle sandbox (with its shell beside it) need more room
+        double rx = extra.rx, ry = extra.ry;
+        if (extra.kind == PropKind::grill && prop_style(prop) == 2) {
+            rx = 0.8;
+            ry = 0.34;
+        } else if (extra.kind == PropKind::sandbox && prop_style(prop) != 0) {
+            rx = 1.12;
+            ry = 0.62;
+        }
+        prop.rx = turned ? ry : rx;
+        prop.ry = turned ? rx : ry;
         prop.angle = turned ? pi / 2 : 0;
         prop.occupied = extra.kind == PropKind::chair && occupied;
         prop.seed = prop_seed;

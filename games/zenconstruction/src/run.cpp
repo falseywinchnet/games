@@ -697,6 +697,7 @@ void Run::update_supports() {
         }
     }
     std::vector<char> seen(rocks.size(), 0);
+    std::vector<char> grounded(rocks.size(), 0);
     std::vector<std::pair<int, int>> fresh;
     std::vector<std::pair<int, int>> fresh_covers;
     for (size_t k = 0; k < contacts.size(); k += 1) {
@@ -714,6 +715,11 @@ void Run::update_supports() {
         }
         if (rb >= 0) {
             seen[static_cast<size_t>(rb)] = 1;
+        }
+        // Only a contact that touches and bears weight: the engine also reports near
+        // misses a little apart, and a rock hovering over the grass has not fallen.
+        if (ra >= 0 && c.b == phys::kGround && c.separation <= 0.001 && c.normal_impulse > 1e-6) {
+            grounded[static_cast<size_t>(ra)] = 1;
         }
         if (ra < 0 || rb < 0) {
             continue;
@@ -771,8 +777,15 @@ void Run::update_supports() {
             fresh_covers.push_back(edge);
         }
     }
+    // a rock untouched since it was loaded asleep keeps what it was touching
+    for (size_t i = 0; i < rocks.size() && i < grounded_.size(); i += 1) {
+        if (!seen[i]) {
+            grounded[i] = grounded_[i];
+        }
+    }
     supports_ = fresh;
     covers_ = fresh_covers;
+    grounded_ = grounded;
 }
 
 bool Run::can_fetch(int index) const {
@@ -834,7 +847,8 @@ void Run::sort_rocks() {
             for (size_t k = 0; k < supports_.size(); k += 1) {
                 RockState& upper = rocks[static_cast<size_t>(supports_[k].first)];
                 const RockState& lower = rocks[static_cast<size_t>(supports_[k].second)];
-                if (lower.place == Place::stack && upper.place == Place::loose && world_->resting(upper.body)) {
+                const bool on_ground = grounded_[static_cast<size_t>(supports_[k].first)] != 0;
+                if (lower.place == Place::stack && upper.place == Place::loose && !on_ground && world_->resting(upper.body)) {
                     upper.place = Place::stack;
                     grew = true;
                 }
@@ -850,6 +864,15 @@ void Run::sort_rocks() {
             height_ = std::max(height_, rock_top(rocks[i].rock, world_->state(rocks[i].body).pose));
         }
         if (before[i] == Place::stack && rocks[i].place == Place::loose) {
+            fell = true;
+        }
+    }
+    // A rock resting on the stack with a foot on the ground has toppled: the stack fell.
+    for (size_t k = 0; k < supports_.size(); k += 1) {
+        const int upper = supports_[k].first;
+        if (upper != base_ && grounded_[static_cast<size_t>(upper)] != 0 &&
+            rocks[static_cast<size_t>(supports_[k].second)].place == Place::stack &&
+            rocks[static_cast<size_t>(upper)].place == Place::loose && before[static_cast<size_t>(upper)] != Place::loose) {
             fell = true;
         }
     }

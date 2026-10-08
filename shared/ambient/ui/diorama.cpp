@@ -338,6 +338,11 @@ void Diorama::press(double x, double y, SceneContext& context) {
     tap(x, y, context);
 }
 
+// The next scene is one click on the capsule (and S); the choice is also a setting.
+void Diorama::add_commands(std::vector<games::GameCommand>& list, const Settings&) const {
+    if (scenes_.size() >= 2)
+        list.push_back({"scene", "Next tank", true, false, true});
+}
 // The choice of scene is a setting (and S steps through it, as the "scene" command).
 void Diorama::add_settings(std::vector<games::GameSetting>& list, const Settings&) const {
     if (scenes_.size() < 2)
@@ -359,6 +364,15 @@ bool Diorama::change_setting(std::string_view id, double value, SceneContext& co
 }
 
 bool Diorama::run_command(std::string_view id, SceneContext& context) {
+    if (id == "tap") {
+        // A knock somewhere on the glass, away from the very edges.
+        std::uint32_t h = ++knocks_ * 0x9E3779B9U;
+        h ^= h >> 15;
+        h *= 0x2C1B3C6DU;
+        h ^= h >> 12;
+        tap(0.15 + 0.7 * (h & 0xFFFFU) / 65535.0, 0.2 + 0.6 * (h >> 16) / 65535.0, context);
+        return true;
+    }
     if (id != "scene" || scenes_.size() < 2)
         return false;
     choose((chosen_ + 1) % scenes_.size(), context);
@@ -368,6 +382,8 @@ bool Diorama::run_command(std::string_view id, SceneContext& context) {
 std::string Diorama::key_command(std::uint32_t key) const {
     if (scenes_.size() >= 2 && key == gf::PhysicalKey::s)
         return "scene";
+    if (key == gf::PhysicalKey::t)
+        return "tap";
     return {};
 }
 

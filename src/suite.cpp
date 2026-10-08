@@ -219,10 +219,16 @@ double SuiteButton::preferred_width() const {
 void SuiteButton::on_paint(gf::Painter& p, gf::Rect) {
     gf::Rect b = client_rectangle();
     gf::Rect r{2, 2, b.width - 4, b.height - 5};
+    double radius = std::min(radius_, r.height * .5);
+    if (radius_ == round) {
+        const double side = std::min(r.width, r.height);
+        r = {(b.width - side) * .5, 2, side, side};
+        radius = side * .5;
+    }
     GlossTone tone = checked() ? GlossTone::gold : tone_;
     // A switch's selected state is its command's; other buttons show selection as focus.
     const bool selection_cue = look_ == SwitchLook::none && selected();
-    paint_gloss(p, r, radius_, tone,
+    paint_gloss(p, r, radius, tone,
                 {hovered_visual(), pressed_visual(), enabled(), focus_cue_visible() || selection_cue});
     gf::Color ink = gloss_ink(tone, enabled());
     double x = r.x + 10;

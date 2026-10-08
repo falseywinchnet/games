@@ -39,5 +39,5 @@
   "libraries": [
     "ld_core"
   ],
-  "rail": true
+  "hosted": true
 }

@@ -49,14 +49,16 @@ class Collection final : public gf::Control, public HelpHost {
         return active_;
     }
     // Space reserved above games that present their own live surfaces.
-    static constexpr double rail_height = 50;
 
   private:
     TextSprites sprites_;
     SuiteModel model_; // the masters every switch, check box and slider binds to
     std::shared_ptr<ShelfView> shelf_;
     std::shared_ptr<CommandCapsule> capsule_;
+    static constexpr double rail_height = 50;
+    double current_rail_height_ = rail_height;
     std::shared_ptr<HelpGlyph> help_link_;
+    gf::Rect help_slot_{};  // where help sits, kept from layout: the tick must not read committed bounds
     std::shared_ptr<HelpBook> help_;
     gf::FocusScopeId help_focus_{};
     std::shared_ptr<SettingsSheet> settings_;
@@ -68,12 +70,12 @@ class Collection final : public gf::Control, public HelpHost {
     std::unique_ptr<gf::Timer> timer_{};
     std::chrono::steady_clock::time_point last_tick_{};
     double refresh_ = 0;
+    double quiet_ = 0;  // seconds since the last input or capsule motion
     Entry active_ = entries.front();
     bool shelf_open_ = true, reduced_ = false;
     std::set<int> opened_; // permanent IDs, including temporarily absent modules
     gf::Point pointer_{-1000, -1000};
     double capsule_width_limit_ = 0;
-    double current_rail_height_ = rail_height;
     void on_attached_to_window() override;
     void on_detaching_from_window(gf::Window& window) noexcept override;
     void tick();
@@ -88,7 +90,8 @@ class Collection final : public gf::Control, public HelpHost {
     void run_command(const std::string& id);
     void toggle(int which);
     void clicked_help();
-    [[nodiscard]] bool uses_rail(Entry entry) const;
+    // A hosted game draws its own live surface below the rail and plays its own music.
+    [[nodiscard]] bool hosted(Entry entry) const;
     [[nodiscard]] std::shared_ptr<gf::Control> view(Entry entry) const;
     [[nodiscard]] CommandSource* source(Entry entry) const;
 };

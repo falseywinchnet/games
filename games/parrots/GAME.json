@@ -39,5 +39,5 @@
   "libraries": [
     "pt_core"
   ],
-  "rail": true
+  "hosted": true
 }

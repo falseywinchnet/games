@@ -41,10 +41,7 @@ struct PuzzleFramebufferTest {
             view.paint_gems(painter);
         else
             view.paint_untangle(painter);
-        view.text(painter, 17, bounds.height - 11, view.game.message, 13,
-                  gf::Color::rgba(0, 0, 0, 120));
-        view.text(painter, 16, bounds.height - 12, view.game.message, 13,
-                  gf::Color::rgba(231, 238, 247));
+        // Gems and Untangle draw no commentary line: they explain themselves in help.
         view.framebuffer_painting_ = false;
         (*reference).end();
         const gf::LiveSurfaceFrame actual = (*view.surface_).acquire_latest();

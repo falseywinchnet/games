@@ -27,6 +27,7 @@ add_library(mm_core STATIC
   "${GAME_MODULE_DIR}/src/models_shed.cpp"
   "${GAME_MODULE_DIR}/src/models_garden.cpp"
   "${GAME_MODULE_DIR}/src/models_figures.cpp"
+  "${GAME_MODULE_DIR}/src/models_yard.cpp"
   "${GAME_MODULE_DIR}/src/models_granny.cpp"
   "${GAME_MODULE_DIR}/src/models_gnome.cpp"
   "${GAME_MODULE_DIR}/src/models_mower.cpp"

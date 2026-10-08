@@ -9,6 +9,16 @@
    "id": "sh_music_grass",
    "loop_end_sample_exclusive": 3072000,
    "seconds": 64.0
+  },
+  {
+   "id": "sh_music_choir",
+   "loop_end_sample_exclusive": 3072000,
+   "seconds": 64.0
+  },
+  {
+   "id": "sh_music_bells",
+   "loop_end_sample_exclusive": 2688000,
+   "seconds": 56.0
   }
  ],
  "stingers": [

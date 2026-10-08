@@ -54,7 +54,7 @@ std::shared_ptr<SuiteButton> make_master_switch(const std::string& prefix, int w
     std::shared_ptr<SuiteButton> button =
         gf::make_control<SuiteButton>(gf::StableId(prefix + look.name), "", GlossTone::smoke);
     (*button).set_glyph(look.glyph);
-    (*button).set_radius(15);
+    (*button).set_radius(SuiteButton::round);
     (*button).set_switch(look.look, look.on, look.off);
     return button;
 }

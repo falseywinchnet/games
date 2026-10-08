@@ -38,7 +38,7 @@
   "libraries": [
     "sw_core"
   ],
-  "rail": true,
+  "hosted": true,
   "assets": "assets",
   "audio_prefix": "sw_",
   "audio_manifest": "assets/audio/stillwater_audio_manifest.json",

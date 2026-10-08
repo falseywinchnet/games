@@ -99,6 +99,8 @@ enum class Pattern : std::uint8_t {
     rubber,      // grips and seats: fine pebbling
     metal_brushed,
     cap_print,   // gnome's coat: faint brush marks of paint
+    sand,        // play sand: grains of several tones, scooped hollows, damp patches; object position
+    shell,       // a toy turtle's shell: hexagonal plates in `tint` with darker seams; object x, y
 };
 
 struct Material {

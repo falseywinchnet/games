@@ -4,6 +4,7 @@
 #include "help_content.hpp"
 #include "shelf.hpp"
 #include <cassert>
+#include <cmath>
 #include <iostream>
 using namespace games;
 
@@ -46,10 +47,10 @@ int main() {
             std::dynamic_pointer_cast<ShelfRows>(find_control(*shelf, "shelf.rows"));
         assert(rows);
         assert((*rows).children().size() == entries.size() + 2); // every box and two arrows
-        const std::shared_ptr<gf::Control> credits = find_control(*shelf, "shelf.credits");
+        // The credits live in help now; the shelf gives their room to the games.
+        assert(!find_control(*shelf, "shelf.credits"));
         const std::shared_ptr<gf::Control> music = find_control(*shelf, "shelf.Music");
-        assert(credits && music);
-        const gf::Rect credits_bounds = (*credits).committed_arranged_bounds();
+        assert(music);
         const gf::Rect music_bounds = (*music).committed_arranged_bounds();
         for (Entry entry : entries) {
             const std::shared_ptr<gf::Control> item = box(*shelf, entry);
@@ -60,7 +61,6 @@ int main() {
             assert((*shelf).selection() == entry);
             assert_revealed(*item, *rows);
         }
-        assert((*credits).committed_arranged_bounds() == credits_bounds);
         assert((*music).committed_arranged_bounds() == music_bounds);
         key(window, gf::PhysicalKey::home);
         assert((*shelf).selection() == entries.front());
@@ -137,15 +137,27 @@ int main() {
             assert(extra && (*extra).visible() && !(*body).visible());
             const std::shared_ptr<gf::Control> heading = find_control(
                 *pages, "help.topic." + std::to_string(static_cast<int>(entry)) + "." + topic.id);
-            assert(heading && (*heading).committed_arranged_bounds().y == 0);
+            // The chosen topic opens first, straight under the dedication and credits.
+            const gf::Rect sponsor =
+                (*find_control(*pages, "help.front.sponsor")).committed_arranged_bounds();
+            assert(heading &&
+                   std::abs((*heading).committed_arranged_bounds().y - (sponsor.bottom() + 18)) < .01);
         }
         (*pages).select(static_cast<int>(entry), "missing-topic");
         assert((*body).visible());
     }
-    assert((*pages).children().size() == topic_count * 2);
+    assert((*pages).children().size() == topic_count * 2 + 5); // and five credit lines
     (*pages).select(-1, "about");
     assert((*find_control(*pages, "help.body.-1.about")).visible());
     assert(help_about().find(std::to_string(entry_count) + " games") != std::string::npos);
+    // The dedication and credits head the document, above every topic, whatever is selected.
+    const std::shared_ptr<gf::Control> dedication = find_control(*pages, "help.front.dedication");
+    const std::shared_ptr<gf::Control> website = find_control(*pages, "help.front.website");
+    assert(dedication && website);
+    window.perform_layout();
+    const double first_heading = (*find_control(*pages, "help.topic.-1.about")).committed_arranged_bounds().y;
+    assert((*dedication).committed_arranged_bounds().y < first_heading);
+    assert((*website).committed_arranged_bounds().y < first_heading);
     (*pages).select(-123, "missing-topic");
     assert((*find_control(*pages, "help.body.-1.rules")).visible());
     std::cout << "Native shelves and descriptor-owned help passed\n";

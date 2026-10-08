@@ -378,15 +378,6 @@ ShelfView::ShelfView(gf::StableId id, TextSprites& sprites)
 void ShelfView::initialize_control_tree() {
     rows_ = gf::make_control<ShelfRows>(gf::StableId("shelf.rows"));
     add_child(rows_);
-    credits_ = gf::make_control<gf::Label>(
-        gf::StableId("shelf.credits"),
-        std::string(dedication) + "\n" + std::string(creators) +
-            "\nAuthor: Astra  ·  Sponsor: Rainstar  ·  Contact: " + std::string(contact));
-    (*credits_).set_font({gf::FontRole::content, 13, 400, false});
-    (*credits_).set_foreground(gf::Color::rgba(236, 219, 185));
-    (*credits_).set_text_wrapping(gf::TextWrapping::word);
-    (*credits_).set_alignment(gf::HorizontalAlignment::center);
-    add_child(credits_);
     for (int i = 0; i < entry_count; ++i) {
         boxes_[i] = gf::make_control<ShelfBox>(gf::StableId("shelf.box." + std::to_string(static_cast<int>(entries[i]))),
                                                entries[i], sprites_);
@@ -462,7 +453,9 @@ void ShelfView::tick() {
         return;
     }
     bool moving = (*rows_).step(dt, reduced_) || launching_;
-    Entry shown = selection_;
+    // The ticket describes the last box pointed at (or chosen from the keyboard) and stays
+    // on it when the pointer moves off to a switch or an arrow.
+    Entry shown = shown_;
     for (const std::shared_ptr<ShelfBox>& box : boxes_) {
         moving = (*box).step(dt, reduced_) || moving;
         if ((*box).hot())
@@ -549,14 +542,17 @@ void ShelfView::on_key_bubble(gf::KeyEvent& e) {
     focus_selection();
     e.handled = true;
 }
+gf::Rect ShelfView::help_slot(gf::Size size) {
+    const bool compact = size.height < 520 || size.width < 760;
+    const double header = compact ? 54 : 76, sw = compact ? 34 : 38;
+    return {size.width - (compact ? 10 : 22) - 44, (header - sw) * .5, sw, sw};
+}
 void ShelfView::arrange(gf::Rect bounds) {
     arrange_self(bounds);
     const double w = bounds.width, h = bounds.height;
     const bool compact = h < 520 || w < 760;
     header_ = {0, 0, w, compact ? 54.0 : 76.0};
-    const double credits_height = (*credits_).measure({w - 32, 10000}).height;
-    set_child_layout(credits_, {16, h - credits_height - 10, w - 32, credits_height});
-    const double footer = credits_height + 20;
+    const double footer = compact ? 8.0 : 14.0;
     ticket_ = {0, h - footer - (compact ? 74.0 : 96.0), w, compact ? 74.0 : 96.0};
     const double top = header_.height + 4, bottom = ticket_.y - 4;
     set_child_layout(rows_, {0, top, w, std::max(1.0, bottom - top)});

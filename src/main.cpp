@@ -110,6 +110,10 @@ struct RunTick final {
             static_cast<void>((*window).dispatch_pointer(pointer));
             pointer.action = gf::PointerAction::up;
             static_cast<void>((*window).dispatch_pointer(pointer));
+        } else if (action.verb == "hover") {
+            gf::PointerEvent pointer{};
+            pointer.position = {action.x,action.y}; pointer.action = gf::PointerAction::move;
+            static_cast<void>((*window).dispatch_pointer(pointer));
         } else if (action.verb == "capture") {
             capture_frame(*window,action.argument);
         } else if (action.verb == "resize") {

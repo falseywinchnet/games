@@ -6,6 +6,9 @@
 // above, sunny and soft.
 #include "field.hpp"
 #include "platform/r3d.hpp"
+#include "turf.hpp"
+
+#include <future>
 
 #include <vector>
 
@@ -53,6 +56,11 @@ private:
     void draw_land(double t, bool animated);
     std::vector<float> land_rgb_, land_depth_;
     bool land_valid_ = false;
+    // The grown turf and field, once the worker has them; painted grass until then.
+    std::future<GroundArt> growing_;
+    GroundArt ground_;
+    bool grown_ = false;
+    void take_ground();
     void draw_patches(const PastureState& s, double t);
     void draw_sheep(const SheepPose& p, double t);
     void draw_fence(const Meadow& m, int cell, V3 c, bool old, float ghost);

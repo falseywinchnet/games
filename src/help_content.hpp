@@ -4,13 +4,17 @@
 #include <string_view>
 
 namespace games {
-inline constexpr std::string_view dedication = "Dedicated to Jesus Christ and to God in Heaven.";
+inline constexpr std::string_view dedication =
+    "Dedicated to the Blessed One, holy be He, and to Christ, our King in Heaven.";
 inline constexpr std::string_view creators =
-    "Created by OpenAI General Reasoning Codex agents and Claude Opus agents.";
+    "Crafted by Anthropic Claude General Reasoning Agents and OpenAI Codex General Reasoning "
+    "Agents.";
 inline constexpr std::string_view contact = "joshuah.rainstar@gmail.com";
+inline constexpr std::string_view website = "paymenottowork.com";
+inline constexpr std::string_view sponsor = "Sponsor: Rainstar";
 inline constexpr std::string_view help_welcome =
     "Choose a box on the shelf to play or continue. Scroll the shelves with the wheel or "
-    "scroll bar. Arrow keys move between boxes; Home and End jump to the first and last. "
+    "the arrows beside them. Arrow keys move between boxes; Home and End jump to the first and last. "
     "Page Up and Page Down move through the shelves. The arrow at the top of a game returns "
     "to the shelf. The command bar opens to show the game's actions and the music, sound "
     "and motion switches. Your games save locally.\n\n"

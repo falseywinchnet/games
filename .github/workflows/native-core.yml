@@ -34,8 +34,22 @@ jobs:
         shell: ${{ matrix.shell }}
     steps:
       - uses: actions/checkout@v4
-      - uses: msys2/setup-msys2@v2
+      - uses: actions/setup-python@v5
         if: runner.os == 'Windows'
+        with:
+          python-version: '3.14'
+      # GUI.Forms publishes the MSYS2 tree its cache was compiled with; restoring it
+      # avoids the MSYS2 mirrors and guarantees the compiler the cache needs.
+      - name: Restore GUI.Forms' Windows toolchain
+        id: msys
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/restore_windows_toolchain.py
+      # Only when the published toolchain could not be restored.
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows' && steps.msys.outputs.restored != 'true'
         with:
           msystem: CLANG64
           update: true

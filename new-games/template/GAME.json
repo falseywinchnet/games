@@ -34,7 +34,7 @@
   "entry_id": 100000,
   "entry_name": "templategame",
   "enabled": true,
-  "rail": true,
+  "hosted": true,
   "module": "module.cpp",
   "cover": "cover.cpp",
   "help": "help.md",

@@ -39,7 +39,7 @@
   "libraries": [
     "cube_core"
   ],
-  "rail": true,
+  "hosted": true,
   "view_header": "cube_view.hpp",
   "view_class": "CubeView",
   "save_file": "cube-v3.txt",

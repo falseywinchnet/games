@@ -39,7 +39,7 @@
   "libraries": [
     "mz_core"
   ],
-  "rail": true,
+  "hosted": true,
   "assets": "assets",
   "audio_prefix": "mz_",
   "view_header": "maze_view.hpp",
