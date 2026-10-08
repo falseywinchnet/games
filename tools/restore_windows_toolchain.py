@@ -75,6 +75,10 @@ def restore(work: Path) -> Path:
     archive.unlink()
     if file_digest(destination / COMPILER) != COMPILER_SHA256:
         raise ValueError("the extracted clang.exe is not the recorded compiler")
+    # The archive leaves out MSYS2's empty working folders; tools (windres, the C++
+    # library's temp_directory_path) need /tmp and the rest to exist.
+    for empty in ("tmp", "var/tmp", "var/log", "var/cache", "home"):
+        (msys_root / empty).mkdir(parents=True, exist_ok=True)
     return msys_root
 
 

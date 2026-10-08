@@ -172,7 +172,10 @@ int main() {
         const zc::phys::Pose foot = run.rock_pose(first);
         placed_second = second >= 0 && place_rock(run, second, foot.p.x, foot.p.y) && run.stack_count() == 2;
         if (!placed_second) {
-            std::printf("      rock %d didn't stay on (attempt %d)\n", second, attempt + 1);
+            const zc::phys::Pose at = second >= 0 ? run.rock_pose(second) : zc::phys::Pose{};
+            std::printf("      rock %d didn't stay on (attempt %d): grounded %d, place %d, at z %.3f m; foot grounded %d\n", second,
+                        attempt + 1, run.grounded(second) ? 1 : 0, second >= 0 ? static_cast<int>(run.rocks[static_cast<size_t>(second)].place) : -1,
+                        at.p.z, run.grounded(first) ? 1 : 0);
         }
     }
     report("second rock: set on the first, it joins the stack and the height grows",

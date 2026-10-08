@@ -134,6 +134,8 @@ public:
     void set_company(const std::string& name) { company_ = name; }
     void set_best(double best) { best_ = best; }
     int base_rock() const { return base_; }
+    // As of the last sort: the rock touches the ground itself (a stacked rock that does has fallen).
+    bool grounded(int rock) const { return rock >= 0 && static_cast<size_t>(rock) < grounded_.size() && grounded_[static_cast<size_t>(rock)] != 0; }
 
     // saving: the last quiet arrangement (never a rock in mid-air)
     std::string save() const;
