@@ -2,7 +2,7 @@
 """Skips the tests whose inputs have not changed since they last passed.
 
 Every test gets a key: the platform and build profile, its command line and
-properties (with machine paths taken out), the compiler, the runner image, and the git tree hashes of
+properties (with machine paths taken out), the compiler, and the git tree hashes of
 the source it depends on. A tree hash changes exactly when something under that
 folder changes, so the key changes exactly when the test could behave differently.
 
@@ -15,13 +15,16 @@ What a test depends on, from where CTest says it was declared:
 The common inputs are the build (CMakeLists.txt, cmake/), the shell (src/), the test
 sources (tests/), the new-game kit, the assets and the tools that pin and prepare them.
 
+  fetch   downloads this profile's results from the newest release that carries them.
   plan    reads the last results, writes the CTest exclusion for the tests that
           passed with the same key, and the keys of this run.
   record  adds this run's passing tests to the results (failed tests are dropped).
+  collect gathers every profile's results for a release: this commit's own, or the
+          previous release's where a workflow has not finished for this commit.
 
-Results live in a small JSON file the workflow keeps in the Actions cache: main's runs
-are visible to every pull request, and a pull request's own runs to its re-runs.
-Anything unexpected (no git, no CTest listing) means running every test.
+Results are small JSON files named test-results-<app|core>-<platform>.json that every
+release carries beside its packages, so they never expire. Anything unexpected (no
+git, no CTest listing, no release) means running every test.
 """
 import argparse
 import hashlib
@@ -147,9 +150,7 @@ def plan(args: argparse.Namespace) -> None:
             "command": [portable(part, build) for part in test.get("command", [])],
             "properties": portable(json.dumps(test.get("properties", []), sort_keys=True), build),
             "compiler": toolchain, "common": common,
-            # A new runner image (system libraries, drivers) runs everything once.
-            "image": os.environ.get("ImageOS", "") + " " + os.environ.get("ImageVersion", ""),
-            "folders": {folder: tree(folder) for folder in folders},
+                    "folders": {folder: tree(folder) for folder in folders},
         }
         key = hashlib.sha256(json.dumps(material, sort_keys=True).encode("utf-8")).hexdigest()
         keys[test["name"]] = key
@@ -202,16 +203,74 @@ def record(args: argparse.Namespace) -> None:
     print("Recorded " + str(fresh) + " passing tests; " + str(len(passed)) + " known good", flush=True)
 
 
+REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "falseywinchnet/games")
+RESULTS = re.compile(r"test-results-(app|core)-[a-z0-9-]+\.json")
+
+
+def gh(*arguments: str) -> str:
+    return subprocess.run(["gh", *arguments], capture_output=True, text=True, check=True).stdout
+
+
+def newest_release_with(name: str) -> str | None:
+    releases = json.loads(gh("api", "repos/" + REPOSITORY + "/releases?per_page=20"))
+    for release in releases:
+        if release.get("draft"):
+            continue
+        for asset in release.get("assets", []):
+            if asset.get("name") == name:
+                return release["tag_name"]
+    return None
+
+
+def fetch(args: argparse.Namespace) -> None:
+    target = Path(args.results)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        tag = newest_release_with(target.name)
+        if tag is None:
+            print("No release carries " + target.name + " yet; every test runs", flush=True)
+            return
+        gh("release", "download", tag, "--repo", REPOSITORY, "--pattern", target.name,
+           "--dir", str(target.parent), "--clobber")
+        print("Test results from " + tag, flush=True)
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        print("Could not fetch " + target.name + " (" + str(error).strip() + "); every test runs", flush=True)
+
+
+def collect(args: argparse.Namespace) -> None:
+    """Fill the folder with every profile's results: fresh ones are already there."""
+    folder = Path(args.results)
+    folder.mkdir(parents=True, exist_ok=True)
+    for name in args.expect:
+        if (folder / name).is_file():
+            print("  " + name + ": this commit's", flush=True)
+            continue
+        try:
+            tag = newest_release_with(name)
+            if tag is not None:
+                gh("release", "download", tag, "--repo", REPOSITORY, "--pattern", name, "--dir", str(folder), "--clobber")
+                print("  " + name + ": carried from " + tag, flush=True)
+                continue
+        except (OSError, ValueError, subprocess.CalledProcessError):
+            pass
+        print("  " + name + ": none yet", flush=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("plan", "record"))
-    parser.add_argument("--build", required=True, help="the CTest build directory")
-    parser.add_argument("--profile", required=True, help="platform and build profile, e.g. app-macos-arm64")
-    parser.add_argument("--results", required=True, help="the results file kept between runs")
+    parser.add_argument("command", choices=("fetch", "plan", "record", "collect"))
+    parser.add_argument("--build", help="the CTest build directory")
+    parser.add_argument("--profile", help="platform and build profile, e.g. app-macos-arm64")
+    parser.add_argument("--results", required=True, help="the results file (collect: the folder)")
+    parser.add_argument("--expect", nargs="*", default=[], help="collect: the results files a release carries")
     parser.add_argument("--exclude", default="test-reuse-exclude.txt", help="plan: where the CTest -E pattern goes")
     parser.add_argument("--junit", nargs="*", default=[], help="record: CTest JUnit reports of this run")
     args = parser.parse_args()
-    if args.command == "plan":
+    if args.command == "fetch":
+        fetch(args)
+    elif args.command == "collect":
+        collect(args)
+    elif args.command == "plan":
         try:
             plan(args)
         except Exception as error:  # noqa: BLE001 - planning must never fail a job
