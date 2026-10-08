@@ -110,6 +110,7 @@ private:
     long long interval_ = 0;  // the timer's current interval in milliseconds, 0 when stopped
     double scale_ = 1;
     bool render_dirty_ = true;
+    bool slow_ = false;  // a full-quality moving frame took too long here: draw a lighter one
     bool direct_ = false;
     bool front_ = true;
     bool music_ = true;

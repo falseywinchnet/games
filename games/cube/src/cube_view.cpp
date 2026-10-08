@@ -675,17 +675,23 @@ void CubeView::render_frame() {
     }
     frame_has_panel_ = panel_ != Panel::none;
     if (!session_.puzzle.tiles.empty()) {
-        // Render lighter while the cube moves, then sharpen once it settles.
+        // Moving frames are drawn exactly like still ones, so the cube looks the same in
+        // motion. Only a computer too slow for that (a full frame over 28 ms) gets the light
+        // draft while the cube moves.
         const bool moving = motion_.phase != Phase::resting || motion_.yaw != motion_.target_yaw ||
                             motion_.pitch != motion_.target_pitch;
+        const bool light = moving && slow_;
         const double full = std::min(std::max(1.25, scale_), 1300.0 / std::max(1.0, layout_.board.w));
-        const double density = moving ? std::min(full, .62) : full;
+        const double density = light ? std::min(full, .62) : full;
         const int side = std::max(2, static_cast<int>(layout_.board.w * density));
         if (raster_.width != side || raster_.height != side) {
             raster_.resize(side, side);
         }
-        raster_.draft = moving;
+        raster_.draft = light;
+        const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
         draw_cube(raster_, session_.puzzle, session_.play, motion_, tracing_ ? -1 : hover_);
+        if (moving && !light)
+            slow_ = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count() > 28;
         const Pose look = pose(motion_);
         composite(raster_, frame_.data(), device_width_, device_height_, static_cast<std::size_t>(device_width_) * 4,
                   false, layout_.board.x * scale_, layout_.board.y * scale_, layout_.board.w * scale_,
