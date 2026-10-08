@@ -63,7 +63,7 @@ void CommandCapsule::set_game(std::string title, std::vector<GameCommand> comman
     bool same = title == title_ && commands.size() == commands_.size();
     for (std::size_t i = 0; same && i < commands.size(); ++i)
         same = commands[i].id == commands_[i].id && commands[i].label == commands_[i].label &&
-               commands[i].primary == commands_[i].primary;
+               commands[i].primary == commands_[i].primary && commands[i].toggle == commands_[i].toggle;
     if (same) {
         for (std::size_t i = 0; i < commands.size(); ++i) {
             if ((*buttons_[i]).enabled() != commands[i].enabled)
@@ -81,7 +81,8 @@ void CommandCapsule::set_game(std::string title, std::vector<GameCommand> comman
     for (const GameCommand& c : commands_) {
         std::shared_ptr<SuiteButton> b =
             gf::make_control<SuiteButton>(gf::StableId("capsule.cmd." + c.id), c.label,
-                                          c.primary ? GlossTone::gold : GlossTone::smoke);
+                                          c.primary ? (c.toggle ? GlossTone::navy : GlossTone::gold)
+                                                    : GlossTone::smoke);
         (*b).set_radius(15);
         (*b).set_font({gf::FontRole::content, 13, 700, false, .2});
         (*b).set_enabled(c.enabled);

@@ -107,8 +107,6 @@ class Table final : public gf::Control, public CommandSource {
     int lift_pile_ = -1, lift_index_ = -1;
     // Face-up cards in play that cannot move now (by card id): drawn dimmed. Worked out
     // at each paint, so a computer's turn or a new deal is always reflected.
-    std::array<bool, 104> dim_{};
-    void mark_dim();
     [[nodiscard]] bool movable(int pile, int index) const;
     void track_hover(gf::Point point);
     int hit_slot(gf::Point point) const;

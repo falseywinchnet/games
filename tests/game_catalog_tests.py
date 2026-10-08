@@ -27,7 +27,7 @@ ORIGINAL_HELP = {'atom': 'ca18af9d89d615ad304a8208d958e7aace41d77f15a4e9ce7ca101
  'liarsdice': 'd44667a75950b88c2777a7256779a051fba0b3f079ed6ca419de4000c65e1be9',
  'parrots': 'b761336d7a3e1b6277b980cf8fea44a8aa99c9d92caa9afd7bdbb26367695cc9',
  'pegs': '183961b64a8360d584cdaeb5142f641af73293e7cd097a2558ecf2437a34f006',
- 'penthesheep': '045390875c57892369bdcdcf784506f06459d57014930b42e2e14a1a3f91ef75',
+ 'penthesheep': '692afff977c635a3f8499723f3c0718f5dc220c771f1f5ae56d6067cb19e3a36',
  'rockstack': '44a440789430322b44d32b8df5ee3b3f13a9d28d04618544230bd5e96fea615a',
  # Sudoku's digits moved beside the board and gained an eraser (2026-10-08).
  # Solitaire, Spider, Puzzle Solve, Nature Cube and Untangle: one sentence each now

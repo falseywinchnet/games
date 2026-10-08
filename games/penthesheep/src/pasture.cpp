@@ -211,12 +211,20 @@ void Pasture::draw_land(double t, bool animated) {
         const double s = .8 + h01(k + 60) * .7;
         part(r, cylinder_mesh(8), at(x, y, 0) * sc(.12 * s, .12 * s, 1.1 * s), hex(0x8A6440), .015);
         for (int b = 0; b < 3; ++b)
-            part(r, sphere_mesh(10, 7), at(x + (b - 1) * .35 * s, y, 1.3 * s + (b == 1 ? .35 * s : 0)) * sc(.6 * s, .55 * s, .5 * s), b == 1 ? hex(0x5AA048) : hex(0x4E9440), .02);
+            part(r, sphere_mesh(18, 12), at(x + (b - 1) * .35 * s, y, 1.3 * s + (b == 1 ? .35 * s : 0)) * sc(.6 * s, .55 * s, .5 * s), b == 1 ? hex(0x5AA048) : hex(0x4E9440), .02);
     }
     for (int k = 0; k < 6; ++k) {
         const double side = k % 2 ? 1 : -1;
         const double x = side * (fx + .3 + h01(k + 70) * 1.5), y = -2 + h01(k + 80) * 5;
-        part(r, sphere_mesh(10, 6), at(x, y, .15) * sc(.55, .45, .4), hex(0x5EA84E), .02);
+        // A bush is a clump of leafy lumps in two greens, the lighter ones on top.
+        for (int lump = 0; lump < 5; ++lump) {
+            const double a = lump * 2.4 + k * 1.3;
+            const double top = lump == 4 ? 1 : 0;
+            const double size = .26 + .08 * h01(static_cast<std::uint32_t>(k * 11 + lump + 90));
+            const V3 c{x + (1 - top) * .26 * std::cos(a), y + (1 - top) * .18 * std::sin(a), .16 + top * .2};
+            part(r, sphere_mesh(18, 12), at(c.x, c.y, c.z) * sc(size * 1.1, size, size * .85),
+                 top > 0 || lump % 2 ? hex(0x66B356) : hex(0x4F9845), .02);
+        }
     }
     }
     if (animated) {

@@ -17,10 +17,11 @@ fence panels already stand here and there, and yours join onto them.
   every step where you'd put your next fence.
 - **Clover:** any sheep will stop for clover. It steps onto a patch beside it
   and spends a turn munching, which gives you a free fence.
-- **The meadows:** endless, made in the background as you play.
-  - They run from 9x9 meadows with plenty of old fences and dozy sheep to
-    11x11 meadows with fewer and cunning sheep.
-  - Clover appears from meadow 5.
+- **Levels:** New game makes a fresh meadow in the background at the Level
+  setting.
+  - Easy: 9x9 meadows with plenty of old fences and a dozy sheep.
+  - Medium: 11x11 meadows with fewer fences, a clever sheep, sometimes clover.
+  - Hard: 11x11 meadows with few fences, a cunning sheep, and clover to use.
 - **Proven winnable:** the sheep is deterministic, so a meadow is only
   accepted once the game's own shepherd, a solver bot, has penned its sheep.
   - The bot judges positions by the fewest fences that would still wall the
@@ -29,7 +30,6 @@ fence panels already stand here and there, and yours join onto them.
     fences, one for any win. Taking a hint caps the meadow at two stars.
 - **Tools:** undo, restart, and a hint. Hovering Hint traces the sheep's
   shortest way out.
-- **The Meadows map:** shows your stars and lets you replay any meadow.
 
 ## Music
 
@@ -76,4 +76,6 @@ cmake -S . -B build -DCMAKE_PREFIX_PATH=$PWD/../eggy/sdk && cmake --build build 
 - `--dev` uses a separate save and allows `SH_SCRIPT` (including `size600x370`
   to resize the window mid-run) and `SH_WINDOW=WxH` to open at a given size.
 - Saves are `pen_the_sheep-v1.txt` under `GAMES_STATE_DIR`: the meadow you're
-  on with its fences, stars per meadow, versioned and checksummed.
+  on (its level, seed and fences) and the Level setting, versioned and
+  checksummed. A save from the old campaign starts a new meadow at the level
+  its meadow number had reached.

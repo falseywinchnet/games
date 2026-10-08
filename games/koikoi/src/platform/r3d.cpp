@@ -4,6 +4,10 @@
 
 namespace kk {
 
+// Thresholds of a 4 x 4 ordered dither, for choosing between two texture levels.
+static const float kLevelDither[16] = {.03125f, .53125f, .15625f, .65625f, .78125f, .28125f, .90625f, .40625f,
+                                       .21875f, .71875f, .09375f, .59375f, .96875f, .46875f, .84375f, .34375f};
+
 M34 M34::operator*(const M34& b) const {
     M34 r;
     for (int i = 0; i < 3; ++i) {
@@ -178,16 +182,26 @@ void R3D::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16_t ma
         float lx = 0, ly = 0, l0 = 0;
         if (toon_px) plane(&SV::l, lx, ly, l0);
         const float te0 = light.toon_edge - light.toon_soft * .5f, tinv = 1.f / std::max(1e-4f, light.toon_soft);
-        // mip level from the texel footprint of one screen pixel (per triangle)
+        // mip level from the texel footprint of one screen pixel (per triangle), as a
+        // fraction between two levels: each pixel takes the finer or the coarser by an
+        // ordered dither, so triangles at slightly different depths blend, not step
         const Tex* tex = tex0;
         const Tex* tex2 = tex2_0;
+        const Tex* tex_coarse = tex0;
+        const Tex* tex2_coarse = tex2_0;
+        float lod_frac = 0;
         if (tex0 && !tex0->mips.empty()) {
             const float fx2 = std::max(std::fabs(sx_), std::fabs(sy_)) * tex0->w, fy2 = std::max(std::fabs(tx_), std::fabs(ty_)) * tex0->h;
             const float rho = std::max(fx2, fy2);
-            int lvl = 0;
-            for (float q = rho; q > 1.5f && lvl < 6; q *= .5f) ++lvl;
+            const float lod = std::clamp(std::log2(std::max(rho, 1e-6f)), 0.f, 6.f);
+            const int lvl = static_cast<int>(lod);
+            lod_frac = lod - static_cast<float>(lvl);
             tex = &tex0->level(lvl);
-            if (tex2_0) tex2 = &tex2_0->level(lvl);
+            tex_coarse = &tex0->level(lvl + 1);
+            if (tex2_0) {
+                tex2 = &tex2_0->level(lvl);
+                tex2_coarse = &tex2_0->level(lvl + 1);
+            }
         }
         const bool cut = mat & cutout, trans = mat & (translucent | additive), add = mat & additive;
         const bool zwrite = !(mat & no_depth_write) && !trans;
@@ -230,11 +244,12 @@ void R3D::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16_t ma
                 }
                 if (tex) {
                     // organic splat: a world-locked noise threshold picks the second ground texture
-                    const Tex* tt = tex;
+                    const bool coarse = lod_frac > kLevelDither[((y & 3) << 2) | (x & 3)];
+                    const Tex* tt = coarse ? tex_coarse : tex;
                     if (tex2 && wv > .02f) {
                         const int nx = static_cast<int>(s * 64.f + 1048576.f) & splat->wm, ny = static_cast<int>(t * 64.f + 1048576.f) & splat->hm;
                         const float nz = static_cast<float>(splat->px[static_cast<size_t>(ny * splat->w + nx)] & 255) * (1.f / 255.f);
-                        if (wv > nz) tt = tex2;
+                        if (wv > nz) tt = coarse ? tex2_coarse : tex2;
                     }
                     // texel coordinates via a positive bias instead of floor()
                     const int tx = static_cast<int>(s * static_cast<float>(tt->w) + 1048576.f) & tt->wm;

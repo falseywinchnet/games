@@ -86,7 +86,12 @@ struct Level {
     int par = 0;
     LevelParams params;
 };
-LevelParams params_for(int level);         // the campaign's curve
+LevelParams params_for(int level);         // the old campaign's curve (tools and tests)
+// A new meadow at a difficulty (0 easy, 1 medium, 2 hard) from a seed:
+//   Easy    9x9, a dozy sheep, plenty of old fences.
+//   Medium  11x11, a clever sheep, fewer fences, sometimes a clover.
+//   Hard    11x11, a cunning sheep, few fences, clover to use.
+LevelParams params_for_difficulty(int difficulty, std::uint64_t seed);
 Level generate(const LevelParams& p);      // retries seeds until the bot can pen the sheep
 const char* smarts_name(Smarts s);
 

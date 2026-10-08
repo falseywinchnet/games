@@ -324,6 +324,33 @@ LevelParams params_for(int level) {
     return p;
 }
 
+LevelParams params_for_difficulty(int difficulty, std::uint64_t seed) {
+    LevelParams p;
+    Rng r(seed);
+    switch (std::clamp(difficulty, 0, 2)) {
+    case 0:
+        p.size = 9;
+        p.smarts = Smarts::dozy;
+        p.rocks = 10 + r.range(3);
+        p.clovers = 0;
+        break;
+    case 1:
+        p.size = 11;
+        p.smarts = Smarts::clever;
+        p.rocks = 11 + r.range(4);
+        p.clovers = r.range(2);
+        break;
+    default:
+        p.size = 11;
+        p.smarts = Smarts::cunning;
+        p.rocks = 7 + r.range(4);
+        p.clovers = 1 + r.range(2);
+        break;
+    }
+    p.seed = seed;
+    return p;
+}
+
 Level generate(const LevelParams& p) {
     for (std::uint64_t attempt = 0;; ++attempt) {
         if (attempt == 120) {

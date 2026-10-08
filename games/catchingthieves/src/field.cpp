@@ -160,10 +160,10 @@ bool Garden::draw_field(const GardenState& s) {
     const Col tint = s.season == Season::night ? Col{.50f, .60f, .86f, 1} : Col{1, 1, 1, 1};
     const V3 n{0, 0, 1};
     const double k = 1 / f.units;
-    // one level of detail for the whole field, from the view's scale, so no seam runs between tiles
-    int level = 0;
-    for (double q = f.tex.w / f.units / std::max(1.0, r.scale); q > 1.5 && level < 4; q *= .5) ++level;
-    const Tex& tex = f.tex.level(level);
+    // Each tile takes the detail its own distance needs: the far ground, squeezed by the
+    // tilt, from a coarser level. The renderer dithers between levels, so no seam runs
+    // between tiles.
+    const Tex& tex = f.tex;
     for (int gy = gy0; gy < gy1; gy += 2)
         for (int gx = gx0; gx < gx1; gx += 2) {
             const double ax = gx, ay = gy, bx = gx + 2, by = gy + 2;

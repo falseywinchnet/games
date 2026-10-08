@@ -85,12 +85,16 @@ void paint_gloss(gf::Painter& p, gf::Rect r, double radius, GlossTone tone, Glos
     p.clip_rounded_rect(r, radius);
     const gf::GradientStop stops[] = {{0, c[0]}, {.48, c[1]}, {.52, c[2]}, {1, c[3]}};
     p.fill_linear_gradient(r, {r.x, r.y}, {r.x, r.y + r.height}, stops);
-    p.draw_line({r.x + radius * .6, r.y + 1.5}, {r.x + r.width - radius * .6, r.y + 1.5},
-                rgb(255, 255, 255,
-                    tone == GlossTone::smoke ? 50
-                    : s.down                 ? 40
-                                             : 190),
-                1);
+    // A bright line under a flat top; a circle has none, and there the clip would cut the
+    // line into a hard bar, so a round button keeps only its gradient.
+    const bool circle = radius * 2 >= std::min(r.width, r.height) - .5 && r.width < r.height + 1;
+    if (!circle)
+        p.draw_line({r.x + radius * .6, r.y + 1.5}, {r.x + r.width - radius * .6, r.y + 1.5},
+                    rgb(255, 255, 255,
+                        tone == GlossTone::smoke ? 50
+                        : s.down                 ? 40
+                                                 : 190),
+                    1);
     p.restore();
     p.stroke_rounded_rect(r, radius, border, 1);
     if (s.hot || s.focus)

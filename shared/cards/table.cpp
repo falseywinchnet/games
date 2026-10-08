@@ -498,8 +498,9 @@ void Table::tick() {
                 bool complete = t >= 1 && (!s.flipping || s.flip_progress >= 1);
                 pending = pending || !complete;
                 s.moving = !complete;
-                invalidate(enlarged(old, 16));
-                invalidate(enlarged(s.rect, 16));
+                // Its shadow reaches about a ninth of a card past it.
+                invalidate(enlarged(old, card_w_ * .2 + 16));
+                invalidate(enlarged(s.rect, card_w_ * .2 + 16));
             }
         animating_ = pending;
     }
@@ -655,11 +656,8 @@ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
     p.draw_image(face_up ? faces_[s.card.suit * 13 + s.card.rank - 1] : backs_[back_], r);
     if (finish_.value)
         p.draw_image(finish_, r);
-    // A card that cannot move now is dimmed; one that can, under the pointer (with any
-    // run on it), faintly brightens.
-    if (face_up && s.card.id >= 0 && s.card.id < 104 && dim_[static_cast<std::size_t>(s.card.id)] && !selected)
-        p.fill_rounded_rect(r, 6, gf::Color::rgba(24, 67, 50, 70));
-    else if (!selected && !lifted && s.pile == lift_pile_ && s.index >= lift_index_ && !animating_)
+    // A card that can move, under the pointer (with any run on it), faintly brightens.
+    if (!selected && !lifted && s.pile == lift_pile_ && s.index >= lift_index_ && !animating_)
         p.fill_rounded_rect(r, 6, gf::Color::rgba(255, 255, 255, 46));
 }
 void Table::on_paint(gf::Painter& p, gf::Rect) {
@@ -760,7 +758,6 @@ void Table::on_paint(gf::Painter& p, gf::Rect) {
                                       : "Hand complete · click Next hand",
                       18, cream);
     }
-    mark_dim();
     for (int pile = 0; pile < 20; ++pile)
         for (const Card& c : game.state.piles[pile]) {
             const Sprite& s = sprites_[c.id];
@@ -1310,24 +1307,6 @@ bool Table::movable(int pile, int index) const {
             return true;
     return false;
 }
-void Table::mark_dim() {
-    dim_.fill(false);
-    if (game.state.over || cascading_)
-        return;  // a finished game shows its cards plainly
-    const int columns = game.state.kind == Kind::spider ? 10 : game.state.kind == Kind::freecell ? 8 : 7;
-    for (int pile = 0; pile < 20; ++pile) {
-        // In play: the tableau, the waste and the free cells, or in Hearts your own hand.
-        // Face-down cards, the stock, the foundations and the trick are left as they are.
-        const bool in_play = game.state.kind == Kind::hearts ? pile == 0
-                                                             : pile < columns || pile == 15 || pile >= 16;
-        if (!in_play)
-            continue;
-        const Pile& cards = game.state.piles[static_cast<std::size_t>(pile)];
-        for (int index = 0; index < static_cast<int>(cards.size()); ++index)
-            if (cards[index].up && cards[index].id >= 0 && cards[index].id < 104 && !movable(pile, index))
-                dim_[static_cast<std::size_t>(cards[index].id)] = true;
-    }
-}
 void Table::track_hover(gf::Point point) {
     const int id = hit_card(point);
     int pile = -1, index = -1;
@@ -1452,8 +1431,11 @@ void Table::on_pointer(gf::PointerEvent& e) {
                 gf::Rect after = sprite.rect;
                 after.x += pointer_.x - press_.x;
                 after.y += pointer_.y - press_.y;
-                invalidate(enlarged(before, 12));
-                invalidate(enlarged(after, 12));
+                // The lifted card's shadow falls a fifth of a card beyond it, and the
+                // selection glow a little further: repaint all of it, where it was and is.
+                const double reach = card_w_ * .2 + 16;
+                invalidate(enlarged(before, reach));
+                invalidate(enlarged(after, reach));
             }
         }
         e.handled = true;
