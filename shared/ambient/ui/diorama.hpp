@@ -90,6 +90,7 @@ class Diorama final : public Scenery {
     void advance(double seconds, SceneContext& context) override;
     const std::vector<std::uint32_t>& draw(SceneContext& context, int& width, int& height) override;
     void press(double x, double y, SceneContext& context) override;
+    void add_commands(std::vector<games::GameCommand>& list, const Settings& settings) const override;
     void add_settings(std::vector<games::GameSetting>& list, const Settings& settings) const override;
     bool change_setting(std::string_view id, double value, SceneContext& context) override;
     bool run_command(std::string_view id, SceneContext& context) override;
@@ -140,6 +141,7 @@ class Diorama final : public Scenery {
     std::vector<DioramaScene> scenes_{};
     bool started_{};
     std::size_t chosen_{};  // the scene saved and shown, or being faded to
+    std::uint32_t knocks_ = 0;  // T taps the glass somewhere new each time
     Showing shown_{};
     // The next scene: loading, then its first fixed layer, while the shown one plays.
     std::future<std::unique_ptr<Bundle>> loading_{};

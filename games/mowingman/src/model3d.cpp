@@ -1182,6 +1182,49 @@ Look surface(const Material& m, const Fragment& f, const Xform& place, double ti
         look.gloss = look.gloss * (0.8 + 0.4 * brush);
         break;
     }
+    case Pattern::sand: {
+        // Grains: a fine speckle of light quartz and darker bits; dug hollows and heaps;
+        // where it was wetted, darker and smoother.
+        const V3 q = f.o * s;
+        const double grain = noise3(q * 900.0), speck = noise3(q * 420.0 + V3{3, 7, 1});
+        const double heaps = fbm3(q * 4.0, 3);
+        const double damp = smooth(0.58, 0.7, fbm3(q * 2.2 + V3{11, 4, 2}, 3));
+        look.albedo = look.albedo * (0.86 + 0.24 * grain) * (0.9 + 0.16 * heaps);
+        if (speck > 0.8)
+            look.albedo = look.albedo * 1.25;
+        else if (speck < 0.16)
+            look.albedo = look.albedo * 0.7;
+        look.albedo = look.albedo * (1 - 0.32 * damp);
+        look.n = bumped(look.n, place.vector(noise_gradient(q * 4.0, 0.02, 3)), 0.18);
+        look.n = bumped(look.n, place.vector(noise_gradient(q * 300.0, 0.002, 1)), 0.0016);
+        look.cavity = 0.82 + 0.18 * heaps;
+        look.gloss = 0.08 + 0.12 * damp;
+        break;
+    }
+    case Pattern::shell: {
+        // Hexagonal plates, each a little domed and lighter in the middle, with deep seams.
+        const double k = s * 7.0;
+        const double x = f.o.x * k, y = f.o.y * k * 1.1547;
+        const double row = std::floor(y);
+        const double col = std::floor(x - (static_cast<int>(row) & 1) * 0.5);
+        double best = 1e9, second = 1e9;
+        for (int dy = -1; dy <= 1; ++dy)
+            for (int dx = -1; dx <= 1; ++dx) {
+                const double r = row + dy, c = col + dx;
+                const double cx = c + 0.5 + (static_cast<int>(r) & 1) * 0.5, cy = r + 0.5;
+                const double d = std::hypot((x - cx), (y - cy) * 0.866);
+                if (d < best) {
+                    second = best;
+                    best = d;
+                } else if (d < second)
+                    second = d;
+            }
+        const double seam = 1 - smooth(0.0, 0.06, second - best);
+        const double centre = 1 - smooth(0.0, 0.45, best);
+        look.albedo = mixed(look.albedo, tint, 0.35 * centre) * (1 - 0.55 * seam);
+        look.cavity = 1 - 0.4 * seam;
+        break;
+    }
     }
     return look;
 }

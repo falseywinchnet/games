@@ -24,12 +24,6 @@ void enter(Canvas& canvas, const Frame& frame, double x, double y, double headin
     canvas.scale(frame.ppm, frame.ppm);
 }
 
-void rounded(Canvas& canvas, double x, double y, double w, double h, double r, const Paint& paint) {
-    canvas.begin();
-    canvas.rrect(x, y, w, h, r);
-    canvas.fill(paint);
-}
-
 void rounded(Canvas& canvas, double x, double y, double w, double h, double r, Col color) {
     canvas.begin();
     canvas.rrect(x, y, w, h, r);
@@ -45,28 +39,6 @@ int layers_for(const Frame& frame, double h0, double h1) {
 // on the shaded side. `fade` darkens the lowest layer; the top layer is left to the caller.
 Col side_tone(Col color, double t, double fade) {
     return shade(color, static_cast<float>(1 - fade * (1 - t)));
-}
-
-// A rounded box standing from h0 to h1: sides, then the top in `top`.
-void stack_rounded(Canvas& canvas, const Frame& frame, double x, double y, double heading, double lx, double ly, double w, double h, double r,
-                   double h0, double h1, Col side, const Paint& top) {
-    const int layers = layers_for(frame, h0, h1);
-    for (int k = 0; k < layers; ++k) {
-        const double t = static_cast<double>(k) / (layers - 1);
-        enter(canvas, frame, x, y, heading, h0 + (h1 - h0) * t);
-        rounded(canvas, lx, ly, w, h, r, side_tone(side, t, 0.45));
-        canvas.restore();
-    }
-    enter(canvas, frame, x, y, heading, h1);
-    rounded(canvas, lx, ly, w, h, r, top);
-    canvas.restore();
-}
-
-void stack_rounded(Canvas& canvas, const Frame& frame, double x, double y, double heading, double lx, double ly, double w, double h, double r,
-                   double h0, double h1, Col side, Col top) {
-    Paint paint{};
-    paint.color = top;
-    stack_rounded(canvas, frame, x, y, heading, lx, ly, w, h, r, h0, h1, side, paint);
 }
 
 // An ellipse standing from h0 to h1, its size scaled from `low` at the bottom to 1 at the top.
@@ -350,62 +322,6 @@ void draw_greenhouse(Canvas& canvas, const Frame& frame, const Prop& prop, doubl
     canvas.restore();
 }
 
-void draw_grill(Canvas& canvas, const Frame& frame, const Prop& prop, double heading) {
-    ground_shadow_ellipse(canvas, frame, prop.x, prop.y, 0.3, 0.3, 0.8, 0.3f);
-    // Three legs, the kettle, its lid with a handle, and the side shelf.
-    const double legs[3][2] = {{-0.3, -0.22}, {-0.3, 0.22}, {0.16, 0}};
-    for (const double* leg : legs)
-        stack_rounded(canvas, frame, prop.x, prop.y, heading, leg[0] - 0.015, leg[1] - 0.015, 0.03, 0.03, 0.01, 0, 0.62, hex(0x6E7378), hex(0x9A9EA2));
-    stack_rounded(canvas, frame, prop.x, prop.y, heading, 0.18, -0.2, 0.24, 0.4, 0.02, 0.58, 0.62, hex(0x8C6238), hex(0xB98A56));
-    enter(canvas, frame, prop.x, prop.y, heading, 0.62);
-    for (double y = -0.15; y < 0.2; y += 0.08)
-        canvas.fill_rect(0.18, y, 0.24, 0.012, hex(0x8C6238));
-    canvas.stroke_line(0.24, -0.12, 0.36, 0.1, hex(0xC9CDD0), 0.014);
-    canvas.stroke_line(0.27, -0.13, 0.37, 0.07, hex(0xAEB3B7), 0.014);
-    canvas.restore();
-    stack_ellipse(canvas, frame, prop.x, prop.y, heading, -0.08, 0, 0.27, 0.27, 0.55, 0.92, 0.55, hex(0x1D1F22), domed(-0.08, 0, 0.27, hex(0x3A3D41)));
-    enter(canvas, frame, prop.x, prop.y, heading, 0.92);
-    canvas.fill_ellipse(-0.17, -0.1, 0.07, 0.04, rgb(255, 255, 255, 0.22f));
-    canvas.restore();
-    stack_rounded(canvas, frame, prop.x, prop.y, heading, -0.14, -0.018, 0.12, 0.036, 0.015, 0.92, 1.0, hex(0x4A3320), hex(0x8C6238));
-}
-
-void draw_sandbox(Canvas& canvas, const Frame& frame, const Prop& prop) {
-    std::uint64_t random = prop.seed | 1U;
-    const double h = prop.rx;
-    const double in = h - 0.09;
-    // The frame of planks, the sand inside, heaps, a bucket and a spade.
-    stack_rounded(canvas, frame, prop.x, prop.y, 0, -h, -h, h * 2, 0.09, 0.02, 0, 0.26, hex(0x8C683C), hex(0xA9814F));
-    stack_rounded(canvas, frame, prop.x, prop.y, 0, -h, h - 0.09, h * 2, 0.09, 0.02, 0, 0.26, hex(0x7A5A34), hex(0xA9814F));
-    stack_rounded(canvas, frame, prop.x, prop.y, 0, -h, -h, 0.09, h * 2, 0.02, 0, 0.26, hex(0x8C683C), hex(0xA9814F));
-    stack_rounded(canvas, frame, prop.x, prop.y, 0, h - 0.09, -h, 0.09, h * 2, 0.02, 0, 0.26, hex(0x7A5A34), hex(0xA9814F));
-    enter(canvas, frame, prop.x, prop.y, 0, 0.2);
-    rounded(canvas, -in, -in, in * 2, in * 2, 0.02, Paint::lin(-in, -in, in, in, {{0, hex(0xEBD8A6)}, {1, hex(0xD9C086)}}));
-    canvas.fill_rect(-in, -in, in * 2, 0.045, rgb(60, 40, 10, 0.25f));
-    canvas.fill_rect(-in, -in, 0.03, in * 2, rgb(60, 40, 10, 0.2f));
-    for (int k = 0; k < 14; ++k) {
-        const double x = random_range(random, -in + 0.1, in - 0.1);
-        const double y = random_range(random, -in + 0.1, in - 0.1);
-        const double r = random_range(random, 0.05, 0.13);
-        canvas.fill_circle(x + r * 0.2, y + r * 0.25, r, rgb(120, 90, 40, 0.18f));
-        canvas.fill_circle(x, y - r * 0.15, r, rgb(245, 232, 190, 0.5f));
-    }
-    for (int k = 0; k < 120; ++k)
-        canvas.fill_circle(random_range(random, -in, in), random_range(random, -in, in), 0.006, rgb(140, 110, 60, 0.35f));
-    canvas.restore();
-    const double bx = random_range(random, -in + 0.2, in - 0.2);
-    const double by = random_range(random, -in + 0.2, in - 0.2);
-    stack_ellipse(canvas, frame, prop.x, prop.y, 0, bx, by, 0.085, 0.085, 0.2, 0.38, 0.85, hex(0x8E1B15), hex(0xD8342B));
-    enter(canvas, frame, prop.x, prop.y, 0, 0.38);
-    canvas.fill_circle(bx, by, 0.062, hex(0x8E1B15));
-    canvas.fill_circle(bx - 0.01, by - 0.01, 0.045, hex(0xD9C086));
-    const double sx = -bx * 0.8;
-    const double sy = -by * 0.7 + 0.1;
-    canvas.stroke_line(sx, sy, sx + 0.16, sy + 0.07, hex(0x2A62B8), 0.022);
-    rounded(canvas, sx + 0.14, sy + 0.02, 0.09, 0.1, 0.02, hex(0x3478D4));
-    canvas.restore();
-}
-
 void draw_pool(Canvas& canvas, const Frame& frame, const Prop& prop) {
     std::uint64_t random = prop.seed | 1U;
     const double r = prop.rx;
@@ -458,16 +374,20 @@ void draw_prop(Canvas& canvas, const Frame& frame, const Prop& prop) {
         draw_birdbath_model(canvas, frame, prop);
         break;
     case PropKind::grill:
-        draw_grill(canvas, frame, prop, heading);
+        draw_grill_model(canvas, frame, prop, heading);
         break;
     case PropKind::sandbox:
-        draw_sandbox(canvas, frame, prop);
+        draw_sandbox_model(canvas, frame, prop, heading);
         break;
     case PropKind::pool:
         draw_pool(canvas, frame, prop);
         break;
     case PropKind::chair:
-        draw_lounger_model(canvas, frame, prop, heading);
+        if (!draw_chair_model(canvas, frame, prop, heading)) {
+            draw_lounger_model(canvas, frame, prop, heading);
+            if (prop_style(prop) == 2)
+                draw_parasol_model(canvas, frame, prop, heading);
+        }
         break;
     }
 }

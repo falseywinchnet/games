@@ -83,7 +83,7 @@ struct GameDescriptor {
     EntryInfo info;
     const char* help;
     std::vector<HelpTopic> help_topics;
-    bool rail;
+    bool hosted; // draws its own live surface and plays its own music
     std::unique_ptr<GameInstance> (*create)(ModuleContext&);
     void (*cover)(gf::Painter&,gf::Rect);
 };

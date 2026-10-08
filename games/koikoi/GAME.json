@@ -44,7 +44,7 @@
   "libraries": [
     "kk_core"
   ],
-  "rail": true,
+  "hosted": true,
   "help_topics": [
     {
       "id": "sets",

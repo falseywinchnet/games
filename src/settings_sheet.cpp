@@ -530,7 +530,7 @@ void SettingsSheet::on_paint(gf::Painter& p, gf::Rect) {
     p.draw_box_shadow(r, 4, {0, 8}, 24, 0, rgb(0, 0, 0, 110));
     p.fill_rect(r, rgb(255, 252, 215));
     p.stroke_rect(r, rgb(153, 137, 78), 1);
-    const std::string heading = (title_.empty() ? std::string("PlaySuite") : title_) + " · Settings";
+    const std::string heading = title_.empty() ? std::string("Settings") : title_ + " · Settings";
     p.draw_text_utf8({r.x + 20, r.y + 36}, heading, {gf::FontRole::content, 24, 600, false}, ink);
     p.draw_line({r.x + 20, r.y + 50}, {r.x + r.width - 20, r.y + 50}, rgb(207, 193, 133), 1);
 }

@@ -4,6 +4,7 @@
 #include "platform/raster.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 
 namespace sh {
@@ -191,7 +192,16 @@ void Pasture::draw_land(double t, bool animated) {
             const double x0 = -24 + gx * 3, y0 = -8 + gy * 2;
             if (y0 > far - .6) continue;
             const double y1 = std::min(y0 + 2, far - .6);
-            quad(r, {x0, y0, -.02}, {x0 + 3, y0, -.02}, {x0 + 3, y1, -.02}, {x0, y1, -.02}, &tx().field, kWhite, toon, 1.2, .8 * (y1 - y0) / 2);
+            if (grown_) {
+                // The grown field: world-placed, so it runs on from tile to tile.
+                const double k = 1 / kFieldUnits;
+                const V3 n{0, 0, 1};
+                Vtx v[6] = {{{x0, y0, -.02}, n, x0 * k, y0 * k, kWhite}, {{x0 + 3, y0, -.02}, n, (x0 + 3) * k, y0 * k, kWhite},
+                            {{x0 + 3, y1, -.02}, n, (x0 + 3) * k, y1 * k, kWhite}, {{x0, y0, -.02}, n, x0 * k, y0 * k, kWhite},
+                            {{x0 + 3, y1, -.02}, n, (x0 + 3) * k, y1 * k, kWhite}, {{x0, y1, -.02}, n, x0 * k, y1 * k, kWhite}};
+                r.draw(v, 6, &ground_.field, toon);
+            } else
+                quad(r, {x0, y0, -.02}, {x0 + 3, y0, -.02}, {x0 + 3, y1, -.02}, {x0, y1, -.02}, &tx().field, kWhite, toon, 1.2, .8 * (y1 - y0) / 2);
         }
     // no fence round the meadow: the sheep can walk off any side (the fences are what you build)
     const double fy = (n_ * kDY) / 2 + 1.2, fx = (n_ * kDX) / 2 + 1.2;
@@ -228,13 +238,15 @@ void Pasture::draw_patches(const PastureState& s, double t) {
     for (int i = 0; i < m.w * m.h; ++i) {
         const V3 c = cell_pos(i);
         const double shade = .92 + .12 * h01(static_cast<std::uint32_t>(i) * 7 + 3);
-        Col top = mix(hex(0x88C868), hex(0xA8DC80), static_cast<float>(shade - .92) * 4);
+        // Over the grown turf the patch's colour is a light: near white, with each patch a touch different.
+        Col top = grown_ ? mix(hex(0xE8F0DC), hex(0xFFFFF4), static_cast<float>(shade - .92) * 4)
+                         : mix(hex(0x88C868), hex(0xA8DC80), static_cast<float>(shade - .92) * 4);
         if (m.edge(i)) top = mix(top, hex(0xC8D890), .35f);  // the edge: where it would hop off
         bool on_path = false;
         for (int p : s.exit_path) on_path = on_path || p == i;
         if (on_path) top = mix(top, hex(0xF8F0B0), .35f + .1f * static_cast<float>(std::sin(t * 4)));
         if (i == s.hover) top = mix(top, s.hover_ok ? hex(0xFFFFFF) : hex(0xE07060), .3f);
-        hex_patch(r, c, kR * .96, .12, top, hex(0x8A6A48), &tx().grass);
+        hex_patch(r, c, kR * .96, .12, top, hex(0x8A6A48), grown_ ? &ground_.turf : &tx().grass);
         const Cell k = m.cells[static_cast<size_t>(i)];
         const double drop = s.drop.size() > static_cast<size_t>(i) ? s.drop[static_cast<size_t>(i)] : 0;
         if (k == Cell::rock || k == Cell::stone) {
@@ -343,7 +355,25 @@ void Pasture::draw_sheep(const SheepPose& p, double t) {
     flat(r, sphere_mesh(6, 4), h * at(0, -.15, -.06) * sc(.03, .01, .006 + .012 * p.chew), hex(0x1A1410));
 }
 
+void Pasture::take_ground() {
+    if (grown_)
+        return;
+    if (!growing_.valid()) {
+        growing_ = std::async(std::launch::async, grow_ground);
+        return;
+    }
+    if (growing_.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+        return;
+    GroundArt art = growing_.get();
+    if (art.turf.px.empty() || art.field.px.empty())
+        return;
+    ground_ = std::move(art);
+    grown_ = true;
+    land_valid_ = false;
+}
+
 void Pasture::render(const PastureState& s, double t) {
+    take_ground();
     r.time = t;
     r.clear_depth();
     r.tris_drawn = 0;

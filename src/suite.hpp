@@ -83,6 +83,8 @@ class SuiteButton : public gf::Button {
     SuiteButton(gf::StableId id, std::string text, GlossTone tone = GlossTone::chrome);
     void set_tone(GlossTone tone);
     void set_glyph(Glyph glyph, bool crossed = false);
+    // A radius of SuiteButton::round paints a true circle centred in the button.
+    static constexpr double round = 1e9;
     void set_radius(double radius);
     void set_checked(bool checked);
     // Makes this a switch: bind it to a command and it shows the command's state,

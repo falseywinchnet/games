@@ -82,6 +82,8 @@ void Collection::initialize_control_tree() {
     gf::on(model_.reduced.invoked(), *this, &Collection::toggle, 2);
     gf::on(model_.settings.invoked(), *this, &Collection::toggle, 3);
     help_link_ = gf::make_control<HelpGlyph>(gf::StableId("collection.help"), "?");
+    (*help_link_).set_font({gf::FontRole::content, 32, 700, false});
+    (*help_link_).set_ink(gf::Color::rgba(240, 192, 84));
     (*help_link_).set_accessible_name("PlaySuite help (H)");
     (*help_link_).set_paint_plane(gf::PaintPlane::overlay);
     gf::on((*help_link_).clicked(), *this, &Collection::clicked_help);
@@ -132,7 +134,7 @@ void Collection::on_detaching_from_window(gf::Window& window) noexcept {
     timer_.reset();
     sprites_.release(window);
 }
-bool Collection::uses_rail(Entry entry) const { return game_descriptor(entry).rail; }
+bool Collection::hosted(Entry entry) const { return game_descriptor(entry).hosted; }
 std::shared_ptr<gf::Control> Collection::view(Entry entry) const {
     const std::map<Entry,std::unique_ptr<GameInstance>>::const_iterator found = games_.find(entry);
     return found == games_.end() ? nullptr : (*(*found).second).control();
@@ -142,6 +144,7 @@ CommandSource* Collection::source(Entry entry) const {
     return found == games_.end() ? nullptr : (*found).second.get();
 }
 void Collection::wake() {
+    quiet_ = 0;
     if (!timer_)
         return;
     (*timer_).set_interval(std::chrono::milliseconds(16));
@@ -167,12 +170,15 @@ void Collection::tick() {
             (*timer_).stop();
         return;
     }
-    const gf::Rect area{0, 0, client_rectangle().width - 48,
-                        uses_rail(active_) ? current_rail_height_ : 60.0};
+    const gf::Rect area{0, 0, client_rectangle().width - 48, hosted(active_) ? current_rail_height_ : 60.0};
     gf::Rect r = (*capsule_).placement(area);
     // The placement includes the shadow margin, which doubles as a forgiving hover border.
-    const bool inside = pointer_.x >= r.x && pointer_.x <= r.x + r.width && pointer_.y >= r.y - 8 &&
-                        pointer_.y <= r.y + r.height;
+    // Help sits at the pill's end and moves with it: pointing at it keeps the pill as it is.
+    const gf::Rect help = help_slot_;
+    const bool inside = (pointer_.x >= r.x && pointer_.x <= r.x + r.width && pointer_.y >= r.y - 8 &&
+                         pointer_.y <= r.y + r.height) ||
+                        (pointer_.x >= help.x && pointer_.x <= help.x + help.width &&
+                         pointer_.y >= help.y && pointer_.y <= help.y + help.height);
     if ((*capsule_).step(dt, inside, reduced_))
         invalidate(gf::Dirty::layout);
     refresh_ += dt;
@@ -181,10 +187,19 @@ void Collection::tick() {
         refresh_commands();
     }
     // Commands can change after an asynchronous game action. Poll that cheap
-    // model at 5 Hz; only hover animation, text and audio preparation need 60 Hz.
-    if (timer_)
-        (*timer_).set_interval(std::chrono::milliseconds(
-            (*capsule_).unsettled(inside) || sprites_.waiting() || audio_pending() ? 16 : 200));
+    // model at 5 Hz for a few seconds after the last input; only hover animation, text
+    // and audio preparation need 60 Hz. Then stop: every wake of the window costs a
+    // repaint wherever the capsule floats over a live game, so a settled game must
+    // not be woken at all. The next pointer or key wakes it again.
+    const bool busy = (*capsule_).unsettled(inside) || sprites_.waiting() || audio_pending();
+    quiet_ = busy ? 0 : quiet_ + dt;
+    if (timer_) {
+        if (quiet_ > 3.0) {
+            refresh_commands();
+            (*timer_).stop();
+        } else
+            (*timer_).set_interval(std::chrono::milliseconds(busy ? 16 : 200));
+    }
 }
 void Collection::on_pointer_preview(gf::PointerEvent& e) {
     if (settings_open()) {
@@ -319,27 +334,30 @@ void Collection::arrange(gf::Rect b) {
     current_rail_height_ = std::max(rail_height, capsule_bounds.y + capsule_bounds.height);
     const gf::Rect below{0, current_rail_height_, b.width,
                          std::max(0.0, b.height - current_rail_height_)};
-    // Each view is laid out once per pass; live-surface games sit below the rail.
+    // Still games have the whole window and the capsule floats over them. A hosted game's
+    // live surface sits below a rail: on macOS any overlay over a live surface sends every
+    // frame down the ordinary paint path, about half a core for as long as the game is
+    // open (docs/TOOLKIT_REQUESTS.md), so nothing may overlap it.
+    const bool railed = !shelf_open_ && hosted(active_);
     for (const std::shared_ptr<gf::Control>& child : children())
-        if (!overlay(child) && (*child).visible()) {
-            const bool railed = uses_rail(active_);
+        if (!overlay(child) && (*child).visible())
             set_child_layout(child, railed ? below : full);
-        }
     set_child_layout(shelf_, full);
-    const gf::Rect area{0, 0, b.width - 48, uses_rail(active_) ? current_rail_height_ : 60.0};
-    gf::Rect placed = (*capsule_).placement(area);
-    // Over a live-surface game the capsule stays within the rail; nothing may overlap
-    // the game's presented surface.
-    if (!shelf_open_ && uses_rail(active_))
-        placed.height = std::min(placed.height, current_rail_height_ - placed.y);
-    set_child_layout(capsule_, placed);
-    set_child_layout(help_link_, {b.width - 44, 7, 36, 36});
+    gf::Rect capsule = (*capsule_).placement({0, 0, b.width - 48, railed ? current_rail_height_ : 60.0});
+    if (railed)
+        capsule.height = std::min(capsule.height, current_rail_height_ - capsule.y);
+    set_child_layout(capsule_, capsule);
+    // Help continues a row: the shelf's switches, or in a game the capsule's first row, just
+    // past the pill's right end, so the game's own top-right corner stays the game's.
+    help_slot_ = shelf_open_ ? ShelfView::help_slot({b.width, b.height})
+                             : gf::Rect{capsule.x + capsule.width - CommandCapsule::shadow_margin + 4, 8, 38, 38};
+    set_child_layout(help_link_, help_slot_);
     const double paper_width = std::min(780.0, b.width - 32);
     set_child_layout(help_, {b.width - paper_width - 16, 16, paper_width, b.height - 32});
     set_child_layout(settings_, full);
 }
 void Collection::on_paint(gf::Painter& p, gf::Rect) {
-    if (shelf_open_ || !uses_rail(active_))
+    if (shelf_open_ || !hosted(active_))
         return;
     // The rail above live-surface games: graphite with a gold hairline.
     const gf::Rect b = client_rectangle();
@@ -375,7 +393,7 @@ void Collection::masters_changed() {
     if (help_open() || settings_open()) {
         if (shelf_open_)
             music_play("menu", masters.music);
-        else if (!uses_rail(active_))
+        else if (!hosted(active_))
             (*games_.at(active_)).activate();
     } else
         activate();
@@ -404,7 +422,7 @@ void Collection::activate() {
         (*shelf_).focus_selection();
         return;
     }
-    if (uses_rail(active_)) music_play("", false);
+    if (hosted(active_)) music_play("", false);
     (*games_.at(active_)).activate();
 }
 void Collection::open_entry(Entry entry) {

@@ -170,6 +170,9 @@ private:
     // a rock with anything bearing on it is too pinned for the crane
     std::vector<std::pair<int, int>> covers_;
     std::vector<int> wedged_;              // rocks the crane failed to pull free since the last settle
+    // per rock: touching the ground itself (not the bowl, not another rock), as of the last sort.
+    // A stacked rock that reaches the ground has fallen over, whatever still holds it up.
+    std::vector<char> grounded_;
     void update_supports();
     void forget_supports(int rock);
 

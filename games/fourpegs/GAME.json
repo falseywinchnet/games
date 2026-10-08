@@ -37,5 +37,5 @@
   "libraries": [
     "fp_core"
   ],
-  "rail": true
+  "hosted": true
 }

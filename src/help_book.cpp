@@ -1,10 +1,36 @@
 #include "help_book.hpp"
 #include "help_content.hpp"
 #include "game_module.hpp"
+#include "open_link.hpp"
 #include "presentation.hpp"
 #include <algorithm>
 namespace games {
 namespace {
+std::shared_ptr<gf::Label> front_line(const std::string& id, std::string_view text, std::uint16_t weight) {
+    std::shared_ptr<gf::Label> label =
+        gf::make_control<gf::Label>(gf::StableId("help.front." + id), std::string(text));
+    (*label).set_font({gf::FontRole::content, 16, weight, false});
+    (*label).set_foreground(gf::Color::rgba(42, 38, 24));
+    (*label).set_text_wrapping(gf::TextWrapping::word);
+    return label;
+}
+// A web link whose underline is measured from the text it draws.
+class WebLink final : public gf::LinkLabel {
+  public:
+    WebLink(gf::StableId id, std::string text) : LinkLabel(std::move(id), std::move(text)) {}
+    void on_paint(gf::Painter& p, gf::Rect) override {
+        const gf::Rect r = client_rectangle();
+        const gf::Color ink = hovered_visual() ? gf::Color::rgba(20, 60, 150)
+                              : visited()      ? gf::Color::rgba(92, 52, 140)
+                                               : gf::Color::rgba(28, 82, 176);
+        const double width = p.measure_text_utf8(text(), font()).width;
+        const double baseline = (r.height + font().size) * .5 - 1;
+        p.draw_text_utf8({2, baseline}, text(), font(), ink);
+        p.draw_line({2, baseline + 2}, {2 + width, baseline + 2}, ink, 1);
+        if (focus_cue_visible())
+            p.stroke_rect({0, 0, r.width, r.height}, ink, 1);
+    }
+};
 class TopicHeading final : public gf::Button {
   public:
     TopicHeading(gf::StableId id, std::string title) : Button(std::move(id), std::move(title)) {
@@ -30,15 +56,19 @@ class TopicHeading final : public gf::Button {
 HelpGlyph::HelpGlyph(gf::StableId id, std::string glyph) : Button(std::move(id), std::move(glyph)) {
     set_font({gf::FontRole::content, 26, 600, false});
 }
+void HelpGlyph::set_ink(gf::Color ink) {
+    ink_ = ink;
+    invalidate(gf::Dirty::paint);
+}
 void HelpGlyph::on_paint(gf::Painter& p, gf::Rect) {
     const gf::Rect r = client_rectangle();
     const gf::Size size = p.measure_text_utf8(text(), font());
-    p.draw_text_utf8(
-        {(r.width - size.width) * .5, (r.height - size.height) * .5 + size.height * .8}, text(),
-        font(), gf::Color::rgba(184, 137, 42));
+    const gf::Point at{(r.width - size.width) * .5, (r.height - size.height) * .5 + size.height * .8};
+    // A soft dark edge keeps the glyph readable over bright game art.
+    p.draw_text_utf8({at.x + 1, at.y + 1.5}, text(), font(), gf::Color::rgba(0, 0, 0, 110));
+    p.draw_text_utf8(at, text(), font(), hovered_visual() ? gf::Color::rgba(255, 224, 140) : ink_);
     if (hovered_visual() || focus_cue_visible())
-        p.draw_line({8, r.height - 5}, {r.width - 8, r.height - 5}, gf::Color::rgba(184, 137, 42),
-                    1);
+        p.draw_line({8, r.height - 3}, {r.width - 8, r.height - 3}, ink_, 1);
 }
 HelpPages::HelpPages(gf::StableId id) : ScrollableControl(std::move(id)) {
     set_auto_scroll(true);
@@ -67,6 +97,22 @@ void HelpPages::add_topic(int entry, std::string topic, std::string title,
     add_child(label);
 }
 void HelpPages::initialize_control_tree() {
+    dedication_ = front_line("dedication", dedication, 600);
+    credits_ = front_line("credits", creators, 400);
+    contact_ = front_line("contact", "Contact: " + std::string(contact) + "  ·", 400);
+    sponsor_ = front_line("sponsor", sponsor, 400);
+    website_ = gf::make_control<WebLink>(gf::StableId("help.front.website"),
+                                         std::string(website));
+    (*website_).set_font({gf::FontRole::content, 16, 400, false});
+    (*website_).set_accessible_name("Open " + std::string(website) + " in the browser");
+    gf::on((*website_).clicked(), *this, &HelpPages::visit_website);
+    for (const std::shared_ptr<gf::Control>& line :
+         {std::shared_ptr<gf::Control>(dedication_), std::shared_ptr<gf::Control>(credits_),
+          std::shared_ptr<gf::Control>(contact_), std::shared_ptr<gf::Control>(website_),
+          std::shared_ptr<gf::Control>(sponsor_)}) {
+        (*line).set_paint_plane(gf::PaintPlane::overlay);
+        add_child(line);
+    }
     add_topic(-1, "", "Using PlaySuite", help_welcome);
     for (Entry entry : entries) {
         const GameDescriptor& descriptor = game_descriptor(entry);
@@ -74,7 +120,10 @@ void HelpPages::initialize_control_tree() {
         for (const HelpTopic& topic : descriptor.help_topics)
             add_topic(static_cast<int>(entry), topic.id, topic.title, topic.text);
     }
-    add_topic(-1, "about", "Dedication, credits and contact", help_about());
+    add_topic(-1, "about", "About PlaySuite", help_about());
+}
+void HelpPages::visit_website() {
+    open_link("https://" + std::string(website) + "/");
 }
 void HelpPages::select(int entry, std::string_view topic) {
     int selected = 0;
@@ -117,6 +166,18 @@ void HelpPages::arrange(gf::Rect bounds) {
     const double width = std::max(1.0, bounds.width - 24);
     std::vector<std::pair<std::shared_ptr<gf::Control>, gf::Rect>> layout;
     double y = 0;
+    for (const std::shared_ptr<gf::Label>& line : {dedication_, credits_}) {
+        const double height = (*line).measure({width - 16, 100000}).height;
+        layout.push_back({line, {8, y, width - 16, height}});
+        y += height + 2;
+    }
+    const double contact_width = (*contact_).measure({width - 16, 100000}).width;
+    const double line_height = (*contact_).measure({width - 16, 100000}).height;
+    layout.push_back({contact_, {8, y, contact_width, line_height}});
+    layout.push_back({website_, {8 + contact_width + 2, y, 180, line_height}});
+    y += line_height + 2;
+    layout.push_back({sponsor_, {8, y, width - 16, line_height}});
+    y += line_height + 18;
     for (int index : order_) {
         layout.push_back({headings_[index], {0, y, width, 36}});
         y += 44;

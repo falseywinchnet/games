@@ -37,5 +37,12 @@ void draw_birdbath_model(Canvas& canvas, const Frame& frame, const Prop& prop);
 void draw_birdbath_water(Canvas& canvas, const Frame& frame, const Prop& prop, double time);
 void draw_shed_model(Canvas& canvas, const Frame& frame, const Prop& prop, double heading, double hx, double hy);
 void draw_lounger_model(Canvas& canvas, const Frame& frame, const Prop& prop, double heading);
+// The yard's things come in kinds (prop_style in garden.hpp): a grill is a kettle
+// or (2) a barrel on a cart; a sandbox is planks (0) or a turtle; a chair is a lounger, a
+// deckchair (1, never slept on) or a lounger under a parasol (2).
+void draw_grill_model(Canvas& canvas, const Frame& frame, const Prop& prop, double heading);
+void draw_sandbox_model(Canvas& canvas, const Frame& frame, const Prop& prop, double heading);
+bool draw_chair_model(Canvas& canvas, const Frame& frame, const Prop& prop, double heading);  // false: draw the lounger
+void draw_parasol_model(Canvas& canvas, const Frame& frame, const Prop& prop, double heading);
 
 } // namespace mm

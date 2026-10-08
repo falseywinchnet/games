@@ -4,8 +4,7 @@
 namespace games {
 namespace {
 constexpr double kPad = 5, kGap = 4, kButton = 32, kIcon = 34;
-// Room around the pill for its soft shadow; the control is larger than what it draws.
-constexpr double kMargin = 14;
+constexpr double kMargin = CommandCapsule::shadow_margin;
 constexpr gf::Color rgb(int r, int g, int b, int a = 255) {
     return gf::Color::rgba(static_cast<unsigned char>(r), static_cast<unsigned char>(g),
                            static_cast<unsigned char>(b), static_cast<unsigned char>(a));
@@ -26,12 +25,12 @@ CommandCapsule::CommandCapsule(gf::StableId id, TextSprites& sprites)
 void CommandCapsule::initialize_control_tree() {
     back_ = gf::make_control<SuiteButton>(gf::StableId("capsule.back"), "", GlossTone::smoke);
     (*back_).set_glyph(Glyph::back);
-    (*back_).set_radius(15);
+    (*back_).set_radius(SuiteButton::round);
     (*back_).set_accessible_name("Back to the shelf");
     add_child(back_);
     more_ = gf::make_control<SuiteButton>(gf::StableId("capsule.more"), "", GlossTone::smoke);
     (*more_).set_glyph(Glyph::more);
-    (*more_).set_radius(15);
+    (*more_).set_radius(SuiteButton::round);
     (*more_).set_accessible_name("Keep the commands open");
     add_child(more_);
     for (int i = 0; i < 4; ++i) {

@@ -24,6 +24,9 @@
       176
     ]
   ],
+  "engines": [
+    "grass"
+  ],
   "help": "help.md",
   "module": "module.cpp",
   "cover": "cover.cpp",
@@ -39,5 +42,5 @@
   "libraries": [
     "sh_core"
   ],
-  "rail": true
+  "hosted": true
 }

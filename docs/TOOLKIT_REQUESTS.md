@@ -45,7 +45,7 @@ AGENTS.md asks for reusable capabilities to become GUI.Forms enhancements, coord
 
 1. **Retained repaints hide directly presented live views until their next frame.** A full-window repaint (an expose, or `PrintWindow` during automated captures) redraws a direct-presented view from its retained `on_paint`, which is the game's fallback fill. The live pixels return only when the game publishes a new generation, so a game that publishes rarely can look blank after an expose. Automated screenshots must therefore copy from the screen. A fix would be for the retained repaint to composite each registered surface's latest published frame. In the transactional DIB mode, `present_live_surface_updates` also skips presenting while other damage is pending, which makes needless invalidation costly. The PlaySuite shell avoids it: for example, button setters return early when nothing changed. Each integrated vendor view now also records `draw_live_surface` during ordinary painting so an expose or the help document can restore the latest complete frame without waiting for another publication.
 
-2. **Ordinary controls over a live view.** Only `PaintPlane::overlay` controls are subtracted from direct presentation. The repaint of an ordinary control that overlaps a live view overwrites live pixels until the next frame. The PlaySuite capsule therefore stays within the rail above the four live-surface games.
+2. **Ordinary controls over a live view.** Only `PaintPlane::overlay` controls are subtracted from direct presentation. The repaint of an ordinary control that overlaps a live view overwrites live pixels until the next frame. Overlay controls are correct over a live view, but on macOS they are expensive: with the PlaySuite capsule and help floating over a hosted game (2026-10-08, M4, 1100 x 720 at scale 2), the process used about half a core for as long as the game was open, every game alike, whether or not its picture moved (Koi-Koi 3.2 s against 15.5 s of CPU over 30 s; Maze 1.0 s against 14.9 s; Stillwater's 28 frames a second each became a full-window paint). The capsule therefore stays within a rail above the live-surface games; the card, Sudoku and puzzle games have the whole window. The request: when overlays cover only part of a live view, present the live frame directly everywhere else and repaint just the overlays' rectangles, and do no work at all for a wake that changes nothing. Then the rail can go.
 
 3. **Letter spacing drops characters.** With `FontSpec::letter_spacing` above zero, the Win32 DIB text path dropped or overlapped spaces, periods and digits. Examples: "Welcome back. Your…" rendered as "Welcome backYour", and "MISTAKES 0" overlapped. Games now uses letter spacing only on static uppercase captions.
 
@@ -180,3 +180,12 @@ enlarging copy.
    shape changes. A property-sheet control fed by such a model (with
    toggle, choice and slider rows and keyboard order) would serve other
    applications' preference screens.
+
+## Opening a web address (found with the help credits, 2026-10-08)
+
+1. **A platform "open this URL" service.** `LinkLabel` draws and activates a link, but
+   GUI.Forms has no way to hand an address to the system browser. `src/open_link.*`
+   does it for the shell's own fixed address (`/usr/bin/open` on macOS, `xdg-open` on
+   Linux, `ShellExecuteW` on Windows). A host service beside the clipboard and dialogs
+   would let any application do this without platform code. `LinkLabel` also sizes its
+   underline from an estimated text width; the help page draws its own measured one.

@@ -55,13 +55,6 @@ class PuzzleScenePart final : public gf::Control {
             owner_.paint_gems(painter, part_);
         else
             owner_.paint_untangle(painter, part_);
-        if (part_ == 2) {
-            const double height = client_rectangle().height;
-            owner_.text(painter, 17, height - 11, owner_.game.message, 13,
-                        gf::Color::rgba(0, 0, 0, 120));
-            owner_.text(painter, 16, height - 12, owner_.game.message, 13,
-                        gf::Color::rgba(231, 238, 247));
-        }
     }
 
   private:
@@ -205,8 +198,6 @@ void PuzzleView::present_framebuffer(gf::Rect damage) {
         paint_untangle(painter, 1);
         paint_untangle(painter, 2);
     }
-    text(painter, 17, bounds.height - 11, game.message, 13, gf::Color::rgba(0, 0, 0, 120));
-    text(painter, 16, bounds.height - 12, game.message, 13, gf::Color::rgba(231, 238, 247));
     target.end();
     gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write();
     if (lease) {
@@ -380,8 +371,9 @@ void PuzzleView::arrange(gf::Rect b) {
     if (game.kind == PuzzleKind::solve)
         layout_solve(b);
     if (game.kind == PuzzleKind::gems || game.kind == PuzzleKind::untangle) {
-        // Centered when narrow; with room, a legend card sits to the left.
-        const bool wide = b.width >= 900;
+        // Centered when narrow; with room, Untangle's legend card sits to the left. Gems
+        // explains itself in the help document and is always centered.
+        const bool wide = b.width >= 900 && game.kind == PuzzleKind::untangle;
         // Untangle's cushion and status line need room below the board.
         const double below = game.kind == PuzzleKind::untangle ? 64 : 0;
         const double gside = std::max(
@@ -890,34 +882,6 @@ void PuzzleView::paint_gems(gf::Painter& p, int part) {
                                   gf::Point{0, 2}, gf::Point{2, 3}})
             p.draw_text_utf8({x + o.x, y + o.y}, callout_, f, gf::Color::rgba(60, 20, 70, alpha));
         p.draw_text_utf8({x, y}, callout_, f, gf::Color::rgba(255, 226, 140, alpha));
-    }
-    // Legend card (left), shown when there is room.
-    if ((part < 0 || part == 2) && board_.x > 230) {
-        const gf::Rect card{std::max(14.0, board_.x - 250), board_.y, 214, 300};
-        p.draw_box_shadow(card, 8, {0, 4}, 12, 0, gf::Color::rgba(0, 0, 0, 110));
-        fill_vertical(p, card, gf::Color::rgba(58, 36, 92, 235), gf::Color::rgba(36, 22, 60, 235));
-        p.stroke_rounded_rect(card, 8, gf::Color::rgba(255, 210, 122, 90), 1);
-        const gf::FontSpec caps{gf::FontRole::content, 11, 700, false, 1.2};
-        p.draw_text_utf8({card.x + 14, card.y + 24}, "HOW GEMS WORK", caps,
-                         gf::Color::rgba(255, 222, 150));
-        const gf::FontSpec body{gf::FontRole::content, 13, 400, false};
-        const gf::Color ink2 = gf::Color::rgba(236, 226, 248),
-                        soft = gf::Color::rgba(190, 176, 214);
-        p.draw_text_utf8({card.x + 14, card.y + 52}, "Click a gem, then a neighbor,", body, ink2);
-        p.draw_text_utf8({card.x + 14, card.y + 72}, "or drag it. Line up three.", body, ink2);
-        const char* rows[][2] = {{"Four in a row", "makes a bomb"},
-                                 {"T or L shape", "makes a star"},
-                                 {"Five in a row", "makes a hypercube"}};
-        for (int i = 0; i < 3; ++i) {
-            p.draw_text_utf8({card.x + 14, card.y + 110 + i * 42}, rows[i][0],
-                             {gf::FontRole::content, 13, 700, false}, ink2);
-            p.draw_text_utf8({card.x + 14, card.y + 128 + i * 42}, rows[i][1], body, soft);
-        }
-        p.draw_text_utf8({card.x + 14, card.y + 250}, "Bombs and stars go off when", body, soft);
-        p.draw_text_utf8({card.x + 14, card.y + 268}, "matched with their own color.", body, soft);
-        p.draw_text_utf8({card.x + 14, card.y + 290},
-                         std::to_string(game.gem_colors()) + " colors in play",
-                         {gf::FontRole::content, 13, 700, false}, gf::Color::rgba(255, 222, 150));
     }
 }
 double PuzzleView::untangle_radius() const {
@@ -2372,12 +2336,12 @@ void PuzzleView::on_paint(gf::Painter& p, gf::Rect) {
             paint_solve(p);
         else if (game.kind == PuzzleKind::sticks)
             paint_sticks(p);
-        // Puzzle Solve's wall is light plaster: its status line is dark ink.
-        const bool plaster = game.kind == PuzzleKind::solve;
-        text(p, 17, b.height - 11, game.message, 13,
-             plaster ? gf::Color::rgba(255, 255, 255, 140) : gf::Color::rgba(0, 0, 0, 120));
-        text(p, 16, b.height - 12, game.message, 13,
-             plaster ? gf::Color::rgba(46, 52, 62) : ink);
+        // Gems, Untangle and Puzzle Solve explain themselves in help: no commentary line.
+        if (game.kind != PuzzleKind::solve && game.kind != PuzzleKind::gems &&
+            game.kind != PuzzleKind::untangle) {
+            text(p, 17, b.height - 11, game.message, 13, gf::Color::rgba(0, 0, 0, 120));
+            text(p, 16, b.height - 12, game.message, 13, ink);
+        }
     }
     if (!panel_)
         return;

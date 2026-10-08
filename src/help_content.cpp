@@ -5,9 +5,7 @@ std::string_view help_text(Entry entry) {
     return valid_entry(entry) ? game_descriptor(entry).help : "";
 }
 std::string help_about() {
-    return std::string(dedication) + "\n\n" + std::string(creators) +
-           "\nAuthor: Astra\nSponsor: Rainstar\nContact: " + std::string(contact) +
-           "\n\nPlaySuite is a collection of " + std::to_string(entry_count) +
+    return "PlaySuite is a collection of " + std::to_string(entry_count) +
            " games built with GUI.Forms. The card faces and backs are original artwork; "
            "the felt uses Plan Paint's fiber and light renderer. Music, effects and game "
            "data are stored locally. There are no accounts, advertisements or network "

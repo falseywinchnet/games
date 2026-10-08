@@ -461,7 +461,9 @@ void SheepView::tick() {
     if (phase_ != Phase::loading) animate(dt);
     {
         const bool on = (opt_.hosted || music_) && cab_music_ && cab_front_;
-        audio_music(visible() && cab_front_ ? (level_ % 2 ? "sh_music" : "sh_music_grass") : "", on);  // "Pasture Haze" on odd meadows, "Long Grass" on even
+        // Four tracks in turn, meadow by meadow: "Pasture Haze", "Long Grass", "Cloud Choir", "Morning Bells".
+        static const char* const tracks[4] = {"sh_music_bells", "sh_music", "sh_music_grass", "sh_music_choir"};
+        audio_music(visible() && cab_front_ ? tracks[((level_ % 4) + 4) % 4] : "", on);
     }
     audio_tick(dt);
     save_t_ += dt;

@@ -11,6 +11,49 @@
 namespace games {
 // The PlaySuite capsule floats above the board.
 static constexpr double kTop = 54;
+namespace {
+// A digit (or the eraser) set into the paper beside the board: it lights white under
+// the pointer and gold while it is the chosen tool.
+class PadNumeral final : public gf::Button {
+  public:
+    PadNumeral(gf::StableId id, std::string text) : Button(std::move(id), std::move(text)) {}
+    bool chosen = false, dark = false;
+    void on_paint(gf::Painter& p, gf::Rect) override {
+        const gf::Rect r = client_rectangle();
+        const bool hot = (hovered_visual() || pressed_visual()) && enabled();
+        const gf::Color gold = gf::Color::rgba(255, 196, 72);
+        const gf::Color white = gf::Color::rgba(255, 255, 255);
+        const gf::Color sunk = !enabled() ? (dark ? gf::Color::rgba(255, 255, 255, 12)
+                                                  : gf::Color::rgba(28, 60, 110, 22))
+                                          : (dark ? gf::Color::rgba(160, 196, 240, 70)
+                                                  : gf::Color::rgba(40, 76, 130, 70));
+        const gf::Color ink = chosen ? gold : hot ? white : sunk;
+        if (chosen || hot) {
+            const gf::GradientStop glow[] = {
+                {0, chosen ? gf::Color::rgba(255, 190, 60, 120)
+                           : dark ? gf::Color::rgba(200, 225, 255, 70)
+                                  : gf::Color::rgba(40, 90, 170, 90)},
+                {1, gf::Color::rgba(255, 255, 255, 0)}};
+            p.fill_radial_gradient(r, {r.width * .5, r.height * .5},
+                                   {r.width * .6, r.height * .6}, glow);
+        }
+        const gf::FontSpec f{gf::FontRole::content, std::min(r.height * .86, r.width * .8), 700,
+                             false};
+        const gf::Size m = p.measure_text_utf8(text(), f);
+        const gf::Point at{(r.width - m.width) * .5, r.height * .5 + f.size * .36};
+        // Pressed into the paper: a light edge below, a shadow above.
+        if (!chosen && !hot && enabled())
+            p.draw_text_utf8({at.x, at.y + 1}, text(), f,
+                             dark ? gf::Color::rgba(0, 0, 0, 90) : gf::Color::rgba(255, 255, 255, 160));
+        if (chosen || hot)
+            p.draw_text_utf8({at.x, at.y + 1.5}, text(), f,
+                             chosen ? gf::Color::rgba(120, 70, 0, 150) : gf::Color::rgba(10, 30, 70, 120));
+        p.draw_text_utf8(at, text(), f, ink);
+        if (focus_cue_visible())
+            p.stroke_rounded_rect({2, 2, r.width - 4, r.height - 4}, 6, ink, 1.5);
+    }
+};
+} // namespace
 static std::filesystem::path sudoku_path() {
     return cabinet_path().parent_path() / "sudoku-v1.txt";
 }
@@ -29,12 +72,17 @@ void SudokuView::initialize_control_tree() {
                             "6",        "7",     "8",          "9",
                             "Erase",    "Close", "Save name",  "New game"};
     for (int i = 0; i < 20; ++i) {
-        std::shared_ptr<SuiteButton> button =
-            gf::make_control<SuiteButton>(gf::StableId("sudoku." + std::to_string(i)), labels[i],
-                                          game.dark ? GlossTone::smoke : GlossTone::chrome);
-        (*button).set_radius(i >= 7 && i <= 16 ? 6 : 4);
-        (*button).set_font({gf::FontRole::content, i >= 7 && i <= 15 ? 18.0 : 14.0, 700, false});
-        buttons_[i] = button;
+        if (i >= 7 && i <= 16) {
+            buttons_[i] = gf::make_control<PadNumeral>(gf::StableId("sudoku." + std::to_string(i)),
+                                                       i == 16 ? "×" : labels[i]);
+        } else {
+            std::shared_ptr<SuiteButton> button = gf::make_control<SuiteButton>(
+                gf::StableId("sudoku." + std::to_string(i)), labels[i],
+                game.dark ? GlossTone::smoke : GlossTone::chrome);
+            (*button).set_radius(4);
+            (*button).set_font({gf::FontRole::content, 14.0, 700, false});
+            buttons_[i] = button;
+        }
         (*buttons_[i]).set_accessible_name(labels[i]);
         add_child(buttons_[i]);
         subscriptions_.push_back(
@@ -84,16 +132,16 @@ void SudokuView::activate() {
 }
 void SudokuView::arrange(gf::Rect bounds) {
     arrange_self(bounds);
-    // The board takes what the window allows below the capsule; the digit pad scales with it.
-    const double pad_h = std::clamp(bounds.height * .06, 30.0, 38.0);
-    cell_ = std::clamp(std::min((bounds.height - kTop - pad_h - 62) / 9, (bounds.width - 24) / 9),
+    // The board takes what the window allows below the capsule; the digits stand in a
+    // column beside it, one tenth of its height each.
+    cell_ = std::clamp(std::min((bounds.height - kTop - 40) / 9, (bounds.width - 40) / 10.3),
                        22.0, 62.0);
-    board_ = {std::round((bounds.width - cell_ * 9) * .5), kTop + 22, cell_ * 9, cell_ * 9};
-    const double pad_w = std::min(580.0, bounds.width - 16), unit = pad_w / 10.2;
+    const double column = cell_ * 1.1, gap = cell_ * .2;
+    const double left = std::round((bounds.width - column - gap - cell_ * 9) * .5);
+    board_ = {left + column + gap, kTop + 22, cell_ * 9, cell_ * 9};
+    const double unit = board_.height / 10;
     for (int i = 7; i < 17; ++i)
-        set_child_layout(buttons_[i], {(bounds.width - pad_w) * .5 + (i - 7) * unit,
-                                       board_.y + board_.height + 10,
-                                       i == 16 ? unit * 1.18 : unit * .84, pad_h});
+        set_child_layout(buttons_[i], {left, board_.y + (i - 7) * unit, column, unit});
     popup_ = {std::max(8.0, bounds.width * .5 - 310), kTop + 6, std::min(620.0, bounds.width - 16),
               std::min(515.0, bounds.height - kTop - 14)};
     set_child_layout(buttons_[17], {popup_.x + 512, popup_.y + 18, 85, 32});
@@ -105,19 +153,23 @@ void SudokuView::text(gf::Painter& p, double x, double y, const std::string& val
                       gf::Color color) {
     p.draw_text_utf8({x, y}, value, {gf::FontRole::content, size, 600, false}, color);
 }
-// Finished digits are greyed on the pad; the chosen digit is gold.
+// Finished digits sink into the paper; the chosen tool (a digit or the eraser) is gold.
 void SudokuView::refresh_pad() {
     std::array<int, 10> placed{};
     for (int i = 0; i < 81; ++i)
         if (game.grid.values[i] && game.grid.values[i] == game.solution[i])
             ++placed[game.grid.values[i]];
-    for (int n = 1; n <= 9; ++n) {
-        std::shared_ptr<SuiteButton> button =
-            std::static_pointer_cast<SuiteButton>(buttons_[static_cast<std::size_t>(n + 6)]);
-        (*button).set_checked(n == digit_);
-        const bool usable = placed[n] < 9 && !panel_ && !busy_;
-        if ((*button).enabled() != usable)
-            (*button).set_enabled(usable);
+    for (int n = 1; n <= 10; ++n) {
+        PadNumeral& numeral = static_cast<PadNumeral&>(*buttons_[static_cast<std::size_t>(n + 6)]);
+        const int tool = n == 10 ? 0 : n;
+        const bool usable = (n == 10 || placed[n] < 9) && !panel_ && !busy_;
+        if (numeral.chosen != (tool == digit_) || numeral.dark != game.dark) {
+            numeral.chosen = tool == digit_;
+            numeral.dark = game.dark;
+            numeral.invalidate(gf::Dirty::paint);
+        }
+        if (numeral.enabled() != usable)
+            numeral.set_enabled(usable);
     }
 }
 void SudokuView::on_paint(gf::Painter& p, gf::Rect) {
@@ -139,7 +191,9 @@ void SudokuView::on_paint(gf::Painter& p, gf::Rect) {
     p.fill_rounded_rect(card, 8, paper);
     p.stroke_rounded_rect(
         card, 8, dark ? gf::Color::rgba(80, 120, 170, 120) : gf::Color::rgba(160, 182, 210), 1);
-    int focus = hover_ >= 0 ? hover_ : selected_;
+    // The square being worked is marked only for the keyboard; the pointer marks itself.
+    const int cursor = keyboard_ ? selected_ : -1;
+    int focus = hover_ >= 0 ? hover_ : cursor;
     int match = focus >= 0 ? game.grid.values[focus] : 0;
     double elapsed =
         std::chrono::duration<double>(gf::FrameClock::now() - celebration_start_).count();
@@ -158,7 +212,7 @@ void SudokuView::on_paint(gf::Painter& p, gf::Rect) {
         if (same)
             p.fill_rect(r, dark ? gf::Color::rgba(90, 170, 255, 80)
                                 : gf::Color::rgba(28, 98, 190, 46));
-        if (i == selected_)
+        if (i == cursor)
             p.fill_rect(r, dark ? gf::Color::rgba(255, 210, 122, 60)
                                 : gf::Color::rgba(255, 214, 120, 110));
         bool celebrate = false;
@@ -206,7 +260,7 @@ void SudokuView::on_paint(gf::Painter& p, gf::Rect) {
         p.draw_line({board_.x, board_.y + i * cell_},
                     {board_.x + board_.width, board_.y + i * cell_}, line, major ? 2.2 : 1);
     }
-    if (selected_ >= 0)
+    if (cursor >= 0)
         p.stroke_rect({board_.x + (selected_ % 9) * cell_ + 1.5,
                        board_.y + (selected_ / 9) * cell_ + 1.5, cell_ - 3, cell_ - 3},
                       dark ? gf::Color::rgba(255, 210, 122) : gf::Color::rgba(200, 140, 30), 2);
@@ -218,12 +272,17 @@ void SudokuView::on_paint(gf::Painter& p, gf::Rect) {
     p.draw_text_utf8({board_.x, board_.y - 16}, left, pill,
                      game.errors ? gf::Color::rgba(214, 64, 78) : ink);
     const std::string right =
-        notes_ ? "NOTES ON  ·  DIGIT " + std::to_string(digit_) : "DIGIT " + std::to_string(digit_);
+        (notes_ ? std::string("NOTES ON  ·  ") : std::string()) +
+        (digit_ == 0 ? std::string("ERASER") : "DIGIT " + std::to_string(digit_));
     const gf::Size rm = p.measure_text_utf8(right, pill);
     p.draw_text_utf8({board_.x + board_.width - rm.width, board_.y - 16}, right, pill, blue);
-    p.draw_text_utf8({16, b.height - 10},
-                     busy_ ? "Generating a unique puzzle offline…" : game.message,
-                     {gf::FontRole::content, 13, 400, false}, ink);
+    if (busy_) {
+        const gf::FontSpec note{gf::FontRole::content, 15, 600, false};
+        const std::string making = "Making a new puzzle…";
+        p.draw_text_utf8({board_.x + (board_.width - p.measure_text_utf8(making, note).width) * .5,
+                          board_.y + board_.height + 24},
+                         making, note, ink);
+    }
     if (!panel_)
         return;
     p.fill_rect(b, gf::Color::rgba(6, 18, 34, 135));
@@ -234,7 +293,7 @@ void SudokuView::on_paint(gf::Painter& p, gf::Rect) {
     p.draw_line({popup_.x + 28, popup_.y + 54}, {popup_.x + 140, popup_.y + 54}, blue, 2);
     if (panel_ == 1) {
         const char* lines[] = {"Fill each row, column, and 3 × 3 box with digits 1–9.",
-                               "Choose a digit below the board. Click to set; right click to note.",
+                               "Choose a digit beside the board. Click to set; right click to note.",
                                "Keyboard: arrows move; type a digit to set it; N toggles notes.",
                                "Backspace erases. Z undoes. Mistakes stay counted after undo.",
                                "Hover a filled square to highlight its digit, row, and column.",
@@ -412,9 +471,10 @@ void SudokuView::action(gf::ButtonBase& button) {
     if (index == 3) {
         game.dark = !game.dark;
         set_theme_override(games_theme(game.dark ? ButtonSkin::slate : ButtonSkin::blue));
-        for (const std::shared_ptr<gf::Button>& button : buttons_)
-            (*std::static_pointer_cast<SuiteButton>(button))
-                .set_tone(game.dark ? GlossTone::smoke : GlossTone::chrome);
+        for (std::size_t i = 0; i < buttons_.size(); ++i)
+            if (i < 7 || i > 16)
+                (*std::static_pointer_cast<SuiteButton>(buttons_[i]))
+                    .set_tone(game.dark ? GlossTone::smoke : GlossTone::chrome);
         persist();
         music_play(game.dark ? "sudoku_night" : "sudoku_day", music_);
     }
@@ -430,7 +490,7 @@ void SudokuView::action(gf::ButtonBase& button) {
     if (index >= 7 && index <= 15)
         digit_ = index - 6;
     if (index == 16)
-        edit(0, false);
+        digit_ = 0; // the eraser: the next square clicked is cleared
     if (index == 17)
         panel(0);
     if (index == 18) {
@@ -463,8 +523,9 @@ void SudokuView::on_pointer(gf::PointerEvent& e) {
         selected_ = cell;
         if (attached_window())
             static_cast<void>((*attached_window()).request_focus(shared_from_this()));
-        edit(digit_, notes_ || e.button == gf::PointerButton::secondary);
-        invalidate(board_);
+        keyboard_ = false;
+        edit(digit_, digit_ != 0 && (notes_ || e.button == gf::PointerButton::secondary));
+        invalidate(gf::Dirty::paint);
         e.handled = true;
     }
 }
@@ -499,6 +560,7 @@ void SudokuView::on_key(gf::KeyEvent& e) {
         edit(0, false);
     else
         return;
+    keyboard_ = true;
     hover_ = -1;
     invalidate(gf::Dirty::paint);
     e.handled = true;
@@ -506,6 +568,7 @@ void SudokuView::on_key(gf::KeyEvent& e) {
 void SudokuView::on_text_input(gf::TextInputEvent& e) {
     if (e.text_utf8.size() == 1 && e.text_utf8[0] >= '1' && e.text_utf8[0] <= '9' && !panel_) {
         digit_ = e.text_utf8[0] - '0';
+        keyboard_ = true;
         edit(digit_, notes_);
         e.handled = true;
     }

@@ -114,6 +114,8 @@ class ShelfView final : public gf::Control {
     void set_reduced(bool reduced);
     void set_progress(Entry entry, bool started);
     void focus_selection();
+    // Where help's ? sits on a shelf of this size: at the end of the row of switches.
+    [[nodiscard]] static gf::Rect help_slot(gf::Size size);
     std::function<void(Entry)> open;
 
   private:
@@ -121,7 +123,6 @@ class ShelfView final : public gf::Control {
     std::array<std::shared_ptr<ShelfBox>, entry_count> boxes_{};
     std::shared_ptr<ShelfRows> rows_;
     std::shared_ptr<LaunchCurtain> curtain_;
-    std::shared_ptr<gf::Label> credits_;
     bool launching_ = false;
     double launch_t_ = 0;
     void launch(Entry entry);
@@ -129,7 +130,7 @@ class ShelfView final : public gf::Control {
     std::unique_ptr<gf::Timer> timer_;
     std::chrono::steady_clock::time_point last_{};
     Entry selection_ = entries.front();
-    Entry shown_ = entries.front(); // the box the ticket describes: hovered, else chosen
+    Entry shown_ = entries.front(); // the box the ticket describes: last hovered or chosen
     std::array<bool, entry_count> started_{};
     bool reduced_ = false;
     gf::Rect header_{}, ticket_{};

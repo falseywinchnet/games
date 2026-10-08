@@ -35,7 +35,7 @@ class SudokuView final : public gf::Control, public CommandSource {
     gf::Rect board_{}, popup_{};
     double cell_ = 50;
     int selected_ = 0, hover_ = -1, digit_ = 1, panel_ = 0, difficulty_ = 0;
-    bool notes_ = false, busy_ = false;
+    bool notes_ = false, busy_ = false, keyboard_ = false;
     bool sound_ = true, music_ = true, reduced_ = false;
     std::vector<int> celebrated_;
     gf::FrameTime celebration_start_{};

@@ -84,6 +84,13 @@ struct Prop {
     std::uint64_t seed{};
 };
 
+// Which kind of a thing it is, from its own seed: 0, 1 or 2. A grill is a kettle or (2) a
+// barrel on a cart; a sandbox is planks (0) or a turtle; a chair is a lounger, a deckchair
+// (1) or a lounger under a parasol (2).
+inline int prop_style(const Prop& prop) {
+    return static_cast<int>((prop.seed >> 33U) % 3U);
+}
+
 struct Mushroom {
     double x{};
     double y{};

@@ -16,6 +16,8 @@ class CommandCapsule final : public gf::Control {
   public:
     CommandCapsule(gf::StableId id, TextSprites& sprites);
     static constexpr bool initialize_tree_after_construction = true;
+    // Room round the pill for its soft shadow: the control is this much larger than the pill.
+    static constexpr double shadow_margin = 14;
     void initialize_control_tree();
     void arrange(gf::Rect bounds) override;
     void on_paint(gf::Painter& painter, gf::Rect damage) override;

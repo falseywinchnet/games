@@ -50,8 +50,12 @@ and keeps it heavenly rather than uneasy:
 - **Space:** an airy reverb and a wide stereo image.
 
 It matches the original's frequency balance, stereo width and mix of intervals.
-"Long Grass", an earlier, more melodic piece in the same key and spirit, plays
-on every even meadow. Everything is synthesized (`audio_src/`).
+"Long Grass", an earlier, more melodic piece in the same key and spirit, and two
+more heavenly tracks (`audio_src/angel_music.py`) take turns with it, meadow by
+meadow: "Cloud Choir", a wordless choir singing "ah" through Cmaj9, Am9,
+Fmaj9#11 and G6/9sus with glass tones above, and "Morning Bells", glass bells
+wandering in G pentatonic over a hushed string pad. Everything is synthesized
+(`audio_src/`).
 
 ## Build
 

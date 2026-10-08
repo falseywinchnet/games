@@ -182,9 +182,13 @@ lifetime totals.
 
 ## The rail and the surface
 
-A kit game draws its own pixels into a `LiveSurface`. The shell reserves a slim
-rail, 50 points high, across the top for the capsule, and lays the game out below
-it. The shared help document uses the toolkit overlay plane. Keep the template's
+A kit game draws its own pixels into a `LiveSurface`, and `"hosted": true` in
+`GAME.json` says so (the shell then also leaves the game its own music). The shell
+reserves a slim rail, 50 points high, across the top for the capsule, and lays the
+game out below it. Games drawn with ordinary controls (the cards, Sudoku, the puzzles)
+have the whole window and the capsule floats over them; a live surface may not be
+overlapped, because on macOS an overlay over it sends every frame down the slow paint
+path. The shared help document uses the toolkit overlay plane. Keep the template's
 `on_paint` surface replay: ordinary exposes must restore the latest complete
 frame even when no animation is publishing.
 

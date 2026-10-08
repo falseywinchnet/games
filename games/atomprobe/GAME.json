@@ -37,5 +37,5 @@
   "libraries": [
     "ap_core"
   ],
-  "rail": true
+  "hosted": true
 }
