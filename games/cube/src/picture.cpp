@@ -1,5 +1,7 @@
 #include "picture.hpp"
 
+#include "r2d.hpp"
+
 #include "inflate.hpp"
 
 #include <algorithm>
@@ -147,17 +149,11 @@ bool decode_png(std::span<const std::uint8_t> file, Picture& out) {
     return true;
 }
 
-void cover(const Picture& picture, std::uint8_t* frame, int width, int height, std::size_t row_bytes) {
+void cover(const Picture& picture, const render::Target& target) {
+    const int width = target.width;
+    const int height = target.height;
     if (picture.width <= 0 || width <= 0 || height <= 0) {
-        for (int y = 0; y < height; ++y) {
-            std::uint8_t* row = frame + static_cast<std::size_t>(y) * row_bytes;
-            for (int x = 0; x < width; ++x) {
-                row[x * 4] = 60;
-                row[x * 4 + 1] = 62;
-                row[x * 4 + 2] = 40;
-                row[x * 4 + 3] = 255;
-            }
-        }
+        render::r2d::fill(target, target.bounds(), render::Color{40, 62, 60});
         return;
     }
     const double fit = std::max(static_cast<double>(width) / picture.width, static_cast<double>(height) / picture.height);
@@ -168,7 +164,7 @@ void cover(const Picture& picture, std::uint8_t* frame, int width, int height, s
     const double darken = 1 - 56.0 / 255;
     const double tint[3] = {8 * (1 - darken), 24 * (1 - darken), 24 * (1 - darken)};
     for (int y = 0; y < height; ++y) {
-        std::uint8_t* row = frame + static_cast<std::size_t>(y) * row_bytes;
+        std::uint32_t* row = target.row(y);
         for (int x = 0; x < width; ++x) {
             double sum[3] = {0, 0, 0};
             for (int j = 0; j < taps; ++j) {
@@ -183,10 +179,9 @@ void cover(const Picture& picture, std::uint8_t* frame, int width, int height, s
                 }
             }
             const double n = taps * taps;
-            row[x * 4] = static_cast<std::uint8_t>(std::clamp(sum[2] / n * darken + tint[2], 0.0, 255.0));
-            row[x * 4 + 1] = static_cast<std::uint8_t>(std::clamp(sum[1] / n * darken + tint[1], 0.0, 255.0));
-            row[x * 4 + 2] = static_cast<std::uint8_t>(std::clamp(sum[0] / n * darken + tint[0], 0.0, 255.0));
-            row[x * 4 + 3] = 255;
+            row[x] = render::pack(target.order, static_cast<float>(sum[0] / n * darken + tint[0]),
+                                  static_cast<float>(sum[1] / n * darken + tint[1]),
+                                  static_cast<float>(sum[2] / n * darken + tint[2]));
         }
     }
 }

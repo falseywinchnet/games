@@ -1,17 +1,17 @@
 # Included by the generated registry (and by the standalone build), with GAME_MODULE_DIR
 # set to this folder. The core is portable: rules, solver, generator, saves, motion and
-# the cube's rasteriser. The view is compiled only into the application.
+# the cube's scene. The view is compiled only into the application.
 if(NOT DEFINED PLAYSUITE_SOURCE_DIR)
   set(PLAYSUITE_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
 endif()
 add_library(cube_core STATIC
   "${GAME_MODULE_DIR}/src/cube.cpp" "${GAME_MODULE_DIR}/src/solver.cpp"
   "${GAME_MODULE_DIR}/src/generator.cpp" "${GAME_MODULE_DIR}/src/session.cpp"
-  "${GAME_MODULE_DIR}/src/stage.cpp" "${GAME_MODULE_DIR}/src/raster3d.cpp"
-  "${GAME_MODULE_DIR}/src/scene.cpp" "${GAME_MODULE_DIR}/src/picture.cpp")
+  "${GAME_MODULE_DIR}/src/stage.cpp" "${GAME_MODULE_DIR}/src/scene.cpp"
+  "${GAME_MODULE_DIR}/src/picture.cpp")
 target_include_directories(cube_core PUBLIC "${GAME_MODULE_DIR}/src")
-# The ambient engine's inflate decodes the lake picture's PNG.
-target_link_libraries(cube_core PUBLIC ambient_core)
+# The ambient engine's inflate decodes the lake picture's PNG; the shared renderer draws.
+target_link_libraries(cube_core PUBLIC ambient_core render_core)
 target_compile_features(cube_core PUBLIC cxx_std_20)
 target_compile_definitions(cube_core PRIVATE _USE_MATH_DEFINES)
 if(NOT MSVC)
