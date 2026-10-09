@@ -135,6 +135,7 @@ void Collection::on_detaching_from_window(gf::Window& window) noexcept {
     sprites_.release(window);
 }
 bool Collection::hosted(Entry entry) const { return game_descriptor(entry).hosted; }
+bool Collection::railed(Entry entry) const { return game_descriptor(entry).rail; }
 std::shared_ptr<gf::Control> Collection::view(Entry entry) const {
     const std::map<Entry,std::unique_ptr<GameInstance>>::const_iterator found = games_.find(entry);
     return found == games_.end() ? nullptr : (*(*found).second).control();
@@ -170,7 +171,7 @@ void Collection::tick() {
             (*timer_).stop();
         return;
     }
-    const gf::Rect area{0, 0, client_rectangle().width - 48, hosted(active_) ? current_rail_height_ : 60.0};
+    const gf::Rect area{0, 0, client_rectangle().width - 48, railed(active_) ? current_rail_height_ : 60.0};
     gf::Rect r = (*capsule_).placement(area);
     // The placement includes the shadow margin, which doubles as a forgiving hover border.
     const bool inside = pointer_.x >= r.x && pointer_.x <= r.x + r.width && pointer_.y >= r.y - 8 &&
@@ -330,17 +331,17 @@ void Collection::arrange(gf::Rect b) {
     current_rail_height_ = std::max(rail_height, capsule_bounds.y + capsule_bounds.height);
     const gf::Rect below{0, current_rail_height_, b.width,
                          std::max(0.0, b.height - current_rail_height_)};
-    // Still games have the whole window and the capsule floats over them. A hosted game's
-    // live surface sits below a rail: on macOS any overlay over a live surface sends every
-    // frame down the ordinary paint path, about half a core for as long as the game is
-    // open (docs/TOOLKIT_REQUESTS.md), so nothing may overlap it.
-    const bool railed = !shelf_open_ && hosted(active_);
+    // Games have the whole window and the capsule floats over them, live surfaces included:
+    // GUI.Forms repaints only the capsule's share of a live frame beneath it. A game whose
+    // own controls sit where the capsule floats keeps a rail ("rail": true in GAME.json)
+    // until they move.
+    const bool on_rail = !shelf_open_ && railed(active_);
     for (const std::shared_ptr<gf::Control>& child : children())
         if (!overlay(child) && (*child).visible())
-            set_child_layout(child, railed ? below : full);
+            set_child_layout(child, on_rail ? below : full);
     set_child_layout(shelf_, full);
-    gf::Rect capsule = (*capsule_).placement({0, 0, b.width - 48, railed ? current_rail_height_ : 60.0});
-    if (railed)
+    gf::Rect capsule = (*capsule_).placement({0, 0, b.width - 48, on_rail ? current_rail_height_ : 60.0});
+    if (on_rail)
         capsule.height = std::min(capsule.height, current_rail_height_ - capsule.y);
     set_child_layout(capsule_, capsule);
     // Help continues the shelf's row of switches; in a game it stands still at the top right.
@@ -351,9 +352,9 @@ void Collection::arrange(gf::Rect b) {
     set_child_layout(settings_, full);
 }
 void Collection::on_paint(gf::Painter& p, gf::Rect) {
-    if (shelf_open_ || !hosted(active_))
+    if (shelf_open_ || !railed(active_))
         return;
-    // The rail above live-surface games: graphite with a gold hairline.
+    // The rail above games that keep one: graphite with a gold hairline.
     const gf::Rect b = client_rectangle();
     fill_vertical(p, {0, 0, b.width, current_rail_height_}, gf::Color::rgba(49, 58, 73),
                   gf::Color::rgba(26, 31, 42));

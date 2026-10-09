@@ -43,5 +43,6 @@
   "libraries": [
     "sh_core"
   ],
-  "hosted": true
+  "hosted": true,
+  "rail": true
 }

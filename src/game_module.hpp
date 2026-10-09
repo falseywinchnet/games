@@ -84,6 +84,7 @@ struct GameDescriptor {
     const char* help;
     std::vector<HelpTopic> help_topics;
     bool hosted; // draws its own live surface and plays its own music
+    bool rail;   // the capsule sits on a rail above the game instead of floating over it
     std::unique_ptr<GameInstance> (*create)(ModuleContext&);
     void (*cover)(gf::Painter&,gf::Rect);
 };

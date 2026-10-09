@@ -91,6 +91,8 @@ class Collection final : public gf::Control, public HelpHost {
     void clicked_help();
     // A hosted game draws its own live surface below the rail and plays its own music.
     [[nodiscard]] bool hosted(Entry entry) const;
+    // A game whose top edge the floating capsule would cover keeps a rail for it.
+    [[nodiscard]] bool railed(Entry entry) const;
     [[nodiscard]] std::shared_ptr<gf::Control> view(Entry entry) const;
     [[nodiscard]] CommandSource* source(Entry entry) const;
 };

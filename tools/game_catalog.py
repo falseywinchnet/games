@@ -128,7 +128,7 @@ def discover(root: Path, extra_dirs=(), include_disabled=False) -> list[dict]:
             if data[key] in used[key]:
                 fail(f'duplicate {key} {data[key]!r}, already reserved in {used[key][data[key]]}')
             used[key][data[key]] = path
-        for key in ('enabled', 'hosted'):
+        for key in ('enabled', 'hosted', 'rail'):
             if key in data and type(data[key]) is not bool:
                 fail(f'{key} must be boolean')
         data['directory'] = path.parent
@@ -219,7 +219,7 @@ inline constexpr bool valid_entry(Entry entry) {{ return entry_index(entry)>=0; 
         colors = ','.join('gf::Color::rgba('+','.join(map(str,c))+')' for c in g['colors'])
         info = ','.join(quoted(g[k]) for k in ('title','kind','blurb'))+','+colors
         topics = ','.join('{'+','.join(quoted(v) for v in (t['id'], t['title'], (g['directory']/t['file']).read_text(encoding="utf-8").strip()))+'}' for t in g['help_topics'])
-        cpp += '{Entry::'+g['entry_name']+','+quoted(g['id'])+',{'+info+'},'+quoted((g['directory']/g['help']).read_text(encoding="utf-8").strip())+',{'+topics+'},'+str(g.get('hosted',False)).lower()+',modules::'+g['id']+'_create,modules::'+g['id']+'_cover},\n'
+        cpp += '{Entry::'+g['entry_name']+','+quoted(g['id'])+',{'+info+'},'+quoted((g['directory']/g['help']).read_text(encoding="utf-8").strip())+',{'+topics+'},'+str(g.get('hosted',False)).lower()+','+str(g.get('rail',False)).lower()+',modules::'+g['id']+'_create,modules::'+g['id']+'_cover},\n'
     cpp += '''}};
 }
 const GameDescriptor& game_descriptor(Entry entry) {

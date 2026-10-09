@@ -46,6 +46,7 @@
     "kk_core"
   ],
   "hosted": true,
+  "rail": true,
   "help_topics": [
     {
       "id": "sets",
