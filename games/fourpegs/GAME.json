@@ -38,7 +38,6 @@
     "fp_core"
   ],
   "hosted": true,
-  "rail": true,
   "engines": [
     "render"
   ]

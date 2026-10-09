@@ -692,9 +692,10 @@ void FourPegsView::draw_button(const Button& b) {
     text(b.label, b.x + (b.w - tw) / 2, b.y + (b.h - th) / 2 + (down ? 1 : 0), over ? hex(0xF3DDA6) : hex(0xD9C7A0), 11, true);
 }
 
-// The test sheet: every judged guess and its pins, in a brass-edged panel.
+// The test sheet: every judged guess and its pins, in a brass-edged panel. Hosted, Help
+// floats over the top-right corner, so the sheet starts below it.
 void FourPegsView::draw_sheet() {
-    const int w = 112, x = pw_ - w - 6, y = 6, h = ph_ - 12;
+    const int w = 112, x = pw_ - w - 6, y = opt_.hosted ? 26 : 6, h = ph_ - y - 6;
     frame_.fill_rect(x + 2, y + 2, w, h, hex(0x000000, .45f));
     frame_.fill_rect(x, y, w, h, kPanel);
     frame_.begin(); frame_.rect(x + .5, y + .5, w - 1, h - 1); frame_.stroke(kBrass, 1);
