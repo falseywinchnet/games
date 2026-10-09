@@ -103,9 +103,50 @@ void Canvas::rrect(double x, double y, double ww, double hh, double r) {
 }
 
 void Canvas::fill(Col c) {
+    // One axis-aligned rectangle (fill_rect, dimming, panels): its coverage of a pixel is
+    // its overlap in x times its overlap in y, with no accumulation pass.
+    if (paths_.size() == 1 && paths_[0].size() == 5) {
+        const std::vector<Pt>& q = paths_[0];
+        const bool closed = q[4].x == q[0].x && q[4].y == q[0].y;
+        const bool across = q[0].y == q[1].y && q[1].x == q[2].x && q[2].y == q[3].y && q[3].x == q[0].x;
+        const bool down = q[0].x == q[1].x && q[1].y == q[2].y && q[2].x == q[3].x && q[3].y == q[0].y;
+        if (closed && (across || down)) {
+            fill_box(std::min(q[0].x, q[2].x), std::min(q[0].y, q[2].y), std::max(q[0].x, q[2].x), std::max(q[0].y, q[2].y), c);
+            return;
+        }
+    }
     Paint p;
     p.color = c;
     rasterize(paths_, p);
+}
+
+void Canvas::fill_box(double x0, double y0, double x1, double y1, Col c) {
+    const int ix0 = std::max(0, static_cast<int>(std::floor(x0))), ix1 = std::min(w, static_cast<int>(std::ceil(x1)));
+    const int iy0 = std::max(0, static_cast<int>(std::floor(y0))), iy1 = std::min(h, static_cast<int>(std::ceil(y1)));
+    if (ix0 >= ix1 || iy0 >= iy1) return;
+    const float sc[4] = {c.r * c.a, c.g * c.a, c.b * c.a, c.a};
+    for (int y = iy0; y < iy1; ++y) {
+        const float cover_y = static_cast<float>(std::min(y + 1.0, y1) - std::max(static_cast<double>(y), y0));
+        std::uint8_t* out = px.data() + (static_cast<size_t>(y) * w + ix0) * 4;
+        for (int x = ix0; x < ix1; ++x, out += 4) {
+            float cov = static_cast<float>(std::min(x + 1.0, x1) - std::max(static_cast<double>(x), x0)) * cover_y;
+            if (cov < 0.002f) continue;
+            if (cov > 1) cov = 1;
+            cov *= global_alpha;
+            const float r = sc[0] * cov, g = sc[1] * cov, b = sc[2] * cov, a = sc[3] * cov;
+            if (additive) {
+                out[0] = static_cast<std::uint8_t>(std::min(255.f, out[0] + b * 255));
+                out[1] = static_cast<std::uint8_t>(std::min(255.f, out[1] + g * 255));
+                out[2] = static_cast<std::uint8_t>(std::min(255.f, out[2] + r * 255));
+            } else {
+                const float k = 1 - a;
+                out[0] = static_cast<std::uint8_t>(b * 255 + out[0] * k + .5f);
+                out[1] = static_cast<std::uint8_t>(g * 255 + out[1] * k + .5f);
+                out[2] = static_cast<std::uint8_t>(r * 255 + out[2] * k + .5f);
+                out[3] = static_cast<std::uint8_t>(std::min(255.f, a * 255 + out[3] * k + .5f));
+            }
+        }
+    }
 }
 void Canvas::fill(const Paint& user) {
     Paint p = user;
@@ -351,6 +392,30 @@ void Canvas::draw_canvas(const Canvas& src, int x, int y, float opacity) {
             std::uint8_t* o = px.data() + (static_cast<size_t>(dy) * w + dx) * 4;
             const float k = 1 - s[3] / 255.f * opacity;
             for (int c = 0; c < 4; ++c) o[c] = static_cast<std::uint8_t>(std::min(255.f, s[c] * opacity + o[c] * k + .5f));
+        }
+    }
+}
+
+void blit_text(const Target& target, Rect clip, const Mask& m, int x, int y, int scale, Col c) {
+    scale = std::max(1, scale);
+    const Rect area = Rect{x, y, x + m.w * scale, y + m.h * scale}.intersected(clip).intersected(target.bounds());
+    if (area.empty()) return;
+    const float pr = c.r * c.a, pg = c.g * c.a, pb = c.b * c.a;
+    const bool rgba = target.order == Order::rgba;
+    for (int dy = area.y0; dy < area.y1; ++dy) {
+        const std::uint8_t* source = m.a.data() + static_cast<size_t>((dy - y) / scale) * m.w;
+        std::uint32_t* row = target.row(dy);
+        for (int dx = area.x0; dx < area.x1; ++dx) {
+            const float cov = source[(dx - x) / scale] * (1.f / 255.f);
+            if (cov <= 0) continue;
+            const std::uint32_t d = row[dx];
+            const float a = c.a * cov, keep = 1 - a;
+            // the channel stored low is blue in BGRA, red in RGBA
+            const float low = rgba ? pr : pb, high = rgba ? pb : pr;
+            const std::uint32_t l = static_cast<std::uint32_t>(std::min(255.f, low * cov * 255 + static_cast<float>(d & 255) * keep + .5f));
+            const std::uint32_t g = static_cast<std::uint32_t>(std::min(255.f, pg * cov * 255 + static_cast<float>((d >> 8) & 255) * keep + .5f));
+            const std::uint32_t hi = static_cast<std::uint32_t>(std::min(255.f, high * cov * 255 + static_cast<float>((d >> 16) & 255) * keep + .5f));
+            row[dx] = l | (g << 8) | (hi << 16) | 0xFF000000U;
         }
     }
 }

@@ -4,6 +4,8 @@
 // and BGRA premultiplied output that a GUI.Forms LiveSurface can publish as-is.
 // Coverage uses signed-area accumulation, so same-winding overlaps union and
 // reversed sub-paths cut holes.
+#include "target.hpp"
+
 #include <cmath>
 #include <cstdint>
 #include <vector>
@@ -120,6 +122,13 @@ private:
     static void orient(std::vector<Pt>& p);
     static void cap(std::vector<std::vector<Pt>>& polys, Pt q, double hw, int cn);
     void rasterize(const std::vector<std::vector<Pt>>& polys, const Paint& p);
+    // An axis-aligned rectangle in device pixels, filled with a solid colour.
+    void fill_box(double x0, double y0, double x1, double y1, Col c);
 };
+
+// Blends text coverage over a target at window resolution: each mask pixel `scale` x
+// `scale` target pixels at (x, y), only inside `clip`, in the target's byte order. The
+// target stays opaque.
+void blit_text(const Target& target, Rect clip, const Mask& m, int x, int y, int scale, Col c);
 
 }  // namespace render::r2d

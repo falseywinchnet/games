@@ -114,8 +114,11 @@ public:
     V3 fwd() const { return F_; }
 
     // draw a triangle list (3 vertices each)
+    // `tint` multiplies every vertex colour and `tex_scale` the texture coordinates, as
+    // they are read, so a mesh is drawn tinted without being copied.
     void draw(const Vtx* v, size_t count, const Tex* tex, std::uint16_t mat, const M34* model = nullptr,
-              const Tex* tex2 = nullptr, const Tex* splat_noise = nullptr);
+              const Tex* tex2 = nullptr, const Tex* splat_noise = nullptr, r2d::Col tint = {1, 1, 1, 1},
+              double tex_scale = 1);
     // camera-facing quad (billboard) centred at bottom-centre `p`
     void billboard(V3 p, double w, double h, const Tex* tex, r2d::Col tint, std::uint16_t mat, double s0 = 0, double s1 = 1);
     // 2D helpers on the low-res buffer (sky, overlays)
@@ -182,6 +185,11 @@ private:
     std::vector<Prepared> prepared_;
     std::vector<float> shadow_saved_;
     void raster_band(const BandJob& job, int band0, int band1);
+    // The pixel loop for one kind of material (fill_* flags).
+    template <unsigned F>
+    void fill_band(const BandJob& job, int band0, int band1);
+    static constexpr unsigned fill_texture = 1, fill_splat = 2, fill_toon = 4, fill_shadow = 8,
+                              fill_translucent = 16, fill_additive = 32;
     void shadow_band(float sun_share, int band0, int band1);
     // runs the job over the screen in bands on the worker threads (serial if `serial`)
     void run_bands(const BandJob* job, int serial);

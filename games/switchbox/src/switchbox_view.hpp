@@ -1,5 +1,6 @@
 #pragma once
 #include "game_text.hpp"
+#include "pixel_surface.hpp"
 // The game as a GUI.Forms control: frame loop, input, HUD, speech, dialogs,
 // autosave, sound. The frame is a small pixel-art image the compositor
 // magnifies; text is drawn crisply on top as cached layers.
@@ -79,7 +80,8 @@ private:
     StageState st_;
     LineBank lines_;
     Canvas frame_;
-    std::shared_ptr<gf::LiveSurface> surface_;
+    render::PixelSurface pixels_;     // the window end: the small frame enlarged, and the text
+    bool pixels_attached_ = false;
     std::unique_ptr<gf::Timer> timer_;
     std::vector<gf::SubscriptionToken> subs_;
     std::chrono::steady_clock::time_point last_{};
@@ -94,7 +96,6 @@ private:
     double bs_ = 2;            // backing scale
     int pw_ = 0, ph_ = 0;      // frame size in game pixels
     int phys_w_ = 0, phys_h_ = 0;
-    std::vector<int> xmap_;
     std::array<double, kSwitches> lamp_delay_{};  // ripple timing when lamps go out
     int last_steps_ = 0;       // steps of the combination just cracked
     int pending_score_ = 0;    // a cracked combination waiting for the celebration to end
@@ -116,7 +117,6 @@ private:
     bool cab_reduced_ = false;
     std::vector<std::pair<double, int>> script_;  // dev: SBX_SCRIPT="t:switch,..." flips (-1 head, 7 next correct, 8 whack, 9 a wrong one, 10 the stolen hole)
 
-    bool direct_ = false;
     std::vector<HiText> texts_;
 
     void on_attached_to_window() override;
@@ -150,7 +150,10 @@ private:
     int text(const std::string& s, int x, int y, Col c, double size = 9, bool bold = false, int wrap = 0);
     int text_w(const std::string& s, double size, bool bold);
     int text_h(const std::string& s, double size, bool bold, int wrap = 0);
-    void blit_texts(std::uint32_t* dst, size_t stride_px, double k);
+    // The texts over the frame at window resolution: what they show and where, and drawn
+    // inside `clip`.
+    [[nodiscard]] std::vector<render::PixelSurface::Text> text_marks(double k);
+    void blit_texts(const render::Target& target, render::Rect clip, double k);
 };
 
 }  // namespace sbx

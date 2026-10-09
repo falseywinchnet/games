@@ -9,7 +9,8 @@
     "render_core"
   ],
   "ui_sources": [
-    "ui/surface.cpp"
+    "ui/surface.cpp",
+    "ui/pixel_surface.cpp"
   ],
   "ui_libraries": [
     "render_ui"

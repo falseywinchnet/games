@@ -1,6 +1,7 @@
 // The renderer's promises: shared edges covered exactly once, nothing written outside the
 // scissor, depth decided before shading, and blends that stay inside a byte.
 #include "r2d.hpp"
+#include "r2d_canvas.hpp"
 #include "r3d.hpp"
 
 #include <cassert>
@@ -157,6 +158,34 @@ void layer_over_and_restore() {
     assert(base.pixels[9] == 0xff000000U && base.pixels[2] == 0xff102030U);
 }
 
+void canvas_rectangles_match_paths() {
+    // The rectangle path and the general rasteriser cover pixels alike, edges included.
+    std::mt19937 random(11);
+    std::uniform_real_distribution<double> at(-3, 40);
+    for (int trial = 0; trial < 300; ++trial) {
+        render::r2d::Canvas fast;
+        render::r2d::Canvas general;
+        fast.resize(40, 30);
+        general.resize(40, 30);
+        fast.clear({.2f, .3f, .4f, 1});
+        general.clear({.2f, .3f, .4f, 1});
+        const double x0 = at(random), y0 = at(random) * .7, w = at(random) * .6, h = at(random) * .5;
+        const render::r2d::Col c{.9f, .5f, .1f, trial % 3 == 0 ? .6f : 1.f};
+        fast.fill_rect(x0, y0, w, h, c);
+        general.begin();
+        general.move(x0, y0);
+        general.line(x0 + w * .5, y0);  // a point on the top edge keeps it off the rectangle path
+        general.line(x0 + w, y0);
+        general.line(x0 + w, y0 + h);
+        general.line(x0, y0 + h);
+        general.close();
+        general.fill(c);
+        for (std::size_t i = 0; i < fast.px.size(); ++i) {
+            assert(std::abs(static_cast<int>(fast.px[i]) - static_cast<int>(general.px[i])) <= 1);
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -167,6 +196,7 @@ int main() {
     blends_stay_in_bytes();
     mirror_mixes();
     layer_over_and_restore();
+    canvas_rectangles_match_paths();
     std::puts("render: all checks passed");
     return 0;
 }

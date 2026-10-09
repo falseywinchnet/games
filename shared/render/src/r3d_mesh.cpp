@@ -170,13 +170,7 @@ void draw_outline(Renderer& r, const Mesh& m, const M34& model, double width, r2
 void tint(Mesh& m, r2d::Col c) { for (Vtx& v : m) v.c = c; }
 
 void draw_mesh(Renderer& r, const Mesh& m, const M34& model, const Tex* tex, r2d::Col tc, std::uint16_t mat, double ts) {
-    thread_local Mesh tmp;
-    tmp.assign(m.begin(), m.end());
-    for (Vtx& v : tmp) {
-        v.c = {v.c.r * tc.r, v.c.g * tc.g, v.c.b * tc.b, v.c.a * tc.a};
-        v.s *= ts; v.t *= ts;
-    }
-    r.draw(tmp.data(), tmp.size(), tex, mat, &model);
+    r.draw(m.data(), m.size(), tex, mat, &model, nullptr, nullptr, tc, ts);
 }
 
 }  // namespace render::r3d

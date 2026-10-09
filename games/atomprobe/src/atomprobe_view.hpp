@@ -1,5 +1,6 @@
 #pragma once
 #include "game_text.hpp"
+#include "pixel_surface.hpp"
 // The game as a GUI.Forms control: frame loop, input (fire emitters, mark
 // squares, pull the lever), the probe and reveal sequences, the score,
 // dialogs and autosave. The frame is a small pixel-art image the compositor
@@ -83,7 +84,8 @@ private:
     Chamber ch_;
     ChamberState st_;
     Canvas frame_;
-    std::shared_ptr<gf::LiveSurface> surface_;
+    render::PixelSurface pixels_;     // the window end: the small frame enlarged, and the text
+    bool pixels_attached_ = false;
     std::unique_ptr<gf::Timer> timer_;
     std::vector<gf::SubscriptionToken> subs_;
     std::chrono::steady_clock::time_point last_{};
@@ -116,8 +118,6 @@ private:
     int pixel_ = 2;
     double bs_ = 2;
     int pw_ = 0, ph_ = 0, phys_w_ = 0, phys_h_ = 0;
-    std::vector<int> xmap_;
-    bool direct_ = false;
     std::vector<HiText> texts_;
 
     void on_attached_to_window() override;
@@ -153,7 +153,10 @@ private:
     int text(const std::string& s, int x, int y, Col c, double size = 11, bool bold = false, int wrap = 0);
     int text_w(const std::string& s, double size, bool bold);
     int text_h(const std::string& s, double size, bool bold, int wrap = 0);
-    void blit_texts(std::uint32_t* dst, size_t stride_px, double k);
+    // The texts over the frame at window resolution: what they show and where, and drawn
+    // inside `clip`.
+    [[nodiscard]] std::vector<render::PixelSurface::Text> text_marks(double k);
+    void blit_texts(const render::Target& target, render::Rect clip, double k);
 };
 
 }  // namespace ap

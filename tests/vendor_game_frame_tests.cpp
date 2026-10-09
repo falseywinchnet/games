@@ -105,9 +105,35 @@ void write_frame(const gf::LiveSurfaceFrame& frame, const std::filesystem::path&
     require(static_cast<bool>(output), "Write complete game frame preview");
 }
 gf::LiveSurfaceFrame advance(gf::Window& window, std::shared_ptr<gf::LiveSurface>& surface,
-                             const std::uint64_t after) {
-    const std::chrono::steady_clock::time_point deadline =
-        std::chrono::steady_clock::now() + std::chrono::seconds(12);
+                             const std::uint64_t after, const char* step) {
+    const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
+    const std::chrono::steady_clock::time_point deadline = started + std::chrono::seconds(12);
+    while (std::chrono::steady_clock::now() < deadline) {
+        static_cast<void>(window.poll_frame_schedule(std::chrono::steady_clock::now()));
+        const std::vector<gf::LiveSurfacePresentation> presentations =
+            window.take_live_surface_presentations();
+        for (const gf::LiveSurfacePresentation& item : presentations) {
+            surface = item.surface;
+        }
+        if (surface) {
+            gf::LiveSurfaceFrame frame = (*surface).acquire_latest();
+            if (frame && frame.generation() > after) {
+                std::cout << "  " << step << ": "
+                          << std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count()
+                          << " ms\n";
+                return frame;
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    throw std::runtime_error(std::string("Complete game frame did not publish before deadline: ") + step);
+}
+// Runs the game for up to `wait`: returns its next frame if it publishes one, otherwise the
+// frame it still shows. A game publishes only when its picture changes, so a still scene
+// rightly publishes nothing.
+gf::LiveSurfaceFrame run_for(gf::Window& window, std::shared_ptr<gf::LiveSurface>& surface,
+                             const std::uint64_t after, const std::chrono::milliseconds wait) {
+    const std::chrono::steady_clock::time_point deadline = std::chrono::steady_clock::now() + wait;
     while (std::chrono::steady_clock::now() < deadline) {
         static_cast<void>(window.poll_frame_schedule(std::chrono::steady_clock::now()));
         const std::vector<gf::LiveSurfacePresentation> presentations =
@@ -123,7 +149,7 @@ gf::LiveSurfaceFrame advance(gf::Window& window, std::shared_ptr<gf::LiveSurface
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    throw std::runtime_error("Complete game frame did not publish before deadline");
+    return surface ? (*surface).acquire_latest() : gf::LiveSurfaceFrame{};
 }
 } // namespace
 int main(const int argc, char** const argv) {
@@ -198,7 +224,7 @@ int main(const int argc, char** const argv) {
         window.perform_layout();
         static_cast<void>(window.request_focus(view));
         std::shared_ptr<gf::LiveSurface> surface{};
-        gf::LiveSurfaceFrame first = advance(window, surface, 0);
+        gf::LiveSurfaceFrame first = advance(window, surface, 0, "first frame");
 #ifdef GAMES_FRAME_penthesheep
         if (game == "penthesheep") {
             const std::shared_ptr<sh::SheepView> sheep =
@@ -208,7 +234,7 @@ int main(const int argc, char** const argv) {
             while (!(*sheep).ready_for_play() && std::chrono::steady_clock::now() < deadline) {
                 const std::uint64_t previous = first.generation();
                 first = {};
-                first = advance(window, surface, previous);
+                first = advance(window, surface, previous, "meadow ready");
             }
             require((*sheep).ready_for_play(),
                     "Sheep generated a playable meadow, beyond the loading screen");
@@ -223,7 +249,8 @@ int main(const int argc, char** const argv) {
         write_frame(first, previews / (game + "-portable-game.ppm"));
         const std::vector<std::byte> retained(first.pixels().begin(), first.pixels().end());
         const std::uint64_t initial = first.generation();
-        gf::LiveSurfaceFrame second = advance(window, surface, initial);
+        // The game runs on (a new frame if its picture changes): the retained one stays as it was.
+        gf::LiveSurfaceFrame second = run_for(window, surface, initial, std::chrono::milliseconds(1000));
         require(std::equal(retained.begin(), retained.end(), first.pixels().begin(),
                            first.pixels().end()),
                 "Retained frame is immutable while simulation and text continue");
@@ -233,7 +260,7 @@ int main(const int argc, char** const argv) {
         // successive frozen attempts must still allow multiple publications.
         std::uint64_t generation = (*surface).snapshot().published_generation;
         for (int index = 0; index < 8; ++index) {
-            gf::LiveSurfaceFrame talking = advance(window, surface, generation);
+            gf::LiveSurfaceFrame talking = advance(window, surface, generation, "dialogue frame");
             generation = talking.generation();
             if (index == 7)
                 write_frame(talking, previews / (game + "-portable-dialogue.ppm"));
@@ -248,7 +275,7 @@ int main(const int argc, char** const argv) {
         const bool handled = window.dispatch_key(key);
         require(handled, "Actual game opens help through keyboard input");
         const std::uint64_t before_help = (*surface).snapshot().published_generation;
-        gf::LiveSurfaceFrame help = advance(window, surface, before_help);
+        gf::LiveSurfaceFrame help = advance(window, surface, before_help, "help");
         write_frame(help, previews / (game + "-portable-help.ppm"));
         help = {};
         if (game == "koikoi") {
@@ -267,7 +294,7 @@ int main(const int argc, char** const argv) {
         window.set_scale(1.5);
         window.perform_layout();
         const std::uint64_t before_scale = (*surface).snapshot().published_generation;
-        gf::LiveSurfaceFrame scaled = advance(window, surface, before_scale);
+        gf::LiveSurfaceFrame scaled = advance(window, surface, before_scale, "150 percent");
         require(scaled.width() == 1770 && scaled.height() == 1200,
                 "Fractional DPI recreates a complete native-resolution frame");
         write_frame(scaled, previews / (game + "-portable-help-150.ppm"));
@@ -277,7 +304,7 @@ int main(const int argc, char** const argv) {
             window.resize({600, 320}); // Space left below a wrapped open command capsule.
             window.perform_layout();
             const std::uint64_t before_small = (*surface).snapshot().published_generation;
-            gf::LiveSurfaceFrame small = advance(window, surface, before_small);
+            gf::LiveSurfaceFrame small = advance(window, surface, before_small, "compact");
             require(small.width() == 600 && small.height() == 320,
                     "Compact game frame fits below the open capsule");
             write_frame(small, previews / (game + "-portable-help-small.ppm"));
@@ -285,7 +312,7 @@ int main(const int argc, char** const argv) {
             key.physical_key = gf::PhysicalKey::escape;
             static_cast<void>(window.dispatch_key(key));
             const std::uint64_t before_board = (*surface).snapshot().published_generation;
-            gf::LiveSurfaceFrame board = advance(window, surface, before_board);
+            gf::LiveSurfaceFrame board = advance(window, surface, before_board, "board after Escape");
             write_frame(board, previews / (game + "-portable-board-small.ppm"));
         }
         if (game != "eggy") {
@@ -301,7 +328,9 @@ int main(const int argc, char** const argv) {
                     "Hidden game does not render or publish");
             (*view).set_visible(true);
             set_foreground(*view, true);
-            const gf::LiveSurfaceFrame resumed = advance(window, surface, hidden);
+            // Shown again, it still has its surface and a complete frame (a new one if the
+            // picture moved on, otherwise the one it kept).
+            const gf::LiveSurfaceFrame resumed = run_for(window, surface, hidden, std::chrono::milliseconds(1000));
             require(resumed.width() > 0, "Hidden game resumes without losing its surface");
         }
         std::cout << game << " game/help frames, idle lifecycle, retained frame and DPI passed\n";

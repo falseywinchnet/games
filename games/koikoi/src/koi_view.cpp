@@ -123,6 +123,7 @@ void KoiView::arrange(gf::Rect bounds) {
         gf::LiveSurfaceDescription d;
         d.width = static_cast<std::uint32_t>(phys_w_);
         d.height = static_cast<std::uint32_t>(phys_h_);
+        d.opaque = true;  // every pixel is drawn opaque: the window copies, never blends
         static_cast<void>(surface_->reconfigure(d));
     }
     for (Sprite& s : sp_) s.placed = false;
@@ -643,6 +644,7 @@ void KoiView::publish() {
         gf::LiveSurfaceDescription d;
         d.width = static_cast<std::uint32_t>(phys_w_);
         d.height = static_cast<std::uint32_t>(phys_h_);
+        d.opaque = true;  // every pixel is drawn opaque: the window copies, never blends
         surface_ = gf::LiveSurface::create(d);
         if (surface_ && attached_window()) direct_ = (*attached_window()).queue_live_surface_presentation(shared_from_this(), surface_);
     }

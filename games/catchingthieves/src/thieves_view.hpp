@@ -6,6 +6,7 @@
 // is a small pixel-art image the compositor magnifies; text is drawn crisply on
 // top as cached layers.
 #include "field.hpp"
+#include "pixel_surface.hpp"
 #include "garden.hpp"
 #include "level.hpp"
 #include "levelset.hpp"
@@ -84,7 +85,8 @@ private:
     Garden garden_;
     Show show_;
     Canvas frame_;
-    std::shared_ptr<gf::LiveSurface> surface_;
+    render::PixelSurface pixels_;     // the window end: the small frame enlarged, and the text
+    bool pixels_attached_ = false;
     std::unique_ptr<gf::Timer> timer_;
     std::vector<gf::SubscriptionToken> subs_;
     std::chrono::steady_clock::time_point last_{};
@@ -150,8 +152,6 @@ private:
     int pixel_ = 2;
     double bs_ = 2;
     int pw_ = 0, ph_ = 0, phys_w_ = 0, phys_h_ = 0, hud_w_ = 128;
-    std::vector<int> xmap_;
-    bool direct_ = false;
 
     std::vector<HiText> texts_;
 
@@ -196,7 +196,10 @@ private:
     int text(const std::string& s, int x, int y, Col c, double size = 11, int font = 0, int wrap = 0);
     int text_w(const std::string& s, double size, int font) const;
     int text_h(const std::string& s, double size, int font, int wrap = 0) const;
-    void blit_texts(std::uint32_t* dst, size_t stride_px, double k);
+    // The texts over the frame at window resolution: what they show and where, and drawn
+    // inside `clip`.
+    [[nodiscard]] std::vector<render::PixelSurface::Text> text_marks(double k) const;
+    void blit_texts(const render::Target& target, render::Rect clip, double k);
 };
 
 }  // namespace ct

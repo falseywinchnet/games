@@ -25,3 +25,7 @@ add_executable(render_tests "${ENGINE_DIR}/tests/render_tests.cpp")
 target_link_libraries(render_tests PRIVATE render_core)
 add_test(NAME render_engine COMMAND render_tests)
 set_tests_properties(render_engine PROPERTIES TIMEOUT 60)
+
+# Times the 3D renderer on a game-like scene: r3d_bench [frames].
+add_executable(r3d_bench "${ENGINE_DIR}/tools/r3d_bench.cpp")
+target_link_libraries(r3d_bench PRIVATE render_core)
