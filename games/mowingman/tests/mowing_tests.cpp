@@ -41,13 +41,29 @@ bool mower_gets_everywhere(const mm::Garden& garden) {
     const int w = mm::lawn_cells_x;
     const int h = mm::lawn_cells_y;
     const int reach = 13;
+    // Obstacles counted along each row, so a span of a row is checked with one subtraction:
+    // a cell is clear when every row of the disc around it is empty across its span.
+    std::vector<int> before(static_cast<std::size_t>(w + 1) * h, 0);
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x)
+            before[static_cast<std::size_t>(y) * (w + 1) + x + 1] =
+                before[static_cast<std::size_t>(y) * (w + 1) + x] + (garden.obstacles[static_cast<std::size_t>(y) * w + static_cast<std::size_t>(x)] != 0 ? 1 : 0);
+    }
+    std::vector<int> span(static_cast<std::size_t>(2 * reach + 1), 0);  // the disc's half-width at each row
+    for (int dy = -reach; dy <= reach; ++dy) {
+        int half = 0;
+        while ((half + 1) * (half + 1) + dy * dy <= reach * reach)
+            ++half;
+        span[static_cast<std::size_t>(dy + reach)] = half;
+    }
     std::vector<std::uint8_t> open(static_cast<std::size_t>(w) * h, 0);
     for (int y = reach; y < h - reach; ++y) {
         for (int x = reach; x < w - reach; ++x) {
             bool clear = true;
             for (int dy = -reach; dy <= reach && clear; ++dy) {
-                for (int dx = -reach; dx <= reach && clear; ++dx)
-                    clear = dx * dx + dy * dy > reach * reach || garden.obstacles[static_cast<std::size_t>(y + dy) * w + static_cast<std::size_t>(x + dx)] == 0;
+                const int half = span[static_cast<std::size_t>(dy + reach)];
+                const std::size_t row = static_cast<std::size_t>(y + dy) * (w + 1);
+                clear = before[row + static_cast<std::size_t>(x + half + 1)] == before[row + static_cast<std::size_t>(x - half)];
             }
             open[static_cast<std::size_t>(y) * w + static_cast<std::size_t>(x)] = clear ? 1 : 0;
         }
