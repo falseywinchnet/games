@@ -4,7 +4,7 @@
 #include "vactor.hpp"
 #include "vface.hpp"
 
-#include "platform/raster.hpp"
+#include "platform/render.hpp"
 
 #include <cstdio>
 #include <cstdlib>

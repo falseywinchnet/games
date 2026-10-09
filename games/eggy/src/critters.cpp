@@ -2,7 +2,7 @@
 // on logs and leaping fish - plus the base camp set pieces. Low-poly models.
 #include "critters.hpp"
 
-#include "mesh.hpp"
+#include "render.hpp"
 #include "textures.hpp"
 
 #include <cmath>

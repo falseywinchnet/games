@@ -2,7 +2,7 @@
 // Builds each 3D frame of the mountain: sky, terrain, props, Eggy, weather and
 // particles, rendered by R3D at low resolution.
 #include "pose.hpp"
-#include "r3d.hpp"
+#include "render.hpp"
 #include "sim.hpp"
 
 #include <string>

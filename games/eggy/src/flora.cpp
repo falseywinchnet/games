@@ -1,7 +1,7 @@
 #include "flora.hpp"
 
 #include "ground.hpp"
-#include "raster.hpp"
+#include "render.hpp"
 
 #include <algorithm>
 #include <cmath>

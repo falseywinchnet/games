@@ -1,6 +1,6 @@
 #pragma once
 // Animation pose for Eggy and the summit officer (shared by animation and the 3D model).
-#include "raster.hpp"
+#include "render.hpp"
 
 namespace eggy {
 
@@ -26,6 +26,6 @@ struct Pose {
     double scale_mul = 1;
 };
 
-void draw_duck3d(class R3D& r, double x, double y, double z, double heading, const Pose& p, double t);
+void draw_duck3d(R3D& r, double x, double y, double z, double heading, const Pose& p, double t);
 
 }  // namespace eggy

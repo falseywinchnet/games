@@ -87,6 +87,7 @@ public:
     double yaw = .785398, pitch = .5236, scale = 22;  // pixels per world unit
     double ax = .5, ay = .55;  // screen anchor as fraction of W,H
     double height_scale = 1;   // world z multiplier
+    double billboard_lift = 0; // >0: billboards lit as if facing this much more upward (sprites on the ground)
     double persp = 0;          // >0: perspective, the eye this far (world units) in front of the target plane
     // the world point on the horizontal plane z = `plane_z` under screen point (sx, sy)
     bool unproject_plane(double sx, double sy, double plane_z, double& wx, double& wy) const;
@@ -109,6 +110,9 @@ public:
     // 2D helpers on the low-res buffer (sky, overlays)
     void fill_rect2(int x0, int y0, int x1, int y1, r2d::Col c, float a = 1);
     void present(r2d::Canvas& out, int scale, int ox, int oy, bool dither) const;
+    // Presents a buffer drawn at `samples` x `samples` per output pixel: each block is
+    // averaged (smoothing edges) and then dithered like present, one output pixel each.
+    void present_supersampled(r2d::Canvas& out, int samples, bool dither) const;
 
     long long tris_drawn = 0;
 

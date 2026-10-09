@@ -1,7 +1,7 @@
 #pragma once
 // Isometric projection, lighting, and the hand-built vector art for every
 // prop on the mountain (trees, rocks, logs, flowers, flags, stars …).
-#include "raster.hpp"
+#include "render.hpp"
 #include "world.hpp"
 
 namespace eggy {

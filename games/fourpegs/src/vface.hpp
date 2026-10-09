@@ -2,7 +2,7 @@
 // The villain's face: a painted texture over the front of his head, so his
 // expressions are drawings swapped instantly. Painted once per combination
 // and cached.
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 
 #include <cstdint>
 

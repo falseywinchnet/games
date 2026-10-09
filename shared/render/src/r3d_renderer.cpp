@@ -44,12 +44,22 @@ void Tex::build_mips() {
         m.make((*src).w / 2, (*src).h / 2);
         for (int y = 0; y < m.h; ++y)
             for (int x = 0; x < m.w; ++x) {
-                unsigned acc[4] = {0, 0, 0, 0};
+                // colour is averaged over the covered texels only (weighted by alpha), so
+                // cut-out sprites keep their colour when small instead of darkening
+                // toward the black of their transparent surround; opaque texels average plainly
+                unsigned acc[3] = {0, 0, 0}, plain[3] = {0, 0, 0}, alpha_sum = 0;
                 for (int k = 0; k < 4; ++k) {
                     const std::uint32_t c = (*src).px[static_cast<size_t>((y * 2 + k / 2) * (*src).w + x * 2 + k % 2)];
-                    for (int ch = 0; ch < 4; ++ch) acc[ch] += (c >> (ch * 8)) & 255;
+                    const unsigned a = c >> 24;
+                    alpha_sum += a;
+                    for (int ch = 0; ch < 3; ++ch) {
+                        acc[ch] += ((c >> (ch * 8)) & 255) * a;
+                        plain[ch] += (c >> (ch * 8)) & 255;
+                    }
                 }
-                m.px[static_cast<size_t>(y * m.w + x)] = (acc[0] / 4) | ((acc[1] / 4) << 8) | ((acc[2] / 4) << 16) | ((acc[3] / 4) << 24);
+                std::uint32_t out = (alpha_sum / 4) << 24;
+                for (int ch = 0; ch < 3; ++ch) out |= (alpha_sum ? acc[ch] / alpha_sum : plain[ch] / 4) << (ch * 8);
+                m.px[static_cast<size_t>(y * m.w + x)] = out;
             }
         m.mips.clear();
         mips.push_back(std::move(m));
@@ -170,6 +180,14 @@ void Renderer::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16
                 f = std::clamp((dist - light.fog_near) / (light.fog_far - light.fog_near), 0.0, 1.0) * .85;
             }
             sv[k].f = f;
+        }
+        {   // Texture coordinates can grow far beyond float precision (Eggy climbs hundreds
+            // of millions of rows). Textures repeat, so move each triangle's coordinates near
+            // zero by a whole number of repeats (a multiple of 16 keeps every texture and the
+            // splat noise in step) before the float planes.
+            const double s0 = std::floor(std::min({sv[0].s, sv[1].s, sv[2].s}) / 16) * 16;
+            const double t0 = std::floor(std::min({sv[0].t, sv[1].t, sv[2].t}) / 16) * 16;
+            for (int k = 0; k < 3; ++k) { sv[k].s -= s0; sv[k].t -= t0; }
         }
         const double area = (sv[1].x - sv[0].x) * (sv[2].y - sv[0].y) - (sv[2].x - sv[0].x) * (sv[1].y - sv[0].y);
         if (std::fabs(area) < 1e-9) continue;
@@ -294,7 +312,8 @@ void Renderer::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16
 void Renderer::billboard(V3 p, double w, double h, const Tex* tex, r2d::Col tint, std::uint16_t mat, double s0, double s1) {
     const V3 r = R_ * (w * .5);
     const V3 up{0, 0, h / height_scale};
-    const V3 n = F_ * -1.0;
+    // optionally lit more from above, like the ground the sprite stands on
+    const V3 n = billboard_lift > 0 ? norm(F_ * -1.0 + V3{0, 0, billboard_lift}) : F_ * -1.0;
     Vtx q[6];
     const V3 a = p - r, b = p + r, c = p + r + up, d = p - r + up;
     q[0] = {a, n, s0, 1, tint}; q[1] = {b, n, s1, 1, tint}; q[2] = {c, n, s1, 0, tint};
@@ -337,6 +356,39 @@ void Renderer::present(r2d::Canvas& out, int s, int ox, int oy, bool dither) con
                     o[0] = b8; o[1] = g8; o[2] = r8; o[3] = 255;
                 }
             }
+        }
+    }
+}
+
+void Renderer::present_supersampled(r2d::Canvas& out, int samples, bool dither) const {
+    static const int bayer[16] = {0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5};
+    const int ow = std::min(out.w, W / samples), oh = std::min(out.h, H / samples);
+    const float k = 1.f / static_cast<float>(samples * samples);
+    for (int y = 0; y < oh; ++y) {
+        std::uint8_t* row = out.px.data() + static_cast<size_t>(y) * out.w * 4;
+        for (int x = 0; x < ow; ++x) {
+            float sum[3] = {0, 0, 0};
+            for (int sy = 0; sy < samples; ++sy) {
+                const float* c = rgb.data() + (static_cast<size_t>(y * samples + sy) * W + static_cast<size_t>(x * samples)) * 3;
+                for (int sx = 0; sx < samples; ++sx, c += 3) {
+                    sum[0] += c[0];
+                    sum[1] += c[1];
+                    sum[2] += c[2];
+                }
+            }
+            std::uint8_t channel[3];
+            for (int i = 0; i < 3; ++i) {
+                const float v = std::clamp(sum[i] * k, 0.f, 1.f);
+                if (dither) {
+                    // 15-bit colour with the same 4x4 ordered dither as present
+                    const int level = std::min(31, (static_cast<int>(v * (31.f * 16.f)) + bayer[(y & 3) * 4 + (x & 3)]) >> 4);
+                    channel[i] = static_cast<std::uint8_t>(level * 255 / 31);
+                } else {
+                    channel[i] = static_cast<std::uint8_t>(v * 255);
+                }
+            }
+            std::uint8_t* o = row + x * 4;
+            o[0] = channel[2]; o[1] = channel[1]; o[2] = channel[0]; o[3] = 255;
         }
     }
 }

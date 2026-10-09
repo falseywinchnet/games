@@ -2,7 +2,7 @@
 // Her face is a painted texture over the front of the head, so expressions
 // are 2D drawings swapped instantly, the way anime faces work. Each
 // combination is painted once on demand and cached.
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 
 #include <cstdint>
 
