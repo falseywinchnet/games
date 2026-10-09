@@ -620,6 +620,9 @@ void DiceView::publish() {
     if (!pixels_attached_ && attached_window()) {
         static_cast<void>(pixels_.attach(*attached_window(), shared_from_this()));
         pixels_attached_ = true;
+        // Its paint now shows the live surface: record it again, so whatever must paint
+        // the ordinary way (under a floating capsule) shows the scene, not the placeholder.
+        invalidate(gf::Dirty::paint);
     }
     // Only the window pixels under what changed are drawn again.
     const double k = pixel_ * bs_;

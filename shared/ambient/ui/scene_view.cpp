@@ -363,6 +363,7 @@ void SceneView::publish(const std::vector<std::uint32_t>* picture, int width, in
         gf::Window* window = attached_window();
         if (surface_ && window != nullptr)
             direct_ = (*window).queue_live_surface_presentation(shared_from_this(), surface_);
+            invalidate(gf::Dirty::paint);  // the paint now shows the live surface
     }
     if (!surface_)
         return;

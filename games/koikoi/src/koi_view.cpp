@@ -646,7 +646,10 @@ void KoiView::publish() {
         d.height = static_cast<std::uint32_t>(phys_h_);
         d.opaque = true;  // every pixel is drawn opaque: the window copies, never blends
         surface_ = gf::LiveSurface::create(d);
-        if (surface_ && attached_window()) direct_ = (*attached_window()).queue_live_surface_presentation(shared_from_this(), surface_);
+        if (surface_ && attached_window()) {
+            direct_ = (*attached_window()).queue_live_surface_presentation(shared_from_this(), surface_);
+            invalidate(gf::Dirty::paint);  // the paint now shows the live surface
+        }
     }
     if (!surface_) return;
     gf::LiveSurfaceWriteLease lease = surface_->try_acquire_write();
