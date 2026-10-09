@@ -55,7 +55,8 @@ struct GardenState {
 class Garden {
 public:
     R3D r;
-    void resize(int w, int h, int hud_w);  // hud_w: game pixels reserved on the right
+    // hud_w: game pixels reserved on the right; top: kept clear at the top (the host's capsule)
+    void resize(int w, int h, int hud_w, int top = 0);
     void set_level(const Level& lv);
     void render(const GardenState& s, double t);
 
@@ -70,6 +71,7 @@ public:
 private:
     Level lv_;
     int hud_w_ = 0;
+    int top_ = 0;
     std::vector<int> deco_;  // per outside cell next to the garden: a decoration kind (0 none)
     std::shared_ptr<const FieldArt> field_;
     std::shared_ptr<HedgeCache> hedge_;  // the hedge's shell and shade, made once per garden (hedge.cpp)

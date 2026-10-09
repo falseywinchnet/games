@@ -274,7 +274,7 @@ void ThievesView::arrange(gf::Rect bounds) {
     pw_ = std::max(64, static_cast<int>(std::ceil(bounds.width / pixel_)));
     ph_ = std::max(64, static_cast<int>(std::ceil(bounds.height / pixel_)));
     frame_.resize(pw_, ph_);
-    garden_.resize(pw_, ph_, hud_w_);
+    garden_.resize(pw_, ph_, hud_w_, top_clear());
     bs_ = attached_window() ? (*attached_window()).scale() : 1.0;
     phys_w_ = std::max(1, static_cast<int>(std::lround(bounds.width * bs_)));
     phys_h_ = std::max(1, static_cast<int>(std::lround(bounds.height * bs_)));
@@ -994,12 +994,12 @@ void ThievesView::draw_button(const Button& b) {
 }
 
 void ThievesView::draw_hud() {
-    const int x = pw_ - hud_w_, w = hud_w_;
-    // a paper card pinned to the hedge
-    frame_.fill_rect(x + 4, 4, w - 8, ph_ - 8, hex(0x000000, .2f));
-    frame_.begin(); frame_.rrect(x + 3, 3, w - 8, ph_ - 9, 6); frame_.fill(kPaper);
-    frame_.begin(); frame_.rrect(x + 3.5, 3.5, w - 9, ph_ - 10, 6); frame_.stroke(kLeafDark, 1);
-    int y = 10;
+    const int x = pw_ - hud_w_, w = hud_w_, top = std::max(0, top_clear() - 3);
+    // a paper card pinned to the hedge (hosted, below Help)
+    frame_.fill_rect(x + 4, top + 4, w - 8, ph_ - top - 8, hex(0x000000, .2f));
+    frame_.begin(); frame_.rrect(x + 3, top + 3, w - 8, ph_ - top - 9, 6); frame_.fill(kPaper);
+    frame_.begin(); frame_.rrect(x + 3.5, top + 3.5, w - 9, ph_ - top - 10, 6); frame_.stroke(kLeafDark, 1);
+    int y = top + 10;
     const std::string sec = current_.section;
     text(sec, x + 10, y, kLeafGreen, 10, 1);
     y += 13;
@@ -1057,7 +1057,7 @@ void ThievesView::draw_bubbles() {
         const double pop = std::min(1.0, b.age * 8);
         int bx = static_cast<int>(hx - bw / 2.0), by = static_cast<int>(hy - bh - 6);
         bx = std::clamp(bx, 4, pw_ - hud_w_ - bw - 4);
-        by = std::clamp(by, 4, ph_ - bh - 4);
+        by = std::clamp(by, std::max(4, top_clear()), ph_ - bh - 4);
         const float a = static_cast<float>(std::min(1.0, (b.life - b.age) * 3) * pop);
         const Col fill = b.who < 0 ? hex(0xFFF8E4, a) : hex(0xFFFFFF, a);
         frame_.begin(); frame_.move(std::clamp(hx, bx + 6.0, bx + bw - 6.0) - 4, by + bh - 1); frame_.line(hx, hy - 1); frame_.line(std::clamp(hx, bx + 6.0, bx + bw - 6.0) + 4, by + bh - 1); frame_.close(); frame_.fill(fill);
@@ -1123,8 +1123,9 @@ void ThievesView::compose() {
         const float a = static_cast<float>(std::clamp(4.5 - message_t_, 0.0, 1.0));
         const int gw = pw_ - hud_w_;
         const int tw = text_w(message_, 12, 1);
-        frame_.begin(); frame_.rrect(gw / 2.0 - tw / 2.0 - 8, 6, tw + 16, 18, 8); frame_.fill(hex(0x2A2016, .55f * a));
-        text(message_, gw / 2 - tw / 2, 8, alpha(kPaper, a), 12, 1);
+        const int my = top_clear() + 6;
+        frame_.begin(); frame_.rrect(gw / 2.0 - tw / 2.0 - 8, my, tw + 16, 18, 8); frame_.fill(hex(0x2A2016, .55f * a));
+        text(message_, gw / 2 - tw / 2, my + 2, alpha(kPaper, a), 12, 1);
     }
 }
 

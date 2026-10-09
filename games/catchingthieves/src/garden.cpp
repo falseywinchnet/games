@@ -138,9 +138,10 @@ Season season_for(const std::string& section_in) {
     return Season::spring;
 }
 
-void Garden::resize(int w, int h, int hud_w) {
+void Garden::resize(int w, int h, int hud_w, int top) {
     r.resize(w, h);
     hud_w_ = hud_w;
+    top_ = top;
     r.yaw = 0;
     r.pitch = .82;
     r.persp = 24;
@@ -170,11 +171,11 @@ V3 Garden::cell_pos(int cell) const { return cell_pos(cell % std::max(1, lv_.w),
 
 void Garden::fit_camera() {
     if (r.W <= 0 || lv_.w <= 0) return;
-    const double avail_w = r.W - hud_w_ - 16, avail_h = r.H - 34;
+    const double avail_w = r.W - hud_w_ - 16, avail_h = r.H - 34 - top_;
     const double gw = lv_.w + .4, gh = lv_.h * std::sin(r.pitch) + 1.4;
     r.scale = std::min(avail_w / gw, avail_h / gh);
     r.ax = (r.W - hud_w_) / 2.0 / r.W;
-    r.ay = .54;
+    r.ay = (top_ + .54 * (r.H - top_)) / r.H;
     r.target = {0, .15, .3};
     r.set_camera();
 }

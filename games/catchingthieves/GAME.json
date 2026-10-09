@@ -44,7 +44,6 @@
     "ct_core"
   ],
   "hosted": true,
-  "rail": true,
   "assets": "assets",
   "audio_prefix": "ct_",
   "settles_when_untouched": false,

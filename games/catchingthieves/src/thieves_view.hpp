@@ -152,6 +152,9 @@ private:
     std::vector<std::pair<double, std::string>> script_;  // dev: CT_SCRIPT="t:code,..."
 
     int pixel_ = 2;
+    // Hosted, the capsule floats over the top-left corner and Help over the top-right: nothing
+    // the player needs goes above this line (game pixels).
+    [[nodiscard]] int top_clear() const { return opt_.hosted ? 28 : 0; }
     double bs_ = 2;
     int pw_ = 0, ph_ = 0, phys_w_ = 0, phys_h_ = 0, hud_w_ = 128;
 
