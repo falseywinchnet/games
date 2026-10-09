@@ -25,10 +25,10 @@ ARCHIVES = {"windows-x64": "windows-x64", "macos-arm64": "macos-arm64",
             "linux-amd64": "linux-x64", "linux-arm64": "linux-arm64"}
 # SHA-256 of each archive in release build-<TOOLKIT_REVISION>.
 DIGESTS = {
-    "linux-arm64": "85dc1fa38f59b71d564ed1222489787b6c3dfad6ca95cd6fe6198a077bcf2ce4",
-    "linux-x64": "5b97fca711e0ef7bea1b66ec3feb71d486455683684e7fd7482ada7ea09856ee",
-    "macos-arm64": "466b81a6c4bb5daad4621bd354e6aa6004a8da484d327fb0c7c862bdb0c4d44e",
-    "windows-x64": "d09d0849d4f077de63e74eaa384c35582e4000ca295aa7c7e6a04df02c148b02",
+    "linux-arm64": "c3a51bd9d57d63e3b75b796f9beb675da6a372611e16c9a59ce59a4b15348265",
+    "linux-x64": "02dd09014ec1b76387a197a89e4489883239a4096de44eb1fd269c6775387474",
+    "macos-arm64": "99295bd5865c6d10f4efdd5cd546990f24bd323cdc1774de7e4329519b891f8e",
+    "windows-x64": "a0d86e0fc2d191d0d61c654969b5e185812917a31cdf47da644ed17c316c0645",
 }
 RUNTIME = Path(".build/toolchain/llvm-22.1.8-macos14")
 

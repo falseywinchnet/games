@@ -28,7 +28,7 @@ ARCHIVE = "gui-forms-toolchain-windows-x64.tar.zst"
 MANIFEST = "gui-forms-toolchain-windows-x64.json"
 # The toolchain in release build-<TOOLKIT_REVISION>, and the clang.exe inside it (the
 # same compiler GUI.Forms' Windows cache manifest records).
-ARCHIVE_SHA256 = "790cf5895dee64b9c2818f7209430feca727384c4e6b826fa0edb575c8576a6a"
+ARCHIVE_SHA256 = "de97be8abaf87c943ac627e7fdb16f7688b188015bd3bbd23112498433ed2182"
 COMPILER_SHA256 = "071874172edc90ea355def3e7e253a27a82646b20b3ca393962621b52f32a708"
 COMPILER = "msys64/clang64/bin/clang.exe"
 ROOT = "msys64"
