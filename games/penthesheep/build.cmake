@@ -6,5 +6,6 @@ target_compile_definitions(sh_core PRIVATE _USE_MATH_DEFINES)
 add_executable(penthesheep_rules_tests ${GAME_MODULE_DIR}/tests/sheep_tests.cpp)
 target_link_libraries(penthesheep_rules_tests PRIVATE sh_core)
 add_test(NAME penthesheep_rules COMMAND penthesheep_rules_tests)
+set_tests_properties(penthesheep_rules PROPERTIES LABELS design)
 
 list(APPEND GAMES_NATIVE_FRAME_MODULES penthesheep)

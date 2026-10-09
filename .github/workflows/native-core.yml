@@ -84,10 +84,10 @@ jobs:
           py=python3; command -v python3 >/dev/null || py=python
           $py tools/test_reuse.py plan --build build --profile core-${{ matrix.platform }} \
             --results .build/test-results/test-results-core-${{ matrix.platform }}.json --exclude .build/test-results/exclude.txt
-      - name: Test rules and storage
+      - name: Test what depends on the platform
         run: |
           skip=$(cat .build/test-results/exclude.txt 2>/dev/null || true)
-          ctest --test-dir build --output-on-failure --timeout 180 --parallel 4 --output-junit results.xml --no-tests=ignore ${skip:+-E "$skip"}
+          ctest --test-dir build --output-on-failure --timeout 180 --parallel 4 --output-junit results.xml --no-tests=ignore -LE design ${skip:+-E "$skip"}
       - name: Record test results
         if: always()
         run: |

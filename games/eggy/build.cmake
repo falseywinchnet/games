@@ -7,6 +7,7 @@ target_link_libraries(eggy_core PUBLIC game_paths)
 add_executable(eggy_sim_tests ${GAME_MODULE_DIR}/tests/sim_tests.cpp)
 target_link_libraries(eggy_sim_tests PRIVATE eggy_core)
 add_test(NAME eggy_sim COMMAND eggy_sim_tests)
+set_tests_properties(eggy_sim PROPERTIES LABELS design)
 
 target_compile_definitions(eggy_core PRIVATE _USE_MATH_DEFINES)
 

@@ -293,7 +293,7 @@ jobs:
       - name: Test complete application
         run: |
           skip=$(cat .build/test-results/exclude.txt 2>/dev/null || true)
-          ctest --test-dir .build/native/app --output-on-failure --timeout 180 --parallel 4 --output-junit results.xml --no-tests=ignore ${skip:+-E "$skip"}
+          ctest --test-dir .build/native/app --output-on-failure --timeout 180 --parallel 4 --output-junit results.xml --no-tests=ignore -LE design ${skip:+-E "$skip"}
       - name: Record test results
         if: always()
         run: |

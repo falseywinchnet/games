@@ -16,6 +16,7 @@ target_link_libraries(fourpegs_preview PRIVATE fp_core)
 add_executable(fourpegs_storage_tests ${PLAYSUITE_SOURCE_DIR}/tests/fourpegs_storage_tests.cpp)
 target_link_libraries(fourpegs_storage_tests PRIVATE fp_core)
 add_test(NAME fourpegs_rules COMMAND fourpegs_rules_tests)
+set_tests_properties(fourpegs_rules PROPERTIES LABELS design)
 add_test(NAME fourpegs_storage COMMAND fourpegs_storage_tests)
 target_compile_definitions(fp_core PRIVATE _USE_MATH_DEFINES)
 

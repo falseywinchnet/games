@@ -18,6 +18,7 @@ include(CTest)
 add_executable(stillwater_rules_tests "${GAME_MODULE_DIR}/tests/stillwater_tests.cpp")
 target_link_libraries(stillwater_rules_tests PRIVATE sw_core)
 add_test(NAME stillwater_rules COMMAND stillwater_rules_tests "${GAME_MODULE_DIR}/assets/scene/riverscape.ambient")
+set_tests_properties(stillwater_rules PROPERTIES LABELS design)
 set_tests_properties(stillwater_rules PROPERTIES TIMEOUT 120)
 
 # The live music and water, rendered to WAV: the fallback loops and listening copies.

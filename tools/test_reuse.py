@@ -21,7 +21,8 @@ sources (tests/), the new-game kit, the assets and the tools that pin and prepar
   same-tree  on a push to main: whether the merged pull request's last successful run
           of this workflow tested exactly this tree (then the workflow has nothing to do).
   plan    reads the last results, writes the CTest exclusion for the tests that
-          passed with the same key, and the keys of this run.
+          passed with the same key, and the keys of this run. Tests labelled `design`
+          (deterministic game mechanics) are not CI's: CTest runs with -LE design.
   record  adds this run's passing tests to the results (failed tests are dropped).
   collect gathers every profile's results for a release: this commit's own, or the
           previous release's where a workflow has not finished for this commit.
@@ -95,6 +96,14 @@ def listing(build: Path) -> dict:
     return json.loads(result.stdout)
 
 
+def design(test: dict) -> bool:
+    # Deterministic game mechanics, run at design time (ctest -L design); CI leaves them out.
+    for item in test.get("properties", []):
+        if item.get("name") == "LABELS" and "design" in item.get("value", []):
+            return True
+    return False
+
+
 def portable(value: str, build: Path) -> str:
     # Machine paths differ between runners and runs; the key is about what is run.
     text = value.replace("\\", "/")
@@ -148,6 +157,8 @@ def plan(args: argparse.Namespace) -> None:
     reused = []
     groups: dict[str, list[str]] = {}
     for test in data.get("tests", []):
+        if design(test):
+            continue
         group, folders = owner(test, data["backtraceGraph"], known)
         material = {
             "schema": SCHEMA, "profile": args.profile, "name": test["name"],

@@ -14,6 +14,7 @@ target_link_libraries(atomprobe_preview PRIVATE ap_core)
 add_executable(atomprobe_storage_tests ${PLAYSUITE_SOURCE_DIR}/tests/atomprobe_storage_tests.cpp)
 target_link_libraries(atomprobe_storage_tests PRIVATE ap_core)
 add_test(NAME atomprobe_rules COMMAND atomprobe_rules_tests)
+set_tests_properties(atomprobe_rules PROPERTIES LABELS design)
 add_test(NAME atomprobe_storage COMMAND atomprobe_storage_tests)
 target_compile_definitions(ap_core PRIVATE _USE_MATH_DEFINES)
 

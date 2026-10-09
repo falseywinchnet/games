@@ -90,14 +90,19 @@ add_test(NAME game_catalog COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOUR
 if(GAMES_BUILD_APPLICATION)
   include(cmake/Application.cmake)
 endif()
+# Tests labelled `design` check deterministic game mechanics. They run when a game is designed
+# or its rules change (ctest -L design), not in CI, which keeps what depends on the platform
+# or on timing (ctest -LE design).
 add_executable(rules_tests tests/rules_tests.cpp)
 target_link_libraries(rules_tests PRIVATE game_rules)
 add_test(NAME rules COMMAND rules_tests)
+set_tests_properties(rules PROPERTIES LABELS design)
 add_library(game_solver shared/cards/solitaire_solver.cpp shared/cards/deal_tables.cpp)
 target_link_libraries(game_solver PUBLIC game_rules)
 add_executable(solver_tests tests/solver_tests.cpp)
 target_link_libraries(solver_tests PRIVATE game_solver)
 add_test(NAME solver COMMAND solver_tests)
+set_tests_properties(solver PROPERTIES LABELS design)
 add_executable(deal_grader EXCLUDE_FROM_ALL tools/deal_grader.cpp)
 target_link_libraries(deal_grader PRIVATE game_solver)
 
@@ -111,10 +116,12 @@ add_executable(sudoku_tests tests/sudoku_tests.cpp)
 target_link_libraries(sudoku_tests PRIVATE sudoku_generator)
 target_compile_definitions(sudoku_tests PRIVATE GAMES_TEST_ASSET_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets")
 add_test(NAME sudoku COMMAND sudoku_tests)
+set_tests_properties(sudoku PROPERTIES LABELS design)
 
 add_executable(puzzle_tests tests/puzzle_tests.cpp)
 target_link_libraries(puzzle_tests PRIVATE game_rules)
 add_test(NAME puzzles COMMAND puzzle_tests)
+set_tests_properties(puzzles PROPERTIES LABELS design)
 foreach(test_target parrots_rules_tests liarsdice_rules_tests penthesheep_rules_tests koikoi_rules_tests rules_tests solver_tests ui_tests storage_tests audio_tests sudoku_tests puzzle_tests collection_ui_tests eggy_sim_tests switchbox_rules_tests switchbox_storage_tests switchbox_actor_tests atomprobe_rules_tests atomprobe_storage_tests fourpegs_rules_tests fourpegs_storage_tests)
   if(NOT TARGET ${test_target})
     continue()

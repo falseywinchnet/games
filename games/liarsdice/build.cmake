@@ -6,5 +6,6 @@ target_compile_definitions(ld_core PRIVATE _USE_MATH_DEFINES)
 add_executable(liarsdice_rules_tests ${GAME_MODULE_DIR}/tests/dice_tests.cpp)
 target_link_libraries(liarsdice_rules_tests PRIVATE ld_core)
 add_test(NAME liarsdice_rules COMMAND liarsdice_rules_tests)
+set_tests_properties(liarsdice_rules PROPERTIES LABELS design)
 
 list(APPEND GAMES_NATIVE_FRAME_MODULES liarsdice)

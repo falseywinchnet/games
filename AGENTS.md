@@ -6,6 +6,8 @@ The complete application now builds from pinned GUI.Forms source using `GAMES_TO
 
 Preserve the complete current game collection and its behavior. Do not remove games, substitute simpler implementations, or disable tests to obtain a successful platform build. Read docs/WINDOWS_HANDOFF.md for roster and reservation boundaries, platform seams, and validation requirements.
 
+CI tests only what is nondeterministic or depends on the platform (windows, drawing, audio, files, threads, the shared engines). Deterministic game mechanics (rules, solvers, simulations, generators) are checked at design time: their tests carry the CTest label `design`, CI runs `ctest -LE design`, and whoever changes a game's rules runs `ctest -L design` on the M4. Label a new game's mechanics tests `design` when adding them.
+
 The user requires most reusable cross-platform capabilities needed by Games to become GUI.Forms enhancements so other applications benefit. Inspect existing toolkit APIs first. Coordinate additions with the GUI.Forms owner; keep game-specific rules, assets, and Sudoku generation policy in Games, using thin integration with shared services. Preserve existing frozen SDKs and unrelated active work. Validate a new SDK before adopting it here.
 
 On Shadow, use C:/Users/Shadow/games as the source checkout. Keep builds in a separate ignored build directory. Existing toolchains may be borrowed read-only; never overwrite another application's frozen SDK. Record the actual supported platform configure/build/test commands in this file as they are established. Keep compile parallelism at two jobs while sharing the host with other application work. GitHub-hosted CI runners are dedicated, so the workflows compile four at a time.

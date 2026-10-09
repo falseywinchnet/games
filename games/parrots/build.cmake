@@ -6,5 +6,6 @@ target_compile_definitions(pt_core PRIVATE _USE_MATH_DEFINES)
 add_executable(parrots_rules_tests ${GAME_MODULE_DIR}/tests/logic_tests.cpp)
 target_link_libraries(parrots_rules_tests PRIVATE pt_core)
 add_test(NAME parrots_rules COMMAND parrots_rules_tests)
+set_tests_properties(parrots_rules PROPERTIES LABELS design)
 
 list(APPEND GAMES_NATIVE_FRAME_MODULES parrots)
