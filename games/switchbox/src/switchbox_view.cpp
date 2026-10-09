@@ -633,11 +633,16 @@ void SwitchboxView::draw_button(const Button& b) {
     text(b.label, b.x + (b.w - tw) / 2, b.y + (b.h - th) / 2 + (down ? 1 : 0), kInk, 11, true);
 }
 
+// Hosted, the capsule floats over the top-left corner and Help over the top-right: nothing
+// the player reads goes above this line (game pixels) there.
+int SwitchboxView::top_clear() const { return opt_.hosted ? 30 : 4; }
+
 void SwitchboxView::draw_hud() {
-    const int x = 6, y = 6;
     const std::string steps = "Steps  " + std::to_string((*rendering_).puzzle_.steps());
     const std::string best = (*rendering_).save_.scores.empty() ? "Best  -" : "Best  " + std::to_string((*rendering_).save_.scores.front().steps);
     const int w = std::max(text_w(steps, 13, true), text_w(best, 11, false)) + 14, h = 27;
+    // on its own the card sits top-left; hosted, bottom-left (the buttons are bottom-right)
+    const int x = 6, y = opt_.hosted ? ph_ - h - 6 : 6;
     frame_.begin(); frame_.rrect(x + 1, y + 1, w, h, 6); frame_.fill(hex(0x8A4A66, .3f));
     frame_.begin(); frame_.rrect(x, y, w, h, 6); frame_.fill(alpha(kPaper, .92f));
     frame_.begin(); frame_.rrect(x + .5, y + .5, w - 1, h - 1, 6); frame_.stroke(kPink, 1);
@@ -645,7 +650,7 @@ void SwitchboxView::draw_hud() {
     text(best, x + 7, y + 15, hex(0x9A6A80), 11, false);
     if ((*rendering_).save_.cracked > 0) {
         const std::string c = "Cracked " + std::to_string((*rendering_).save_.cracked);
-        text(c, x + 2, y + h + 3, hex(0x9A6A80), 10, false);
+        text(c, x + 2, opt_.hosted ? y - 13 : y + h + 3, hex(0x9A6A80), 10, false);
     }
     for (const Button& b : (*rendering_).buttons_) draw_button(b);
 }
@@ -663,7 +668,7 @@ void SwitchboxView::draw_mole_hud() {
         small = (*rendering_).result_hits_ >= Mole::kGreat ? "" : "Get " + std::to_string(Mole::kGreat) + " for a surprise.";
     }
     const int bw = std::max(text_w(big, 20, true), text_w(small, 11, false)) + 24, bh = small.empty() ? 30 : 42;
-    const int bx = (pw_ - bw) / 2, by = 8;
+    const int bx = (pw_ - bw) / 2, by = std::max(8, top_clear());
     frame_.begin(); frame_.rrect(bx + 2, by + 2, bw, bh, 10); frame_.fill(hex(0x8A4A66, .3f));
     frame_.begin(); frame_.rrect(bx, by, bw, bh, 10); frame_.fill(alpha(kPaper, .95f));
     frame_.begin(); frame_.rrect(bx + 1, by + 1, bw - 2, bh - 2, 9); frame_.stroke(kPink, 2);
@@ -689,7 +694,7 @@ void SwitchboxView::draw_bubble() {
     const bool right = ax < pw_ * .5;
     int bx = static_cast<int>(right ? ax + 26 : ax - 26 - bw), by = static_cast<int>(ay - bh - 18 - (1 - pop) * 4);
     bx = std::clamp(bx, 4, pw_ - bw - 4);
-    by = std::clamp(by, 4, ph_ - bh - 24);
+    by = std::clamp(by, top_clear(), ph_ - bh - 24);
     const Col bg = (*rendering_).bubble_.special ? hex(0xFFE3EE) : (*rendering_).bubble_.muffled ? hex(0xF7EEF4) : kPaper;
     const Col line = (*rendering_).bubble_.special ? hex(0xE0508A) : (*rendering_).bubble_.muffled ? hex(0xC9A3B8) : kPink;
     // tail toward the speaker

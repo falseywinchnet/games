@@ -146,6 +146,7 @@ private:
     void layout_buttons();
     // drawing
     void compose();
+    [[nodiscard]] int top_clear() const;
     void draw_hud();
     void draw_bubble();
     void draw_panel();
