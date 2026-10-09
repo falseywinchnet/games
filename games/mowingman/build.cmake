@@ -32,9 +32,9 @@ add_library(mm_core STATIC
   "${GAME_MODULE_DIR}/src/models_gnome.cpp"
   "${GAME_MODULE_DIR}/src/models_mower.cpp"
   "${GAME_MODULE_DIR}/src/models_common.cpp"
-  "${GAME_MODULE_DIR}/src/yard.cpp"
-  "${GAME_MODULE_DIR}/src/platform/raster.cpp")
+  "${GAME_MODULE_DIR}/src/yard.cpp")
 target_include_directories(mm_core PUBLIC "${GAME_MODULE_DIR}/src" "${GAME_MODULE_DIR}/../../shared/felt")
+target_link_libraries(mm_core PUBLIC render_core)  # the 2D canvas (shared/render)
 find_package(Threads REQUIRED)
 target_link_libraries(mm_core PUBLIC coverage_core grass_core ${MM_FELT} Threads::Threads)
 target_compile_definitions(mm_core PRIVATE _USE_MATH_DEFINES)

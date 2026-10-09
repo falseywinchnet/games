@@ -9,7 +9,7 @@
 #include "session.hpp"
 #include "soft3d.hpp"
 #include "suite.hpp"
-#include "platform/raster.hpp"
+#include "platform/canvas.hpp"
 
 #include "gui_forms/basic_controls.hpp"
 #include "gui_forms/live_surface.hpp"

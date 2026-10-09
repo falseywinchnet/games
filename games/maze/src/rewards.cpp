@@ -1,6 +1,6 @@
 #include "rewards.hpp"
 
-#include "platform/raster.hpp"
+#include "platform/canvas.hpp"
 
 #include <cmath>
 #include <functional>

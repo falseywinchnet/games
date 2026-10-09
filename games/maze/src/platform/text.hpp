@@ -2,7 +2,7 @@
 // Text rasterised to alpha masks with GUI.Forms, cached by content.
 // `pixel` text is drawn without anti-aliasing at a small size and is meant
 // to be blitted at 2x or 3x for a chunky 1990s look.
-#include "raster.hpp"
+#include "canvas.hpp"
 
 #include <string>
 

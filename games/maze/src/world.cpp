@@ -1,6 +1,6 @@
 #include "world.hpp"
 
-#include "platform/raster.hpp"
+#include "platform/canvas.hpp"
 #include "textures.hpp"
 
 #include <algorithm>
