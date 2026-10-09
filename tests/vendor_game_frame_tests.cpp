@@ -104,11 +104,29 @@ void write_frame(const gf::LiveSurfaceFrame& frame, const std::filesystem::path&
     }
     require(static_cast<bool>(output), "Write complete game frame preview");
 }
+// Moves the pointer one step along a sweep back and forth across the board, so whatever
+// lights up under it changes: a still scene then has something new to show.
+void stir(gf::Window& window) {
+    static int step = 0;
+    const int columns = 27;
+    const int rows = 9;
+    const int at = step++ % (columns * rows);
+    const int row = at / columns;
+    const int column = row % 2 == 0 ? at % columns : columns - 1 - at % columns;
+    gf::PointerEvent move{};
+    move.action = gf::PointerAction::move;
+    move.position = {100.0 + column * 37.0, 150.0 + row * 61.0};
+    static_cast<void>(window.dispatch_pointer(move));
+}
+// Waits for a frame newer than `after`; with `stirred`, moves the pointer meanwhile so that
+// even a still scene has a reason to publish.
 gf::LiveSurfaceFrame advance(gf::Window& window, std::shared_ptr<gf::LiveSurface>& surface,
-                             const std::uint64_t after) {
+                             const std::uint64_t after, const bool stirred = false) {
     const std::chrono::steady_clock::time_point deadline =
         std::chrono::steady_clock::now() + std::chrono::seconds(12);
     while (std::chrono::steady_clock::now() < deadline) {
+        if (stirred)
+            stir(window);
         static_cast<void>(window.poll_frame_schedule(std::chrono::steady_clock::now()));
         const std::vector<gf::LiveSurfacePresentation> presentations =
             window.take_live_surface_presentations();
@@ -279,9 +297,11 @@ int main(const int argc, char** const argv) {
         first = {};
         // The actor reveals thirty new characters per second. Completing
         // successive frozen attempts must still allow multiple publications.
+        // A game with nothing moving (Atom Probe with reduced motion, once its
+        // boot sweep ends) is given something to change: the pointer moves.
         std::uint64_t generation = (*surface).snapshot().published_generation;
         for (int index = 0; index < 8; ++index) {
-            gf::LiveSurfaceFrame talking = advance(window, surface, generation);
+            gf::LiveSurfaceFrame talking = advance(window, surface, generation, true);
             generation = talking.generation();
             if (index == 7)
                 write_frame(talking, previews / (game + "-portable-dialogue.ppm"));
