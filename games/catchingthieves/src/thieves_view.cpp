@@ -108,6 +108,7 @@ ThievesView::~ThievesView() {
     audio_stop();
     join(hint_);
     join(gen_);
+    for (std::unique_ptr<Worker>& w : retired_) join(w);
     join_field();
 }
 
@@ -143,6 +144,14 @@ void ThievesView::field_worker(FieldWorker* worker) {
 void ThievesView::join(std::unique_ptr<Worker>& w) {
     if (w) { (*w).cancellation.request_stop(); if ((*w).th.joinable()) (*w).th.join(); }
     w.reset();
+}
+
+// Tells a generator to stop and lets it wind down on its own (poll_workers joins it once it
+// is done), so choosing a difficulty never waits for a garden nobody wants any more.
+void ThievesView::retire(std::unique_ptr<Worker>& w) {
+    if (!w) return;
+    (*w).cancellation.request_stop();
+    retired_.push_back(std::move(w));
 }
 
 void ThievesView::on_attached_to_window() {
@@ -419,14 +428,14 @@ void ThievesView::set_difficulty(int difficulty) {
     difficulty = std::clamp(difficulty, 0, kDifficulties - 1);
     if (difficulty == save_.difficulty) return;
     save_.difficulty = difficulty;
-    if (gen_ && (*gen_).tier != difficulty) join(gen_);
+    if (gen_ && (*gen_).tier != difficulty) retire(gen_);
     if (difficulty >= kEasy && cab_front_) start_gen(difficulty);
     persist();
 }
 
 void ThievesView::start_gen(int tier) {
     if (gen_ && (*gen_).tier == tier && (!(*gen_).done || (*gen_).level.level.player >= 0)) return;  // growing, or grown
-    join(gen_);
+    retire(gen_);
     gen_ = std::make_unique<Worker>();
     (*gen_).tier = tier;
     (*gen_).th = std::thread(&ThievesView::generate_worker, gen_.get(), tier, seed_now() ^ rng_);
@@ -511,6 +520,14 @@ void ThievesView::hint_worker(Worker* worker, Board board) {
 }
 
 void ThievesView::poll_workers() {
+    for (size_t i = 0; i < retired_.size();) {
+        if ((*retired_[i]).done) {
+            join(retired_[i]);
+            retired_.erase(retired_.begin() + static_cast<long>(i));
+        } else {
+            ++i;
+        }
+    }
     if (hint_ && (*hint_).done) {
         SolveResult r;
         { std::lock_guard<std::mutex> lk((*hint_).m); r = (*hint_).solve; }

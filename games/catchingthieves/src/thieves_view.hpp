@@ -111,6 +111,7 @@ private:
         int tier = 0;
     };
     std::unique_ptr<Worker> hint_, gen_;
+    std::vector<std::unique_ptr<Worker>> retired_;  // generators told to stop, joined once finished
     // the field round the garden grows on its own worker when the season changes
     struct FieldWorker {
         std::thread th;
@@ -130,6 +131,7 @@ private:
     void start_gen(int tier);
     void poll_workers();
     void join(std::unique_ptr<Worker>& w);
+    void retire(std::unique_ptr<Worker>& w);
     static void generate_worker(Worker* worker, int tier, std::uint64_t seed);
     static void hint_worker(Worker* worker, Board board);
     void request_frame();
