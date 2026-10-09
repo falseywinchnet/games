@@ -177,6 +177,7 @@ void ZenView::arrange(gf::Rect bounds) {
         gf::LiveSurfaceDescription d;
         d.width = static_cast<std::uint32_t>(phys_w_);
         d.height = static_cast<std::uint32_t>(phys_h_);
+        d.opaque = true;  // every pixel is drawn opaque: the window copies, never blends
         static_cast<void>(surface_->reconfigure(d));
     }
     layout_buttons();
@@ -671,6 +672,10 @@ void ZenView::tick() {
         want_render_ = true;
     }
     say_cooldown_ = std::max(0.0, say_cooldown_ - dt);
+    // The name field's caret blinks: a frame when it turns on or off, none between.
+    if (panel_ == Panel::new_site && (std::fmod(t_, 1.0) < 0.55) != caret_on_) {
+        want_render_ = true;
+    }
     if (!pressed_.empty() && pressed_ == "reset" && hover_button_ == "reset") {
         hold_reset_ += dt;
         want_render_ = true;
@@ -716,6 +721,7 @@ void ZenView::publish() {
         gf::LiveSurfaceDescription d;
         d.width = static_cast<std::uint32_t>(phys_w_);
         d.height = static_cast<std::uint32_t>(phys_h_);
+        d.opaque = true;  // every pixel is drawn opaque: the window copies, never blends
         surface_ = gf::LiveSurface::create(d);
         if (surface_ && attached_window() != nullptr) {
             direct_ = (*attached_window()).queue_live_surface_presentation(shared_from_this(), surface_);
@@ -1378,12 +1384,12 @@ void ZenView::draw_panel() {
         text("A new worksite", x + w / 2, y + 16, kInk, 20, 2, 0, 1);
         text("Your company's name goes on the sign:", x + 22, y + 56, hex(0x5A4A36), 12.5, 0);
         rrect(x + 20, y + 78, w - 40, 38, 8, hex(0xFFFFFF), kTimber, 1.2);
-        const std::string shown = name_entry_ + (std::fmod(t_, 1.0) < 0.55 ? "|" : " ");
+        caret_on_ = std::fmod(t_, 1.0) < 0.55;
+        const std::string shown = name_entry_ + (caret_on_ ? "|" : " ");
         text(shown, x + 32, y + 87, kInk, 16, 1);
         char seed[96];
         std::snprintf(seed, sizeof seed, "Rocks no. %u: fifty stones in the bowl, the same for this number every time.", seed_entry_);
         text(seed, x + 22, y + 128, hex(0x6A5A44), 11, 0, w - 44);
-        want_render_ = true;
         return;
     }
     if (panel_ == Panel::sites) {

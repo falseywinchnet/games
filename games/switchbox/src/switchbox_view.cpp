@@ -8,6 +8,8 @@
 #include "gui_forms/window.hpp"
 
 #include <algorithm>
+#include <functional>
+#include <optional>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -146,19 +148,14 @@ void SwitchboxView::arrange(gf::Rect bounds) {
     bs_ = attached_window() != nullptr ? (*attached_window()).scale() : 1.0;
     phys_w_ = std::max(1, static_cast<int>(std::lround(bounds.width * bs_)));
     phys_h_ = std::max(1, static_cast<int>(std::lround(bounds.height * bs_)));
-    xmap_.clear();
-    if (surface_) {
-        gf::LiveSurfaceDescription d;
-        d.width = static_cast<std::uint32_t>(phys_w_);
-        d.height = static_cast<std::uint32_t>(phys_h_);
-        static_cast<void>(surface_->reconfigure(d));
-    }
+    // The surface takes its new size with the layout, before the next frame is drawn.
+    if (pixels_.live()) static_cast<void>(pixels_.configure(phys_w_, phys_h_));
     layout_buttons();
 }
 
 void SwitchboxView::on_paint(gf::Painter& p, gf::Rect) {
     const gf::Rect b = client_rectangle();
-    if (surface_) p.draw_live_surface(surface_, b);
+    if (pixels_.live()) p.draw_live_surface(pixels_.live(), b);
     else p.fill_rect(b, gf::Color::rgba(251, 227, 230));
 }
 
@@ -339,40 +336,32 @@ void SwitchboxView::tick() {
 }
 
 void SwitchboxView::publish() {
-    if (!surface_) {  // Shared cross-platform presentation
-        gf::LiveSurfaceDescription d;
-        d.width = static_cast<std::uint32_t>(phys_w_);
-        d.height = static_cast<std::uint32_t>(phys_h_);
-        surface_ = gf::LiveSurface::create(d);
-        if (surface_ && attached_window()) direct_ = (*attached_window()).queue_live_surface_presentation(shared_from_this(), surface_);
+    if (!pixels_.configure(phys_w_, phys_h_)) return;
+    if (!pixels_attached_ && attached_window()) {
+        static_cast<void>(pixels_.attach(*attached_window(), shared_from_this()));
+        pixels_attached_ = true;
     }
-    if (!surface_) return;
-    gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write();
-    if (lease && static_cast<int>(lease.width()) == phys_w_ && static_cast<int>(lease.height()) == phys_h_) {
-        std::span<std::byte> dst = lease.pixels();
-        const size_t rb = lease.row_bytes();
-        const double k = pixel_ * bs_;
-        if (xmap_.size() != static_cast<size_t>(phys_w_)) {
-            xmap_.resize(static_cast<size_t>(phys_w_));
-            for (int x = 0; x < phys_w_; ++x) xmap_[static_cast<size_t>(x)] = std::min(frame_.w - 1, static_cast<int>(x / k));
-        }
-        const std::uint32_t* src = reinterpret_cast<const std::uint32_t*>(frame_.px.data());
-        for (int y = 0; y < phys_h_; ++y) {
-            const int sy = std::min(frame_.h - 1, static_cast<int>(y / k));
-            std::uint32_t* o = reinterpret_cast<std::uint32_t*>(dst.data() + static_cast<size_t>(y) * rb);
-            const std::uint32_t* sr = src + static_cast<size_t>(sy) * frame_.w;
-            for (int x = 0; x < phys_w_; ++x) o[x] = sr[xmap_[static_cast<size_t>(x)]];
-        }
-        blit_texts(reinterpret_cast<std::uint32_t*>(dst.data()), rb / 4, k);
-        if (!(*game_text_).ready()) return;
-        const bool published = lease.publish();
-        if (published) {
+    // Only the window pixels under what changed are drawn again.
+    const double k = pixel_ * bs_;
+    const std::optional<render::Surface::Frame> frame = pixels_.begin(frame_, k, text_marks(k));
+    if (!frame) {
+        if (!pixels_.owes()) {
+            // Nothing to draw: the picture on screen is this frame, so are its buttons.
             buttons_ = (*rendering_).buttons_;
             rendering_pending_ = false;
         }
+        return;
     }
-    if (!direct_) invalidate(gf::Dirty::paint);
-
+    blit_texts((*frame).target, (*frame).repair, k);
+    if (!(*game_text_).ready()) {
+        // The text is still being prepared: this frame is shown once it is.
+        pixels_.abandon();
+        return;
+    }
+    pixels_.publish();
+    buttons_ = (*rendering_).buttons_;
+    rendering_pending_ = false;
+    if (!pixels_.direct()) invalidate(gf::Dirty::paint);
 }
 
 // Holding a switch (her hand on the pointer), the pointer she carries off, and
@@ -765,13 +754,28 @@ void SwitchboxView::compose() {
     draw_panel();
 }
 
-void SwitchboxView::blit_texts(std::uint32_t* dst, size_t stride_px, double k) {
-    std::span<std::uint32_t> pixels(dst, stride_px * static_cast<std::size_t>(phys_h_));
+std::vector<render::PixelSurface::Text> SwitchboxView::text_marks(double k) {
+    std::vector<render::PixelSurface::Text> marks;
+    marks.reserve(texts_.size());
     for (const HiText& h : texts_) {
         const games::TextImage image = tmask(h.s, h.bold, h.size, h.wrap);
-        games::blit_game_text(pixels, phys_w_, phys_h_, stride_px, image,
-            static_cast<int>(h.x * k), static_cast<int>(h.y * k),
-            h.c.r, h.c.g, h.c.b, h.c.a);
+        const games::GameTextClip b = games::game_text_bounds(image, static_cast<int>(h.x * k), static_cast<int>(h.y * k));
+        std::uint64_t key = std::hash<std::string>{}(h.s);
+        const float parts[] = {h.bold ? 1.f : 0.f, static_cast<float>(h.size), static_cast<float>(h.wrap), h.c.r, h.c.g, h.c.b, h.c.a,
+                               image.mask.has_value() ? 1.f : 0.f};
+        for (float part : parts) key = (key ^ std::hash<float>{}(part)) * 1099511628211ULL;
+        marks.push_back({key, render::Rect{b.x0, b.y0, b.x1, b.y1}});
+    }
+    return marks;
+}
+
+void SwitchboxView::blit_texts(const render::Target& target, render::Rect clip, double k) {
+    std::span<std::uint32_t> pixels(target.pixels, static_cast<std::size_t>(target.stride) * static_cast<std::size_t>(target.height));
+    for (const HiText& h : texts_) {
+        const games::TextImage image = tmask(h.s, h.bold, h.size, h.wrap);
+        games::blit_game_text(pixels, target.width, target.height, static_cast<std::size_t>(target.stride), image,
+            static_cast<int>(h.x * k), static_cast<int>(h.y * k), h.c.r, h.c.g, h.c.b, h.c.a, 1,
+            games::GameTextClip{clip.x0, clip.y0, clip.x1, clip.y1}, target.order == render::Order::rgba);
     }
 }
 

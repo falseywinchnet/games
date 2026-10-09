@@ -51,13 +51,15 @@ target_link_libraries(game_text_frame_tests PRIVATE game_text_frames)
 add_test(NAME game_text_frame_preparation COMMAND game_text_frame_tests "${GAMES_TEXT_SOURCE_DIR}/assets/fonts")
 set_tests_properties(game_text_frame_preparation PROPERTIES TIMEOUT 30)
 add_library(vendor_text_views OBJECT
+    "${games_root}/shared/render/ui/surface.cpp"
+    "${games_root}/shared/render/ui/pixel_surface.cpp"
     "${games_root}/games/eggy/src/eggy_view.cpp"
     "${games_root}/games/fourpegs/src/fourpegs_view.cpp"
     "${games_root}/games/atomprobe/src/atomprobe_view.cpp"
     "${games_root}/games/switchbox/src/switchbox_view.cpp")
 target_link_libraries(vendor_text_views PRIVATE game_text_frames GUIForms::Controls)
 # The views draw through the shared renderer's canvas, 3D renderer and meshes.
-target_include_directories(vendor_text_views PRIVATE "${games_root}/shared/render/src")
+target_include_directories(vendor_text_views PUBLIC "${games_root}/shared/render/src" "${games_root}/shared/render/ui")
 
 option(GAMES_TEST_VENDOR_FRAMES "Render complete vendor game frames with real portable services" OFF)
 if(GAMES_TEST_VENDOR_FRAMES)

@@ -25,13 +25,23 @@ void plane_of(const Renderer::SV* sv, double inv, double Renderer::SV::*m, float
     a0 = static_cast<float>(sv[0].*m - gx * sv[0].x - gy * sv[0].y);
 }
 
+// The 32 levels of a 5-bit channel, widened to 8 bits.
+struct Levels {
+    std::uint8_t v[32];
+};
+constexpr Levels make_levels() {
+    Levels levels{};
+    for (int i = 0; i < 32; ++i) levels.v[i] = static_cast<std::uint8_t>(i * 255 / 31);
+    return levels;
+}
+constexpr Levels kLevels = make_levels();
+
 // A channel (0..1) to 5 bits with a dither threshold th (0..15), then back to 8 bits.
 std::uint8_t quantize(float v, int th) {
     int iv = static_cast<int>(v * (31.f * 16.f));
     iv = iv < 0 ? 0 : (iv > 31 * 16 ? 31 * 16 : iv);
     const int l = (iv + th) >> 4;
-    const int five = l > 31 ? 31 : l;
-    return static_cast<std::uint8_t>(five * 255 / 31);
+    return kLevels.v[l > 31 ? 31 : l];
 }
 
 }  // namespace
@@ -451,7 +461,10 @@ Renderer::~Renderer() {
     }
 }
 
-void Renderer::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16_t mat, const M34* model, const Tex* tex2_0, const Tex* splat) {
+void Renderer::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16_t mat, const M34* model, const Tex* tex2_0, const Tex* splat,
+                    r2d::Col tint, double tex_scale) {
+    const bool tinted = tint.r != 1 || tint.g != 1 || tint.b != 1 || tint.a != 1;
+    const bool scaled = tex_scale != 1;
     // Two stages: every triangle is transformed, lit, culled and queued here;
     // then the queue is filled in horizontal bands, one per core, which never
     // share a pixel, so the picture is the same as drawing them one by one.
@@ -464,6 +477,8 @@ void Renderer::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16
         SV sv[3];
         for (int k = 0; k < 3; ++k) {
             Vtx v = verts[i + static_cast<size_t>(k)];
+            if (tinted) v.c = {v.c.r * tint.r, v.c.g * tint.g, v.c.b * tint.b, v.c.a * tint.a};
+            if (scaled) { v.s *= tex_scale; v.t *= tex_scale; }
             if (model) {
                 // model matrices are already in render space (their z is pre-scaled)
                 v.p = (*model).apply(v.p); v.n = nm.dir(v.n);
@@ -548,12 +563,15 @@ void Renderer::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16
     run_bands(&band, threads && rows > 600 ? 0 : 1);
 }
 
-void Renderer::raster_band(const BandJob& job, int band0, int band1) {
+template <unsigned F>
+void Renderer::fill_band(const BandJob& job, int band0, int band1) {
+    constexpr bool textured = (F & fill_texture) != 0;
+    constexpr bool splatted = (F & fill_splat) != 0;
     const Tex* tex0 = job.tex0;
     const Tex* tex2_0 = job.tex2_0;
     const Tex* splat = job.splat;
     const std::uint16_t mat = job.mat;
-    const bool shadow_px = job.shadow_px;
+    constexpr bool shadow_px = (F & fill_shadow) != 0;
     for (size_t q = 0; q < prepared_.size(); q += 1) {
         const Prepared& item = prepared_[q];
         if (item.y1 < band0 || item.y0 > band1) continue;
@@ -568,16 +586,16 @@ void Renderer::raster_band(const BandJob& job, int band0, int band1) {
         plane_of(sv, inv, &SV::r, rx, ry, r0); plane_of(sv, inv, &SV::g, gx_, gy_, g0); plane_of(sv, inv, &SV::b, bx, by, b0);
         plane_of(sv, inv, &SV::a, axx, ayy, a0v); plane_of(sv, inv, &SV::f, fx, fy, f0);
         float wx = 0, wy = 0, w0v = 0;
-        if (tex2_0) plane_of(sv, inv, &SV::w, wx, wy, w0v);
+        if constexpr (splatted) plane_of(sv, inv, &SV::w, wx, wy, w0v);
         float srx = 0, sry = 0, sr0 = 0, sgx = 0, sgy = 0, sg0 = 0, sbx = 0, sby = 0, sb0 = 0;
         float ux = 0, uy = 0, u0 = 0, vx = 0, vy = 0, v0 = 0, hx = 0, hy = 0, h0 = 0;
-        if (shadow_px) {
+        if constexpr (shadow_px) {
             plane_of(sv, inv, &SV::sr, srx, sry, sr0); plane_of(sv, inv, &SV::sg, sgx, sgy, sg0); plane_of(sv, inv, &SV::sb, sbx, sby, sb0);
             plane_of(sv, inv, &SV::u, ux, uy, u0); plane_of(sv, inv, &SV::v, vx, vy, v0); plane_of(sv, inv, &SV::h, hx, hy, h0);
         }
-        const bool toon_px = mat & toon;
+        constexpr bool toon_px = (F & fill_toon) != 0;
         float lx = 0, ly = 0, l0 = 0;
-        if (toon_px) plane_of(sv, inv, &SV::l, lx, ly, l0);
+        if constexpr (toon_px) plane_of(sv, inv, &SV::l, lx, ly, l0);
         const float te0 = light.toon_edge - light.toon_soft * .5f, tinv = 1.f / std::max(1e-4f, light.toon_soft);
         // mip level from the texel footprint of one screen pixel (per triangle), as a
         // fraction between two levels: each pixel takes the finer or the coarser by an
@@ -587,7 +605,7 @@ void Renderer::raster_band(const BandJob& job, int band0, int band1) {
         const Tex* tex_coarse = tex0;
         const Tex* tex2_coarse = tex2_0;
         float lod_frac = 0;
-        if (tex0 && !(*tex0).mips.empty()) {
+        if (textured && !(*tex0).mips.empty()) {
             const float fx2 = std::max(std::fabs(sx_), std::fabs(sy_)) * (*tex0).w, fy2 = std::max(std::fabs(tx_), std::fabs(ty_)) * (*tex0).h;
             const float rho = std::max(fx2, fy2);
             const float lod = std::clamp(std::log2(std::max(rho, 1e-6f)), 0.f, 6.f);
@@ -595,12 +613,13 @@ void Renderer::raster_band(const BandJob& job, int band0, int band1) {
             lod_frac = lod - static_cast<float>(lvl);
             tex = &(*tex0).level(lvl);
             tex_coarse = &(*tex0).level(lvl + 1);
-            if (tex2_0) {
+            if (splatted) {
                 tex2 = &(*tex2_0).level(lvl);
                 tex2_coarse = &(*tex2_0).level(lvl + 1);
             }
         }
-        const bool cut = mat & cutout, trans = mat & (translucent | additive), add = mat & additive;
+        constexpr bool trans = (F & (fill_translucent | fill_additive)) != 0, add = (F & fill_additive) != 0;
+        const bool cut = mat & cutout;
         const bool zwrite = !(mat & no_depth_write) && !trans;
         const bool fog = f0 != 0 || fx != 0 || fy != 0;
         for (int y = y0; y <= y1; ++y) {
@@ -629,15 +648,18 @@ void Renderer::raster_band(const BandJob& job, int band0, int band1) {
             float sr = sr0 + srx * px0 + sry * fpy, sg = sg0 + sgx * px0 + sgy * fpy, sb = sb0 + sbx * px0 + sby * fpy;
             float su = u0 + ux * px0 + uy * fpy, svv = v0 + vx * px0 + vy * fpy, sh = h0 + hx * px0 + hy * fpy;
             size_t pi = static_cast<size_t>(y) * W + xa;
-            for (int x = xa; x <= xb; ++x, ++pi, z += zx, s += sx_, t += tx_, cr0 += rx, cg0 += gx_, cb0 += bx, ca0 += axx, f += fx, wv += wx, lv += lx,
-                     sr += srx, sg += sgx, sb += sbx, su += ux, svv += vx, sh += hx) {
+            // Each pixel steps only the values its material uses.
+            for (int x = xa; x <= xb; ++x, ++pi, z += zx, cr0 += rx, cg0 += gx_, cb0 += bx, ca0 += axx, f += fx,
+                     s += textured ? sx_ : 0.f, t += textured ? tx_ : 0.f, wv += splatted ? wx : 0.f, lv += toon_px ? lx : 0.f,
+                     sr += shadow_px ? srx : 0.f, sg += shadow_px ? sgx : 0.f, sb += shadow_px ? sbx : 0.f,
+                     su += shadow_px ? ux : 0.f, svv += shadow_px ? vx : 0.f, sh += shadow_px ? hx : 0.f) {
                 if (z >= depth[pi]) continue;
                 float cr = cr0, cg = cg0, cb = cb0, ca = ca0;
-                if (shadow_px) {
+                if constexpr (shadow_px) {
                     const float lit = 1.f - shadow_darkness * (1.f - shadow_lit(su, svv, sh));
                     cr += sr * lit; cg += sg * lit; cb += sb * lit;
                 }
-                if (toon_px) {
+                if constexpr (toon_px) {
                     // two-tone anime light: shadow side takes the ambient tone, lit side the sun
                     float k = (lv - te0) * tinv;
                     k = k < 0 ? 0 : (k > 1 ? 1 : k);
@@ -646,11 +668,11 @@ void Renderer::raster_band(const BandJob& job, int band0, int band1) {
                     cg *= light.amb_col.g + light.sun_col.g * k;
                     cb *= light.amb_col.b + light.sun_col.b * k;
                 }
-                if (tex) {
+                if constexpr (textured) {
                     // organic splat: a world-locked noise threshold picks the second ground texture
                     const bool coarse = lod_frac > kLevelDither[((y & 3) << 2) | (x & 3)];
                     const Tex* tt = coarse ? tex_coarse : tex;
-                    if (tex2 && wv > .02f) {
+                    if (splatted && wv > .02f) {
                         const int nx = static_cast<int>(s * 64.f + 1048576.f) & (*splat).wm, ny = static_cast<int>(t * 64.f + 1048576.f) & (*splat).hm;
                         const float nz = static_cast<float>((*splat).px[static_cast<size_t>(ny * (*splat).w + nx)] & 255) * (1.f / 255.f);
                         if (wv > nz) tt = coarse ? tex2_coarse : tex2;
@@ -670,9 +692,9 @@ void Renderer::raster_band(const BandJob& job, int band0, int band1) {
                     cr += (light.fog_col.r - cr) * f; cg += (light.fog_col.g - cg) * f; cb += (light.fog_col.b - cb) * f;
                 }
                 float* o = rgb.data() + pi * 3;
-                if (add) {
+                if constexpr (add) {
                     o[0] += cr * ca; o[1] += cg * ca; o[2] += cb * ca;
-                } else if (trans) {
+                } else if constexpr (trans) {
                     o[0] += (cr - o[0]) * ca; o[1] += (cg - o[1]) * ca; o[2] += (cb - o[2]) * ca;
                 } else {
                     o[0] = cr; o[1] = cg; o[2] = cb;
@@ -680,6 +702,26 @@ void Renderer::raster_band(const BandJob& job, int band0, int band1) {
                 if (zwrite) depth[pi] = z;
             }
         }
+    }
+}
+
+// One pixel loop per kind of material, chosen once per draw: texture (none, plain or
+// splatted), light (Gouraud, toon or shadowed) and blend (opaque, translucent, additive).
+void Renderer::raster_band(const BandJob& job, int band0, int band1) {
+    const unsigned texture = job.tex0 == nullptr ? 0U : job.tex2_0 != nullptr ? fill_texture | fill_splat : fill_texture;
+    const unsigned light_kind = job.shadow_px ? fill_shadow : (job.mat & toon) ? fill_toon : 0U;
+    const unsigned blend = (job.mat & additive) ? fill_additive : (job.mat & translucent) ? fill_translucent : 0U;
+    switch (texture | light_kind | blend) {
+    #define PLAYSUITE_FILL(f) case (f): fill_band<(f)>(job, band0, band1); return;
+    #define PLAYSUITE_FILL_LIGHT(t, b) PLAYSUITE_FILL((t) | (b)) PLAYSUITE_FILL((t) | (b) | fill_toon) PLAYSUITE_FILL((t) | (b) | fill_shadow)
+    #define PLAYSUITE_FILL_BLEND(t) PLAYSUITE_FILL_LIGHT(t, 0U) PLAYSUITE_FILL_LIGHT(t, fill_translucent) PLAYSUITE_FILL_LIGHT(t, fill_additive)
+    PLAYSUITE_FILL_BLEND(0U)
+    PLAYSUITE_FILL_BLEND(fill_texture)
+    PLAYSUITE_FILL_BLEND(fill_texture | fill_splat)
+    #undef PLAYSUITE_FILL_BLEND
+    #undef PLAYSUITE_FILL_LIGHT
+    #undef PLAYSUITE_FILL
+    default: return;
     }
 }
 

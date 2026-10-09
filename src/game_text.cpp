@@ -80,6 +80,25 @@ void blit_game_text(std::span<std::uint32_t> destination, const int width,
     const int height, const std::size_t stride, const TextImage& text,
     const int x, const int y, const double red, const double green,
     const double blue, const double alpha, const double magnification) {
+    blit_game_text(destination, width, height, stride, text, x, y, red, green, blue, alpha, magnification,
+                   GameTextClip{0, 0, width, height}, false);
+}
+
+GameTextClip game_text_bounds(const TextImage& text, const int x, const int y, const double magnification) {
+    if (!text.mask.has_value()) { return {}; }
+    const gui_forms::TextMaskMetrics metrics = text.mask.metrics();
+    const double left = x + metrics.ink_left_px * magnification;
+    const double top = y + metrics.ink_top_px * magnification;
+    return {static_cast<int>(std::floor(left)), static_cast<int>(std::floor(top)),
+            static_cast<int>(std::ceil(left + metrics.width_px * magnification)) + 1,
+            static_cast<int>(std::ceil(top + metrics.height_px * magnification)) + 1};
+}
+
+void blit_game_text(std::span<std::uint32_t> destination, const int width,
+    const int height, const std::size_t stride, const TextImage& text,
+    const int x, const int y, const double red, const double green,
+    const double blue, const double alpha, const double magnification,
+    const GameTextClip clip, const bool rgba) {
     if (width < 0 || height < 0 || stride < static_cast<std::size_t>(width) ||
         (height > 0 && stride > destination.size() / static_cast<std::size_t>(height)) ||
         !std::isfinite(magnification) || magnification < .5 || magnification > 16 || !std::isfinite(red) ||
@@ -97,14 +116,15 @@ void blit_game_text(std::span<std::uint32_t> destination, const int width,
     const double top = y + metrics.ink_top_px * magnification;
     const double right = left + metrics.width_px * magnification;
     const double bottom = top + metrics.height_px * magnification;
-    const int begin_x = static_cast<int>(std::clamp(std::ceil(left - .5), 0.0, static_cast<double>(width)));
-    const int end_x = static_cast<int>(std::clamp(std::ceil(right - .5), 0.0, static_cast<double>(width)));
-    const int begin_y = static_cast<int>(std::clamp(std::ceil(top - .5), 0.0, static_cast<double>(height)));
-    const int end_y = static_cast<int>(std::clamp(std::ceil(bottom - .5), 0.0, static_cast<double>(height)));
+    const int begin_x = std::max(clip.x0, static_cast<int>(std::clamp(std::ceil(left - .5), 0.0, static_cast<double>(width))));
+    const int end_x = std::min(clip.x1, static_cast<int>(std::clamp(std::ceil(right - .5), 0.0, static_cast<double>(width))));
+    const int begin_y = std::max(clip.y0, static_cast<int>(std::clamp(std::ceil(top - .5), 0.0, static_cast<double>(height))));
+    const int end_y = std::min(clip.y1, static_cast<int>(std::clamp(std::ceil(bottom - .5), 0.0, static_cast<double>(height))));
     const double opacity = std::clamp(alpha, 0.0, 1.0);
-    const double r = std::clamp(red, 0.0, 1.0);
+    // The channel stored low is blue in BGRA, red in RGBA.
+    const double r = std::clamp(rgba ? blue : red, 0.0, 1.0);
     const double g = std::clamp(green, 0.0, 1.0);
-    const double b = std::clamp(blue, 0.0, 1.0);
+    const double b = std::clamp(rgba ? red : blue, 0.0, 1.0);
     for (int row = begin_y; row < end_y; ++row) {
         const std::size_t source_row = static_cast<std::size_t>((row + .5 - top) / magnification) * metrics.stride_bytes;
         const std::size_t destination_row = static_cast<std::size_t>(row) * stride;

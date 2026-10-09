@@ -81,6 +81,7 @@ private:
     double scene_pixel_ = 1.5;          // points per scene pixel
     double since_render_ = 1;
     bool want_render_ = true;
+    bool caret_on_ = false;     // the name field's caret, as last drawn
     // input
     bool keys_[256] = {};
     double mx_ = 0, my_ = 0;

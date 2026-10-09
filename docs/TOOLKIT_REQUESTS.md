@@ -189,3 +189,15 @@ enlarging copy.
    Linux, `ShellExecuteW` on Windows). A host service beside the clipboard and dialogs
    would let any application do this without platform code. `LinkLabel` also sizes its
    underline from an estimated text width; the help page draws its own measured one.
+
+## Live surface presentation (found cutting per-frame work, 2026-10-09)
+
+1. **Present only a frame's damage.** `LiveSurfaceWriteLease::publish(damage)` records
+   the changed rectangle, and `LiveSurfaceFrame::damage()` returns it, but the macOS
+   host copies the whole control area from the surface on every new generation
+   (`take_live_surface_presentations` clips to the control's bounds only). The games
+   now repair and publish only what changed (`shared/render/ui/pixel_surface.*`),
+   so on an animated scene the host's full copy (`memmove`, about 200 samples in 6 s
+   for Pen the Sheep at 2200 x 1440) is the largest cost left outside the game.
+   Intersecting the presentation clip with the frame's damage, when the window's
+   retained raster already holds the previous generation, would remove most of it.

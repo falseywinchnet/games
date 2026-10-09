@@ -9,6 +9,8 @@
 #include "gui_forms/window.hpp"
 
 #include <algorithm>
+#include <functional>
+#include <optional>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -155,8 +157,8 @@ void ThievesView::on_detaching_from_window(gf::Window&) noexcept {
     try { persist(); } catch (...) {}
     if (timer_) (*timer_).stop();
     timer_.reset();
-    direct_ = false;
-    surface_.reset();
+    pixels_ = render::PixelSurface{};
+    pixels_attached_ = false;
     if (hint_) (*hint_).cancellation.request_stop();
     if (gen_) (*gen_).cancellation.request_stop();
     if (field_) (*field_).cancel = true;
@@ -267,20 +269,15 @@ void ThievesView::arrange(gf::Rect bounds) {
     bs_ = attached_window() ? (*attached_window()).scale() : 1.0;
     phys_w_ = std::max(1, static_cast<int>(std::lround(bounds.width * bs_)));
     phys_h_ = std::max(1, static_cast<int>(std::lround(bounds.height * bs_)));
-    xmap_.clear();
-    if (surface_) {
-        gf::LiveSurfaceDescription d;
-        d.width = static_cast<std::uint32_t>(phys_w_);
-        d.height = static_cast<std::uint32_t>(phys_h_);
-        static_cast<void>((*surface_).reconfigure(d));
-    }
+    // The surface takes its new size with the layout, before the next frame is drawn.
+    if (pixels_.live()) static_cast<void>(pixels_.configure(phys_w_, phys_h_));
     layout_buttons();
     request_frame();
 }
 
 void ThievesView::on_paint(gf::Painter& p, gf::Rect) {
     const gf::Rect b = client_rectangle();
-    if (surface_) p.draw_live_surface(surface_, b);
+    if (pixels_.live()) p.draw_live_surface(pixels_.live(), b);
     else p.fill_rect(b, gf::Color::rgba(120, 180, 80));
 }
 
@@ -807,35 +804,19 @@ void ThievesView::tick() {
 }
 
 void ThievesView::publish() {
-    if (!surface_) {
-        gf::LiveSurfaceDescription d;
-        d.width = static_cast<std::uint32_t>(phys_w_);
-        d.height = static_cast<std::uint32_t>(phys_h_);
-        surface_ = gf::LiveSurface::create(d);
-        if (surface_ && attached_window()) direct_ = (*attached_window()).queue_live_surface_presentation(shared_from_this(), surface_);
+    if (!pixels_.configure(phys_w_, phys_h_)) return;
+    if (!pixels_attached_ && attached_window()) {
+        static_cast<void>(pixels_.attach(*attached_window(), shared_from_this()));
+        pixels_attached_ = true;
     }
-    if (!surface_) return;
-    gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write();
-    if (lease && static_cast<int>(lease.width()) == phys_w_ && static_cast<int>(lease.height()) == phys_h_) {
-        std::span<std::byte> dst = lease.pixels();
-        const size_t rb = lease.row_bytes();
-        const double k = pixel_ * bs_;
-        if (xmap_.size() != static_cast<size_t>(phys_w_)) {
-            xmap_.resize(static_cast<size_t>(phys_w_));
-            for (int x = 0; x < phys_w_; ++x) xmap_[static_cast<size_t>(x)] = std::min(frame_.w - 1, static_cast<int>(x / k));
-        }
-        const std::uint32_t* src = reinterpret_cast<const std::uint32_t*>(frame_.px.data());
-        for (int y = 0; y < phys_h_; ++y) {
-            const int sy = std::min(frame_.h - 1, static_cast<int>(y / k));
-            std::uint32_t* o = reinterpret_cast<std::uint32_t*>(dst.data() + static_cast<size_t>(y) * rb);
-            const std::uint32_t* sr = src + static_cast<size_t>(sy) * frame_.w;
-            for (int x = 0; x < phys_w_; ++x) o[x] = sr[xmap_[static_cast<size_t>(x)]];
-        }
-        blit_texts(reinterpret_cast<std::uint32_t*>(dst.data()), rb / 4, k);
-        static_cast<void>(lease.publish());
-        ++published_frames_;
+    // Only the window pixels under what changed are drawn again.
+    const double k = pixel_ * bs_;
+    const std::optional<render::Surface::Frame> frame = pixels_.begin(frame_, k, text_marks(k));
+    if (frame) {
+        blit_texts((*frame).target, (*frame).repair, k);
+        pixels_.publish();
+        if (!pixels_.direct()) invalidate(gf::Dirty::paint);
     }
-    if (!direct_) invalidate(gf::Dirty::paint);
     text_cache_trim();
 }
 
@@ -1127,30 +1108,26 @@ void ThievesView::compose() {
     }
 }
 
-void ThievesView::blit_texts(std::uint32_t* dst, size_t stride_px, double k) {
+std::vector<render::PixelSurface::Text> ThievesView::text_marks(double k) const {
     const int sc = 1;
+    std::vector<render::PixelSurface::Text> marks;
+    marks.reserve(texts_.size());
     for (const HiText& h : texts_) {
         const Mask& m = tmask(h.s, h.font, h.size, h.wrap);
         const int ox = static_cast<int>(h.x * k), oy = static_cast<int>(h.y * k);
-        const float pr = h.c.r * h.c.a, pg = h.c.g * h.c.a, pb = h.c.b * h.c.a;
-        for (int my = 0; my < m.h * sc; ++my) {
-            const int dy = oy + my;
-            if (dy < 0 || dy >= phys_h_) continue;
-            const std::uint8_t* srow = m.a.data() + static_cast<size_t>(my / sc) * m.w;
-            std::uint32_t* drow = dst + static_cast<size_t>(dy) * stride_px;
-            for (int mx = 0; mx < m.w * sc; ++mx) {
-                const int dx = ox + mx;
-                if (dx < 0 || dx >= phys_w_) continue;
-                const float cov = srow[mx / sc] * (1.f / 255.f);
-                if (cov <= 0) continue;
-                const std::uint32_t d = drow[dx];
-                const float a = h.c.a * cov, kk = 1 - a;
-                const std::uint32_t blue = static_cast<std::uint32_t>(std::min(255.f, pb * cov * 255 + static_cast<float>(d & 255) * kk + .5f));
-                const std::uint32_t green = static_cast<std::uint32_t>(std::min(255.f, pg * cov * 255 + static_cast<float>((d >> 8) & 255) * kk + .5f));
-                const std::uint32_t red = static_cast<std::uint32_t>(std::min(255.f, pr * cov * 255 + static_cast<float>((d >> 16) & 255) * kk + .5f));
-                drow[dx] = blue | (green << 8) | (red << 16) | (0xFFu << 24);
-            }
-        }
+        std::uint64_t key = std::hash<std::string>{}(h.s);
+        const float parts[] = {static_cast<float>(h.font), static_cast<float>(h.size), static_cast<float>(h.wrap), h.c.r, h.c.g, h.c.b, h.c.a};
+        for (float part : parts) key = (key ^ std::hash<float>{}(part)) * 1099511628211ULL;
+        marks.push_back({key, render::Rect{ox, oy, ox + m.w * sc, oy + m.h * sc}});
+    }
+    return marks;
+}
+
+void ThievesView::blit_texts(const render::Target& target, render::Rect clip, double k) {
+    const int sc = 1;
+    for (const HiText& h : texts_) {
+        render::r2d::blit_text(target, clip, tmask(h.s, h.font, h.size, h.wrap), static_cast<int>(h.x * k),
+                               static_cast<int>(h.y * k), sc, h.c);
     }
 }
 

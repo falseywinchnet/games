@@ -38,4 +38,17 @@ void blit_game_text(std::span<std::uint32_t> destination, const int width,
     const int height, const std::size_t stride, const TextImage& text,
     const int x, const int y, const double red, const double green,
     const double blue, const double alpha, const double magnification = 1);
+// A rectangle of window pixels [x0, x1) x [y0, y1).
+struct GameTextClip {
+    int x0{};
+    int y0{};
+    int x1{};
+    int y1{};
+};
+// The same, drawn only inside `clip`, into BGRA or (when `rgba`) RGBA pixels.
+void blit_game_text(std::span<std::uint32_t> destination, int width, int height, std::size_t stride,
+    const TextImage& text, int x, int y, double red, double green, double blue, double alpha,
+    double magnification, GameTextClip clip, bool rgba);
+// The window pixels a text blitted at (x, y) can touch.
+[[nodiscard]] GameTextClip game_text_bounds(const TextImage& text, int x, int y, double magnification = 1);
 }
