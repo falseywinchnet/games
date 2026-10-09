@@ -17,12 +17,23 @@ std::uint64_t meadow_hash(const Meadow& m) {
         if (m.cells[i] != Cell::grass) h = mix64(h ^ (i * 4 + static_cast<std::uint64_t>(m.cells[i])));
     return mix64(h);
 }
+// Work space for the searches, kept between calls: the solver runs thousands of them for
+// every meadow it proves, and allocating each one cost more than the search.
+// Fetched once per search: reaching a thread_local costs a call each time.
+struct Space {
+    std::vector<int> queue, mark;
+    std::vector<int> edge_to, edge_cap, edge_next, node_head, node_from, node_edge;
+};
+Space& space() {
+    thread_local Space s;
+    return s;
+}
 }  // namespace
 
 int Meadow::neighbours(int i, int out[6]) const {
     const int c = col(i), r = row(i);
     const int odd = r & 1;
-    const int dc[2][6][2] = {{{-1, 0}, {1, 0}, {-1, -1}, {0, -1}, {-1, 1}, {0, 1}}, {{-1, 0}, {1, 0}, {0, -1}, {1, -1}, {0, 1}, {1, 1}}};
+    static constexpr int dc[2][6][2] = {{{-1, 0}, {1, 0}, {-1, -1}, {0, -1}, {-1, 1}, {0, 1}}, {{-1, 0}, {1, 0}, {0, -1}, {1, -1}, {0, 1}, {1, 1}}};
     int n = 0;
     for (const auto& d : dc[odd]) {
         const int cc = c + d[0], rr = r + d[1];
@@ -33,8 +44,8 @@ int Meadow::neighbours(int i, int out[6]) const {
 
 std::vector<int> Meadow::distances() const {
     std::vector<int> d(static_cast<size_t>(w * h), -1);
-    std::vector<int> q;
-    q.reserve(static_cast<size_t>(w * h));
+    std::vector<int>& q = space().queue;
+    q.clear();
     for (int i = 0; i < w * h; ++i)
         if (edge(i) && (open(i) || i == sheep)) { d[static_cast<size_t>(i)] = 0; q.push_back(i); }
     for (size_t k = 0; k < q.size(); ++k) {
@@ -46,6 +57,30 @@ std::vector<int> Meadow::distances() const {
         }
     }
     return d;
+}
+
+int Meadow::distance_out(int from) const {
+    // the same steps distances() finds for `from`, searched outward from it alone: the
+    // first open edge patch reached is the nearest
+    if (!(open(from) || from == sheep)) return -1;
+    Space& s = space();
+    std::vector<int>& d = s.mark;
+    d.assign(static_cast<size_t>(w * h), -1);
+    std::vector<int>& q = s.queue;
+    q.clear();
+    d[static_cast<size_t>(from)] = 0;
+    q.push_back(from);
+    for (size_t k = 0; k < q.size(); ++k) {
+        const int u = q[k];
+        if (edge(u)) return d[static_cast<size_t>(u)];
+        int nb[6];
+        const int n = neighbours(u, nb);
+        for (int j = 0; j < n; ++j) {
+            const int v = nb[j];
+            if (d[static_cast<size_t>(v)] < 0 && (open(v) || v == sheep)) { d[static_cast<size_t>(v)] = d[static_cast<size_t>(u)] + 1; q.push_back(v); }
+        }
+    }
+    return -1;
 }
 
 std::vector<int> Meadow::routes(const std::vector<int>& d) const {
@@ -68,7 +103,7 @@ std::vector<int> Meadow::routes(const std::vector<int>& d) const {
     return rt;
 }
 
-bool Meadow::penned() const { return distances()[static_cast<size_t>(sheep)] < 0; }
+bool Meadow::penned() const { return distance_out(sheep) < 0; }
 
 const char* smarts_name(Smarts s) {
     switch (s) {
@@ -137,7 +172,7 @@ SheepMove sheep_choice(const Meadow& m) {
                 if (t.can_place(i) && td[static_cast<size_t>(i)] >= 0 && td[static_cast<size_t>(i)] < td[static_cast<size_t>(c)] && td[static_cast<size_t>(i)] >= td[static_cast<size_t>(c)] - 2) cand.push_back(i);
             for (int b : cand) {
                 t.cells[static_cast<size_t>(b)] = Cell::stone;
-                const int nd = t.distances()[static_cast<size_t>(c)];
+                const int nd = t.distance_out(c);
                 t.cells[static_cast<size_t>(b)] = Cell::grass;
                 if (nd < 0) { worst = 1000; break; }
                 worst = std::max(worst, nd);
@@ -201,14 +236,32 @@ int hex_dist(const Meadow& m, int a, int b) {
 
 int cut_size(const Meadow& m) {
     // the fewest stones that would wall the sheep in: unit vertex capacities, sheep to "outside" (beyond the edge cells)
+    if (m.edge(m.sheep)) return 100;
     const int n = m.w * m.h;
-    // node i_in = 2i, i_out = 2i+1; outside = 2n
+    // node i_in = 2i, i_out = 2i+1; outside = 2n. Edges in flat lists (each with its
+    // reverse at index ^ 1), so a search allocates nothing.
     const int N = 2 * n + 1, T = 2 * n;
-    std::vector<std::vector<int>> cap(static_cast<size_t>(N));
-    std::vector<std::vector<int>> to(static_cast<size_t>(N)), rev(static_cast<size_t>(N));
+    Space& s = space();
+    std::vector<int>& edge_to = s.edge_to;
+    std::vector<int>& edge_cap = s.edge_cap;
+    std::vector<int>& edge_next = s.edge_next;
+    std::vector<int>& node_head = s.node_head;
+    // at most 8 edges leave a patch (in to out, six neighbours, off the edge), each with its reverse
+    const size_t most = static_cast<size_t>(16 * n);
+    if (edge_to.size() < most) {
+        edge_to.resize(most);
+        edge_cap.resize(most);
+        edge_next.resize(most);
+    }
+    node_head.assign(static_cast<size_t>(N), -1);
+    int* const to = edge_to.data();
+    int* const cap = edge_cap.data();
+    int* const next = edge_next.data();
+    int* const head = node_head.data();
+    int edges = 0;
     auto add = [&](int u, int v, int c) {
-        to[static_cast<size_t>(u)].push_back(v); cap[static_cast<size_t>(u)].push_back(c); rev[static_cast<size_t>(u)].push_back(static_cast<int>(to[static_cast<size_t>(v)].size()));
-        to[static_cast<size_t>(v)].push_back(u); cap[static_cast<size_t>(v)].push_back(0); rev[static_cast<size_t>(v)].push_back(static_cast<int>(to[static_cast<size_t>(u)].size()) - 1);
+        to[edges] = v; cap[edges] = c; next[edges] = head[u]; head[u] = edges++;
+        to[edges] = u; cap[edges] = 0; next[edges] = head[v]; head[v] = edges++;
     };
     for (int i = 0; i < n; ++i) {
         if (!(m.open(i) || i == m.sheep)) continue;
@@ -220,25 +273,28 @@ int cut_size(const Meadow& m) {
         if (m.edge(i)) add(2 * i + 1, T, 100);
     }
     const int S = 2 * m.sheep + 1;
-    if (m.edge(m.sheep)) return 100;
     int flow = 0;
-    std::vector<int> pu(static_cast<size_t>(N)), pe(static_cast<size_t>(N));
+    std::vector<int>& pu = s.node_from;
+    std::vector<int>& pe = s.node_edge;
+    pe.resize(static_cast<size_t>(N));
+    std::vector<int>& q = s.queue;
     while (flow < 7) {
-        std::fill(pu.begin(), pu.end(), -1);
-        std::vector<int> q{S};
+        pu.assign(static_cast<size_t>(N), -1);
+        q.clear();
+        q.push_back(S);
         pu[static_cast<size_t>(S)] = S;
         for (size_t h = 0; h < q.size() && pu[static_cast<size_t>(T)] < 0; ++h) {
             const int u = q[h];
-            for (size_t e = 0; e < to[static_cast<size_t>(u)].size(); ++e) {
-                const int v = to[static_cast<size_t>(u)][e];
-                if (pu[static_cast<size_t>(v)] < 0 && cap[static_cast<size_t>(u)][e] > 0) { pu[static_cast<size_t>(v)] = u; pe[static_cast<size_t>(v)] = static_cast<int>(e); q.push_back(v); }
+            for (int e = head[u]; e >= 0; e = next[e]) {
+                const int v = to[e];
+                if (pu[static_cast<size_t>(v)] < 0 && cap[e] > 0) { pu[static_cast<size_t>(v)] = u; pe[static_cast<size_t>(v)] = e; q.push_back(v); }
             }
         }
         if (pu[static_cast<size_t>(T)] < 0) break;
         for (int v = T; v != S; v = pu[static_cast<size_t>(v)]) {
-            const int u = pu[static_cast<size_t>(v)], e = pe[static_cast<size_t>(v)];
-            --cap[static_cast<size_t>(u)][static_cast<size_t>(e)];
-            ++cap[static_cast<size_t>(v)][static_cast<size_t>(rev[static_cast<size_t>(u)][static_cast<size_t>(e)])];
+            const int e = pe[static_cast<size_t>(v)];
+            --cap[e];
+            ++cap[e ^ 1];
         }
         ++flow;
     }

@@ -50,6 +50,8 @@ struct Meadow {
     int neighbours(int i, int out[6]) const;
     // steps to get off the meadow from each cell (edge cells 0; -1 if walled in)
     std::vector<int> distances() const;
+    // steps to get off the meadow from one cell (-1 if walled in, or the cell isn't open)
+    int distance_out(int from) const;
     // number of different shortest ways out from each cell (capped)
     std::vector<int> routes(const std::vector<int>& dist) const;
     bool penned() const;                 // no way out for the sheep
