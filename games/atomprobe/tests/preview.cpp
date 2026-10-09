@@ -3,7 +3,7 @@
 //   preview reveal out.ppm [W H]   the box opened: atoms, replayed beams, the reckoning
 #include "chamber.hpp"
 
-#include "platform/raster.hpp"
+#include "platform/render.hpp"
 
 #include <cstdio>
 #include <cstdlib>

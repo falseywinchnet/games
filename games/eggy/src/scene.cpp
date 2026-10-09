@@ -3,7 +3,7 @@
 #include "critters.hpp"
 #include "flora.hpp"
 #include "ground.hpp"
-#include "mesh.hpp"
+#include "render.hpp"
 #include "textures.hpp"
 
 #include <algorithm>
@@ -48,7 +48,12 @@ void ground_shadow(R3D& r, const World& w, double x, double y, double radius, fl
 }
 }  // namespace
 
-void Scene::resize(int w, int h) { r.resize(w, h); }
+void Scene::resize(int w, int h) {
+    r.resize(w, h);
+    // Flowers and grasses are lit mostly from above, like the ground they stand on,
+    // rather than edge-on to the sun, which leaves them dull and dark.
+    r.billboard_lift = 2;
+}
 
 void Scene::spawn(Particle::Kind k, V3 p, int n, double spread, Col c) {
     if (reduced_motion && k != Particle::sparkle && k != Particle::confetti) n = (n + 2) / 3;

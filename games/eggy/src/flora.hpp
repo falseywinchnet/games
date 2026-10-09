@@ -3,8 +3,7 @@
 // 30 logs, 20 bushes, 40 mushrooms, 40 ferns and 200 rocks, all generated
 // parametrically from fixed seeds at start-up, with their own pixel textures
 // and mip chains.
-#include "mesh.hpp"
-#include "r3d.hpp"
+#include "render.hpp"
 #include "world.hpp"
 
 #include <array>

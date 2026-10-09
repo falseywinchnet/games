@@ -1,5 +1,5 @@
 // Eggy as a low-poly, texture-mapped 3D duckling (and the summit officer).
-#include "mesh.hpp"
+#include "render.hpp"
 #include "pose.hpp"
 #include "textures.hpp"
 

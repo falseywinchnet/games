@@ -3,7 +3,7 @@
 // hinged lid, the girl inside, a fixed camera, and screen-space picking.
 #include "girl.hpp"
 #include "puzzle.hpp"
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 
 #include <array>
 

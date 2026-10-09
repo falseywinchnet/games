@@ -1,15 +1,34 @@
-#include "mesh.hpp"
+#include "r3d_mesh.hpp"
 
 #include <map>
 #include <tuple>
 
-namespace sh {
+namespace render::r3d {
 
 namespace {
 void tri(Mesh& m, const Vtx& a, const Vtx& b, const Vtx& c) { m.push_back(a); m.push_back(b); m.push_back(c); }
 Vtx sv(double th, double ph, double s, double t) {  // th: around z, ph: from -pi/2..pi/2
     const V3 p{std::cos(ph) * std::cos(th), std::cos(ph) * std::sin(th), std::sin(ph)};
     return {p, p, s, t, {1, 1, 1, 1}};
+}
+// One side of the box: two triangles.
+void face(Mesh& m, V3 n, V3 a, V3 b, V3 c, V3 d) {
+    tri(m, {a, n, 0, 1}, {b, n, 1, 1}, {c, n, 1, 0});
+    tri(m, {a, n, 0, 1}, {c, n, 1, 0}, {d, n, 0, 0});
+}
+// A rock's radius at a direction: hashed from the seed, so the lumps are fixed.
+double bump(std::uint64_t seed, double jitter, V3 p) {
+    const int ix = static_cast<int>(std::lround(p.x * 8)), iy = static_cast<int>(std::lround(p.y * 8)), iz = static_cast<int>(std::lround(p.z * 8));
+    std::uint64_t h = seed ^ (static_cast<std::uint64_t>(ix + 99) * 73856093ULL) ^ (static_cast<std::uint64_t>(iy + 99) * 19349663ULL) ^ (static_cast<std::uint64_t>(iz + 99) * 83492791ULL);
+    h ^= h >> 29; h *= 0xbf58476d1ce4e5b9ULL; h ^= h >> 32;
+    return 1 + jitter * (static_cast<double>(h & 0xffff) / 65535.0 - .5);
+}
+// A point on the torus: i of `ma` round the ring, j of `mi` round the tube.
+Vtx torus_point(int ma, int mi, double rr, int i, int j) {
+    const double u = 2 * M_PI * i / ma, v = 2 * M_PI * j / mi;
+    const V3 c{std::cos(u), std::sin(u), 0};
+    const V3 n = norm(c * std::cos(v) + V3{0, 0, 1} * std::sin(v));
+    return Vtx{c + n * rr, n, static_cast<double>(i) / ma, static_cast<double>(j) / mi};
 }
 Mesh build_sphere(int sl, int st, double ph0) {
     Mesh m;
@@ -30,19 +49,19 @@ Mesh build_sphere(int sl, int st, double ph0) {
 
 const Mesh& sphere_mesh(int sl, int st) {
     static std::map<std::pair<int, int>, Mesh> cache;
-    auto& m = cache[{sl, st}];
+    Mesh& m = cache[{sl, st}];
     if (m.empty()) m = build_sphere(sl, st, -M_PI / 2);
     return m;
 }
 const Mesh& hemisphere_mesh(int sl, int st) {
     static std::map<std::pair<int, int>, Mesh> cache;
-    auto& m = cache[{sl, st}];
+    Mesh& m = cache[{sl, st}];
     if (m.empty()) m = build_sphere(sl, st, 0);
     return m;
 }
 const Mesh& cylinder_mesh(int sl) {
     static std::map<int, Mesh> cache;
-    auto& m = cache[sl];
+    Mesh& m = cache[sl];
     if (m.empty())
         for (int i = 0; i < sl; ++i) {
             const double t0 = 2 * M_PI * i / sl, t1 = 2 * M_PI * (i + 1) / sl;
@@ -56,7 +75,7 @@ const Mesh& cylinder_mesh(int sl) {
 }
 const Mesh& disc_mesh(int sl) {
     static std::map<int, Mesh> cache;
-    auto& m = cache[sl];
+    Mesh& m = cache[sl];
     if (m.empty())
         for (int i = 0; i < sl; ++i) {
             const double t0 = 2 * M_PI * i / sl, t1 = 2 * M_PI * (i + 1) / sl;
@@ -68,7 +87,7 @@ const Mesh& disc_mesh(int sl) {
 }
 const Mesh& cone_mesh(int sl) {
     static std::map<int, Mesh> cache;
-    auto& m = cache[sl];
+    Mesh& m = cache[sl];
     if (m.empty())
         for (int i = 0; i < sl; ++i) {
             const double t0 = 2 * M_PI * i / sl, t1 = 2 * M_PI * (i + 1) / sl, tm = (t0 + t1) / 2;
@@ -81,27 +100,17 @@ const Mesh& cone_mesh(int sl) {
 const Mesh& box_mesh() {
     static Mesh m;
     if (m.empty()) {
-        auto face = [&](V3 n, V3 a, V3 b, V3 c, V3 d) {
-            tri(m, {a, n, 0, 1}, {b, n, 1, 1}, {c, n, 1, 0});
-            tri(m, {a, n, 0, 1}, {c, n, 1, 0}, {d, n, 0, 0});
-        };
-        face({0, 0, 1}, {-1, -1, 1}, {1, -1, 1}, {1, 1, 1}, {-1, 1, 1});
-        face({0, -1, 0}, {-1, -1, 0}, {1, -1, 0}, {1, -1, 1}, {-1, -1, 1});
-        face({1, 0, 0}, {1, -1, 0}, {1, 1, 0}, {1, 1, 1}, {1, -1, 1});
-        face({0, 1, 0}, {1, 1, 0}, {-1, 1, 0}, {-1, 1, 1}, {1, 1, 1});
-        face({-1, 0, 0}, {-1, 1, 0}, {-1, -1, 0}, {-1, -1, 1}, {-1, 1, 1});
+        face(m, {0, 0, 1}, {-1, -1, 1}, {1, -1, 1}, {1, 1, 1}, {-1, 1, 1});
+        face(m, {0, -1, 0}, {-1, -1, 0}, {1, -1, 0}, {1, -1, 1}, {-1, -1, 1});
+        face(m, {1, 0, 0}, {1, -1, 0}, {1, 1, 0}, {1, 1, 1}, {1, -1, 1});
+        face(m, {0, 1, 0}, {1, 1, 0}, {-1, 1, 0}, {-1, 1, 1}, {1, 1, 1});
+        face(m, {-1, 0, 0}, {-1, 1, 0}, {-1, -1, 0}, {-1, -1, 1}, {-1, 1, 1});
     }
     return m;
 }
 Mesh rock_mesh(std::uint64_t seed, int sl, int st, double jitter) {
     Mesh m = build_sphere(sl, st, -M_PI / 2);
-    auto bump = [&](V3 p) {
-        const int ix = static_cast<int>(std::lround(p.x * 8)), iy = static_cast<int>(std::lround(p.y * 8)), iz = static_cast<int>(std::lround(p.z * 8));
-        std::uint64_t h = seed ^ (static_cast<std::uint64_t>(ix + 99) * 73856093ULL) ^ (static_cast<std::uint64_t>(iy + 99) * 19349663ULL) ^ (static_cast<std::uint64_t>(iz + 99) * 83492791ULL);
-        h ^= h >> 29; h *= 0xbf58476d1ce4e5b9ULL; h ^= h >> 32;
-        return 1 + jitter * (static_cast<double>(h & 0xffff) / 65535.0 - .5);
-    };
-    for (Vtx& v : m) v.p = v.p * bump(v.p);
+    for (Vtx& v : m) v.p = v.p * bump(seed, jitter, v.p);
     for (size_t i = 0; i + 2 < m.size(); i += 3) {  // faceted: flat normals per triangle
         const V3 n = norm(cross(m[i + 1].p - m[i].p, m[i + 2].p - m[i].p));
         m[i].n = m[i + 1].n = m[i + 2].n = n;
@@ -110,17 +119,12 @@ Mesh rock_mesh(std::uint64_t seed, int sl, int st, double jitter) {
 }
 const Mesh& torus_mesh(int ma, int mi, double rr) {
     static std::map<std::tuple<int, int, int>, Mesh> cache;
-    auto& m = cache[{ma, mi, static_cast<int>(rr * 1000)}];
+    Mesh& m = cache[{ma, mi, static_cast<int>(rr * 1000)}];
     if (m.empty()) {
-        auto at = [&](int i, int j) {
-            const double u = 2 * M_PI * i / ma, v = 2 * M_PI * j / mi;
-            const V3 c{std::cos(u), std::sin(u), 0};
-            const V3 n = norm(c * std::cos(v) + V3{0, 0, 1} * std::sin(v));
-            return Vtx{c + n * rr, n, static_cast<double>(i) / ma, static_cast<double>(j) / mi};
-        };
         for (int i = 0; i < ma; ++i)
             for (int j = 0; j < mi; ++j) {
-                const Vtx a = at(i, j), b = at(i + 1, j), c = at(i + 1, j + 1), d = at(i, j + 1);
+                const Vtx a = torus_point(ma, mi, rr, i, j), b = torus_point(ma, mi, rr, i + 1, j);
+                const Vtx c = torus_point(ma, mi, rr, i + 1, j + 1), d = torus_point(ma, mi, rr, i, j + 1);
                 tri(m, a, b, c);
                 tri(m, a, c, d);
             }
@@ -129,7 +133,7 @@ const Mesh& torus_mesh(int ma, int mi, double rr) {
 }
 const Mesh& star_mesh(double inner, double depth) {
     static std::map<std::pair<int, int>, Mesh> cache;
-    auto& m = cache[{static_cast<int>(inner * 1000), static_cast<int>(depth * 1000)}];
+    Mesh& m = cache[{static_cast<int>(inner * 1000), static_cast<int>(depth * 1000)}];
     if (m.empty()) {
         V3 rim[10];
         for (int i = 0; i < 10; ++i) {
@@ -149,7 +153,7 @@ const Mesh& star_mesh(double inner, double depth) {
     return m;
 }
 
-void draw_outline(R3D& r, const Mesh& m, const M34& model, double width, Col c) {
+void draw_outline(Renderer& r, const Mesh& m, const M34& model, double width, r2d::Col c) {
     thread_local Mesh tmp;
     tmp.resize(m.size());
     const M34 nm = model.normal_matrix();
@@ -163,9 +167,9 @@ void draw_outline(R3D& r, const Mesh& m, const M34& model, double width, Col c) 
     r.draw(tmp.data(), tmp.size(), nullptr, static_cast<std::uint16_t>(inverted | unlit | no_fog));
 }
 
-void tint(Mesh& m, Col c) { for (Vtx& v : m) v.c = c; }
+void tint(Mesh& m, r2d::Col c) { for (Vtx& v : m) v.c = c; }
 
-void draw_mesh(R3D& r, const Mesh& m, const M34& model, const Tex* tex, Col tc, std::uint16_t mat, double ts) {
+void draw_mesh(Renderer& r, const Mesh& m, const M34& model, const Tex* tex, r2d::Col tc, std::uint16_t mat, double ts) {
     thread_local Mesh tmp;
     tmp.assign(m.begin(), m.end());
     for (Vtx& v : tmp) {
@@ -175,4 +179,4 @@ void draw_mesh(R3D& r, const Mesh& m, const M34& model, const Tex* tex, Col tc, 
     r.draw(tmp.data(), tmp.size(), tex, mat, &model);
 }
 
-}  // namespace sh
+}  // namespace render::r3d

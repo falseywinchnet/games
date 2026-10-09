@@ -1,7 +1,7 @@
 // Headless frames for look development.
 //   preview table out.ppm [N] [W H]
 #include "parlor.hpp"
-#include "platform/raster.hpp"
+#include "platform/render.hpp"
 
 #include <cstdio>
 #include <cstdlib>

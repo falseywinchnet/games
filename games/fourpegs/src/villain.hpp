@@ -4,7 +4,7 @@
 // painted face, IK arms and gloved hands. The Actor decides the pose; this
 // file only draws it.
 #include "vface.hpp"
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 
 #include <array>
 

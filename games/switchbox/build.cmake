@@ -1,13 +1,12 @@
 if(NOT DEFINED PLAYSUITE_SOURCE_DIR)
   set(PLAYSUITE_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
 endif()
-add_library(sbx_core STATIC
-  ${GAME_MODULE_DIR}/src/platform/raster.cpp ${GAME_MODULE_DIR}/src/platform/r3d.cpp
-  ${GAME_MODULE_DIR}/src/platform/mesh.cpp ${GAME_MODULE_DIR}/src/platform/lines.cpp
+add_library(sbx_core STATIC ${GAME_MODULE_DIR}/src/platform/lines.cpp
   ${GAME_MODULE_DIR}/src/puzzle.cpp ${GAME_MODULE_DIR}/src/face.cpp ${GAME_MODULE_DIR}/src/girl.cpp
   ${GAME_MODULE_DIR}/src/stage.cpp ${GAME_MODULE_DIR}/src/actor.cpp ${GAME_MODULE_DIR}/src/save.cpp
   ${GAME_MODULE_DIR}/src/mole.cpp)
 target_include_directories(sbx_core PUBLIC ${GAME_MODULE_DIR}/src)
+target_link_libraries(sbx_core PUBLIC render_core)  # the 2D canvas, 3D renderer and meshes (shared/render)
 target_link_libraries(sbx_core PUBLIC game_paths)
 add_executable(switchbox_rules_tests ${GAME_MODULE_DIR}/tests/puzzle_tests.cpp)
 target_link_libraries(switchbox_rules_tests PRIVATE sbx_core)

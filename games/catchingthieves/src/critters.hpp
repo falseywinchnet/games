@@ -4,7 +4,7 @@
 // masked, ringed tails). Their faces are painted textures over the front of
 // the head, so an expression is a drawing swapped instantly; each combination
 // is painted once and cached. Local space: z up, the critter faces -y.
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 
 #include <cstdint>
 

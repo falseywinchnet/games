@@ -4,7 +4,7 @@
 // patches and longer meadow grass with wildflowers in the field around them. Both are
 // folded so they wrap without a seam. Growing takes some tenths of a second, so the
 // pasture grows them on a worker and keeps its painted grass until they are ready.
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 
 namespace sh {
 

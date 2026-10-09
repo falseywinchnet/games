@@ -37,5 +37,8 @@
   "libraries": [
     "eggy_core"
   ],
-  "hosted": true
+  "hosted": true,
+  "engines": [
+    "render"
+  ]
 }

@@ -6,7 +6,7 @@
 // Growing it takes a few tenths of a second on every core, so the view grows it on a
 // worker when the season changes and the garden shows the plain lawn until it is ready.
 #include "garden.hpp"
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 
 #include <atomic>
 

@@ -1,5 +1,6 @@
-add_library(pt_core STATIC ${GAME_MODULE_DIR}/src/logic.cpp ${GAME_MODULE_DIR}/src/script.cpp ${GAME_MODULE_DIR}/src/birds.cpp ${GAME_MODULE_DIR}/src/parlor.cpp ${GAME_MODULE_DIR}/src/platform/raster.cpp ${GAME_MODULE_DIR}/src/platform/r3d.cpp ${GAME_MODULE_DIR}/src/platform/mesh.cpp)
+add_library(pt_core STATIC ${GAME_MODULE_DIR}/src/logic.cpp ${GAME_MODULE_DIR}/src/script.cpp ${GAME_MODULE_DIR}/src/birds.cpp ${GAME_MODULE_DIR}/src/parlor.cpp)
 target_include_directories(pt_core PUBLIC ${GAME_MODULE_DIR}/src)
+target_link_libraries(pt_core PUBLIC render_core)  # the 2D canvas, 3D renderer and meshes (shared/render)
 target_link_libraries(pt_core PUBLIC game_paths Threads::Threads)
 target_compile_definitions(pt_core PRIVATE _USE_MATH_DEFINES)
 add_executable(parrots_rules_tests ${GAME_MODULE_DIR}/tests/logic_tests.cpp)

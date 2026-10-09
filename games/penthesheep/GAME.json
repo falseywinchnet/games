@@ -25,7 +25,8 @@
     ]
   ],
   "engines": [
-    "grass"
+    "grass",
+    "render"
   ],
   "help": "help.md",
   "module": "module.cpp",

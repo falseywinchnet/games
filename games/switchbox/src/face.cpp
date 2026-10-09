@@ -1,6 +1,6 @@
 #include "face.hpp"
 
-#include "platform/raster.hpp"
+#include "platform/render.hpp"
 
 #include <algorithm>
 #include <cmath>

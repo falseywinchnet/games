@@ -38,11 +38,12 @@ APPROVALS = ROOT / "tools/game_approvals.json"
 
 # Plain C functions every game may use: arithmetic, memory and strings, number
 # conversion, character classes, the C++ runtime, stack protection, thread-local
-# storage and diagnostics on stderr.
+# storage, diagnostics on stderr, and static destructors (__cxa_atexit, or atexit
+# where MinGW registers them).
 BASE_C = set("""
 sin cos tan asin acos atan atan2 sinh cosh tanh asinh acosh atanh exp exp2 exp10 expm1
 log log2 log10 log1p pow sqrt cbrt hypot fmod remainder floor ceil round trunc lround
-llround lrint rint nearbyint ldexp frexp modf fabs fmin fmax fma copysign nan
+llround lrint llrint lrintf llrintf rint nearbyint ldexp frexp modf fabs fmin fmax fma copysign nan
 sinf cosf tanf asinf acosf atanf atan2f sinhf coshf tanhf expf exp2f logf log2f log10f
 powf sqrtf cbrtf hypotf fmodf floorf ceilf roundf truncf lroundf ldexpf fabsf fminf fmaxf
 __sincos_stret __sincosf_stret __exp10 sincos sincosf
@@ -57,7 +58,7 @@ __ctype_toupper_loc rand srand abs labs llabs div qsort bsearch
 __cxa_allocate_exception __cxa_free_exception __cxa_throw __cxa_rethrow
 __cxa_begin_catch __cxa_end_catch __cxa_guard_acquire __cxa_guard_release
 __cxa_guard_abort __cxa_pure_virtual __cxa_deleted_virtual __cxa_atexit
-__cxa_thread_atexit __cxa_thread_atexit_impl __cxa_finalize __dynamic_cast
+__cxa_thread_atexit __cxa_thread_atexit_impl __cxa_finalize atexit __dynamic_cast
 __dso_handle __gxx_personality_v0 __gxx_personality_seh0 _Unwind_Resume
 __stack_chk_fail __stack_chk_guard __tlv_atexit __tlv_bootstrap _tlv_atexit _tlv_bootstrap __tls_get_addr
 __chkstk __chkstk_ms ___chkstk_ms __chkstk_darwin __emutls_get_address _tls_index
@@ -68,8 +69,9 @@ fprintf fputs fputc __stderrp stderr __acrt_iob_func __iob_func
 # demangled C++ patterns that need it.
 CAPABILITIES = {
     "files": {
+        # The 64-bit seeks and setbuf are what libc++'s file streams compile to on Windows.
         "c": set("fopen fclose fread fwrite fflush fseek ftell rewind fgets fgetc fputs "
-                 "remove rename _wfopen tmpfile".split()),
+                 "remove rename _wfopen tmpfile _fseeki64 _ftelli64 fseeko ftello setbuf".split()),
         "cxx": [r"std::(__1::)?__fs::", r"std::(__1::)?basic_(i|o)?fstream", r"std::(__1::)?basic_filebuf",
                 r"std::filesystem::"],
     },
@@ -86,7 +88,7 @@ CAPABILITIES = {
 # PlaySuite's own C++ namespaces: GUI.Forms, the shell's game API and the shared
 # engines in shared/.
 NAMESPACES = ("gui_forms::", "games::", "ambient::", "coverage::", "grass::", "paint::", "soil::",
-              "felt::", "cards::", "puzzles::", "__cxxabiv1::")
+              "felt::", "cards::", "puzzles::", "render::", "__cxxabiv1::")
 
 # The standard library, apart from what the capabilities above cover.
 STD = re.compile(r"(^|[\s(<,*&])std::")

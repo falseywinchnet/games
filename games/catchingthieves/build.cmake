@@ -1,8 +1,8 @@
 add_library(ct_core STATIC
-    ${GAME_MODULE_DIR}/src/platform/raster.cpp ${GAME_MODULE_DIR}/src/platform/r3d.cpp ${GAME_MODULE_DIR}/src/platform/mesh.cpp
     ${GAME_MODULE_DIR}/src/level.cpp ${GAME_MODULE_DIR}/src/solver.cpp ${GAME_MODULE_DIR}/src/gen.cpp ${GAME_MODULE_DIR}/src/tiers.cpp ${GAME_MODULE_DIR}/src/levelset.cpp ${GAME_MODULE_DIR}/src/critters.cpp
     ${GAME_MODULE_DIR}/src/ground.cpp ${GAME_MODULE_DIR}/src/garden.cpp ${GAME_MODULE_DIR}/src/hedge.cpp ${GAME_MODULE_DIR}/src/field.cpp ${GAME_MODULE_DIR}/src/show.cpp ${GAME_MODULE_DIR}/src/lines.cpp ${GAME_MODULE_DIR}/src/save.cpp)
 target_include_directories(ct_core PUBLIC "${GAME_MODULE_DIR}/src")
+target_link_libraries(ct_core PUBLIC render_core)  # the 2D canvas, 3D renderer and meshes (shared/render)
 target_link_libraries(ct_core PUBLIC grass_core)  # the field round the garden (shared/grass)
 target_link_libraries(ct_core PUBLIC soil_core)   # the beds and burrows (shared/soil)
 target_compile_definitions(ct_core PRIVATE _USE_MATH_DEFINES)

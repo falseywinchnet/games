@@ -9,8 +9,7 @@
 // them costs a few hundred triangles a frame. This file draws no lawn, hedge,
 // pumpkin or character: the garden calls it at the right moments in its frame.
 #include "level.hpp"
-#include "platform/mesh.hpp"
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 
 #include <cstdint>
 #include <vector>

@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace pt {
+namespace render::r2d {
 
 struct Col {
     float r = 0, g = 0, b = 0, a = 1;  // straight alpha, 0..1
@@ -116,7 +116,10 @@ private:
     double cx_ = 0, cy_ = 0;  // current point (user)
     void dev(double x, double y, double& ox, double& oy) const { m_.apply(x, y, ox, oy); }
     void push_dev(double x, double y);
+    // Winds a polygon counter-clockwise; adds a round cap of half-width hw with cn sides.
+    static void orient(std::vector<Pt>& p);
+    static void cap(std::vector<std::vector<Pt>>& polys, Pt q, double hw, int cn);
     void rasterize(const std::vector<std::vector<Pt>>& polys, const Paint& p);
 };
 
-}  // namespace pt
+}  // namespace render::r2d

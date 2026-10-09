@@ -7,7 +7,7 @@
 // close without seams. The shell, its colours and the shade it casts on the ground are
 // made once per garden and season; a frame only draws them.
 #include "garden.hpp"
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 
 #include <cstdint>
 #include <vector>

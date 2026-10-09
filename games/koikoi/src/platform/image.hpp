@@ -1,6 +1,6 @@
 #pragma once
 // PNG card artwork into canvases, and high-quality reduction to the size it's drawn at.
-#include "raster.hpp"
+#include "render.hpp"
 
 #include <cstdint>
 #include <span>

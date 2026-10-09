@@ -3,7 +3,7 @@
 // light and ink outlines, a painted face, and IK arms. Everything she does is
 // a GirlPose; the Actor decides the pose, this file only draws it.
 #include "face.hpp"
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 
 #include <array>
 
