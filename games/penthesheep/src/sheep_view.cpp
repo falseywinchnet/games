@@ -697,30 +697,38 @@ void SheepView::draw_star(double cx, double cy, double r, bool lit) {
 }
 
 void SheepView::draw_bars() {
-    // top: the meadow, the sheep, the stones against par
-    frame_.fill_rect(0, 0, pw_, top_h_, hex(0x2E4A22, .82f));
+    // The meadow, the sheep and the fences against par. On its own the game shows them in a
+    // bar along the top. Hosted, the capsule floats over the top-left corner and Help over the
+    // top-right, so they sit in the bottom bar right of the buttons, and the top band is left
+    // as bare meadow.
+    const bool below = opt_.hosted;
+    frame_.fill_rect(0, ph_ - bottom_h_, pw_, bottom_h_, hex(0x2E4A22, .82f));
+    if (!below) frame_.fill_rect(0, 0, pw_, top_h_, hex(0x2E4A22, .82f));
+    const int bar_y = below ? ph_ - bottom_h_ : 0, bar_h = below ? bottom_h_ : top_h_;
+    int left = 10;
+    if (below)
+        for (const Button& b : buttons_)
+            if (b.y >= ph_ - bottom_h_) left = std::max(left, b.x + b.w + 12);
     const double ts = compact_ ? 11 : 12;
-    const int ty = (top_h_ - text_h("M", ts, 1)) / 2;
-    if (phase_ == Phase::loading) { text("Herding the next sheep...", 10, ty, kCream, ts, 1); return; }
+    const int ty = bar_y + (bar_h - text_h("M", ts, 1)) / 2;
+    if (phase_ == Phase::loading) { text("Herding the next sheep...", left, ty, kCream, ts, 1); return; }
     // the right side first (the score must always show), then the title in what's left
     std::string b = "Fences: " + std::to_string(m_.stones) + "   Par: " + std::to_string(lvl_.par);
-    if (text_w(b, 11, 0) + 50 > pw_ / 2) b = std::to_string(m_.stones) + " / par " + std::to_string(lvl_.par);
+    if (text_w(b, 11, 0) + 50 > (below ? pw_ - left : pw_ / 2)) b = std::to_string(m_.stones) + " / par " + std::to_string(lvl_.par);
     const int bw = text_w(b, 11, 0);
-    text(b, pw_ - 12 - bw - 40, (top_h_ - text_h(b, 11, 0)) / 2, hex(0xE0F0C8), 11, 0);
+    text(b, pw_ - 12 - bw - 40, bar_y + (bar_h - text_h(b, 11, 0)) / 2, hex(0xE0F0C8), 11, 0);
     const int s = phase_ == Phase::won ? star_count() : (m_.stones <= lvl_.par ? 3 : m_.stones <= lvl_.par + 3 ? 2 : 1);
-    for (int k = 0; k < 3; ++k) draw_star(pw_ - 34 + k * 11, top_h_ / 2.0, 4.5, k < (hinted_ ? std::min(s, 2) : s));
+    for (int k = 0; k < 3; ++k) draw_star(pw_ - 34 + k * 11, bar_y + bar_h / 2.0, 4.5, k < (hinted_ ? std::min(s, 2) : s));
     static const char* const levels[] = {"Easy", "Medium", "Hard"};
     std::string a = std::string(levels[std::clamp(difficulty_, 0, 2)]) + "  -  " + kind_line(m_.smarts);
-    if (10 + text_w(a, ts, 1) > pw_ - 12 - bw - 50) a = levels[std::clamp(difficulty_, 0, 2)];
-    text(a, 10, ty, kCream, ts, 1);
+    if (left + text_w(a, ts, 1) > pw_ - 12 - bw - 50) a = levels[std::clamp(difficulty_, 0, 2)];
+    if (left + text_w(a, ts, 1) <= pw_ - 12 - bw - 50) text(a, left, ty, kCream, ts, 1);
     if (m_.head > 0 && phase_ == Phase::play && panel_ == Panel::none) {
         const std::string h = std::to_string(m_.head) + (m_.head == 1 ? " free fence" : " free fences") + " before it moves";
         const int w = text_w(h, 11, 1) + 16, hh = text_h(h, 11, 1) + 6;
         frame_.begin(); frame_.rrect((pw_ - w) / 2, top_h_ + 4, w, hh, hh / 2.0); frame_.fill(hex(0xFFF8E8, .9f));
         text(h, (pw_ - w) / 2 + 8, top_h_ + 7, kInk, 11, 1);
     }
-    // bottom: the buttons
-    frame_.fill_rect(0, ph_ - bottom_h_, pw_, bottom_h_, hex(0x2E4A22, .82f));
     // a thought from the meadow
     if (say_t_ > 0 && !say_.empty() && panel_ == Panel::none) {
         const float a = static_cast<float>(std::min(1.0, say_t_ * 2));
