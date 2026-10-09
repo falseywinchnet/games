@@ -1,9 +1,9 @@
-#include "raster.hpp"
+#include "r2d_canvas.hpp"
 
 #include <algorithm>
 #include <cstring>
 
-namespace ld {
+namespace render::r2d {
 
 void Canvas::resize(int width, int height) {
     w = std::max(1, width);
@@ -117,27 +117,29 @@ void Canvas::fill(const Paint& user) {
     rasterize(paths_, p);
 }
 
+void Canvas::orient(std::vector<Pt>& p) {
+    double a = 0;
+    for (size_t i = 0; i + 1 < p.size(); ++i) a += p[i].x * p[i + 1].y - p[i + 1].x * p[i].y;
+    if (a < 0) std::reverse(p.begin(), p.end());
+}
+
+void Canvas::cap(std::vector<std::vector<Pt>>& polys, Pt q, double hw, int cn) {
+    std::vector<Pt> circ;
+    for (int i = 0; i <= cn; ++i) {
+        const double t = 2 * M_PI * i / cn;
+        circ.push_back({q.x + hw * std::cos(t), q.y + hw * std::sin(t)});
+    }
+    orient(circ);
+    polys.push_back(std::move(circ));
+}
+
 void Canvas::stroke(Col c, double width) {
     const double hw = std::max(0.35, width * m_.scale() * .5);
     std::vector<std::vector<Pt>> polys;
-    auto orient = [](std::vector<Pt>& p) {
-        double a = 0;
-        for (size_t i = 0; i + 1 < p.size(); ++i) a += p[i].x * p[i + 1].y - p[i + 1].x * p[i].y;
-        if (a < 0) std::reverse(p.begin(), p.end());
-    };
     const int cn = std::clamp(static_cast<int>(hw * 1.5) + 6, 8, 40);
-    auto cap = [&](Pt q) {
-        std::vector<Pt> circ;
-        for (int i = 0; i <= cn; ++i) {
-            const double t = 2 * M_PI * i / cn;
-            circ.push_back({q.x + hw * std::cos(t), q.y + hw * std::sin(t)});
-        }
-        orient(circ);
-        polys.push_back(std::move(circ));
-    };
-    for (const auto& path : paths_) {
+    for (const std::vector<Pt>& path : paths_) {
         if (path.empty()) continue;
-        cap(path.front());
+        cap(polys, path.front(), hw, cn);
         for (size_t i = 0; i + 1 < path.size(); ++i) {
             const Pt a = path[i], b = path[i + 1];
             const double dx = b.x - a.x, dy = b.y - a.y, l = std::hypot(dx, dy);
@@ -146,7 +148,7 @@ void Canvas::stroke(Col c, double width) {
             std::vector<Pt> q{{a.x + nx, a.y + ny}, {b.x + nx, b.y + ny}, {b.x - nx, b.y - ny}, {a.x - nx, a.y - ny}, {a.x + nx, a.y + ny}};
             orient(q);
             polys.push_back(std::move(q));
-            cap(b);
+            cap(polys, b, hw, cn);
         }
     }
     Paint p;
@@ -226,7 +228,7 @@ void build_lut(const Paint& p, Lut& lut) {
 
 void Canvas::rasterize(const std::vector<std::vector<Pt>>& polys, const Paint& p) {
     double minx = 1e30, miny = 1e30, maxx = -1e30, maxy = -1e30;
-    for (const auto& poly : polys)
+    for (const std::vector<Pt>& poly : polys)
         for (const Pt& q : poly) {
             minx = std::min(minx, q.x); maxx = std::max(maxx, q.x);
             miny = std::min(miny, q.y); maxy = std::max(maxy, q.y);
@@ -240,7 +242,7 @@ void Canvas::rasterize(const std::vector<std::vector<Pt>>& polys, const Paint& p
     const int bw = ix1 - ix0, bh = iy1 - iy0, stride = bw + 2;
     const size_t need = static_cast<size_t>(stride) * bh;
     if (acc_.size() < need) acc_.resize(need, 0.f);
-    for (const auto& poly : polys) {
+    for (const std::vector<Pt>& poly : polys) {
         const size_t n = poly.size();
         if (n < 2) continue;
         for (size_t i = 0; i < n; ++i) {
@@ -353,4 +355,4 @@ void Canvas::draw_canvas(const Canvas& src, int x, int y, float opacity) {
     }
 }
 
-}  // namespace ld
+}  // namespace render::r2d

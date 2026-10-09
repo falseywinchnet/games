@@ -5,7 +5,7 @@
 // patch), the parrots perched in a row behind it facing you, and a cosy room
 // around them: striped wallpaper, a window, a portrait of a very grand parrot.
 #include "birds.hpp"
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 
 #include <string>
 #include <vector>

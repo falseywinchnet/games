@@ -1,6 +1,6 @@
 // Headless frames for look development:  preview out.ppm [level] [W H] [mode: play|sit|hint]
 #include "pasture.hpp"
-#include "platform/raster.hpp"
+#include "platform/render.hpp"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>

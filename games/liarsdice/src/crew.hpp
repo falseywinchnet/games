@@ -6,7 +6,7 @@
 // back, arms raised or tapping, swaying, a flush of colour, a twitch. A tell
 // is just one of those, played small and briefly, after a bid.
 #include "brain.hpp"
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 
 namespace ld {
 

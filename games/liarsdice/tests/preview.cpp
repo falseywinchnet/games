@@ -2,7 +2,7 @@
 //   preview table out.ppm [opponents] [W H] [first-cast-index] [reveal]
 //   preview lineup out.ppm [W H] [first]   eight of the crew in a row, for checking the models
 #include "cabin.hpp"
-#include "platform/raster.hpp"
+#include "platform/render.hpp"
 
 #include <cstdio>
 #include <cstdlib>

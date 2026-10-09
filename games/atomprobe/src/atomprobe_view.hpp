@@ -7,7 +7,7 @@
 #include "box.hpp"
 #include "chamber.hpp"
 #include "save.hpp"
-#include "platform/raster.hpp"
+#include "platform/render.hpp"
 
 #include "gui_forms/basic_controls.hpp"
 #include "gui_forms/live_surface.hpp"

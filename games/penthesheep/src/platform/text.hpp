@@ -2,7 +2,7 @@
 // Text rasterised to alpha masks with CoreText, cached by content.
 // `pixel` text is drawn without anti-aliasing at a small size and is meant
 // to be blitted at 2x or 3x for a chunky 1990s look.
-#include "raster.hpp"
+#include "render.hpp"
 
 #include <string>
 

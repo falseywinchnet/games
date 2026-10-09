@@ -1,8 +1,8 @@
-#include "r3d.hpp"
+#include "r3d_renderer.hpp"
 
 #include <algorithm>
 
-namespace ct {
+namespace render::r3d {
 
 // Thresholds of a 4 x 4 ordered dither, for choosing between two texture levels.
 static const float kLevelDither[16] = {.03125f, .53125f, .15625f, .65625f, .78125f, .28125f, .90625f, .40625f,
@@ -39,14 +39,14 @@ M34 M34::normal_matrix() const {
 void Tex::build_mips() {
     mips.clear();
     const Tex* src = this;
-    while (src->w > 4 && src->h > 4) {
+    while ((*src).w > 4 && (*src).h > 4) {
         Tex m;
-        m.make(src->w / 2, src->h / 2);
+        m.make((*src).w / 2, (*src).h / 2);
         for (int y = 0; y < m.h; ++y)
             for (int x = 0; x < m.w; ++x) {
                 unsigned acc[4] = {0, 0, 0, 0};
                 for (int k = 0; k < 4; ++k) {
-                    const std::uint32_t c = src->px[static_cast<size_t>((y * 2 + k / 2) * src->w + x * 2 + k % 2)];
+                    const std::uint32_t c = (*src).px[static_cast<size_t>((y * 2 + k / 2) * (*src).w + x * 2 + k % 2)];
                     for (int ch = 0; ch < 4; ++ch) acc[ch] += (c >> (ch * 8)) & 255;
                 }
                 m.px[static_cast<size_t>(y * m.w + x)] = (acc[0] / 4) | ((acc[1] / 4) << 8) | ((acc[2] / 4) << 16) | ((acc[3] / 4) << 24);
@@ -57,23 +57,23 @@ void Tex::build_mips() {
     }
 }
 
-void R3D::resize(int w, int h) {
+void Renderer::resize(int w, int h) {
     W = std::max(16, w);
     H = std::max(16, h);
     rgb.assign(static_cast<size_t>(W) * H * 3, 0.f);
     depth.assign(static_cast<size_t>(W) * H, 1e30f);
 }
 
-void R3D::clear_depth() { std::fill(depth.begin(), depth.end(), 1e30f); }
+void Renderer::clear_depth() { std::fill(depth.begin(), depth.end(), 1e30f); }
 
-void R3D::set_camera() {
+void Renderer::set_camera() {
     R_ = {std::cos(yaw), std::sin(yaw), 0};
     const V3 h{-std::sin(yaw), std::cos(yaw), 0};
     F_ = norm(h * std::cos(pitch) + V3{0, 0, -1} * std::sin(pitch));
     U_ = norm(cross(R_, F_));
 }
 
-void R3D::project(V3 p, double& sx, double& sy, double& sz) const {
+void Renderer::project(V3 p, double& sx, double& sy, double& sz) const {
     const V3 d{p.x - target.x, p.y - target.y, p.z * height_scale - target.z * height_scale};
     sz = dot(d, F_);
     // perspective divides by distance from the eye; the textures stay affine, a 1990s look
@@ -82,7 +82,7 @@ void R3D::project(V3 p, double& sx, double& sy, double& sz) const {
     sy = H * ay - dot(d, U_) * scale * k;
 }
 
-bool R3D::unproject_plane(double sx, double sy, double gz, double& wx, double& wy) const {
+bool Renderer::unproject_plane(double sx, double sy, double gz, double& wx, double& wy) const {
     if (!unproject_ground(sx, sy, gz, wx, wy)) return false;
     if (persp <= 0) return true;
     // Newton steps on the projection, starting from the orthographic answer
@@ -102,7 +102,7 @@ bool R3D::unproject_plane(double sx, double sy, double gz, double& wx, double& w
     return true;
 }
 
-bool R3D::unproject_ground(double sx, double sy, double gz, double& wx, double& wy) const {
+bool Renderer::unproject_ground(double sx, double sy, double gz, double& wx, double& wy) const {
     const double a = (sx - W * ax) / scale, b = -(sy - H * ay) / scale;
     const double dz = (gz - target.z) * height_scale;
     if (std::fabs(F_.z) < 1e-9) return false;
@@ -113,7 +113,7 @@ bool R3D::unproject_ground(double sx, double sy, double gz, double& wx, double& 
     return true;
 }
 
-Col R3D::shade_vertex(const Vtx& v, std::uint16_t mat) const {
+r2d::Col Renderer::shade_vertex(const Vtx& v, std::uint16_t mat) const {
     if (mat & unlit) return v.c;
     const double nd = std::max(0.0, dot(norm(v.n), light.sun));
     const float k = static_cast<float>(nd);
@@ -125,23 +125,42 @@ namespace {
 struct SV {
     double x, y, z, s, t, r, g, b, a, f, w, l;
 };
+
+// The plane a(x, y) = a0 + ax x + ay y through one attribute at the three corners
+// (affine is exact for an orthographic camera); `inv` is 1 / twice the area.
+void plane_of(const SV* sv, double inv, double SV::*m, float& ax, float& ay, float& a0) {
+    const double d1 = sv[1].*m - sv[0].*m, d2 = sv[2].*m - sv[0].*m;
+    const double gx = (d1 * (sv[2].y - sv[0].y) - d2 * (sv[1].y - sv[0].y)) * inv;
+    const double gy = (d2 * (sv[1].x - sv[0].x) - d1 * (sv[2].x - sv[0].x)) * inv;
+    ax = static_cast<float>(gx); ay = static_cast<float>(gy);
+    a0 = static_cast<float>(sv[0].*m - gx * sv[0].x - gy * sv[0].y);
+}
+
+// A channel (0..1) to 5 bits with a dither threshold th (0..15), then back to 8 bits.
+std::uint8_t quantize(float v, int th) {
+    int iv = static_cast<int>(v * (31.f * 16.f));
+    iv = iv < 0 ? 0 : (iv > 31 * 16 ? 31 * 16 : iv);
+    const int l = (iv + th) >> 4;
+    const int five = l > 31 ? 31 : l;
+    return static_cast<std::uint8_t>(five * 255 / 31);
+}
 }  // namespace
 
-void R3D::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16_t mat, const M34* model, const Tex* tex2_0, const Tex* splat) {
+void Renderer::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16_t mat, const M34* model, const Tex* tex2_0, const Tex* splat) {
     M34 nm;
-    if (model) nm = model->normal_matrix();
+    if (model) nm = (*model).normal_matrix();
     for (size_t i = 0; i + 2 < count; i += 3) {
         SV sv[3];
         for (int k = 0; k < 3; ++k) {
             Vtx v = verts[i + static_cast<size_t>(k)];
             if (model) {
                 // model matrices are already in render space (their z is pre-scaled)
-                v.p = model->apply(v.p); v.n = nm.dir(v.n);
+                v.p = (*model).apply(v.p); v.n = nm.dir(v.n);
                 project({v.p.x, v.p.y, v.p.z / height_scale}, sv[k].x, sv[k].y, sv[k].z);
             } else {
                 project(v.p, sv[k].x, sv[k].y, sv[k].z);
             }
-            const Col c = (mat & toon) ? v.c : shade_vertex(v, mat);
+            const r2d::Col c = (mat & toon) ? v.c : shade_vertex(v, mat);
             sv[k].l = (mat & toon) ? dot(norm(v.n), light.sun) : 0;
             sv[k].s = v.s; sv[k].t = v.t; sv[k].w = v.w;
             sv[k].r = c.r; sv[k].g = c.g; sv[k].b = c.b; sv[k].a = c.a;
@@ -165,22 +184,15 @@ void R3D::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16_t ma
         ++tris_drawn;
         // plane equations for every attribute: a(x,y) = a0 + ax*x + ay*y (affine is exact for an orthographic camera)
         const double inv = 1.0 / area;
-        auto plane = [&](double SV::*m, float& ax, float& ay, float& a0) {
-            const double d1 = sv[1].*m - sv[0].*m, d2 = sv[2].*m - sv[0].*m;
-            const double gx = (d1 * (sv[2].y - sv[0].y) - d2 * (sv[1].y - sv[0].y)) * inv;
-            const double gy = (d2 * (sv[1].x - sv[0].x) - d1 * (sv[2].x - sv[0].x)) * inv;
-            ax = static_cast<float>(gx); ay = static_cast<float>(gy);
-            a0 = static_cast<float>(sv[0].*m - gx * sv[0].x - gy * sv[0].y);
-        };
         float zx, zy, z0, sx_, sy_, s0, tx_, ty_, t0, rx, ry, r0, gx_, gy_, g0, bx, by, b0, axx, ayy, a0v, fx, fy, f0;
-        plane(&SV::z, zx, zy, z0); plane(&SV::s, sx_, sy_, s0); plane(&SV::t, tx_, ty_, t0);
-        plane(&SV::r, rx, ry, r0); plane(&SV::g, gx_, gy_, g0); plane(&SV::b, bx, by, b0);
-        plane(&SV::a, axx, ayy, a0v); plane(&SV::f, fx, fy, f0);
+        plane_of(sv, inv, &SV::z, zx, zy, z0); plane_of(sv, inv, &SV::s, sx_, sy_, s0); plane_of(sv, inv, &SV::t, tx_, ty_, t0);
+        plane_of(sv, inv, &SV::r, rx, ry, r0); plane_of(sv, inv, &SV::g, gx_, gy_, g0); plane_of(sv, inv, &SV::b, bx, by, b0);
+        plane_of(sv, inv, &SV::a, axx, ayy, a0v); plane_of(sv, inv, &SV::f, fx, fy, f0);
         float wx = 0, wy = 0, w0v = 0;
-        if (tex2_0) plane(&SV::w, wx, wy, w0v);
+        if (tex2_0) plane_of(sv, inv, &SV::w, wx, wy, w0v);
         const bool toon_px = mat & toon;
         float lx = 0, ly = 0, l0 = 0;
-        if (toon_px) plane(&SV::l, lx, ly, l0);
+        if (toon_px) plane_of(sv, inv, &SV::l, lx, ly, l0);
         const float te0 = light.toon_edge - light.toon_soft * .5f, tinv = 1.f / std::max(1e-4f, light.toon_soft);
         // mip level from the texel footprint of one screen pixel (per triangle), as a
         // fraction between two levels: each pixel takes the finer or the coarser by an
@@ -190,17 +202,17 @@ void R3D::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16_t ma
         const Tex* tex_coarse = tex0;
         const Tex* tex2_coarse = tex2_0;
         float lod_frac = 0;
-        if (tex0 && !tex0->mips.empty()) {
-            const float fx2 = std::max(std::fabs(sx_), std::fabs(sy_)) * tex0->w, fy2 = std::max(std::fabs(tx_), std::fabs(ty_)) * tex0->h;
+        if (tex0 && !(*tex0).mips.empty()) {
+            const float fx2 = std::max(std::fabs(sx_), std::fabs(sy_)) * (*tex0).w, fy2 = std::max(std::fabs(tx_), std::fabs(ty_)) * (*tex0).h;
             const float rho = std::max(fx2, fy2);
             const float lod = std::clamp(std::log2(std::max(rho, 1e-6f)), 0.f, 6.f);
             const int lvl = static_cast<int>(lod);
             lod_frac = lod - static_cast<float>(lvl);
-            tex = &tex0->level(lvl);
-            tex_coarse = &tex0->level(lvl + 1);
+            tex = &(*tex0).level(lvl);
+            tex_coarse = &(*tex0).level(lvl + 1);
             if (tex2_0) {
-                tex2 = &tex2_0->level(lvl);
-                tex2_coarse = &tex2_0->level(lvl + 1);
+                tex2 = &(*tex2_0).level(lvl);
+                tex2_coarse = &(*tex2_0).level(lvl + 1);
             }
         }
         const bool cut = mat & cutout, trans = mat & (translucent | additive), add = mat & additive;
@@ -247,14 +259,14 @@ void R3D::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16_t ma
                     const bool coarse = lod_frac > kLevelDither[((y & 3) << 2) | (x & 3)];
                     const Tex* tt = coarse ? tex_coarse : tex;
                     if (tex2 && wv > .02f) {
-                        const int nx = static_cast<int>(s * 64.f + 1048576.f) & splat->wm, ny = static_cast<int>(t * 64.f + 1048576.f) & splat->hm;
-                        const float nz = static_cast<float>(splat->px[static_cast<size_t>(ny * splat->w + nx)] & 255) * (1.f / 255.f);
+                        const int nx = static_cast<int>(s * 64.f + 1048576.f) & (*splat).wm, ny = static_cast<int>(t * 64.f + 1048576.f) & (*splat).hm;
+                        const float nz = static_cast<float>((*splat).px[static_cast<size_t>(ny * (*splat).w + nx)] & 255) * (1.f / 255.f);
                         if (wv > nz) tt = coarse ? tex2_coarse : tex2;
                     }
                     // texel coordinates via a positive bias instead of floor()
-                    const int tx = static_cast<int>(s * static_cast<float>(tt->w) + 1048576.f) & tt->wm;
-                    const int ty = static_cast<int>(t * static_cast<float>(tt->h) + 1048576.f) & tt->hm;
-                    const std::uint32_t c = tt->px[static_cast<size_t>(ty * tt->w + tx)];
+                    const int tx = static_cast<int>(s * static_cast<float>((*tt).w) + 1048576.f) & (*tt).wm;
+                    const int ty = static_cast<int>(t * static_cast<float>((*tt).h) + 1048576.f) & (*tt).hm;
+                    const std::uint32_t c = (*tt).px[static_cast<size_t>(ty * (*tt).w + tx)];
                     const float ta = static_cast<float>(c >> 24) * (1.f / 255.f);
                     if (cut && ta < .5f) continue;
                     cr *= static_cast<float>((c >> 16) & 255) * (1.f / 255.f);
@@ -279,7 +291,7 @@ void R3D::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16_t ma
     }
 }
 
-void R3D::billboard(V3 p, double w, double h, const Tex* tex, Col tint, std::uint16_t mat, double s0, double s1) {
+void Renderer::billboard(V3 p, double w, double h, const Tex* tex, r2d::Col tint, std::uint16_t mat, double s0, double s1) {
     const V3 r = R_ * (w * .5);
     const V3 up{0, 0, h / height_scale};
     const V3 n = F_ * -1.0;
@@ -290,7 +302,7 @@ void R3D::billboard(V3 p, double w, double h, const Tex* tex, Col tint, std::uin
     draw(q, 6, tex, static_cast<std::uint16_t>(mat | double_sided));
 }
 
-void R3D::fill_rect2(int x0, int y0, int x1, int y1, Col c, float a) {
+void Renderer::fill_rect2(int x0, int y0, int x1, int y1, r2d::Col c, float a) {
     x0 = std::max(0, x0); y0 = std::max(0, y0); x1 = std::min(W, x1); y1 = std::min(H, y1);
     for (int y = y0; y < y1; ++y)
         for (int x = x0; x < x1; ++x) {
@@ -299,25 +311,16 @@ void R3D::fill_rect2(int x0, int y0, int x1, int y1, Col c, float a) {
         }
 }
 
-void R3D::present(Canvas& out, int s, int ox, int oy, bool dither) const {
+void Renderer::present(r2d::Canvas& out, int s, int ox, int oy, bool dither) const {
     // 15-bit colour with a 4x4 ordered dither, done with integer lookups
     static const int bayer[16] = {0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5};
-    static std::uint8_t level8[32];
-    static bool init = false;
-    if (!init) { for (int i = 0; i < 32; ++i) level8[i] = static_cast<std::uint8_t>(i * 255 / 31); init = true; }
-    auto q = [&](float v, int th) -> std::uint8_t {
-        int iv = static_cast<int>(v * (31.f * 16.f));
-        iv = iv < 0 ? 0 : (iv > 31 * 16 ? 31 * 16 : iv);
-        int l = (iv + th) >> 4;
-        return level8[l > 31 ? 31 : l];
-    };
     for (int y = 0; y < H; ++y) {
         const float* c = rgb.data() + static_cast<size_t>(y) * W * 3;
         for (int x = 0; x < W; ++x, c += 3) {
             std::uint8_t r8, g8, b8;
             if (dither) {
                 const int th = bayer[(y & 3) * 4 + (x & 3)];
-                r8 = q(c[0], th); g8 = q(c[1], th); b8 = q(c[2], th);
+                r8 = quantize(c[0], th); g8 = quantize(c[1], th); b8 = quantize(c[2], th);
             } else {
                 r8 = static_cast<std::uint8_t>(std::clamp(c[0], 0.f, 1.f) * 255);
                 g8 = static_cast<std::uint8_t>(std::clamp(c[1], 0.f, 1.f) * 255);
@@ -338,4 +341,4 @@ void R3D::present(Canvas& out, int s, int ox, int oy, bool dither) const {
     }
 }
 
-}  // namespace ct
+}  // namespace render::r3d

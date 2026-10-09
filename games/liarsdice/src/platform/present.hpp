@@ -3,7 +3,7 @@
 // contents of a Core Animation layer that the GPU magnifies with nearest-
 // neighbour filtering, and each crisp text run is a small cached layer.
 // This avoids the framework's per-frame CPU rasterisation of the whole window.
-#include "raster.hpp"
+#include "render.hpp"
 
 #include <cstdint>
 #include <string>

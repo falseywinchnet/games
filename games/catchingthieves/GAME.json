@@ -25,7 +25,8 @@
   ],
   "engines": [
     "grass",
-    "soil"
+    "soil",
+    "render"
   ],
   "help": "help.md",
   "module": "module.cpp",
@@ -50,9 +51,6 @@
   "view_class": "ThievesView",
   "save_file": "catching_thieves-v1.txt",
   "core_sources": [
-    "src/platform/raster.cpp",
-    "src/platform/r3d.cpp",
-    "src/platform/mesh.cpp",
     "src/level.cpp",
     "src/solver.cpp",
     "src/gen.cpp",
@@ -78,13 +76,7 @@
     "src/critters.cpp",
     "src/critters.hpp",
     "src/level.cpp",
-    "src/level.hpp",
-    "src/platform/mesh.cpp",
-    "src/platform/mesh.hpp",
-    "src/platform/r3d.cpp",
-    "src/platform/r3d.hpp",
-    "src/platform/raster.cpp",
-    "src/platform/raster.hpp"
+    "src/level.hpp"
   ],
   "rules_target": "ct_rules_tests"
 }

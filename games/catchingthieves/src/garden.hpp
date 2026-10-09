@@ -6,7 +6,7 @@
 #include "critters.hpp"
 #include "ground.hpp"
 #include "level.hpp"
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 
 #include <memory>
 #include <vector>

@@ -39,5 +39,8 @@
   "libraries": [
     "pt_core"
   ],
-  "hosted": true
+  "hosted": true,
+  "engines": [
+    "render"
+  ]
 }

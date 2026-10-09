@@ -1,5 +1,6 @@
-add_library(kk_core STATIC ${GAME_MODULE_DIR}/src/koikoi.cpp ${GAME_MODULE_DIR}/src/platform/raster.cpp)
+add_library(kk_core STATIC ${GAME_MODULE_DIR}/src/koikoi.cpp)
 target_include_directories(kk_core PUBLIC ${GAME_MODULE_DIR}/src)
+target_link_libraries(kk_core PUBLIC render_core)  # the 2D canvas, 3D renderer and meshes (shared/render)
 target_link_libraries(kk_core PUBLIC game_paths Threads::Threads)
 target_compile_definitions(kk_core PRIVATE _USE_MATH_DEFINES)
 add_executable(koikoi_rules_tests ${GAME_MODULE_DIR}/tests/koikoi_tests.cpp)

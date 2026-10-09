@@ -5,7 +5,7 @@
 // wearing something that says who they are: a monocle, an eyepatch and
 // bandana, a bow, spectacles, a feather boa, a flower, a scarf, a scowl.
 // Local space: z up, the bird faces -y (toward the player).
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 #include "script.hpp"
 
 #include <cstdint>

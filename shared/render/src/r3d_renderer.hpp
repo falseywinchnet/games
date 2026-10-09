@@ -4,13 +4,13 @@
 // Gouraud vertex lighting, distance haze, cut-out and translucent materials,
 // rendered at low resolution and presented with ordered dithering and chunky
 // integer upscaling.
-#include "raster.hpp"
+#include "r2d_canvas.hpp"
 
 #include <cmath>
 #include <cstdint>
 #include <vector>
 
-namespace sh {
+namespace render::r3d {
 
 struct V3 {
     double x = 0, y = 0, z = 0;
@@ -62,21 +62,21 @@ struct Vtx {
     V3 p;            // world position
     V3 n{0, 0, 1};   // world normal
     double s = 0, t = 0;  // texture coordinates (in texture repeats)
-    Col c{1, 1, 1, 1};    // vertex colour / tint
+    r2d::Col c{1, 1, 1, 1};    // vertex colour / tint
     float w = 0;          // splat weight of the second texture (terrain blending)
 };
 
 struct Lighting {
     V3 sun = norm({-.45, .25, .85});
-    Col sun_col{1, .97f, .9f, 1};
-    Col amb_col{.42f, .47f, .58f, 1};
-    Col fog_col{.75f, .85f, .95f, 1};
+    r2d::Col sun_col{1, .97f, .9f, 1};
+    r2d::Col amb_col{.42f, .47f, .58f, 1};
+    r2d::Col fog_col{.75f, .85f, .95f, 1};
     double fog_near = 18, fog_far = 40;  // distance from the focus point (world units)
     V3 focus{};
     float toon_edge = .18f, toon_soft = .10f;  // light ramp threshold and softness
 };
 
-class R3D {
+class Renderer {
 public:
     int W = 320, H = 200;
     std::vector<float> rgb;   // W*H*3, linear 0..1
@@ -105,16 +105,16 @@ public:
     void draw(const Vtx* v, size_t count, const Tex* tex, std::uint16_t mat, const M34* model = nullptr,
               const Tex* tex2 = nullptr, const Tex* splat_noise = nullptr);
     // camera-facing quad (billboard) centred at bottom-centre `p`
-    void billboard(V3 p, double w, double h, const Tex* tex, Col tint, std::uint16_t mat, double s0 = 0, double s1 = 1);
+    void billboard(V3 p, double w, double h, const Tex* tex, r2d::Col tint, std::uint16_t mat, double s0 = 0, double s1 = 1);
     // 2D helpers on the low-res buffer (sky, overlays)
-    void fill_rect2(int x0, int y0, int x1, int y1, Col c, float a = 1);
-    void present(Canvas& out, int scale, int ox, int oy, bool dither) const;
+    void fill_rect2(int x0, int y0, int x1, int y1, r2d::Col c, float a = 1);
+    void present(r2d::Canvas& out, int scale, int ox, int oy, bool dither) const;
 
     long long tris_drawn = 0;
 
 private:
     V3 R_{}, U_{}, F_{};
-    Col shade_vertex(const Vtx& v, std::uint16_t mat) const;
+    r2d::Col shade_vertex(const Vtx& v, std::uint16_t mat) const;
 };
 
-}  // namespace sh
+}  // namespace render::r3d

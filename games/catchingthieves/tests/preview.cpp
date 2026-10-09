@@ -8,8 +8,7 @@
 #include <fstream>
 #include <filesystem>
 #include <sstream>
-#include "platform/mesh.hpp"
-#include "platform/raster.hpp"
+#include "platform/render.hpp"
 
 #include <algorithm>
 #include <chrono>

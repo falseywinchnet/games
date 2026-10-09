@@ -4,7 +4,7 @@
 // readout, the atom markers and the lever that opens it. Draws the scene
 // (with a soft bloom on everything bright) and answers screen-space picking.
 #include "box.hpp"
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 
 #include <array>
 #include <vector>

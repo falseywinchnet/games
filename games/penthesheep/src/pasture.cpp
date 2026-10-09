@@ -1,7 +1,6 @@
 #include "pasture.hpp"
 
-#include "platform/mesh.hpp"
-#include "platform/raster.hpp"
+#include "platform/render.hpp"
 
 #include <algorithm>
 #include <chrono>

@@ -3,13 +3,15 @@
 if(TARGET render_core)
   return()
 endif()
-add_library(render_core STATIC "${ENGINE_DIR}/src/r2d.cpp" "${ENGINE_DIR}/src/r3d.cpp")
+add_library(render_core STATIC "${ENGINE_DIR}/src/r2d.cpp" "${ENGINE_DIR}/src/r2d_canvas.cpp"
+  "${ENGINE_DIR}/src/r3d.cpp" "${ENGINE_DIR}/src/r3d_renderer.cpp" "${ENGINE_DIR}/src/r3d_mesh.cpp")
 target_include_directories(render_core PUBLIC "${ENGINE_DIR}/src")
 target_compile_features(render_core PUBLIC cxx_std_20)
+target_compile_definitions(render_core PRIVATE _USE_MATH_DEFINES)
 if(MSVC)
-  target_compile_options(render_core PRIVATE /utf-8 /W4)
+  target_compile_options(render_core PRIVATE /utf-8 /W4 /fp:precise)
 else()
-  target_compile_options(render_core PRIVATE -Wall -Wextra)
+  target_compile_options(render_core PRIVATE -Wall -Wextra -ffp-contract=off)
 endif()
 
 # The surface is compiled into the application's module library when a game uses the

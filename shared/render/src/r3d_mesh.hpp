@@ -1,10 +1,10 @@
 #pragma once
 // Low-poly primitive meshes (unit sized, outward CCW winding) for props and characters.
-#include "r3d.hpp"
+#include "r3d_renderer.hpp"
 
 #include <vector>
 
-namespace pt {
+namespace render::r3d {
 
 using Mesh = std::vector<Vtx>;
 
@@ -19,10 +19,10 @@ Mesh rock_mesh(std::uint64_t seed, int slices, int stacks, double jitter);  // l
 const Mesh& torus_mesh(int major, int minor, double r);   // ring radius 1 around z, tube radius r
 const Mesh& star_mesh(double inner, double depth);         // 5-point star in the xz plane, front face -y
 
-void tint(Mesh& m, Col c);
+void tint(Mesh& m, r2d::Col c);
 // Inverted-hull outline: the mesh pushed out along its normals by `width`
 // world units, back faces only, flat colour.
-void draw_outline(R3D& r, const Mesh& m, const M34& model, double width, Col c);
-void draw_mesh(R3D& r, const Mesh& m, const M34& model, const Tex* tex, Col tint, std::uint16_t mat, double tex_scale = 1);
+void draw_outline(Renderer& r, const Mesh& m, const M34& model, double width, r2d::Col c);
+void draw_mesh(Renderer& r, const Mesh& m, const M34& model, const Tex* tex, r2d::Col tint, std::uint16_t mat, double tex_scale = 1);
 
-}  // namespace pt
+}  // namespace render::r3d
