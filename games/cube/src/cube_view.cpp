@@ -657,6 +657,9 @@ void CubeView::render_frame() {
     if (!surface_attached_ && window != nullptr) {
         static_cast<void>(surface_.attach(*window, shared_from_this()));
         surface_attached_ = true;
+        // Its paint now shows the live surface: record it again, so whatever must paint
+        // the ordinary way (under a floating capsule) shows the scene, not the placeholder.
+        invalidate(gf::Dirty::paint);
     }
     const render::Order order = surface_.order();
     const std::size_t count = static_cast<std::size_t>(device_width_) * static_cast<std::size_t>(device_height_);

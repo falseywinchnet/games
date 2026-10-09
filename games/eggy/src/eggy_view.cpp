@@ -115,6 +115,7 @@ void EggyView::on_detaching_from_window(gf::Window&) noexcept {
 void EggyView::register_surface() {
     if (!surface_ || !attached_window()) return;
     direct_ = (*attached_window()).queue_live_surface_presentation(shared_from_this(), surface_);
+    invalidate(gf::Dirty::paint);  // the paint now shows the live surface
 }
 
 void EggyView::cabinet_visibility(bool shown) {

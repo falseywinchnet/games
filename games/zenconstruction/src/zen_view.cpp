@@ -725,6 +725,7 @@ void ZenView::publish() {
         surface_ = gf::LiveSurface::create(d);
         if (surface_ && attached_window() != nullptr) {
             direct_ = (*attached_window()).queue_live_surface_presentation(shared_from_this(), surface_);
+            invalidate(gf::Dirty::paint);  // the paint now shows the live surface
         }
     }
     if (!surface_) {
