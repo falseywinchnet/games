@@ -1159,9 +1159,9 @@ void ZenView::layout_buttons() {
         buttons_.push_back(close);
         return;
     }
-    // the top-right row: sized to their labels, from the right
+    // the top-right row: sized to their labels, from the right (hosted, below Help)
     double x = W_ - 10;
-    const double y = 10;
+    const double y = top_inset();
     const double bh = small ? 24 : 28;
     const double size = small ? 11.5 : 12.5;
     const char* labels[5][2] = {{"music", music_ ? "Music" : "Quiet"}, {"help", "Help"}, {"reset", "Start over"}, {"new", "New site"}, {"sites", "Sites"}};
@@ -1312,8 +1312,9 @@ void ZenView::draw_height_marks() {
 
 void ZenView::draw_hud() {
     const bool small = compact();
-    // the site's card, top left
+    // the site's card, top left (hosted, below the capsule)
     {
+        const double top = top_inset();
         const std::string company = (*run_).company();
         char line[160];
         std::snprintf(line, sizeof line, "Height %s   Best %s   Stack %d", centimetres((*run_).height()).c_str(), centimetres((*run_).best_height()).c_str(),
@@ -1321,9 +1322,9 @@ void ZenView::draw_hud() {
         const double title = small ? 14 : 17;
         const double w = std::max(text_w(company, title, 2), text_w(line, small ? 11 : 12, 0)) + 28;
         const double h = small ? 46 : 56;
-        rrect(10, 10, w, h, 10, hex(0xFBF6EA, .9f), kTimber, 1.5);
-        text(company, 24, small ? 15 : 17, kInk, title, 2);
-        text(line, 24, small ? 34 : 40, hex(0x5A4A36), small ? 11 : 12, 0);
+        rrect(10, top, w, h, 10, hex(0xFBF6EA, .9f), kTimber, 1.5);
+        text(company, 24, top + (small ? 5 : 7), kInk, title, 2);
+        text(line, 24, top + (small ? 24 : 30), hex(0x5A4A36), small ? 11 : 12, 0);
     }
     // Short worksite feedback without a second character floating over it.
     const double cy = H_ - (small ? 42 : 54);

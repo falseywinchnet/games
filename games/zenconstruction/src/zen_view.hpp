@@ -163,6 +163,9 @@ private:
     void layout_buttons();
     void compose();
     void present_scene();
+    // Hosted, the capsule floats over the top-left corner and Help over the top-right: the
+    // site's card and the top-right buttons start below them.
+    [[nodiscard]] double top_inset() const { return options_.hosted ? 58 : 10; }
     void draw_hud();
     void draw_height_marks();
     void draw_panel();
