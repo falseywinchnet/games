@@ -524,6 +524,7 @@ void DiceView::tick() {
     const auto now = std::chrono::steady_clock::now();
     const double rdt = std::clamp(std::chrono::duration<double>(now - last_).count(), 0.0, .25);
     last_ = now;
+    ++ticks_;
     const double dt = rdt * speed_;
     t_ += dt;
     phase_t_ += dt;

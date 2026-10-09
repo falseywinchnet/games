@@ -17,6 +17,7 @@
 #include "gui_forms/timer.hpp"
 
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -45,6 +46,8 @@ public:
     // Cabinet hosting: the collection's master switches gate this game's own
     // music and sound settings; `foreground` is false while another game shows.
     void set_cabinet(bool foreground, bool music, bool sound, bool reduced_motion);
+    // Ticks the game has run: the count advances whether or not the picture changes.
+    std::uint64_t ticks() const { return ticks_; }
 
 private:
     enum class Panel { none, help, scores, name };
@@ -86,6 +89,7 @@ private:
     std::vector<gf::SubscriptionToken> subs_;
     std::chrono::steady_clock::time_point last_{};
     double t_ = 0, save_t_ = 0;
+    std::uint64_t ticks_ = 0;
     Bubble bubble_;
     Panel panel_ = Panel::none;
     std::vector<Button> buttons_;

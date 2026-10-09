@@ -457,6 +457,7 @@ void SheepView::tick() {
     const auto now = std::chrono::steady_clock::now();
     const double dt = std::clamp(std::chrono::duration<double>(now - last_t_).count(), 0.0, .25);
     last_t_ = now;
+    ++ticks_;
     t_ += dt;
     phase_t_ += dt;
     say_t_ = std::max(0.0, say_t_ - dt);

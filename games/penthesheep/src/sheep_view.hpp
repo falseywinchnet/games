@@ -45,6 +45,8 @@ public:
     std::vector<games::GameSetting> settings() const override;
     void change_setting(std::string_view id, double value) override;
     void set_cabinet(bool foreground, bool music, bool sound, bool reduced = false);
+    // Ticks the game has run: the count advances whether or not the picture changes.
+    std::uint64_t ticks() const { return ticks_; }
 
 private:
     enum class Phase { loading, play, answer, won, lost };
@@ -83,6 +85,7 @@ private:
     std::vector<gf::SubscriptionToken> subs_;
     std::chrono::steady_clock::time_point last_t_{};
     double t_ = 0, save_t_ = 0;
+    std::uint64_t ticks_ = 0;
     bool dirty_ = false;
     Panel panel_ = Panel::none;
     std::vector<Button> buttons_;
