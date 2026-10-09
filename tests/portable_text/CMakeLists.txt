@@ -56,6 +56,8 @@ add_library(vendor_text_views OBJECT
     "${games_root}/games/atomprobe/src/atomprobe_view.cpp"
     "${games_root}/games/switchbox/src/switchbox_view.cpp")
 target_link_libraries(vendor_text_views PRIVATE game_text_frames GUIForms::Controls)
+# The views draw through the shared renderer's canvas, 3D renderer and meshes.
+target_include_directories(vendor_text_views PRIVATE "${games_root}/shared/render/src")
 
 option(GAMES_TEST_VENDOR_FRAMES "Render complete vendor game frames with real portable services" OFF)
 if(GAMES_TEST_VENDOR_FRAMES)
