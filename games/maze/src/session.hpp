@@ -45,6 +45,11 @@ public:
     void command(Cmd c);
     void update(double dt);
     void set_reduced_motion(bool value) { reduced_ = value; }
+    bool camera_animating() const;
+    bool simulation_animating() const;
+    double next_update_delay() const;
+    std::uint64_t speech_revision = 0;
+    std::vector<Pos> repainted;
     void camera(Soft3D& r) const;     // where the eye is and how it is turned
 
     Level lv;                         // a copy: the snail repaints it

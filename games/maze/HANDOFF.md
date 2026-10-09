@@ -9,6 +9,8 @@
 - Inspected native renderer frames for the briefing, play and help at large and minimum sizes, plus level 14 and the paginated trophy shelf at 600 × 320. PNGs are in `screens/`, including the hosted capsule and game at 600 × 420.
 - Portable text and audio compile against the pinned headers. Dynamic source/runtime inventory verification and native loop decoding pass with quality-6 libvorbis assets.
 - Only byte-identical original files are listed as `borrowed`; the gate checks all edited C++ files. `SOURCE_PROVENANCE.json` records the original package fingerprints.
+- Demand rendering reuses the last frame when the camera and visible world are stationary. Conservative projected bounds and the existing depth buffer retain animation for visible rewards, actors, bulbs, flip stones and animated paint. Actors still simulate; quiet sessions sleep to their next encounter or speech deadline. Input shortens that wait, and panel time does not advance a resumed game.
+- `maze_idle` compares 2,700 frames across levels 1, 5 and 14 against unconditional rendering, pixel for pixel, and checks event deadlines and fresh visitor speech. `maze_view_contract` also verifies a live corridor has no callbacks or publications while quiet and wakes on input.
 
 Run `games --game maze --standalone --dev --script games/maze/tests/native.script`. The root `AGENTS.md` contains the supported native development build recipe.
 

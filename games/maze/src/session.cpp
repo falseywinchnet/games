@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <unordered_map>
 
 namespace mz {
@@ -26,6 +27,7 @@ void Session::say(const std::string& who, const std::string& text) {
     if (!speech.empty() && speech.back().text == text) return;
     if (speech.size() > 3) speech.pop_front();
     speech.push_back({who, text, 0});
+    ++speech_revision;
     events.push_back({Event::say, text, who});
 }
 
@@ -84,6 +86,8 @@ void Session::start(const Level& level, std::uint64_t seed) {
     ride_t_ = -1;
     queue_.clear();
     speech.clear();
+    ++speech_revision;
+    repainted.clear();
     events.clear();
     won_t = -1;
     bumps = 0;
@@ -235,7 +239,26 @@ void Session::camera(Soft3D& r) const {
     r.blackout = play.blackout;
 }
 
+bool Session::camera_animating() const {
+    if (busy() || bump_ > 0 || flash_ > 0 || snap_) return true;
+    for (std::size_t i=0;i<world.door_open.size();++i)
+        if (world.door_open[i] < door_target_[i]) return true;
+    return false;
+}
+bool Session::simulation_animating() const {
+    return camera_animating() || world.marble.alive || world.snail.alive || world.visitor.alive;
+}
+double Session::next_update_delay() const {
+    if (simulation_animating() || !queue_.empty() || (won_t>=0 && won_t<1.6)) return .033;
+    double delay=std::numeric_limits<double>::infinity();
+    if (!cast.empty() && won_t<0 && !play.blackout) delay=std::max(.001,visit_cool_);
+    if (!speech.empty())
+        delay=std::min(delay,std::max(.001,2.6+speech.front().text.size()/22.0-speech.front().age));
+    return delay;
+}
+
 void Session::update(double dt) {
+    repainted.clear();
     t_ += dt;
     move_t_ = std::min(1.0, move_t_ + dt / move_len_);
     turn_t_ = std::min(1.0, turn_t_ + dt / turn_len_);
@@ -265,11 +288,16 @@ void Session::update(double dt) {
     for (size_t i = 0; i < world.door_open.size(); ++i) world.door_open[i] = std::min(door_target_[i], world.door_open[i] + dt / 1.4);
     world.pressed = play.pressed;
     if (won_t >= 0) won_t += dt;
+    // Age existing speech before an encounter can add a new line. A deadline
+    // wake may account for several quiet seconds; newly spoken words are fresh.
+    for (Speech& s : speech) s.age += dt;
+    while (!speech.empty() && speech.front().age >= 2.6 + speech.front().text.size() / 22.0) {
+        speech.pop_front();
+        ++speech_revision;
+    }
     marble_update(dt);
     snail_update(dt);
     visitor_update(dt);
-    for (Speech& s : speech) s.age += dt;
-    while (!speech.empty() && speech.front().age > 2.6 + speech.front().text.size() / 22.0) speech.pop_front();
     if (!busy() && !queue_.empty() && won_t < 0) {
         const Cmd c = queue_.front();
         queue_.pop_front();
@@ -345,8 +373,10 @@ void Session::snail_update(double dt) {
         Cell& c = fl.at(s.at.x, s.at.y);
         for (int d = 0; d < 4; ++d) {
             const int nx = s.at.x + kDX[d], ny = s.at.y + kDY[d];
-            if (fl.in(nx, ny) && fl.at(nx, ny).block == Block::wall && !c.goal && rand01() < .6)
+            if (fl.in(nx, ny) && fl.at(nx, ny).block == Block::wall && !c.goal && rand01() < .6) {
                 c.face[static_cast<size_t>(d)] = static_cast<std::uint8_t>(64 + rand_int(paint_count()));
+                repainted.push_back(s.at);
+            }
         }
     }
     s.at = s.to;

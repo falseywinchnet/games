@@ -1,6 +1,6 @@
 add_library(mz_core STATIC ${GAME_MODULE_DIR}/src/soft3d.cpp
  ${GAME_MODULE_DIR}/src/textures.cpp ${GAME_MODULE_DIR}/src/maze.cpp
- ${GAME_MODULE_DIR}/src/world.cpp ${GAME_MODULE_DIR}/src/session.cpp
+ ${GAME_MODULE_DIR}/src/idle.cpp ${GAME_MODULE_DIR}/src/world.cpp ${GAME_MODULE_DIR}/src/session.cpp
  ${GAME_MODULE_DIR}/src/rewards.cpp ${GAME_MODULE_DIR}/src/cast.cpp ${GAME_MODULE_DIR}/src/save.cpp)
 target_include_directories(mz_core PUBLIC ${GAME_MODULE_DIR}/src)
 target_link_libraries(mz_core PUBLIC render_core)  # the 2D canvas (shared/render)
@@ -9,6 +9,10 @@ add_executable(maze_rules_tests ${GAME_MODULE_DIR}/tests/maze_tests.cpp)
 target_link_libraries(maze_rules_tests PRIVATE mz_core)
 add_test(NAME maze_rules COMMAND maze_rules_tests)
 set_tests_properties(maze_rules PROPERTIES LABELS design)
+add_executable(maze_idle_tests ${GAME_MODULE_DIR}/tests/idle_tests.cpp)
+target_link_libraries(maze_idle_tests PRIVATE mz_core)
+add_test(NAME maze_idle COMMAND maze_idle_tests)
+set_tests_properties(maze_idle PROPERTIES LABELS design)
 add_executable(maze_preview ${GAME_MODULE_DIR}/tests/preview.cpp)
 target_link_libraries(maze_preview PRIVATE mz_core)
 if(GAMES_BUILD_APPLICATION)

@@ -1,6 +1,7 @@
 #include "maze_view.hpp"
 
 #include "cast.hpp"
+#include "idle.hpp"
 #include "help_route.hpp"
 #include "platform/audio.hpp"
 #include "platform/text.hpp"
@@ -16,6 +17,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 
 namespace mz {
 
@@ -101,6 +103,7 @@ void MazeView::arrange(gf::Rect bounds) {
 }
 
 void MazeView::on_paint(gf::Painter& p, gf::Rect) {
+    if (render_dirty_ && attached_window() && !(*attached_window()).occluded()) request_frame();
     const gf::Rect b = client_rectangle();
     if (surface_) p.draw_live_surface(surface_, b);
     else p.fill_rect(b, gf::Color::rgba(0, 128, 128));
@@ -202,10 +205,10 @@ void MazeView::run_script() {
 }
 void MazeView::request_frame() {
     render_dirty_ = true;
-    if (timer_ && !(*timer_).enabled() && visible() && cab_front_) {
-        last_ = std::chrono::steady_clock::now();
+    if (timer_ && visible() && cab_front_) {
+        if (!(*timer_).enabled()) last_ = std::chrono::steady_clock::now();
         (*timer_).set_interval(std::chrono::milliseconds(33));
-        (*timer_).start();
+        if (!(*timer_).enabled()) (*timer_).start();
     }
 }
 void MazeView::on_visible_changed(bool) {
@@ -248,8 +251,14 @@ void MazeView::tick() {
     if (!visible() || !cab_front_) { if (timer_) (*timer_).stop(); return; }
     ++timer_callbacks_;
     const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-    const double dt = std::clamp(std::chrono::duration<double>(now - last_).count(), 0.0, .25);
+    const double elapsed = std::max(0.0,std::chrono::duration<double>(now-last_).count());
+    // A quiet scene sleeps to its next event. Consume that elapsed quiet time,
+    // while preserving the existing bounded step for active simulation.
+    const double dt = sess_.simulation_animating() ? std::min(elapsed,.25) : elapsed;
     last_ = now;
+    const bool was_animating = sess_.camera_animating() || visible_world_animation(r_,sess_.lv,sess_.world);
+    const std::uint64_t old_speech = sess_.speech_revision;
+    const bool was_live = panel_ == Panel::none || (panel_ == Panel::won && sess_.won_t<4);
     t_ += dt;
     run_script();
     // dev: walk a best route, re-planned from wherever we are (the marble or a visitor may be in the way)
@@ -265,7 +274,8 @@ void MazeView::tick() {
             else if (!in_way) { sess_.command(Cmd::forward); --autowalk_; }
         }
     }
-    if (panel_ == Panel::none || panel_ == Panel::won) sess_.update(dt);
+    const bool simulation_live = panel_ == Panel::none || (panel_ == Panel::won && sess_.won_t<4);
+    if (simulation_live) sess_.update(was_live ? dt : 0);
     for (const Event& ev : sess_.events) {
         if (ev.kind == Event::sound) play(ev.text, ev.gain, ev.rate);
         else if (ev.kind == Event::won) { /* the dialog opens once the room has been admired */ }
@@ -282,15 +292,27 @@ void MazeView::tick() {
     if (dirty_ && save_t_ > 2) { save_t_ = 0; persist(); }
     gf::Window* win = attached_window();
     const bool hidden = win && (*win).occluded();
-    if (!hidden && !frame_.px.empty() && (render_dirty_ || panel_ == Panel::none || panel_ == Panel::won)) {
-        compose(); publish(); render_dirty_ = false;
+    const bool visible_motion = sess_.camera_animating() || visible_world_animation(r_,sess_.lv,sess_.world);
+    bool changed = simulation_live && (was_animating || visible_motion || old_speech!=sess_.speech_revision);
+    if (simulation_live) for (const Pos& cell:sess_.repainted) {
+        if (cell.f==sess_.world.floor && visible_box(r_,{double(cell.x),double(cell.y),double(cell.f)},
+                                                       {cell.x+1.0,cell.y+1.0,cell.f+1.0})) changed=true;
     }
-    // The marble, paint snail and timed encounters keep a live maze in motion.
-    // Dialogs freeze that simulation and stop once audio and scripted input settle.
-    const bool moving = panel_ == Panel::none || (panel_ == Panel::won && sess_.won_t < 4);
+    if (changed) render_dirty_=true;
+    if (!hidden && !frame_.px.empty() && render_dirty_) {
+        compose(); publish(); render_dirty_=false;
+    }
+    double delay=std::numeric_limits<double>::infinity();
+    if (panel_==Panel::none) {
+        delay=sess_.next_update_delay();
+        if (visible_world_animation(r_,sess_.lv,sess_.world) || autowalk_>0) delay=.033;
+    } else if (panel_==Panel::won && sess_.won_t<4) delay=.033;
+    if (!script_.empty()) delay=std::min(delay,std::max(.001,script_.front().first-t_));
+    if (audio_needs_tick()) delay=std::min(delay,.033);
+    if (dirty_) delay=std::min(delay,std::max(.001,2-save_t_));
     if (timer_) {
-        if (!moving && script_.empty() && !audio_needs_tick()) (*timer_).stop();
-        else (*timer_).set_interval(std::chrono::milliseconds(hidden ? 250 : 33));
+        if (!std::isfinite(delay)) (*timer_).stop();
+        else (*timer_).set_interval(std::chrono::milliseconds(std::max(1,static_cast<int>(std::ceil((hidden ? std::max(.25,delay) : delay)*1000)))));
     }
 }
 
@@ -340,15 +362,16 @@ void MazeView::on_pointer(gf::PointerEvent& e) {
     const gf::Point local = point_from_window(e.position);
     mouse_x_ = local.x / pixel_;
     mouse_y_ = local.y / pixel_;
-    request_frame();
     std::string hit;
     for (const Button& button : buttons_)
         if (mouse_x_ >= button.x && mouse_x_ < button.x + button.w &&
             mouse_y_ >= button.y && mouse_y_ < button.y + button.h) { hit = button.id; break; }
     if (e.action == gf::PointerAction::move) {
+        if (hover_ != hit) request_frame();
         hover_ = hit;
         set_cursor(!hover_.empty() ? gf::CursorKind::hand : gf::CursorKind::arrow);
     }
+    if (e.action == gf::PointerAction::down || e.action == gf::PointerAction::up) request_frame();
     if (e.action == gf::PointerAction::down && e.button == gf::PointerButton::primary) {
         activate();
         const std::string h = hit;
@@ -418,6 +441,7 @@ void MazeView::action(const std::string& id) {
 }
 
 void MazeView::open(Panel p) {
+    if (panel_ != p) last_ = std::chrono::steady_clock::now();
     request_frame();
     panel_ = p;
     pressed_.clear();

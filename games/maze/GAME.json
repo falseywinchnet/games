@@ -53,7 +53,8 @@
     "src/session.cpp",
     "src/rewards.cpp",
     "src/cast.cpp",
-    "src/save.cpp"
+    "src/save.cpp",
+    "src/idle.cpp"
   ],
   "core_tests": [
     "tests/maze_tests.cpp"

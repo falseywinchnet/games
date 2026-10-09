@@ -3,15 +3,18 @@
 #include <iostream>
 int main(int argc,char** argv) {
     kit::ContractOptions options;
-    // Marble, snail and encounters are live game actors. They continue while
-    // the maze is open; hidden views still must stop all callbacks and frames.
-    options.settles_when_untouched=false;
+    // The briefing is static; it must settle even though live maze actors move.
+    options.settles_when_untouched=true;
+    options.settle_seconds=1;
     if(argc>1) options.preview_directory=argv[1];
     const int result=kit::run_view_contract<mz::MazeView,mz::Options>(
         "maze",mz::Options{.hosted=true,.dev=true},options);
     if(result) return result;
     try {
         kit::contract_isolate_saves("maze-input");
+        mz::SaveData fixture;
+        fixture.run_seed=12345;
+        kit::contract_require(mz::write_save(mz::save_path(true),fixture),"save deterministic idle fixture");
         std::shared_ptr<mz::MazeView> view=gui_forms::make_control<mz::MazeView>(
             gui_forms::StableId("maze.input"),mz::Options{.hosted=true,.dev=true});
         (*view).set_cabinet(true,false,false,true);
@@ -21,6 +24,25 @@ int main(int argc,char** argv) {
         gui_forms::LiveSurfaceFrame frame=kit::contract_next_frame(window,surface,0,"minimum-size maze");
         frame={};
         kit::contract_require((*view).controls_fit(),"briefing fits minimum surface");
+        kit::contract_require(kit::contract_settle(window,.2),"static briefing stops its timer");
+        (*view).scripted_action("ok");
+        (*view).scripted_action("r");
+        (*view).scripted_action("r");
+        frame=kit::contract_next_frame(window,surface,(*view).published_frames(),"turn toward quiet wall");
+        frame={};
+        kit::contract_require(kit::contract_settle(window,1),"untouched live corridor sleeps until its encounter");
+        const std::uint64_t quiet_frames=(*view).published_frames();
+        const std::uint64_t quiet_callbacks=(*view).timer_callbacks();
+        const gui_forms::FrameTime quiet_until=gui_forms::FrameClock::now()+std::chrono::milliseconds(200);
+        while (gui_forms::FrameClock::now()<quiet_until) {
+            static_cast<void>(window.poll_frame_schedule(gui_forms::FrameClock::now()));
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+        kit::contract_require((*view).published_frames()==quiet_frames && (*view).timer_callbacks()==quiet_callbacks,
+                              "quiet live maze neither redraws nor polls");
+        (*view).scripted_action("l");
+        frame=kit::contract_next_frame(window,surface,quiet_frames,"input wakes sleeping maze");
+        frame={};
         (*view).run_command("trophies");
         kit::contract_require((*view).controls_fit(),"all trophy-page controls fit");
         (*view).run_command("credits");
