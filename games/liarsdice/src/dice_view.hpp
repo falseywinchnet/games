@@ -100,6 +100,7 @@ private:
 
     int pixel_ = 2, panel_h_ = 104;
     int top_h_ = 0;             // two-row mode: a band at the top for the bid and the corner buttons
+    int top0_ = 0;              // hosted: room left clear at the top for the floating capsule and Help
     bool wide_ = true;          // room for the one-row bid panel; otherwise two rows and corner buttons
     bool tabbed_ = false;       // the wagers as tabs over one card, when three cards side by side won't fit
     int sel_wager_ = 0;         // the wager shown when tabbed

@@ -98,7 +98,8 @@ void DiceView::arrange(gf::Rect bounds) {
     // the bid panel is one row when there's room (dice | composer | Liar!), two rows when not
     wide_ = pw_ >= 520;
     panel_h_ = wide_ ? std::max(100, ph_ / 4 + 6) : 76;
-    top_h_ = wide_ ? 0 : 28;
+    top0_ = opt_.hosted ? 26 : 0;
+    top_h_ = top0_ + (wide_ ? 0 : 28);
     cab_.resize(pw_, ph_, panel_h_, top_h_);
     const auto keep = st_;
     cab_.seat(std::max(1, static_cast<int>(st_.crew.size()) - 1), st_);
@@ -1003,20 +1004,21 @@ void DiceView::draw_bid_plaque() {
     for (const Button& bt : buttons_) if (bt.y < 30 && bt.style == 0) corner = std::max(corner, pw_ - bt.x);
     if (!wide_) {
         // two-row mode: the bid is one line in the top band, the count and verdict just beneath it
-        frame_.fill_rect(0, 0, pw_, top_h_, hex(0x0A1A20, .9f));
+        const int t0 = top0_;  // hosted, the band sits below the capsule
+        frame_.fill_rect(0, t0, pw_, top_h_ - t0, hex(0x0A1A20, .9f));
         frame_.fill_rect(0, top_h_ - 1, pw_, 1, kBrass);
         const int right = pw_ - corner - 8;
         if (b.none()) {
-            text(m().turn == 0 ? "No bid yet. You open." : "No bid yet.", 8, 8, kFoam, 11, 1);
+            text(m().turn == 0 ? "No bid yet. You open." : "No bid yet.", 8, t0 + 8, kFoam, 11, 1);
         } else {
             const std::string q = std::to_string(b.qty) + " x";
-            text(q, 8, 5, hex(0xFFE8A0), 15, 2);
+            text(q, 8, t0 + 5, hex(0xFFE8A0), 15, 2);
             const int qx = 8 + text_w(q, 15, 2) + 4;
-            draw_die_icon(qx, 5, 17, b.face, hex(0xF4ECD8), kInk);
+            draw_die_icon(qx, t0 + 5, 17, b.face, hex(0xF4ECD8), kInk);
             std::string by = who == 0 ? "your bid" : who > 0 ? ch(who).name : "";
             const int bx = qx + 23;
             if (bx + text_w(by, 10.5, 1) > right) by = who == 0 ? "you" : by.substr(0, std::max<size_t>(3, by.size() / 2)) + ".";
-            text(by, bx, 9, kFoam, 10.5, 1);
+            text(by, bx, t0 + 9, kFoam, 10.5, 1);
         }
         if (phase_ == Phase::reveal && counted_ > 0) {
             const std::string c = std::to_string(counted_);
@@ -1032,7 +1034,7 @@ void DiceView::draw_bid_plaque() {
         }
         return;
     }
-    const int w = std::min(220, pw_ - 12 - corner - 6), x = 6, y = 6;
+    const int w = std::min(220, pw_ - 12 - corner - 6), x = 6, y = top0_ + 6;
     frame_.fill_rect(x + 2, y + 2, w, 34, hex(0x000000, .4f));
     frame_.begin(); frame_.rrect(x, y, w, 34, 5); frame_.fill(hex(0x10242A, .92f));
     frame_.begin(); frame_.rrect(x + .5, y + .5, w - 1, 33, 5); frame_.stroke(kBrass, 1);
@@ -1172,12 +1174,14 @@ void DiceView::draw_wagers() {
     const double os = tabbed_ ? 11 : 13;
     const int ow = text_w(owed, os, 1);
     const double ts = tabbed_ ? 15 : 22;
+    // Hosted, the capsule names the game over the top-left corner and Help floats top-right:
+    // no title, and the debt sits left of Help.
     if (header) {
-        text(owed, pw_ - 10 - ow, tabbed_ ? 8 : 10, L_.owed > 0 ? hex(0xFFC8A0) : hex(0x90F0B0), os, 1);
-        if (text_w("Liar's Dice", ts, 2) + 24 < pw_ - ow - 10) text("Liar's Dice", 12, tabbed_ ? 5 : 8, hex(0xFFE8A0), ts, 2);
+        text(owed, pw_ - 10 - ow - (opt_.hosted ? 24 : 0), tabbed_ ? 8 : 10, L_.owed > 0 ? hex(0xFFC8A0) : hex(0x90F0B0), os, 1);
+        if (!opt_.hosted && text_w("Liar's Dice", ts, 2) + 24 < pw_ - ow - 10) text("Liar's Dice", 12, tabbed_ ? 5 : 8, hex(0xFFE8A0), ts, 2);
     }
     if (!tabbed_) {
-        text("in Davy Jones' locker", 16, 32, kFoam, 11, 0);
+        if (!opt_.hosted) text("in Davy Jones' locker", 16, 32, kFoam, 11, 0);
         if (!L_.jar.empty()) {
             std::string j = "In the Keeper's jar: ";
             for (size_t i = 0; i < L_.jar.size(); ++i) j += (i ? ", " : "") + L_.jar[i];
