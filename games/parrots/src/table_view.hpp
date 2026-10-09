@@ -107,7 +107,8 @@ private:
     mutable std::vector<bool> contra_;
 
     int pixel_ = 2, panel_h_ = 100;
-    int top_h_ = 24;            // the host's band: one line, or two in a narrow window
+    int top_h_ = 24;            // the host's band (bottom edge): one line, or two in a narrow window
+    int top0_ = 0;              // hosted: room left clear above the band for the floating capsule and Help
     bool compact_ = false;
     int nb_first_ = 0;          // the notebook's first visible line, when it has more than fits
     bool nb_follow_ = true;     // keep the newest line in view (the introductions, an answer)

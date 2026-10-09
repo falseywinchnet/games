@@ -99,7 +99,8 @@ void TableView::arrange(gf::Rect bounds) {
     frame_.resize(pw_, ph_);
     // a narrow window: the host's words take two lines, and the notebook gets more of the height
     compact_ = pw_ < 460 || ph_ < 300;
-    top_h_ = compact_ ? 34 : 24;
+    top0_ = opt_.hosted ? 26 : 0;
+    top_h_ = top0_ + (compact_ ? 34 : 24);
     panel_h_ = compact_ ? std::max(84, (ph_ - top_h_) * 45 / 100) : std::max(96, ph_ / 4 + 8);
     parlor_.resize(pw_, ph_, panel_h_, top_h_);
     parlor_.seat(puz_.parrots, st_);
@@ -769,18 +770,19 @@ void TableView::draw_button(const Button& b) {
 }
 
 void TableView::draw_top() {
-    // the host's card: what happened and how many lie (two lines in a narrow window)
-    const int h = top_h_;
-    frame_.fill_rect(0, 0, pw_, h, hex(0x1A120C, .78f));
+    // the host's card: what happened and how many lie (two lines in a narrow window); hosted,
+    // it sits below the capsule and Help
+    const int h = top_h_, t0 = top0_;
+    frame_.fill_rect(0, t0, pw_, h - t0, hex(0x1A120C, .78f));
     frame_.fill_rect(0, h, pw_, 1, kGilt);
-    text("Table " + std::to_string(level_), 8, 6, kGilt, 11, 1);
+    text("Table " + std::to_string(level_), 8, t0 + 6, kGilt, 11, 1);
     std::string s = crime(crime_).what + ".  Exactly " + std::to_string(puz_.liar_count) + (puz_.liar_count == 1 ? " liar" : " liars") + " at the table.";
     int lm = 0;
     for (int m : marks_) lm += m == 2;
     const std::string tally = (compact_ ? "Liars marked: " : "Marked liars: ") + std::to_string(lm) + " / " + std::to_string(puz_.liar_count);
-    if (compact_) text(s, 8, 19, kPaper, 10.5, 0, pw_ - 16);
-    else text(s, 70, 6, kPaper, 11.5, 0, pw_ - 70 - text_w(tally, 11, 1) - 20);
-    text(tally, pw_ - 10 - text_w(tally, 11, 1), 6, count_wrong() ? hex(0xF07070) : kPaper, 11, 1);
+    if (compact_) text(s, 8, t0 + 19, kPaper, 10.5, 0, pw_ - 16);
+    else text(s, 70, t0 + 6, kPaper, 11.5, 0, pw_ - 70 - text_w(tally, 11, 1) - 20);
+    text(tally, pw_ - 10 - text_w(tally, 11, 1), t0 + 6, count_wrong() ? hex(0xF07070) : kPaper, 11, 1);
     // a small table squeezes the place cards: smaller words, and "twin" goes below the card
     double gap = 1e9;
     for (int i = 0; i + 1 < puz_.parrots && i + 1 < static_cast<int>(st_.birds.size()); ++i) {
