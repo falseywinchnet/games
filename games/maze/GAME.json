@@ -46,7 +46,6 @@
   "view_class": "MazeView",
   "save_file": "maze-v1.txt",
   "core_sources": [
-    "src/platform/raster.cpp",
     "src/soft3d.cpp",
     "src/textures.cpp",
     "src/maze.cpp",
@@ -67,8 +66,6 @@
     "src/cast.hpp",
     "src/maze.cpp",
     "src/maze.hpp",
-    "src/platform/raster.cpp",
-    "src/platform/raster.hpp",
     "src/rewards.cpp",
     "src/rewards.hpp",
     "src/save.hpp",
@@ -80,5 +77,8 @@
     "src/world.hpp",
     "tests/maze_tests.cpp",
     "tests/preview.cpp"
+  ],
+  "engines": [
+    "render"
   ]
 }

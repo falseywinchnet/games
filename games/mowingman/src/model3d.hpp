@@ -14,7 +14,7 @@
 // do not move (a fountain's stone, a sleeper on a lounger) are drawn once and only
 // their moving water is drawn each frame, hidden where the stone stands in front.
 #include "art.hpp"
-#include "platform/raster.hpp"
+#include "platform/canvas.hpp"
 
 #include <cmath>
 #include <cstdint>

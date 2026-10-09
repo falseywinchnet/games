@@ -27,7 +27,8 @@
   "engines": [
     "ambient",
     "coverage",
-    "grass"
+    "grass",
+    "render"
   ],
   "help": "help.md",
   "module": "module.cpp",
@@ -67,16 +68,12 @@
     "src/model3d.cpp",
     "src/stones.cpp",
     "src/models_shed.cpp",
-    "src/yard.cpp",
-    "src/platform/raster.cpp"
+    "src/yard.cpp"
   ],
   "core_tests": [
     "tests/mowing_tests.cpp"
   ],
   "contract_test": "tests/view_contract_tests.cpp",
-  "borrowed": [
-    "src/platform/raster.cpp",
-    "src/platform/raster.hpp"
-  ],
+  "borrowed": [],
   "rules_target": "mowingman_rules_tests"
 }

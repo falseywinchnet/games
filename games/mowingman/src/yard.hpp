@@ -9,7 +9,7 @@
 //          flying bits, drawn every frame
 #include "art.hpp"
 #include "grass_art.hpp"
-#include "platform/raster.hpp"
+#include "platform/canvas.hpp"
 #include "sim.hpp"
 
 #include <cstdint>

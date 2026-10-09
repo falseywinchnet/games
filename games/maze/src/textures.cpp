@@ -1,6 +1,6 @@
 #include "textures.hpp"
 
-#include "platform/raster.hpp"
+#include "platform/canvas.hpp"
 
 #include <algorithm>
 #include <cmath>

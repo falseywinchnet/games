@@ -6,7 +6,7 @@
 // is from the upper left (shadows fall down and to the right). Positions are lawn
 // metres; a Frame maps them to raster pixels.
 #include "garden.hpp"
-#include "platform/raster.hpp"
+#include "platform/canvas.hpp"
 #include "sim.hpp"
 
 namespace mm {
