@@ -1,5 +1,10 @@
 #include "r3d_renderer.hpp"
 
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+
 #include <algorithm>
 
 namespace render::r3d {
@@ -7,6 +12,29 @@ namespace render::r3d {
 // Thresholds of a 4 x 4 ordered dither, for choosing between two texture levels.
 static const float kLevelDither[16] = {.03125f, .53125f, .15625f, .65625f, .78125f, .28125f, .90625f, .40625f,
                                        .21875f, .71875f, .09375f, .59375f, .96875f, .46875f, .84375f, .34375f};
+
+namespace {
+
+// The plane a(x, y) = a0 + ax x + ay y through one attribute at the three corners
+// (affine is exact for an orthographic camera); `inv` is 1 / twice the area.
+void plane_of(const Renderer::SV* sv, double inv, double Renderer::SV::*m, float& ax, float& ay, float& a0) {
+    const double d1 = sv[1].*m - sv[0].*m, d2 = sv[2].*m - sv[0].*m;
+    const double gx = (d1 * (sv[2].y - sv[0].y) - d2 * (sv[1].y - sv[0].y)) * inv;
+    const double gy = (d2 * (sv[1].x - sv[0].x) - d1 * (sv[2].x - sv[0].x)) * inv;
+    ax = static_cast<float>(gx); ay = static_cast<float>(gy);
+    a0 = static_cast<float>(sv[0].*m - gx * sv[0].x - gy * sv[0].y);
+}
+
+// A channel (0..1) to 5 bits with a dither threshold th (0..15), then back to 8 bits.
+std::uint8_t quantize(float v, int th) {
+    int iv = static_cast<int>(v * (31.f * 16.f));
+    iv = iv < 0 ? 0 : (iv > 31 * 16 ? 31 * 16 : iv);
+    const int l = (iv + th) >> 4;
+    const int five = l > 31 ? 31 : l;
+    return static_cast<std::uint8_t>(five * 255 / 31);
+}
+
+}  // namespace
 
 M34 M34::operator*(const M34& b) const {
     M34 r;
@@ -123,42 +151,315 @@ bool Renderer::unproject_ground(double sx, double sy, double gz, double& wx, dou
     return true;
 }
 
+// the ambient light a surface facing `n` receives
+static r2d::Col ambient_for(const Lighting& light, V3 n) {
+    if (!light.hemisphere) return light.amb_col;
+    const float up = static_cast<float>(std::clamp((norm(n).z + 1) * .5, 0.0, 1.0));
+    return mix(light.amb_ground, light.amb_col, up);
+}
+
 r2d::Col Renderer::shade_vertex(const Vtx& v, std::uint16_t mat) const {
     if (mat & unlit) return v.c;
     const double nd = std::max(0.0, dot(norm(v.n), light.sun));
     const float k = static_cast<float>(nd);
-    return {v.c.r * (light.amb_col.r + light.sun_col.r * k), v.c.g * (light.amb_col.g + light.sun_col.g * k),
-            v.c.b * (light.amb_col.b + light.sun_col.b * k), v.c.a};
+    const r2d::Col amb = ambient_for(light, v.n);
+    return {v.c.r * (amb.r + light.sun_col.r * k), v.c.g * (amb.g + light.sun_col.g * k),
+            v.c.b * (amb.b + light.sun_col.b * k), v.c.a};
+}
+
+void Renderer::shadow_coords(V3 p, double& u, double& v, double& h) const {
+    const V3 d = p - shadow_centre_;
+    u = dot(d, shadow_r_) * shadow_scale_ + shadow_size_ * .5;
+    v = dot(d, shadow_u_) * shadow_scale_ + shadow_size_ * .5;
+    h = dot(d, shadow_sun_);
+}
+
+void Renderer::shadow_begin(V3 centre, double radius, int size) {
+    shadow_size_ = std::max(16, size);
+    shadow_map_.assign(static_cast<size_t>(shadow_size_) * static_cast<size_t>(shadow_size_), -1e30f);
+    shadow_centre_ = centre;
+    shadow_sun_ = norm(light.sun);
+    const V3 helper = std::fabs(shadow_sun_.z) < .95 ? V3{0, 0, 1} : V3{1, 0, 0};
+    shadow_r_ = norm(cross(helper, shadow_sun_));
+    shadow_u_ = cross(shadow_sun_, shadow_r_);
+    shadow_scale_ = shadow_size_ / (2 * radius);
+    shadow_saved_.clear();
+    shadow_dirty_x1_ = shadow_dirty_y1_ = -1;
+    shadows_on_ = false;
+}
+
+void Renderer::shadow_save() {
+    shadow_saved_ = shadow_map_;
+    shadow_dirty_x1_ = shadow_dirty_y1_ = -1;
+}
+
+void Renderer::shadow_restore() {
+    if (!shadow_saved()) return;
+    // Moving casters touch only a small part of the map. Restore those spans
+    // before the next frame, including the old location of a departing caster.
+    for (int y = shadow_dirty_y0_; y <= shadow_dirty_y1_; y += 1) {
+        const std::size_t row = static_cast<std::size_t>(y) * shadow_size_;
+        std::copy(shadow_saved_.begin() + row + shadow_dirty_x0_,
+                  shadow_saved_.begin() + row + shadow_dirty_x1_ + 1,
+                  shadow_map_.begin() + row + shadow_dirty_x0_);
+    }
+    shadow_dirty_x1_ = shadow_dirty_y1_ = -1;
+}
+
+// Rasterises casters into the map, keeping each texel's height toward the sun
+// of the nearest surface; both faces cast.
+void Renderer::shadow_cast(const Vtx* verts, size_t count, const M34* model) {
+    if (shadow_size_ <= 0) return;
+    const int n = shadow_size_;
+    for (size_t i = 0; i + 2 < count; i += 3) {
+        double u[3], v[3], h[3];
+        for (int k = 0; k < 3; ++k) {
+            V3 p = verts[i + static_cast<size_t>(k)].p;
+            if (model) p = (*model).apply(p);
+            shadow_coords(p, u[k], v[k], h[k]);
+        }
+        const double area = (u[1] - u[0]) * (v[2] - v[0]) - (u[2] - u[0]) * (v[1] - v[0]);
+        if (std::fabs(area) < 1e-12) continue;
+        const int y0 = std::max(0, static_cast<int>(std::ceil(std::min({v[0], v[1], v[2]}) - .5)));
+        const int y1 = std::min(n - 1, static_cast<int>(std::floor(std::max({v[0], v[1], v[2]}) - .5)));
+        if (y0 > y1) continue;
+        if (std::max({u[0], u[1], u[2]}) < 0 || std::min({u[0], u[1], u[2]}) > n) continue;
+        const int x0 = std::max(0, static_cast<int>(std::ceil(std::min({u[0], u[1], u[2]}) - .5)));
+        const int x1 = std::min(n - 1, static_cast<int>(std::floor(std::max({u[0], u[1], u[2]}) - .5)));
+        if (x0 > x1) continue;
+        if (shadow_dirty_x1_ < 0) {
+            shadow_dirty_x0_ = x0; shadow_dirty_x1_ = x1;
+            shadow_dirty_y0_ = y0; shadow_dirty_y1_ = y1;
+        } else {
+            shadow_dirty_x0_ = std::min(shadow_dirty_x0_, x0);
+            shadow_dirty_x1_ = std::max(shadow_dirty_x1_, x1);
+            shadow_dirty_y0_ = std::min(shadow_dirty_y0_, y0);
+            shadow_dirty_y1_ = std::max(shadow_dirty_y1_, y1);
+        }
+        // height as a plane over the map, filled a scanline span at a time
+        const double inv = 1.0 / area;
+        const double d1 = h[1] - h[0], d2 = h[2] - h[0];
+        const double gx = (d1 * (v[2] - v[0]) - d2 * (v[1] - v[0])) * inv;
+        const double gy = (d2 * (u[1] - u[0]) - d1 * (u[2] - u[0])) * inv;
+        const double g0 = h[0] - gx * u[0] - gy * v[0];
+        for (int y = y0; y <= y1; ++y) {
+            const double py = y + .5;
+            double xl = 1e30, xr = -1e30;
+            for (int e = 0; e < 3; ++e) {
+                const int f = (e + 1) % 3;
+                if ((v[e] <= py && v[f] > py) || (v[f] <= py && v[e] > py)) {
+                    const double x = u[e] + (py - v[e]) * (u[f] - u[e]) / (v[f] - v[e]);
+                    xl = std::min(xl, x); xr = std::max(xr, x);
+                }
+            }
+            if (xl > xr) continue;
+            const int xa = std::max(0, static_cast<int>(std::ceil(xl - .5)));
+            const int xb = std::min(n - 1, static_cast<int>(std::floor(xr - .5)));
+            float hh = static_cast<float>(g0 + gx * (xa + .5) + gy * py);
+            const float step = static_cast<float>(gx);
+            float* cell = shadow_map_.data() + static_cast<size_t>(y) * static_cast<size_t>(n);
+            for (int x = xa; x <= xb; ++x, hh += step) {
+                if (hh > cell[x]) cell[x] = hh;
+            }
+        }
+    }
+}
+
+void Renderer::shadow_screen_pass(float sun_share) {
+    if (shadow_size_ <= 0) return;
+    BandJob job;
+    job.self = this;
+    job.kind = 1;
+    job.sun_share = sun_share;
+    run_bands(&job, threads ? 0 : 1);
+}
+
+void Renderer::shadow_band(float sun_share, int band0, int band1) {
+    // Compose camera -> world -> light once per band. The depth-dependent
+    // perspective factor is still evaluated per pixel, with the same 2x2 PCF.
+    const V3 world_r{R_.x, R_.y, R_.z / height_scale};
+    const V3 world_u{U_.x, U_.y, U_.z / height_scale};
+    const V3 world_f{F_.x, F_.y, F_.z / height_scale};
+    const V3 right{dot(world_r, shadow_r_) * shadow_scale_, dot(world_r, shadow_u_) * shadow_scale_, dot(world_r, shadow_sun_)};
+    const V3 up{dot(world_u, shadow_r_) * shadow_scale_, dot(world_u, shadow_u_) * shadow_scale_, dot(world_u, shadow_sun_)};
+    const V3 forward{dot(world_f, shadow_r_) * shadow_scale_, dot(world_f, shadow_u_) * shadow_scale_, dot(world_f, shadow_sun_)};
+    V3 origin;
+    shadow_coords(target, origin.x, origin.y, origin.z);
+    for (int y = band0; y <= band1; ++y) {
+        const V3 row = up * (H * ay - (y + .5));
+        for (int x = 0; x < W; ++x) {
+            const size_t pi = static_cast<size_t>(y) * static_cast<size_t>(W) + static_cast<size_t>(x);
+            const float z = depth[pi];
+            if (z >= 1e29f) continue;
+            const double factor = (persp > 0 ? std::max(.05, persp + z) / persp : 1.0) / scale;
+            const V3 light_point = origin + (right * (x + .5 - W * ax) + row) * factor + forward * static_cast<double>(z);
+            const float lit = shadow_lit(static_cast<float>(light_point.x), static_cast<float>(light_point.y), static_cast<float>(light_point.z));
+            if (lit >= 1.f) continue;
+            const float keep = 1.f - sun_share * shadow_darkness * (1.f - lit);
+            float* o = rgb.data() + pi * 3;
+            o[0] *= keep; o[1] *= keep; o[2] *= keep;
+        }
+    }
+}
+
+// Share of the sun reaching a point (0 shadowed, 1 lit), from a 2x2 filtered lookup.
+float Renderer::shadow_lit(float u, float v, float h) const {
+    const int n = shadow_size_;
+    if (u <= -.5f || v <= -.5f || u >= n + .5f || v >= n + .5f) return 1.f;
+    const float bias = static_cast<float>(1.6 / shadow_scale_);   // about 1.6 texels of height
+    const float fu = u - .5f, fv = v - .5f;
+    const int x0 = static_cast<int>(std::floor(fu)), y0 = static_cast<int>(std::floor(fv));
+    const float ax = fu - static_cast<float>(x0), ay = fv - static_cast<float>(y0);
+    float taps[4];
+    if (x0 >= 0 && y0 >= 0 && x0 + 1 < n && y0 + 1 < n) {
+        const float* first = shadow_map_.data() + static_cast<std::size_t>(y0) * n + x0;
+        const float compare = h + bias;
+        taps[0] = compare >= first[0] ? 1.f : 0.f;
+        taps[1] = compare >= first[1] ? 1.f : 0.f;
+        taps[2] = compare >= first[n] ? 1.f : 0.f;
+        taps[3] = compare >= first[n + 1] ? 1.f : 0.f;
+    } else {
+        for (int k = 0; k < 4; ++k) {
+            const int x = x0 + (k & 1), y = y0 + (k >> 1);
+            if (x < 0 || y < 0 || x >= n || y >= n) { taps[k] = 1; continue; }
+            const float stored = shadow_map_[static_cast<size_t>(y) * static_cast<size_t>(n) + static_cast<size_t>(x)];
+            taps[k] = h + bias >= stored ? 1.f : 0.f;
+        }
+    }
+    const float top = taps[0] + (taps[1] - taps[0]) * ax;
+    const float bottom = taps[2] + (taps[3] - taps[2]) * ax;
+    return top + (bottom - top) * ay;
+}
+
+
+
+// ---------------------------------------------------------------- bands across the cores
+
+// Worker threads that fill bands of rows. The screen is cut into many more
+// bands than threads; each thread takes the next band free, so a band of sky
+// costs nothing and nobody waits long on a busy one.
+struct Renderer::Pool {
+    std::vector<std::thread> threads;
+    std::mutex lock;
+    std::condition_variable wake, finished;
+    const BandJob* job = nullptr;
+    int generation = 0;
+    int busy = 0;
+    int bands = 0;
+    int rows = 0;
+    std::atomic<int> next{0};
+    bool quit = false;
+};
+
+namespace {
+
+void work_bands(Renderer::Pool* pool);
+
+}  // namespace
+
+static void take_bands(Renderer::Pool& pool, const Renderer::BandJob& job);
+
+void Renderer::run_bands(const BandJob* job, int serial) {
+    if (serial != 0) {
+        if ((*job).kind == 0) {
+            raster_band(*job, 0, H - 1);
+        } else {
+            shadow_band((*job).sun_share, 0, H - 1);
+        }
+        return;
+    }
+    if (pool_ == nullptr) {
+        pool_ = new Pool();
+        const unsigned cores = std::max(1u, std::min(8u, std::thread::hardware_concurrency()));
+        for (unsigned k = 1; k < cores; k += 1) {
+            (*pool_).threads.push_back(std::thread(work_bands, pool_));
+        }
+    }
+    Pool& pool = *pool_;
+    {
+        std::lock_guard<std::mutex> guard(pool.lock);
+        pool.job = job;
+        pool.rows = H;
+        pool.bands = std::max(1, std::min(H, static_cast<int>(pool.threads.size() + 1) * 6));
+        pool.next.store(0);
+        pool.busy = static_cast<int>(pool.threads.size());
+        pool.generation += 1;
+    }
+    pool.wake.notify_all();
+    take_bands(pool, *job);
+    std::unique_lock<std::mutex> wait(pool.lock);
+    while (pool.busy > 0) {
+        pool.finished.wait(wait);
+    }
+}
+
+static void take_bands(Renderer::Pool& pool, const Renderer::BandJob& job) {
+    while (true) {
+        const int band = pool.next.fetch_add(1);
+        if (band >= pool.bands) {
+            return;
+        }
+        const int y0 = band * pool.rows / pool.bands;
+        const int y1 = (band + 1) * pool.rows / pool.bands - 1;
+        if (job.kind == 0) {
+            (*job.self).raster_band_public(job, y0, y1);
+        } else {
+            (*job.self).shadow_band_public(job.sun_share, y0, y1);
+        }
+    }
 }
 
 namespace {
-struct SV {
-    double x, y, z, s, t, r, g, b, a, f, w, l;
-};
 
-// The plane a(x, y) = a0 + ax x + ay y through one attribute at the three corners
-// (affine is exact for an orthographic camera); `inv` is 1 / twice the area.
-void plane_of(const SV* sv, double inv, double SV::*m, float& ax, float& ay, float& a0) {
-    const double d1 = sv[1].*m - sv[0].*m, d2 = sv[2].*m - sv[0].*m;
-    const double gx = (d1 * (sv[2].y - sv[0].y) - d2 * (sv[1].y - sv[0].y)) * inv;
-    const double gy = (d2 * (sv[1].x - sv[0].x) - d1 * (sv[2].x - sv[0].x)) * inv;
-    ax = static_cast<float>(gx); ay = static_cast<float>(gy);
-    a0 = static_cast<float>(sv[0].*m - gx * sv[0].x - gy * sv[0].y);
+void work_bands(Renderer::Pool* pool) {
+    int seen = 0;
+    while (true) {
+        const Renderer::BandJob* job = nullptr;
+        {
+            std::unique_lock<std::mutex> wait((*pool).lock);
+            while (!(*pool).quit && (*pool).generation == seen) {
+                (*pool).wake.wait(wait);
+            }
+            if ((*pool).quit) {
+                return;
+            }
+            seen = (*pool).generation;
+            job = (*pool).job;
+        }
+        take_bands(*pool, *job);
+        {
+            std::lock_guard<std::mutex> guard((*pool).lock);
+            (*pool).busy -= 1;
+        }
+        (*pool).finished.notify_one();
+    }
 }
 
-// A channel (0..1) to 5 bits with a dither threshold th (0..15), then back to 8 bits.
-std::uint8_t quantize(float v, int th) {
-    int iv = static_cast<int>(v * (31.f * 16.f));
-    iv = iv < 0 ? 0 : (iv > 31 * 16 ? 31 * 16 : iv);
-    const int l = (iv + th) >> 4;
-    const int five = l > 31 ? 31 : l;
-    return static_cast<std::uint8_t>(five * 255 / 31);
-}
 }  // namespace
 
+Renderer::~Renderer() {
+    if (pool_ != nullptr) {
+        {
+            std::lock_guard<std::mutex> guard((*pool_).lock);
+            (*pool_).quit = true;
+        }
+        (*pool_).wake.notify_all();
+        for (size_t k = 0; k < (*pool_).threads.size(); k += 1) {
+            (*pool_).threads[k].join();
+        }
+        delete pool_;
+    }
+}
+
 void Renderer::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16_t mat, const M34* model, const Tex* tex2_0, const Tex* splat) {
+    // Two stages: every triangle is transformed, lit, culled and queued here;
+    // then the queue is filled in horizontal bands, one per core, which never
+    // share a pixel, so the picture is the same as drawing them one by one.
+    std::vector<Prepared>& queue = prepared_;
+    queue.clear();
     M34 nm;
     if (model) nm = (*model).normal_matrix();
+    const bool shadow_px = shadows_on_ && !(mat & unlit) && !(mat & toon);
     for (size_t i = 0; i + 2 < count; i += 3) {
         SV sv[3];
         for (int k = 0; k < 3; ++k) {
@@ -170,7 +471,27 @@ void Renderer::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16
             } else {
                 project(v.p, sv[k].x, sv[k].y, sv[k].z);
             }
-            const r2d::Col c = (mat & toon) ? v.c : shade_vertex(v, mat);
+            r2d::Col c = (mat & toon) ? v.c : shade_vertex(v, mat);
+            // the highlight: Blinn's half vector between the sun and the eye
+            float spec = 0;
+            if ((mat & gloss) && !(mat & unlit)) {
+                const V3 n = norm(v.n);
+                const V3 half = norm(light.sun - F_);
+                const double nh = std::max(0.0, dot(n, half));
+                const double lit = dot(n, light.sun) > 0 ? 1.0 : 0.0;
+                spec = static_cast<float>(lit * light.gloss_strength * std::pow(nh, light.gloss_power));
+            }
+            sv[k].sr = sv[k].sg = sv[k].sb = 0; sv[k].u = sv[k].v = sv[k].h = 0;
+            if (shadow_px) {
+                // ambient here, the sun apart, so a shadow can take the sun alone
+                const r2d::Col amb = ambient_for(light, v.n);
+                const float kk = static_cast<float>(std::max(0.0, dot(norm(v.n), light.sun)));
+                sv[k].sr = (v.c.r * kk + spec) * light.sun_col.r; sv[k].sg = (v.c.g * kk + spec) * light.sun_col.g; sv[k].sb = (v.c.b * kk + spec) * light.sun_col.b;
+                c = {v.c.r * amb.r, v.c.g * amb.g, v.c.b * amb.b, v.c.a};
+                shadow_coords(v.p, sv[k].u, sv[k].v, sv[k].h);
+            } else if (spec > 0) {
+                c = {c.r + spec * light.sun_col.r, c.g + spec * light.sun_col.g, c.b + spec * light.sun_col.b, c.a};
+            }
             sv[k].l = (mat & toon) ? dot(norm(v.n), light.sun) : 0;
             sv[k].s = v.s; sv[k].t = v.t; sv[k].w = v.w;
             sv[k].r = c.r; sv[k].g = c.g; sv[k].b = c.b; sv[k].a = c.a;
@@ -189,6 +510,9 @@ void Renderer::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16
             const double t0 = std::floor(std::min({sv[0].t, sv[1].t, sv[2].t}) / 16) * 16;
             for (int k = 0; k < 3; ++k) { sv[k].s -= s0; sv[k].t -= t0; }
         }
+        // a triangle reaching behind the eye would project inside out across the
+        // whole screen; such near things are dropped rather than clipped
+        if (persp > 0 && (persp + sv[0].z < .01 || persp + sv[1].z < .01 || persp + sv[2].z < .01)) continue;
         const double area = (sv[1].x - sv[0].x) * (sv[2].y - sv[0].y) - (sv[2].x - sv[0].x) * (sv[1].y - sv[0].y);
         if (std::fabs(area) < 1e-9) continue;
         if (mat & inverted) { if (area < 0) continue; }
@@ -200,6 +524,43 @@ void Renderer::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16
         const double minx = std::min({sv[0].x, sv[1].x, sv[2].x}), maxx = std::max({sv[0].x, sv[1].x, sv[2].x});
         if (maxx < 0 || minx > W) continue;
         ++tris_drawn;
+        Prepared job;
+        job.sv[0] = sv[0];
+        job.sv[1] = sv[1];
+        job.sv[2] = sv[2];
+        job.y0 = y0;
+        job.y1 = y1;
+        queue.push_back(job);
+    }
+    if (queue.empty()) return;
+    BandJob band;
+    band.self = this;
+    band.tex0 = tex0;
+    band.tex2_0 = tex2_0;
+    band.splat = splat;
+    band.mat = mat;
+    band.shadow_px = shadow_px;
+    // a few small triangles aren't worth waking the other cores for
+    size_t rows = 0;
+    for (size_t i = 0; i < queue.size(); i += 1) {
+        rows += static_cast<size_t>(queue[i].y1 - queue[i].y0 + 1);
+    }
+    run_bands(&band, threads && rows > 600 ? 0 : 1);
+}
+
+void Renderer::raster_band(const BandJob& job, int band0, int band1) {
+    const Tex* tex0 = job.tex0;
+    const Tex* tex2_0 = job.tex2_0;
+    const Tex* splat = job.splat;
+    const std::uint16_t mat = job.mat;
+    const bool shadow_px = job.shadow_px;
+    for (size_t q = 0; q < prepared_.size(); q += 1) {
+        const Prepared& item = prepared_[q];
+        if (item.y1 < band0 || item.y0 > band1) continue;
+        const SV* sv = item.sv;
+        const int y0 = std::max(item.y0, band0);
+        const int y1 = std::min(item.y1, band1);
+        const double area = (sv[1].x - sv[0].x) * (sv[2].y - sv[0].y) - (sv[2].x - sv[0].x) * (sv[1].y - sv[0].y);
         // plane equations for every attribute: a(x,y) = a0 + ax*x + ay*y (affine is exact for an orthographic camera)
         const double inv = 1.0 / area;
         float zx, zy, z0, sx_, sy_, s0, tx_, ty_, t0, rx, ry, r0, gx_, gy_, g0, bx, by, b0, axx, ayy, a0v, fx, fy, f0;
@@ -208,6 +569,12 @@ void Renderer::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16
         plane_of(sv, inv, &SV::a, axx, ayy, a0v); plane_of(sv, inv, &SV::f, fx, fy, f0);
         float wx = 0, wy = 0, w0v = 0;
         if (tex2_0) plane_of(sv, inv, &SV::w, wx, wy, w0v);
+        float srx = 0, sry = 0, sr0 = 0, sgx = 0, sgy = 0, sg0 = 0, sbx = 0, sby = 0, sb0 = 0;
+        float ux = 0, uy = 0, u0 = 0, vx = 0, vy = 0, v0 = 0, hx = 0, hy = 0, h0 = 0;
+        if (shadow_px) {
+            plane_of(sv, inv, &SV::sr, srx, sry, sr0); plane_of(sv, inv, &SV::sg, sgx, sgy, sg0); plane_of(sv, inv, &SV::sb, sbx, sby, sb0);
+            plane_of(sv, inv, &SV::u, ux, uy, u0); plane_of(sv, inv, &SV::v, vx, vy, v0); plane_of(sv, inv, &SV::h, hx, hy, h0);
+        }
         const bool toon_px = mat & toon;
         float lx = 0, ly = 0, l0 = 0;
         if (toon_px) plane_of(sv, inv, &SV::l, lx, ly, l0);
@@ -259,10 +626,17 @@ void Renderer::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16
             float ca0 = a0v + axx * px0 + ayy * fpy, f = f0 + fx * px0 + fy * fpy;
             float wv = w0v + wx * px0 + wy * fpy;
             float lv = l0 + lx * px0 + ly * fpy;
+            float sr = sr0 + srx * px0 + sry * fpy, sg = sg0 + sgx * px0 + sgy * fpy, sb = sb0 + sbx * px0 + sby * fpy;
+            float su = u0 + ux * px0 + uy * fpy, svv = v0 + vx * px0 + vy * fpy, sh = h0 + hx * px0 + hy * fpy;
             size_t pi = static_cast<size_t>(y) * W + xa;
-            for (int x = xa; x <= xb; ++x, ++pi, z += zx, s += sx_, t += tx_, cr0 += rx, cg0 += gx_, cb0 += bx, ca0 += axx, f += fx, wv += wx, lv += lx) {
+            for (int x = xa; x <= xb; ++x, ++pi, z += zx, s += sx_, t += tx_, cr0 += rx, cg0 += gx_, cb0 += bx, ca0 += axx, f += fx, wv += wx, lv += lx,
+                     sr += srx, sg += sgx, sb += sbx, su += ux, svv += vx, sh += hx) {
                 if (z >= depth[pi]) continue;
                 float cr = cr0, cg = cg0, cb = cb0, ca = ca0;
+                if (shadow_px) {
+                    const float lit = 1.f - shadow_darkness * (1.f - shadow_lit(su, svv, sh));
+                    cr += sr * lit; cg += sg * lit; cb += sb * lit;
+                }
                 if (toon_px) {
                     // two-tone anime light: shadow side takes the ambient tone, lit side the sun
                     float k = (lv - te0) * tinv;

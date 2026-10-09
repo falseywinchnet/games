@@ -1,7 +1,6 @@
 // Headless stills for look development: preview out.ppm [seed] [W H]
 // A gallery of one run's first twelve rocks on a plain ground.
-#include "platform/r3d.hpp"
-#include "platform/raster.hpp"
+#include "platform/render.hpp"
 #include "rocks.hpp"
 
 #include <cmath>

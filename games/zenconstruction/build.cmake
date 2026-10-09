@@ -11,13 +11,12 @@ if(MSVC)
 else()
   target_compile_options(zc_phys PUBLIC -ffp-contract=off)
 endif()
-add_library(zc_core STATIC
-  ${GAME_MODULE_DIR}/src/platform/raster.cpp ${GAME_MODULE_DIR}/src/platform/r3d.cpp
-  ${GAME_MODULE_DIR}/src/platform/mesh.cpp ${GAME_MODULE_DIR}/src/rocks.cpp
+add_library(zc_core STATIC ${GAME_MODULE_DIR}/src/rocks.cpp
   ${GAME_MODULE_DIR}/src/run.cpp ${GAME_MODULE_DIR}/src/site.cpp ${GAME_MODULE_DIR}/src/terrain.cpp
   ${GAME_MODULE_DIR}/src/shapes.cpp ${GAME_MODULE_DIR}/src/crane_model.cpp
   ${GAME_MODULE_DIR}/src/stones.cpp)
 target_include_directories(zc_core PUBLIC ${GAME_MODULE_DIR}/src)
+target_link_libraries(zc_core PUBLIC render_core)  # the 2D canvas, 3D renderer and meshes (shared/render)
 target_link_libraries(zc_core PUBLIC zc_phys game_paths Threads::Threads)
 target_compile_definitions(zc_core PRIVATE _USE_MATH_DEFINES)
 add_executable(rockstack_rules_tests ${GAME_MODULE_DIR}/tests/zen_tests.cpp)
@@ -30,7 +29,6 @@ add_executable(rockstack_worksite_tests ${PLAYSUITE_SOURCE_DIR}/tests/rockstack_
 target_link_libraries(rockstack_worksite_tests PRIVATE zc_core)
 add_test(NAME rockstack_worksite COMMAND rockstack_worksite_tests)
 add_executable(rockstack_shadow_tests ${PLAYSUITE_SOURCE_DIR}/tests/rockstack_shadow_tests.cpp)
-target_include_directories(rockstack_shadow_tests PRIVATE ${GAME_MODULE_DIR}/src/platform)
 target_link_libraries(rockstack_shadow_tests PRIVATE zc_core)
 add_test(NAME rockstack_shadow COMMAND rockstack_shadow_tests)
 add_executable(rockstack_site_preview EXCLUDE_FROM_ALL ${GAME_MODULE_DIR}/tools/site_preview.cpp)

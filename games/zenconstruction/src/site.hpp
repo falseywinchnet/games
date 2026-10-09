@@ -6,7 +6,7 @@
 // shadows. When nothing on the site moves, the still picture is kept and only
 // the brook is redrawn each frame.
 #include "crane_model.hpp"
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 #include "run.hpp"
 
 #include <cstdint>

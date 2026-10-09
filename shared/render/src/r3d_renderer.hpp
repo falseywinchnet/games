@@ -1,9 +1,10 @@
 #pragma once
-// A small 1990s-style software 3D renderer: orthographic (isometric) camera,
-// z-buffered texture-mapped triangles with nearest-neighbour sampling,
-// Gouraud vertex lighting, distance haze, cut-out and translucent materials,
-// rendered at low resolution and presented with ordered dithering and chunky
-// integer upscaling.
+// The suite's low-resolution 3D renderer, 1990s style: an orthographic (isometric) or
+// mildly perspective camera, z-buffered texture-mapped triangles with nearest-neighbour
+// sampling between dithered mip levels, Gouraud or two-tone light, sky and ground
+// ambient, highlights, haze, cut-out and translucent materials, optional sun shadows
+// with a kept static half, and optional bands across the cores; presented with ordered
+// dithering and whole-pixel enlargement.
 #include "r2d_canvas.hpp"
 
 #include <cmath>
@@ -55,7 +56,8 @@ struct Tex {
 enum Material : std::uint16_t {
     opaque = 0, cutout = 1, translucent = 2, additive = 4, double_sided = 8, unlit = 16, no_fog = 32, no_depth_write = 64,
     inverted = 128,  // draw back faces only (inverted-hull outlines)
-    toon = 256       // per-pixel two-tone light ramp instead of Gouraud
+    toon = 256,      // per-pixel two-tone light ramp instead of Gouraud
+    gloss = 512      // a sun highlight per vertex (painted plastic, glass, chrome)
 };
 
 struct Vtx {
@@ -74,6 +76,12 @@ struct Lighting {
     double fog_near = 18, fog_far = 40;  // distance from the focus point (world units)
     V3 focus{};
     float toon_edge = .18f, toon_soft = .10f;  // light ramp threshold and softness
+    // sky and ground ambient: when `hemisphere` is set, ambient light runs from
+    // amb_ground (facing down: light bounced off the ground) to amb_col (facing up: the sky)
+    bool hemisphere = false;
+    r2d::Col amb_ground{.5f, .44f, .36f, 1};
+    // the `gloss` material's highlight
+    double gloss_power = 28, gloss_strength = .55;
 };
 
 class Renderer {
@@ -88,6 +96,9 @@ public:
     double ax = .5, ay = .55;  // screen anchor as fraction of W,H
     double height_scale = 1;   // world z multiplier
     double billboard_lift = 0; // >0: billboards lit as if facing this much more upward (sprites on the ground)
+    // Large draws and the shadow pass filled in bands across the cores. Bands never
+    // share a pixel, so the picture is the same either way; off, all work is serial.
+    bool threads = false;
     double persp = 0;          // >0: perspective, the eye this far (world units) in front of the target plane
     // the world point on the horizontal plane z = `plane_z` under screen point (sx, sy)
     bool unproject_plane(double sx, double sy, double plane_z, double& wx, double& wy) const;
@@ -116,7 +127,74 @@ public:
 
     long long tris_drawn = 0;
 
+    // Sun shadows. shadow_begin() sets an orthographic map along the sun over a
+    // disc of `radius` around `centre` and clears it; shadow_cast() draws
+    // casters into it; shadow_use(true) makes later lit draws shade per pixel,
+    // masking the sun (not the ambient) where the map says something is nearer
+    // the sun. Outside the map everything is sunlit.
+    void shadow_begin(V3 centre, double radius, int size);
+    void shadow_cast(const Vtx* v, size_t count, const M34* model);
+    void shadow_use(bool on) { shadows_on_ = on && shadow_size_ > 0; }
+    // Deferred shadows on what's already in the buffer: every drawn pixel's
+    // world position is rebuilt from its depth, and where the map puts it in
+    // shadow its colour loses `sun_share` of itself (the sun's share of a lit
+    // surface's light) times shadow_darkness.
+    void shadow_screen_pass(float sun_share);
+    float shadow_darkness = .62f;   // share of the sun a shadow removes
+
+    // Sun shadows that don't change: shadow_save() keeps the map as it stands
+    // (the casters that stay put), shadow_restore() puts it back for a frame's
+    // moving casters to be added to.
+    void shadow_save();
+    void shadow_restore();
+    bool shadow_saved() const { return !shadow_saved_.empty() && shadow_saved_.size() == shadow_map_.size(); }
+
+    Renderer() = default;
+    ~Renderer();
+    Renderer(const Renderer&) = delete;
+    Renderer& operator=(const Renderer&) = delete;
+
+    struct SV {
+        double x, y, z, s, t, r, g, b, a, f, w, l;
+        double sr, sg, sb, u, v, h;   // shadowed draws: the sun's part of the colour, and shadow-map coordinates
+    };
+    struct Prepared {
+        SV sv[3];
+        int y0 = 0, y1 = 0;
+    };
+    struct BandJob {
+        Renderer* self = nullptr;
+        const Tex* tex0 = nullptr;
+        const Tex* tex2_0 = nullptr;
+        const Tex* splat = nullptr;
+        std::uint16_t mat = 0;
+        bool shadow_px = false;
+        int kind = 0;        // 0 triangles, 1 the deferred shadow pass
+        float sun_share = 0;
+    };
+
+    // for the worker threads
+    void raster_band_public(const BandJob& job, int band0, int band1) { raster_band(job, band0, band1); }
+    void shadow_band_public(float sun_share, int band0, int band1) { shadow_band(sun_share, band0, band1); }
+    struct Pool;
+
 private:
+    std::vector<Prepared> prepared_;
+    std::vector<float> shadow_saved_;
+    void raster_band(const BandJob& job, int band0, int band1);
+    void shadow_band(float sun_share, int band0, int band1);
+    // runs the job over the screen in bands on the worker threads (serial if `serial`)
+    void run_bands(const BandJob* job, int serial);
+    Pool* pool_ = nullptr;
+    bool shadows_on_ = false;
+    int shadow_size_ = 0;
+    std::vector<float> shadow_map_;   // per texel: the nearest caster's height toward the sun
+    V3 shadow_centre_{}, shadow_r_{}, shadow_u_{}, shadow_sun_{};
+    double shadow_scale_ = 1;          // texels per world unit
+    int shadow_dirty_x0_ = 0, shadow_dirty_y0_ = 0;
+    int shadow_dirty_x1_ = -1, shadow_dirty_y1_ = -1;
+    void shadow_coords(V3 p, double& u, double& v, double& h) const;
+    float shadow_lit(float u, float v, float h) const;
     V3 R_{}, U_{}, F_{};
     r2d::Col shade_vertex(const Vtx& v, std::uint16_t mat) const;
 };
