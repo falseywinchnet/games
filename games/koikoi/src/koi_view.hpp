@@ -90,7 +90,8 @@ private:
     double cw_ = 80, ch_ = 112, small_k_ = .47;
     double panel_x_ = 0;
     bool wide_ = true;     // room for the scoreboard down the side; otherwise a bar along the top
-    double top_ = 0;       // the top bar's height (0 with the side scoreboard)
+    double top_ = 0;       // the table's top: below the top bar (none with the side scoreboard)
+    double top0_ = 0;      // hosted: room left clear for the floating capsule and Help
     mutable double panel_size_ = 12;
     double mid() const { return top_ + (H_ - top_) / 2; }
 

@@ -112,7 +112,8 @@ void KoiView::arrange(gf::Rect bounds) {
     // the scoreboard sits down the side in a big window; in a smaller one a bar along the top
     // carries the essentials and the twelve months move to a Score panel
     wide_ = W_ >= 900 && H_ >= 560;
-    top_ = wide_ ? 0 : 32;
+    top0_ = opt_.hosted ? 56 : 0;
+    top_ = top0_ + (wide_ ? 0 : 32);
     panel_x_ = wide_ ? W_ - 236 : W_;
     // big enough to read, small enough that seven field cards sit side by side beside the pile
     ch_ = std::clamp((H_ - top_ - 96) / 4.35, 40.0, 132.0);
@@ -773,7 +774,7 @@ void KoiView::layout_game_buttons() {
         for (const auto& [id, label] : items) {
             const double w = text_w(label, 12, 0) + 20;
             x -= w;
-            buttons_.push_back({id, label, x, 5, w, 22, id != "hint" || hint_on});
+            buttons_.push_back({id, label, x, top0_ + 5, w, 22, id != "hint" || hint_on});
             x -= 6;
         }
     }
@@ -913,8 +914,9 @@ void KoiView::draw_scoreboard() {
     const double x = panel_x_, w = 236;
     frame_.fill_rect(x * bs_, 0, w * bs_, H_ * bs_, hex(0x0E2A1E, .82f));
     frame_.fill_rect(x * bs_, 0, 2 * bs_, H_ * bs_, kGold);
-    double y = 14;
-    text("Koi-Koi", x + 16, y, hex(0xFFE9B0), 22, 2);
+    // hosted, the capsule names the game and Help floats over this corner
+    double y = opt_.hosted ? 22 : 14;
+    if (!opt_.hosted) text("Koi-Koi", x + 16, y, hex(0xFFE9B0), 22, 2);
     y += 34;
     const koi::Opponent& o = koi::opponents()[static_cast<size_t>(s_.opponent)];
     text(o.name, x + 16, y, kCream, 13, 1);
@@ -934,7 +936,7 @@ void KoiView::draw_scoreboard() {
 
 void KoiView::draw_topbar() {
     // a slim bar: who you're playing, the score, the month; the buttons sit at its right
-    frame_.fill_rect(0, 0, W_ * bs_, top_ * bs_, hex(0x0E2A1E, .9f));
+    frame_.fill_rect(0, top0_ * bs_, W_ * bs_, (top_ - top0_) * bs_, hex(0x0E2A1E, .9f));
     frame_.fill_rect(0, (top_ - 1) * bs_, W_ * bs_, 1 * bs_, kGold);
     double right = W_;
     for (const Button& b : buttons_) if (b.y < top_) right = std::min(right, b.x);
@@ -942,7 +944,7 @@ void KoiView::draw_topbar() {
     const std::string score = "You " + std::to_string(s_.totals[0]) + " - " + std::to_string(s_.totals[1]) + " them";
     const std::string month = s_.phase == koi::Phase::match_over ? "" : std::string(koi::month_name(s_.round));
     double x = 12;
-    const double y = (top_ - 15) / 2;
+    const double y = top0_ + (top_ - top0_ - 15) / 2;
     auto put = [&](const std::string& t, double size, int font, Col c) {
         if (t.empty() || x + text_w(t, size, font) > right - 10) return;
         text(t, x, y, c, size, font);
