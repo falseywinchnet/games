@@ -1,6 +1,7 @@
 #include "koikoi.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <sstream>
 
@@ -8,7 +9,7 @@ namespace games::koi {
 
 namespace {
 constexpr Type B = Type::bright, A = Type::animal, R = Type::ribbon, P = Type::plain;
-const CardInfo kCards[48] = {
+constexpr CardInfo kCards[48] = {
     {0, B, Ribbon::none, "Crane and Sun"}, {0, R, Ribbon::poem, "Pine Poem Ribbon"}, {0, P, Ribbon::none, "Pine"}, {0, P, Ribbon::none, "Pine"},
     {1, A, Ribbon::none, "Bush Warbler"}, {1, R, Ribbon::poem, "Plum Poem Ribbon"}, {1, P, Ribbon::none, "Plum"}, {1, P, Ribbon::none, "Plum"},
     {2, B, Ribbon::none, "Curtain"}, {2, R, Ribbon::poem, "Cherry Poem Ribbon"}, {2, P, Ribbon::none, "Cherry"}, {2, P, Ribbon::none, "Cherry"},
@@ -35,6 +36,88 @@ void erase(std::vector<int>& v, int c) { v.erase(std::remove(v.begin(), v.end(),
 bool plain_like(int c) { return info(c).type == Type::plain || c == card::sake; }  // the sake cup also counts as a plain
 bool animal(int c) { return info(c).type == Type::animal; }
 
+// What a pile of captures holds, counted once for both the points and the computer's judgement.
+struct Tally {
+    int brights = 0, animals = 0, ribbons = 0, poem = 0, blue = 0, plains = 0;
+    bool rain = false, curtain = false, moon = false, sake = false, boar = false, deer = false, fly = false;
+};
+// Each card's part in a tally, packed: one byte per count, one bit per card that matters
+// alone. A pile is then tallied with an add and an or per card.
+struct Mark {
+    std::uint64_t counts = 0;  // brights, animals, ribbons, poem, blue, plains: bytes 0..5
+    std::uint8_t flags = 0;    // rain, curtain, moon, sake, boar, deer, butterflies: bits 0..6
+};
+constexpr std::array<Mark, 48> make_marks() {
+    std::array<Mark, 48> m{};
+    for (int c = 0; c < 48; ++c) {
+        const CardInfo& i = kCards[c];
+        std::uint64_t n = 0;
+        n += static_cast<std::uint64_t>(i.type == Type::bright) << 0;
+        n += static_cast<std::uint64_t>(i.type == Type::animal) << 8;
+        n += static_cast<std::uint64_t>(i.type == Type::ribbon) << 16;
+        n += static_cast<std::uint64_t>(i.ribbon == Ribbon::poem) << 24;
+        n += static_cast<std::uint64_t>(i.ribbon == Ribbon::blue) << 32;
+        n += static_cast<std::uint64_t>(i.type == Type::plain || c == card::sake) << 40;
+        const int f = (c == card::rain_man ? 1 : 0) | (c == card::curtain ? 2 : 0) | (c == card::moon ? 4 : 0) |
+                      (c == card::sake ? 8 : 0) | (c == card::boar ? 16 : 0) | (c == card::deer ? 32 : 0) |
+                      (c == card::butterflies ? 64 : 0);
+        m[static_cast<size_t>(c)] = Mark{n, static_cast<std::uint8_t>(f)};
+    }
+    return m;
+}
+constexpr std::array<Mark, 48> kMarks = make_marks();
+
+// A pile as its packed tally: cards can be added to it without looking at the rest again.
+struct Pile {
+    std::uint64_t counts = 0;
+    unsigned flags = 0;
+    void add(int c) {
+        const Mark& m = kMarks[static_cast<size_t>(std::clamp(c, 0, 47))];
+        counts += m.counts;
+        flags |= m.flags;
+    }
+};
+Pile pile(const std::vector<int>& cap) {
+    Pile p;
+    for (int c : cap) p.add(c);
+    return p;
+}
+Tally tally(const Pile& p) {
+    const std::uint64_t n = p.counts;
+    const unsigned f = p.flags;
+    Tally t;
+    t.brights = static_cast<int>(n & 0xFF);
+    t.animals = static_cast<int>((n >> 8) & 0xFF);
+    t.ribbons = static_cast<int>((n >> 16) & 0xFF);
+    t.poem = static_cast<int>((n >> 24) & 0xFF);
+    t.blue = static_cast<int>((n >> 32) & 0xFF);
+    t.plains = static_cast<int>((n >> 40) & 0xFF);
+    t.rain = (f & 1) != 0;
+    t.curtain = (f & 2) != 0;
+    t.moon = (f & 4) != 0;
+    t.sake = (f & 8) != 0;
+    t.boar = (f & 16) != 0;
+    t.deer = (f & 32) != 0;
+    t.fly = (f & 64) != 0;
+    return t;
+}
+// the same sets as yaku(), counted without building their names
+int points(const Tally& t) {
+    int p = 0;
+    if (t.brights == 5) p += 10;
+    else if (t.brights == 4) p += t.rain ? 7 : 8;
+    else if (t.brights == 3 && !t.rain) p += 5;
+    if (t.curtain && t.sake) p += 5;
+    if (t.moon && t.sake) p += 5;
+    if (t.boar && t.deer && t.fly) p += 5 + t.animals - 3;
+    if (t.animals >= 5) p += 1 + t.animals - 5;
+    if (t.poem == 3 && t.blue == 3) p += 10 + t.ribbons - 6;
+    else if (t.poem == 3 || t.blue == 3) p += 5 + t.ribbons - 3;
+    if (t.ribbons >= 5) p += 1 + t.ribbons - 5;
+    if (t.plains >= 10) p += 1 + t.plains - 10;
+    return p;
+}
+
 std::uint64_t hash_state(const KoiState& s) {
     std::uint64_t h = s.seed * 1099511628211ULL + static_cast<std::uint64_t>(s.round) * 31 + static_cast<std::uint64_t>(s.turn);
     for (int c : s.field) h = (h ^ static_cast<std::uint64_t>(c + 1)) * 1099511628211ULL;
@@ -49,22 +132,25 @@ void after_draw(KoiState& s);
 
 // a card arrives on the field (from a hand or the deck): match, choose, or lay it down
 void land(KoiState& s, int card, bool from_hand) {
-    const auto m = matches(s, card);
+    // the field cards of its month (at most three: all four never lie there together)
+    int m[4];
+    int nm = 0;
+    for (int f : s.field) if (month_of(f) == month_of(card) && nm < 4) m[nm++] = f;
     auto& cap = s.captured[static_cast<size_t>(s.turn)];
-    if (m.empty()) {
+    if (nm == 0) {
         s.field.push_back(card);
-    } else if (m.size() == 1) {
+    } else if (nm == 1) {
         finish_capture(s, card, m[0]);
         return;
-    } else if (m.size() == 2) {
+    } else if (nm == 2) {
         s.pending = card;
-        s.choices = m;
+        s.choices.assign(m, m + 2);
         s.phase = from_hand ? Phase::choose_hand : Phase::choose_draw;
         return;
     } else {
         // three on the field: take all four
         cap.push_back(card);
-        for (int c : m) { cap.push_back(c); erase(s.field, c); }
+        for (int k = 0; k < nm; ++k) { cap.push_back(m[k]); erase(s.field, m[k]); }
     }
     if (from_hand) s.phase = Phase::draw;
     else after_draw(s);
@@ -97,7 +183,7 @@ void end_round(KoiState& s, int winner, int points) {
     s.round_points = points;
     if (winner >= 0) {
         s.totals[static_cast<size_t>(winner)] += points;
-        s.round_yaku = yaku(s.captured[static_cast<size_t>(winner)]);
+        if (!s.imagined) s.round_yaku = yaku(s.captured[static_cast<size_t>(winner)]);
     } else {
         s.round_yaku.clear();
     }
@@ -107,7 +193,7 @@ void end_round(KoiState& s, int winner, int points) {
 
 void pass_turn(KoiState& s) {
     if (s.hand[0].empty() && s.hand[1].empty()) {
-        s.note = "No more cards: the round is a draw.";
+        if (!s.imagined) s.note = "No more cards: the round is a draw.";
         end_round(s, -1, 0);
         return;
     }
@@ -124,7 +210,7 @@ void after_draw(KoiState& s) {
     if (pts > s.banked[static_cast<size_t>(s.turn)]) {
         if (s.hand[static_cast<size_t>(s.turn)].empty()) {
             // no cards left to play on with: the round is theirs
-            s.note = "A new set with the last card: the round is scored.";
+            if (!s.imagined) s.note = "A new set with the last card: the round is scored.";
             end_round(s, s.turn, round_value(s, s.turn));
             return;
         }
@@ -135,23 +221,14 @@ void after_draw(KoiState& s) {
 }
 
 // how promising a pile of captures is: sets made, and sets in the making (for the computer's judgement)
-double potential(const std::vector<int>& cap, double greed) {
-    int brights = 0, rain = 0, poem = 0, blue = 0, ibc = 0, animals = 0, ribbons = 0, plains = 0;
-    bool curtain = false, moon = false, sake = false;
-    for (int c : cap) {
-        const CardInfo& i = info(c);
-        if (i.type == Type::bright) { ++brights; rain += c == card::rain_man; }
-        if (i.ribbon == Ribbon::poem) ++poem;
-        if (i.ribbon == Ribbon::blue) ++blue;
-        if (i.type == Type::ribbon) ++ribbons;
-        if (animal(c)) ++animals;
-        if (plain_like(c)) ++plains;
-        ibc += c == card::boar || c == card::deer || c == card::butterflies;
-        curtain = curtain || c == card::curtain;
-        moon = moon || c == card::moon;
-        sake = sake || c == card::sake;
-    }
-    double p = yaku_points(cap) * 14.0;
+double potential(const Pile& pile, double greed) {
+    // from the pile's tally alone: this runs thousands of times a move in the computer's thinking
+    const Tally t = tally(pile);
+    const int brights = t.brights, rain = t.rain ? 1 : 0, poem = t.poem, blue = t.blue, animals = t.animals,
+              ribbons = t.ribbons, plains = t.plains;
+    const int ibc = (t.boar ? 1 : 0) + (t.deer ? 1 : 0) + (t.fly ? 1 : 0);
+    const bool curtain = t.curtain, moon = t.moon, sake = t.sake;
+    double p = points(t) * 14.0;
     p += (brights - rain) * (brights - rain) * (2.5 + 2 * greed) + rain * 1.5;
     p += poem * poem * (1.5 + greed) + blue * blue * (1.5 + greed) + ibc * ibc * (1.5 + greed);
     if (sake) p += (curtain || moon ? 8 : 4) * (.6 + greed * .6);
@@ -159,6 +236,7 @@ double potential(const std::vector<int>& cap, double greed) {
     p += animals * .8 + ribbons * .7 + plains * .35;
     return p;
 }
+double potential(const std::vector<int>& cap, double greed) { return potential(pile(cap), greed); }
 }  // namespace
 
 const CardInfo& info(int id) { return kCards[std::clamp(id, 0, 47)]; }
@@ -201,40 +279,7 @@ std::vector<Yaku> yaku(const std::vector<int>& cap) {
     return out;
 }
 
-int yaku_points(const std::vector<int>& cap) {
-    // the same sets as yaku(), counted without building their names (this runs constantly in the computer's thinking)
-    int brights = 0, animals = 0, ribbons = 0, poem = 0, blue = 0, plains = 0;
-    bool rain = false, curtain = false, moon = false, sake = false, boar = false, deer = false, fly = false;
-    for (int c : cap) {
-        const CardInfo& i = info(c);
-        brights += i.type == Type::bright;
-        animals += i.type == Type::animal;
-        ribbons += i.type == Type::ribbon;
-        poem += i.ribbon == Ribbon::poem;
-        blue += i.ribbon == Ribbon::blue;
-        plains += i.type == Type::plain || c == card::sake;
-        rain = rain || c == card::rain_man;
-        curtain = curtain || c == card::curtain;
-        moon = moon || c == card::moon;
-        sake = sake || c == card::sake;
-        boar = boar || c == card::boar;
-        deer = deer || c == card::deer;
-        fly = fly || c == card::butterflies;
-    }
-    int p = 0;
-    if (brights == 5) p += 10;
-    else if (brights == 4) p += rain ? 7 : 8;
-    else if (brights == 3 && !rain) p += 5;
-    if (curtain && sake) p += 5;
-    if (moon && sake) p += 5;
-    if (boar && deer && fly) p += 5 + animals - 3;
-    if (animals >= 5) p += 1 + animals - 5;
-    if (poem == 3 && blue == 3) p += 10 + ribbons - 6;
-    else if (poem == 3 || blue == 3) p += 5 + ribbons - 3;
-    if (ribbons >= 5) p += 1 + ribbons - 5;
-    if (plains >= 10) p += 1 + plains - 10;
-    return p;
-}
+int yaku_points(const std::vector<int>& cap) { return points(tally(pile(cap))); }
 
 const std::vector<Opponent>& opponents() {
     static const std::vector<Opponent> o = {
@@ -355,13 +400,13 @@ bool decide(KoiState& s, bool koikoi) {
     if (s.phase != Phase::decide) return false;
     const int p = s.turn;
     if (!koikoi) {
-        s.note = p == 0 ? "You stop and score the round." : std::string(opponents()[static_cast<size_t>(s.opponent)].name) + " stops and scores the round.";
+        if (!s.imagined) s.note = p == 0 ? "You stop and score the round." : std::string(opponents()[static_cast<size_t>(s.opponent)].name) + " stops and scores the round.";
         end_round(s, p, round_value(s, p));
         return true;
     }
     ++s.koi[static_cast<size_t>(p)];
     s.banked[static_cast<size_t>(p)] = yaku_points(s.captured[static_cast<size_t>(p)]);
-    s.note = p == 0 ? "Koi-koi! You play on." : std::string(opponents()[static_cast<size_t>(s.opponent)].name) + " calls koi-koi!";
+    if (!s.imagined) s.note = p == 0 ? "Koi-koi! You play on." : std::string(opponents()[static_cast<size_t>(s.opponent)].name) + " calls koi-koi!";
     pass_turn(s);
     return true;
 }
@@ -380,6 +425,7 @@ bool quick_koikoi(const KoiState& s);
 // One guess at the hidden cards: everything this player hasn't seen, dealt into the other hand and the pile.
 KoiState guess(const KoiState& s, int me, Rng& r) {
     KoiState g = s;
+    g.imagined = true;
     std::vector<int> unseen = g.hand[static_cast<size_t>(1 - me)];
     unseen.insert(unseen.end(), g.deck.begin(), g.deck.end());
     for (int i = static_cast<int>(unseen.size()) - 1; i > 0; --i) std::swap(unseen[static_cast<size_t>(i)], unseen[static_cast<size_t>(r.range(i + 1))]);
@@ -428,7 +474,7 @@ int ai_play_deep(const KoiState& s, int depth) {
         for (const KoiState& g0 : guesses) {
             KoiState g = g0;
             play(g, static_cast<int>(i));
-            total += rollout(g, me);
+            total += rollout(std::move(g), me);
         }
         total += static_cast<int>(i) == quick ? depth * .2 : 0;  // a nudge toward the quick judgement on a near tie
         if (total > bs) { bs = total; best = static_cast<int>(i); }
@@ -445,7 +491,8 @@ int heuristic_play(const KoiState& s) {
     const auto& hand = s.hand[static_cast<size_t>(me)];
     const auto& mine = s.captured[static_cast<size_t>(me)];
     const auto& theirs = s.captured[static_cast<size_t>(1 - me)];
-    const double base = potential(mine, greed), their_base = potential(theirs, .6);
+    const Pile mine_pile = pile(mine), their_pile = pile(theirs);
+    const double base = potential(mine_pile, greed), their_base = potential(their_pile, .6);
     // per month, the cards the other player might hold: everything this player hasn't seen
     std::array<int, 12> unseen{};
     {
@@ -456,10 +503,7 @@ int heuristic_play(const KoiState& s) {
         for (int c : theirs) seen[static_cast<size_t>(c)] = true;
         for (int c = 0; c < 48; ++c) unseen[static_cast<size_t>(month_of(c))] += !seen[static_cast<size_t>(c)];
     }
-    std::vector<int> mine_plus(mine), theirs_plus(theirs);  // reused: the base pile, then a card or few added and removed
-    mine_plus.reserve(mine.size() + 4);
-    theirs_plus.reserve(theirs.size() + 1);
-    auto their_gain = [&](int c) { theirs_plus.push_back(c); const double v = potential(theirs_plus, .6) - their_base; theirs_plus.pop_back(); return v; };
+    auto their_gain = [&](int c) { Pile t = their_pile; t.add(c); return potential(t, .6) - their_base; };
     const std::uint64_t variety = hash_state(s);
     int best = 0;
     double bs = -1e18;
@@ -478,16 +522,16 @@ int heuristic_play(const KoiState& s) {
         } else {
             double take = -1e18;
             if (nm == 3) {
-                mine_plus.push_back(c);
-                for (int k = 0; k < 3; ++k) mine_plus.push_back(m[k]);
-                take = potential(mine_plus, greed) - base;
-                mine_plus.resize(mine.size());
+                Pile t = mine_pile;
+                t.add(c);
+                for (int k = 0; k < 3; ++k) t.add(m[k]);
+                take = potential(t, greed) - base;
             } else {
                 for (int k = 0; k < nm; ++k) {
-                    mine_plus.push_back(c);
-                    mine_plus.push_back(m[k]);
-                    take = std::max(take, potential(mine_plus, greed) - base);
-                    mine_plus.resize(mine.size());
+                    Pile t = mine_pile;
+                    t.add(c);
+                    t.add(m[k]);
+                    take = std::max(take, potential(t, greed) - base);
                 }
             }
             // denying them: what the field card would have been worth to the other player
@@ -536,7 +580,7 @@ bool ai_koikoi(const KoiState& s) {
             g.drawn_this_turn = false;
             g.phase = Phase::play;
             if (g.hand[0].empty() && g.hand[1].empty()) { on += 0; continue; }
-            on += rollout(g, me);
+            on += rollout(std::move(g), me);
         }
         return on / n > stop * 1.15;
     }

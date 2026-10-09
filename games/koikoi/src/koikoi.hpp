@@ -94,6 +94,7 @@ struct KoiState {
     std::vector<Yaku> round_yaku;
     std::string note;                      // what just happened, for the table to show
     std::vector<int> rounds_won_points;    // per round: + you, - them, 0 drawn
+    bool imagined = false;                 // a round the computer plays out in its head: no names or notes
 };
 
 // Shuffle and deal round `round` (redealing a field that holds all four of a month).
