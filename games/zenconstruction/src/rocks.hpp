@@ -13,7 +13,7 @@
 // Coordinates: metres, z up, every rock in its own body frame (origin at its
 // centre of mass, as the physics has it).
 #include "physics.hpp"
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 #include "stones.hpp"
 
 #include <cstdint>

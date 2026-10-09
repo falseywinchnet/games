@@ -5,7 +5,7 @@
 #include "suite.hpp"
 #include "site.hpp"
 #include "platform/present.hpp"
-#include "platform/raster.hpp"
+#include "platform/render.hpp"
 
 #include "gui_forms/basic_controls.hpp"
 #include "gui_forms/live_surface.hpp"

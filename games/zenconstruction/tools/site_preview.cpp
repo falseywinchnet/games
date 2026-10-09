@@ -1,6 +1,6 @@
 // Headless frames of the whole worksite: site_preview out.ppm [seed] [W H] [yaw pitch distance]
 // Pours the bowl, stacks three rocks with the crane, then holds a fourth over the stack.
-#include "platform/raster.hpp"
+#include "platform/render.hpp"
 #include "run.hpp"
 #include "site.hpp"
 

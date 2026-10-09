@@ -1,6 +1,6 @@
 #include "site.hpp"
 
-#include "platform/mesh.hpp"
+#include "platform/render.hpp"
 #include "shapes.hpp"
 #include "terrain.hpp"
 
@@ -446,6 +446,8 @@ M34 pose_matrix(const phys::Pose& pose) {
 }
 
 Site::Site() {
+    // The worksite fills its large draws and its shadow pass in bands across the cores.
+    r.threads = true;
     build_textures();
     build_scenery();
     place_crane();

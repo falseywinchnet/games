@@ -2,7 +2,7 @@
 // small stack (physics), lowering it into contact, and frames of the site at
 // the app's scene size, with the camera moving (scenery redrawn) and still.
 // bench [seed] [W H]
-#include "platform/raster.hpp"
+#include "platform/render.hpp"
 #include "run.hpp"
 #include "site.hpp"
 

@@ -8,7 +8,7 @@
 // holes; a ram to luff it; the hoist line over the head sheave down to a
 // striped hook block. The truck never moves and is built once; the rest
 // is built each frame.
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 
 #include <vector>
 

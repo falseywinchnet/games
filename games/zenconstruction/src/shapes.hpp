@@ -2,7 +2,7 @@
 // Building meshes in place: boxes plain and rounded, rods, lathes, ellipsoids,
 // bent tubes and quads, written straight into a world-space triangle list
 // through a frame. Every triangle is wound to face out.
-#include "platform/mesh.hpp"
+#include "platform/render.hpp"
 
 #include <vector>
 

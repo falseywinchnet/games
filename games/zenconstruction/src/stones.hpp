@@ -4,7 +4,7 @@
 // crystalline granites to fine slate. A rock picks one at random from those
 // its class is likely to be; its vertex colours then only shade, mottle,
 // vein and lichen it.
-#include "platform/r3d.hpp"
+#include "platform/render.hpp"
 
 namespace zc {
 
