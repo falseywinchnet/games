@@ -4,6 +4,7 @@
 #include "portable_mask_cache.hpp"
 #include "help_route.hpp"
 #include "runtime_paths.hpp"
+#include "r2d.hpp"
 #include "scene.hpp"
 
 #include "gui_forms/window.hpp"
@@ -66,46 +67,10 @@ struct TextMask {
 };
 games::PortableMaskCache<TextMask> text_masks;
 
-// Blends a straight colour with coverage `alpha` (0..1) into a BGRA premultiplied pixel.
-void blend(std::uint8_t* pixel, std::uint32_t color, double alpha) {
-    const double r = (color >> 16) & 255;
-    const double g = (color >> 8) & 255;
-    const double b = color & 255;
-    const double keep = 1 - alpha;
-    pixel[0] = static_cast<std::uint8_t>(std::clamp(b * alpha + pixel[0] * keep, 0.0, 255.0));
-    pixel[1] = static_cast<std::uint8_t>(std::clamp(g * alpha + pixel[1] * keep, 0.0, 255.0));
-    pixel[2] = static_cast<std::uint8_t>(std::clamp(r * alpha + pixel[2] * keep, 0.0, 255.0));
-    pixel[3] = static_cast<std::uint8_t>(std::clamp(255 * alpha + pixel[3] * keep, 0.0, 255.0));
-}
-
-// A rounded rectangle in device pixels, filled with `alpha` and anti-aliased at its edge,
-// optionally outlined.
-void rounded(std::vector<std::uint8_t>& frame, int width, int height, double x, double y, double w, double h,
-             double radius, std::uint32_t fill, double alpha, std::uint32_t line, double line_width) {
-    const int x0 = std::max(0, static_cast<int>(std::floor(x)));
-    const int y0 = std::max(0, static_cast<int>(std::floor(y)));
-    const int x1 = std::min(width, static_cast<int>(std::ceil(x + w)));
-    const int y1 = std::min(height, static_cast<int>(std::ceil(y + h)));
-    for (int py = y0; py < y1; ++py) {
-        for (int px = x0; px < x1; ++px) {
-            const double cx = std::clamp(px + .5, x + radius, x + w - radius);
-            const double cy = std::clamp(py + .5, y + radius, y + h - radius);
-            const double distance = std::hypot(px + .5 - cx, py + .5 - cy) - radius;
-            const double inside = std::clamp(.5 - distance, 0.0, 1.0);
-            if (inside <= 0) {
-                continue;
-            }
-            std::uint8_t* pixel = frame.data() + (static_cast<std::size_t>(py) * static_cast<std::size_t>(width) +
-                                                  static_cast<std::size_t>(px)) * 4;
-            blend(pixel, fill, inside * alpha);
-            if (line_width > 0) {
-                const double edge = std::clamp(line_width - std::fabs(distance + line_width * .5) + .5, 0.0, 1.0);
-                if (edge > 0) {
-                    blend(pixel, line, edge * .75);
-                }
-            }
-        }
-    }
+render::Color rgb(std::uint32_t color) {
+    const render::Color out{static_cast<float>((color >> 16) & 255), static_cast<float>((color >> 8) & 255),
+                            static_cast<float>(color & 255)};
+    return out;
 }
 
 }  // namespace
@@ -307,7 +272,12 @@ void CubeView::on_attached_to_window() {
     subscriptions_.push_back(
         (*timer_).tick().subscribe(*this, gf::Delegate<>::bind<CubeView, &CubeView::tick>(*this)));
     if (!environment_loaded_) {
-        environment_loaded_ = raster_.load_environment(read_bytes(games::asset_directory() + "/nature-lake.gpix"));
+        // Prepared once in the window's byte order, darkened and lifted as the glass shows it.
+        const std::vector<std::uint8_t> gpix = read_bytes(games::asset_directory() + "/nature-lake.gpix");
+        const render::Order order = gf::native_live_surface_pixel_format() == gf::LiveSurfacePixelFormat::rgba32_premultiplied_srgb
+                                        ? render::Order::rgba
+                                        : render::Order::bgra;
+        environment_loaded_ = panorama_.load_gpix(gpix, order, .82F, 35);
     }
     if (lake_.width == 0) {
         const std::vector<std::uint8_t> png = read_bytes(games::asset_directory() + "/nature-lake.png");
@@ -326,9 +296,11 @@ void CubeView::on_detaching_from_window(gf::Window&) noexcept {
         (*timer_).stop();
     }
     timer_.reset();
-    surface_.reset();
+    surface_ = render::Surface{};
+    surface_attached_ = false;
+    shown_ = Shown{};
     backdrop_.clear();
-    frame_.clear();
+    fade_.clear();
     backdrop_dirty_ = true;
 }
 
@@ -505,12 +477,9 @@ void CubeView::arrange(gf::Rect bounds) {
     layout_ = compute_layout(bounds.width, bounds.height);
     device_width_ = std::max(1, static_cast<int>(std::lround(bounds.width * scale_)));
     device_height_ = std::max(1, static_cast<int>(std::lround(bounds.height * scale_)));
-    if (surface_) {
-        gf::LiveSurfaceDescription description;
-        description.width = static_cast<std::uint32_t>(device_width_);
-        description.height = static_cast<std::uint32_t>(device_height_);
-        description.opaque = true;
-        static_cast<void>((*surface_).reconfigure(description));
+    // The surface takes its new size with the layout, before the next frame is drawn.
+    if (surface_.live()) {
+        static_cast<void>(surface_.configure(device_width_, device_height_));
     }
     backdrop_dirty_ = true;
     request_frame();
@@ -518,8 +487,8 @@ void CubeView::arrange(gf::Rect bounds) {
 
 void CubeView::on_paint(gf::Painter& painter, gf::Rect) {
     const gf::Rect bounds = client_rectangle();
-    if (surface_) {
-        painter.draw_live_surface(surface_, bounds);
+    if (surface_.live()) {
+        painter.draw_live_surface(surface_.live(), bounds);
     } else {
         painter.fill_rect(bounds, gf::Color::rgba(40, 62, 60));
     }
@@ -613,125 +582,172 @@ void CubeView::tick() {
     }
 }
 
-double CubeView::draw_text(const std::string& words, double x, double y, double size, bool bold,
-                           std::uint32_t color, double wrap) {
+double CubeView::draw_text(const render::Target& target, const std::string& words, double x, double y, double size,
+                           bool bold, std::uint32_t color, double wrap) {
     if (words.empty()) {
         return 0;
     }
     const TextMask& mask = text_masks.get(words, bold ? 1 : 0, size * scale_, wrap * scale_);
-    const int left = static_cast<int>(std::lround(x * scale_));
-    const int top = static_cast<int>(std::lround(y * scale_));
-    for (int my = 0; my < mask.h; ++my) {
-        const int py = top + my;
-        if (py < 0 || py >= device_height_) {
-            continue;
-        }
-        for (int mx = 0; mx < mask.w; ++mx) {
-            const int px = left + mx;
-            const std::uint8_t coverage = mask.a[static_cast<std::size_t>(my) * static_cast<std::size_t>(mask.w) +
-                                                 static_cast<std::size_t>(mx)];
-            if (coverage == 0 || px < 0 || px >= device_width_) {
-                continue;
-            }
-            std::uint8_t* pixel = frame_.data() + (static_cast<std::size_t>(py) * static_cast<std::size_t>(device_width_) +
-                                                   static_cast<std::size_t>(px)) * 4;
-            blend(pixel, color, coverage / 255.0);
-        }
-    }
+    render::r2d::mask(target, target.bounds(), static_cast<int>(std::lround(x * scale_)),
+                      static_cast<int>(std::lround(y * scale_)), mask.w, mask.h, mask.a, rgb(color));
     return mask.w / scale_;
 }
 
-void CubeView::render_frame() {
-    const std::size_t bytes = static_cast<std::size_t>(device_width_) * static_cast<std::size_t>(device_height_) * 4;
-    if (device_width_ <= 0 || device_height_ <= 0) {
-        return;
-    }
-    if (backdrop_dirty_ || backdrop_.size() != bytes) {
-        // The lake behind the cube, drawn once per size.
-        backdrop_.assign(bytes, 0);
-        cover(lake_, backdrop_.data(), device_width_, device_height_, static_cast<std::size_t>(device_width_) * 4);
-        backdrop_dirty_ = false;
-    }
-    // Only the cube's square changes from frame to frame; restore just that from the lake,
-    // unless a panel was showing or the size changed.
-    const int board_left = std::clamp(static_cast<int>(std::floor(layout_.board.x * scale_)), 0, device_width_);
-    const int board_top = std::clamp(static_cast<int>(std::floor(layout_.board.y * scale_)), 0, device_height_);
-    const int board_right =
-        std::clamp(static_cast<int>(std::ceil((layout_.board.x + layout_.board.w) * scale_)), 0, device_width_);
-    const int board_bottom =
-        std::clamp(static_cast<int>(std::ceil((layout_.board.y + layout_.board.h) * scale_)), 0, device_height_);
-    gf::Rect damage{};  // empty: the whole surface changed
-    if (frame_.size() != bytes || frame_has_panel_ || panel_ != Panel::none) {
-        frame_ = backdrop_;
-    } else {
-        damage = gf::Rect{board_left / scale_, board_top / scale_, (board_right - board_left) / scale_,
-                          (board_bottom - board_top) / scale_};
-        const std::size_t row_bytes = static_cast<std::size_t>(device_width_) * 4;
-        const std::size_t span = static_cast<std::size_t>(board_right - board_left) * 4;
-        for (int y = board_top; y < board_bottom; ++y) {
-            const std::size_t offset = static_cast<std::size_t>(y) * row_bytes + static_cast<std::size_t>(board_left) * 4;
-            std::memcpy(frame_.data() + offset, backdrop_.data() + offset, span);
-        }
-    }
-    frame_has_panel_ = panel_ != Panel::none;
-    if (!session_.puzzle.tiles.empty()) {
-        // Render lighter while the cube moves, then sharpen once it settles.
-        const bool moving = motion_.phase != Phase::resting || motion_.yaw != motion_.target_yaw ||
-                            motion_.pitch != motion_.target_pitch;
-        const double full = std::min(std::max(1.25, scale_), 1300.0 / std::max(1.0, layout_.board.w));
-        const double density = moving ? std::min(full, .62) : full;
-        const int side = std::max(2, static_cast<int>(layout_.board.w * density));
-        if (raster_.width != side || raster_.height != side) {
-            raster_.resize(side, side);
-        }
-        raster_.draft = moving;
-        draw_cube(raster_, session_.puzzle, session_.play, motion_, tracing_ ? -1 : hover_);
-        const Pose look = pose(motion_);
-        composite(raster_, frame_.data(), device_width_, device_height_, static_cast<std::size_t>(device_width_) * 4,
-                  false, layout_.board.x * scale_, layout_.board.y * scale_, layout_.board.w * scale_,
-                  layout_.board.h * scale_, look.opacity);
-    }
-    if (panel_ != Panel::none) {
-        paint_panel();
-    }
-    text_masks.trim();
-    publish(damage);
+Box CubeView::device_board() const {
+    const Box box{layout_.board.x * scale_, layout_.board.y * scale_, layout_.board.w * scale_, layout_.board.h * scale_};
+    return box;
 }
 
-void CubeView::paint_panel() {
-    // Dim the scene, then a card of dark green glass, like the cube's body, with a pale rim.
-    for (std::size_t index = 0; index < frame_.size(); index += 4) {
-        blend(frame_.data() + index, 0x040C1A, .55);
+render::Rect CubeView::changes(const Box& board) {
+    const Pose look = pose(motion_);
+    const int hover = tracing_ ? -1 : hover_;
+    const bool panel = panel_ != Panel::none;
+    const std::size_t pairs = session_.play.paths.size();
+    std::vector<std::uint8_t> live(pairs, 0);
+    for (std::size_t pair = 0; pair < pairs; ++pair) {
+        live[pair] = (pair < motion_.grow.size() && motion_.grow[pair] < 1) ||
+                     (pair < motion_.ripple.size() && motion_.ripple[pair] >= 0);
     }
+    const render::Rect cube = session_.puzzle.tiles.empty() ? render::Rect{} : cube_bounds(motion_, board);
+    const bool same_pose = look.yaw == shown_.pose.yaw && look.pitch == shown_.pose.pitch &&
+                           look.scale == shown_.pose.scale && look.lift == shown_.pose.lift &&
+                           look.drift == shown_.pose.drift && look.opacity == shown_.pose.opacity;
+    const bool same_board = board.x == shown_.board.x && board.y == shown_.board.y && board.w == shown_.board.w &&
+                            board.h == shown_.board.h;
+    render::Rect damage;
+    if (!shown_.valid || panel || shown_.panel || !same_board) {
+        // A panel covers everything; a new size or a first frame changes it all.
+        damage = render::Rect{0, 0, device_width_, device_height_};
+    } else if (!same_pose || motion_.phase != Phase::resting || shown_.paths.size() != pairs) {
+        // The cube moved: where it is now and where it was.
+        damage = cube.united(shown_.cube);
+    } else {
+        // At rest only the hover and the lines being drawn change.
+        std::vector<int> cells;
+        if (hover != shown_.hover) {
+            cells.push_back(hover);
+            cells.push_back(shown_.hover);
+        }
+        for (std::size_t pair = 0; pair < pairs; ++pair) {
+            const std::vector<int>& now = session_.play.paths[pair];
+            const std::vector<int>& before = shown_.paths[pair];
+            if (live[pair] || shown_.live[pair] || now != before) {
+                cells.insert(cells.end(), now.begin(), now.end());
+                cells.insert(cells.end(), before.begin(), before.end());
+            }
+        }
+        damage = cells.empty() ? render::Rect{} : cell_bounds(session_.puzzle, motion_, board, cells);
+    }
+    shown_.valid = true;
+    shown_.panel = panel;
+    shown_.pose = look;
+    shown_.board = board;
+    shown_.hover = hover;
+    shown_.paths = session_.play.paths;
+    shown_.live = std::move(live);
+    shown_.cube = cube;
+    return damage;
+}
+
+void CubeView::render_frame() {
+    if (device_width_ <= 0 || device_height_ <= 0 || !surface_.configure(device_width_, device_height_)) {
+        return;
+    }
+    gf::Window* window = attached_window();
+    if (!surface_attached_ && window != nullptr) {
+        static_cast<void>(surface_.attach(*window, shared_from_this()));
+        surface_attached_ = true;
+    }
+    const render::Order order = surface_.order();
+    const std::size_t count = static_cast<std::size_t>(device_width_) * static_cast<std::size_t>(device_height_);
+    const auto layer = [&](std::vector<std::uint32_t>& pixels) {
+        const render::Target target{pixels.data(), device_width_, device_width_, device_height_, order};
+        return target;
+    };
+    if (backdrop_dirty_ || backdrop_.size() != count) {
+        // The lake behind the cube, drawn once per size.
+        backdrop_.assign(count, 0);
+        cover(lake_, layer(backdrop_));
+        backdrop_dirty_ = false;
+        shown_.valid = false;
+    }
+    if (buffers_.width() != device_width_ || buffers_.height() != device_height_) {
+        buffers_.resize(device_width_, device_height_, true);
+        shown_.valid = false;
+    }
+    const Box board = device_board();
+    const render::Rect damage = changes(board);
+    if (damage.empty()) {
+        return;
+    }
+    std::optional<render::Surface::Frame> frame = surface_.begin(damage);
+    if (!frame) {
+        // Every buffer is still being shown; the damage waits for the next tick.
+        render_dirty_ = true;
+        return;
+    }
+    const render::Target& target = (*frame).target;
+    const render::Rect repair = (*frame).repair;
+    // Only what this buffer lacks is put back from the lake and drawn again.
+    render::r2d::restore(target, layer(backdrop_), repair);
+    buffers_.clear(repair);
+    if (!session_.puzzle.tiles.empty()) {
+        // Moving frames are drawn exactly like still ones, so the cube looks the same in
+        // motion. Only a computer too slow for that (a full frame over 28 ms) gets the light
+        // draft while the cube moves.
+        const bool moving = motion_.phase != Phase::resting || motion_.yaw != motion_.target_yaw ||
+                            motion_.pitch != motion_.target_pitch;
+        const bool light = moving && slow_;
+        Drawing drawing{render::r3d::Pass{target, &buffers_, repair}, environment_loaded_ ? &panorama_ : nullptr,
+                        board, light};
+        const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
+        show_cube(drawing, fade_, session_.puzzle, session_.play, motion_, tracing_ ? -1 : hover_);
+        if (moving && !light) {
+            slow_ = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count() > 28;
+        }
+    }
+    if (panel_ != Panel::none) {
+        paint_panel(target);
+    }
+    text_masks.trim();
+    surface_.publish();
+    if (!surface_.direct()) {
+        invalidate(gf::Dirty::paint);
+    }
+}
+
+void CubeView::paint_panel(const render::Target& target) {
+    // Dim the scene, then a card of dark green glass, like the cube's body, with a pale rim.
+    render::r2d::tint(target, target.bounds(), rgb(0x040C1A), .55F);
     const Box& box = layout_.panel;
-    rounded(frame_, device_width_, device_height_, box.x * scale_, box.y * scale_, box.w * scale_, box.h * scale_,
-            14 * scale_, 0x0E282C, .95, 0xD6F0EC, 1.5 * scale_);
+    render::r2d::rounded(target, target.bounds(), box.x * scale_, box.y * scale_, box.w * scale_, box.h * scale_,
+                         14 * scale_, rgb(0x0E282C), .95F, rgb(0xD6F0EC), 1.5 * scale_);
     const double left = box.x + 26;
     double y = box.y + 22;
     if (panel_ == Panel::help) {
-        static_cast<void>(draw_text("How to play", left, y, 22, true, ink));
+        static_cast<void>(draw_text(target, "How to play", left, y, 22, true, ink));
         const std::string help =
             "Join each coloured pair of squares with a line across the cube's three faces. Lines may not "
             "cross, share a square or pass a stone. Press a coloured square and trace; trace back to "
             "shorten a line. A portal sends a line out of its partner. Every pair joined solves the board.";
-        static_cast<void>(draw_text(help, left, y + 40, 14, false, ink, box.w - 52));
+        static_cast<void>(draw_text(target, help, left, y + 40, 14, false, ink, box.w - 52));
         return;
     }
-    static_cast<void>(draw_text("Top scores", left, y, 22, true, ink));
+    static_cast<void>(draw_text(target, "Top scores", left, y, 22, true, ink));
     y += 42;
     if (panel_ == Panel::name) {
-        static_cast<void>(draw_text("Solved in " + std::to_string(session_.pending) + " strokes. Your name:", left, y,
-                                    15, false, accent));
+        static_cast<void>(draw_text(target, "Solved in " + std::to_string(session_.pending) + " strokes. Your name:",
+                                    left, y, 15, false, accent));
         y += 28;
         const double field_w = std::min(260.0, box.w - 52);
-        rounded(frame_, device_width_, device_height_, left * scale_, y * scale_, field_w * scale_, 32 * scale_,
-                6 * scale_, 0xFAF8EC, 1, 0x77D8E5, 2 * scale_);
-        static_cast<void>(draw_text(name_entry_ + "|", left + 10, y + 6, 15, false, dark_ink));
+        render::r2d::rounded(target, target.bounds(), left * scale_, y * scale_, field_w * scale_, 32 * scale_,
+                             6 * scale_, rgb(0xFAF8EC), 1, rgb(0x77D8E5), 2 * scale_);
+        static_cast<void>(draw_text(target, name_entry_ + "|", left + 10, y + 6, 15, false, dark_ink));
         y += 40;
-        static_cast<void>(draw_text("Enter keeps it; Escape skips.", left, y, 13, false, ink));
+        static_cast<void>(draw_text(target, "Enter keeps it; Escape skips.", left, y, 13, false, ink));
         y += 30;
     } else {
-        static_cast<void>(draw_text("Fewest strokes", left, y, 15, false, accent));
+        static_cast<void>(draw_text(target, "Fewest strokes", left, y, 15, false, accent));
         y += 30;
     }
     const double row = box.h < 280 ? 20 : 25;
@@ -740,50 +756,13 @@ void CubeView::paint_panel() {
             break;
         }
         const TopScore& score = session_.scores[index];
-        static_cast<void>(draw_text(std::to_string(index + 1), left, y, 15, false, accent));
-        static_cast<void>(draw_text(score.name, left + 36, y, 15, false, ink));
-        static_cast<void>(draw_text(std::to_string(score.strokes), box.x + box.w - 70, y, 15, false, accent));
+        static_cast<void>(draw_text(target, std::to_string(index + 1), left, y, 15, false, accent));
+        static_cast<void>(draw_text(target, score.name, left + 36, y, 15, false, ink));
+        static_cast<void>(draw_text(target, std::to_string(score.strokes), box.x + box.w - 70, y, 15, false, accent));
         y += row;
     }
     if (session_.scores.empty() && panel_ == Panel::scores) {
-        static_cast<void>(draw_text("Solve a board to enter the table.", left, y, 14, false, ink));
-    }
-}
-
-void CubeView::publish(gf::Rect damage) {
-    if (!surface_) {
-        gf::LiveSurfaceDescription description;
-        description.width = static_cast<std::uint32_t>(device_width_);
-        description.height = static_cast<std::uint32_t>(device_height_);
-        description.opaque = true;
-        surface_ = gf::LiveSurface::create(description);
-        gf::Window* window = attached_window();
-        if (surface_ && window != nullptr) {
-            direct_ = (*window).queue_live_surface_presentation(shared_from_this(), surface_);
-        }
-    }
-    if (!surface_) {
-        return;
-    }
-    gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write();
-    const bool matches = lease && static_cast<int>(lease.width()) == device_width_ &&
-                         static_cast<int>(lease.height()) == device_height_;
-    if (!matches) {
-        render_dirty_ = true;
-        return;
-    }
-    const std::span<std::byte> destination = lease.pixels();
-    const std::size_t row_bytes = lease.row_bytes();
-    const std::size_t picture_bytes = static_cast<std::size_t>(device_width_) * 4;
-    for (int y = 0; y < device_height_; ++y) {
-        const std::size_t row = static_cast<std::size_t>(y);
-        std::memcpy(destination.data() + row * row_bytes, frame_.data() + row * picture_bytes, picture_bytes);
-    }
-    // Every pixel is copied (the surface may hand back an older buffer), but only the
-    // cube's square is reported as changed.
-    static_cast<void>(lease.publish(damage));
-    if (!direct_) {
-        invalidate(gf::Dirty::paint);
+        static_cast<void>(draw_text(target, "Solve a board to enter the table.", left, y, 14, false, ink));
     }
 }
 
@@ -802,24 +781,21 @@ void CubeView::set_help(bool open) {
 // ---------------------------------------------------------------- input
 
 int CubeView::cell_under(gf::Point local) const {
-    if (raster_.width <= 1 || layout_.board.w <= 0 || session_.puzzle.tiles.empty() ||
+    if (buffers_.width() <= 1 || layout_.board.w <= 0 || session_.puzzle.tiles.empty() ||
         motion_.phase != Phase::resting) {
         return -1;
     }
-    const double x = (local.x - layout_.board.x) * raster_.width / layout_.board.w;
-    const double y = (local.y - layout_.board.y) * raster_.height / layout_.board.h;
-    const int cell = pick(raster_, x, y);
+    const int cell = pick(buffers_, device_board(), local.x * scale_, local.y * scale_);
     return cell;
 }
 
 std::optional<gf::Point> CubeView::cell_point(int cell) const {
     double x = 0;
     double y = 0;
-    const int size = std::max(2, raster_.width);
-    if (!ps_cube::cell_point(session_.puzzle, motion_, size, size, cell, x, y)) {
+    if (scale_ <= 0 || !ps_cube::cell_point(session_.puzzle, motion_, device_board(), cell, x, y)) {
         return std::nullopt;
     }
-    const gf::Point point{layout_.board.x + x / size * layout_.board.w, layout_.board.y + y / size * layout_.board.h};
+    const gf::Point point{x / scale_, y / scale_};
     return point;
 }
 

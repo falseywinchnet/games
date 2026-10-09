@@ -5,7 +5,6 @@
 #include "generator.hpp"
 #include "png_writer.hpp"
 #include "session.hpp"
-#include "raster3d.hpp"
 #include "scene.hpp"
 #include "stage.hpp"
 
@@ -13,6 +12,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -116,16 +116,23 @@ int main(int argc, char** argv) {
     std::vector<std::uint8_t> frame(static_cast<std::size_t>(width) * height * 4, 0);
     backdrop(frame, width, height, argc > 10 ? read_bytes(argv[10]) : std::vector<std::uint8_t>{});
     const ps_cube::Layout layout = ps_cube::compute_layout(width_points, height_points);
-    ps_cube::Raster3D raster;
-    raster.resize(static_cast<int>(layout.board.w * scale), static_cast<int>(layout.board.h * scale));
+    // Drawn as the window draws it: straight into the frame at its size.
+    std::vector<std::uint32_t> pixels(static_cast<std::size_t>(width) * height);
+    std::memcpy(pixels.data(), frame.data(), frame.size());
+    const render::Target target{pixels.data(), width, width, height, render::Order::bgra};
+    render::r3d::Buffers buffers;
+    buffers.resize(width, height, false);
+    render::r3d::Panorama panorama;
     if (argc > 9) {
-        static_cast<void>(raster.load_environment(read_bytes(argv[9])));
+        static_cast<void>(panorama.load_gpix(read_bytes(argv[9]), render::Order::bgra, .82F, 35));
     }
-    ps_cube::draw_cube(raster, puzzle, play, motion, -1);
-    const ps_cube::Pose look = ps_cube::pose(motion);
-    ps_cube::composite(raster, frame.data(), width, height, static_cast<std::size_t>(width) * 4, false,
-                       layout.board.x * scale, layout.board.y * scale, layout.board.w * scale,
-                       layout.board.h * scale, look.opacity);
+    const ps_cube::Box board{layout.board.x * scale, layout.board.y * scale, layout.board.w * scale,
+                             layout.board.h * scale};
+    ps_cube::Drawing drawing{render::r3d::Pass{target, &buffers, target.bounds()},
+                             panorama.empty() ? nullptr : &panorama, board, false};
+    std::vector<std::uint32_t> scratch;
+    ps_cube::show_cube(drawing, scratch, puzzle, play, motion, -1);
+    std::memcpy(frame.data(), pixels.data(), frame.size());
     // The top band the capsule floats over, outlined for reference.
     if (!kit::write_png(out, width, height, frame)) {
         return 1;

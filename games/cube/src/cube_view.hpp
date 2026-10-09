@@ -1,19 +1,22 @@
 #pragma once
 // Nature Cube as a PlaySuite control: turns pointer input into presses and steps on the
 // rules, advances the motion while anything moves, draws the lake, the cube and the top
-// scores card into a framebuffer and publishes it to a LiveSurface, and offers its
-// commands and its Level setting to the shell. Boards for the next game are dealt in the
+// scores card straight into the window's live buffer, and offers its commands and its
+// Level setting to the shell. Boards for the next game are dealt in the
 // background while the player plays, so a Hard board is ready when it is wanted.
 //
 // It does no work while nothing changes: the timer stops once the picture has settled
-// and starts again on input, a command, a resize or a return from the shelf.
+// and starts again on input, a command, a resize or a return from the shelf. A frame
+// redraws only what changed: the cube's bounds while it turns, the cells of the lines
+// being drawn and the hover while it rests.
 #include "suite.hpp"
 
 #include "generator.hpp"
 #include "picture.hpp"
-#include "raster3d.hpp"
+#include "r3d.hpp"
 #include "session.hpp"
 #include "stage.hpp"
+#include "surface.hpp"
 
 #include "gui_forms/basic_controls.hpp"
 #include "gui_forms/live_surface.hpp"
@@ -84,7 +87,8 @@ private:
     Session session_;
     Motion motion_;
     Layout layout_;
-    Raster3D raster_;
+    render::r3d::Buffers buffers_;      // depth and cell ids beside the picture
+    render::r3d::Panorama panorama_;    // the lake the tiles mirror
     Panel panel_ = Panel::none;
     std::string name_entry_;
     Job next_;
@@ -97,20 +101,32 @@ private:
     int hover_ = -1;
 
     Picture lake_;
-    std::vector<std::uint8_t> backdrop_;  // the lake at the surface's size, BGRA
-    std::vector<std::uint8_t> frame_;     // the picture being published, BGRA premultiplied
+    std::vector<std::uint32_t> backdrop_;  // the lake at the surface's size, in its byte order
+    std::vector<std::uint32_t> fade_;      // the cube alone, while it fades in or out
     int device_width_ = 0;
     int device_height_ = 0;
     bool backdrop_dirty_ = true;
-    bool frame_has_panel_ = false;
-    std::shared_ptr<gf::LiveSurface> surface_;
+    render::Surface surface_;
+    bool surface_attached_ = false;
+    // What the picture shows, to tell what a new frame changes.
+    struct Shown {
+        bool valid = false;
+        bool panel = false;
+        Pose pose;
+        Box board;
+        int hover = -1;
+        std::vector<std::vector<int>> paths;
+        std::vector<std::uint8_t> live;  // per pair: growing or rippling
+        render::Rect cube;
+    };
+    Shown shown_;
     std::unique_ptr<gf::Timer> timer_;
     std::vector<gf::SubscriptionToken> subscriptions_;
     std::chrono::steady_clock::time_point last_tick_{};
     long long interval_ = 0;  // the timer's current interval in milliseconds, 0 when stopped
     double scale_ = 1;
     bool render_dirty_ = true;
-    bool direct_ = false;
+    bool slow_ = false;  // a full-quality moving frame took too long here: draw a lighter one
     bool front_ = true;
     bool music_ = true;
     bool sound_ = true;
@@ -123,11 +139,13 @@ private:
     void request_frame();
     void pace(long long milliseconds);
     void render_frame();
-    void paint_panel();
-    // Draws text into the frame at (x, y) points; returns its width in points.
-    double draw_text(const std::string& words, double x, double y, double size, bool bold,
-                     std::uint32_t color, double wrap = 0);
-    void publish(gf::Rect damage);
+    // What changed since the picture was last drawn, in device pixels.
+    [[nodiscard]] render::Rect changes(const Box& board);
+    [[nodiscard]] Box device_board() const;
+    void paint_panel(const render::Target& target);
+    // Draws text into the target at (x, y) points; returns its width in points.
+    double draw_text(const render::Target& target, const std::string& words, double x, double y, double size,
+                     bool bold, std::uint32_t color, double wrap = 0);
     void set_help(bool open);
 
     void start_next();

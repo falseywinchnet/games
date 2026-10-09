@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "render",
+  "namespace": "render",
+  "title": "Renderer",
+  "summary": "The suite's one renderer: r3d scans triangles with fixed-point edges and exact spans, tests depth before shading and touches only a scissored rectangle; r2d does the few pixel operations around it; the surface draws straight into GUI.Forms' live buffers in the window's own byte order and repairs only what each buffer missed.",
+  "build": "build.cmake",
+  "libraries": [
+    "render_core"
+  ],
+  "ui_sources": [
+    "ui/surface.cpp"
+  ],
+  "ui_libraries": [
+    "render_ui"
+  ],
+  "source_directories": [
+    "src"
+  ],
+  "ui_directories": [
+    "ui"
+  ],
+  "tests": [
+    "tests/render_tests.cpp"
+  ]
+}
