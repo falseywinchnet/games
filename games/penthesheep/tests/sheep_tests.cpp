@@ -125,6 +125,18 @@ int main() {
         CHECK(cunning > 0);
         CHECK(params_for(1).smarts == Smarts::dozy && params_for(40).smarts == Smarts::cunning);
     }
+    // Easy, Medium and Hard: the right sheep, and every meadow made is one the bot pens
+    {
+        const Smarts kinds[3] = {Smarts::dozy, Smarts::clever, Smarts::cunning};
+        for (int d = 0; d < 3; ++d)
+            for (std::uint64_t seed = 1; seed <= 6; ++seed) {
+                const Level l = generate(params_for_difficulty(d, seed * 977));
+                CHECK(l.start.smarts == kinds[d] && l.start.w == (d == 0 ? 9 : 11));
+                Meadow m = l.start;
+                for (int c : l.solution) place(m, c);
+                CHECK(m.penned() && !m.escaped);
+            }
+    }
     // a cleverer sheep is harder: against a careless player (stones in random spots near it) it escapes more often
     {
         int escapes[3] = {};

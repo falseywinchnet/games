@@ -26,6 +26,8 @@ struct GameCommand {
     bool enabled = true;
     bool checked = false;
     bool primary = false;
+    // A switch such as Pause: navy while off, gold while on (checked).
+    bool toggle = false;
 };
 // One entry of a game's section on the shared Settings screen. The game owns and
 // saves the value; the screen shows `value` and reports changes to change_setting().

@@ -371,15 +371,12 @@ void PuzzleView::arrange(gf::Rect b) {
     if (game.kind == PuzzleKind::solve)
         layout_solve(b);
     if (game.kind == PuzzleKind::gems || game.kind == PuzzleKind::untangle) {
-        // Centered when narrow; with room, Untangle's legend card sits to the left. Gems
-        // explains itself in the help document and is always centered.
-        const bool wide = b.width >= 900 && game.kind == PuzzleKind::untangle;
-        // Untangle's cushion and status line need room below the board.
+        // Centered: both explain themselves in the help document. Untangle's cushion and
+        // status line need room below the board.
         const double below = game.kind == PuzzleKind::untangle ? 64 : 0;
-        const double gside = std::max(
-            160.0, std::min({600.0, b.height - 104 - below, b.width - (wide ? 560.0 : 48.0)}));
-        board_ = {wide ? std::max(264.0, (b.width - gside) * .5) : (b.width - gside) * .5,
-                  std::max(66.0, 62 + (b.height - 62 - 30 - below - gside) * .5), gside, gside};
+        const double gside = std::max(160.0, std::min({600.0, b.height - 104 - below, b.width - 48.0}));
+        board_ = {(b.width - gside) * .5, std::max(66.0, 62 + (b.height - 62 - 30 - below - gside) * .5), gside,
+                  gside};
     }
     if (game.kind == PuzzleKind::pegs) {
         board_ = {24, 82, b.width - 332, b.height - 139};
@@ -1145,37 +1142,6 @@ void PuzzleView::paint_untangle(gf::Painter& p, int part) {
         p.draw_text_utf8(
             {board_.x + (board_.width - sm.width) * .5, cushion.y + cushion.height + 24}, line, sf,
             game.state.won ? gf::Color::rgba(255, 224, 150) : gf::Color::rgba(255, 236, 214));
-        if (board_.x > 236) {
-            const gf::Rect card{std::max(14.0, board_.x - pad - 240), board_.y, 214, 250};
-            p.draw_box_shadow(card, 8, {0, 4}, 12, 0, gf::Color::rgba(0, 0, 0, 110));
-            fill_vertical(p, card, gf::Color::rgba(252, 242, 222, 245),
-                          gf::Color::rgba(236, 220, 192, 245));
-            p.stroke_rounded_rect(card, 8, gf::Color::rgba(150, 100, 60, 120), 1);
-            const gf::FontSpec caps{gf::FontRole::content, 11, 700, false, 1.2};
-            p.draw_text_utf8({card.x + 14, card.y + 24}, "TIDY THE YARN", caps,
-                             gf::Color::rgba(150, 60, 70));
-            const gf::FontSpec body{gf::FontRole::content, 13, 400, false};
-            const gf::Color ink2 = gf::Color::rgba(70, 44, 30), soft = gf::Color::rgba(124, 92, 66);
-            p.draw_text_utf8({card.x + 14, card.y + 50}, "Drag the pegs until no", body, ink2);
-            p.draw_text_utf8({card.x + 14, card.y + 68}, "thread crosses its own color.", body,
-                             ink2);
-            double y = card.y + 98;
-            if (layers > 1) {
-                p.draw_text_utf8({card.x + 14, y}, "Different colors may cross.", body, soft);
-                for (int k = 0; k < layers; ++k)
-                    p.draw_line({card.x + 14 + k * 30.0, y + 14}, {card.x + 38 + k * 30.0, y + 14},
-                                yarn[k], 5);
-                y += 40;
-            }
-            if (game.state.aux[94] > 0) {
-                p.draw_text_utf8({card.x + 14, y}, "Frosted pegs stay put until", body, soft);
-                p.draw_text_utf8({card.x + 14, y + 18}, "all their threads are clear.", body, soft);
-                y += 46;
-            }
-            p.draw_text_utf8({card.x + 14, y}, "Click the cat to shoo it.", body, soft);
-            if (game.state.aux[94] > 0)
-                p.draw_text_utf8({card.x + 14, y + 18}, "Leave it idle and it swats.", body, soft);
-        }
     }
 }
 static void draw_peg(gf::Painter& p, gf::Rect r, int value, bool selected = false) {

@@ -9,6 +9,7 @@
 #include "gui_forms/window.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -51,8 +52,8 @@ SheepView::SheepView(gf::StableId id, Options opt) : Control(std::move(id)), opt
         set_authored_surface_material(none);
     }
     set_accessible_name("Pen the Sheep. Put up fences on the meadow to pen the sheep in before it reaches the edge.");
-    const bool resumed = load();
-    load_level(level_, resumed);
+    if (load()) start_meadow(true);
+    else new_meadow();
     if (const char* sc = std::getenv("SH_SCRIPT"); sc && opt_.dev) {
         std::string all = sc;
         for (size_t pos = 0; pos < all.size();) {
@@ -123,14 +124,21 @@ void SheepView::on_paint(gf::Painter& p, gf::Rect) {
 }
 
 // ------------------------------------------------------------------ the meadows
-void SheepView::load_level(int level, bool resume) {
-    level_ = std::max(1, level);
-    if (static_cast<int>(stars_.size()) < level_) stars_.resize(static_cast<size_t>(level_), 0);
+void SheepView::new_meadow() {
+    difficulty_ = next_difficulty_;
+    const std::uint64_t ticks = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+    seed_ = ticks ^ (seed_ * 0x9E3779B97F4A7C15ULL);
+    start_meadow(false);
+}
+
+void SheepView::start_meadow(bool resume) {
     if (!resume) moves_.clear();
+    open(Panel::none);
     phase_ = Phase::loading;
     phase_t_ = 0;
-    pending_level_ = level_;
-    const LevelParams p = params_for(level_);
+    dirty_ = true;
+    const LevelParams p = params_for_difficulty(difficulty_, seed_);
     pending_ = std::async(std::launch::async, [p] { return generate(p); });
     layout_buttons();
 }
@@ -161,9 +169,11 @@ void SheepView::begin_level() {
     if (m_.penned()) finish(true);
     else if (m_.escaped) finish(false);
     else {
-        say_ = moves_.empty() ? std::string("Meadow ") + std::to_string(level_) + ": " + kind_line(m_.smarts) + ". Three fences before it moves." : "Back in the meadow.";
+        std::string kind = kind_line(m_.smarts);
+        kind[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(kind[0])));
+        say_ = moves_.empty() ? kind + ". Three fences before it moves." : "Back in the meadow.";
         say_t_ = 3.5;
-        play("sh_baa_0" + std::to_string(1 + level_ % 4), .6f);
+        play("sh_baa_0" + std::to_string(1 + seed_ % 4), .6f);
     }
     layout_buttons();
     dirty_ = true;
@@ -232,9 +242,6 @@ void SheepView::finish(bool won) {
     phase_t_ = 0;
     if (won) {
         const int s = star_count();
-        int& best = stars_[static_cast<size_t>(level_ - 1)];
-        best = std::max(best, s);
-        reached_ = std::max(reached_, level_ + 1);
         say_ = s == 3 ? "Penned, and under par!" : "Penned!";
         play("sh_penned", .8f);
         play("sh_tune_penned", .7f);
@@ -252,9 +259,7 @@ void SheepView::finish(bool won) {
 // ------------------------------------------------------------------ saving
 void SheepView::persist() {
     std::ostringstream o;
-    o << "level=" << level_ << "\nreached=" << reached_ << "\nstars=";
-    for (int s : stars_) o << s;
-    o << "\nmoves=";
+    o << "difficulty=" << difficulty_ << "\nnext=" << next_difficulty_ << "\nseed=" << seed_ << "\nmoves=";
     for (size_t i = 0; i < moves_.size(); ++i) o << (i ? "," : "") << moves_[i];
     o << "\nsound=" << sound_ << "\nmusic=" << music_ << "\n";
     const std::string body = o.str();
@@ -282,6 +287,7 @@ bool SheepView::load() {
     if (ck == std::string::npos || ck < 10) return false;
     const std::string body = all.substr(10, ck - 10);
     if (std::to_string(fnv(body)) + "\n" != all.substr(ck + 6)) return false;
+    bool seeded = false;
     try {
         std::istringstream in(body);
         std::string line;
@@ -289,9 +295,11 @@ bool SheepView::load() {
             const size_t eq = line.find('=');
             if (eq == std::string::npos) continue;
             const std::string k = line.substr(0, eq), v = line.substr(eq + 1);
-            if (k == "level") level_ = std::clamp(std::stoi(v), 1, 100000);
-            else if (k == "reached") reached_ = std::clamp(std::stoi(v), 1, 100000);
-            else if (k == "stars") { stars_.clear(); for (char c : v) stars_.push_back(std::clamp(c - '0', 0, 3)); }
+            if (k == "difficulty") difficulty_ = std::clamp(std::stoi(v), 0, 2);
+            else if (k == "next") next_difficulty_ = std::clamp(std::stoi(v), 0, 2);
+            else if (k == "seed") { seed_ = std::stoull(v); seeded = true; }
+            // A save from the campaign: its meadow number becomes the level of a new meadow.
+            else if (k == "level") { const int old = std::stoi(v); next_difficulty_ = old <= 6 ? 0 : old <= 18 ? 1 : 2; }
             else if (k == "moves") { moves_.clear(); std::stringstream ms(v); std::string x; while (std::getline(ms, x, ',')) if (!x.empty()) moves_.push_back(std::stoi(x)); }
             else if (k == "sound") sound_ = v == "1";
             else if (k == "music") music_ = v == "1";
@@ -299,8 +307,8 @@ bool SheepView::load() {
     } catch (...) {
         return false;
     }
-    reached_ = std::max(reached_, level_);
-    return true;
+    if (!seeded) moves_.clear();
+    return seeded;
 }
 
 // ------------------------------------------------------------------ the frame
@@ -322,10 +330,9 @@ void SheepView::run_script() {
         else if (c == "hint") hint();
         else if (c == "undo") undo();
         else if (c == "help") open(Panel::help);
-        else if (c == "map") { map_page_ = -1; open(Panel::map); }
         else if (c == "close") open(Panel::none);
         else if (c == "next") action("next");
-        else if (c.rfind("lvl", 0) == 0) load_level(std::atoi(c.c_str() + 3), false);
+        else if (c == "easy" || c == "medium" || c == "hard") { next_difficulty_ = c == "easy" ? 0 : c == "medium" ? 1 : 2; new_meadow(); }
         else if (c.rfind("c", 0) == 0) stone(std::atoi(c.c_str() + 1));
         else if (c == "far") {
             // a careless stone: somewhere far from the sheep (for testing escapes)
@@ -463,7 +470,7 @@ void SheepView::tick() {
         const bool on = (opt_.hosted || music_) && cab_music_ && cab_front_;
         // Four tracks in turn, meadow by meadow: "Pasture Haze", "Long Grass", "Cloud Choir", "Morning Bells".
         static const char* const tracks[4] = {"sh_music_bells", "sh_music", "sh_music_grass", "sh_music_choir"};
-        audio_music(visible() && cab_front_ ? tracks[((level_ % 4) + 4) % 4] : "", on);
+        audio_music(visible() && cab_front_ ? tracks[seed_ % 4] : "", on);
     }
     audio_tick(dt);
     save_t_ += dt;
@@ -565,7 +572,7 @@ void SheepView::on_key(gf::KeyEvent& e) {
     if (k == K::h) { hint(); e.handled = true; return; }
     if (!opt_.hosted && k == K::m) { action("music"); e.handled = true; return; }
     if (k == K::f1) { open(Panel::help); e.handled = true; return; }
-    if (k == K::l) { map_page_ = -1; open(Panel::map); e.handled = true; return; }
+    if (k == K::n && phase_ != Phase::won) { action("new"); e.handled = true; return; }
     if ((k == K::enter || k == K::space || k == K::n) && phase_ == Phase::won) { action("next"); e.handled = true; return; }
     if ((k == K::enter || k == K::space) && phase_ == Phase::lost) { restart(); e.handled = true; return; }
 }
@@ -574,16 +581,11 @@ void SheepView::action(const std::string& id) {
     play("sh_click", .4f);
     if (id == "close") open(Panel::none);
     else if (id == "help") open(Panel::help);
-    else if (id == "map") { map_page_ = -1; open(Panel::map); }
     else if (id == "undo") undo();
     else if (id == "restart" || id == "retry") restart();
     else if (id == "hint") hint();
     else if (id == "music") { music_ = !music_; dirty_ = true; layout_buttons(); }
-    else if (id == "next") { if (phase_ == Phase::won) load_level(level_ + 1, false); }
-    else if (id == "skip") load_level(level_ + 1, false);
-    else if (id == "page_prev") { --map_page_; layout_buttons(); }
-    else if (id == "page_next") { ++map_page_; layout_buttons(); }
-    else if (id.rfind("lv", 0) == 0) { open(Panel::none); load_level(std::atoi(id.c_str() + 2), false); }
+    else if (id == "next" || id == "skip" || id == "new") new_meadow();
     dirty_ = true;
 }
 
@@ -616,30 +618,6 @@ void SheepView::layout_game_buttons() {
         buttons_.push_back({"close", "Close", pw_ / 2 - 40, hb.y + hb.h + 6, 80, bh});
         return;
     }
-    if (panel_ == Panel::map) {
-        // a grid of meadows: every one you've reached, and the next, a page at a time
-        const int bw = 36, cell_h = 26, gap = 4, top = compact_ ? 34 : 52, bottom = compact_ ? 44 : 64;
-        const int cols = std::clamp((pw_ - 16) / (bw + gap), 1, 10);
-        const int rows = std::max(1, (ph_ - top - bottom) / (cell_h + gap));
-        const int per = cols * rows;
-        const int n = std::min(100, std::max(reached_, level_));
-        const int pages = std::max(1, (n + per - 1) / per);
-        if (map_page_ < 0) map_page_ = std::max(0, level_ - 1) / per;
-        map_page_ = std::clamp(map_page_, 0, pages - 1);
-        const int gx = (pw_ - cols * (bw + gap) + gap) / 2;
-        for (int k = 0; k < per; ++k) {
-            const int i = map_page_ * per + k;
-            if (i >= n) break;
-            buttons_.push_back({"lv" + std::to_string(i + 1), std::to_string(i + 1), gx + (k % cols) * (bw + gap), top + (k / cols) * (cell_h + gap), bw, cell_h});
-        }
-        const int cy = ph_ - bh - 8;
-        buttons_.push_back({"close", "Close", pw_ / 2 - 36, cy, 72, bh});
-        if (pages > 1) {
-            buttons_.push_back({"page_prev", "<", pw_ / 2 - 36 - 8 - 30, cy, 30, bh, map_page_ > 0});
-            buttons_.push_back({"page_next", ">", pw_ / 2 + 36 + 8, cy, 30, bh, map_page_ < pages - 1});
-        }
-        return;
-    }
     const int y = ph_ - bottom_h_ + (bottom_h_ - bh) / 2;
     const bool live = phase_ == Phase::play;
     // buttons fit their labels; in a narrow window the padding tightens, then the labels shorten
@@ -647,7 +625,7 @@ void SheepView::layout_game_buttons() {
     const std::vector<Spec> left = {{"undo", "Undo", "Undo", (live || phase_ == Phase::lost) && !undo_.empty()},
                                     {"restart", "Restart", "Again", phase_ != Phase::loading},
                                     {"hint", "Hint", "Hint", live}};
-    const std::vector<Spec> right = {{"map", "Meadows", "Map", true}, {"help", "Help", "?", true},
+    const std::vector<Spec> right = {{"new", "New meadow", "New", phase_ != Phase::loading}, {"help", "Help", "?", true},
                                      {"music", music_ ? "Music" : "No music", music_ ? "Music" : "Mute", true}};
     int pad = 0, gap = 0;
     bool brief = false;
@@ -670,7 +648,7 @@ void SheepView::layout_game_buttons() {
     if (phase_ == Phase::lost && phase_t_ >= 1.6) {
         const int w = std::min(110, (pw_ - 30) / 2);
         buttons_.push_back({"retry", "Try again", pw_ / 2 - 3 - w, ry, w, bh + 2});
-        buttons_.push_back({"skip", compact_ ? "Skip it" : "Skip this meadow", pw_ / 2 + 3, ry, w, bh + 2});
+        buttons_.push_back({"skip", compact_ ? "New one" : "A new meadow", pw_ / 2 + 3, ry, w, bh + 2});
     }
 }
 
@@ -707,7 +685,7 @@ std::vector<std::string> SheepView::help_lines() const {
             "Fence it in so no way leads out and it sits down and sulks: you win. You get three fences before it starts moving.",
             "Dozy sheep dawdle; clever ones keep their options open; cunning ones think a fence ahead. Any sheep will stop for clover.",
             "Stars: penned at or under par (the fences our own shepherd needed) earns three.",
-            "Keys: Z undo, R restart, H hint, L meadows, Use the capsule for music and sound."};
+            "Keys: Z undo, R restart, H hint, N a new meadow. The Level setting chooses Easy, Medium or Hard."};
 }
 
 void SheepView::draw_button(const Button& b) {
@@ -716,14 +694,6 @@ void SheepView::draw_button(const Button& b) {
     frame_.fill_rect(b.x + 1, b.y + 2, b.w, b.h, hex(0x000000, .25f));
     frame_.begin(); frame_.rrect(b.x, b.y + (down ? 1 : 0), b.w, b.h, 5); frame_.fill(face);
     frame_.begin(); frame_.rrect(b.x + .5, b.y + .5 + (down ? 1 : 0), b.w - 1, b.h - 1, 5); frame_.stroke(kLeaf, 1);
-    // a meadow button in the map shows its stars
-    if (b.id.rfind("lv", 0) == 0) {
-        const int lv = std::atoi(b.id.c_str() + 2);
-        const int s = lv - 1 < static_cast<int>(stars_.size()) ? stars_[static_cast<size_t>(lv - 1)] : 0;
-        text(b.label, b.x + (b.w - text_w(b.label, 11, 1)) / 2, b.y + 2, lv == level_ ? hex(0xC06020) : kInk, 11, 1);
-        for (int k = 0; k < 3; ++k) draw_star(b.x + b.w / 2.0 + (k - 1) * 9, b.y + b.h - 6, 3.5, k < s);
-        return;
-    }
     const double size = 11;
     const int tw = text_w(b.label, size, 1), th = text_h(b.label, size, 1);
     text(b.label, b.x + std::max(4, (b.w - tw) / 2), b.y + (b.h - th) / 2 + (down ? 1 : 0), b.enabled ? kInk : hex(0x6A7060), size, 1);
@@ -753,8 +723,9 @@ void SheepView::draw_bars() {
     text(b, pw_ - 12 - bw - 40, (top_h_ - text_h(b, 11, 0)) / 2, hex(0xE0F0C8), 11, 0);
     const int s = phase_ == Phase::won ? star_count() : (m_.stones <= lvl_.par ? 3 : m_.stones <= lvl_.par + 3 ? 2 : 1);
     for (int k = 0; k < 3; ++k) draw_star(pw_ - 34 + k * 11, top_h_ / 2.0, 4.5, k < (hinted_ ? std::min(s, 2) : s));
-    std::string a = "Meadow " + std::to_string(level_) + "  -  " + kind_line(m_.smarts);
-    if (10 + text_w(a, ts, 1) > pw_ - 12 - bw - 50) a = "Meadow " + std::to_string(level_);
+    static const char* const levels[] = {"Easy", "Medium", "Hard"};
+    std::string a = std::string(levels[std::clamp(difficulty_, 0, 2)]) + "  -  " + kind_line(m_.smarts);
+    if (10 + text_w(a, ts, 1) > pw_ - 12 - bw - 50) a = levels[std::clamp(difficulty_, 0, 2)];
     text(a, 10, ty, kCream, ts, 1);
     if (m_.head > 0 && phase_ == Phase::play && panel_ == Panel::none) {
         const std::string h = std::to_string(m_.head) + (m_.head == 1 ? " free fence" : " free fences") + " before it moves";
@@ -816,13 +787,6 @@ void SheepView::draw_panel() {
             text(lines[i], wx + 14, ly, keys ? hex(0x6A6A50) : kInk, size, keys ? 1 : 0, ww - 28);
             ly += text_h(lines[i], size, keys ? 1 : 0, ww - 28) + 4;
         }
-    } else {
-        const double hs = compact_ ? 14 : 18;
-        text("Meadows", (pw_ - text_w("Meadows", hs, 2)) / 2, compact_ ? 8 : 22, kCream, hs, 2);
-        int total = 0;
-        for (int s : stars_) total += s;
-        const std::string t = std::to_string(total) + " stars";
-        text(t, (pw_ - text_w(t, 11, 1)) / 2, ph_ - btn_h_ - 10 - text_h(t, 11, 1) - 4, kCream, 11, 1);
     }
 }
 
@@ -889,13 +853,33 @@ void SheepView::layout_buttons() {
     if (!opt_.hosted) return;
     for (std::size_t i = buttons_.size(); i > 0; --i) {
         const std::string& id = buttons_[i-1].id;
-        if (id == "help" || id == "map" || id == "music") buttons_.erase(buttons_.begin() + static_cast<std::ptrdiff_t>(i-1));
+        if (id == "help" || id == "new" || id == "music") buttons_.erase(buttons_.begin() + static_cast<std::ptrdiff_t>(i-1));
     }
 }
-std::vector<games::GameCommand> SheepView::commands() const { return {{"map", "Meadows", true, panel_ == Panel::map}, {"help", "Help", true, panel_ == Panel::help}}; }
+std::vector<games::GameCommand> SheepView::commands() const {
+    return {{"new", "New game", phase_ != Phase::loading, false, true}, {"help", "Help", true, panel_ == Panel::help}};
+}
 void SheepView::run_command(std::string_view id) {
     for (const games::GameCommand& cmd : commands()) {
         if (cmd.id == id && cmd.enabled) { action(cmd.checked ? "close" : std::string(id)); return; }
     }
+}
+std::vector<games::GameSetting> SheepView::settings() const {
+    games::GameSetting level;
+    level.id = "level";
+    level.label = "Level";
+    level.kind = games::GameSetting::Kind::choice;
+    level.value = next_difficulty_;
+    level.choices = {"Easy", "Medium", "Hard"};
+    level.note = "An untouched meadow is made again; otherwise the next new game uses it.";
+    return {level};
+}
+void SheepView::change_setting(std::string_view id, double value) {
+    const int level = static_cast<int>(std::lround(value));
+    if (id != "level" || level < 0 || level > 2 || level == next_difficulty_) return;
+    next_difficulty_ = level;
+    dirty_ = true;
+    // A meadow with no fence of yours yet is simply made again at the new level.
+    if (moves_.empty() && phase_ != Phase::won && phase_ != Phase::lost) new_meadow();
 }
 }

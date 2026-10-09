@@ -595,7 +595,7 @@ void SceneView::on_key(gf::KeyEvent& event) {
 
 std::vector<games::GameCommand> SceneView::commands() const {
     std::vector<games::GameCommand> list{};
-    list.push_back({"pause", settings_.paused ? "Resume" : "Pause", true, settings_.paused, true});
+    list.push_back({"pause", settings_.paused ? "Resume" : "Pause", true, settings_.paused, true, true});
     (*scenery_).add_commands(list, settings_);
     list.push_back({"help", "Help", true, help_open_, false});
     return list;

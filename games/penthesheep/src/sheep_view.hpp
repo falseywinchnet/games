@@ -2,8 +2,8 @@
 #include "suite.hpp"
 // The game as a GUI.Forms control: the meadow, a stone where you click, the
 // sheep's answering hop (or munch, or escape), penned and sulking or off and
-// away; undo, restart, a hint, stars against par, the map of meadows played,
-// endless new meadows made in the background, and autosave.
+// away; undo, restart, a hint, stars against par, new meadows at Easy, Medium
+// or Hard made in the background, and autosave.
 #include "pasture.hpp"
 #include "platform/present.hpp"
 
@@ -12,6 +12,7 @@
 #include "gui_forms/timer.hpp"
 
 #include <chrono>
+#include <cstdint>
 #include <future>
 #include <memory>
 #include <string>
@@ -40,19 +41,22 @@ public:
     bool ready_for_play() const { return phase_ != Phase::loading; }
     std::vector<games::GameCommand> commands() const override;
     void run_command(std::string_view id) override;
+    std::vector<games::GameSetting> settings() const override;
+    void change_setting(std::string_view id, double value) override;
     void set_cabinet(bool foreground, bool music, bool sound, bool reduced = false);
 
 private:
     enum class Phase { loading, play, answer, won, lost };
-    enum class Panel { none, help, map };
+    enum class Panel { none, help };
     struct Button { std::string id, label; int x, y, w, h; bool enabled = true; };
     struct Box { int x, y, w, h; };
     struct HiText { std::string s; int font; double size; int wrap; int x, y; Col c; };
 
     Options opt_;
     // progress
-    int level_ = 1, reached_ = 1;
-    std::vector<int> stars_;           // per level (index level-1): 0 not penned yet, 1..3
+    int difficulty_ = 0;               // the meadow in play: 0 easy, 1 medium, 2 hard
+    int next_difficulty_ = 0;          // the Level setting, for the next new meadow
+    std::uint64_t seed_ = 1;           // the meadow in play
     std::vector<int> moves_;           // stones placed this level, in order (for resume and undo)
     bool sound_ = true, music_ = true;
     // the meadow
@@ -60,7 +64,6 @@ private:
     Meadow m_;
     std::vector<Meadow> undo_;
     std::future<Level> pending_;
-    int pending_level_ = 0;
     bool hinted_ = false;
     int hint_ = -1;
     Phase phase_ = Phase::loading;
@@ -89,7 +92,6 @@ private:
 
     int pixel_ = 2, top_h_ = 30, bottom_h_ = 34, btn_h_ = 18;
     bool compact_ = false;  // a small window: slimmer bars, shorter labels
-    int map_page_ = -1;          // -1: the page holding the current meadow
     mutable double help_size_ = 11;
     double bs_ = 2;
     int pw_ = 0, ph_ = 0, phys_w_ = 0, phys_h_ = 0;
@@ -104,7 +106,10 @@ private:
     void tick();
     void publish();
     // game
-    void load_level(int level, bool resume);
+    // A fresh meadow at the Level setting.
+    void new_meadow();
+    // Makes the meadow for difficulty_ and seed_ in the background; `resume` replays moves_.
+    void start_meadow(bool resume);
     void begin_level();
     void stone(int cell);
     void undo();
