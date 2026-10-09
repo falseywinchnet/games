@@ -453,6 +453,7 @@ void TableView::tick() {
     const auto now = std::chrono::steady_clock::now();
     const double dt = std::clamp(std::chrono::duration<double>(now - last_).count(), 0.0, .25);
     last_ = now;
+    ++ticks_;
     t_ += dt;
     phase_t_ += dt;
     run_script();

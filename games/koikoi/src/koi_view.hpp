@@ -17,6 +17,7 @@
 
 #include <array>
 #include <chrono>
+#include <cstdint>
 #include <future>
 #include <memory>
 #include <string>
@@ -45,6 +46,8 @@ public:
     std::vector<games::GameCommand> commands() const override;
     void run_command(std::string_view id) override;
     void set_cabinet(bool foreground, bool music, bool sound, bool reduced = false);
+    // Ticks the game has run: the count advances whether or not the picture changes.
+    std::uint64_t ticks() const { return ticks_; }
 
 private:
     enum class Panel { none, rules, sets, score };
@@ -97,6 +100,7 @@ private:
     std::vector<gf::SubscriptionToken> subs_;
     std::chrono::steady_clock::time_point last_{};
     double t_ = 0, save_t_ = 0;
+    std::uint64_t ticks_ = 0;
     bool dirty_ = false;
     int phys_w_ = 0, phys_h_ = 0;
     bool direct_ = false;

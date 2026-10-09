@@ -16,6 +16,7 @@
 #include "gui_forms/timer.hpp"
 
 #include <chrono>
+#include <cstdint>
 #include <deque>
 #include <memory>
 #include <string>
@@ -43,6 +44,8 @@ public:
     std::vector<games::GameCommand> commands() const override;
     void run_command(std::string_view id) override;
     void set_cabinet(bool foreground, bool music, bool sound, bool reduced = false);
+    // Ticks the game has run: the count advances whether or not the picture changes.
+    std::uint64_t ticks() const { return ticks_; }
 
 private:
     enum class Phase { wagers, greet, shake, turn, act, reveal, result, freedom };
@@ -83,6 +86,7 @@ private:
     std::vector<gf::SubscriptionToken> subs_;
     std::chrono::steady_clock::time_point last_{};
     double t_ = 0, save_t_ = 0, speed_ = 1;
+    std::uint64_t ticks_ = 0;
     bool dirty_ = false;
     bool auto_ = false;                   // dev: you play yourself
 

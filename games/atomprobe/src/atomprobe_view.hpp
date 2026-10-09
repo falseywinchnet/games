@@ -15,6 +15,7 @@
 #include "gui_forms/timer.hpp"
 
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -43,6 +44,8 @@ public:
     // Cabinet hosting: the collection's master switches gate this game's own
     // music and sound; `foreground` is false while another game shows.
     void set_cabinet(bool foreground, bool music, bool sound, bool reduced_motion);
+    // Ticks the game has run: the count advances whether or not the picture changes.
+    std::uint64_t ticks() const { return ticks_; }
     // Host commands: "new", "help" and "scores" toggle like the in-frame buttons.
     void host_command(const std::string& id);
     // "help", "scores" or "" for the panel a host should show as active.
@@ -90,6 +93,7 @@ private:
     std::vector<gf::SubscriptionToken> subs_;
     std::chrono::steady_clock::time_point last_{};
     double t_ = 0, save_t_ = 0;
+    std::uint64_t ticks_ = 0;
     bool dirty_ = false;
 
     Shot shot_;

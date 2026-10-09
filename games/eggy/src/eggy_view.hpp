@@ -11,6 +11,7 @@
 #include "gui_forms/timer.hpp"
 
 #include <chrono>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
@@ -42,6 +43,8 @@ public:
     void on_text_input(gf::TextInputEvent& e) override;
     void activate();
     void set_cabinet_preferences(bool music, bool sound, bool reduced);
+    // Ticks the game has run: the count advances whether or not the picture changes.
+    std::uint64_t ticks() const { return ticks_; }
     // Development scripts (only with --dev): "warp:<row>", "summit", "storm",
     // "hour:<0..1>" (0.25 sunrise, 0.5 noon, 0.75 sunset), "seed:<n>" (a new climb on
     // that mountain) and "play" (close the title).
@@ -90,6 +93,7 @@ private:
     std::vector<gf::SubscriptionToken> subs_;
     std::chrono::steady_clock::time_point last_{};
     double t_ = 0, save_t_ = 0, chatter_t_ = 20, speech_cool_ = 0, banner_t_ = 0, music_hold_ = 0;
+    std::uint64_t ticks_ = 0;
     std::string banner_, music_track_;
     Biome music_biome_ = Biome::meadow;
     Bubble bubble_;
