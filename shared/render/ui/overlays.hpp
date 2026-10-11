@@ -15,12 +15,28 @@ namespace render {
 namespace gf = gui_forms;
 
 namespace detail {
+// Where a control lies in the window by the layout last committed. absolute_bounds()
+// would run any pending layout first, and a publish must not: laying a view out again
+// in the middle of its own frame reconfigures the surface it has just published to.
+// A pending layout repaints the overlays itself once it runs.
+inline gf::Rect committed_in_window(const gf::Control& control, gf::Rect local) {
+    const gf::Rect own = control.committed_arranged_bounds();
+    local.x += own.x;
+    local.y += own.y;
+    for (gf::Control::Ptr at = control.parent(); at; at = (*at).parent()) {
+        const gf::Rect placed = (*at).committed_arranged_bounds();
+        local.x += placed.x;
+        local.y += placed.y;
+    }
+    return local;
+}
 inline void refresh_overlays_in(const gf::Control& control, const gf::Rect& damage) {
     for (const gf::Control::Ptr& child : control.children()) {
         if (!child || !(*child).visible())
             continue;
         if ((*child).paint_plane() == gf::PaintPlane::overlay) {
-            if (!gf::Rect::intersection((*child).absolute_bounds(), damage).empty())
+            const gf::Rect placed = (*child).committed_arranged_bounds();
+            if (!gf::Rect::intersection(committed_in_window(*child, {0, 0, placed.width, placed.height}), damage).empty())
                 (*child).invalidate_subtree(gf::Dirty::paint);
             continue;
         }
@@ -36,7 +52,8 @@ inline void refresh_overlays(const gf::Control& owner, gf::Rect local_damage = {
     if (window == nullptr || !(*window).root())
         return;
     const gf::Rect all = owner.client_rectangle();
-    const gf::Rect damage = owner.rectangle_to_window(local_damage.empty() ? gf::Rect{0, 0, all.width, all.height} : local_damage);
+    const gf::Rect damage =
+        detail::committed_in_window(owner, local_damage.empty() ? gf::Rect{0, 0, all.width, all.height} : local_damage);
     detail::refresh_overlays_in(*(*window).root(), damage);
 }
 
