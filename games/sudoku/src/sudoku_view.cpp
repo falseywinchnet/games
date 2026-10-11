@@ -250,16 +250,20 @@ void SudokuView::on_paint(gf::Painter& p, gf::Rect) {
                                                 : gf::Color::rgba(110, 128, 156));
         }
     }
-    for (int i = 0; i <= 9; ++i) {
-        const bool major = i % 3 == 0;
-        gf::Color line =
-            major ? (dark ? gf::Color::rgba(140, 190, 240) : gf::Color::rgba(34, 58, 96))
-                  : (dark ? gf::Color::rgba(64, 86, 116) : gf::Color::rgba(196, 210, 228));
-        p.draw_line({board_.x + i * cell_, board_.y},
-                    {board_.x + i * cell_, board_.y + board_.height}, line, major ? 2.2 : 1);
-        p.draw_line({board_.x, board_.y + i * cell_},
-                    {board_.x + board_.width, board_.y + i * cell_}, line, major ? 2.2 : 1);
-    }
+    // The thin lines first, then the box lines over them, so no thin line crosses a thick one.
+    for (int pass = 0; pass < 2; ++pass)
+        for (int i = 0; i <= 9; ++i) {
+            const bool major = i % 3 == 0;
+            if (major != (pass == 1))
+                continue;
+            gf::Color line =
+                major ? (dark ? gf::Color::rgba(140, 190, 240) : gf::Color::rgba(34, 58, 96))
+                      : (dark ? gf::Color::rgba(64, 86, 116) : gf::Color::rgba(196, 210, 228));
+            p.draw_line({board_.x + i * cell_, board_.y},
+                        {board_.x + i * cell_, board_.y + board_.height}, line, major ? 2.2 : 1);
+            p.draw_line({board_.x, board_.y + i * cell_},
+                        {board_.x + board_.width, board_.y + i * cell_}, line, major ? 2.2 : 1);
+        }
     if (cursor >= 0)
         p.stroke_rect({board_.x + (selected_ % 9) * cell_ + 1.5,
                        board_.y + (selected_ / 9) * cell_ + 1.5, cell_ - 3, cell_ - 3},

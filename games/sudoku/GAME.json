@@ -29,7 +29,10 @@
   "cover": "cover.cpp",
   "build": "build.cmake",
   "ui_sources": [],
-  "audio_sources": [],
+  "audio_sources": [
+    "src/sudoku_music.cpp",
+    "src/sudoku_score.cpp"
+  ],
   "libraries": [],
   "hosted": false
 }

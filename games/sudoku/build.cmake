@@ -1,0 +1,16 @@
+# Sudoku's rules, generator and their tests are built by the collection (CMakeLists.txt).
+# Here: its music, a koto garden synthesized live, with a test and a renderer to listen to.
+if(NOT TARGET sudoku_music_core)
+  add_library(sudoku_music_core STATIC "${GAME_MODULE_DIR}/src/sudoku_music.cpp")
+  target_include_directories(sudoku_music_core PUBLIC "${GAME_MODULE_DIR}/src")
+  target_compile_features(sudoku_music_core PUBLIC cxx_std_20)
+  if(NOT MSVC)
+    target_compile_options(sudoku_music_core PRIVATE -Wall -Wextra)
+  endif()
+  add_executable(sudoku_music_tests "${GAME_MODULE_DIR}/test/music_tests.cpp")
+  target_link_libraries(sudoku_music_tests PRIVATE sudoku_music_core)
+  add_test(NAME sudoku_music COMMAND sudoku_music_tests)
+  set_tests_properties(sudoku_music PROPERTIES TIMEOUT 120)
+  add_executable(sudoku_music_render "${GAME_MODULE_DIR}/tools/music_render.cpp")
+  target_link_libraries(sudoku_music_render PRIVATE sudoku_music_core)
+endif()
