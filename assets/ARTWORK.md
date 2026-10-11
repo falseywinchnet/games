@@ -21,3 +21,5 @@ acquisition 206): the English pattern that later standard packs follow, long out
 copyright. `authoring/cards1902/make_faces.py` makes them from the collection's scans,
 which are not kept here: it separates the four inks from the old board, cleans them and
 lays them again on a soft off-white card at the painted faces' size and corner.
+Scans: WCMPC Collection (Worshipful Company of Makers of Playing Cards), whose site allows
+its images to be used for non-profit purposes with this acknowledgement.

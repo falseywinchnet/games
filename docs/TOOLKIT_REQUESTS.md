@@ -204,10 +204,13 @@ enlarging copy.
 
 ## Hover when the pointer leaves (found with the shelf, 2026-10-10)
 
-1. **Leave the hovered control when the pointer leaves the window.** The macOS host's
-   `mouseExited:` (`macos_host.mm`) resets the cursor but neither sends
-   `PointerAction::leave` to the hovered control nor clears `Window::hovered_`.
-   `Window::dispatch_pointer` only changes hover on a `move` inside the window. So a
+1. **Leave the hovered control when the pointer leaves the window.** No host clears
+   hover on window exit: the macOS host's `mouseExited:` (`macos_host.mm`) resets the
+   cursor only, the Windows host's `WM_MOUSELEAVE` only revokes cursor interaction, and
+   the Linux host sends `PointerAction::leave` on `LeaveNotify`, which the core does not
+   treat as leaving hover. `Window::dispatch_pointer` only changes hover on a `move`
+   inside the window. Every native toolkit leaves hover here, so this changes no
+   intended behaviour (pointer capture keeps its exception, as macOS already does). So a
    control the pointer was over when it left the window stays `hovered_visual()`
    until the pointer comes back: the shelf's boxes, which lift while hovered, stay
    lifted. Likewise a control hidden while hovered is skipped (`eligible`) and keeps
@@ -217,31 +220,14 @@ enlarging copy.
    each box a synthetic `leave` when the shelf hides for a game
    (`ShelfBox::forget_pointer`); it cannot see the window exit.
 
-## A few heavy jobs at once (found speeding up the card felt, 2026-10-10)
-
-1. **Let `AtomicThreadPool::run` spread a small batch of long tasks.** The pool runs any
-   batch of up to 64 tasks per thread on the caller alone
-   (`MINIMUM_TASKS_PER_WORKER` in `atomic_pool.c`), which suits many tiny tasks but
-   not a handful of long ones. The card felt (`shared/felt`, about 0.7 s on one core)
-   splits each round into a couple of dozen jobs of several milliseconds each; through
-   the pool they all ran on the caller and the felt took as long as before. PlaySuite
-   now shares each round among GUI.Forms `Worker`s and the caller, all taking jobs
-   from one atomic count (`shared/cards/table_art.cpp`), which starts threads for every
-   round. Wanted: a per-call or per-pool way to say the tasks are coarse (no
-   caller-only threshold, a claim size of one), or a `parallel_for(count, job)` on a
-   persistent pool, so engines can lend all cores to a few long jobs without
-   starting threads each time.
-
 ## An overlay's share of a live frame (found with the capsule, 2026-10-10)
 
-1. **Repaint an overlay's share when the live frame under it changes.**
-   `take_live_surface_presentations` subtracts overlay rectangles from each live clip
-   and leaves those pixels to retained painting, but nothing invalidates them when a
-   new generation is published. So the share holds whatever frame was there when the
-   overlay last painted: after a resize the capsule over a live game sits in a black
-   rectangle (painted before the game's first frame at the new size), and on opening
-   a game it shows the previous picture, until the pointer moves over it. Wanted: when a
-   published generation's damage meets an overlay rectangle, damage that intersection
-   for retained painting. PlaySuite repaints the capsule every tick for 2.5 s after a
-   game opens or the window changes size (`Collection::refresh_capsule_share`), which
-   covers the first frames but not animation under the capsule afterwards.
+1. **Optional: repaint an overlay's share when the live frame under it changes.**
+   `take_live_surface_presentations` subtracts overlay rectangles from each live clip and
+   leaves those pixels to retained painting, which repaints them only when the overlay is
+   invalidated, though its own comment says retained painting "also draws the live frame
+   beneath". PlaySuite now does this itself: every publish calls
+   `render::refresh_overlays` (`shared/render/ui/overlays.hpp`), which invalidates the
+   overlay-plane controls over the damage. Doing it in the toolkit, for generations whose
+   damage meets an overlay rectangle, would serve translucent overlays in other
+   applications too; opaque ones would pay a repaint they do not need.
