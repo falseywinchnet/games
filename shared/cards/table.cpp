@@ -564,6 +564,10 @@ void Table::load_back() {
     gf::Window* window = attached_window();
     if (window == nullptr || back_ < painted_back_count || back_ >= card_back_count || backs_[back_].value)
         return;
+    if (back_ == classic_back) {
+        backs_[back_] = load_image(*window, classic_back_file);
+        return;
+    }
     backs_[back_] = (*window).load_bgra32_premultiplied(card_art_width, card_art_height, card_art_width * 4U,
                                                         drawn_card_back(back_)).image;
 }

@@ -17,7 +17,10 @@ folder, then:
     python3 authoring/cards1902/make_faces.py <scan-folder> assets
 
 which writes assets/classic_00.png ... classic_51.png (suit * 13 + rank - 1,
-suits clubs, diamonds, hearts, spades), 360 x 504 like the painted faces.
+suits clubs, diamonds, hearts, spades), 360 x 504 like the painted faces. The classic
+back is reprinted the same way from New York Consolidated's 1899 back (W0305_Back1.jpg):
+
+    python3 authoring/cards1902/make_faces.py --back <W0305_Back1.jpg> assets/back_1899.png
 """
 import sys
 from pathlib import Path
@@ -181,7 +184,7 @@ def board_of(rgb: np.ndarray) -> np.ndarray:
     return box(inside.astype(np.float64), 12) > .999
 
 
-def reprint(scan: Path, allowed: list) -> Image.Image:
+def reprint(scan: Path, allowed: list, inks: np.ndarray = INKS, on_board: bool = True) -> Image.Image:
     rgb = straighten(np.asarray(Image.open(scan).convert("RGB")))
     # The card's own area in the art, worked at SS times.
     cw, ch = round((W - 2 * INSET) * SS), round((H - 2 * INSET) * SS)
@@ -190,7 +193,8 @@ def reprint(scan: Path, allowed: list) -> Image.Image:
     labels = vote(vote(sort_inks(flat, allowed), 1), 1)
     # The old card's own rounded corners, and the dark beyond them, are paper here: the
     # new cut is made below.
-    labels[~board_of(rgb)] = PAPER
+    if on_board:
+        labels[~board_of(rgb)] = PAPER
     # Coverage of each colour at the art's size: the mean of the SS x SS cell.
     oh, ow = ch // SS, cw // SS
     ox, oy = int(round(INSET)), int(round(INSET))
@@ -199,7 +203,7 @@ def reprint(scan: Path, allowed: list) -> Image.Image:
     out = paper(H, W)[oy:oy + oh, ox:ox + ow]
     for k in (RED, BLUE, BLACK, YELLOW):
         c = cover[..., k][..., None]
-        out = out * (1 - c) + INKS[k][None, None, :] * c
+        out = out * (1 - c) + inks[k][None, None, :] * c
     art = np.zeros((H, W, 4))
     art[oy:oy + oh, ox:ox + ow, :3] = out
     # The rim the inset leaves is paper too, under the cut.
@@ -211,7 +215,17 @@ def reprint(scan: Path, allowed: list) -> Image.Image:
     return Image.fromarray(np.clip(np.round(art), 0, 255).astype(np.uint8), "RGBA")
 
 
+# The classic back: New York Consolidated Card Company's of 1899 (WCMPC collection,
+# acquisition 305), flowers and leaves round a rosette, voided white from one navy ink.
+BACK_INKS = INKS.copy()
+BACK_INKS[BLUE] = [20, 34, 104]
+
+
 def main() -> None:
+    if len(sys.argv) == 4 and sys.argv[1] == "--back":
+        # The scan is cut close to the card on a pale ground, so the board is all of it.
+        reprint(Path(sys.argv[2]), [PAPER, BLUE], BACK_INKS, on_board=False).save(sys.argv[3], optimize=True)
+        return
     if len(sys.argv) != 3:
         sys.exit(__doc__)
     scans, out = Path(sys.argv[1]), Path(sys.argv[2])

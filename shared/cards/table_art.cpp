@@ -105,7 +105,7 @@ const std::vector<std::byte>& felt_tile() {
 const std::vector<std::byte>& drawn_card_back(int design) {
     Kept& art = kept();
     const std::lock_guard<std::mutex> guard(art.lock);
-    const int d = std::clamp(design, painted_back_count, card_back_count - 1);
+    const int d = std::clamp(design, painted_back_count, classic_back - 1);
     std::vector<std::byte>& back = art.backs[static_cast<std::size_t>(d)];
     if (back.empty())
         back = make_card_back(d, card_art_width, card_art_height);
@@ -117,7 +117,7 @@ void draw_card_backs() {
     const std::lock_guard<std::mutex> guard(art.lock);
     BackJob job{&art.backs};
     Crew crew{crew_size()};
-    crew_run(&crew, card_back_count - painted_back_count, draw_back, &job);
+    crew_run(&crew, drawn_back_count, draw_back, &job);
 }
 
 }  // namespace games

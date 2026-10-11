@@ -49,7 +49,9 @@ int main() {
         require(!games::decode_suite_settings("PLAYSUITE_SETTINGS 1\nmusic_volume=140\n", untouched) &&
                     untouched == chosen,
                 "out-of-range volume refused");
-        require(!games::decode_suite_settings("PLAYSUITE_SETTINGS 1\ncard_back=9\n", untouched),
+        require(!games::decode_suite_settings("PLAYSUITE_SETTINGS 1\ncard_backs=" +
+                                                  std::to_string(games::card_back_count) + "\n",
+                                              untouched),
                 "unknown card back refused");
         require(games::audio_gain(1) == 1 && games::audio_gain(0) == 0 &&
                     std::abs(games::audio_gain(.5) - .25) < 1e-12,

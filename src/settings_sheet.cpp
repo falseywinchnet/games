@@ -18,7 +18,8 @@ const gf::Color brown = rgb(140, 101, 34);
 const char* const back_names[card_back_count] = {"Sapphire clubs", "Ruby diamonds",
                                                  "Emerald hearts", "Amethyst spades",
                                                  "Sapphire lattice", "Ruby rings",
-                                                 "Forest tartan", "Midnight star", "Parlour rose"};
+                                                 "Forest tartan", "Midnight star", "Parlour rose",
+                                                 "Arabesque, 1899"};
 // Master rows use these ids; a game's ids never start with "suite.".
 const std::string music_id = "suite.music", sound_id = "suite.sound",
                   reduced_id = "suite.reduced", backs_id = "suite.card_back";
@@ -475,14 +476,15 @@ void SettingsSheet::load_backs() {
         return;
     draw_card_backs();
     for (int i = 0; i < card_back_count; ++i) {
-        if (i >= painted_back_count) {
+        if (drawn_back(i)) {
             backs_[static_cast<std::size_t>(i)] =
                 (*window).load_bgra32_premultiplied(card_art_width, card_art_height, card_art_width * 4U,
                                                     drawn_card_back(i)).image;
             continue;
         }
         const std::filesystem::path path =
-            std::filesystem::path(asset_directory()) / ("back_" + std::to_string(i) + ".png");
+            std::filesystem::path(asset_directory()) /
+            (i == classic_back ? std::string(classic_back_file) : "back_" + std::to_string(i) + ".png");
         std::ifstream file(path, std::ios::binary);
         if (!file)
             continue;

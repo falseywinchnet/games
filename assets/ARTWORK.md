@@ -23,3 +23,10 @@ which are not kept here: it separates the four inks from the old board, cleans t
 lays them again on a soft off-white card at the painted faces' size and corner.
 Scans: WCMPC Collection (Worshipful Company of Makers of Playing Cards), whose site allows
 its images to be used for non-profit purposes with this acknowledgement.
+
+# Classic card back
+
+back_1899.png, the default back, is a reprint of New York Consolidated Card Company's
+1899 back (WCMPC Collection, acquisition 305): flowers and leaves round a rosette,
+voided white from one navy ink. Made with `authoring/cards1902/make_faces.py --back`
+from the collection's scan, which is not kept here.

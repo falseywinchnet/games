@@ -15,6 +15,14 @@
 namespace games {
 
 inline constexpr int painted_back_count = 4;
+inline constexpr int drawn_back_count = 5;  // designs 4..8, drawn here
+// Design 9, the classic back: New York Consolidated Card Company's of 1899, reprinted
+// (authoring/cards1902) as an image, like the painted backs.
+inline constexpr int classic_back = painted_back_count + drawn_back_count;
+inline constexpr const char* classic_back_file = "back_1899.png";
+[[nodiscard]] inline bool drawn_back(int design) {
+    return design >= painted_back_count && design < classic_back;
+}
 inline constexpr int card_art_width = 360;
 inline constexpr int card_art_height = 504;
 
