@@ -90,7 +90,7 @@ void HoldButton::on_paint(gf::Painter& p, gf::Rect damage) {
     }
     // the hold fills the face from the left, the words still showing through
     const gf::Rect b = client_rectangle();
-    const gf::Rect face{2, 2, b.width - 4, b.height - 5};
+    const gf::Rect face{3, 3, b.width - 6, b.height - 6};  // SuiteButton's face
     const double radius = std::min(4.0, face.height * .5);
     p.save();
     p.clip_rounded_rect(face, radius);

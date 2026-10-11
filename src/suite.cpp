@@ -221,12 +221,14 @@ double SuiteButton::preferred_width() const {
     return std::max(34.0, label + glyph);
 }
 void SuiteButton::on_paint(gf::Painter& p, gf::Rect) {
+    // The face leaves room inside the control for the hover ring, 2 points out with a
+    // 2-point stroke, so the ring is never cut off (a circle's top would look flat).
     gf::Rect b = client_rectangle();
-    gf::Rect r{2, 2, b.width - 4, b.height - 5};
+    gf::Rect r{3, 3, b.width - 6, b.height - 6};
     double radius = std::min(radius_, r.height * .5);
     if (radius_ == round) {
         const double side = std::min(r.width, r.height);
-        r = {(b.width - side) * .5, 2, side, side};
+        r = {(b.width - side) * .5, 3, side, side};
         radius = side * .5;
     }
     GlossTone tone = checked() ? GlossTone::gold : tone_;
