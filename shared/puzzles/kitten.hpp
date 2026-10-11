@@ -36,6 +36,13 @@ class Kitten {
     [[nodiscard]] bool hit(Point2 at) const;
     // A click on the cat sends it scampering off.
     void shoo();
+    // Picked up: the cat dangles under the pointer until it is put down, where it sits.
+    void pick_up();
+    void carry(Point2 to);
+    void put_down();
+    [[nodiscard]] bool held() const {
+        return mode_ == Mode::held;
+    }
     // The peg the cat is sitting on, or -1.
     [[nodiscard]] int perch() const {
         return mode_ == Mode::perch && settled_ ? target_ : -1;
@@ -45,12 +52,13 @@ class Kitten {
     }
 
   private:
-    enum class Mode { watch, wander, chase, perch, stalk, swat, nap, groom, flee };
+    enum class Mode { watch, wander, chase, perch, stalk, swat, nap, groom, flee, held };
     Mode mode_ = Mode::watch;
     Point2 at_{.88, .9}, goal_{.88, .9};
     double face_ = -1; // -1 faces left, 1 faces right
     double t_ = 0, clock_ = 0, stride_ = 0, speed_ = 0, linger_ = 3, cooldown_ = 12;
     double blink_ = 0;
+    double lift_ = 0; // board units it is held above where it would stand
     Point2 look_{0, 0};
     int target_ = -1;
     bool settled_ = false, struck_ = false;

@@ -117,6 +117,29 @@ void Kitten::shoo() {
     goal_ = {at_.x < .5 ? .9 : .1, at_.y < .5 ? .9 : .12};
     enter(Mode::flee);
 }
+void Kitten::pick_up() {
+    enter(Mode::held);
+    target_ = -1;
+    lift_ = .05;
+}
+void Kitten::carry(Point2 to) {
+    if (mode_ != Mode::held)
+        return;
+    // Held by the scruff, the feet hang below the pointer.
+    const Point2 goal{std::clamp(to.x, .05, .95), std::clamp(to.y + lift_, .08, .96)};
+    if (std::abs(goal.x - at_.x) > .004)
+        face_ = goal.x > at_.x ? 1 : -1;
+    at_ = goal;
+}
+void Kitten::put_down() {
+    if (mode_ != Mode::held)
+        return;
+    lift_ = 0;
+    goal_ = at_;
+    enter(Mode::watch);
+    // A cat set down sits a while before it thinks of anything else.
+    linger_ = 4 + random() * 3;
+}
 bool Kitten::hit(Point2 at) const {
     return std::hypot(at.x - at_.x, (at.y - at_.y) * 1.2) < .055;
 }
@@ -161,6 +184,8 @@ Kitten::Swat Kitten::step(double dt, const Scene& scene) {
         settled_ = true;
         return swat;
     }
+    if (mode_ == Mode::held)
+        return swat;
     if (scene.solved) {
         if (mode_ != Mode::nap) {
             Point2 middle{0, 0};
@@ -278,6 +303,7 @@ Kitten::Swat Kitten::step(double dt, const Scene& scene) {
             enter(Mode::watch);
         break;
     case Mode::nap:
+    case Mode::held:
         break;
     }
     return swat;
@@ -285,21 +311,24 @@ Kitten::Swat Kitten::step(double dt, const Scene& scene) {
 gf::Rect Kitten::paint_bounds(gf::Rect board) const {
     const double unit = std::max(2.2, board.width * .0145);
     // Includes the tail, ears, shadow, extended swatting paw and drifting Zs.
-    return {board.x + at_.x * board.width - 10 * unit, board.y + at_.y * board.height - 13 * unit,
-            20 * unit, 18 * unit};
+    const double lift = lift_ * board.height;
+    return {board.x + at_.x * board.width - 10 * unit, board.y + at_.y * board.height - 13 * unit - lift,
+            20 * unit, 18 * unit + lift};
 }
 void Kitten::paint(gf::Painter& p, gf::Rect board) const {
     const double unit = std::max(2.2, board.width * .0145);
-    const gf::Point ground{board.x + at_.x * board.width, board.y + at_.y * board.height};
+    const gf::Point floor{board.x + at_.x * board.width, board.y + at_.y * board.height};
+    // Held up, the cat is drawn above its shadow, which shrinks.
+    const gf::Point ground{floor.x, floor.y - lift_ * board.height};
     const Pen pen{p, ground, unit, face_};
     const bool moving = speed_ > .01;
     // Soft shadow on the cushion.
     {
-        const double rx = (mode_ == Mode::nap ? 5.2 : moving ? 6.4 : 4.6) * unit;
-        const gf::Rect shadow{ground.x - rx, ground.y - unit * .9, rx * 2, unit * 2.6};
+        const double rx = (mode_ == Mode::held ? 3.4 : mode_ == Mode::nap ? 5.2 : moving ? 6.4 : 4.6) * unit;
+        const gf::Rect shadow{floor.x - rx, floor.y - unit * .9, rx * 2, unit * 2.6};
         const gf::GradientStop stops[] = {{0, gf::Color::rgba(20, 6, 18, 90)},
                                           {1, gf::Color::rgba(20, 6, 18, 0)}};
-        p.fill_radial_gradient(shadow, {ground.x, ground.y + unit * .4}, {rx, unit * 1.3}, stops);
+        p.fill_radial_gradient(shadow, {floor.x, floor.y + unit * .4}, {rx, unit * 1.3}, stops);
     }
     const double sway = std::sin(clock_ * 2.2);
     if (mode_ == Mode::nap && settled_) {

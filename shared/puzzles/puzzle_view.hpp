@@ -145,6 +145,10 @@ class PuzzleView final : public gf::Control, public CommandSource {
     // Untangle: the cat, how long the pegs have been left alone, the peg it last knocked
     // (animated from where it was), a frozen peg refusing to move, and thaw bursts.
     Kitten kitten_;
+    bool cat_carried_ = false;     // the player is holding the cat up
+    double untangle_hint_ = 0;     // seconds the "same colour" hint still shows
+    bool untangle_hinted_ = false; // shown once this session for the puzzle opened
+    [[nodiscard]] gf::Rect untangle_hint_rect() const;
     double untangle_idle_ = 0, swat_t_ = 1, frozen_nudge_t_ = 1;
     int swat_peg_ = -1, frozen_nudge_ = -1;
     Point2 swat_from_{};

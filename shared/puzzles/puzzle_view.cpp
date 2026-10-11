@@ -211,7 +211,9 @@ void PuzzleView::present_framebuffer(gf::Rect damage) {
             for (std::uint32_t x = 0; x < target.width(); ++x)
                 destination[x] = 0xff000000U | source[x];
         }
-        static_cast<void>(lease.publish(damage));
+        // The surface's own pixels: the presenter copies only this much of the frame.
+        static_cast<void>(lease.publish({static_cast<double>(left), static_cast<double>(top), static_cast<double>(right - left),
+                                         static_cast<double>(bottom - top)}));
         if (!direct_)
             (*scene_parts_[0]).invalidate(damage);
     }
@@ -345,6 +347,9 @@ void PuzzleView::activate() {
         panel(2);
     if (attached_window())
         static_cast<void>((*attached_window()).request_focus(shared_from_this()));
+    if (game.kind == PuzzleKind::untangle && !untangle_hinted_ && !game.state.over && game.untangle_layers() > 1)
+        untangle_hint_ = 6.0;
+    untangle_hinted_ = true;
     if ((game.kind == PuzzleKind::gems || game.kind == PuzzleKind::untangle) && timer_)
         (*timer_).start();
     render();
@@ -992,6 +997,17 @@ void PuzzleView::paint_untangle(gf::Painter& p, int part) {
     const gf::Point center = at({.5, .5});
     const double thread = std::clamp(board_.width * .0105, 3.0, 7.0);
     if (part < 0 || part == 0) {
+        // While a peg is held, the colors it is not tied with fade back: only threads of
+        // the same color can tangle, so those are the ones to watch.
+        std::array<bool, 3> tied{true, true, true};
+        if (drag_ >= 0 && layers > 1) {
+            tied = {false, false, false};
+            for (int i = 0; i < edge_count; ++i) {
+                const Edge e = game.state.edges[i];
+                if (e.a == drag_ || e.b == drag_)
+                    tied[static_cast<std::size_t>(std::clamp(game.untangle_layer(i), 0, 2))] = true;
+            }
+        }
         // Threads, lowest color layer first, each a twisted strand of yarn.
         for (int layer = 0; layer < layers; ++layer)
             for (int i = 0; i < edge_count; ++i) {
@@ -1000,6 +1016,8 @@ void PuzzleView::paint_untangle(gf::Painter& p, int part) {
                 const Edge e = game.state.edges[i];
                 const gf::Point a = at(positions[e.a]), c = at(positions[e.b]);
                 gf::Color color = yarn[layer];
+                if (!tied[static_cast<std::size_t>(std::clamp(layer, 0, 2))])
+                    color = mix_color(color, gf::Color::rgba(52, 60, 60), .62);
                 if (game.state.won) {
                     // Gold spreads outward from the middle as the ripple passes.
                     const double d =
@@ -1028,6 +1046,16 @@ void PuzzleView::paint_untangle(gf::Painter& p, int part) {
                     }
                 }
             }
+    }
+    if ((part < 0 || part == 1) && untangle_hint_ > 0) {
+        const double fade = std::clamp(std::min(untangle_hint_ * 2, (6.0 - untangle_hint_) * 4), 0.0, 1.0);
+        const gf::Rect r = untangle_hint_rect();
+        p.fill_rounded_rect(r, 15, gf::Color::rgba(20, 26, 28, static_cast<unsigned char>(200 * fade)));
+        const gf::FontSpec f{gf::FontRole::content, 13, 700, false};
+        const char* words = "Only threads of the same color tangle.";
+        const gf::Size m = p.measure_text_utf8(words, f);
+        p.draw_text_utf8({r.x + (r.width - m.width) * .5, r.y + r.height * .5 + f.size * .36}, words, f,
+                         gf::Color::rgba(240, 232, 214, static_cast<unsigned char>(255 * fade)));
     }
     if (part < 0 || part == 1) {
         // Snags where same-colored threads cross, pulsing gently.
@@ -2356,6 +2384,9 @@ void PuzzleView::new_game() {
     swat_peg_ = frozen_nudge_ = -1;
     puffs_.clear();
     kitten_.reset(game.state.seed);
+    cat_carried_ = false;
+    // With more than one colour of yarn, say once what the colours mean.
+    untangle_hint_ = game.kind == PuzzleKind::untangle && game.untangle_layers() > 1 ? 6.0 : 0.0;
     if (game.kind == PuzzleKind::gems && !reduced_) {
         intro_ = true;
         intro_start_ = gf::FrameClock::now();
@@ -2590,6 +2621,8 @@ void PuzzleView::untangle_step() {
         untangle_idle_ += dt;
     swat_t_ = std::min(1.0, swat_t_ + dt / .28);
     frozen_nudge_t_ = std::min(1.0, frozen_nudge_t_ + dt);
+    if (!panel_)
+        untangle_hint_ = std::max(0.0, untangle_hint_ - dt);
     for (ThawPuff& puff : puffs_)
         puff.age += dt;
     struct Faded {
@@ -2640,8 +2673,14 @@ gf::Rect PuzzleView::untangle_board_damage() const {
     return {board_.x - margin, board_.y - margin, board_.width + margin * 2,
             board_.height + margin * 2};
 }
+gf::Rect PuzzleView::untangle_hint_rect() const {
+    const double w = std::min(board_.width - 20, 360.0);
+    return {board_.x + (board_.width - w) * .5, board_.y + 10, w, 30};
+}
 gf::Rect PuzzleView::untangle_animation_bounds() const {
     gf::Rect damage = kitten_.paint_bounds(board_);
+    if (untangle_hint_ > 0)
+        damage = gf::Rect::united(damage, untangle_hint_rect());
     const double knot = std::clamp(board_.width * .0105, 3.0, 7.0) * 2.1 + 2;
     for (const gf::Point point : untangle_snags_)
         damage = gf::Rect::united(damage, {point.x - knot, point.y - knot, knot * 2, knot * 2});
@@ -2803,6 +2842,12 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
         }
         if (game.kind == PuzzleKind::untangle)
             pointer_seen_ = local_position;
+        if (game.kind == PuzzleKind::untangle && cat_carried_) {
+            const gf::Rect before = kitten_.paint_bounds(board_);
+            kitten_.carry({(local_position.x - board_.x) / board_.width, (local_position.y - board_.y) / board_.height});
+            invalidate_animation(gf::Rect::united(before, kitten_.paint_bounds(board_)));
+            e.handled = true;
+        }
         if (game.kind == PuzzleKind::untangle && drag_ < 0 && hover_ != cell) {
             hover_ = cell;
             invalidate_animation(untangle_board_damage());
@@ -2914,10 +2959,13 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
             const Point2 spot{(local_position.x - board_.x) / board_.width,
                               (local_position.y - board_.y) / board_.height};
             if (kitten_.hit(spot) || (cell >= 0 && kitten_.perch() == cell)) {
-                // The cat is in the way; it scampers off.
-                kitten_.shoo();
-                game.message = cell >= 0 ? "The cat was sitting on that peg." : "Shoo!";
-                sound_play("untangle_release", sound_);
+                // The cat is in the way: pick it up, and set it down somewhere else.
+                kitten_.pick_up();
+                kitten_.carry(spot);
+                cat_carried_ = true;
+                game.message = cell >= 0 ? "The cat was sitting on that peg." : "Up you come.";
+                set_pointer_capture(true);
+                sound_play("untangle_grab", sound_);
             } else if (cell >= 0 && game.untangle_frozen(cell)) {
                 frozen_nudge_ = cell;
                 frozen_nudge_t_ = 0;
@@ -2928,6 +2976,10 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
                 untangle_idle_ = 0;
                 set_pointer_capture(true);
                 sound_play("untangle_grab", sound_);
+                if (game.untangle_layers() > 1) {
+                    invalidate_static_scene();
+                    invalidate_animation(untangle_board_damage());
+                }
             }
             if (timer_)
                 (*timer_).start();
@@ -3050,6 +3102,12 @@ void PuzzleView::on_pointer(gf::PointerEvent& e) {
             tracing_ = false;
             orbit_ = false;
             persist();
+        }
+        if (game.kind == PuzzleKind::untangle && cat_carried_) {
+            cat_carried_ = false;
+            kitten_.put_down();
+            game.message = "";
+            invalidate_animation(kitten_.paint_bounds(board_));
         }
         if (game.kind == PuzzleKind::untangle && drag_ >= 0) {
             const std::array<int, 96> marks = game.state.marks;
