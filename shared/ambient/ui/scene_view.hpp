@@ -47,12 +47,14 @@ struct HostSetup {
     std::uint32_t backdrop{0x0B1A14};  // 0xRRGGBB shown until the scene is ready
 };
 
+class HelpCard;
+
 class SceneView : public gf::Control, public games::CommandSource {
   public:
     SceneView(gf::StableId id, HostSetup setup, std::unique_ptr<Scenery> scenery, ViewOptions options);
     ~SceneView() override;
     static constexpr bool initialize_tree_after_construction = true;
-    void initialize_control_tree() {}
+    void initialize_control_tree();
     void arrange(gf::Rect bounds) override;
     void on_paint(gf::Painter& painter, gf::Rect damage) override;
     void on_pointer(gf::PointerEvent& event) override;
@@ -107,6 +109,11 @@ class SceneView : public gf::Control, public games::CommandSource {
     bool music_muted_{};
     bool reduced_{};
     bool help_open_{};
+    // The help card floats over the scene as a control (as Rock Stack's controls do), its
+    // picture made once for its words and size; the scene goes on moving under it.
+    std::shared_ptr<HelpCard> card_{};
+    std::string card_key_{};
+    void update_card();
     bool window_active_{true};
     bool dragging_{};
 
@@ -138,7 +145,7 @@ class SceneView : public gf::Control, public games::CommandSource {
     [[nodiscard]] SceneContext context();
     void finish(const SceneContext& context);
     void publish(const std::vector<std::uint32_t>* picture, int width, int height);
-    void draw_help(std::byte* pixels, std::size_t row_bytes);
+    [[nodiscard]] std::vector<std::byte> render_card(int& width, int& height, int& left, int& top);
     [[nodiscard]] std::uint32_t in_order(std::uint32_t rgb) const;
     void set_paused(bool paused);
     void set_detail(Detail detail);

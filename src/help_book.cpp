@@ -99,8 +99,8 @@ void HelpPages::add_topic(int entry, std::string topic, std::string title,
 void HelpPages::initialize_control_tree() {
     dedication_ = front_line("dedication", dedication, 600);
     credits_ = front_line("credits", creators, 400);
-    contact_ = front_line("contact", "Contact: " + std::string(contact) + "  ·", 400);
-    sponsor_ = front_line("sponsor", sponsor, 400);
+    // The sponsor's address, with the site beside it (or under it, where there is no room).
+    contact_ = front_line("contact", "Sponsor contact: " + std::string(contact), 400);
     website_ = gf::make_control<WebLink>(gf::StableId("help.front.website"),
                                          std::string(website));
     (*website_).set_font({gf::FontRole::content, 16, 400, false});
@@ -108,13 +108,30 @@ void HelpPages::initialize_control_tree() {
     gf::on((*website_).clicked(), *this, &HelpPages::visit_website);
     for (const std::shared_ptr<gf::Control>& line :
          {std::shared_ptr<gf::Control>(dedication_), std::shared_ptr<gf::Control>(credits_),
-          std::shared_ptr<gf::Control>(contact_), std::shared_ptr<gf::Control>(website_),
-          std::shared_ptr<gf::Control>(sponsor_)}) {
+          std::shared_ptr<gf::Control>(contact_), std::shared_ptr<gf::Control>(website_)}) {
         (*line).set_paint_plane(gf::PaintPlane::overlay);
         add_child(line);
     }
+    build(-1);
+}
+// The shared front lines stay; the topics below them are made for `scope`: a game's
+// entry for that game alone (the suite's welcome first, its About last), or -1 for all.
+void HelpPages::build(int scope) {
+    if (scope == scope_)
+        return;
+    for (std::size_t i = 0; i < headings_.size(); ++i) {
+        static_cast<void>(remove_child((*headings_[i]).runtime_id()));
+        static_cast<void>(remove_child((*bodies_[i]).runtime_id()));
+    }
+    headings_.clear();
+    bodies_.clear();
+    topics_.clear();
+    order_.clear();
+    scope_ = scope;
     add_topic(-1, "", "Using PlaySuite", help_welcome);
     for (Entry entry : entries) {
+        if (scope >= 0 && static_cast<int>(entry) != scope)
+            continue;
         const GameDescriptor& descriptor = game_descriptor(entry);
         add_topic(static_cast<int>(entry), "", entry_info(entry).title, help_text(entry));
         for (const HelpTopic& topic : descriptor.help_topics)
@@ -126,6 +143,11 @@ void HelpPages::visit_website() {
     open_link("https://" + std::string(website) + "/");
 }
 void HelpPages::select(int entry, std::string_view topic) {
+    // A game's help holds that game's pages only; an entry with no game here, all of them.
+    bool known = false;
+    for (Entry candidate : entries)
+        known = known || static_cast<int>(candidate) == entry;
+    build(known ? entry : -1);
     int selected = 0;
     const bool about = topic == "about";
     const std::string_view requested = topic == "rules" ? "" : topic;
@@ -173,10 +195,14 @@ void HelpPages::arrange(gf::Rect bounds) {
     }
     const double contact_width = (*contact_).measure({width - 16, 100000}).width;
     const double line_height = (*contact_).measure({width - 16, 100000}).height;
+    const double website_width = (*website_).measure({width - 16, 100000}).width + 4;
     layout.push_back({contact_, {8, y, contact_width, line_height}});
-    layout.push_back({website_, {8 + contact_width + 2, y, 180, line_height}});
-    y += line_height + 2;
-    layout.push_back({sponsor_, {8, y, width - 16, line_height}});
+    if (8 + contact_width + 14 + website_width <= width - 8) {
+        layout.push_back({website_, {8 + contact_width + 14, y, website_width, line_height}});
+    } else {
+        y += line_height + 2;
+        layout.push_back({website_, {8, y, website_width, line_height}});
+    }
     y += line_height + 18;
     for (int index : order_) {
         layout.push_back({headings_[index], {0, y, width, 36}});

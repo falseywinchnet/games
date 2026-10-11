@@ -138,16 +138,20 @@ int main() {
             const std::shared_ptr<gf::Control> heading = find_control(
                 *pages, "help.topic." + std::to_string(static_cast<int>(entry)) + "." + topic.id);
             // The chosen topic opens first, straight under the dedication and credits.
-            const gf::Rect sponsor =
-                (*find_control(*pages, "help.front.sponsor")).committed_arranged_bounds();
+            const gf::Rect website =
+                (*find_control(*pages, "help.front.website")).committed_arranged_bounds();
             assert(heading &&
-                   std::abs((*heading).committed_arranged_bounds().y - (sponsor.bottom() + 18)) < .01);
+                   std::abs((*heading).committed_arranged_bounds().y - (website.bottom() + 18)) < .01);
         }
         (*pages).select(static_cast<int>(entry), "missing-topic");
         assert((*body).visible());
+        // A game's help holds the suite's two pages and that game's own, under the four
+        // shared credit lines; no other game's.
+        assert((*pages).children().size() == (2 + 1 + descriptor.help_topics.size()) * 2 + 4);
     }
-    assert((*pages).children().size() == topic_count * 2 + 5); // and five credit lines
     (*pages).select(-1, "about");
+    // On the shelf the book holds every game's pages.
+    assert((*pages).children().size() == topic_count * 2 + 4); // and four credit lines
     assert((*find_control(*pages, "help.body.-1.about")).visible());
     assert(help_about().find(std::to_string(entry_count) + " games") != std::string::npos);
     // The dedication and credits head the document, above every topic, whatever is selected.

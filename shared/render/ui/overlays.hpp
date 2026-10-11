@@ -14,6 +14,15 @@
 namespace render {
 namespace gf = gui_forms;
 
+// A floating control that is not to be repainted over each new frame: an opaque panel
+// the game never shows through, or one meant to show the game as it stood (a dimmed
+// sheet). Repainting a large panel and all its text at the game's frame rate costs a
+// processor that draws the window itself (a remote desktop) most of its time.
+class StillOverlay {
+  public:
+    virtual ~StillOverlay() = default;
+};
+
 namespace detail {
 // Where a control lies in the window by the layout last committed. absolute_bounds()
 // would run any pending layout first, and a publish must not: laying a view out again
@@ -33,6 +42,8 @@ inline gf::Rect committed_in_window(const gf::Control& control, gf::Rect local) 
 inline void refresh_overlays_in(const gf::Control& control, const gf::Rect& damage) {
     for (const gf::Control::Ptr& child : control.children()) {
         if (!child || !(*child).visible())
+            continue;
+        if (dynamic_cast<const StillOverlay*>(child.get()) != nullptr)
             continue;
         if ((*child).paint_plane() == gf::PaintPlane::overlay) {
             const gf::Rect placed = (*child).committed_arranged_bounds();

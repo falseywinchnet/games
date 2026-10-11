@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <functional>
 #include <span>
 #include <sstream>
 
@@ -43,36 +44,28 @@ gf::Color backdrop_color(std::uint32_t rgb) {
     return result;
 }
 
-// Blends a straight-alpha colour over an opaque pixel (the colour already in the
-// pixel's byte order, so each channel blends with its own).
-void blend_pixel(std::uint32_t& pixel, std::uint32_t rgb, float alpha) {
-    const float keep = 1.0F - alpha;
-    std::uint32_t out = 0xFF000000U;
-    for (std::uint32_t shift = 0; shift <= 16; shift += 8) {
-        const float under = static_cast<float>((pixel >> shift) & 255U);
-        const float over = static_cast<float>((rgb >> shift) & 255U);
-        const std::uint32_t value = static_cast<std::uint32_t>(std::min(255.0F, under * keep + over * alpha + 0.5F));
-        out |= value << shift;
-    }
-    pixel = out;
-}
-
-void draw_mask(const TextMask& mask, int left, int top, std::uint32_t rgb, std::byte* pixels, std::size_t row_bytes,
-               int width, int height) {
+// Lays an opaque ink, by a mask's coverage, over premultiplied BGRA pixels.
+void cover_mask(const TextMask& mask, int left, int top, std::uint32_t rgb, std::vector<std::byte>& pixels, int width,
+                int height) {
+    const double ink[3] = {static_cast<double>(rgb & 255U), static_cast<double>((rgb >> 8U) & 255U),
+                           static_cast<double>((rgb >> 16U) & 255U)};
     for (int y = 0; y < mask.h; ++y) {
-        const int device_y = top + y;
-        if (device_y < 0 || device_y >= height)
+        const int py = top + y;
+        if (py < 0 || py >= height)
             continue;
-        std::uint32_t* row = reinterpret_cast<std::uint32_t*>(pixels + static_cast<std::size_t>(device_y) * row_bytes);
         for (int x = 0; x < mask.w; ++x) {
-            const int device_x = left + x;
-            if (device_x < 0 || device_x >= width)
+            const int px = left + x;
+            if (px < 0 || px >= width)
                 continue;
-            const std::uint8_t coverage =
-                mask.a[static_cast<std::size_t>(y) * static_cast<std::size_t>(mask.w) + static_cast<std::size_t>(x)];
-            if (coverage == 0)
+            const double m =
+                mask.a[static_cast<std::size_t>(y) * static_cast<std::size_t>(mask.w) + static_cast<std::size_t>(x)] / 255.0;
+            if (m <= 0)
                 continue;
-            blend_pixel(row[device_x], rgb, static_cast<float>(coverage) / 255.0F);
+            const std::size_t at = (static_cast<std::size_t>(py) * static_cast<std::size_t>(width) + static_cast<std::size_t>(px)) * 4U;
+            for (int c = 0; c < 3; ++c)
+                pixels[at + static_cast<std::size_t>(c)] =
+                    static_cast<std::byte>(std::lround(ink[c] * m + std::to_integer<int>(pixels[at + static_cast<std::size_t>(c)]) * (1 - m)));
+            pixels[at + 3] = static_cast<std::byte>(std::lround(255 * m + std::to_integer<int>(pixels[at + 3]) * (1 - m)));
         }
     }
 }
@@ -96,6 +89,42 @@ Detail next_detail(Detail detail) {
 
 } // namespace
 
+// The help card: a picture of the card, made by the view, laid over the scene. It
+// takes a click to close.
+class HelpCard final : public gf::Control {
+  public:
+    explicit HelpCard(gf::StableId id) : Control(std::move(id)) {
+        set_paint_plane(gf::PaintPlane::overlay);
+    }
+    std::function<void()> close{};
+    void show(gf::Window& window, const std::vector<std::byte>& pixels, int width, int height) {
+        if (image_.value)
+            static_cast<void>(window.remove_image(image_));
+        image_ = window.load_bgra32_premultiplied(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height),
+                                                  static_cast<std::size_t>(width) * 4U, pixels)
+                     .image;
+        invalidate(gf::Dirty::paint);
+    }
+    void on_paint(gf::Painter& painter, gf::Rect) override {
+        if (image_.value)
+            painter.draw_image(image_, client_rectangle());
+    }
+    void on_pointer(gf::PointerEvent& event) override {
+        if (event.action == gf::PointerAction::down && event.button == gf::PointerButton::primary && close) {
+            close();
+            event.handled = true;
+        }
+    }
+    void on_detaching_from_window(gf::Window& window) noexcept override {
+        if (image_.value)
+            static_cast<void>(window.remove_image(image_));
+        image_ = {};
+    }
+
+  private:
+    gf::ImageId image_{};
+};
+
 // ---------------------------------------------------------------- construction
 
 SceneView::SceneView(gf::StableId id, HostSetup setup, std::unique_ptr<Scenery> scenery, ViewOptions options)
@@ -113,6 +142,14 @@ SceneView::SceneView(gf::StableId id, HostSetup setup, std::unique_ptr<Scenery> 
 }
 
 SceneView::~SceneView() = default;
+
+// Children join once the view is owned (initialize_tree_after_construction).
+void SceneView::initialize_control_tree() {
+    card_ = gf::make_control<HelpCard>(gf::StableId(setup_.id + ".help_card"));
+    (*card_).set_visible(false);
+    (*card_).close = std::bind_front(&SceneView::set_help, this, false);
+    add_child(card_);
+}
 
 void SceneView::on_attached_to_window() {
     gf::Window* window = attached_window();
@@ -217,6 +254,7 @@ void SceneView::arrange(gf::Rect bounds) {
     wanted_ = (*scenery_).size_for(device_width_, device_height_, scale_, settings_.detail);
     last_arrange_ = Clock::now();
     (*scenery_).resize(wanted_, false);
+    update_card();
     if (surface_) {
         gf::LiveSurfaceDescription description;
         description.width = static_cast<std::uint32_t>(device_width_);
@@ -255,6 +293,9 @@ bool SceneView::animating() const {
 }
 
 void SceneView::tick() {
+    // A scene that could not be opened says so on the card.
+    if (card_ && !(*card_).visible() && !(*scenery_).failure().empty())
+        update_card();
     if (!visible() || !front_) {
         if (timer_)
             (*timer_).stop();
@@ -394,13 +435,10 @@ void SceneView::publish(const std::vector<std::uint32_t>* picture, int width, in
             std::fill(row, row + device_width_, backdrop);
         }
     }
-    if (help_open_ || !(*scenery_).failure().empty())
-        draw_help(destination.data(), row_bytes);
     static_cast<void>(lease.publish());
     render::refresh_overlays(*this);
     if (!direct_)
         invalidate(gf::Dirty::paint);
-    text_masks.trim();
 }
 
 void SceneView::report_trace() const {
@@ -423,12 +461,12 @@ void SceneView::report_trace() const {
 // The help card, drawn by the view itself when no shell shows help (and to report a
 // scene that could not be opened). Lines are wrapped here from words, so only short
 // runs of text are rasterized.
-void SceneView::draw_help(std::byte* pixels, std::size_t row_bytes) {
+std::vector<std::byte> SceneView::render_card(int& width, int& height, int& left_out, int& top_out) {
     const double s = scale_;
     const int margin = static_cast<int>(std::lround(18 * s));
     const int card_width = std::min(device_width_ - margin * 2, static_cast<int>(std::lround(520 * s)));
     if (card_width < 80)
-        return;
+        return {};
     const int inner = card_width - margin * 2;
     const double body_size = 14 * s;
     const double title_size = 20 * s;
@@ -473,13 +511,19 @@ void SceneView::draw_help(std::byte* pixels, std::size_t row_bytes) {
     for (const Line& line : lines)
         text_height += (*line.mask).h + line.gap;
     const int card_height = std::min(device_height_ - margin * 2, text_height + margin * 2);
-    const int left = (device_width_ - card_width) / 2;
-    const int top = std::max(margin, (device_height_ - card_height) / 2);
-    for (int y = top; y < top + card_height && y < device_height_; ++y) {
-        std::uint32_t* row = reinterpret_cast<std::uint32_t*>(pixels + static_cast<std::size_t>(y) * row_bytes);
-        for (int x = left; x < left + card_width; ++x)
-            blend_pixel(row[x], in_order(0x07130F), 0.86F);
+    left_out = (device_width_ - card_width) / 2;
+    top_out = std::max(margin, (device_height_ - card_height) / 2);
+    width = card_width;
+    height = card_height;
+    // The card's ground: deep green at 86 percent, premultiplied, as the window takes it.
+    std::vector<std::byte> pixels(static_cast<std::size_t>(card_width) * static_cast<std::size_t>(card_height) * 4U);
+    for (std::size_t at = 0; at < pixels.size(); at += 4) {
+        pixels[at] = static_cast<std::byte>(std::lround(0x0F * .86));
+        pixels[at + 1] = static_cast<std::byte>(std::lround(0x13 * .86));
+        pixels[at + 2] = static_cast<std::byte>(std::lround(0x07 * .86));
+        pixels[at + 3] = static_cast<std::byte>(std::lround(255 * .86));
     }
+    const int top = 0;
     int y = top + margin;
     for (std::size_t index = 0; index < lines.size(); ++index) {
         const Line& line = lines[index];
@@ -487,10 +531,43 @@ void SceneView::draw_help(std::byte* pixels, std::size_t row_bytes) {
         if (y + (*line.mask).h > top + card_height)
             break;
         const std::uint32_t ink = index == 0 ? 0xE9F3DCU : 0xC9D8C4U;
-        draw_mask(*line.mask, left + margin, y, in_order(ink), pixels, row_bytes, device_width_, device_height_);
+        cover_mask(*line.mask, margin, y, ink, pixels, card_width, card_height);
         y += (*line.mask).h;
     }
+    text_masks.trim();
+    return pixels;
 }
+
+// The card shows while help is open, or the scene could not be opened; its picture is
+// made again only when its words, size or scale change.
+void SceneView::update_card() {
+    const std::string failure = (*scenery_).failure();
+    const bool shown = help_open_ || !failure.empty();
+    gf::Window* window = attached_window();
+    if (!card_)
+        return;
+    if (!shown || window == nullptr) {
+        (*card_).set_visible(false);
+        card_key_.clear();
+        return;
+    }
+    const std::string key = failure + "|" + std::to_string(device_width_) + "x" + std::to_string(device_height_) + "@" +
+                            std::to_string(scale_);
+    if (key != card_key_) {
+        int width = 0, height = 0, left = 0, top = 0;
+        const std::vector<std::byte> pixels = render_card(width, height, left, top);
+        if (pixels.empty()) {
+            (*card_).set_visible(false);
+            return;
+        }
+        (*card_).show(*window, pixels, width, height);
+        set_child_layout(card_, {left / scale_, top / scale_, width / scale_, height / scale_});
+        card_key_ = key;
+    }
+    (*card_).set_visible(true);
+}
+
+
 
 // ---------------------------------------------------------------- actions
 
@@ -515,6 +592,7 @@ void SceneView::set_help(bool open) {
     if (open && games::route_help(*this))
         return;
     help_open_ = open;
+    update_card();
     request_frame();
 }
 

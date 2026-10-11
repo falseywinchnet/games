@@ -279,8 +279,14 @@ void ShelfRows::arrange(gf::Rect bounds) {
                                       112.0, 150.0);
     columns_ = std::max(1, static_cast<int>((available + gap) / (preferred + gap)));
     columns_ = std::min(columns_, std::max(1, static_cast<int>(boxes_.size())));
-    const double box_width = std::clamp((available - gap * (columns_ - 1)) / columns_,
-                                       112.0, preferred);
+    double box_width = std::clamp((available - gap * (columns_ - 1)) / columns_, 112.0, preferred);
+    // The arrows need a column of their own at the right: at a width where the boxes
+    // would fill the row to the edge, a column gives way to them.
+    constexpr double arrows = 72;
+    while (columns_ > 1 && bounds.width - (margin + 6 + columns_ * box_width + (columns_ - 1) * gap) < arrows) {
+        --columns_;
+        box_width = std::clamp((available - gap * (columns_ - 1)) / columns_, 112.0, preferred);
+    }
     const double box_height = box_width * kAspect + kLiftRoom;
     pitch_ = box_height + 26;
     slots_.clear();

@@ -11,7 +11,6 @@ inline constexpr std::string_view creators =
     "Agents.";
 inline constexpr std::string_view contact = "joshuah.rainstar@gmail.com";
 inline constexpr std::string_view website = "paymenottowork.com";
-inline constexpr std::string_view sponsor = "Sponsor: Rainstar";
 inline constexpr std::string_view help_welcome =
     "Choose a box on the shelf to play or continue. Scroll the shelves with the wheel or "
     "the arrows beside them. Arrow keys move between boxes; Home and End jump to the first and last. "

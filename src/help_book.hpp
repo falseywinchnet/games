@@ -1,4 +1,5 @@
 #pragma once
+#include "overlays.hpp"
 #include "gui_forms/controls/button_base/link_label/link_label.hpp"
 #include "gui_forms/controls/scrollable_control/scrollable_control.hpp"
 #include "suite.hpp"
@@ -25,7 +26,7 @@ class HelpPages final : public gf::ScrollableControl {
 
   private:
     // The dedication and credits stand above every topic.
-    std::shared_ptr<gf::Label> dedication_, credits_, contact_, sponsor_;
+    std::shared_ptr<gf::Label> dedication_, credits_, contact_;
     std::shared_ptr<gf::LinkLabel> website_;
     std::vector<std::shared_ptr<gf::Button>> headings_;
     std::vector<std::shared_ptr<gf::Label>> bodies_;
@@ -35,11 +36,15 @@ class HelpPages final : public gf::ScrollableControl {
     };
     std::vector<TopicKey> topics_;
     std::vector<int> order_;
+    // The topics are made for what help is open on: in a game, the suite's own pages and
+    // that game's; on the shelf, every game's. Made again only when that changes.
+    int scope_ = -2;
+    void build(int scope);
     void add_topic(int entry, std::string topic, std::string title, std::string_view body);
     void toggle(int index);
     void visit_website();
 };
-class HelpBook final : public gf::Control {
+class HelpBook final : public gf::Control, public render::StillOverlay {
   public:
     explicit HelpBook(gf::StableId id);
     static constexpr bool initialize_tree_after_construction = true;

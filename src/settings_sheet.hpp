@@ -1,4 +1,5 @@
 #pragma once
+#include "overlays.hpp"
 #include "gui_forms/controls/button_base/check_box/check_box.hpp"
 #include "gui_forms/controls/range_control/track_bar/track_bar.hpp"
 #include "gui_forms/controls/scrollable_control/scrollable_control.hpp"
@@ -105,7 +106,7 @@ class SettingsPage final : public gf::ScrollableControl {
 // The masters (Music and Sound with their volumes, Motion) for everyone, the card
 // back for games that draw card backs, then the open game's declared settings.
 // Escape or the close mark leaves it; Tab walks its controls, arrows move sliders.
-class SettingsSheet final : public gf::Control {
+class SettingsSheet final : public gf::Control, public render::StillOverlay {
   public:
     explicit SettingsSheet(gf::StableId id);
     static constexpr bool initialize_tree_after_construction = true;
