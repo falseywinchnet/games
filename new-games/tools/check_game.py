@@ -138,7 +138,7 @@ FORBIDDEN_IN_CORE = (
     (r'#\s*include\s*"(suite|collection|shelf|capsule)\.hpp"', "a shell header in the pure core"),
     (r'#\s*include\s*"platform/(text|audio)\.hpp"', "text or audio in the pure core"),
     (r"std::chrono::(system|steady|high_resolution)_clock", "a clock in the pure core (pass time in as a parameter)"),
-    (r"\bstd::(thread|async|jthread)\b", "threads in the pure core (see guide/05-performance.md before adding any)"),
+    (r"\bstd::(thread|async|jthread)\b", "threads in the pure core (see guide/06-performance.md before adding any)"),
     (r"\bstd::getenv\b|\bgetenv\s*\(", "environment access in the pure core"),
 )
 

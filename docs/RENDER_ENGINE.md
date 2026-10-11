@@ -1,6 +1,6 @@
 # One renderer: r2d, r3d and one mesh library
 
-2026-10-08. The plan that follows `RENDERER_STUDY.md`. The suite ends with one shared
+2026-10-08. The plan that followed the renderer study (since retired). The suite ends with one shared
 engine in `shared/render/`: r2d, r3d, one mesh library, the bug fixes made once, and
 every game drawing through it. The aim is to **do less work, not to do the same work
 faster**. Threads may spread work over cores, but they do not reduce it, so they are an

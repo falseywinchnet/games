@@ -1,7 +1,7 @@
 # Shared engines
 
 A kit game normally owns everything it uses: it copies what it borrows into its own
-folder and namespace ([primitives](07-primitives.md)). That keeps games independent,
+folder and namespace ([primitives](03-primitives.md)). That keeps games independent,
 but it has a cost once a family of games is expected to share a large piece of
 machinery: each copy diverges, and an improvement reaches only the game it was made
 in. The owner's rule for that case: an engine anticipated for a large collection, or
@@ -81,7 +81,7 @@ game whose sounds the engine plays may omit `audio_adapter`.
   them completely and refuses a damaged one without disturbing what it had.
 - Write down what it costs. An engine that animates owns its processor budget and
   says in its README how it keeps it.
-- Follow the [house style](10-house-style.md); `scripts/check-style.py` checks
+- Follow the [house style](07-house-style.md); `scripts/check-style.py` checks
   `shared/` by default.
 
 ## The engines
@@ -119,4 +119,4 @@ limits. Read the one you build on before writing a line.
 | Live synthesis | Sound made as it plays, when synthesis is faster than real time: `SoundDesk::live` and `live_music` voices on `games::PcmPlayer`, as Nature Cube's music, Stillwater's ambience and Mowing's machines do. The kit's `make_sfx.py` and `games/zenconstruction/audio_src/engine/synth.py` are the offline starting points. | `src/scene_audio.*`, `src/pcm_player.*`, each game's `audio_src/` |
 
 The shell's own controls, and the concise way to write them, are in
-[controls](12-controls.md).
+[controls](04-controls.md).

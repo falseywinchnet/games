@@ -161,7 +161,7 @@ A game's folder holds everything about it: `GAME.json` (its identity on the shel
 
 The [Build installable PlaySuite workflow](https://github.com/falseywinchnet/games/actions/workflows/applications.yml) builds the complete collection on native Windows x64, macOS arm64, Linux x64 and Linux arm64 runners, runs every application test on each, then installs and launches the Windows, macOS and Linux packages with isolated saves. A push to `main` that passes on all four publishes a new version to [Releases](https://github.com/falseywinchnet/games/releases). Tests include the command bar at the minimum 600 × 420 window size for every game.
 
-Download installers and portable archives from [the latest release](https://github.com/falseywinchnet/games/releases/latest). macOS packages target Apple silicon and macOS 15 or later and are signed ad hoc, without Developer ID notarization. Linux packages target Ubuntu 24.04 or compatible systems and require X11.
+Download installers and portable archives from [the latest release](https://github.com/falseywinchnet/games/releases/latest). macOS packages target Apple silicon and macOS 14 or later and are signed ad hoc, without Developer ID notarization. Linux packages target Ubuntu 24.04 or compatible systems and require X11.
 
 PlaySuite links reviewed GUI.Forms source for native windows, portable text and audio (including live synthesized voices); no development SDK is installed or exported. CMake fetches pinned QuickJS for offline Sudoku. No external JavaScript runtime or server is needed. FFmpeg and Pillow prepare release assets and are not runtime requirements. See [complete build instructions](docs/BUILDING.md).
 
@@ -184,9 +184,19 @@ Music, Sound and Motion are shared master controls on the shelf sign and in ever
 ## Source layout
 
 - [`games/<id>/`](games): one folder per game, discovered from its `GAME.json`: factory, cover, help, build rules, code, assets, tests, `about.md` and screenshots.
-- [`shared/`](shared): code several games use. `cards/` is the card engine (rules, table, solver and the graded deal tables) behind Solitaire, Spider, FreeCell and Hearts; `puzzles/` the puzzle models, view and renderer behind Gems, Nature Cube, Untangle and Puzzle Solve; `ambient/` the retained 3D scene engine behind Stillwater and Mowing; `coverage/` Mowing's coverage planner; `felt/` the card-table felt generator.
-- [`src/`](src): the PlaySuite shell and its services: the shelf, boxes and launch transition (`collection`, `shelf`, `suite`), the command capsule, help, storage and scores, portable audio and text, presentation helpers and `main`.
-- [`authoring/playsuite_music/`](authoring/playsuite_music): the synthesizer and scores for the menu theme and the card, Sudoku, Gems, Nature Cube, Untangle and Puzzle Solve music.
-- [`new-games/`](new-games): the kit for making a new game.
+- [`shared/`](shared): the engines several games build on, each with its own README. `render/` is the one renderer (the 2D canvas, the r3d rasteriser and low-resolution 3D view, the mesh library, and the surfaces that draw straight into the window); `ambient/` the living 3D scenes behind Stillwater, Nature Cube, Koi-Koi and Mowing; `cards/` the card engine (rules, table, solver and the graded deal tables) behind Solitaire, Spider, FreeCell and Hearts; `puzzles/` the puzzle models, view and renderer behind Gems, Nature Cube, Untangle and Puzzle Solve; `grass/`, `soil/` and `paper/` the painters of lawns, garden ground and paper; `coverage/` the path-planning brain that mows for Mowing; `felt/` the fibre-rendered cloth of the card tables.
+- [`src/`](src): the PlaySuite shell and its services: the shelf, boxes and launch transition (`collection`, `shelf`, `suite`), the command capsule, the help book and Settings screen on their paper, storage and scores, portable audio and text, presentation helpers and `main`.
+- [`authoring/playsuite_music/`](authoring/playsuite_music): the synthesizer, sequencer and scores the collection's music and card sounds are written in.
+- [`new-games/`](new-games): the kit for making a new game: the rules, the procedure, the guides, the template and the submission check.
+- [`docs/`](docs/README.md): how to build, how the collection stays cheap, and what has been asked of the toolkit.
 
-See [the game catalog](docs/GAME_CATALOG.md) for exact rules and provenance, [validation](docs/VALIDATION.md) for evidence and limitations, [audio integration](docs/AUDIO_INTEGRATION.md), [source references](docs/SOURCE_REFERENCES.md), [the owner handoff](docs/OWNER_MODULE_HANDOFF.md) and [Eggy integration](docs/EGGY_INTEGRATION.md).
+## Documentation
+
+| For | Read |
+|---|---|
+| Playing | This page; the help document inside PlaySuite (H or F1). |
+| Making a game | [new-games/README.md](new-games/README.md) (rules and submission), [new-games/AGENTS.md](new-games/AGENTS.md) (the procedure), the [guides](new-games/guide/README.md). |
+| Building and releasing | [docs/BUILDING.md](docs/BUILDING.md). |
+| Reusing an engine | Its README under [`shared/`](shared), indexed in the [shared engines](new-games/guide/05-shared-engines.md) guide. |
+| Working on the shell | [AGENTS.md](AGENTS.md), [docs/PERFORMANCE.md](docs/PERFORMANCE.md), the [controls](new-games/guide/04-controls.md) guide. |
+| GUI.Forms owner | [docs/TOOLKIT_REQUESTS.md](docs/TOOLKIT_REQUESTS.md), [docs/ACCESSIBILITY_TOOLKIT_REQUEST.md](docs/ACCESSIBILITY_TOOLKIT_REQUEST.md). |

@@ -7,7 +7,7 @@ outside that folder.
 
 Follow the person's decisions and their existing publication authorization. Ask
 only about gaps that change the game. Write new C++ in
-[the house style](guide/10-house-style.md).
+[the house style](guide/07-house-style.md).
 
 ## 1. Brief
 
@@ -48,7 +48,7 @@ saves, and the passive mode if the game needs one.
 
 ## 2. Rules and tests
 
-Read [anatomy](guide/03-anatomy.md). Rules are deterministic and independent of
+Read [anatomy](guide/01-anatomy.md). Rules are deterministic and independent of
 GUI.Forms and the operating system; time and input arrive as values. Prove every
 generated level finishable by replaying a witness through the real rules.
 
@@ -63,12 +63,12 @@ Run heavy builds through the root `AGENTS.md` host instructions.
 
 ## 3. Presentation
 
-Read [the shell](guide/04-the-shell.md), [primitives](guide/07-primitives.md) and
-[performance](guide/05-performance.md). A game built on a shared engine supplies
+Read [the shell](guide/02-the-shell.md), [primitives](guide/03-primitives.md) and
+[performance](guide/06-performance.md). A game built on a shared engine supplies
 that engine's data and interface; read its README and
-[shared engines](guide/11-shared-engines.md), which indexes every reusable system
+[shared engines](guide/05-shared-engines.md), which indexes every reusable system
 (the renderer, scenes, the grass, soil, paper and felt materials, the coverage
-brain, music). A panel built from GUI.Forms controls follows [controls](guide/12-controls.md).
+brain, music). A panel built from GUI.Forms controls follows [controls](guide/04-controls.md).
 
 - `module.cpp`: the factory, using `games::HostedGameInstance<View>` or a
   module-owned `GameInstance`.

@@ -16,7 +16,7 @@ The source of truth is the pinned toolkit (`.github/workflows/applications.yml`)
 |---|---|---|
 | `Control` | `gui_forms/control.hpp` | The base: `arrange`, `on_paint`, `on_pointer`, `on_key`, `on_key_bubble`, `on_attached_to_window`, `on_detaching_from_window`, `invalidate`, `set_paint_plane`, `set_accessible_name`. Anything owner-drawn. |
 | `Panel`, `GroupBox`, `ScaledPanel`, `Card` | `container_controls.hpp` | Grouping; a card with an elevation. |
-| `FlowLayoutPanel`, `TableLayoutPanel` | `container_controls.hpp` | Layout containers. The shell lays out by hand in `arrange` (shorter, for now); a declarative grid has been proposed to the toolkit owner. |
+| `FlowLayoutPanel`, `TableLayoutPanel` | `container_controls.hpp` | Layout containers. The shell lays out by hand in `arrange`, which is shorter until the declarative grid below exists. |
 | `ScrollableControl` | `controls/scrollable_control/` | A scrolling body: `set_auto_scroll`, `arrange_scroll_viewport`, `scroll_to`, `scroll_by`, `scroll_position`. The help pages and the Settings page are these. |
 | `Label` | `basic_controls.hpp` | Text: `set_font`, `set_foreground`, `set_text_wrapping`, `set_alignment`, `measure`. |
 | `Button`, `CheckBox`, `RadioButton`, `LinkLabel` | `basic_controls.hpp` | Buttons and their kin, all on `ButtonBase`: `clicked`, `set_checked`, `set_enabled`, `set_expanded_state` (a disclosure), `hovered_visual`, `focus_cue_visible`. |
@@ -26,7 +26,7 @@ The source of truth is the pinned toolkit (`.github/workflows/applications.yml`)
 | `ChoiceGroup`, `CommandBar`, `ExpandableSections` | `collection_controls.hpp` | Groups that report the item: a radio row or chips, a toolbar of commands, disclosure sections. |
 | `MenuStrip`, `ContextMenu` | `menu_controls.hpp` | Menus driven by `Command`s. |
 | `Timer` | `timer.hpp` | `start`, `stop`, `set_interval`, a `tick()` event. The only clock a control uses. |
-| `LiveSurface` | `live_surface.hpp` | A game's own pixels (see [primitives](07-primitives.md)). |
+| `LiveSurface` | `live_surface.hpp` | A game's own pixels (see [primitives](03-primitives.md)). |
 | `Command`, `Value<T>` | `commands.hpp`, `value.hpp` | Application-owned state that controls bind to. |
 
 A control is made with `gf::make_control<T>(gf::StableId("where.what"), ...)` and
@@ -159,6 +159,29 @@ text with `draw_text_utf8` at a baseline it measures with `measure_text_utf8`.
 5. Keys bubble: a sheet forwards `on_key_bubble` to its page; a control sets
    `event.handled = true` only for keys it used.
 
+## Why it is written this way
+
+In October 2026 PlaySuite measured its own shell against the WinForms it is meant to
+beat. Instantiation was at parity; custom drawing and performance were far better;
+layout and events were worse. Wiring a button took a `Delegate::bind` long enough that
+the capsule bound one shared handler for every button and found out which was clicked
+by comparing the sender against each pointer, and the Settings page did the same for
+its rows and chips, with a quiet-flag `TrackBar` subclass to stop a feedback loop. The
+case was put to the toolkit owner in five steps; two have shipped and are what this
+page teaches:
+
+| Step | State | What it replaced in the shell |
+|---|---|---|
+| Named handlers: `gf::on` with owner-held tokens | Shipped (GUI.Forms f81ec0c) | Every `subscriptions_` vector and `Delegate::bind` |
+| Bound values, shared `Command` and `Value<T>` state, item-reporting groups | Shipped (5bb7a8b) | The capsule's and Settings page's pointer searches, the quiet slider subclass, manual `set_checked` copies between the shelf's and the capsule's switches |
+| One declarative grid (rows and columns as `"34 auto * 34"`, cells, dock and anchor) | Not yet | The hand-written `arrange` code in the capsule and shelf |
+| A form as a plain struct of controls built from `Options` records, attached in one call | Not yet | The constructors' `make_control` and setter runs |
+| Skins that draw named parts; the HTML subset and the browser designer that produce the struct | Not yet | `SuiteButton`'s gloss and glyphs becoming a skin |
+
+Until the grid and form records exist, write controls as the shipped steps allow:
+one named handler per control, state bound rather than copied, groups that report
+the item, and `arrange` by hand.
+
 ## What not to do
 
 - No `subscriptions_` vectors, `Delegate::bind` chains or handlers that compare a sender
@@ -167,6 +190,6 @@ text with `draw_text_utf8` at a baseline it measures with `measure_text_utf8`.
   input event (`scroll`) instead of the state event.
 - No manual `set_checked` copies between two controls that show one state: bind both to
   one `Command`.
-- No lambdas, `auto` or `->` anywhere (the [house style](10-house-style.md)).
+- No lambdas, `auto` or `->` anywhere (the [house style](07-house-style.md)).
 - Nothing drawn over a live surface by another control; nothing that polls. A control
   that is not animating schedules no work.

@@ -106,12 +106,12 @@ For anything that runs per pixel, per cell or per body:
   with `gf::on(event, *this, &View::tick)`, whose subscription the owner holds and
   revokes when it is disposed. Controls made in a loop bind an index, never a
   pointer search. `subscribe` with a kept token is for a connection that must be
-  cancelled on its own. See [controls](12-controls.md).
+  cancelled on its own. See [controls](04-controls.md).
 - `std::function` only where a callable must be stored and owned, with a named
   target.
 - Asynchronous work is named, has a completion the owner polls, and is waited
   for on shutdown. Mutable state belongs to one thread. See
-  [performance](05-performance.md) before adding a thread.
+  [performance](06-performance.md) before adding a thread.
 
 ## Abstractions
 

@@ -2,7 +2,7 @@
 
 What a game can draw, write and play with, and where each piece lives. The
 collection has no shared game library by design: a game *copies* what it borrows
-into its own folder and namespace (see [anatomy](03-anatomy.md)). This page tells
+into its own folder and namespace (see [anatomy](01-anatomy.md)). This page tells
 you what exists so you do not write it again.
 
 Headers are the reference. Each is short and commented; read the one you use.
@@ -121,7 +121,7 @@ motor) need a few more lines in your audio adapter. Copy the pattern from
 ### The save envelope (`src/save.hpp`)
 
 `seal`, `unseal`, `write_save`, `read_save`: magic line, bounded text body,
-checksum, atomic replacement. See [anatomy](03-anatomy.md).
+checksum, atomic replacement. See [anatomy](01-anatomy.md).
 
 ### Seeded randomness (`rules.cpp`)
 
@@ -131,7 +131,7 @@ separate streams by seeding separate states (seed, seed + 1, ...).
 ## Shared engines (`shared/`)
 
 Some machinery is shared rather than copied: a game declares the engine in
-`GAME.json` and links its library. See [shared engines](11-shared-engines.md).
+`GAME.json` and links its library. See [shared engines](05-shared-engines.md).
 
 | Engine | What it gives you |
 |---|---|
@@ -211,7 +211,7 @@ A view uses a small part of it, all visible in the template:
 | `gf::LiveSurface` | The game's pixels: `create`, `reconfigure`, `try_acquire_write` returning a lease with `pixels`, `row_bytes`, `publish` |
 | `gf::Window` | `scale`, `request_focus`, `queue_live_surface_presentation`, `active`, `occluded` |
 | `gf::Timer` | `start`, `stop`, `enabled`, `interval`, `set_interval`, and a `tick()` event bound with `gf::on(timer.tick(), *this, &View::tick)` |
-| `gf::on`, `gf::Command`, `gf::Value<T>` | Named handlers, and state that controls bind to; see [controls](12-controls.md) |
+| `gf::on`, `gf::Command`, `gf::Value<T>` | Named handlers, and state that controls bind to; see [controls](04-controls.md) |
 | `gf::PointerEvent`, `gf::KeyEvent`, `gf::PhysicalKey` | Input |
 | `gf::Painter` | Only for `draw_live_surface` in `on_paint`, and for the emblem |
 

@@ -3,7 +3,7 @@
 Stillwater is the native Stillwater aquarium (Metal, macOS) ported to PlaySuite as
 a processor-only scene, and the first game on the shared ambient engine
 (`shared/ambient`). The engine tier itself (`shared/`, discovery, gate and kit
-rules) arrived in the same change; see `new-games/guide/11-shared-engines.md`.
+rules) arrived in the same change; see `new-games/guide/05-shared-engines.md`.
 
 ## Verified
 
