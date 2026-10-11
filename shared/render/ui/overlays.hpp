@@ -59,6 +59,14 @@ inline void refresh_overlays_in(const gf::Control& control, const gf::Rect& dama
 // A frame was published for `owner`, changing `local_damage` (the owner's own points;
 // empty for all of it): every overlay over that paints again.
 inline void refresh_overlays(const gf::Control& owner, gf::Rect local_damage = {}) {
+#if defined(__APPLE__)
+    // The macOS host redraws a publication's damage itself, the overlays in it included
+    // (GUI.Forms 6e9a817). Asking again only added far-apart invalidations (the capsule in
+    // one corner, help in another) whose union repainted the whole window every frame.
+    static_cast<void>(owner);
+    static_cast<void>(local_damage);
+    return;
+#endif
     gf::Window* window = owner.attached_window();
     if (window == nullptr || !(*window).root())
         return;

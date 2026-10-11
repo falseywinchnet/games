@@ -1,6 +1,5 @@
 #include "help_route.hpp"
 #include "overlays.hpp"
-#include "resize.hpp"
 #include "eggy_view.hpp"
 
 #include "audio.hpp"
@@ -159,7 +158,7 @@ void EggyView::arrange(gf::Rect bounds) {
         d.width = static_cast<std::uint32_t>(phys_w_);
         d.height = static_cast<std::uint32_t>(phys_h_);
         d.opaque = true;  // every pixel is drawn opaque: the window copies, never blends
-        static_cast<void>(render::reconfigure_keeping_picture(*surface_, d));
+        static_cast<void>(surface_->reconfigure(d));
     }
     layout_buttons();
 }
@@ -867,7 +866,7 @@ void EggyView::draw_button(const Button& b) {
 void EggyView::draw_hud() {
     const RenderState& s = *rendering_;
     // status panel: only what Eggy has achieved, never what remains
-    const int x = 3, y = 3, w = 64, h = 25;
+    const int x = 3, y = top_inset(), w = 64, h = 25;
     frame_.fill_rect(x + 1, y + 1, w, h, hex(0x000000, .35f));
     frame_.fill_rect(x, y, w, h, hex(0x10182A, .8f));
     frame_.begin(); frame_.rect(x + .5, y + .5, w - 1, h - 1); frame_.stroke(hex(0xC9A227), 1);
@@ -893,7 +892,7 @@ void EggyView::draw_hud() {
     {
         const bool helping = s.player_mode;
         const std::string m = helping ? "YOU ARE HELPING!" : "AUTOPILOT - EGGY CLIMBS ON";
-        const int mw = text_w(m, 10, true) + 6, mx = pw_ - mw - 3, my = 3;
+        const int mw = text_w(m, 10, true) + 6, mx = pw_ - mw - 3, my = top_inset();
         frame_.fill_rect(mx, my, mw, 7, helping ? hex(0x1F7A3A, .88f) : hex(0x8A5A10, .85f));
         frame_.begin(); frame_.rect(mx + .5, my + .5, mw - 1, 6); frame_.stroke(hex(0xFFE9A0, .9f), 1);
         const float pulse = helping ? 1.f : static_cast<float>(.8 + .2 * std::sin((*rendering_).t_ * 3));
@@ -925,7 +924,7 @@ void EggyView::draw_bubble() {
     const double pop = std::min(1.0, (*rendering_).bubble_.age * 8);
     int bx = static_cast<int>(hx - bw * .3), by = static_cast<int>(hy - bh - 6 - (1 - pop) * 3);
     bx = std::clamp(bx, 3, pw_ - bw - 3);
-    by = std::clamp(by, 31, ph_ - bh - 14);
+    by = std::clamp(by, top_inset() + 28, ph_ - bh - 14);
     const Col bg = (*rendering_).bubble_.officer ? hex(0xE9F2D0) : hex(0xFFFFFF);
     frame_.fill_rect(bx + 1, by + 1, bw, bh, hex(0x000000, .3f));
     frame_.fill_rect(bx - 1, by - 1, bw + 2, bh + 2, kInk);

@@ -1,5 +1,4 @@
 #include "surface.hpp"
-#include "resize.hpp"
 #include "overlays.hpp"
 
 #include "gui_forms/window.hpp"
@@ -21,8 +20,9 @@ bool Surface::configure(int width, int height) {
     description.pixel_format = gf::native_live_surface_pixel_format();
     description.opaque = true;
     if (surface_) {
-        // The old picture, scaled, stands in until the game's first frame at this size.
-        if (!reconfigure_keeping_picture(*surface_, description)) {
+        // GUI.Forms keeps presenting the old picture, scaled, until the first frame at this
+        // size is published, so a resize never shows an empty surface.
+        if (!(*surface_).reconfigure(description)) {
             return false;
         }
     } else {

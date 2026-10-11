@@ -133,7 +133,9 @@ gf::LiveSurfaceFrame advance(gf::Window& window, std::shared_ptr<gf::LiveSurface
         for (const gf::LiveSurfacePresentation& item : presentations) {
             surface = item.surface;
         }
-        if (surface) {
+        // A resized surface shows its previous frame until the game publishes at the new
+        // size; that carried frame is not the game's answer.
+        if (surface && !(*surface).snapshot().carries_previous_frame) {
             gf::LiveSurfaceFrame frame = (*surface).acquire_latest();
             if (frame && frame.generation() > after) {
                 return frame;

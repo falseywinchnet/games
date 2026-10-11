@@ -11,6 +11,7 @@
 #include "gui_forms/timer.hpp"
 
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -91,6 +92,11 @@ private:
     Options opt_;
     // Hosted, PlaySuite's Sound master is the only switch; standalone, the game's own.
     [[nodiscard]] bool sound_on() const { return opt_.hosted || save_.settings.sound; }
+    // Where the HUD starts, in game pixels: in the collection, below the floating capsule and
+    // the help button, which take the top 58 points.
+    [[nodiscard]] int top_inset() const {
+        return opt_.hosted ? static_cast<int>(std::ceil(58 / save_.settings.pixel)) : 3;
+    }
     std::unique_ptr<Sim> sim_;
     Scene scene_;
     SaveData save_;

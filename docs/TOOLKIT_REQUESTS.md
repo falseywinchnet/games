@@ -39,7 +39,12 @@ AGENTS.md asks for reusable capabilities to become GUI.Forms enhancements, coord
    the host still repaints the overlay every frame. The request: repaint an
    overlay over a live view only when the published damage reaches it, and copy
    the published region without a pixel conversion when the surface already has
-   the window's byte order.
+   the window's byte order. *Done in GUI.Forms 6e9a817 (pinned at 2d7e64f): the
+   macOS host now redraws only a publication's damage. Most of what remained was
+   ours: `render::refresh_overlays` invalidated every overlay a whole-frame
+   publication reached (the capsule in one corner, help in another), and the union
+   painted the whole window each frame; it now does nothing on macOS. Painting
+   far-apart damage as separate rectangles is GUI.Forms' open work W9.*
 
 ## Host behavior found on Windows
 

@@ -91,7 +91,9 @@ inline gf::LiveSurfaceFrame contract_next_frame(gf::Window& window, std::shared_
         for (std::size_t index = 0; index < presentations.size(); ++index) {
             surface = presentations[index].surface;
         }
-        if (surface) {
+        // A resized surface shows its previous frame until the game publishes at the new
+        // size; that carried frame is not the game's answer.
+        if (surface && !(*surface).snapshot().carries_previous_frame) {
             gf::LiveSurfaceFrame frame = (*surface).acquire_latest();
             if (frame && frame.generation() > after) {
                 return frame;

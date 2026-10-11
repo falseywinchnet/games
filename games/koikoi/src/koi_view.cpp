@@ -1,6 +1,5 @@
 #include "help_route.hpp"
 #include "overlays.hpp"
-#include "resize.hpp"
 #include "runtime_paths.hpp"
 #include "koi_view.hpp"
 
@@ -127,7 +126,7 @@ void KoiView::arrange(gf::Rect bounds) {
         d.width = static_cast<std::uint32_t>(phys_w_);
         d.height = static_cast<std::uint32_t>(phys_h_);
         d.opaque = true;  // every pixel is drawn opaque: the window copies, never blends
-        static_cast<void>(render::reconfigure_keeping_picture(*surface_, d));
+        static_cast<void>(surface_->reconfigure(d));
     }
     for (Sprite& s : sp_) s.placed = false;
     layout_buttons();
