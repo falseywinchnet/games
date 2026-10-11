@@ -111,7 +111,7 @@ struct Bird {
     int hops{};        // perches still to visit before it goes
 };
 
-enum class ParticleKind : std::uint8_t { clipping, seed, petal, mushroom, shard, hat, mulch, leaf };
+enum class ParticleKind : std::uint8_t { clipping, seed, petal, mushroom, shard, hat, mulch, leaf, flame, smoke };
 
 struct Particle {
     ParticleKind kind{};
@@ -230,9 +230,23 @@ class Mowing final {
     [[nodiscard]] Livery livery() const {
         return livery_;
     }
-    // Mowing direction per fine cell, 0..255 for 0..2 pi; 0 also means not cut.
+    // The way the grass lies per fine cell: 1..254 for 0..2 pi, 0 not cut, 255 cut
+    // without a direction. A second pass lays it again, weighted with how it lay first.
     [[nodiscard]] const std::vector<std::uint8_t>& stripes() const {
         return stripes_;
+    }
+    // Striping the open lawn again once it is all cut (the pro's finish).
+    [[nodiscard]] bool finishing() const {
+        return finishing_;
+    }
+    // Seconds left of the hurry after the gnome is broken: the mower runs at twice its
+    // pace and the band plays fast.
+    [[nodiscard]] double hurry() const {
+        return hurry_;
+    }
+    // Seconds a knocked-over grill still burns, per prop (0 for none).
+    [[nodiscard]] double fire(std::size_t prop) const {
+        return prop < fire_.size() ? fire_[prop] : 0.0;
     }
     [[nodiscard]] double time() const {
         return time_;
@@ -245,7 +259,11 @@ class Mowing final {
 
   private:
     void step(double seconds);
-    void record_cut(const coverage::Pose& from, const coverage::Pose& to, bool driving);
+    void record_cut(const coverage::Pose& from, const coverage::Pose& to, std::uint8_t lay);
+    void plan_finish();
+    coverage::Step finish_step(double seconds);
+    void knock_grills();
+    void burn(double seconds);
     void run_over_things();
     void wreck_beds(double seconds, bool driven);
     void strike_trees();
@@ -276,6 +294,25 @@ class Mowing final {
     std::vector<Particle> particles_{};
     std::vector<Cue> cues_{};
     std::vector<std::uint8_t> stripes_{};
+    std::vector<std::uint8_t> first_lay_{};  // how each cell lay after its first cut
+    // The finish: lanes along the sun's line over each open stretch, mown back and forth.
+    struct Lane {
+        double x0{};
+        double y0{};
+        double x1{};
+        double y1{};
+        int section{};
+    };
+    std::vector<Lane> lanes_{};
+    std::size_t lane_{};
+    int lane_stage_{};      // 0 going there through the garden, 1 turning onto it, 2 mowing it
+    double lane_clock_{};   // seconds in this stage, to give up on one that cannot be reached
+    bool goal_sent_{};
+    bool finish_planned_{};
+    bool finishing_{};
+    double hurry_{};
+    std::vector<double> fire_{};
+    std::vector<double> fire_carry_{};
     EngineVoice voice_{};
     Dirty dirty_{};
     double time_{};
@@ -312,7 +349,10 @@ class Mowing final {
     double engine_clock_{1000};
 };
 
-// Converts between lawn metres and stripe codes.
+// Converts between headings and stripe codes, 1..254.
 std::uint8_t heading_code(double heading);
+double code_heading(std::uint8_t code);
+// The way short grass lies when laid towards the grass art's sun (the dark lay).
+constexpr double sun_lay = -2.443;
 
 } // namespace mm

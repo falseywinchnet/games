@@ -556,6 +556,18 @@ void draw_particles(Canvas& canvas, const Frame& frame, const std::vector<Partic
         const double x = frame.px(p.x);
         const double y = frame.py(p.y) - frame.up(p.z);
         const double r = std::max(0.8, p.size * frame.ppm);
+        if (p.kind == ParticleKind::flame) {
+            // A flame shrinks and reddens as it rises: a soft glow round a bright core.
+            const double left = std::clamp(1 - p.age / p.life, 0.0, 1.0);
+            canvas.fill_circle(x, y, r * (1.2 + left), alpha(tint, static_cast<float>(0.22 * left)));
+            canvas.fill_ellipse(x, y, r * left, r * 1.4 * left, alpha(tint, static_cast<float>(0.9 * left)));
+            continue;
+        }
+        if (p.kind == ParticleKind::smoke) {
+            const double rise = std::clamp(p.age / p.life, 0.0, 1.0);
+            canvas.fill_circle(x, y, r, alpha(tint, static_cast<float>(0.32 * (1 - rise) * std::min(1.0, p.age * 6))));
+            continue;
+        }
         if (p.z > 0.02)
             canvas.fill_ellipse(frame.px(p.x + shadow_x * p.z), frame.py(p.y + shadow_y * p.z), r, r * frame.tilt, rgb(6, 14, 4, static_cast<float>(0.25 * fade)));
         if (p.kind == ParticleKind::leaf) {

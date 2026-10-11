@@ -7,6 +7,7 @@
 #include "mower_voice.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <random>
 #include <chrono>
 #include <cmath>
@@ -77,10 +78,16 @@ class LiveBand final : public gui_forms::AudioGenerator {
   public:
     void render(std::span<float> stereo) noexcept override {
         std::fill(stereo.begin(), stereo.end(), 0.0F);
+        band_.set_hurry(hurry_.load(std::memory_order_relaxed));
         band_.render_add(stereo, 1.0);
+    }
+    // From the window thread: the band breaks into a fast tune while the mower hurries.
+    void set_hurry(float factor) {
+        hurry_.store(factor, std::memory_order_relaxed);
     }
 
   private:
+    std::atomic<float> hurry_{1};
     BanjoVoice band_{static_cast<std::uint32_t>(std::random_device{}()), BanjoStyle::scruggs};
 };
 #endif
@@ -454,7 +461,10 @@ void MowingScenery::sound(bool running, ambient::SceneContext& context) {
     if (!band_)
         band_ = std::make_shared<LiveBand>();
     // About 5 dB under where it was first accepted: background music, never in front.
-    context.sound.live_music(band_, 0.45);
+    // For the half minute after the gnome is broken the band plays fast and comes forward.
+    const bool hurry = mowing.hurry() > 0;
+    (*band_).set_hurry(hurry ? 1.45F : 1.0F);
+    context.sound.live_music(band_, hurry ? 0.62 : 0.45);
     // The mower's voice is synthesized live: the key and the grass under the deck go
     // straight to it, and it starts, labours, clears and spins down on its own.
     if (!live_)

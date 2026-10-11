@@ -133,6 +133,39 @@ int main(int argc, char** argv) {
                 prop.seed = (item.style << 33U) | (17U + static_cast<std::uint64_t>(item.x * 10 + 50));
                 mm::draw_prop(canvas, frame, prop);
             }
+        } else if (what == "fallen") {
+            // the two grills standing, then knocked over with their coals alight
+            std::uint64_t random = 5;
+            std::vector<mm::Particle> fire{};
+            for (int k = 0; k < 4; ++k) {
+                mm::Prop prop{};
+                prop.kind = mm::PropKind::grill;
+                prop.rx = k % 2 == 0 ? 0.42 : 0.8;
+                prop.ry = 0.34;
+                prop.x = -1.6 + (k % 2) * 2.4;
+                prop.y = k < 2 ? -0.9 : 0.9;
+                prop.seed = (static_cast<std::uint64_t>(k % 2 == 0 ? 0 : 2) << 33U) | 23U;
+                prop.toppled = k >= 2;
+                prop.fall = 0.5;
+                mm::draw_prop(canvas, frame, prop);
+                if (!prop.toppled)
+                    continue;
+                for (int f = 0; f < 40; ++f) {
+                    mm::Particle p{};
+                    const bool flame = f < 26;
+                    p.kind = flame ? mm::ParticleKind::flame : mm::ParticleKind::smoke;
+                    p.x = prop.x + std::cos(prop.fall) * 0.65 + mm::random_range(random, -0.12, 0.12);
+                    p.y = prop.y + std::sin(prop.fall) * 0.65 + mm::random_range(random, -0.08, 0.08);
+                    p.life = flame ? 0.5 : 2.0;
+                    p.age = mm::random_range(random, 0, p.life * 0.8);
+                    p.z = 0.05 + p.age * (flame ? 0.75 : 0.35);
+                    p.size = flame ? mm::random_range(random, 0.03, 0.06) : 0.07 + p.age * 0.05;
+                    const double t = mm::random_range(random, 0, 1);
+                    p.tint = flame ? (t < 0.4 ? 0xFFD24A : (t < 0.8 ? 0xFF8A1E : 0xE8461A)) : 0x7A7672;
+                    fire.push_back(p);
+                }
+            }
+            mm::draw_particles(canvas, frame, fire);
         } else if (what == "sheds") {
             for (int k = 0; k < 6; ++k) {
                 mm::Prop prop{};

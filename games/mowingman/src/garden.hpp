@@ -82,6 +82,8 @@ struct Prop {
     double angle{};  // radians; buildings and loungers are turned in quarter turns
     bool occupied{};  // someone is on the lawn chair
     std::uint64_t seed{};
+    bool toppled{};   // a grill knocked over by the mower, lying the way it fell
+    double fall{};    // radians: the way it fell
 };
 
 // Which kind of a thing it is, from its own seed: 0, 1 or 2. A grill is a kettle or (2) a

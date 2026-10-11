@@ -9,7 +9,7 @@ namespace {
 
 constexpr double pi = 3.14159265358979323846;
 constexpr double light_angle = -2.356;  // the sun is up and to the left
-constexpr double lay_angle = -2.443;    // the way short grass lies when laid towards the grass art's sun
+constexpr double lay_angle = sun_lay;    // the way short grass lies when laid towards the grass art's sun
 
 struct Rgba {
     float r{};
@@ -224,7 +224,7 @@ void Yard::shade(const GrassArt& art, const Mowing& mowing, int x0, int y0, int 
                         const std::uint8_t code =
                             stripes[static_cast<std::size_t>(cy) * static_cast<std::size_t>(lawn_cells_x) + static_cast<std::size_t>(cx)];
                         if (code != 0 && code != 255) {
-                            const double heading = (code - 1) / 255.0 * 2 * pi;
+                            const double heading = code_heading(code);
                             const Layer* lays[4] = {&art.mown_dark, &art.mown_quarter, &art.mown_light, &art.mown_three_quarter};
                             double turn = (heading - lay_angle) / (pi / 2);
                             turn -= 4 * std::floor(turn / 4);

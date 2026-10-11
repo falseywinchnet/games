@@ -157,6 +157,26 @@ void mow_to_the_end(std::uint64_t seed) {
             standing += bloom.cut ? 0 : 1;
         const std::size_t flowers = mowing.garden().dandelions.size() + mowing.garden().blooms.size();
         require(standing <= 3 + static_cast<int>(flowers / 20), "the lawn's flowers go with the grass");
+        // The planner's pass lays the grass evenly across the sun's line; the finish then
+        // lays the open stretches a little toward the sun and a little away from it.
+        const double neutral = mm::sun_lay + 3.14159265358979 / 2;
+        int even = 0, toward = 0, away = 0, cut = 0;
+        for (const std::uint8_t code : mowing.stripes()) {
+            if (code == 0 || code == 255)
+                continue;
+            ++cut;
+            double turn = mm::code_heading(code) - neutral;
+            turn = std::remainder(turn, 2 * 3.14159265358979);
+            if (std::abs(turn) < 0.12)
+                ++even;
+            else if (turn < -0.4 && turn > -1.2)
+                ++toward;
+            else if (turn > 0.4 && turn < 1.2)
+                ++away;
+        }
+        std::printf("lay: %.0f%% even, %.0f%% toward the sun, %.0f%% away\n", 100.0 * even / cut, 100.0 * toward / cut, 100.0 * away / cut);
+        require(even > cut / 3, "the first pass lays the grass evenly");
+        require(toward > cut / 50 && away > cut / 50, "the finish stripes the open lawn both ways");
     }
 }
 
@@ -199,7 +219,12 @@ void test_gnome() {
     for (const mm::Particle& particle : mowing.particles())
         shards += particle.kind == mm::ParticleKind::shard ? 1 : 0;
     require(shards > 0, "and there are pieces");
+    require(mowing.hurry() > 25, "breaking him sends the mower into a hurry");
+    for (int k = 0; k < 31 * 30; ++k)
+        mowing.advance(1.0 / 30, false);
+    require(mowing.hurry() == 0, "for half a minute");
 }
+
 
 void test_takeover() {
     mm::Mowing mowing(3, mm::Livery::red_t);
@@ -325,6 +350,48 @@ bool clear_line(const mm::Garden& garden, double x0, double y0, double x1, doubl
             }
     }
     return true;
+}
+
+// Driven into, a grill goes over, burns a little and goes out.
+void test_grill() {
+    // A garden where, after a while, the mower can be driven at a grill and reaches it.
+    std::unique_ptr<mm::Mowing> found{};
+    std::size_t grill = 0;
+    for (std::uint64_t seed = 1; seed < 120 && !found; ++seed) {
+        const mm::Garden garden = mm::make_garden(seed);
+        for (std::size_t index = 0; index < garden.props.size() && !found; ++index) {
+            const mm::Prop& prop = garden.props[index];
+            if (prop.kind != mm::PropKind::grill)
+                continue;
+            std::unique_ptr<mm::Mowing> trial = std::make_unique<mm::Mowing>(seed, mm::Livery::orange_h);
+            for (int k = 0; k < 600; ++k)
+                (*trial).advance(1.0 / 30, false);
+            const coverage::Pose& at = (*trial).mower().pose();
+            if (!clear_line(garden, at.x, at.y, prop.x + (at.x - prop.x) * 0.25, prop.y + (at.y - prop.y) * 0.25))
+                continue;
+            require((*trial).grab(at.x, at.y), "the mower can be grabbed");
+            for (double time = 0; time < 40 && !(*trial).garden().props[index].toppled; time += 1.0 / 30) {
+                (*trial).steer(prop.x, prop.y);
+                (*trial).advance(1.0 / 30, false);
+            }
+            if ((*trial).garden().props[index].toppled) {
+                found = std::move(trial);
+                grill = index;
+            }
+        }
+    }
+    require(found != nullptr, "driven into, a grill goes over");
+    mm::Mowing& mowing = *found;
+    require(mowing.fire(grill) > 3, "and its coals burn");
+    mowing.let_go();
+    bool flames = false;
+    for (int k = 0; k < 9 * 30; ++k) {
+        mowing.advance(1.0 / 30, false);
+        for (const mm::Particle& particle : mowing.particles())
+            flames = flames || particle.kind == mm::ParticleKind::flame;
+    }
+    require(flames, "with flames");
+    require(mowing.fire(grill) == 0, "that go out within a few seconds");
 }
 
 void test_driving_over_a_bed() {
@@ -546,6 +613,7 @@ int main(int argc, char** argv) {
     timed(test_takeover, "test_takeover");
     timed(test_deterministic, "test_deterministic");
     timed(test_gnome, "test_gnome");
+    timed(test_grill, "test_grill");
     timed(test_retained_lawn, "test_retained_lawn");
     std::printf("mowing man: %d checks passed\n", checks);
     return 0;

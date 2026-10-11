@@ -71,10 +71,36 @@ EngineSpec engine_spec(Livery livery) {
 std::uint8_t heading_code(double heading) {
     double turns = heading / (2 * pi);
     turns -= std::floor(turns);
-    // 1..255 so that 0 can mean "not cut".
-    const std::uint8_t result = static_cast<std::uint8_t>(1 + std::min(254.0, std::floor(turns * 255.0)));
+    // 1..254: 0 means not cut and 255 cut without a direction.
+    const std::uint8_t result = static_cast<std::uint8_t>(1 + std::min(253.0, std::floor(turns * 254.0)));
     return result;
 }
+
+double code_heading(std::uint8_t code) {
+    return (code - 1 + 0.5) / 254.0 * 2 * pi;
+}
+
+namespace {
+// How grass cut twice lies: mostly as the first pass left it, turned toward the second.
+// A newer pass over older grass is what makes a crisscross: four shades where two
+// passes meet, not the last pass alone.
+constexpr double relay_weight = 0.5;
+std::uint8_t relaid(std::uint8_t first, std::uint8_t now) {
+    if (first == 0 || first == 255)
+        return now;
+    const double a = code_heading(first);
+    const double b = code_heading(now);
+    const double x = std::cos(a) * (1 - relay_weight) + std::cos(b) * relay_weight;
+    const double y = std::sin(a) * (1 - relay_weight) + std::sin(b) * relay_weight;
+    // Laid one way and straight back the other: it stands up again, no lay at all.
+    if (x * x + y * y < 0.01)
+        return 255;
+    return heading_code(std::atan2(y, x));
+}
+// The planner's own pass leaves the grass laid across the sun's line: neither the
+// light stripe nor the dark one, an even ground for the finish to stripe.
+const std::uint8_t neutral_lay = heading_code(sun_lay + pi / 2);
+} // namespace
 
 void Dirty::include(double x, double y, double radius) {
     x0 = std::min(x0, x - radius);
@@ -87,6 +113,9 @@ Mowing::Mowing(std::uint64_t seed, Livery livery)
     : random_(seed * 0x9E3779B97F4A7C15ULL + 7), garden_(make_garden(seed)), livery_(livery),
       mower_(field_setup(), machine_setup(), garden_.obstacles, {garden_.start_x, garden_.start_y, garden_.start_heading}) {
     stripes_.assign(static_cast<std::size_t>(lawn_cells_x) * static_cast<std::size_t>(lawn_cells_y), 0);
+    first_lay_.assign(stripes_.size(), 0);
+    fire_.assign(garden_.props.size(), 0.0);
+    fire_carry_.assign(garden_.props.size(), 0.0);
     trampled_.assign(stripes_.size(), 0);
     tree_shake_.assign(garden_.trees.size(), 0.0);
     mower_.set_solid(garden_.solid);
@@ -129,7 +158,7 @@ Mowing::Mowing(std::uint64_t seed, Livery livery)
     const EngineSpec spec = engine_spec(livery_);
     voice_.rpm = spec.rated_rpm;
     voice_.rate = 1;
-    record_cut(mower_.pose(), mower_.pose(), false);
+    record_cut(mower_.pose(), mower_.pose(), 0);
 }
 
 void Mowing::set_livery(Livery livery) {
@@ -138,7 +167,7 @@ void Mowing::set_livery(Livery livery) {
 }
 
 bool Mowing::complete() const {
-    return mower_.finished() && idle_ > 6.0 && gnome_.state != GnomeState::frozen &&
+    return mower_.finished() && !finishing_ && idle_ > 6.0 && gnome_.state != GnomeState::frozen &&
            gnome_.state != GnomeState::shattered;
 }
 
@@ -260,27 +289,51 @@ void Mowing::step(double dt) {
     const coverage::Pose before = mower_.pose();
     coverage::Step step{};
     const bool running = engine_on_ && engine_clock_ >= engine_start_seconds;
+    // After the gnome is broken the mower runs at twice its pace for a while.
+    hurry_ = std::max(0.0, hurry_ - dt);
+    const double pace = hurry_ > 0 ? 2 * dt : dt;
+    // The pro's finish waits while the gnome or the old lady has the mower's attention.
+    const bool distracted = (gnome_.state == GnomeState::frozen && gnome_.sought) || granny_.state != GrannyState::away;
+    if (!finish_planned_ && running && !held_ && !rescuing_ && !distracted && mower_.finished()) {
+        plan_finish();
+        finishing_ = !lanes_.empty();
+    }
     if (!running)
         step = coverage::Step{};
     else if (held_)
-        step = mower_.drive_toward(hold_x_, hold_y_, dt);
+        step = mower_.drive_toward(hold_x_, hold_y_, pace);
     else if (rescuing_) {
-        step = mower_.drive_toward(rescue_x_, rescue_y_, dt);
+        step = mower_.drive_toward(rescue_x_, rescue_y_, pace);
         if (clear_around(mower_.pose().x, mower_.pose().y, 0.50) || std::hypot(rescue_x_ - mower_.pose().x, rescue_y_ - mower_.pose().y) < 0.1) {
             rescuing_ = false;
             mower_.resume();
         }
-    } else
-        step = mower_.update(dt);
+    } else if (finishing_ && !distracted)
+        step = finish_step(pace);
+    else
+        step = mower_.update(pace);
     const bool driven = running && (held_ || rescuing_);
     wreck_beds(dt, driven);
     if (held_ && step.bumped)
         strike_trees();
+    if (held_)
+        knock_grills();
+    burn(dt);
     for (double& shake : tree_shake_)
         shake = std::max(0.0, shake - dt / 1.2);
     update_granny(dt);
     update_life(dt);
-    record_cut(before, mower_.pose(), step.speed > 0.25);
+    {
+        // How the grass lies where it is cut: as the mower goes under a hand or on the
+        // finish, across the sun's line on the planner's own pass, not at all on a pivot.
+        const bool driving = step.speed > 0.25;
+        const bool own_pass = !held_ && !rescuing_ && !finishing_;
+        // On the finish only the lanes lay the grass: getting to them and turning
+        // between them leave the stripes as they are.
+        const bool laying = !finishing_ || held_ || rescuing_ || lane_stage_ == 2;
+        const std::uint8_t lay = !driving || !laying ? 0 : own_pass ? neutral_lay : heading_code(mower_.pose().heading);
+        record_cut(before, mower_.pose(), lay);
+    }
     if (step.bumped && bump_quiet_ <= 0) {
         cue("mm_bump", 0.5, 1.0, mower_.pose().x);
         bump_quiet_ = 0.8;
@@ -300,13 +353,12 @@ void Mowing::step(double dt) {
 // Marks the mowing direction of every newly cut cell between two poses, and the
 // region whose look changed. Stripes come from driving: grass cut while the mower
 // pivots in place is left without a direction (neither light nor dark).
-void Mowing::record_cut(const coverage::Pose& from, const coverage::Pose& to, bool driving) {
+void Mowing::record_cut(const coverage::Pose& from, const coverage::Pose& to, std::uint8_t lay) {
     const double reach = 0.65;
     const double x0 = std::min(from.x, to.x) - reach;
     const double x1 = std::max(from.x, to.x) + reach;
     const double y0 = std::min(from.y, to.y) - reach;
     const double y1 = std::max(from.y, to.y) + reach;
-    const std::uint8_t code = heading_code(to.heading);
     const std::vector<std::uint8_t>& cut = mower_.cut();
     const int cx0 = std::max(0, static_cast<int>(x0 / lawn_cell));
     const int cx1 = std::min(lawn_cells_x - 1, static_cast<int>(x1 / lawn_cell));
@@ -317,14 +369,342 @@ void Mowing::record_cut(const coverage::Pose& from, const coverage::Pose& to, bo
         for (int cx = cx0; cx <= cx1; ++cx) {
             const std::size_t index = static_cast<std::size_t>(cy) * static_cast<std::size_t>(lawn_cells_x) + static_cast<std::size_t>(cx);
             if (cut[index] != 0 && stripes_[index] == 0) {
-                stripes_[index] = driving ? code : 255;
+                stripes_[index] = lay != 0 ? lay : 255;
+                first_lay_[index] = stripes_[index];
                 changed = true;
+            }
+        }
+    }
+    // Grass already cut, under the deck again while driving, is laid again.
+    if (lay != 0) {
+        const coverage::Machine machine = machine_setup();
+        const double ch = std::cos(to.heading);
+        const double sh = std::sin(to.heading);
+        const double half_l = machine.deck_length / 2;
+        const double half_w = machine.deck_width / 2;
+        for (int cy = cy0; cy <= cy1; ++cy) {
+            for (int cx = cx0; cx <= cx1; ++cx) {
+                const std::size_t index = static_cast<std::size_t>(cy) * static_cast<std::size_t>(lawn_cells_x) + static_cast<std::size_t>(cx);
+                if (cut[index] == 0 || first_lay_[index] == 0)
+                    continue;
+                const double dx = (cx + 0.5) * lawn_cell - to.x;
+                const double dy = (cy + 0.5) * lawn_cell - to.y;
+                const double along = dx * ch + dy * sh;
+                const double across = -dx * sh + dy * ch;
+                if (!(along > -half_l && along < half_l && across > -half_w && across < half_w))
+                    continue;
+                const std::uint8_t shown = relaid(first_lay_[index], lay);
+                if (stripes_[index] != shown) {
+                    stripes_[index] = shown;
+                    changed = true;
+                }
             }
         }
     }
     if (changed) {
         dirty_.include(from.x, from.y, reach + 0.15);
         dirty_.include(to.x, to.y, reach + 0.15);
+    }
+}
+
+// ---------------------------------------------------------------- the finish
+
+// Once every blade is cut the mower goes over its work as a pro would: each open
+// stretch of lawn, well clear of beds, trees and things left out, is mown again in
+// lanes along the sun's line, back and forth. Over grass the first pass laid evenly
+// across that line, each lane leaves it a shade darker or lighter: the stripes.
+void Mowing::plan_finish() {
+    finish_planned_ = true;
+    lanes_.clear();
+    lane_ = 0;
+    lane_stage_ = 0;
+    lane_clock_ = 0;
+    goal_sent_ = false;
+    // Open ground: standing places a metre or more from anything in the way.
+    constexpr int clear_cells = 4;
+    constexpr double least_area = 12.0;  // square metres worth striping
+    constexpr double least_lane = 4.0;   // metres: shorter runs are all turning
+    const int cells = walk_cells_x * walk_cells_y;
+    std::vector<int> section(static_cast<std::size_t>(cells), -1);
+    std::vector<std::vector<int>> members{};
+    for (int start = 0; start < cells; ++start) {
+        if (section[static_cast<std::size_t>(start)] >= 0 || clearance_[static_cast<std::size_t>(start)] < clear_cells)
+            continue;
+        const int id = static_cast<int>(members.size());
+        members.emplace_back();
+        std::vector<int>& list = members.back();
+        list.push_back(start);
+        section[static_cast<std::size_t>(start)] = id;
+        for (std::size_t head = 0; head < list.size(); ++head) {
+            const int at = list[head];
+            const int ax = at % walk_cells_x;
+            const int ay = at / walk_cells_x;
+            const int near[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+            for (const int* d : near) {
+                const int bx = ax + d[0];
+                const int by = ay + d[1];
+                if (bx < 0 || by < 0 || bx >= walk_cells_x || by >= walk_cells_y)
+                    continue;
+                const int next = by * walk_cells_x + bx;
+                if (section[static_cast<std::size_t>(next)] >= 0 || clearance_[static_cast<std::size_t>(next)] < clear_cells)
+                    continue;
+                section[static_cast<std::size_t>(next)] = id;
+                list.push_back(next);
+            }
+        }
+    }
+    const double ux = std::cos(sun_lay);
+    const double uy = std::sin(sun_lay);
+    const double nx = -uy;
+    const double ny = ux;
+    const double pitch = machine_setup().lane_pitch;
+    const auto inside = [&](double x, double y, int id) {
+        const int i = static_cast<int>(std::floor(x / walk_cell));
+        const int j = static_cast<int>(std::floor(y / walk_cell));
+        if (i < 0 || j < 0 || i >= walk_cells_x || j >= walk_cells_y)
+            return false;
+        return section[static_cast<std::size_t>(j * walk_cells_x + i)] == id;
+    };
+    // Each stretch's lanes: runs of a lane line inside it, short of its ends by enough
+    // to turn round in.
+    struct Run {
+        double o{};
+        double t0{};
+        double t1{};
+    };
+    struct Stretch {
+        int id{};
+        double area{};
+        double length{};
+        std::vector<Run> runs{};
+    };
+    std::vector<Stretch> stretches{};
+    for (int id = 0; id < static_cast<int>(members.size()); ++id) {
+        const std::vector<int>& list = members[static_cast<std::size_t>(id)];
+        const double area = static_cast<double>(list.size()) * walk_cell * walk_cell;
+        if (area < least_area)
+            continue;
+        double o0 = 1e30, o1 = -1e30, t0 = 1e30, t1 = -1e30;
+        for (int cell : list) {
+            const double x = (cell % walk_cells_x + 0.5) * walk_cell;
+            const double y = (cell / walk_cells_x + 0.5) * walk_cell;
+            o0 = std::min(o0, x * nx + y * ny);
+            o1 = std::max(o1, x * nx + y * ny);
+            t0 = std::min(t0, x * ux + y * uy);
+            t1 = std::max(t1, x * ux + y * uy);
+        }
+        Stretch stretch{id, area, 0, {}};
+        for (double o = o0 + pitch * 0.5; o <= o1; o += pitch) {
+            double start = 0;
+            bool in = false;
+            for (double t = t0 - walk_cell; t <= t1 + 2 * walk_cell; t += 0.1) {
+                const bool here = inside(o * nx + t * ux, o * ny + t * uy, id);
+                if (here && !in)
+                    start = t;
+                if (!here && in && t - start - 1.8 >= least_lane) {
+                    stretch.runs.push_back({o, start + 0.9, t - 0.9});
+                    stretch.length += t - start - 1.8;
+                }
+                in = here;
+            }
+        }
+        if (!stretch.runs.empty())
+            stretches.push_back(std::move(stretch));
+    }
+    // A pro stripes the big open stretches, not every corner: the largest first, as far as
+    // the time allows; one too big for what is left is striped in a band down its middle.
+    // Time is reckoned at mowing pace with a few seconds for each turn.
+    constexpr double budget_seconds = 200;
+    constexpr double turn_seconds = 5;
+    std::sort(stretches.begin(), stretches.end(), [](const Stretch& a, const Stretch& b) {
+        return a.area > b.area || (a.area == b.area && a.id < b.id);
+    });
+    double left = budget_seconds;
+    std::vector<Stretch> chosen{};
+    for (Stretch& stretch : stretches) {
+        if (left < 30)
+            break;
+        if (stretch.length + turn_seconds * static_cast<double>(stretch.runs.size()) > left) {
+            std::sort(stretch.runs.begin(), stretch.runs.end(), [](const Run& a, const Run& b) { return a.o < b.o; });
+            const double middle = (stretch.runs.front().o + stretch.runs.back().o) * 0.5;
+            std::vector<Run> by_middle = stretch.runs;
+            std::stable_sort(by_middle.begin(), by_middle.end(),
+                             [middle](const Run& a, const Run& b) { return std::abs(a.o - middle) < std::abs(b.o - middle); });
+            std::vector<Run> band{};
+            double length = 0;
+            for (const Run& run : by_middle) {
+                if (length + (run.t1 - run.t0) + turn_seconds * static_cast<double>(band.size() + 1) > left)
+                    break;
+                band.push_back(run);
+                length += run.t1 - run.t0;
+            }
+            stretch.runs = std::move(band);
+            stretch.length = length;
+        }
+        if (stretch.runs.empty())
+            continue;
+        left -= stretch.length + turn_seconds * static_cast<double>(stretch.runs.size()) + 20;  // and getting there
+        chosen.push_back(std::move(stretch));
+    }
+    // The chosen stretches in the order the mower comes to them, nearest first; in each,
+    // lane after lane across it, back and forth.
+    double from_x = mower_.pose().x;
+    double from_y = mower_.pose().y;
+    while (!chosen.empty()) {
+        std::size_t best = 0;
+        double best_d = 1e30;
+        for (std::size_t k = 0; k < chosen.size(); ++k) {
+            for (const Run& run : chosen[k].runs) {
+                for (const double t : {run.t0, run.t1}) {
+                    const double d = std::hypot(run.o * nx + t * ux - from_x, run.o * ny + t * uy - from_y);
+                    if (d < best_d) {
+                        best_d = d;
+                        best = k;
+                    }
+                }
+            }
+        }
+        Stretch stretch = std::move(chosen[best]);
+        chosen.erase(chosen.begin() + static_cast<std::ptrdiff_t>(best));
+        std::sort(stretch.runs.begin(), stretch.runs.end(), [](const Run& a, const Run& b) { return a.o < b.o || (a.o == b.o && a.t0 < b.t0); });
+        // Start from the side of the stretch nearer the mower.
+        const Run& first = stretch.runs.front();
+        const Run& last = stretch.runs.back();
+        const double d_first = std::hypot(first.o * nx + first.t0 * ux - from_x, first.o * ny + first.t0 * uy - from_y);
+        const double d_last = std::hypot(last.o * nx + last.t0 * ux - from_x, last.o * ny + last.t0 * uy - from_y);
+        if (d_last < d_first)
+            std::reverse(stretch.runs.begin(), stretch.runs.end());
+        bool forward = true;
+        for (const Run& run : stretch.runs) {
+            const double a = forward ? run.t0 : run.t1;
+            const double b = forward ? run.t1 : run.t0;
+            lanes_.push_back({run.o * nx + a * ux, run.o * ny + a * uy, run.o * nx + b * ux, run.o * ny + b * uy, stretch.id});
+            forward = !forward;
+        }
+        from_x = lanes_.back().x1;
+        from_y = lanes_.back().y1;
+    }
+}
+
+coverage::Step Mowing::finish_step(double seconds) {
+    if (lane_ >= lanes_.size()) {
+        finishing_ = false;
+        mower_.resume();
+        return mower_.update(seconds);
+    }
+    const Lane& lane = lanes_[lane_];
+    const coverage::Pose& pose = mower_.pose();
+    const double length = std::max(1e-6, std::hypot(lane.x1 - lane.x0, lane.y1 - lane.y0));
+    const double ux = (lane.x1 - lane.x0) / length;
+    const double uy = (lane.y1 - lane.y0) / length;
+    lane_clock_ += seconds;
+    const auto next_lane = [&]() {
+        const Lane done = lanes_[lane_];
+        ++lane_;
+        lane_clock_ = 0;
+        goal_sent_ = false;
+        if (lane_ >= lanes_.size())
+            return;
+        const Lane& next = lanes_[lane_];
+        // The next lane beside this one is turned onto; another stretch is driven to.
+        const bool beside = next.section == done.section && std::hypot(next.x0 - done.x1, next.y0 - done.y1) < 5.0;
+        lane_stage_ = beside ? 1 : 0;
+    };
+    coverage::Step step{};
+    if (lane_stage_ == 0) {
+        // Through the garden to the lane's start, as the planner drives: around everything.
+        if (!goal_sent_) {
+            mower_.resume();
+            mower_.set_goal(lane.x0, lane.y0);
+            goal_sent_ = true;
+        }
+        step = mower_.update(seconds);
+        if (step.goal_reached || std::hypot(lane.x0 - pose.x, lane.y0 - pose.y) < 0.4) {
+            mower_.clear_goal();
+            lane_stage_ = 1;
+            lane_clock_ = 0;
+        } else if (lane_clock_ > 60) {
+            mower_.clear_goal();
+            next_lane();
+        }
+        return step;
+    }
+    if (lane_stage_ == 1) {
+        // Round onto the lane: aim a little way along it from its start.
+        step = mower_.drive_toward(lane.x0 + ux * 0.8, lane.y0 + uy * 0.8, seconds);
+        const double off = std::abs((pose.x - lane.x0) * -uy + (pose.y - lane.y0) * ux);
+        const double facing = std::cos(pose.heading) * ux + std::sin(pose.heading) * uy;
+        if ((off < 0.3 && facing > 0.8) || lane_clock_ > 6) {
+            lane_stage_ = 2;
+            lane_clock_ = 0;
+        }
+        return step;
+    }
+    step = mower_.drive_toward(lane.x1, lane.y1, seconds);
+    const double past = (pose.x - lane.x1) * ux + (pose.y - lane.y1) * uy;
+    if (past > -0.2 || lane_clock_ > length / 0.5 + 6)
+        next_lane();
+    return step;
+}
+
+// ---------------------------------------------------------------- the grill
+
+// Driven into, a grill goes over: the coals spill and burn a little, then go out. The
+// mower stops short of what its scanner knows, so it is enough to be up against the
+// grill with a hand still steering into it.
+void Mowing::knock_grills() {
+    const coverage::Pose& pose = mower_.pose();
+    for (std::size_t index = 0; index < garden_.props.size(); ++index) {
+        Prop& prop = garden_.props[index];
+        if (prop.kind != PropKind::grill || prop.toppled)
+            continue;
+        if (std::hypot(prop.x - pose.x, prop.y - pose.y) > std::max(prop.rx, prop.ry) + 0.8)
+            continue;
+        const double into = (hold_x_ - pose.x) * (prop.x - pose.x) + (hold_y_ - pose.y) * (prop.y - pose.y);
+        if (into <= 0)
+            continue;
+        prop.toppled = true;
+        prop.fall = std::atan2(prop.y - pose.y, prop.x - pose.x);
+        fire_[index] = random_range(random_, 4.5, 7.0);
+        cue("mm_bump", 0.8, 0.7, prop.x);
+        cue("mm_puff", 0.7, 0.8, prop.x);
+        dirty_.include(prop.x, prop.y, 1.2);
+    }
+}
+
+void Mowing::burn(double seconds) {
+    for (std::size_t index = 0; index < fire_.size(); ++index) {
+        if (fire_[index] <= 0)
+            continue;
+        fire_[index] = std::max(0.0, fire_[index] - seconds);
+        const Prop& prop = garden_.props[index];
+        // The coals spill where the bowl landed, the length of its legs the way it fell.
+        const double cx = prop.x + std::cos(prop.fall) * 0.65;
+        const double cy = prop.y + std::sin(prop.fall) * 0.65;
+        dirty_.include(cx, cy, 0.6);
+        if (reduced_)
+            continue;
+        // Flames for most of it, then only smoke as it dies.
+        const double strength = std::min(1.0, fire_[index] / 1.5);
+        fire_carry_[index] += seconds * (24 * strength + 6);
+        while (fire_carry_[index] >= 1 && particles_.size() < 900) {
+            fire_carry_[index] -= 1;
+            const bool flame = random_unit(random_) < 0.75 * strength;
+            Particle p{};
+            p.kind = flame ? ParticleKind::flame : ParticleKind::smoke;
+            p.x = cx + random_range(random_, -0.12, 0.12);
+            p.y = cy + random_range(random_, -0.08, 0.08);
+            p.z = random_range(random_, 0.02, 0.1);
+            p.vx = random_range(random_, -0.05, 0.05);
+            p.vy = random_range(random_, -0.05, 0.05);
+            p.vz = flame ? random_range(random_, 0.5, 1.0) : random_range(random_, 0.25, 0.45);
+            p.life = flame ? random_range(random_, 0.25, 0.55) : random_range(random_, 1.4, 2.4);
+            p.size = flame ? random_range(random_, 0.03, 0.06) : random_range(random_, 0.05, 0.09);
+            const double t = random_unit(random_);
+            p.tint = flame ? (t < 0.4 ? 0xFFD24A : (t < 0.8 ? 0xFF8A1E : 0xE8461A)) : (t < 0.5 ? 0x6E6A66 : 0x8C8884);
+            particles_.push_back(p);
+        }
+        fire_carry_[index] = std::min(fire_carry_[index], 1.0);
     }
 }
 
@@ -1264,6 +1644,7 @@ void Mowing::shatter() {
     g.clock = 0;
     mower_.clear_goal();
     cue("mm_shatter", 0.9, 1.0, g.x);
+    hurry_ = 30.0;
     scream_delay_ = 0.12;
     const int shards = reduced_ ? 0 : 26;
     for (int k = 0; k < shards; ++k) {
@@ -1357,6 +1738,18 @@ void Mowing::update_particles(double seconds) {
         p.age += seconds;
         if (p.age >= p.life)
             continue;
+        if (p.kind == ParticleKind::flame || p.kind == ParticleKind::smoke) {
+            // Fire and smoke rise and drift; smoke spreads as it goes.
+            p.vx += 0.12 * seconds;
+            p.x += p.vx * seconds;
+            p.y += p.vy * seconds;
+            p.z += p.vz * seconds;
+            if (p.kind == ParticleKind::smoke)
+                p.size += 0.05 * seconds;
+            particles_[kept] = p;
+            ++kept;
+            continue;
+        }
         const bool floats = p.kind == ParticleKind::seed || p.kind == ParticleKind::leaf;
         const double drag = floats ? 1.6 : 2.2;
         p.vx *= std::exp(-drag * seconds);

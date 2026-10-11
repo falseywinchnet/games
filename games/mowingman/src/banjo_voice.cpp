@@ -1072,7 +1072,8 @@ void BanjoVoice::render_add(std::span<float> stereo, double gain) {
         gain_ += (gain - gain_) * 0.00005;
         clock_ -= dt;
         if (clock_ <= 0) {
-            tempo_ += (tune_tempo_ - tempo_) * 0.04;
+            // A hurry is taken up within a couple of bars, then eased off as slowly as ever.
+            tempo_ += (tune_tempo_ * hurry_ - tempo_) * (tune_tempo_ * hurry_ > tempo_ + 1 ? 0.12 : 0.04);
             loud_ += (tune_loud_ - loud_) * 0.03;
             // sixteenths in pairs, the on-beat one a hair longer
             const double pair = 2 * 15.0 / tempo_;

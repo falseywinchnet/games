@@ -60,6 +60,10 @@ class BanjoVoice final {
     [[nodiscard]] double tempo() const {
         return tempo_;
     }
+    // Plays everything this much faster, easing into it over a few bars (1: as written).
+    void set_hurry(double factor) {
+        hurry_ = factor;
+    }
 
     struct String {
         std::vector<float> line{};
@@ -222,6 +226,7 @@ class BanjoVoice final {
     double clock_{};             // seconds until the next sixteenth
     double tempo_{116};
     double tune_tempo_{116};
+    double hurry_{1};
     double loud_{0.9};
     double tune_loud_{0.9};
     int tunes_{};

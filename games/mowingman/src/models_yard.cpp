@@ -429,6 +429,30 @@ void draw_kept(Canvas& canvas, const Frame& frame, int kind, std::uint64_t seed,
     paint(canvas, *kept);
 }
 
+// A thing knocked over: laid on its side the way it fell, what would be under the
+// grass cut away.
+void draw_fallen(Canvas& canvas, const Frame& frame, int kind, const Prop& prop, void (*build)(Mesh&, double, const Prop&)) {
+    const StillKey key = still_key(kind, prop.seed * 31 + static_cast<std::uint64_t>(std::lround((prop.fall + 10) * 100)), frame);
+    const Shot* kept = find_still(key);
+    if (kept == nullptr) {
+        Mesh mesh{};
+        build(mesh, detail_for(frame.ppm), prop);
+        const std::vector<Material> materials = yard_materials(prop.seed);
+        std::vector<Part> parts{};
+        // Over about the foot it was standing on, top toward the way it fell.
+        const Xform place = translation(V3{prop.x, prop.y, 0.18}) * rotation_z(prop.fall) * rotation_y(1.35);
+        parts.push_back(Part{&mesh, &materials, place, false, nullptr});
+        Shot shot{};
+        ShotOptions options{};
+        options.shadow_strength = 0.5F;
+        options.clip_ground = true;
+        shoot(frame, parts, options, shot);
+        kept = &keep_still(key, std::move(shot));
+    }
+    paint_shadow(canvas, *kept);
+    paint(canvas, *kept);
+}
+
 void kettle(Mesh& mesh, double ppm, const Prop&) {
     build_kettle_grill(mesh, ppm);
 }
@@ -451,6 +475,10 @@ void parasol(Mesh& mesh, double ppm, const Prop&) {
 } // namespace
 
 void draw_grill_model(Canvas& canvas, const Frame& frame, const Prop& prop, double heading) {
+    if (prop.toppled) {
+        draw_fallen(canvas, frame, prop_style(prop) == 2 ? 67 : 66, prop, prop_style(prop) == 2 ? barrel : kettle);
+        return;
+    }
     if (prop_style(prop) == 2)
         draw_kept(canvas, frame, 61, prop.seed, heading, prop, barrel);
     else
