@@ -1,7 +1,6 @@
 #include "table.hpp"
 #include "audio.hpp"
 #include "card_backs.hpp"
-#include "classic_faces.hpp"
 #include "table_art.hpp"
 #include "gui_forms/window.hpp"
 #include "help_route.hpp"
@@ -303,7 +302,7 @@ void Table::on_detaching_from_window(gf::Window& window) noexcept {
             static_cast<void>(window.remove_image(id));
             id = {};
         }
-    face_style_ = 0;  // attached again, the classic faces are made again if wanted
+    face_style_ = 0;  // attached again, the classic faces are loaded again if wanted
     if (felt_.value)
         static_cast<void>(window.remove_image(felt_));
     if (shadow_.value)
@@ -517,9 +516,13 @@ void Table::reload_preferences() {
         face_style_ = masters.card_face;
         invalidate(gf::Dirty::paint);
     }
-    // The classic faces are made the first time they are wanted with a window to make them in.
+    // The classic faces (a reprint of Goodall's 1902 pack, authoring/cards1902) are loaded
+    // the first time they are wanted with a window to load them in.
     if (face_style_ == 1 && !classic_[0].value && attached_window() != nullptr) {
-        static_cast<void>(make_classic_faces(*attached_window(), classic_));
+        for (int i = 0; i < 52; ++i) {
+            std::string number = i < 10 ? "0" + std::to_string(i) : std::to_string(i);
+            classic_[i] = load_image(*attached_window(), "classic_" + number + ".png");
+        }
         invalidate(gf::Dirty::paint);
     }
 }
