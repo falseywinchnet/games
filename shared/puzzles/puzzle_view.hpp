@@ -50,6 +50,12 @@ class PuzzleView final : public gf::Control, public CommandSource {
     void refresh_scene();
     void invalidate_static_scene();
     void present_framebuffer(gf::Rect damage);
+    // While a frame's moving layers are painted, the area being painted (empty: all of it):
+    // what lies wholly outside it is not drawn.
+    gf::Rect paint_area_{};
+    [[nodiscard]] bool in_paint_area(gf::Rect r) const {
+        return paint_area_.empty() || !gf::Rect::intersection(paint_area_, r).empty();
+    }
     bool prepare_framebuffer();
     std::unique_ptr<gf::PaintFramebuffer> framebuffer_;
     std::shared_ptr<gf::LiveSurface> surface_;
@@ -60,6 +66,10 @@ class PuzzleView final : public gf::Control, public CommandSource {
     double framebuffer_scale_ = 0;
     bool static_pixels_dirty_ = true;
     bool direct_ = false;
+    // The live surface holds a complete frame, so a new one need copy only what changed;
+    // device pixels a refused write lease left unpublished, to copy with the next frame.
+    bool surface_whole_ = false;
+    int unpublished_[4] = {0, 0, 0, 0}; // left, top, right, bottom; empty when right <= left
     bool framebuffer_painting_ = false;
     void invalidate_scene();
     void invalidate_animation(gf::Rect damage);

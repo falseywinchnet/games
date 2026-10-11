@@ -20,6 +20,14 @@ void PuzzleRaster::clear() {
 static double side(RasterVertex a, RasterVertex b, double x, double y) {
     return (b.x - a.x) * (y - a.y) - (b.y - a.y) * (x - a.x);
 }
+// The pixel centred at (x + .5, y) lies inside the triangle. All three edges are evaluated
+// directly: subtraction can make an exact shared-edge pixel slightly negative and open a
+// crack in the mesh.
+static bool covers(const RasterVertex& a, const RasterVertex& b, const RasterVertex& c,
+                   double inv, int x, double y) {
+    return side(b, c, x + .5, y) * inv >= 0 && side(c, a, x + .5, y) * inv >= 0 &&
+           side(a, b, x + .5, y) * inv >= 0;
+}
 void PuzzleRaster::triangle(RasterVertex a, RasterVertex b, RasterVertex c, int id) {
     double area = side(a, b, c.x, c.y);
     if (std::abs(area) < 1e-8)
@@ -30,8 +38,13 @@ void PuzzleRaster::triangle(RasterVertex a, RasterVertex b, RasterVertex c, int 
         y1 = std::min(height - 1, static_cast<int>(std::ceil(std::max({a.y, b.y, c.y}))));
     const double inv = 1 / area;
     // Edge functions are linear in x along a row; each row visits only the span where
-    // all three can be non-negative (plus a pixel of slack), then tests exactly.
+    // all three can be non-negative (plus a pixel of slack).
     const RasterVertex* edges[3][2] = {{&b, &c}, {&c, &a}, {&a, &b}};
+    // Across a row the weights change by a constant step: d(side(p, q, x, y))/dx.
+    const double step_a = -(c.y - b.y) * inv, step_b = -(a.y - c.y) * inv,
+                 step_c = -(b.y - a.y) * inv;
+    const bool reflective = a.u >= 0 && !environment_.empty();
+    const bool opaque = a.color.a >= 255 && b.color.a >= 255 && c.color.a >= 255;
     for (int y = y0; y <= y1; ++y) {
         const double yc = y + .5;
         double lo = x0, hi = x1 + 1;
@@ -54,14 +67,18 @@ void PuzzleRaster::triangle(RasterVertex a, RasterVertex b, RasterVertex c, int 
         }
         if (empty || lo > hi)
             continue;
-        const int xs = std::max(x0, static_cast<int>(lo)), xe = std::min(x1, static_cast<int>(hi));
-        for (int x = xs; x <= xe; ++x) {
-            // Evaluate all three edges directly: subtraction can make an exact
-            // shared-edge pixel slightly negative and open a crack in the mesh.
-            double wa = side(b, c, x + .5, yc) * inv, wb = side(c, a, x + .5, yc) * inv,
-                   wc = side(a, b, x + .5, yc) * inv;
-            if (wa < 0 || wb < 0 || wc < 0)
-                continue;
+        int xs = std::max(x0, static_cast<int>(lo)), xe = std::min(x1, static_cast<int>(hi));
+        // The row's covered pixels are one run: find its ends exactly; every pixel between
+        // them is inside all three edges, so it needs no test.
+        while (xs <= xe && !covers(a, b, c, inv, xs, yc))
+            ++xs;
+        while (xe > xs && !covers(a, b, c, inv, xe, yc))
+            --xe;
+        if (xs > xe)
+            continue;
+        double wa = side(b, c, xs + .5, yc) * inv, wb = side(c, a, xs + .5, yc) * inv,
+               wc = side(a, b, xs + .5, yc) * inv;
+        for (int x = xs; x <= xe; ++x, wa += step_a, wb += step_b, wc += step_c) {
             int n = y * width + x;
             double z = wa * a.z + wb * b.z + wc * c.z;
             if (z > -1e8)
@@ -75,7 +92,7 @@ void PuzzleRaster::triangle(RasterVertex a, RasterVertex b, RasterVertex c, int 
                            wa * a.color.g + wb * b.color.g + wc * c.color.g,
                            wa * a.color.b + wb * b.color.b + wc * c.color.b,
                            wa * a.color.a + wb * b.color.a + wc * c.color.a};
-            if (a.u >= 0 && !environment_.empty()) {
+            if (reflective) {
                 double u = wa * a.u + wb * b.u + wc * c.u, v = wa * a.v + wb * b.v + wc * c.v;
                 // Longitude wraps around the panorama; latitude clamps at the poles.
                 double px = u * env_width_ - .5;
@@ -97,6 +114,13 @@ void PuzzleRaster::triangle(RasterVertex a, RasterVertex b, RasterVertex c, int 
                 const double k = a.env;
                 col = {channels[0] * k + col.r * (1 - k), channels[1] * k + col.g * (1 - k),
                        channels[2] * k + col.b * (1 - k), 255};
+            }
+            if (opaque || reflective) {
+                pixels[n * 4] = static_cast<std::byte>(std::clamp(col.b, 0.0, 255.0) + .5);
+                pixels[n * 4 + 1] = static_cast<std::byte>(std::clamp(col.g, 0.0, 255.0) + .5);
+                pixels[n * 4 + 2] = static_cast<std::byte>(std::clamp(col.r, 0.0, 255.0) + .5);
+                pixels[n * 4 + 3] = std::byte{255};
+                continue;
             }
             pixels[n * 4] =
                 static_cast<std::byte>(std::clamp(col.b * col.a / 255, 0.0, 255.0) + .5);
@@ -171,7 +195,6 @@ void PuzzleRaster::gem(Point2 center, double radius, int value, double angle, do
         }
     };
     FacetLight lit{light};
-    disc({center.x + radius * .05, center.y + radius * .12}, radius * .92, {6, 2, 16, 110}, id, 3);
     const double spin = angle * .17 + .785398;
     struct GemCorner {
         int n;
@@ -184,14 +207,6 @@ void PuzzleRaster::gem(Point2 center, double radius, int value, double angle, do
         }
     };
     GemCorner corner{n, spin, center, tilt};
-    // Girdle: a dark outline just outside the stone.
-    for (int i = 0; i < n; ++i) {
-        Point2 p = corner(i, radius * 1.07), q = corner(i + 1, radius * 1.07);
-        PixelColor edge = shade(base, .28);
-        if (value == 48)
-            edge = {40, 40, 60};
-        triangle({center.x, center.y, 1, edge}, {p.x, p.y, 1, edge}, {q.x, q.y, 1, edge}, id);
-    }
     for (int i = 0; i < n; ++i) {
         const double a = 6.283185307 * (i + .5) / n + spin;
         Point2 p = corner(i, radius), q = corner(i + 1, radius), ip = corner(i, radius * .56),
@@ -209,6 +224,17 @@ void PuzzleRaster::gem(Point2 center, double radius, int value, double angle, do
         triangle({center.x, center.y, 0, shade(value == 48 ? jewel(1 + (i + 3) % 6) : base, 1.42)},
                  {ip.x, ip.y, 0, shade(face, ta)}, {iq.x, iq.y, 0, shade(face, tb)}, id);
     }
+    // The girdle and the shadow lie behind the stone (deeper), so drawn after it they fill
+    // only what it leaves: the depth test skips the pixels the stone already covers.
+    // Girdle: a dark outline just outside the stone.
+    for (int i = 0; i < n; ++i) {
+        Point2 p = corner(i, radius * 1.07), q = corner(i + 1, radius * 1.07);
+        PixelColor edge = shade(base, .28);
+        if (value == 48)
+            edge = {40, 40, 60};
+        triangle({center.x, center.y, 1, edge}, {p.x, p.y, 1, edge}, {q.x, q.y, 1, edge}, id);
+    }
+    disc({center.x + radius * .05, center.y + radius * .12}, radius * .92, {6, 2, 16, 110}, id, 3);
     // Specular glint on the table, upper left.
     {
         const double gx = center.x - radius * .22 * tilt, gy = center.y - radius * .26,

@@ -6,6 +6,7 @@
 #include "presentation.hpp"
 #include "storage.hpp"
 #include <algorithm>
+#include <iterator>
 #include <cmath>
 #include <cstring>
 #include <fstream>
@@ -131,6 +132,7 @@ bool PuzzleView::prepare_framebuffer() {
     framebuffer_ = std::move(replacement);
     framebuffer_size_ = size;
     framebuffer_scale_ = window.scale();
+    surface_whole_ = false;
     static_pixels_dirty_ = true;
     static_pixels_.clear();
     (*scene_parts_[1]).set_visible(false);
@@ -157,13 +159,14 @@ void PuzzleView::present_framebuffer(gf::Rect damage) {
     if (damage.empty())
         return;
     // Restore and paint exactly the same physical pixels at fractional DPI.
+    const int width = static_cast<int>(target.width()), height = static_cast<int>(target.height());
     const int left = std::max(0, static_cast<int>(std::floor(damage.x * framebuffer_scale_)));
     const int top = std::max(0, static_cast<int>(std::floor(damage.y * framebuffer_scale_)));
     const int right =
-        std::min(static_cast<int>(target.width()),
+        std::min(width,
                  static_cast<int>(std::ceil((damage.x + damage.width) * framebuffer_scale_)));
     const int bottom =
-        std::min(static_cast<int>(target.height()),
+        std::min(height,
                  static_cast<int>(std::ceil((damage.y + damage.height) * framebuffer_scale_)));
     damage = {left / framebuffer_scale_, top / framebuffer_scale_,
               (right - left) / framebuffer_scale_, (bottom - top) / framebuffer_scale_};
@@ -192,6 +195,7 @@ void PuzzleView::present_framebuffer(gf::Rect damage) {
                         static_cast<std::size_t>(right - left) * 4U);
         }
     }
+    paint_area_ = damage;
     if (game.kind == PuzzleKind::gems) {
         paint_gems(painter, 1);
         paint_gems(painter, 2);
@@ -199,26 +203,50 @@ void PuzzleView::present_framebuffer(gf::Rect damage) {
         paint_untangle(painter, 1);
         paint_untangle(painter, 2);
     }
+    paint_area_ = {};
     target.end();
-    gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write();
-    if (lease) {
-        // Pool rotation and skipped generations require a complete candidate. The
-        // surface shares the framebuffer's byte order; alpha is forced opaque as promised.
-        for (std::uint32_t y = 0; y < target.height(); ++y) {
-            const std::uint32_t* source =
-                reinterpret_cast<const std::uint32_t*>(pixels.data() + y * target.row_bytes());
-            std::uint32_t* destination =
-                reinterpret_cast<std::uint32_t*>(lease.pixels().data() + y * lease.row_bytes());
-            for (std::uint32_t x = 0; x < target.width(); ++x)
-                destination[x] = 0xff000000U | source[x];
-        }
-        // The surface's own pixels: the presenter copies only this much of the frame.
-        static_cast<void>(lease.publish({static_cast<double>(left), static_cast<double>(top), static_cast<double>(right - left),
-                                         static_cast<double>(bottom - top)}));
-        render::refresh_overlays(*scene_parts_[0], damage);
-        if (!direct_)
-            (*scene_parts_[0]).invalidate(damage);
+    // A lease that keeps the last published frame needs only what changed copied into it
+    // (and whatever an earlier refused lease left out); a new or resized surface takes the
+    // whole frame. The surface shares the framebuffer's byte order; alpha is forced opaque
+    // as promised.
+    gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write(surface_whole_);
+    int copy[4] = {left, top, right, bottom};
+    if (!surface_whole_) {
+        copy[0] = copy[1] = 0;
+        copy[2] = width;
+        copy[3] = height;
+    } else if (unpublished_[2] > unpublished_[0]) {
+        copy[0] = std::min(copy[0], unpublished_[0]);
+        copy[1] = std::min(copy[1], unpublished_[1]);
+        copy[2] = std::max(copy[2], unpublished_[2]);
+        copy[3] = std::max(copy[3], unpublished_[3]);
     }
+    if (!lease) {
+        std::copy(std::begin(copy), std::end(copy), std::begin(unpublished_));
+        framebuffer_painting_ = false;
+        return;
+    }
+    const std::size_t source_row = target.row_bytes(), destination_row = lease.row_bytes();
+    for (int y = copy[1]; y < copy[3]; ++y) {
+        const std::uint32_t* source = reinterpret_cast<const std::uint32_t*>(
+            pixels.data() + static_cast<std::size_t>(y) * source_row);
+        std::uint32_t* destination = reinterpret_cast<std::uint32_t*>(
+            lease.pixels().data() + static_cast<std::size_t>(y) * destination_row);
+        for (int x = copy[0]; x < copy[2]; ++x)
+            destination[x] = 0xff000000U | source[x];
+    }
+    // The surface's own pixels: the presenter copies only this much of the frame.
+    static_cast<void>(lease.publish({static_cast<double>(copy[0]), static_cast<double>(copy[1]),
+                                     static_cast<double>(copy[2] - copy[0]),
+                                     static_cast<double>(copy[3] - copy[1])}));
+    surface_whole_ = true;
+    unpublished_[0] = unpublished_[1] = unpublished_[2] = unpublished_[3] = 0;
+    const gf::Rect published{copy[0] / framebuffer_scale_, copy[1] / framebuffer_scale_,
+                             (copy[2] - copy[0]) / framebuffer_scale_,
+                             (copy[3] - copy[1]) / framebuffer_scale_};
+    render::refresh_overlays(*scene_parts_[0], published);
+    if (!direct_)
+        (*scene_parts_[0]).invalidate(published);
     framebuffer_painting_ = false;
 }
 static const gf::Color ink = gf::Color::rgba(231, 238, 247), muted = gf::Color::rgba(154, 177, 198),
@@ -1049,7 +1077,7 @@ void PuzzleView::paint_untangle(gf::Painter& p, int part) {
                 }
             }
     }
-    if ((part < 0 || part == 1) && untangle_hint_ > 0) {
+    if ((part < 0 || part == 1) && untangle_hint_ > 0 && in_paint_area(untangle_hint_rect())) {
         const double fade = std::clamp(std::min(untangle_hint_ * 2, (6.0 - untangle_hint_) * 4), 0.0, 1.0);
         const gf::Rect r = untangle_hint_rect();
         p.fill_rounded_rect(r, 15, gf::Color::rgba(20, 26, 28, static_cast<unsigned char>(200 * fade)));
@@ -1064,6 +1092,8 @@ void PuzzleView::paint_untangle(gf::Painter& p, int part) {
         for (const gf::Point q : snags) {
             // A small knot with a soft pulsing halo.
             const double r = thread * (.9 + .15 * std::sin(t * 5));
+            if (!in_paint_area({q.x - r * 2, q.y - r * 2, r * 4, r * 4}))
+                continue;
             p.fill_rounded_rect({q.x - r * 2, q.y - r * 2, r * 4, r * 4}, r * 2,
                                 gf::Color::rgba(255, 236, 200, 46));
             p.fill_rounded_rect({q.x - r, q.y - r, 2 * r, 2 * r}, r,
@@ -1131,8 +1161,17 @@ void PuzzleView::paint_untangle(gf::Painter& p, int part) {
             }
         };
         const PegPainter peg{p, radius, t};
+        // A peg reaches its shadow's blur and a frost ring beyond its head.
+        const double reach = radius * 1.2 + 28;
+        struct Near {
+            const PuzzleView& view;
+            bool operator()(gf::Point q, double r) const {
+                return view.in_paint_area({q.x - r, q.y - r, r * 2, r * 2});
+            }
+        };
+        const Near near{*this};
         for (int i = 0; i < static_cast<int>(positions.size()); ++i)
-            if (i != drag_) {
+            if (i != drag_ && near(at(positions[i]), reach)) {
                 const double jiggle =
                     i == frozen_nudge_ && frozen_nudge_t_ < .45
                         ? std::sin(frozen_nudge_t_ * 50) * 3 * (1 - frozen_nudge_t_ / .45)
@@ -1144,6 +1183,8 @@ void PuzzleView::paint_untangle(gf::Painter& p, int part) {
             const double k = std::clamp(puff.age / .8, 0.0, 1.0);
             const gf::Point q = at(puff.at);
             const double r = radius * (1.2 + k * 2.2);
+            if (!near(q, r + 4))
+                continue;
             p.stroke_rounded_rect(
                 {q.x - r, q.y - r, 2 * r, 2 * r}, r,
                 gf::Color::rgba(210, 240, 255, static_cast<unsigned char>(220 * (1 - k))),
@@ -1155,11 +1196,13 @@ void PuzzleView::paint_untangle(gf::Painter& p, int part) {
                     gf::Color::rgba(230, 248, 255, static_cast<unsigned char>(240 * (1 - k))));
             }
         }
-        kitten_.paint(p, board_);
-        if (drag_ >= 0)
+        if (in_paint_area(kitten_.paint_bounds(board_)))
+            kitten_.paint(p, board_);
+        if (drag_ >= 0 && near(at(positions[drag_]), reach))
             peg(game, drag_, at(positions[drag_]), true, true, 0);
     }
-    if (part < 0 || part == 2) {
+    if ((part < 0 || part == 2) &&
+        in_paint_area({cushion.x, cushion.y + cushion.height, cushion.width, 40})) {
         // Status line under the cushion.
         const char* levels[] = {"Easy", "Medium", "Hard"};
         const std::string status =
