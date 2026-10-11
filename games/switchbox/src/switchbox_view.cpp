@@ -555,7 +555,28 @@ void SwitchboxView::on_text_input(gf::TextInputEvent& e) {
     e.handled = true;
 }
 
+void SwitchboxView::host_command(const std::string& id) {
+    if (id == "new") { action("new"); return; }
+    const Panel wanted = id == "help" ? Panel::help : id == "scores" ? Panel::scores : Panel::none;
+    if (wanted == Panel::none || panel_ == Panel::name) return;
+    open(panel_ == wanted ? Panel::none : wanted);
+}
+
+std::string SwitchboxView::host_panel() const {
+    return panel_ == Panel::help ? "help" : panel_ == Panel::scores ? "scores" : "";
+}
+
 void SwitchboxView::action(const std::string& id) {
+    if (id == "new") {
+        // Give up this combination: she sets a new one, every lamp out.
+        puzzle_.new_combination();
+        for (int i = 0; i < kSwitches; ++i) lamp_delay_[static_cast<size_t>(i)] = .12 * i;
+        pending_score_ = 0;
+        play("ui_new_game", .7f, 1.f);
+        dirty_ = true;
+        persist();
+        return;
+    }
     if (id == "close") open(Panel::none);
     else if (id == "help") open(Panel::help);
     else if (id == "scores") open(Panel::scores);

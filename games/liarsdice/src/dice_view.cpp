@@ -526,6 +526,7 @@ void DiceView::tick() {
     const double rdt = std::clamp(std::chrono::duration<double>(now - last_).count(), 0.0, .25);
     last_ = now;
     ++ticks_;
+    restart_ask_ = std::max(0.0, restart_ask_ - rdt);
     const double dt = rdt * speed_;
     t_ += dt;
     phase_t_ += dt;
@@ -700,6 +701,27 @@ void DiceView::action(const std::string& id) {
     else if (id == "log_prev") { --log_page_; layout_buttons(); }
     else if (id == "log_next") { ++log_page_; layout_buttons(); }
     else if (id == "again") show_wagers();
+    else if (id == "new") {
+        // A fresh start: the debt back to a hundred years, the jar and trophies gone, the
+        // game in progress abandoned. What you have learned of the crew and your records stay.
+        if (restart_ask_ <= 0) {
+            restart_ask_ = 6;
+            say(-1, "Start over? Your debt goes back to a hundred years and the jar is emptied. Choose New game again to begin anew.", 6);
+        } else {
+            restart_ask_ = 0;
+            const PlayerRecord record = L_.rec;
+            const std::array<CrewNotes, 32> notes = L_.notes;
+            const bool sound = L_.sound, music = L_.music;
+            L_ = Ledger{};
+            L_.rec = record;
+            L_.notes = notes;
+            L_.sound = sound;
+            L_.music = music;
+            L_.offer_seed = static_cast<std::uint64_t>(wall_clock() * 1000) ^ 0xD1CEULL;
+            persist();
+            show_wagers();
+        }
+    }
     else if (id == "bid") player_bid();
     else if (id == "liar") call_liar();
     else if (id == "qty+") { sel_qty_ = std::min(m().total_dice(), sel_qty_ + 1); layout_buttons(); }
@@ -1416,7 +1438,7 @@ void DiceView::layout_buttons() {
         if (id == "help" || id == "logbook" || id == "records" || id == "music") buttons_.erase(buttons_.begin() + static_cast<std::ptrdiff_t>(i-1));
     }
 }
-std::vector<games::GameCommand> DiceView::commands() const { return {{"help", "Help", true, panel_ == Panel::help}, {"logbook", "Crew", true, panel_ == Panel::logbook}, {"records", "Records", true, panel_ == Panel::records}}; }
+std::vector<games::GameCommand> DiceView::commands() const { return {{"new", "New game", true, false}, {"help", "Help", true, panel_ == Panel::help}, {"logbook", "Crew", true, panel_ == Panel::logbook}, {"records", "Records", true, panel_ == Panel::records}}; }
 void DiceView::run_command(std::string_view id) {
     for (const games::GameCommand& cmd : commands()) {
         if (cmd.id == id && cmd.enabled) { action(cmd.checked ? "close" : std::string(id)); return; }

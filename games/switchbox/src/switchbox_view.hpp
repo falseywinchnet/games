@@ -48,6 +48,10 @@ public:
     void set_cabinet(bool foreground, bool music, bool sound, bool reduced_motion);
     // Ticks the game has run: the count advances whether or not the picture changes.
     std::uint64_t ticks() const { return ticks_; }
+    // Host commands: "new" (a fresh combination), "help" and "scores" toggle like the in-frame buttons.
+    void host_command(const std::string& id);
+    // "help", "scores" or "" for the panel a host should show as active.
+    [[nodiscard]] std::string host_panel() const;
 
 private:
     enum class Panel { none, help, scores, name };

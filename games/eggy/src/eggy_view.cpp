@@ -694,6 +694,17 @@ bool EggyView::scripted_action(std::string_view code) {
     return true;
 }
 
+void EggyView::host_command(const std::string& id) {
+    if (id == "new") { action("new"); return; }
+    const Panel wanted = id == "help" ? Panel::help : id == "scores" ? Panel::scores : Panel::none;
+    if (wanted == Panel::none || panel_ == Panel::title || panel_ == Panel::finale) return;
+    open(panel_ == wanted ? Panel::none : wanted);
+}
+
+std::string EggyView::host_panel() const {
+    return panel_ == Panel::help ? "help" : panel_ == Panel::scores ? "scores" : "";
+}
+
 void EggyView::action(const std::string& id) {
     audio_sfx("eggy_ui_click", .5f, 1, sound_on());
     if (id == "start") {

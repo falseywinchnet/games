@@ -1149,7 +1149,7 @@ void KoiView::layout_buttons() {
         if (id == "rules" || id == "sets" || id == "score" || id == "music" || id == "hint") buttons_.erase(buttons_.begin() + static_cast<std::ptrdiff_t>(i-1));
     }
 }
-std::vector<games::GameCommand> KoiView::commands() const { return {{"hint", "Hint", s_.turn == 0 && (s_.phase == koi::Phase::play || s_.pending >= 0), false, true}, {"rules", "Help", true, panel_ == Panel::rules}, {"sets", "Sets", true, panel_ == Panel::sets}, {"score", "Score", true, panel_ == Panel::score}}; }
+std::vector<games::GameCommand> KoiView::commands() const { return {{"newmatch", "New match", true, false}, {"hint", "Hint", s_.turn == 0 && (s_.phase == koi::Phase::play || s_.pending >= 0), false, true}, {"rules", "Help", true, panel_ == Panel::rules}, {"sets", "Sets", true, panel_ == Panel::sets}, {"score", "Score", true, panel_ == Panel::score}}; }
 void KoiView::run_command(std::string_view id) {
     for (const games::GameCommand& cmd : commands()) {
         if (cmd.id == id && cmd.enabled) { action(cmd.checked ? "close" : std::string(id)); return; }

@@ -52,6 +52,14 @@ public:
 
 private:
     enum class Panel { none, title, help, scores, confirm, away, finale };
+
+public:
+    // Host commands: "new" asks to start a new climb, "help" and "scores" toggle their panels.
+    void host_command(const std::string& id);
+    // "help", "scores" or "" for the panel a host should show as active.
+    [[nodiscard]] std::string host_panel() const;
+
+private:
     struct Button { std::string id, label; int x, y, w, h; };
     struct Bubble { std::string text; double age = 0, dur = 0; bool officer = false; int shown = 0; };
 

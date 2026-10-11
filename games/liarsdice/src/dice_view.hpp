@@ -133,6 +133,7 @@ private:
     void say(int seat, const std::string& text, double life = 0);
     void reset_composer();
     void persist();
+    double restart_ask_ = 0;   // seconds left to confirm starting over
     void play(const std::string& name, float gain = 1, float rate = 1);
     void action(const std::string& id);
     void open(Panel p);

@@ -653,6 +653,7 @@ void TableView::action(const std::string& id) {
     else if (id == "nb_up") { scroll_notebook(-1); nb_follow_ = false; }
     else if (id == "nb_down") { scroll_notebook(1); nb_follow_ = false; }
     else if (id == "next") new_table(won_ ? level_ + 1 : level_, seed_now(), true);
+    else if (id == "newtable") new_table(level_, seed_now(), true);  // another table at the level reached
     else if (id.rfind("q", 0) == 0) {
         const int bird = std::atoi(id.c_str() + 1);
         const size_t colon = id.find('_');
@@ -1028,7 +1029,7 @@ void TableView::layout_buttons() {
         if (id == "help" || id == "records" || id == "music") buttons_.erase(buttons_.begin() + static_cast<std::ptrdiff_t>(i-1));
     }
 }
-std::vector<games::GameCommand> TableView::commands() const { return {{"help", "Help", true, panel_ == Panel::help}, {"records", "Records", true, panel_ == Panel::records}}; }
+std::vector<games::GameCommand> TableView::commands() const { return {{"newtable", "New table", true, false}, {"help", "Help", true, panel_ == Panel::help}, {"records", "Records", true, panel_ == Panel::records}}; }
 void TableView::run_command(std::string_view id) {
     for (const games::GameCommand& cmd : commands()) {
         if (cmd.id == id && cmd.enabled) { action(cmd.checked ? "close" : std::string(id)); return; }
