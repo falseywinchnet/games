@@ -29,6 +29,18 @@ AGENTS.md asks for reusable capabilities to become GUI.Forms enhancements, coord
    view contract currently requires device-sized frames, so (a) also needs a
    contract revision.
 
+6. **Overlays over a moving live surface repainted each frame on macOS.** Measured
+   with Gems and Untangle at rest (2026-10-11, M4, GUI.Forms c91afd9, 1060 x 680 at
+   scale 1, 60 frames a second): of the main thread's time, about a fifth is host
+   work per published frame, `-[GUIFormsView drawRetainedRect:]` replaying the
+   floating capsule's retained chunks (its shadow, gradient and text) and
+   `SkConvertPixels` copying the published region, even when the publication's
+   damage does not touch the capsule. Both games now publish only what changed;
+   the host still repaints the overlay every frame. The request: repaint an
+   overlay over a live view only when the published damage reaches it, and copy
+   the published region without a pixel conversion when the surface already has
+   the window's byte order.
+
 ## Host behavior found on Windows
 
 **Idle live-surface clock and registration lifecycle.** In pinned `7b260cf`,
