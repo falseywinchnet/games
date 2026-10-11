@@ -40,7 +40,7 @@ std::string encode_suite_settings(const SuiteSettings& s) {
     out << "PLAYSUITE_SETTINGS 1\n"
         << "music=" << (s.music ? 1 : 0) << "\nsound=" << (s.sound ? 1 : 0)
         << "\nreduced_motion=" << (s.reduced ? 1 : 0) << "\nmusic_volume=" << percent(s.music_volume)
-        << "\nsound_volume=" << percent(s.sound_volume) << "\ncard_back=" << s.card_back << "\ncard_face=" << s.card_face << '\n';
+        << "\nsound_volume=" << percent(s.sound_volume) << "\ncard_back=" << s.card_back << "\ncard_faces=" << s.card_face << '\n';
     return out.str();
 }
 bool decode_suite_settings(const std::string& text, SuiteSettings& destination) {
@@ -73,7 +73,9 @@ bool decode_suite_settings(const std::string& text, SuiteSettings& destination) 
             good = static_cast<bool>(number >> back) && back >= 0 && back < card_back_count;
             if (good)
                 next.card_back = back;
-        } else if (key == "card_face") {
+        } else if (key == "card_faces") {
+            // Saved as card_faces since Classic became the default; an older card_face line
+            // is passed over, so every player starts once on Classic.
             std::istringstream number(value);
             int face = -1;
             good = static_cast<bool>(number >> face) && face >= 0 && face < card_face_count;

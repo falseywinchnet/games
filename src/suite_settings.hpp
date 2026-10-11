@@ -14,7 +14,7 @@ struct SuiteSettings {
     // Slider positions, 0..1. audio_gain() turns a position into a voice gain.
     double music_volume = 1, sound_volume = 1;
     int card_back = 0; // 0..card_back_count-1, shared by every game on shared/cards
-    int card_face = 0; // 0 the painted faces, 1 the classic ones; shared like the back
+    int card_face = 1; // 0 the painted faces, 1 the classic ones (the default); shared like the back
     bool operator==(const SuiteSettings& other) const;
 };
 inline constexpr int card_back_count = 9;

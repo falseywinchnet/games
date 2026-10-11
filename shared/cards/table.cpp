@@ -50,7 +50,7 @@ std::vector<std::byte> card_finish(int w, int h) {
     };
     const Outline outline{half_w, half_h, radius, w * .5, h * .5};
     // Dimples on a hexagonal lattice, a few device pixels apart, each a little different.
-    const double pitch = std::clamp(w / 64.0, 2.6, 4.2), row_h = pitch * .866;
+    const double pitch = std::clamp(w / 128.0, 1.5, 2.1), row_h = pitch * .866;
     struct Dimples {
         double pitch, row_h;
         double operator()(double x, double y) const {
@@ -76,7 +76,7 @@ std::vector<std::byte> card_finish(int w, int h) {
         }
     };
     const Dimples dimples{pitch, row_h};
-    // Paper: long, faint fibres laid mostly one way, and a fine grain.
+    // Paper: short, faint fibres laid mostly one way, and a fine grain.
     struct Fibres {
         double scale;
         static double lattice(int i, int j) {
@@ -93,8 +93,10 @@ std::vector<std::byte> card_finish(int w, int h) {
             return a + (b - a) * fu + (c - a) * fv + (a - b - c + d) * fu * fv;
         }
         double operator()(double x, double y) const {
-            // Stretched along the grain: fibres run across the card more than down it.
-            return noise(x / (9 * scale), y / (2.2 * scale)) * .6 + noise(x / (3 * scale), y / (.9 * scale)) * .4;
+            // A little longer along the grain than across it, and turned off the card's axes,
+            // so they read as fibre and not as rules.
+            const double u = x * .94 + y * .34, v = y * .94 - x * .34;
+            return noise(u / (1.6 * scale), v / (.9 * scale)) * .6 + noise(u / (.65 * scale) + 17.1, v / (.45 * scale)) * .4;
         }
     };
     const Fibres fibres{std::max(.6, s)};
@@ -113,23 +115,25 @@ std::vector<std::byte> card_finish(int w, int h) {
                          gy = dimples(px, py + .5) - dimples(px, py - .5);
             const double facing = -(gx * lx + gy * ly) * 2.2;
             if (facing > 0)
-                light += std::min(.1, facing * .1);
+                light += std::min(.07, facing * .07);
             else
-                dark += std::min(.06, -facing * .06);
-            // The board's formation: soft clouds where the pulp lay a little thicker or thinner.
+                dark += std::min(.045, -facing * .045);
+            // The board's formation: soft clouds where the pulp lay a little thicker or thinner,
+            // turned off the card's axes so no lattice shows.
             {
-                const double cloud = Fibres::noise(px / (5.5 * fibres.scale), py / (5.5 * fibres.scale)) * .65 +
-                                     Fibres::noise(px / (2.2 * fibres.scale) + 31.7, py / (2.2 * fibres.scale)) * .35 - .5;
+                const double cu = (px * .82 + py * .57) / (4 * fibres.scale), cv = (py * .82 - px * .57) / (4 * fibres.scale);
+                const double cloud = Fibres::noise(cu + 31.7, cv + 5.2) - .5;
                 if (cloud > 0)
-                    light += cloud * .05;
+                    light += cloud * .035;
                 else
-                    dark += -cloud * .05;
+                    dark += -cloud * .035;
             }
-            // Ink grain: small pale specks where the ink took thinly. On the board they are
-            // lost in its own light; on ink they show as the mottle of a lithographed print.
+            // Ink grain: pale single-pixel flecks where the ink took thinly, scattered with
+            // no pattern. On the board they are lost in its own light; on ink they show as the
+            // fine mottle of a lithographed print.
             {
-                const double speck = Fibres::noise(px / (1.1 * fibres.scale) + 7.3, py / (1.1 * fibres.scale) + 3.1);
-                light += std::clamp((speck - .62) / .38, 0.0, 1.0) * .13;
+                const double fleck = Fibres::lattice(x * 7 + 11, y * 13 + 3);
+                light += std::clamp((fleck - .84) / .16, 0.0, 1.0) * .11;
             }
             // Paper fibres and grain: a little lighter and darker, finer than the dimples.
             {
@@ -137,7 +141,7 @@ std::vector<std::byte> card_finish(int w, int h) {
                 std::uint32_t k = static_cast<std::uint32_t>(x) * 2654435761U ^ static_cast<std::uint32_t>(y) * 2246822519U;
                 k = (k ^ (k >> 15)) * 0x2c1b3c6dU;
                 const double grain = ((k >> 8) & 255) / 255.0 - .5;
-                const double tone = f * .07 + grain * .025;
+                const double tone = f * .045 + grain * .025;
                 if (tone > 0)
                     light += tone;
                 else
