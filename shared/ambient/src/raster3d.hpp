@@ -304,8 +304,15 @@ void rasterize(Policy& policy, const Projection& projection, ViewPoint a, ViewPo
     const bool front = signed_area < 0;
     if (cull == Cull::back && !front)
         return;
-    if (count == 3) {
+    // Only an untouched triangle carries the unit weights the identity scan assumes; a
+    // triangle clipped down to one original corner and two cuts is three vertices too,
+    // and goes through the general mapping (docs/ENGINE_REVIEW.md, the correctness note).
+    if (count == 3 && in_a && in_b && in_c) {
         detail::scan<Policy, true>(policy, projection.width, projection.height, screen, polygon, front);
+        return;
+    }
+    if (count == 3) {
+        detail::scan(policy, projection.width, projection.height, screen, polygon, front);
         return;
     }
     for (int k = 1; k + 1 < count; ++k) {

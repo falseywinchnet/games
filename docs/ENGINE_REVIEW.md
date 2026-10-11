@@ -32,7 +32,7 @@ optimization or correctness change is included in this review.
 | 5 | Ambient shades actor fragments that later opaque fragments overwrite | Unnecessary work | Actor rasterization + preparation/shading dominate reef; compose 1.68 ms/frame at 590×380 | Proposed; overwritten subset not yet isolated |
 | 6 | Fixed-layer triangle constants are recomputed per sample | Done inefficiently | Fixed builds at 590×380: 64.1 / 89.1 / 81.3 ms for planted / reef / pool | Proposed; these are whole-build costs |
 | 7 | Presentation repeats row expansion / complete-frame publication | Done inefficiently / unnecessary work | Native Rock Stack `present_scene`: 37 samples; planted `present_nearest`: median 31 | Lower priority; no native damage rewrite |
-| — | One-surviving-vertex near clipping uses the wrong attribute weights | Done wrong | 63/63 covered diagnostic pixels have wrong attributes; max error 0.322592 | Confirmed, documented, not folded into the performance change |
+| — | One-surviving-vertex near clipping uses the wrong attribute weights | Done wrong | 63/63 covered diagnostic pixels had wrong attributes; max error 0.322592 | Fixed after the review: 0 differences; `ambient_engine` test `test_near_clip_attributes` |
 
 ## Measurement conditions and limits
 
@@ -361,6 +361,12 @@ before claiming a native presentation saving.
 
 ## Correctness: clipped triangles with one surviving vertex
 
+**Fixed after this review** as proposed below: `rasterize` takes the identity scan only
+when all three corners are inside the near plane, and sends a clipped three-vertex
+polygon through the general mapping. The diagnostic below became the regression test
+`test_near_clip_attributes` in `shared/ambient/tests/ambient_tests.cpp` (0 attribute
+differences, coverage unchanged); the standalone probe was retired.
+
 Location: `shared/ambient/src/raster3d.hpp:307`.
 
 `rasterize` clips a triangle and then uses `scan<Policy, true>` whenever the
@@ -432,8 +438,8 @@ saves, all three tanks, repeated samples, captures and JSON summaries;
 `headless.py` records the nine tank/size combinations. `site_probe.cpp` links
 the existing application build's static libraries and checks exact color/depth,
 presented checksums and save preservation. Its modes are 0 serial / 1 threaded
-with the nonquiet hint / 2 automatic quiet scheduling. `clip_probe.cpp` is the
-standalone clipping diagnostic.
+with the nonquiet hint / 2 automatic quiet scheduling. The clipping diagnostic is now
+an ambient engine test.
 
 ```sh
 # From this authoritative worktree; use the supplied helper and only two jobs.
@@ -446,7 +452,6 @@ cmake -S tools/engine_review -B .build/engine-review -DCMAKE_BUILD_TYPE=Release 
   -DCMAKE_TOOLCHAIN_FILE=$HOME/Developer/PlaysuiteDependencies/toolkit-dogfood/gui_forms/cmake/llvm22.cmake
 cmake --build .build/engine-review -j2
 .build/engine-review/site_probe 733 480 120
-.build/engine-review/clip_probe
 python3 tools/engine_review/headless.py .build/app-dogfood/sw_preview astra/engine-review/tanks
 python3 tools/engine_review/native_probe.py .build/app-dogfood/games.app stillwater --scene planted
 python3 tools/engine_review/native_probe.py .build/app-dogfood/games.app zenconstruction
