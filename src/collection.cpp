@@ -195,7 +195,10 @@ void Collection::tick() {
     // and audio preparation need 60 Hz. Then stop: every wake of the window costs a
     // repaint wherever the capsule floats over a live game, so a settled game must
     // not be woken at all. The next pointer or key wakes it again.
-    const bool busy = (*capsule_).unsettled(inside) || sprites_.waiting() || audio_pending();
+    const bool fresh = now < capsule_fresh_until_;
+    if (fresh)
+        (*capsule_).invalidate(gf::Dirty::paint);
+    const bool busy = fresh || (*capsule_).unsettled(inside) || sprites_.waiting() || audio_pending();
     quiet_ = busy ? 0 : quiet_ + dt;
     if (timer_) {
         if (quiet_ > 3.0) {
@@ -329,6 +332,10 @@ void Collection::visibility() {
 }
 void Collection::arrange(gf::Rect b) {
     arrange_self(b);
+    if (b.width != arranged_.width || b.height != arranged_.height) {
+        arranged_ = {b.width, b.height};
+        refresh_capsule_share();
+    }
     const gf::Rect full{0, 0, b.width, b.height};
     if (capsule_width_limit_ != b.width - 64) {
         capsule_width_limit_ = b.width - 64;
@@ -443,6 +450,11 @@ void Collection::open_entry(Entry entry) {
     refresh_commands();
     persist();
     activate();
+    refresh_capsule_share();
+}
+void Collection::refresh_capsule_share() {
+    capsule_fresh_until_ = std::chrono::steady_clock::now() + std::chrono::milliseconds(2500);
+    wake();
 }
 void Collection::show_shelf() {
     close_help();

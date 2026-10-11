@@ -231,3 +231,17 @@ enlarging copy.
    caller-only threshold, a claim size of one), or a `parallel_for(count, job)` on a
    persistent pool, so engines can lend all cores to a few long jobs without
    starting threads each time.
+
+## An overlay's share of a live frame (found with the capsule, 2026-10-10)
+
+1. **Repaint an overlay's share when the live frame under it changes.**
+   `take_live_surface_presentations` subtracts overlay rectangles from each live clip
+   and leaves those pixels to retained painting, but nothing invalidates them when a
+   new generation is published. So the share holds whatever frame was there when the
+   overlay last painted: after a resize the capsule over a live game sits in a black
+   rectangle (painted before the game's first frame at the new size), and on opening
+   a game it shows the previous picture, until the pointer moves over it. Wanted: when a
+   published generation's damage meets an overlay rectangle, damage that intersection
+   for retained painting. PlaySuite repaints the capsule every tick for 2.5 s after a
+   game opens or the window changes size (`Collection::refresh_capsule_share`), which
+   covers the first frames but not animation under the capsule afterwards.
