@@ -264,6 +264,15 @@ static bool on_segment(Point2 a, Point2 b, Point2 c) {
            c.x <= std::max(a.x, b.x) + 1e-8 && c.y >= std::min(a.y, b.y) - 1e-8 &&
            c.y <= std::max(a.y, b.y) + 1e-8;
 }
+// How far point r lies from the segment p-q.
+static double segment_distance(Point2 p, Point2 q, Point2 r) {
+    const double len2 = (q.x - p.x) * (q.x - p.x) + (q.y - p.y) * (q.y - p.y);
+    const double t = len2 > 0 ? std::clamp(((r.x - p.x) * (q.x - p.x) + (r.y - p.y) * (q.y - p.y)) / len2, 0.0, 1.0) : 0;
+    return std::hypot(p.x + t * (q.x - p.x) - r.x, p.y + t * (q.y - p.y) - r.y);
+}
+// A peg sits on a thread when the thread runs under its head: within about a peg's radius
+// (board units). Solved layouts keep every peg .045 clear of every thread (generate_untangle).
+constexpr double peg_on_thread = .03;
 bool PuzzleGame::threads_cross(int e, int f, const std::vector<Point2>& at) const {
     const Edge a = state.edges[static_cast<std::size_t>(e)],
                b = state.edges[static_cast<std::size_t>(f)];
@@ -425,7 +434,7 @@ int PuzzleGame::crossings() const {
     for (const Edge& edge : state.edges)
         for (int i = 0; i < static_cast<int>(state.nodes.size()); ++i)
             if (i != edge.a && i != edge.b &&
-                on_segment(state.nodes[edge.a], state.nodes[edge.b], state.nodes[i]))
+                segment_distance(state.nodes[edge.a], state.nodes[edge.b], state.nodes[i]) < peg_on_thread)
                 ++count;
     for (std::size_t i = 0; i < state.nodes.size(); ++i)
         for (std::size_t j = i + 1; j < state.nodes.size(); ++j)
