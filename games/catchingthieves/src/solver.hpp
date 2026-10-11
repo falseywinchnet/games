@@ -1,8 +1,8 @@
 #pragma once
-// A push-optimal solver: breadth-first over pushes, with the bear's position
-// reduced to the region he can walk to, and squares no pumpkin can leave
-// pruned. It is the generator's independent check, the source of every
-// level's par, and the hint.
+// Independent push-optimal solver used by hints and certificate validation.
+// Classic and pit-only boards collapse effect-free walking regions. Gates and
+// sentries use exact step transitions with walks costing zero and pushes one.
+// Constructive generators can establish par without invoking this solver.
 #include "level.hpp"
 
 #include <string>
@@ -18,7 +18,8 @@ struct SolveResult {
     long long nodes = 0;      // states explored
 };
 
-// From the board's current position. `node_limit` caps the search.
+// From the board's current position. `node_limit` caps the search; a stop request ends it
+// as exhausted (unknown, not unsolvable).
 SolveResult solve(const Board& board, long long node_limit = 2000000, CancellationToken stop = {});
 SolveResult solve(const Level& level, long long node_limit = 2000000, CancellationToken stop = {});
 

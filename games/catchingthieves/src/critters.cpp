@@ -400,6 +400,33 @@ void draw_raccoon(R3D& r, const CoonPose& p, double t) {
     }
 }
 
+void draw_squirrel(R3D& r,const SquirrelPose& p,double t) {
+    const Col fur=hex(0xB9632F),light=hex(0xF2CEA0),ink=hex(0x59321F),dark=hex(0x302219);
+    const M34 frame=at(p.pos+V3{0,0,p.bounce})*M34::rot_z(p.yaw);
+    // A broad, unstriped plume curls up behind the head, readable at tile size.
+    const M34 tail=frame*M34::rot_z(.12*std::sin(p.tail));
+    part(r,sphere_mesh(12,9),tail*at({0,.20,.25})*sc(.16,.19,.23),fur,ink);
+    part(r,sphere_mesh(14,10),tail*at({0,.32,.52})*M34::rot_x(-.3)*sc(.24,.20,.33),fur,ink);
+    part(r,sphere_mesh(12,9),tail*at({0,.20,.79})*sc(.20,.17,.18),fur,ink);
+    part(r,sphere_mesh(12,9),tail*at({0,.12,.77})*sc(.14,.07,.12),light,ink,nullptr,0);
+    for(int side:{-1,1})part(r,sphere_mesh(10,7),frame*at({side*.12,-.06,.055})*sc(.085,.14,.055),fur,ink);
+    part(r,sphere_mesh(14,10),frame*at({0,0,.28})*sc(.18,.16,.25),fur,ink);
+    part(r,sphere_mesh(12,9),frame*at({0,-.115,.28})*sc(.12,.06,.18),light,ink,nullptr,0);
+    const M34 head=frame*at({0,-.06,.57})*M34::rot_z(.07*std::sin(t*2));
+    part(r,sphere_mesh(14,10),head*sc(.20,.18,.18),fur,ink);
+    for(int side:{-1,1}) {
+        part(r,sphere_mesh(10,7),head*at({side*.125,.015,.17})*sc(.065,.055,.12),fur,ink);
+        part(r,sphere_mesh(8,6),head*at({side*.125,-.033,.17})*sc(.038,.014,.072),light,ink,nullptr,0);
+        part(r,sphere_mesh(10,7),head*at({side*.092,-.15,.025})*sc(.048,.025,.062),dark,ink,nullptr,0);
+        part(r,sphere_mesh(8,6),head*at({side*.092-.011,-.175,.047})*sc(.012,.008,.018),kWhite,ink,nullptr,0);
+        part(r,sphere_mesh(10,7),head*at({side*.052,-.163,-.062})*sc(.065,.045,.046),light,ink,nullptr,0);
+        const V3 hand{side*(p.carrying?.16:.09),p.carrying?-.29:-.17,p.carrying?.32:.30+.012*std::sin(t*4)};
+        arm(r,frame,{side*.14,-.015,.39},hand,.11,.11,.035,fur,ink,.043,fur);
+    }
+    part(r,sphere_mesh(8,6),head*at({0,-.208,-.035})*sc(.033,.021,.022),dark,ink,nullptr,0);
+
+}
+
 void draw_trapped_paw(R3D& r, V3 at_, double yaw, double wiggle) {
     const M34 f = at(at_) * M34::rot_z(yaw);
     const V3 a{0, 0, .03}, b{std::sin(wiggle) * .05, -.13, .07 + .03 * std::cos(wiggle * 1.3)};

@@ -116,12 +116,12 @@ int main(int argc, char** argv) {
                 times.push_back(ms);
                 if (!g.ok) { ++failed; std::printf("%s seed %d: failed after %d tries (%.0f ms)\n", difficulty_name(d), i, g.tries, ms); continue; }
                 const GardenMetrics& m = g.metrics;
-                std::printf("%s %d: %.0f ms, %d tries, boxes %d soil %d corridor %d pushes %d moves %d switches %d nodes %lld traps %d/%d score %.1f\n",
-                            difficulty_name(d), i, ms, g.tries, m.boxes, m.soil, m.corridor, m.pushes, m.moves, m.switches, m.nodes, m.traps, m.offered, m.score());
+                std::printf("%s %d: %.3f ms, pumpkins %d floors %d pushes %d moves %d switches %d pits %d gates %d squirrels %d\n",
+                            difficulty_name(d), i, ms, m.pumpkins, m.floors, m.pushes, m.moves, m.switches, m.pits, m.one_way, m.raccoons);
                 std::fflush(stdout);
             }
             std::sort(times.begin(), times.end());
-            std::printf("== %s: median %.0f ms, 90th %.0f ms, worst %.0f ms, %d failed of %d\n", difficulty_name(d), times[times.size() / 2],
+            std::printf("== %s: median %.3f ms, 90th %.3f ms, worst %.3f ms, %d failed of %d\n", difficulty_name(d), times[times.size() / 2],
                         times[times.size() * 9 / 10], times.back(), failed, count);
         }
         return 0;
@@ -163,7 +163,7 @@ int main(int argc, char** argv) {
         if (!load_levels(text.str(), levels, &error)) { std::fprintf(stderr, "%s\n", error.c_str()); return 1; }
         std::printf("index section boxes soil corridor pushes moves switches nodes offered traps share score\n");
         for (size_t i = 0; i < levels.size(); ++i) {
-            const GardenMetrics m = measure(levels[i].level);
+            const SolvedMetrics m = measure_solved(levels[i].level);
             std::printf("%zu \"%s\" %d %d %d %d %d %d %lld %d %d %.3f %.1f\n", i, levels[i].section.c_str(), m.boxes, m.soil, m.corridor, m.pushes, m.moves,
                         m.switches, m.nodes, m.offered, m.traps, m.trap_share(), m.score());
             std::fflush(stdout);
@@ -217,7 +217,7 @@ int main(int argc, char** argv) {
             LevelEntry e = source[i];
             if (e.id < 0) e.id = static_cast<int>(i);
             if (e.tier == "tutorial" || e.section == "First Steps") continue;
-            const GardenMetrics m = measure(e.level, e.nodes);
+            const SolvedMetrics m = measure_solved(e.level, e.nodes);
             const int d = classify(m);
             if (d < 0) { std::fprintf(stderr, "garden %d (%s) fits no tier: score %.1f\n", e.id, e.level.title.c_str(), m.score()); return 1; }
             e.tier = tier_rule(d).key;

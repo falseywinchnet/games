@@ -8,6 +8,8 @@
 //   #  hedge      (space) soil     .  burrow
 //   $  pumpkin    *  pumpkin on a burrow
 //   @  bear       +  bear on a burrow
+//   O  fillable pit   X  pumpkin-loving squirrel   ^ > v <  one-way gate
+// Optional !ct2 lines preserve overlays under actors and stable identities.
 // Solutions use LURD: lowercase a walk, uppercase a push.
 #include <cstdint>
 #include <string>
@@ -26,6 +28,10 @@ struct Level {
     std::vector<Tile> tiles;         // w*h
     std::vector<std::uint8_t> goal;  // w*h, 1 on a burrow
     std::vector<int> boxes;          // pumpkin cells
+    // Optional overlays; empty vectors mean classic Sokoban. Stable pumpkin IDs.
+    std::vector<std::uint8_t> gate;   // cell: 0 unrestricted, 1..4 = Dir + 1
+    std::vector<std::uint8_t> pit;    // cell: unfilled pit in the initial state
+    std::vector<int> raccoons;        // squirrels; legacy field name retained for saved-map/API compatibility
     int player = -1;
     std::string title;               // optional
     std::string solution;            // LURD, optional (generated levels always carry one)
@@ -35,6 +41,11 @@ struct Level {
     bool floor(int c) const { return c >= 0 && c < w * h && tiles[static_cast<size_t>(c)] == Tile::floor; }
     int step(int c, int d) const;  // the neighbouring cell, or -1 off the grid
     int goals() const;
+    bool special() const;
+    int gate_at(int c) const { return gate.empty() || c < 0 || c >= w*h ? 0 : gate[static_cast<size_t>(c)]; }
+    bool pit_at(int c) const { return !pit.empty() && c >= 0 && c < w*h && pit[static_cast<size_t>(c)]; }
+    bool edge(int from, int dir) const; // directed edge, independent of dynamic occupancy
+    bool valid() const;
 
     static bool parse(const std::string& xsb, Level& out, std::string* error = nullptr);
     std::string xsb() const;
@@ -44,6 +55,8 @@ struct Move {
     int dir = 0;
     bool push = false;
     int box = -1;  // which pumpkin (index into Board::boxes()) moved
+    int filled = -1; // a pit filled by this move
+    std::vector<int> stolen, thieves, stolen_from; // atomic turn effects, for exact undo
 };
 
 class Board {
@@ -60,6 +73,14 @@ public:
     const std::vector<int>& boxes() const { return boxes_; }
     int box_at(int cell) const { return cell >= 0 && cell < static_cast<int>(occ_.size()) ? occ_[static_cast<size_t>(cell)] : -1; }
     bool solved() const;
+    bool pit_filled(int c) const { return c >= 0 && c < static_cast<int>(filled_.size()) && filled_[static_cast<size_t>(c)]; }
+    const std::vector<std::uint8_t>& filled_pits() const { return filled_; }
+    const std::vector<std::uint8_t>& departed_raccoons() const { return departed_; }
+    bool raccoon_at(int c) const;
+    bool can_walk(int from, int dir) const;
+    std::string state_key() const; // exact dynamic state, including bear and pumpkin identities
+    bool restore_state(const std::string& key); // exact search state from state_key()
+    void clear_history() { hist_.clear(); pushes_ = 0; } // search snapshots only
     int on_goal() const;
     int moves() const { return static_cast<int>(hist_.size()); }
     int pushes() const { return pushes_; }
@@ -76,6 +97,7 @@ private:
     Level lv_;
     int player_ = -1;
     std::vector<int> boxes_;
+    std::vector<std::uint8_t> filled_, departed_;
     std::vector<int> occ_;  // per cell: pumpkin index or -1
     std::vector<Move> hist_;
     int pushes_ = 0;

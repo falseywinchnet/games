@@ -273,9 +273,69 @@ void Garden::draw_burrows(const GardenState& s, double t) {
 }
 
 // ------------------------------------------------------------------ pumpkins
+namespace {
+// A pale arrow lying on the ground, pointing along `forward`, the way a one-way gate lets
+// the bear and the pumpkins pass.
+void gate_arrow(R3D& r, V3 center, V3 forward, V3 side, double ahead, double behind, double half_width) {
+    const V3 tip = center + forward * ahead + V3{0, 0, .09}, base = center - forward * behind + V3{0, 0, .09};
+    Vtx tri[3] = {{tip, {0, 0, 1}, 0, 0, hex(0xFFF0A0)},
+                  {base + side * half_width, {0, 0, 1}, 0, 0, hex(0xFFF0A0)},
+                  {base - side * half_width, {0, 0, 1}, 0, 0, hex(0xFFF0A0)}};
+    r.draw(tri, 3, nullptr, unlit | double_sided);
+}
+}  // namespace
+
+// Astra's pieces (from the thieves tree, src/garden.cpp): a marked pit (dark, or filled
+// with a sunken pumpkin), one-way arrows, and the squirrels, at home or running off with
+// a pumpkin.
+void Garden::draw_features(const GardenState& s, double t) {
+    for (int i = 0; i < lv_.w * lv_.h; ++i) {
+        const V3 c = cell_pos(i);
+        if (lv_.pit_at(i)) {
+            const bool filled = i < static_cast<int>(s.filled_pits.size()) && s.filled_pits[static_cast<size_t>(i)];
+            draw_mesh(r, box_mesh(), at(c + V3{0, 0, .025}) * sc(.82, .82, .04), nullptr, hex(filled ? 0x995020 : 0x251A22), toon);
+            if (filled)
+                draw_mesh(r, pumpkin_mesh(), at(c + V3{0, 0, -.015}) * sc(.43, .43, .10), nullptr, hex(0xE78628), toon);
+        }
+        if (lv_.gate_at(i)) {
+            const int d = lv_.gate_at(i) - 1;
+            const V3 forward{static_cast<double>(kDX[d]), static_cast<double>(-kDY[d]), 0}, side{-forward.y, forward.x, 0};
+            // A burrow's occupant would hide a central arrow: two flank its mound instead.
+            if (lv_.goal[static_cast<size_t>(i)]) {
+                gate_arrow(r, c + side * .43, forward, side, .23, .15, .055);
+                gate_arrow(r, c - side * .43, forward, side, .23, .15, .055);
+            } else
+                gate_arrow(r, c, forward, side, .36, .24, .24);
+        }
+    }
+    for (size_t i = 0; i < lv_.raccoons.size(); ++i) {
+        if (i < s.departed_raccoons.size() && s.departed_raccoons[i])
+            continue;
+        SquirrelPose squirrel;
+        squirrel.pos = cell_pos(lv_.raccoons[i]);
+        squirrel.tail = t * 3;
+        draw_squirrel(r, squirrel, t);
+    }
+    for (const GardenState::Escape& e : s.escapes) {
+        const double u = std::clamp(e.age / 1.6, 0.0, 1.0);
+        SquirrelPose squirrel;
+        squirrel.pos = e.from + (e.to - e.from) * u;
+        squirrel.yaw = std::atan2(e.to.x - e.from.x, -(e.to.y - e.from.y));
+        squirrel.bounce = .07 * std::abs(std::sin(e.age * 20));
+        squirrel.tail = t * 8;
+        squirrel.carrying = true;
+        draw_squirrel(r, squirrel, t);
+        const M34 carried = at(squirrel.pos + V3{0, 0, squirrel.bounce}) * M34::rot_z(squirrel.yaw) * at({0, -.29, .30});
+        draw_mesh(r, pumpkin_mesh(), carried * sc(.23, .23, .20), nullptr, hex(0xF08A24), toon);
+        draw_mesh(r, cylinder_mesh(6), carried * at({0, 0, .17}) * sc(.025, .025, .075), nullptr, hex(0x587531), toon);
+    }
+}
+
 void Garden::draw_pumpkins(const GardenState& s, double t) {
     const Palette P = palette(s.season);
     for (const PumpkinView& pv : s.pumpkins) {
+        if (!pv.visible)
+            continue;
         const double R = .36, H = .3;
         const double wob = std::sin(t * 23 + pv.seed) * .08 * pv.wobble;
         const V3 base = pv.pos + V3{0, 0, pv.hop * .25};
@@ -395,6 +455,7 @@ void Garden::render(const GardenState& s, double t) {
     draw_ground(s, t);
     draw_marks(s, t);
     draw_burrows(s, t);
+    draw_features(s, t);
     draw_hedges(s, t);
     draw_pumpkins(s, t);
     if (s.season == Season::night) decal(r, s.bear.pos + V3{0, 0, .01}, 3.2, 3.2, &tx().glow, hex(0xFFD080, .3f), kGlow);  // his lantern's pool of light

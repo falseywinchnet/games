@@ -19,6 +19,7 @@ struct LevelEntry {
     std::string tier;      // "tutorial", "easy", "medium" or "hard"
     std::string lesson;    // a tutorial garden's one mechanism, in a sentence
     long long nodes = 0;   // the solver's effort, measured when the table was made
+    int difficulty = 0;    // a grown garden's tier (kEasy..kHard), as the generator states it
 };
 
 bool load_levels(const std::string& text, std::vector<LevelEntry>& out, std::string* error = nullptr);

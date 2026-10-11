@@ -40,11 +40,11 @@ GenResult generate(const GenParams& p, CancellationToken stop = {});
 // How often the solution switches from one pumpkin to another.
 int box_switches(const Level& level, const std::string& lurd);
 
-// How hard a garden is, measured along its recorded best solution. Size alone
+// How hard a book garden is, measured along its recorded best solution. Size alone
 // says little: a garden is hard when the solver must search widely, the
 // solution is long and switches between pumpkins often, and many of the pushes
 // on offer along the way would wedge a pumpkin for good.
-struct GardenMetrics {
+struct SolvedMetrics {
     int boxes = 0;
     int soil = 0;             // walkable squares
     int corridor = 0;         // percent of soil squares with at most two soil neighbours
@@ -59,7 +59,8 @@ struct GardenMetrics {
 };
 
 // `nodes` is the solver's effort if already known; with 0 the garden is solved
-// again to find it. The level must carry a solution that replays to a win.
-GardenMetrics measure(const Level& level, long long nodes = 0);
+// again to find it. The level must carry a solution that replays to a win. The book's
+// gardens were filed by tier with these measures (tiers.hpp classify).
+SolvedMetrics measure_solved(const Level& level, long long nodes = 0);
 
 }  // namespace ct

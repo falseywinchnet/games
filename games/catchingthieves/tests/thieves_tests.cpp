@@ -201,22 +201,22 @@ int main(int argc, char** argv) {
     }
     // --- the tiers: every generated garden measures into its own tier, and the tiers are ordered by every measure
     {
-        std::vector<std::vector<GardenMetrics>> tiers(kDifficulties);
+        std::vector<std::vector<SolvedMetrics>> tiers(kDifficulties);
         for (const LevelEntry& e : levels) {
             const int d = difficulty_from_key(e.tier);
             if (d == kTutorial) continue;
-            const GardenMetrics m = measure(e.level, e.nodes);
+            const SolvedMetrics m = measure_solved(e.level, e.nodes);
             CHECK(classify(m) == d);
             tiers[static_cast<size_t>(d)].push_back(m);
         }
         std::printf("tier      gardens boxes  soil pushes moves switches    nodes traps  score (medians)\n");
         double previous[8] = {};
         for (int d = kEasy; d < kDifficulties; ++d) {
-            const std::vector<GardenMetrics>& ms = tiers[static_cast<size_t>(d)];
+            const std::vector<SolvedMetrics>& ms = tiers[static_cast<size_t>(d)];
             CHECK(ms.size() >= 60);
             std::vector<double> col[8];
             double lo = 1e9, hi = -1e9;
-            for (const GardenMetrics& m : ms) {
+            for (const SolvedMetrics& m : ms) {
                 col[0].push_back(m.boxes); col[1].push_back(m.soil); col[2].push_back(m.pushes); col[3].push_back(m.moves);
                 col[4].push_back(m.switches); col[5].push_back(static_cast<double>(m.nodes)); col[6].push_back(m.traps); col[7].push_back(m.score());
                 lo = std::min(lo, m.score());
@@ -236,28 +236,41 @@ int main(int argc, char** argv) {
         }
         CHECK(tier_rule(kHard).boxes_max > tier_rule(kEasy).boxes_max && tier_rule(kHard).pushes_min > tier_rule(kMedium).pushes_min);
     }
-    // --- fresh gardens: grown at each tier, measured into it, and proven by replaying their witness through the rules
+    // --- fresh gardens: built at each tier with a certified solution, which replays through the
+    // rules to a win in exactly its par; Medium brings pits, Hard squirrels or one-way gates
     {
         for (int d = kEasy; d < kDifficulties; ++d) {
             double worst = 0, total = 0;
-            const int n = d == kHard ? 3 : 6;
+            const int n = 200;
+            int pits = 0, squirrels = 0, gates = 0;
             for (int k = 0; k < n; ++k) {
+                const std::uint64_t seed = 1000 + static_cast<std::uint64_t>(k) * 31;
                 const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
-                const Grown g = grow(d, 1000 + static_cast<std::uint64_t>(k) * 31);
+                const Grown g = grow(d, seed);
                 const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
                 worst = std::max(worst, ms);
                 total += ms;
                 CHECK(g.ok);
                 if (!g.ok) continue;
-                CHECK(classify(g.metrics) == d && g.entry.tier == tier_rule(d).key && !g.entry.level.title.empty());
+                CHECK(g.entry.tier == tier_rule(d).key && g.entry.difficulty == d && !g.entry.level.title.empty());
                 Board b;
-                CHECK(b.load(g.entry.level) && b.on_goal() == 0);
+                CHECK(b.load(g.entry.level) && b.on_goal() < g.entry.level.goals());
                 CHECK(b.replay(g.entry.level.solution) && b.solved() && b.pushes() == g.entry.par);
-                if (d < kHard) CHECK(solve(g.entry.level).pushes == g.entry.par);
-                CHECK(grow(d, 1000 + static_cast<std::uint64_t>(k) * 31).entry.level.xsb() == g.entry.level.xsb());  // reproducible
+                const GardenMetrics m = measure(g.entry.level);
+                CHECK(m.pushes == g.entry.par);
+                pits += m.pits > 0;
+                squirrels += m.raccoons > 0;
+                gates += m.one_way > 0;
+                if (d < kHard && k < 12) CHECK(solve(g.entry.level).pushes == g.entry.par);  // par is the fewest
+                CHECK(grow(d, seed).entry.level.xsb() == g.entry.level.xsb());  // reproducible
+                Level copy;
+                CHECK(Level::parse(g.entry.level.xsb(), copy) && copy.xsb() == g.entry.level.xsb());  // saves keep it whole
             }
-            std::printf("grow %-6s: %d gardens, mean %.0f ms, worst %.0f ms (single thread, off the UI thread in play)\n", difficulty_name(d), n,
-                        total / n, worst);
+            std::printf("grow %-6s: %d gardens, mean %.3f ms, worst %.3f ms; with pits %d, squirrels %d, gates %d\n",
+                        difficulty_name(d), n, total / n, worst, pits, squirrels, gates);
+            CHECK(worst < 5);
+            if (d >= kMedium) CHECK(pits > 0);
+            if (d == kHard) CHECK(squirrels > 0 || gates > 0);
         }
         CancellationSource cancelled;
         cancelled.request_stop();

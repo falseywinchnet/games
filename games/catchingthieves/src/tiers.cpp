@@ -1,4 +1,5 @@
 #include "tiers.hpp"
+#include "research/restricted_garden.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -42,7 +43,7 @@ int difficulty_from_key(const std::string& key) {
     return -1;
 }
 
-int classify(const GardenMetrics& m) {
+int classify(const SolvedMetrics& m) {
     for (int d = kEasy; d < kDifficulties; ++d) {
         const TierRule& r = kRules[d];
         if (m.boxes < r.boxes_min || m.boxes > r.boxes_max || m.pushes < r.pushes_min || m.nodes < r.nodes_min) continue;
@@ -52,41 +53,35 @@ int classify(const GardenMetrics& m) {
     return -1;
 }
 
-Grown grow(int difficulty, std::uint64_t seed, CancellationToken stop, int max_tries) {
-    Grown out;
-    if (difficulty < kEasy || difficulty >= kDifficulties) return out;
-    const TierRule& r = kRules[difficulty];
-    std::uint64_t h = mix(seed + 0x5EED);
-    for (int attempt = 0; attempt < max_tries && !stop.stop_requested(); ++attempt) {
-        out.tries = attempt + 1;
-        h = mix(h + static_cast<std::uint64_t>(attempt) + 1);
-        GenParams p;
-        p.w = r.w0 + static_cast<int>(h % static_cast<std::uint64_t>(r.w1 - r.w0 + 1));
-        p.h = r.h0 + static_cast<int>((h >> 8) % static_cast<std::uint64_t>(r.h1 - r.h0 + 1));
-        p.boxes = r.grow_boxes0 + static_cast<int>((h >> 16) % static_cast<std::uint64_t>(r.grow_boxes1 - r.grow_boxes0 + 1));
-        p.min_pushes = r.min_pushes;
-        p.reverse_budget = r.reverse_budget;
-        p.hedges = r.hedges;
-        p.attempts = 60;
-        p.seed = h >> 24;
-        const GenResult g = generate(p, stop);
-        if (!g.ok) continue;
-        const GardenMetrics m = measure(g.level, g.solver_nodes);
-        if (classify(m) != difficulty) continue;
-        out.ok = true;
-        out.metrics = m;
-        out.entry.level = g.level;
-        out.entry.level.title = garden_title(h);
-        out.entry.par = g.pushes;
-        out.entry.switches = g.box_lines;
-        out.entry.nodes = g.solver_nodes;
-        out.entry.tier = r.key;
-        out.entry.section = r.name;
-        char text[96];
-        std::snprintf(text, sizeof text, "%llu %dx%d %d %.2f", static_cast<unsigned long long>(p.seed), p.w, p.h, p.boxes, p.hedges);
-        out.entry.seed = text;
-        return out;
+GardenMetrics measure(const Level& level, long long nodes) {
+    GardenMetrics m;
+    m.nodes = nodes;
+    m.pumpkins = static_cast<int>(level.boxes.size());
+    m.burrows = level.goals();
+    m.raccoons = static_cast<int>(level.raccoons.size());
+    for (int c = 0; c < level.w * level.h; ++c) {
+        m.floors += level.floor(c);
+        m.one_way += level.gate_at(c) != 0;
+        m.pits += level.pit_at(c);
     }
+    m.moves = static_cast<int>(level.solution.size());
+    for (const char c : level.solution)
+        m.pushes += c >= 'A' && c <= 'Z';
+    m.switches = box_switches(level, level.solution);
+    return m;
+}
+
+Grown grow(int difficulty, std::uint64_t seed, CancellationToken stop, int max_tries) {
+    Grown out = research::restricted_grow(difficulty, seed, stop, max_tries);
+    if (!out.ok)
+        return out;
+    // The construction names every garden of a tier alike; the book gives each its own.
+    const TierRule& r = kRules[difficulty];
+    out.tries = 1;
+    out.entry.level.title = garden_title(mix(seed * 4 + static_cast<std::uint64_t>(difficulty)));
+    out.entry.tier = r.key;
+    out.entry.section = r.name;
+    out.entry.id = -1;
     return out;
 }
 

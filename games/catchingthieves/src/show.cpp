@@ -8,6 +8,12 @@ namespace ct {
 namespace {
 struct ExpiredPuff { bool operator()(const Puff& puff) const { return puff.age >= puff.life; } };
 struct ExpiredBubble { bool operator()(const Bubble& bubble) const { return bubble.age >= bubble.life; } };
+struct ExpiredEscape { bool operator()(const GardenState::Escape& escape) const { return escape.age >= 1.6; } };
+// Whether a pumpkin (still in the garden: not carried off, not sunk in a pit) sits on a burrow.
+bool on_burrow(const Board& board, size_t b) {
+    const int cell = board.boxes()[b];
+    return cell >= 0 && board.level().goal[static_cast<size_t>(cell)] != 0;
+}
 
 double ease(double u) { u = std::clamp(u, 0.0, 1.0); return u * u * (3 - 2 * u); }
 double yaw_of(int dir) {
@@ -76,12 +82,18 @@ int Show::any_coon(bool free_only) {
 }
 
 void Show::place_all(const Board& board) {
+    st_.filled_pits = board.filled_pits();
+    st_.departed_raccoons = board.departed_raccoons();
+    st_.escapes.clear();
     st_.pumpkins.clear();
     for (size_t b = 0; b < board.boxes().size(); ++b) {
         PumpkinView pv;
-        pv.pos = (*garden_).cell_pos(board.boxes()[b]);
+        // A pumpkin a squirrel took, or one sunk into a pit, is no longer in the garden.
+        pv.visible = board.boxes()[b] >= 0;
+        if (pv.visible)
+            pv.pos = (*garden_).cell_pos(board.boxes()[b]);
         pv.seed = static_cast<int>(b) * 3 + 1;
-        pv.on_burrow = board.level().goal[static_cast<size_t>(board.boxes()[b])] != 0;
+        pv.on_burrow = on_burrow(board, b);
         st_.pumpkins.push_back(pv);
     }
     bear_from_ = bear_to_ = (*garden_).cell_pos(board.player());
@@ -135,6 +147,22 @@ void Show::restart(const Board& board) {
 }
 
 void Show::moved(const Board& board, const Move& m, bool undo) {
+    // Undoing a filled pit or a theft puts everything back at once.
+    if (undo && (m.filled >= 0 || !m.stolen.empty())) {
+        place_all(board);
+        return;
+    }
+    st_.filled_pits = board.filled_pits();
+    st_.departed_raccoons = board.departed_raccoons();
+    // An unguarded pumpkin: its squirrel snatches it and runs off out of the garden.
+    for (size_t i = 0; i < m.stolen.size(); ++i) {
+        const V3 from = (*garden_).cell_pos(m.stolen_from[i]);
+        const V3 home = (*garden_).cell_pos(board.level().raccoons[static_cast<size_t>(m.thieves[i])]);
+        const V3 away = norm(home - from);
+        const double far = static_cast<double>(std::max(board.level().w, board.level().h));
+        st_.escapes.push_back({m.thieves[i], from, home + away * far, 0});
+        cues.push_back({Cue::sound, "ct_pop", .45f, 1.35f});
+    }
     // finish whatever step was still in flight
     if (step_t_ < step_len_) {
         step_t_ = step_len_;
@@ -154,7 +182,9 @@ void Show::moved(const Board& board, const Move& m, bool undo) {
     push_box_ = -1;
     if (m.push && m.box >= 0 && m.box < static_cast<int>(st_.pumpkins.size())) {
         push_box_ = m.box;
-        const int bto = board.boxes()[static_cast<size_t>(m.box)], bfrom = lv.step(bto, undo ? m.dir : back);
+        // A pumpkin pushed into a pit ends in the pit, where it sinks.
+        const int bto = m.filled >= 0 ? m.filled : board.boxes()[static_cast<size_t>(m.box)];
+        const int bfrom = lv.step(bto, undo ? m.dir : back);
         box_from_ = (*garden_).cell_pos(bfrom);
         box_to_ = (*garden_).cell_pos(bto);
         st_.pumpkins[static_cast<size_t>(m.box)].pos = box_from_;
@@ -181,7 +211,7 @@ void Show::moved(const Board& board, const Move& m, bool undo) {
     // a pumpkin pushed right up to a free burrow: its raccoon notices
     if (m.push && !undo && m.box >= 0 && m.box < static_cast<int>(board.boxes().size()) && rand01() < .5) {
         const int at = board.boxes()[static_cast<size_t>(m.box)];
-        for (size_t i = 0; i < coons_.size() && !lv.goal[static_cast<size_t>(at)]; ++i) {
+        for (size_t i = 0; i < coons_.size() && at >= 0 && !lv.goal[static_cast<size_t>(at)]; ++i) {
             const int burrow = coons_[i].burrow;
             if (board.box_at(burrow) >= 0) continue;
             bool next_to = false;
@@ -514,12 +544,19 @@ void Show::update(double dt, const Board& board) {
     if (stuck_) stuck_t_ += dt;
     if (win_t_ >= 0) win_t_ += dt;
     for (size_t i = 0; i < coons_.size(); ++i) coon_update(static_cast<int>(i), dt, board);
+    for (GardenState::Escape& e : st_.escapes)
+        e.age += dt;
+    st_.escapes.erase(std::remove_if(st_.escapes.begin(), st_.escapes.end(), ExpiredEscape{}), st_.escapes.end());
     for (size_t b = 0; b < st_.pumpkins.size(); ++b) {
         PumpkinView& pv = st_.pumpkins[b];
+        const bool sinking = static_cast<int>(b) == push_box_ && board.boxes()[b] == -1;
+        pv.visible = board.boxes()[b] >= 0 || sinking;
+        if (sinking)
+            pv.pos.z -= std::min(1.0, step_t_ / step_len_) * .45;
         pv.wobble = std::max(0.0, pv.wobble - dt * 1.6);
         pv.glow = std::max(0.0, pv.glow - dt * 1.2);
         pv.hop = std::max(0.0, pv.hop - dt * 3);
-        pv.on_burrow = board.level().goal[static_cast<size_t>(board.boxes()[b])] != 0;
+        pv.on_burrow = on_burrow(board, b);
         if (win_t_ > .4) pv.hop = std::max(pv.hop, .5 * std::fabs(std::sin((win_t_ - b * .15) * 6)) * std::max(0.0, 1 - (win_t_ - 2) * .5));
     }
     for (Puff& p : st_.puffs) p.age += dt;
@@ -533,7 +570,7 @@ void Show::settle(const Board& board) {
     if (!garden_) return;
     const int hint_from = st_.hint_from, hint_dir = st_.hint_dir, stuck_cell = st_.stuck_cell;
     for (std::size_t index = 0; index < st_.pumpkins.size() && index < board.boxes().size(); ++index) {
-        if (!st_.pumpkins[index].on_burrow && board.level().goal[static_cast<std::size_t>(board.boxes()[index])] && !board.solved())
+        if (!st_.pumpkins[index].on_burrow && on_burrow(board, index) && !board.solved())
             cues.push_back({Cue::sound, "ct_trap", .9f});
     }
     place_all(board);

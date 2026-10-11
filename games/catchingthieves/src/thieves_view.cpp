@@ -466,7 +466,8 @@ bool ThievesView::same_position(const Board& x) const {
                 if (c == board_.player()) return true;
                 for (int d = 0; d < 4; ++d) {
                     const int n = lv.step(c, d);
-                    if (lv.floor(n) && x.box_at(n) < 0 && !seen[static_cast<size_t>(n)]) { seen[static_cast<size_t>(n)] = 1; st.push_back(n); }
+                    // the rules say where he may walk: one-way gates and open pits included
+                    if (x.can_walk(c, d) && !seen[static_cast<size_t>(n)]) { seen[static_cast<size_t>(n)] = 1; st.push_back(n); }
                 }
             }
             return false;
@@ -580,7 +581,8 @@ std::vector<int> ThievesView::path_to(int cell) const {
         if (c == cell) break;
         for (int d = 0; d < 4; ++d) {
             const int n = lv.step(c, d);
-            if (lv.floor(n) && board_.box_at(n) < 0 && prev[static_cast<size_t>(n)] < 0) { prev[static_cast<size_t>(n)] = c; q.push_back(n); }
+            // only steps the rules allow: one-way gates and open pits included
+            if (board_.can_walk(c, d) && prev[static_cast<size_t>(n)] < 0) { prev[static_cast<size_t>(n)] = c; q.push_back(n); }
         }
     }
     if (prev[static_cast<size_t>(cell)] < 0) return {};
@@ -622,7 +624,7 @@ void ThievesView::after_move() {
     show_.state().stuck_cell = -1;
     if (stuck_)
         for (int b : board_.boxes())
-            if (!board_.level().goal[static_cast<size_t>(b)] && board_.dead_square(b)) { show_.state().stuck_cell = b; break; }
+            if (b >= 0 && !board_.level().goal[static_cast<size_t>(b)] && board_.dead_square(b)) { show_.state().stuck_cell = b; break; }
     if (board_.solved()) finish();
     if (cab_reduced_) show_.settle(board_);
     persist();

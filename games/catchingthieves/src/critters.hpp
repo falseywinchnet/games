@@ -59,6 +59,13 @@ struct CoonPose {
     CoonFace face;
 };
 
+// The free pumpkin enthusiast has a separate silhouette from burrow bandits.
+struct SquirrelPose {
+    V3 pos{};
+    double yaw=0,bounce=0,tail=0;
+    bool carrying=false;
+};
+void draw_squirrel(R3D&,const SquirrelPose&,double t);
 void draw_bear(R3D& r, const BearPose& p, double t);
 void draw_raccoon(R3D& r, const CoonPose& p, double t);
 // A paw poking out from under a pumpkin (a trapped raccoon), and its muffled wiggle.

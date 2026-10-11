@@ -30,9 +30,11 @@ bool lurd_only(const std::string& s) {
         if (std::string("udlrUDLR").find(c) == std::string::npos) return false;
     return true;
 }
+// What a garden's text may hold: the grid, its pits (O), one-way gates (^ > v <) and
+// squirrels (X), and the "!ct2 key count values" lines that keep them (level.cpp).
 bool board_chars(const std::string& s) {
     for (char c : s)
-        if (std::string("#@+$*. |-_").find(c) == std::string::npos) return false;
+        if (std::string("#@+$*. |-_OX^>v<!0123456789abcdeginoprstx").find(c) == std::string::npos) return false;
     return true;
 }
 bool title_chars(const std::string& s) {
@@ -112,7 +114,7 @@ bool load_save(const std::filesystem::path& path, SaveData& out) {
                 rs >> idx >> r.best_moves >> r.best_pushes;
                 if (idx >= 0 && idx < 100000 && r.best_moves > 0 && r.best_pushes > 0 && r.best_pushes <= r.best_moves) d.records[idx] = r;
             }
-            else if (k == "endless") { if (!board_chars(v) || v.size() >= 2000) return false; d.endless_xsb = v; }
+            else if (k == "endless") { if (!board_chars(v) || v.size() >= 20000) return false; d.endless_xsb = v; }
             else if (k == "endless_solution") { if (!lurd_only(v)) return false; d.endless_solution = v; }
             else if (k == "endless_season") d.endless_season = integer(v);
             else if (k == "endless_tier") d.endless_tier = integer(v);

@@ -20,6 +20,7 @@ enum class Season { spring, summer, autumn, winter, night };
 Season season_for(const std::string& section);
 
 struct PumpkinView {
+    bool visible = true;   // false once a squirrel has carried it off
     V3 pos{};          // world, base on the ground
     double roll_x = 0, roll_y = 0;  // accumulated roll (radians) about the world x and y axes
     double wobble = 0; // a raccoon underneath shoves it about
@@ -42,6 +43,15 @@ struct GardenState {
     std::vector<CoonPose> coons;           // one per burrow (rise 0 when hidden or trapped)
     std::vector<int> trapped;              // per burrow: 1 when a pumpkin sits on it
     std::vector<double> paw_wiggle;        // per burrow: the trapped paw's wiggle phase
+    // per cell: a pit a pumpkin has filled; per squirrel: gone with a pumpkin (the rules'
+    // names: Board::filled_pits, departed_raccoons)
+    std::vector<std::uint8_t> filled_pits, departed_raccoons;
+    struct Escape {        // a squirrel running off with a pumpkin
+        int raccoon;
+        V3 from, to;
+        double age = 0;
+    };
+    std::vector<Escape> escapes;
     std::vector<Puff> puffs;
     int hover_cell = -1;
     std::vector<int> path;                 // cells the bear will walk (click-to-move preview)
@@ -81,6 +91,7 @@ private:
     void draw_ground(const GardenState& s, double t);
     void draw_hedges(const GardenState& s, double t);
     void draw_burrows(const GardenState& s, double t);
+    void draw_features(const GardenState& s, double t);  // pits, one-way gates, squirrels
     void draw_pumpkins(const GardenState& s, double t);
     void draw_weather(const GardenState& s, double t);
     void draw_marks(const GardenState& s, double t);

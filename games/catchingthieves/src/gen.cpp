@@ -152,12 +152,12 @@ int box_switches(const Level& level, const std::string& lurd) {
     return n;
 }
 
-double GardenMetrics::score() const {
+double SolvedMetrics::score() const {
     return 3.0 * std::log2(1.0 + static_cast<double>(nodes)) + pushes + 1.5 * switches + 40.0 * trap_share();
 }
 
-GardenMetrics measure(const Level& level, long long nodes) {
-    GardenMetrics m;
+SolvedMetrics measure_solved(const Level& level, long long nodes) {
+    SolvedMetrics m;
     m.boxes = static_cast<int>(level.boxes.size());
     int narrow = 0;
     for (int c = 0; c < level.w * level.h; ++c) {

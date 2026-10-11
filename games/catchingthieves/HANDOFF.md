@@ -38,3 +38,27 @@ The cue checker reports prefixes such as `ct_step_0`, `ct_push_0`, `ct_muffle_0`
 - The beds (`src/ground.*`) are painted by the shared soil engine (`shared/soil`): dug rows with clods and crumbs, a little straw and stone; damp in spring, paler and lightly cracked in summer, leaf litter and twigs in autumn, frost and a dusting of snow lying in the slumped rows in winter, the same moonlit at night. The light in the picture comes from the back left, as the hedge's shadows do. Alternate squares stay a shade apart so the grid can be counted. Pictures are made at the screen's texel density (in steps of about an eighth) once per season and size, and kept: 8–20 ms at 600 × 420, 30–40 ms at 1100 × 760 on the M4; frames cost the same as before.
 - A burrow is a pit cut into the bed (the square is drawn as a ring round the mouth), its wall darkening to nothing, with roots in the far side; a lumpy lip of spoil with a pale dry crest, trodden low where a fan of fresh dark spoil is thrown onto the open bed (never into a hedge, away from other burrows); clods and a stone on the heap. Translucent layers down the pit shade whatever of the raccoon is still below ground. Raccoon animation and gameplay are unchanged; the pumpkin plugs the mouth.
 - The lawn and the field no longer write depth, so the pits can go below them. `ct_preview burrows out.ppm [season] [W] [H]` renders every burrow state close up.
+
+## ASTRA'S GARDEN GENERATOR (2026-10-11)
+
+- Fresh gardens come from Astra's constructive generator (the user's `thieves` tree,
+  `~/solitaire_sounds/thieves`, graph-v4): `grow(tier, seed)` builds a garden directly from
+  its tier's action graph in a few microseconds, with its solution and a proof that the par
+  is the fewest pushes possible. There are no rejected boards and no search. Easy needs one
+  pumpkin task at a time, Medium two at once and Hard four; gardens may start with burrows
+  already covered ("borrowed" goals that must be uncovered and restored).
+- New pieces, all in the rules with exact undo: one-way gates (`^ > v <`, for the bear and the
+  pumpkins; every tier), marked pits a pumpkin fills to make a crossing (`O`; Medium and Hard)
+  and pumpkin-loving squirrels that carry off an unguarded pumpkin (`X`; Hard), drawn by
+  `Garden::draw_features` and played by `Show` (escapes, sinking into pits).
+- Borrowed unchanged from Astra's tree: `src/level.*`, `src/critters.*` (our include only) and
+  `src/research/*` (the generator core). `src/solver.*` is Astra's push-optimal solver (it
+  searches pits, gates and theft) with one change: the hint worker's cancellation is threaded
+  through all three of its searches.
+- `tiers.*` keeps PlaySuite's tier names and keys and gives each grown garden its own title;
+  the book's older gardens keep their measured tiers (`gen.hpp` `SolvedMetrics`, `classify`).
+- Saves accept the new pieces: a garden's text carries `!ct2` overlay lines (level.cpp), so the
+  stored board allows their characters and up to 20,000 bytes.
+- Not yet: pits are drawn as a flat dark slab rather than dug into the soil engine's beds; the
+  help does not yet describe gates, pits and squirrels; the background worker that grew gardens
+  could now go, since growing takes microseconds.
