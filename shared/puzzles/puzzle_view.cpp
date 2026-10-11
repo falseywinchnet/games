@@ -920,8 +920,8 @@ double PuzzleView::untangle_radius() const {
     return std::clamp(board_.width * .026, 11.0, 17.0);
 }
 // Untangle: yarn tied to wooden pegs on a plain cushion, watched by a cat. Each color of
-// yarn is its own layer; snags mark where a thread crosses its own color. When the last snag
-// clears, the yarn warms to gold, a ripple runs outward and the cat curls up in the web.
+// yarn is its own layer; only threads of one color tangle. When the last tangle clears, the
+// yarn warms to gold, a ripple runs outward and the cat curls up in the web.
 bool PuzzleView::update_untangle_geometry() {
     std::vector<Point2> positions = game.state.nodes;
     if (swat_peg_ >= 0 && swat_peg_ < static_cast<int>(positions.size()) && swat_t_ < 1) {
@@ -943,32 +943,6 @@ bool PuzzleView::update_untangle_geometry() {
         return false;
     untangle_geometry_dirty_ = false;
     untangle_positions_ = positions;
-    struct BoardPosition {
-        gf::Rect board_;
-        gf::Point operator()(Point2 q) const {
-            return gf::Point{board_.x + q.x * board_.width, board_.y + q.y * board_.height};
-        }
-    };
-    BoardPosition at{board_};
-    const int edge_count = static_cast<int>(game.state.edges.size());
-    std::vector<bool> crossed(game.state.edges.size(), false);
-    std::vector<gf::Point> snags;
-    for (int i = 0; i < edge_count; ++i)
-        for (int j = i + 1; j < edge_count; ++j)
-            if (game.threads_cross(i, j, positions)) {
-                crossed[i] = crossed[j] = true;
-                const Edge e = game.state.edges[i], f = game.state.edges[j];
-                const Point2 p0 = positions[e.a], p1 = positions[e.b], q0 = positions[f.a],
-                             q1 = positions[f.b];
-                const double den = (p1.x - p0.x) * (q1.y - q0.y) - (p1.y - p0.y) * (q1.x - q0.x);
-                if (std::abs(den) > 1e-9) {
-                    const double s =
-                        ((q0.x - p0.x) * (q1.y - q0.y) - (q0.y - p0.y) * (q1.x - q0.x)) / den;
-                    snags.push_back(at({p0.x + s * (p1.x - p0.x), p0.y + s * (p1.y - p0.y)}));
-                }
-            }
-    untangle_crossed_ = std::move(crossed);
-    untangle_snags_ = std::move(snags);
     untangle_crossings_ = game.crossings();
     return true;
 }
@@ -1010,8 +984,6 @@ void PuzzleView::paint_untangle(gf::Painter& p, int part) {
     if (part <= 0)
         static_cast<void>(update_untangle_geometry());
     const std::vector<Point2>& positions = untangle_positions_;
-    const std::vector<bool>& crossed = untangle_crossed_;
-    const std::vector<gf::Point>& snags = untangle_snags_;
     const int crossings = untangle_crossings_;
     struct BoardPosition {
         gf::Rect board_;
@@ -1057,7 +1029,7 @@ void PuzzleView::paint_untangle(gf::Painter& p, int part) {
                         celebrate < 0 ? .35 : std::clamp((celebrate * 1.6 - d) * 4, 0.0, 1.0) * .7;
                     color = mix_color(color, gf::Color::rgba(255, 220, 120), wave);
                 }
-                const double w = crossed[i] ? thread * .85 : thread;
+                const double w = thread;
                 p.draw_line({a.x + 1, a.y + 2.5}, {c.x + 1, c.y + 2.5},
                             gf::Color::rgba(30, 4, 16, 70), w + 2);
                 p.draw_line(a, c, mix_color(color, gf::Color::rgba(0, 0, 0), .35), w + 1.6);
@@ -1088,19 +1060,6 @@ void PuzzleView::paint_untangle(gf::Painter& p, int part) {
                          gf::Color::rgba(240, 232, 214, static_cast<unsigned char>(255 * fade)));
     }
     if (part < 0 || part == 1) {
-        // Snags where same-colored threads cross, pulsing gently.
-        for (const gf::Point q : snags) {
-            // A small knot with a soft pulsing halo.
-            const double r = thread * (.9 + .15 * std::sin(t * 5));
-            if (!in_paint_area({q.x - r * 2, q.y - r * 2, r * 4, r * 4}))
-                continue;
-            p.fill_rounded_rect({q.x - r * 2, q.y - r * 2, r * 4, r * 4}, r * 2,
-                                gf::Color::rgba(255, 236, 200, 46));
-            p.fill_rounded_rect({q.x - r, q.y - r, 2 * r, 2 * r}, r,
-                                gf::Color::rgba(70, 14, 24, 230));
-            p.stroke_rounded_rect({q.x - r, q.y - r, 2 * r, 2 * r}, r,
-                                  gf::Color::rgba(255, 226, 190, 220), 1.2);
-        }
         if (celebrate >= 0) {
             const double r = board_.width * (.1 + celebrate * .8);
             p.stroke_rounded_rect(
@@ -2726,9 +2685,6 @@ gf::Rect PuzzleView::untangle_animation_bounds() const {
     gf::Rect damage = kitten_.paint_bounds(board_);
     if (untangle_hint_ > 0)
         damage = gf::Rect::united(damage, untangle_hint_rect());
-    const double knot = std::clamp(board_.width * .0105, 3.0, 7.0) * 2.1 + 2;
-    for (const gf::Point point : untangle_snags_)
-        damage = gf::Rect::united(damage, {point.x - knot, point.y - knot, knot * 2, knot * 2});
     const double peg = untangle_radius() + 28;
     for (std::size_t i = 0; i < untangle_positions_.size(); ++i)
         if (game.untangle_frozen(static_cast<int>(i)) ||

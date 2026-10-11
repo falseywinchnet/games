@@ -40,7 +40,7 @@ ORIGINAL_HELP = {'atom': 'ca18af9d89d615ad304a8208d958e7aace41d77f15a4e9ce7ca101
  'spider': '266678a16d2fd59aca72e53af62221b24b0ae722e7cb87450423f209bd808b56',
  'sudoku': '9b4c028f42e73415f6b26e502d45cea6d16f1b2b2b78cdcbb3329c6a7f861fab',
  'switchbox': 'a900bf901111325449ad65dea3871803b5e104ea4db4fdf90af72b7a32405c65',
- 'untangle': 'b0483a2bf8beb2b26e37cded9a398f89cac57b3940b919d0427f71cb7c799d50'}
+ 'untangle': '90254adc26499fe7a6745291a71878dac9b8f505c161803dae8c47f068eac522'}
 
 class CatalogTests(unittest.TestCase):
     def setUp(self):

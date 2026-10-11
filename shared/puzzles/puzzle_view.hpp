@@ -77,8 +77,6 @@ class PuzzleView final : public gf::Control, public CommandSource {
     [[nodiscard]] gf::Rect untangle_animation_bounds() const;
     [[nodiscard]] gf::Rect untangle_board_damage() const;
     std::vector<Point2> untangle_positions_;
-    std::vector<bool> untangle_crossed_;
-    std::vector<gf::Point> untangle_snags_;
     bool untangle_geometry_dirty_ = true;
     int untangle_crossings_ = 0;
     std::array<std::shared_ptr<gf::Button>, 9> buttons_;
