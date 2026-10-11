@@ -16,6 +16,7 @@ struct Sprite {
     int pile = -1, index = -1;
     bool visible = false, prior_up = false, flipping = false, moving = false;
     double delay = 0, duration = .38, flip_progress = 1;
+    double lift = 0;  // 0 on the table .. 1 at the top of its arc, as it moves
 };
 class Table final : public gf::Control, public CommandSource {
   public:
@@ -114,6 +115,10 @@ class Table final : public gf::Control, public CommandSource {
     void track_hover(gf::Point point);
     int hit_slot(gf::Point point) const;
     [[nodiscard]] gf::Rect landing(int pile) const;
+    // How far apart Spider's waiting deals lie, each a small stack of backs.
+    [[nodiscard]] double deal_step() const {
+        return card_w_ * .14;
+    }
     void request_tick();
     struct Bouncer {
         Card card;

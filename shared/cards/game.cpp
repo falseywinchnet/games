@@ -86,32 +86,38 @@ void Game::deal(Kind kind, std::uint32_t seed, int option) {
     message = kind == Kind::hearts ? "Choose three cards to pass left."
                                    : "Your table is ready. Take your time.";
 }
-bool Game::legal(Move m) const {
-    if (state.kind == Kind::hearts || state.over || m.from < 0 || m.from >= 20 || m.to < 0 ||
-        m.to >= 20 || m.from == m.to)
+bool Game::liftable(int pile, int index) const {
+    if (state.kind == Kind::hearts || state.over || pile < 0 || pile >= 20)
         return false;
-    const Pile& from = state.piles[m.from];
-    const Pile& to = state.piles[m.to];
-    if (m.index < 0 || m.index >= static_cast<int>(from.size()) || !from[m.index].up)
+    const Pile& from = state.piles[pile];
+    if (index < 0 || index >= static_cast<int>(from.size()) || !from[index].up)
         return false;
     int columns = state.kind == Kind::spider ? 10 : state.kind == Kind::freecell ? 8 : 7;
     bool source =
-        m.from < columns ||
-        (state.kind == Kind::solitaire && (m.from == 15 || (m.from >= 10 && m.from < 14))) ||
-        (state.kind == Kind::freecell && m.from >= 16);
+        pile < columns ||
+        (state.kind == Kind::solitaire && (pile == 15 || (pile >= 10 && pile < 14))) ||
+        (state.kind == Kind::freecell && pile >= 16);
     if (!source)
         return false;
-    if (m.from >= 10 && m.index != static_cast<int>(from.size()) - 1)
+    if (pile >= 10 && index != static_cast<int>(from.size()) - 1)
         return false;
-    int count = static_cast<int>(from.size()) - m.index;
-    Card card = from[m.index];
-    for (int i = m.index + 1; i < static_cast<int>(from.size()); ++i) {
+    for (int i = index + 1; i < static_cast<int>(from.size()); ++i) {
         if (!from[i].up || from[i - 1].rank != from[i].rank + 1)
             return false;
         if (state.kind == Kind::spider ? from[i - 1].suit != from[i].suit
                                        : red(from[i - 1]) == red(from[i]))
             return false;
     }
+    return true;
+}
+bool Game::legal(Move m) const {
+    if (m.to < 0 || m.to >= 20 || m.from == m.to || !liftable(m.from, m.index))
+        return false;
+    const Pile& from = state.piles[m.from];
+    const Pile& to = state.piles[m.to];
+    int columns = state.kind == Kind::spider ? 10 : state.kind == Kind::freecell ? 8 : 7;
+    int count = static_cast<int>(from.size()) - m.index;
+    Card card = from[m.index];
     if (m.to >= 10 && m.to < 14 && state.kind != Kind::spider) {
         if (count != 1)
             return false;

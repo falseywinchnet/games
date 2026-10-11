@@ -33,6 +33,9 @@ class Game {
     std::string message;
     void deal(Kind kind, std::uint32_t seed, int option = 1);
     bool legal(Move move) const;
+    // The cards from `index` to the end of `pile` may be picked up together: a pile play
+    // starts from, and a run in order (alternating colours, or one suit in Spider).
+    bool liftable(int pile, int index) const;
     bool move(Move move);
     bool draw();
     bool undo();

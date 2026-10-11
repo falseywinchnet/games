@@ -439,6 +439,7 @@ void Table::layout_cards(bool animate) {
         for (int i = 0; i < static_cast<int>(cards.size()); ++i) {
             Card c = cards[i];
             Sprite& s = sprites_[c.id];
+            const int was = s.pile;
             s.card = c;
             s.pile = pile;
             s.index = i;
@@ -450,6 +451,10 @@ void Table::layout_cards(bool animate) {
                                               std::max(1, static_cast<int>(cards.size()) - 1));
                     double start = (bounds.width - card_w_ - fan * (cards.size() - 1)) * .5;
                     s.target = {start + i * fan, bounds.height - card_h_ - 63, card_w_, card_h_};
+                    // A card chosen to pass rises out of the hand.
+                    if (game.state.passing &&
+                        std::find(pass_cards_.begin(), pass_cards_.end(), i) != pass_cards_.end())
+                        s.target.y -= card_h_ * .14;
                     s.visible = true;
                 }
                 if (pile == 10) {
@@ -475,12 +480,24 @@ void Table::layout_cards(bool animate) {
                     s.visible = true;
                 } else if (pile == 14) {
                     s.card.up = false;
-                    s.visible = i == static_cast<int>(cards.size()) - 1;
+                    const int size = static_cast<int>(cards.size());
+                    if (spider) {
+                        // Each deal still to come is its own little stack, the next on the right.
+                        const int groups = (size + 9) / 10;
+                        s.target.x -= (groups - 1 - i / 10) * deal_step();
+                        s.visible = i % 10 == 9 || i == size - 1;
+                    } else
+                        // The card beneath the top shows while the top one is taken or put back.
+                        s.visible = i >= size - 2;
                 } else if (pile == 15) {
                     int shown = std::min(game.state.draw_count, static_cast<int>(cards.size()));
                     int first = static_cast<int>(cards.size()) - shown;
-                    s.visible = i >= first;
+                    // The cards just covered stay in sight, gathered under the fan, so a new card
+                    // turns over onto the old ones and an undo uncovers them again.
+                    s.visible = i >= first - game.state.draw_count;
                     s.target.x += std::max(0, i - first) * 18;
+                    if (animate && was == 14)
+                        s.delay = std::max(0, i - first) * .09;
                 } else if (pile >= 16 && game.state.kind == Kind::freecell)
                     s.visible = true;
                 else if (pile >= 10 && pile < 14 && game.state.kind != Kind::spider)
@@ -497,6 +514,9 @@ void Table::layout_cards(bool animate) {
                 s.duration = .44;
                 s.rect = s.start;
             }
+            // Spider deals a row from the stock one column at a time, left to right.
+            if (animate && spider && was == 14 && pile < columns)
+                s.delay = pile * .05;
             s.moving = animate && !reduced_ &&
                        (std::abs(s.start.x - s.target.x) + std::abs(s.start.y - s.target.y) > .1 ||
                         s.flipping);
@@ -598,7 +618,10 @@ void Table::tick() {
                           s.start.y + (s.target.y - s.start.y) * ease,
                           s.start.width + (s.target.width - s.start.width) * ease,
                           s.start.height + (s.target.height - s.start.height) * ease};
-                s.flip_progress = std::clamp((elapsed - s.delay - .10) / .34, 0.0, 1.0);
+                // A card turns over in the air: it rises, turns about its upright middle and
+                // settles face up as it lands.
+                s.flip_progress = std::clamp((t - .08) / .8, 0.0, 1.0);
+                s.lift = std::sin(t * 3.141592653589793) * (s.flipping ? 1 : .45);
                 bool complete = t >= 1 && (!s.flipping || s.flip_progress >= 1);
                 pending = pending || !complete;
                 s.moving = !complete;
@@ -739,6 +762,14 @@ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
         r.y += pointer_.y - press_.y;
     }
     bool face_up = s.card.up;
+    const double rise = animating_ && s.moving ? s.lift : 0;
+    if (rise > 0) {
+        // Nearer the eye in the air: a little larger about its middle.
+        const double grow = 1 + .06 * rise;
+        r = {r.x - r.width * (grow - 1) * .5, r.y - r.height * (grow - 1) * .5, r.width * grow,
+             r.height * grow};
+    }
+    const double full_width = r.width;
     if (animating_ && s.flipping && s.flip_progress < 1) {
         double turn = s.flip_progress;
         double width = r.width * std::max(.018, std::abs(std::cos(turn * 3.141592653589793)));
@@ -746,20 +777,26 @@ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
         r.width = width;
         face_up = turn < .5 ? s.prior_up : s.card.up;
     }
-    double shadow_scale = r.width / 360.0;
+    // A card turning edge-on casts a narrower shadow, never a shorter one.
+    const double shadow_scale = r.width / 360.0, shadow_height = full_width / 360.0;
     // A card in the hand rides higher: its shadow falls further and softer.
     const bool lifted = dragging_ && s.pile == selection_ && s.index >= selected_index_;
-    const double drop = lifted ? r.width * .07 : 0, grow = lifted ? 1.06 : 1;
+    const double height = lifted ? 1 : rise;
+    const double drop = r.width * .07 * height, grow = 1 + .06 * height;
     p.draw_image(shadow_,
-                 {r.x - 40 * shadow_scale * grow + drop * .6, r.y - 40 * shadow_scale * grow + drop,
-                  440 * shadow_scale * grow, 584 * shadow_scale * grow});
+                 {r.x - 40 * shadow_scale * grow + drop * .6,
+                  r.y - 40 * shadow_height * grow + drop, 440 * shadow_scale * grow,
+                  584 * shadow_height * grow});
     if (selected) {
         p.fill_rounded_rect(enlarged(r, 4), 9, gf::Color::rgba(248, 220, 119));
         p.draw_box_shadow(r, 7, {0, 0}, 9, 3, gf::Color::rgba(255, 220, 103, 100));
     }
     // A card that can move, under the pointer (with any run on it), glows and brightens:
     // a pale lamp-light halo round its edge, and a wash over the face.
-    const bool hovered = !selected && !lifted && s.pile == lift_pile_ && s.index >= lift_index_ && !animating_;
+    // In a Hearts hand only the card itself: the cards after it are not a run.
+    const bool covered = game.state.kind == Kind::hearts ? s.index == lift_index_
+                                                         : s.index >= lift_index_;
+    const bool hovered = !selected && !lifted && s.pile == lift_pile_ && !animating_ && covered;
     if (hovered)
         p.draw_box_shadow(r, 7, {0, 0}, 14, 3, gf::Color::rgba(255, 244, 196, 215));
     const std::size_t which = static_cast<std::size_t>(s.card.suit * 13 + s.card.rank - 1);
@@ -852,7 +889,8 @@ void Table::on_paint(gf::Painter& p, gf::Rect) {
             const std::string details = std::to_string(game.state.spider_suits) + " suit  ·  " +
                                         std::to_string(game.state.piles[14].size() / 10) +
                                         " deals left  ·  " + level_name();
-            const double right = slots_[14].x - 16;
+            const int groups = static_cast<int>(game.state.piles[14].size() + 9) / 10;
+            const double right = slots_[14].x - std::max(0, groups - 1) * deal_step() - 16;
             const double top = slots_[14].y + slots_[14].height * .5 - 14;
             draw_text(p, right - p.measure_text_utf8(runs, {gf::FontRole::content, 18, 700, false}).width,
                       top, runs, 18, cream);
@@ -1486,14 +1524,18 @@ void Table::select_or_move(int pile, int index) {
         changed("place");
         return;
     }
-    if (pile >= 0 && index >= 0 && index < static_cast<int>(game.state.piles[pile].size()) &&
-        game.state.piles[pile][index].up) {
+    if (pile >= 0 && game.liftable(pile, index)) {
         selection_ = pile;
         selected_index_ = index;
         sound_play("select", sound_);
         game.message =
             "Selected " + card_name(game.state.piles[pile][index]) + ". Choose a destination.";
     } else {
+        if (pile >= 0 && index >= 0 && index < static_cast<int>(game.state.piles[pile].size()) &&
+            game.state.piles[pile][index].up) {
+            game.message = "Only a run in order can be picked up.";
+            sound_play("invalid", sound_);
+        }
         selection_ = -1;
         selected_index_ = -1;
     }
@@ -1628,7 +1670,7 @@ void Table::heart_card(int index) {
         else if (pass_cards_.size() < 3)
             pass_cards_.push_back(index);
         game.message = std::to_string(pass_cards_.size()) + " of 3 cards selected to pass.";
-        invalidate(gf::Dirty::paint);
+        layout_cards(true);
     } else if (game.play(index))
         changed("place");
     else
@@ -1734,7 +1776,8 @@ void Table::on_key(gf::KeyEvent& e) {
         select_or_move(keyboard_slot_,
                        static_cast<int>(game.state.piles[keyboard_slot_].size()) - 1);
     } else if (e.physical_key == gf::PhysicalKey::up && selection_ >= 0) {
-        selected_index_ = std::max(0, selected_index_ - 1);
+        if (game.liftable(selection_, selected_index_ - 1))
+            --selected_index_;
         invalidate(gf::Dirty::paint);
     } else if (e.physical_key == gf::PhysicalKey::down && selection_ >= 0) {
         selected_index_ = std::min(static_cast<int>(game.state.piles[selection_].size()) - 1,

@@ -69,6 +69,10 @@ int main() {
     game.state.piles[16].clear();
     game.state.piles[17].clear();
     require(game.legal({0, 0, 1}), "FreeCell capacity accepts three");
+    require(game.liftable(0, 0), "a run in order can be picked up");
+    game.state.piles[2] = {{10, 0, 2, true}, {9, 0, 40, true}};
+    require(!game.liftable(2, 0) && game.liftable(2, 1),
+            "cards not in order cannot be picked up together; the top one can");
     game.deal(games::Kind::spider, 9, 1);
     game.state.piles[0].clear();
     require(!game.draw(), "Spider empty column prevents deal");
