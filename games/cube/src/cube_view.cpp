@@ -809,10 +809,7 @@ void CubeView::lean_toward(gf::Point local) {
     }
     const double yaw = std::clamp(rest_yaw + (local.x / bounds.width - .5) * .8, .40, 1.10);
     const double pitch = std::clamp(rest_pitch + (local.y / bounds.height - .5) * .55, -.78, -.34);
-    // A sweep of the cube moves air across the glass.
-    if (std::fabs(yaw - motion_.yaw) + std::fabs(pitch - motion_.pitch) > .06 && motion_.phase == Phase::resting) {
-        games::sound_play("nature_cube_turn", sound_ && front_);
-    }
+    // The cube turns silently: a swoosh at every sweep of the pointer was loud.
     lean(motion_, yaw, pitch);
     request_frame();
 }
