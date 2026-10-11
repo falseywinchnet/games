@@ -1532,6 +1532,13 @@ void Site::render(const SceneState& state, bool still) {
                              cached_camera_.pitch == camera_.pitch && cached_camera_.distance == camera_.distance &&
                              cached_camera_.target.x == camera_.target.x && cached_camera_.target.y == camera_.target.y &&
                              cached_camera_.target.z == camera_.target.z;
+    // A quiet frame has 100 ms to finish. Filling it on the caller avoids waking
+    // up to seven workers and preparing the same triangles in multiple bands. Keep
+    // the low-latency threaded path for interaction and scenery rebuilds; the
+    // brook, operator and crane details still animate in either path.
+    const bool threaded = r.threads;
+    if (still && camera_same)
+        r.threads = false;
     if (!camera_same) {
         r.shadow_use(false);
         r.clear_depth();
@@ -1547,7 +1554,6 @@ void Site::render(const SceneState& state, bool still) {
         std::copy(cache_rgb_.begin(), cache_rgb_.end(), r.rgb.begin());
         std::copy(cache_depth_.begin(), cache_depth_.end(), r.depth.begin());
     }
-    (void)still;
     // this frame's shadows: rocks, the bowl, the sign and the crane
     build_crane(state);
     cast_shadows(state);
@@ -1565,6 +1571,7 @@ void Site::render(const SceneState& state, bool still) {
     r.light.gloss_strength = 0.9;
     r.draw(crane_.glass.data(), crane_.glass.size(), nullptr, static_cast<std::uint16_t>(translucent | gloss));
     r.shadow_use(false);
+    r.threads = threaded;
 }
 
 }  // namespace zc

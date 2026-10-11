@@ -3,8 +3,8 @@
 // behind it and a babbling brook beyond carrying leaves and the odd twig; the
 // bowl of rocks; the little yellow crane with its operator; the stack; the
 // sign with the company's name. Software 3D at low resolution with sun
-// shadows. When nothing on the site moves, the still picture is kept and only
-// the brook is redrawn each frame.
+// shadows. Unmoving scenery is kept while the camera stays put. Quiet frames
+// still draw the brook and the crane's idle details and their changing shadows.
 #include "crane_model.hpp"
 #include "platform/render.hpp"
 #include "run.hpp"
@@ -40,8 +40,8 @@ public:
     void set_camera(const OrbitCamera& camera);
     // the board of the worksite sign, painted by the caller (the company's name)
     void set_sign(const Tex& board);
-    // Draws the site. `still` says nothing on it is moving (the picture of
-    // everything but the brook may be reused from the last still frame).
+    // Draws the site. `still` says the physics and crane controls are quiet,
+    // allowing serial filling on cache hits; decorative motion is preserved.
     void render(const SceneState& state, bool still);
     void invalidate() { cache_valid_ = false; }
 
