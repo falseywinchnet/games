@@ -1,5 +1,6 @@
 #include "help_route.hpp"
 #include "overlays.hpp"
+#include "resize.hpp"
 #include "zen_view.hpp"
 #include "runtime_paths.hpp"
 
@@ -187,7 +188,7 @@ void ZenView::arrange(gf::Rect bounds) {
         d.width = static_cast<std::uint32_t>(phys_w_);
         d.height = static_cast<std::uint32_t>(phys_h_);
         d.opaque = true;  // every pixel is drawn opaque: the window copies, never blends
-        static_cast<void>(surface_->reconfigure(d));
+        static_cast<void>(render::reconfigure_keeping_picture(*surface_, d));
     }
     hud_key_.clear();
     update_hud();

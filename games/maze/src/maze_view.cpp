@@ -1,5 +1,6 @@
 #include "maze_view.hpp"
 #include "overlays.hpp"
+#include "resize.hpp"
 
 #include "cast.hpp"
 #include "idle.hpp"
@@ -97,7 +98,7 @@ void MazeView::arrange(gf::Rect bounds) {
         d.width = static_cast<std::uint32_t>(phys_w_);
         d.height = static_cast<std::uint32_t>(phys_h_);
         d.opaque = true;  // every pixel is drawn opaque: the window copies, never blends
-        static_cast<void>((*surface_).reconfigure(d));
+        static_cast<void>(render::reconfigure_keeping_picture(*surface_, d));
     }
     layout_buttons();
     request_frame();

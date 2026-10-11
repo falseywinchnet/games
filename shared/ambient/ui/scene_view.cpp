@@ -1,5 +1,6 @@
 #include "scene_view.hpp"
 #include "overlays.hpp"
+#include "resize.hpp"
 
 #include "help_route.hpp"
 #include "portable_mask_cache.hpp"
@@ -262,7 +263,7 @@ void SceneView::arrange(gf::Rect bounds) {
         description.opaque = true;  // every pixel is written opaque: the host may copy, not blend
         description.pixel_format = gf::native_live_surface_pixel_format();  // the host's own byte order: a straight copy
         rgba_ = description.pixel_format == gf::LiveSurfacePixelFormat::rgba32_premultiplied_srgb;
-        static_cast<void>((*surface_).reconfigure(description));
+        static_cast<void>(render::reconfigure_keeping_picture(*surface_, description));
     }
     request_frame();
 }
