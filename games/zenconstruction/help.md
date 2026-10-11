@@ -1,6 +1,6 @@
 Stack rocks as tall as they will stand. Height measures the first rock set down and the rocks resting on it. Click a rock in the bowl and the crane fetches it.
 
-Up/Down extends or retracts the boom; Left/Right swings it. W/S raises or lowers the line. Q/E turns the rock, R/F tips it, and Z/C rolls it. Hold Shift for fine adjustments.
+Up/Down extends or retracts the boom; Left/Right swings it. W/S raises or lowers the line. Q/E turns the rock, R/F tips it, and Z/C rolls it. Hold Shift to hurry, or Option for fine adjustments; a big rock comes round more slowly than a small one. J (or Jiggle) shakes the bowl so its rocks settle another way.
 
 The turret stops before its counterweight reaches the truck cab. Rocks can rest on the surrounding bank as well as the stacking pad. With a lowered rock still attached, move the boom to take up the slack and drag it along the ground; raise the line to lift it again.
 

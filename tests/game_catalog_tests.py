@@ -17,8 +17,10 @@ SPEC.loader.exec_module(catalog)
 # SHA-256 of the complete original C++ help string bodies, before migration.
 # These include paragraphs after semicolons and the entire Pen the Sheep text. Puzzle
 # Solve's help was rewritten deliberately for its difficulty levels and new frames.
+# Nature Cube's (its new finale) and Rock Stack's (Shift hurries; the bowl jiggles) were
+# rewritten deliberately on 2026-10-10, at the user's word.
 ORIGINAL_HELP = {'atom': 'ca18af9d89d615ad304a8208d958e7aace41d77f15a4e9ce7ca101b05cfd5467',
- 'cube': 'e97306516331686dc8ab36860e05986f18f33edd161318900b1184863fbdc3d9',
+ 'cube': '5cc426c5d3848d44fc61993e031d76103adba920dc6992f310a9c010145dfbf7',
  'eggy': 'd899bd545ea8ac4956a1bd9f554d2df1794f0a138a2e7f78e9e041089d172c3d',
  'freecell': 'b41e475de83b95b1e0172736c9c2ddb272d094f8d5d5512d03a3040bc2f74407',
  'gems': 'cfa82cf3f67b37ae0750339eec92c21e7a5ded06fb51e0eb37e8aa307fa9cfce',
@@ -28,7 +30,7 @@ ORIGINAL_HELP = {'atom': 'ca18af9d89d615ad304a8208d958e7aace41d77f15a4e9ce7ca101
  'parrots': 'b761336d7a3e1b6277b980cf8fea44a8aa99c9d92caa9afd7bdbb26367695cc9',
  'pegs': '183961b64a8360d584cdaeb5142f641af73293e7cd097a2558ecf2437a34f006',
  'penthesheep': '692afff977c635a3f8499723f3c0718f5dc220c771f1f5ae56d6067cb19e3a36',
- 'rockstack': '44a440789430322b44d32b8df5ee3b3f13a9d28d04618544230bd5e96fea615a',
+ 'rockstack': '741be15ca6fc17d134fe9f6cb7d3dcebab3f16437a500ed1783978c92d92561e',
  # Sudoku's digits moved beside the board and gained an eraser (2026-10-08).
  # Solitaire, Spider, Puzzle Solve, Nature Cube and Untangle: one sentence each now
  # names the shared Settings screen, which replaced the Options panel and Next command.
