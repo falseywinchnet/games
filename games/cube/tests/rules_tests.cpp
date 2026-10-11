@@ -123,12 +123,15 @@ void test_rules() {
                 play.paths[1].back() == cell_at(4, 2, 2, 3),
             "a press on the portal it entered continues from the far side");
     require(extend(puzzle, play, cell_at(4, 2, 1, 3)) && extend(puzzle, play, cell_at(4, 2, 2, 3)) &&
-                play.paths[1].size() == 1 && portal_owner(puzzle, play, 0) == -1,
-            "tracing back onto the portal it came out of undoes the hop and frees the pair");
-    require(extend(puzzle, play, cell_at(4, 1, 2, 0)) && play.paths[1].size() == 3 &&
-                !back_to(puzzle, play, cell_at(4, 1, 2, 0)) && back_to(puzzle, play, cell_at(4, 1, 3, 0)) &&
-                play.paths[1].size() == 1 && portal_owner(puzzle, play, 0) == -1,
-            "backing off a portal just gone into undoes the hop");
+                play.paths[1].size() == 3 && portal_owner(puzzle, play, 0) == 1,
+            "tracing back onto the portal it came out of keeps the hop");
+    require(extend(puzzle, play, cell_at(4, 2, 1, 3)) && extend(puzzle, play, cell_at(4, 1, 2, 0)) &&
+                play.paths[1].size() == 3 && play.paths[1].back() == cell_at(4, 2, 2, 3) &&
+                portal_owner(puzzle, play, 0) == 1,
+            "tracing back onto the portal it went into keeps the hop too");
+    require(extend(puzzle, play, cell_at(4, 1, 3, 0)) && play.paths[1].size() == 1 &&
+                portal_owner(puzzle, play, 0) == -1,
+            "tracing back past the portal frees it");
     // A line driven into a portal another line holds takes it over: the holder is cut back.
     {
         Play taken = fresh_play(puzzle);

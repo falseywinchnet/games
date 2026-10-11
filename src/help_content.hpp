@@ -5,7 +5,7 @@
 
 namespace games {
 inline constexpr std::string_view dedication =
-    "Dedicated to the Blessed One, holy be He, and to Christ, our King in Heaven.";
+    "Dedicated to the Holy One, Blessed be He, and to Christ, our King in Heaven.";
 inline constexpr std::string_view creators =
     "Crafted by Anthropic Claude General Reasoning Agents and OpenAI Codex General Reasoning "
     "Agents.";

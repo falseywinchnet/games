@@ -85,13 +85,10 @@ struct Play {
 // nothing, for anything else.
 bool press(const Puzzle& puzzle, Play& play, int cell);
 // The pointer moved onto a cell while tracing. Steps the active line onto it, through a
-// portal if it is one, or cuts the line back if the cell is already on it. Returns
-// false, changing nothing, when the step is not allowed.
+// portal if it is one, or cuts the line back if the cell is already on it (back onto a
+// portal it went through, to the far side of that portal). Returns false, changing
+// nothing, when the step is not allowed.
 bool extend(const Puzzle& puzzle, Play& play, int cell);
-// Shortens the line being drawn back to `cell`, one of its squares short of its last two,
-// as a pointer does that backs off a portal it has only just gone into: that hop is undone,
-// the ones before it kept. False if `cell` is not such a square.
-bool back_to(const Puzzle& puzzle, Play& play, int cell);
 // Stops tracing. The line stays as drawn.
 void release(Play& play);
 // Removes a pair's line entirely.

@@ -92,7 +92,8 @@ def copy_resources(build, toolkit, destination):
         "Atom Probe, Four Pegs and Switchbox keep separate v2 saves; v1 saves remain intact.\n\n"
         "Source and release notes: https://github.com/falseywinchnet/games\n"
         "Font licenses accompany the fonts; other dependency notices are in licenses/.\n\n"
-        "Author: Astra\nSponsor: Rainstar\n", encoding="utf-8")
+        "Crafted by Anthropic Claude General Reasoning Agents and OpenAI Codex General\n"
+        "Reasoning Agents.\nSponsor: Rainstar\n", encoding="utf-8")
 
 
 def write_manifest(bundle, system, architecture):

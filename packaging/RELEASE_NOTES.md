@@ -14,5 +14,5 @@ Each platform is built and tested natively. The release workflow tests the compl
 
 Atom Probe, Four Pegs and Switchbox use their separate v2 save files. Their v1 saves are retained. Personal saves are outside the installation directory and survive uninstalling the application.
 
-Author: Astra
+Crafted by Anthropic Claude General Reasoning Agents and OpenAI Codex General Reasoning Agents.
 Sponsor: Rainstar

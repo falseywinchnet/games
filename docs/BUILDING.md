@@ -57,7 +57,6 @@ Windows installer creation requires NSIS. Linux packaging requires patchelf and 
 
 To publish a release, push a `v<version>` tag matching `project(Games VERSION ...)` after reviewing the platform runs. The workflow publishes installers, archives and SHA-256 checksums only after all four native application jobs pass.
 
-Author: Astra
 Sponsor: Rainstar
 
 ## Test reuse in CI

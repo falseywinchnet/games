@@ -91,5 +91,4 @@ Each vendor view uses an owned render snapshot while its simulation and audio co
 
 Enable `GAMES_TEST_VENDOR_FRAMES=ON` in the source consumer profile to build `vendor_game_frame_tests`. It drives the real view through public Window scheduling and keyboard input with isolated development saves and muted audio, checks successive completed frames while dialogue changes, immutable retained frames, help and fractional DPI. `game_text_frame_tests` separately exercises a 25-label frame through the nine-slot queue and verifies signed bearings, clipping, stride padding and failure preservation using real coverage. The repository's native text workflow runs these seven tests and retains native previews. These tests do not establish a packaged native-window launch or a complete Games release.
 
-Author: Astra
 Sponsor: Rainstar

@@ -245,7 +245,6 @@ void CubeView::after_step(std::size_t before, int pair) {
     // A hop: the line now continues from the far portal; wait for the pointer to get there.
     if (path.size() == before + 2) {
         seeking_ = true;
-        pressed_hop_ = false;  // a hop just made can still be backed out of
     }
     if (session_.play.won) {
         finished();
@@ -840,17 +839,14 @@ void CubeView::on_pointer(gf::PointerEvent& event) {
             const bool held = pair >= 0 && pair < static_cast<int>(session_.play.paths.size());
             const std::size_t before = held ? session_.play.paths[static_cast<std::size_t>(pair)].size() : 0;
             const int head = held && before > 0 ? session_.play.paths[static_cast<std::size_t>(pair)].back() : -1;
-            // After a hop, steps count again once the pointer reaches the far side, or as soon as
-            // it backs onto the line short of the portal it went into: that undoes the hop.
+            // After a hop, steps count again once the pointer reaches the far side. Nothing it
+            // crosses on the way, the line's own squares included, undoes the hop: only a trace
+            // back onto one of the portals does, or another line taking them.
             if (seeking_ && (cell == head || adjacent(session_.puzzle.geometry, head, cell))) {
                 seeking_ = false;
-                pressed_hop_ = false;
             }
             bool stepped = false;
-            if (seeking_ && held && !pressed_hop_ && back_to(session_.puzzle, session_.play, cell)) {
-                seeking_ = false;
-                stepped = true;
-            } else if (!seeking_ && held) {
+            if (!seeking_ && held) {
                 stepped = extend(session_.puzzle, session_.play, cell);
                 // A quick diagonal flick skips a cell: route through the free corner between.
                 if (!stepped && head >= 0) {
@@ -876,7 +872,6 @@ void CubeView::on_pointer(gf::PointerEvent& event) {
                 if (!session_.play.won && !path.empty() && path.size() < before && path.back() != cell &&
                     !adjacent(session_.puzzle.geometry, path.back(), cell)) {
                     seeking_ = true;
-                    pressed_hop_ = false;
                 }
             } else if (!seeking_ && held && cell != hover_ && head >= 0 &&
                        adjacent(session_.puzzle.geometry, head, cell) &&
@@ -909,11 +904,9 @@ void CubeView::on_pointer(gf::PointerEvent& event) {
         if (press(session_.puzzle, session_.play, cell)) {
             tracing_ = true;
             // A press on the portal a line went into keeps the hop and carries on from the far
-            // side: wait for the pointer there, and do not take the press back for a trace
-            // back over the portal it is still on.
+            // side: wait for the pointer there.
             const std::vector<int>& line = session_.play.paths[static_cast<std::size_t>(session_.play.active)];
             seeking_ = !line.empty() && line.back() != cell && !adjacent(session_.puzzle.geometry, line.back(), cell);
-            pressed_hop_ = seeking_;
             set_pointer_capture(true);
             hold_tilt(motion_);
             note_lines(motion_, session_.puzzle, session_.play, reduced_);
@@ -928,7 +921,6 @@ void CubeView::on_pointer(gf::PointerEvent& event) {
         if (tracing_) {
             tracing_ = false;
             seeking_ = false;
-            pressed_hop_ = false;
             // Traced back to where it began, a line is gone: its square is as it was.
             const int pair = session_.play.active;
             release(session_.play);
