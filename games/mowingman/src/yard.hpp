@@ -17,14 +17,20 @@
 
 namespace mm {
 
+// Makes, away from the window's thread, the pictures a first frame at `frame` would make
+// as it drew: every prop's, and the mower's at the headings it starts out on. Drawn into
+// a scratch raster of width x height that is then thrown away.
+void warm_models(Frame frame, int width, int height, std::vector<Prop> props, MowerPose pose, Livery livery);
+
 class Yard final {
   public:
     // Lays the garden out in a raster of width x height and shades all of it.
     void build(int width, int height, const GrassArt& art, const Mowing& mowing);
     // Re-shades the part of the lawn inside `dirty` (lawn metres).
     void refresh(const GrassArt& art, const Mowing& mowing, const Dirty& dirty);
-    // Draws a frame: the base, then everything that moves.
-    const std::vector<std::uint8_t>& compose(const Mowing& mowing, const MowerPose& pose, double time);
+    // Draws a frame: the base, then everything that moves. Without `models` the props and
+    // the mower are left out: their pictures are still being made (warm_models).
+    const std::vector<std::uint8_t>& compose(const Mowing& mowing, const MowerPose& pose, double time, bool models = true);
     [[nodiscard]] const Frame& frame() const {
         return frame_;
     }

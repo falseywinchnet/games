@@ -270,7 +270,21 @@ bool nearer(const Standing& a, const Standing& b) {
 
 } // namespace
 
-const std::vector<std::uint8_t>& Yard::compose(const Mowing& mowing, const MowerPose& pose, double time) {
+void warm_models(Frame frame, int width, int height, std::vector<Prop> props, MowerPose pose, Livery livery) {
+    Canvas scratch{};
+    scratch.resize(width, height);
+    for (const Prop& prop : props)
+        draw_prop(scratch, frame, prop);
+    // Where it stands, and the four ways its first lanes run.
+    for (int quarter = 0; quarter <= 4; ++quarter) {
+        MowerPose turned = pose;
+        if (quarter > 0)
+            turned.heading = (quarter - 1) * 1.5707963267948966;
+        draw_mower(scratch, frame, turned, livery, 0);
+    }
+}
+
+const std::vector<std::uint8_t>& Yard::compose(const Mowing& mowing, const MowerPose& pose, double time, bool models) {
     copy_pixels(base_, picture_);
     const Garden& garden = mowing.garden();
     std::vector<Standing> standing{};
@@ -294,6 +308,8 @@ const std::vector<std::uint8_t>& Yard::compose(const Mowing& mowing, const Mower
     for (const Standing& thing : standing) {
         switch (thing.kind) {
         case 0:
+            if (!models)
+                break;
             draw_prop(picture_, frame_, garden.props[thing.index]);
             draw_prop_live(picture_, frame_, garden.props[thing.index], time);
             break;
@@ -325,7 +341,8 @@ const std::vector<std::uint8_t>& Yard::compose(const Mowing& mowing, const Mower
             break;
         }
         case 2:
-            draw_mower(picture_, frame_, pose, mowing.livery(), time);
+            if (models)
+                draw_mower(picture_, frame_, pose, mowing.livery(), time);
             break;
         case 3:
             draw_gnome(picture_, frame_, mowing.gnome(), time);

@@ -57,6 +57,12 @@ class MowingScenery final : public ambient::Scenery {
     std::unique_ptr<Mowing> next_{};  // the garden waiting for its grass
     GrassArt art_{};
     std::future<GrassArt> art_loading_{};
+    // The props' and the mower's pictures for the present frame, made away from the
+    // window's thread; until they are ready a frame leaves those out.
+    std::future<void> warming_{};
+    Frame warmed_{};
+    const Mowing* warmed_for_{};  // the garden they were made for
+    void warm();
     std::atomic<bool> cancel_{false};
     Yard yard_{};
     ambient::SceneSize wanted_{};

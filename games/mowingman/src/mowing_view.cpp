@@ -202,6 +202,24 @@ void MowingScenery::rebuild() {
     yard_.build(wanted_.width, wanted_.height, art_, *mowing_);
     static_cast<void>((*mowing_).take_dirty());
     dirty_all_ = false;
+    warm();
+}
+
+// A new garden, or the same one at a new size: its props and mower are pictured anew,
+// which on a first frame took longer than the frame. That is done on a worker instead.
+void MowingScenery::warm() {
+    const Frame& frame = yard_.frame();
+    const bool same = warmed_for_ == mowing_.get() && frame.ppm == warmed_.ppm && frame.ox == warmed_.ox && frame.oy == warmed_.oy;
+    if (same)
+        return;
+    if (warming_.valid())
+        warming_.wait();
+    warmed_ = frame;
+    warmed_for_ = mowing_.get();
+    const coverage::Pose& pose = (*mowing_).mower().pose();
+    const MowerPose standing{pose.x, pose.y, pose.heading, 0, 0, false};
+    warming_ = std::async(std::launch::async, warm_models, frame, yard_.width(), yard_.height(), (*mowing_).garden().props,
+                          standing, livery_);
 }
 
 bool MowingScenery::poll(ambient::SceneContext& context) {
@@ -314,7 +332,11 @@ const std::vector<std::uint32_t>& MowingScenery::draw(ambient::SceneContext& con
     const coverage::Pose& pose = mowing.mower().pose();
     const MowerPose drawn{pose.x, pose.y, pose.heading, context.paused ? 0.0 : 0.4 + mowing.voice().load * 0.6, eggy_look_,
                           mowing.held()};
-    const std::vector<std::uint8_t>& bytes = yard_.compose(mowing, drawn, context.time);
+    // While their pictures are made, the props and the mower wait out of the frame.
+    const bool models = !warming_.valid() || finished(warming_);
+    if (models && warming_.valid())
+        warming_.get();
+    const std::vector<std::uint8_t>& bytes = yard_.compose(mowing, drawn, context.time, models);
     width = yard_.width();
     height = yard_.height();
     picture_.resize(static_cast<std::size_t>(width) * static_cast<std::size_t>(height));
