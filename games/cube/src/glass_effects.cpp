@@ -305,10 +305,18 @@ void GlassEffects::cue(Cue cue) noexcept {
         droplet(scale_note(index) - 12, .11, true);
         break;
     }
-    case Cue::connect:
+    case Cue::connect: {
+        // The two ends answer each other: a clear glass note, then the fifth above it.
+        int index = step_base_ + std::max(steps_, 0);
+        while (scale_note(index) > 84)
+            index -= 10;
+        const int m = chord_tone_near(scale_note(index), last_pick_);
+        glass(m, .24, 0, .5, -.25);
+        glass(m + 7, .22, static_cast<int>(.11 * sample_rate), .7, .25);
         bloom(.08);
         steps_ = 0;
         break;
+    }
     case Cue::blocked:
         if (since_bump_ > .18)
             bump();

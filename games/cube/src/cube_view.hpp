@@ -96,6 +96,7 @@ private:
     bool waiting_ = false;      // a new board is wanted and still being dealt
     bool tracing_ = false;
     bool seeking_ = false;      // after a hop: waiting for the pointer to reach the far side
+    bool pressed_hop_{};  // the seeking began with a press on a portal: no backing off
     bool finish_on_show_ = false;
     bool unranked_ = false;  // --dev only
     int hover_ = -1;

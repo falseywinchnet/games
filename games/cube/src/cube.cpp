@@ -307,7 +307,8 @@ bool extend(const Puzzle& puzzle, Play& play, int cell) {
         return false;
     }
     const Tile tile = puzzle.tiles[static_cast<std::size_t>(cell)];
-    if (tile == Tile::stone || owner(play, cell) >= 0) {
+    // Another line's square is closed to this one; another line's portal is not (below).
+    if (tile == Tile::stone || (owner(play, cell) >= 0 && tile != Tile::portal)) {
         return false;
     }
     if (tile == Tile::endpoint) {
@@ -320,8 +321,23 @@ bool extend(const Puzzle& puzzle, Play& play, int cell) {
     }
     if (tile == Tile::portal) {
         const int other = partner(puzzle, cell);
-        if (other < 0 || owner(play, other) >= 0) {
+        if (other < 0) {
             return false;
+        }
+        // A portal another line holds is taken over: that line is cut back to the square
+        // before it stepped in, and the pair takes this line's colour. A line cannot use a
+        // portal pair twice.
+        const int holder = std::max(owner(play, cell), owner(play, other));
+        if (holder == pair) {
+            return false;
+        }
+        if (holder >= 0) {
+            std::vector<int>& held = play.paths[static_cast<std::size_t>(holder)];
+            std::size_t first = 0;
+            while (first < held.size() && held[first] != cell && held[first] != other) {
+                ++first;
+            }
+            held.resize(first);
         }
         path.push_back(cell);
         path.push_back(other);

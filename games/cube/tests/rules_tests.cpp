@@ -129,6 +129,19 @@ void test_rules() {
                 !back_to(puzzle, play, cell_at(4, 1, 2, 0)) && back_to(puzzle, play, cell_at(4, 1, 3, 0)) &&
                 play.paths[1].size() == 1 && portal_owner(puzzle, play, 0) == -1,
             "backing off a portal just gone into undoes the hop");
+    // A line driven into a portal another line holds takes it over: the holder is cut back.
+    {
+        Play taken = fresh_play(puzzle);
+        require(press(puzzle, taken, cell_at(4, 1, 3, 0)) && extend(puzzle, taken, cell_at(4, 1, 2, 0)) &&
+                    portal_owner(puzzle, taken, 0) == 1,
+                "pair 1 holds the portal");
+        // Pair 0's line, laid by hand beside the portal's far side, steps into it there.
+        taken.paths[0] = {cell_at(4, 0, 0, 0), cell_at(4, 2, 1, 3)};
+        taken.active = 0;
+        require(extend(puzzle, taken, cell_at(4, 2, 2, 3)) && portal_owner(puzzle, taken, 0) == 0 &&
+                    taken.paths[1].size() == 1,
+                "another line takes the portal, and the holder is cut back to its start");
+    }
     // A path may never pass over a portal as an ordinary cell.
     std::vector<int> through{cell_at(4, 1, 3, 0), cell_at(4, 1, 2, 0), cell_at(4, 1, 1, 0)};
     require(!path_legal(puzzle, through, 1), "a portal is not an ordinary cell");

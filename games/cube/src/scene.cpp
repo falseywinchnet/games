@@ -583,12 +583,18 @@ void draw_cube(Drawing& drawing, const Puzzle& puzzle, const Play& play, const M
             const int pair = puzzle.pair_of[static_cast<std::size_t>(cell)];
             const double bloom = std::clamp(tile_bloom(motion, puzzle, cell), 0.0, 1.12);
             if (bloom > .01) {
+                // An end is a lamp, unlit until its pair is joined: then its colour comes up
+                // and its centre shines.
+                const bool joined = pair >= 0 && pair < static_cast<int>(play.paths.size()) &&
+                                    complete(puzzle, play.paths[static_cast<std::size_t>(pair)], pair);
                 const double socket = half * .28 * bloom;
+                const Rgba centre = joined ? Rgba{255, 252, 236} : shade(pair_color(pair), .5);
                 quad(drawing, camera, add(center, add(scaled(u, -socket), scaled(v, -socket))), scaled(u, 2 * socket),
-                     scaled(v, 2 * socket), n, Rgba{250, 248, 232}, 0, 1, -.004, cell);
+                     scaled(v, 2 * socket), n, centre, 0, 1, -.004, cell);
                 const double size = tile * bloom;
                 // Solved, the coloured ends pulse toward white.
-                const Rgba color = mix(shade(pair_color(pair), hot ? 1.18 : 1.0), Rgba{255, 255, 250}, pulse);
+                const Rgba base = joined ? pair_color(pair) : mix(shade(pair_color(pair), .78), Rgba{150, 170, 168}, .3);
+                const Rgba color = mix(shade(base, hot ? 1.18 : 1.0), Rgba{255, 255, 250}, pulse);
                 quad(drawing, camera, add(center, add(scaled(u, -size), scaled(v, -size))), scaled(u, 2 * size),
                      scaled(v, 2 * size), n, color, .2, 3, -.002, cell);
             }
