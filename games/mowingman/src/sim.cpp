@@ -666,8 +666,7 @@ void Mowing::knock_grills() {
         prop.toppled = true;
         prop.fall = std::atan2(prop.y - pose.y, prop.x - pose.x);
         fire_[index] = random_range(random_, 4.5, 7.0);
-        cue("mm_bump", 0.8, 0.7, prop.x);
-        cue("mm_puff", 0.7, 0.8, prop.x);
+        cue("mm_grill_over", 0.8, 1.0, prop.x);
         dirty_.include(prop.x, prop.y, 1.2);
     }
 }

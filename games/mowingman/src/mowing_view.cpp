@@ -4,6 +4,7 @@
 #include "banjo_voice.hpp"
 #include "chipper_voice.hpp"
 #include "granny_voice.hpp"
+#include "grill_voice.hpp"
 #include "mower_voice.hpp"
 
 #include <algorithm>
@@ -54,9 +55,16 @@ class LiveMower final : public gui_forms::AudioGenerator {
         }
         ambience_.render_add(stereo);
         granny_.render_add(stereo);
+        grill_.render_add(stereo);
     }
     void say(GrannyLine line, double pan) {
         granny_.say(line, pan);
+    }
+    void knock_grill(double pan) {
+        grill_.knock(pan);
+    }
+    void set_fire(double strength, double pan) {
+        grill_.set_fire(strength, pan);
     }
 
   private:
@@ -64,6 +72,7 @@ class LiveMower final : public gui_forms::AudioGenerator {
     ChipperVoice chipper_{3};
     AmbienceVoice ambience_{11};
     GrannyVoice granny_{5};
+    GrillVoice grill_{13};
     AmbienceControls garden_{};
     std::mutex garden_guard_{};
     std::atomic<bool> ignition_{false};
@@ -253,6 +262,11 @@ void MowingScenery::advance(double seconds, ambient::SceneContext& context) {
         // the live voice starts, stops and grinds itself, and speaks for the old lady
         if (cue.name == "mm_mower_start" || cue.name == "mm_mower_stop" || cue.name == "mm_chipper")
             continue;
+        if (cue.name == "mm_grill_over") {
+            if (live_)
+                (*live_).knock_grill(cue.pan);
+            continue;
+        }
         if (cue.name.rfind("mm_granny_", 0) == 0 && cue.name != "mm_granny_bonk") {
             if (live_) {
                 const GrannyLine line = cue.name == "mm_granny_shout" ? GrannyLine::shout : cue.name == "mm_granny_scold" ? GrannyLine::scold
@@ -262,6 +276,12 @@ void MowingScenery::advance(double seconds, ambient::SceneContext& context) {
             continue;
         }
 #endif
+        if (cue.name == "mm_grill_over") {
+            // Without the live voice: a bump and the coals' puff.
+            context.sound.effect("mm_bump", cue.gain, 0.7, cue.pan);
+            context.sound.effect("mm_puff", cue.gain * 0.9, 0.8, cue.pan);
+            continue;
+        }
         context.sound.effect(cue.name, cue.gain, cue.rate, cue.pan);
     }
     if (mowing.complete() && !next_ && !art_loading_.valid())
@@ -509,6 +529,16 @@ void MowingScenery::sound(bool running, ambient::SceneContext& context) {
     }
     garden.trees = std::min(1.0, mowing.garden().trees.size() * 0.4);
     (*live_).set_garden(garden);
+    // The hottest spilled grill crackles; it dies away with its flames.
+    double fire = 0, fire_pan = 0;
+    for (std::size_t index = 0; index < mowing.garden().props.size(); ++index) {
+        const double strength = std::min(1.0, mowing.fire(index) / 1.5);
+        if (strength > fire) {
+            fire = strength;
+            fire_pan = std::clamp(mowing.garden().props[index].x / lawn_width * 2 - 1, -1.0, 1.0) * 0.7;
+        }
+    }
+    (*live_).set_fire(fire, fire_pan);
     context.sound.live(live_, 0.85);
 #else
     // Without a live voice in the toolkit: the same voice rendered to one long loop of

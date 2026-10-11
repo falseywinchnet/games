@@ -21,6 +21,7 @@ add_library(mm_core STATIC
   "${GAME_MODULE_DIR}/src/ambience_voice.cpp"
   "${GAME_MODULE_DIR}/src/banjo_voice.cpp"
   "${GAME_MODULE_DIR}/src/granny_voice.cpp"
+  "${GAME_MODULE_DIR}/src/grill_voice.cpp"
   "${GAME_MODULE_DIR}/src/art.cpp"
   "${GAME_MODULE_DIR}/src/model3d.cpp"
   "${GAME_MODULE_DIR}/src/stones.cpp"

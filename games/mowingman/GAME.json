@@ -58,6 +58,7 @@
     "src/ambience_voice.cpp",
     "src/banjo_voice.cpp",
     "src/granny_voice.cpp",
+    "src/grill_voice.cpp",
     "src/art.cpp",
     "src/models_garden.cpp",
     "src/models_figures.cpp",
