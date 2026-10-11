@@ -45,9 +45,7 @@ GUESSES = np.array([
     [0.98, 0.82, 0.22],
 ])
 # The inks as they are laid again: the pack's own hues, a touch cleaner than the worn
-# scans, on a soft off-white board. Bright white tires the eye at the card table; old
-# makers tinted the board faintly blue-green, which the paper here keeps, with a
-# warmer yellow cast toward one corner, both very slight.
+# scans, on a soft off-white board (the table tints it faintly as it draws the card).
 INKS = np.array([
     [0, 0, 0],          # paper: drawn separately
     [200, 34, 40],
@@ -150,12 +148,9 @@ def vote(labels: np.ndarray, r: int = 1) -> np.ndarray:
 
 
 def paper(h: int, w: int) -> np.ndarray:
-    """Soft off-white board, faintly blue-green toward the top left and faintly warmer toward
-    the bottom right. Its grain is the table's own finish, laid over every style."""
-    y, x = np.mgrid[0:h, 0:w]
-    t = (x / w + y / h) / 2
-    cool, warm = np.array([241.0, 245.0, 240.0]), np.array([247.0, 244.0, 233.0])
-    return cool[None, None, :] * (1 - t[..., None]) + warm[None, None, :] * t[..., None]
+    """Soft off-white board. Its tint, formation, fibres and the grain of the ink are the
+    table's own finish, laid over every style as the game draws the card."""
+    return np.broadcast_to(np.array([245.0, 244.0, 238.0]), (h, w, 3)).copy()
 
 
 def rounded_alpha(h: int, w: int) -> np.ndarray:

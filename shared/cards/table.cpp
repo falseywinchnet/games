@@ -26,9 +26,13 @@ const char* audio_name(Kind kind) {
     return names[static_cast<int>(kind)];
 }
 // The finish of a real playing card, as a translucent layer for the printed artwork: a fine
-// air-cushion dimple texture lit from the upper left, a rolled edge that catches the light,
-// and the falloff of a lamp over the table. The artwork's card is a 360 x 504 image whose
-// rounded rectangle starts 2 px in with an 18 px corner radius.
+// air-cushion dimple texture lit from the upper left, the cloudy formation and fibres of
+// the board, specks where the ink took thinly, a rolled edge that catches the light, the
+// falloff of a lamp over the table, and the board's faint tint (blue-green toward one
+// corner, warmer toward the other: soft off-white tires the eye less than bright white).
+// The artwork is only the printed design; all of this is laid over every style here. The
+// artwork's card is a 360 x 504 image whose rounded rectangle starts 2 px in with an 18 px
+// corner radius.
 std::vector<std::byte> card_finish(int w, int h) {
     std::vector<std::byte> out(static_cast<std::size_t>(w) * h * 4);
     const double s = w / 360.0;
@@ -112,6 +116,21 @@ std::vector<std::byte> card_finish(int w, int h) {
                 light += std::min(.1, facing * .1);
             else
                 dark += std::min(.06, -facing * .06);
+            // The board's formation: soft clouds where the pulp lay a little thicker or thinner.
+            {
+                const double cloud = Fibres::noise(px / (5.5 * fibres.scale), py / (5.5 * fibres.scale)) * .65 +
+                                     Fibres::noise(px / (2.2 * fibres.scale) + 31.7, py / (2.2 * fibres.scale)) * .35 - .5;
+                if (cloud > 0)
+                    light += cloud * .05;
+                else
+                    dark += -cloud * .05;
+            }
+            // Ink grain: small pale specks where the ink took thinly. On the board they are
+            // lost in its own light; on ink they show as the mottle of a lithographed print.
+            {
+                const double speck = Fibres::noise(px / (1.1 * fibres.scale) + 7.3, py / (1.1 * fibres.scale) + 3.1);
+                light += std::clamp((speck - .62) / .38, 0.0, 1.0) * .13;
+            }
             // Paper fibres and grain: a little lighter and darker, finer than the dimples.
             {
                 const double f = fibres(px, py) - .5;
@@ -143,12 +162,23 @@ std::vector<std::byte> card_finish(int w, int h) {
             dark += .045 * diagonal * diagonal * diagonal;
             light = std::min(light, .6);
             dark = std::min(dark, .5);
-            // White light composited over dark shade, premultiplied.
-            const double alpha = (light + dark * (1 - light)) * cover;
-            const double white = light * cover * 255;
+            // The tint, under the shade, under the light; premultiplied.
+            const double tint = .08, along = u * .5 + v * .5;
+            const double tr = 200 + 55 * along, tg = 235 + 5 * along, tb = 228 - 38 * along;
+            double r = tr * tint, g = tg * tint, b = tb * tint, a = tint;
+            r *= 1 - dark;
+            g *= 1 - dark;
+            b *= 1 - dark;
+            a = dark + a * (1 - dark);
+            r = 255 * light + r * (1 - light);
+            g = 255 * light + g * (1 - light);
+            b = 255 * light + b * (1 - light);
+            a = light + a * (1 - light);
             const std::size_t n = (static_cast<std::size_t>(y) * w + x) * 4;
-            out[n] = out[n + 1] = out[n + 2] = static_cast<std::byte>(std::lround(white));
-            out[n + 3] = static_cast<std::byte>(std::lround(alpha * 255));
+            out[n] = static_cast<std::byte>(std::lround(b * cover));
+            out[n + 1] = static_cast<std::byte>(std::lround(g * cover));
+            out[n + 2] = static_cast<std::byte>(std::lround(r * cover));
+            out[n + 3] = static_cast<std::byte>(std::lround(a * cover * 255));
         }
     return out;
 }
