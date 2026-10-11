@@ -150,3 +150,15 @@ foreach(test_target IN LISTS all_targets)
     endif()
   endif()
 endforeach()
+
+# The longest tests start first, so ctest --parallel overlaps them instead of leaving one
+# to run alone at the end (a fresh checkout has no timings of its own to go by). Seconds,
+# roughly, on a CI runner.
+foreach(long_test coverage_engine:37 cube_audio:25 audio:24 cube_saves:16 mowingman_banjo:11 collection_ui:11)
+    string(REPLACE ":" ";" long_test "${long_test}")
+    list(GET long_test 0 long_name)
+    list(GET long_test 1 long_cost)
+    if(TEST ${long_name})
+        set_tests_properties(${long_name} PROPERTIES COST ${long_cost})
+    endif()
+endforeach()

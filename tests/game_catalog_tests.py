@@ -18,9 +18,10 @@ SPEC.loader.exec_module(catalog)
 # These include paragraphs after semicolons and the entire Pen the Sheep text. Puzzle
 # Solve's help was rewritten deliberately for its difficulty levels and new frames.
 # Nature Cube's (its new finale) and Rock Stack's (Shift hurries; the bowl jiggles) were
-# rewritten deliberately on 2026-10-10, at the user's word.
+# rewritten deliberately on 2026-10-10, at the user's word; Nature Cube's again on
+# 2026-10-11 (a portal pair can be taken over; the ends light when joined), likewise.
 ORIGINAL_HELP = {'atom': 'ca18af9d89d615ad304a8208d958e7aace41d77f15a4e9ce7ca101b05cfd5467',
- 'cube': '5cc426c5d3848d44fc61993e031d76103adba920dc6992f310a9c010145dfbf7',
+ 'cube': 'a40a53845a6f5f01840fcddfca60e899d9d04576b2fb767f9b2718e32151d83e',
  'eggy': 'd899bd545ea8ac4956a1bd9f554d2df1794f0a138a2e7f78e9e041089d172c3d',
  'freecell': 'b41e475de83b95b1e0172736c9c2ddb272d094f8d5d5512d03a3040bc2f74407',
  'gems': 'cfa82cf3f67b37ae0750339eec92c21e7a5ded06fb51e0eb37e8aa307fa9cfce',

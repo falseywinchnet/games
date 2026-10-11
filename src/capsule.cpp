@@ -192,7 +192,8 @@ void CommandCapsule::on_paint(gf::Painter& p, gf::Rect) {
     const gf::Size pill = pill_size();
     const gf::Rect b{kMargin, kMargin, pill.width, pill.height};
     const double radius = std::min(21.0, b.height * .5);
-    p.draw_box_shadow(b, radius, {0, 4}, 12, 0, rgb(0, 0, 0, 120));
+    // A close, light shadow: it seats the bar on the game without pooling under it.
+    p.draw_box_shadow(b, radius, {0, 2}, 6, 0, rgb(0, 0, 0, 90));
     p.save();
     p.clip_rounded_rect(b, radius);
     fill_vertical(p, b, rgb(40, 48, 72, 228), rgb(16, 20, 34, 236));
