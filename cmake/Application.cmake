@@ -20,7 +20,7 @@ endif()
 target_link_libraries(vendor_game_ui ${module_link_scope} ${GAMES_MODULE_LIBRARIES}
     game_audio_adapters game_text_frames game_felt GUIForms::Application)
 target_compile_definitions(vendor_game_ui INTERFACE _USE_MATH_DEFINES)
-add_library(game_ui ${GAMES_MODULE_SOURCES} "${GAMES_CATALOG_DIR}/game_registry.cpp" shared/cards/table.cpp src/presentation.cpp shared/puzzles/puzzle_view.cpp src/collection.cpp src/open_link.cpp
+add_library(game_ui ${GAMES_MODULE_SOURCES} "${GAMES_CATALOG_DIR}/game_registry.cpp" shared/cards/table.cpp shared/cards/card_backs.cpp src/presentation.cpp shared/puzzles/puzzle_view.cpp src/collection.cpp src/open_link.cpp
     games/sudoku/src/sudoku_view.cpp src/suite.cpp src/text_sprites.cpp src/shelf.cpp src/wood.cpp src/capsule.cpp shared/puzzles/kitten.cpp
     src/help_book.cpp src/help_content.cpp src/settings_sheet.cpp src/suite_model.cpp)
 target_include_directories(game_ui PUBLIC src PRIVATE shared/felt)

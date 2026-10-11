@@ -122,11 +122,11 @@ bool save_suite_settings(const SuiteSettings& settings) {
     Cabinet cabinet;
     if (load_cabinet(cabinet_path(), cabinet) &&
         (cabinet.music != settings.music || cabinet.sound != settings.sound ||
-         cabinet.reduced != settings.reduced || cabinet.back != settings.card_back)) {
+         cabinet.reduced != settings.reduced || cabinet.back != cabinet_back(settings.card_back))) {
         cabinet.music = settings.music;
         cabinet.sound = settings.sound;
         cabinet.reduced = settings.reduced;
-        cabinet.back = settings.card_back;
+        cabinet.back = cabinet_back(settings.card_back);
         static_cast<void>(save_cabinet(cabinet_path(), cabinet));
     }
     return true;

@@ -1,4 +1,5 @@
 #include "settings_sheet.hpp"
+#include "card_backs.hpp"
 #include "presentation.hpp"
 #include "runtime_paths.hpp"
 #include "gui_forms/window.hpp"
@@ -14,7 +15,9 @@ constexpr gf::Color rgb(int r, int g, int b, int a = 255) {
 const gf::Color ink = rgb(42, 38, 24);
 const gf::Color brown = rgb(140, 101, 34);
 const char* const back_names[card_back_count] = {"Sapphire clubs", "Ruby diamonds",
-                                                 "Emerald hearts", "Amethyst spades"};
+                                                 "Emerald hearts", "Amethyst spades",
+                                                 "Sapphire lattice", "Ruby rings",
+                                                 "Forest tartan", "Midnight star"};
 // Master rows use these ids; a game's ids never start with "suite.".
 const std::string music_id = "suite.music", sound_id = "suite.sound",
                   reduced_id = "suite.reduced", backs_id = "suite.card_back";
@@ -465,6 +468,12 @@ void SettingsSheet::initialize_control_tree() {
 void SettingsSheet::on_attached_to_window() {
     gf::Window& window = *attached_window();
     for (int i = 0; i < card_back_count; ++i) {
+        if (i >= painted_back_count) {
+            const std::vector<std::byte> drawn = make_card_back(i, card_art_width, card_art_height);
+            backs_[static_cast<std::size_t>(i)] =
+                window.load_bgra32_premultiplied(card_art_width, card_art_height, card_art_width * 4U, drawn).image;
+            continue;
+        }
         const std::filesystem::path path =
             std::filesystem::path(asset_directory()) / ("back_" + std::to_string(i) + ".png");
         std::ifstream file(path, std::ios::binary);

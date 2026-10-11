@@ -1,5 +1,6 @@
 #include "table.hpp"
 #include "audio.hpp"
+#include "card_backs.hpp"
 #include "carpet.hpp"
 #include "gui_forms/window.hpp"
 #include "help_route.hpp"
@@ -71,6 +72,28 @@ std::vector<std::byte> card_finish(int w, int h) {
         }
     };
     const Dimples dimples{pitch, row_h};
+    // Paper: long, faint fibres laid mostly one way, and a fine grain.
+    struct Fibres {
+        double scale;
+        static double lattice(int i, int j) {
+            std::uint32_t k = static_cast<std::uint32_t>(i) * 73856093U ^ static_cast<std::uint32_t>(j) * 19349663U;
+            k = (k ^ (k >> 13)) * 0x5bd1e995U;
+            return ((k ^ (k >> 15)) & 0xffffU) / 65535.0;
+        }
+        static double noise(double u, double v) {
+            const int i = static_cast<int>(std::floor(u)), j = static_cast<int>(std::floor(v));
+            double fu = u - i, fv = v - j;
+            fu = fu * fu * (3 - 2 * fu);
+            fv = fv * fv * (3 - 2 * fv);
+            const double a = lattice(i, j), b = lattice(i + 1, j), c = lattice(i, j + 1), d = lattice(i + 1, j + 1);
+            return a + (b - a) * fu + (c - a) * fv + (a - b - c + d) * fu * fv;
+        }
+        double operator()(double x, double y) const {
+            // Stretched along the grain: fibres run across the card more than down it.
+            return noise(x / (9 * scale), y / (2.2 * scale)) * .6 + noise(x / (3 * scale), y / (.9 * scale)) * .4;
+        }
+    };
+    const Fibres fibres{std::max(.6, s)};
     const double lx = -.5, ly = -.7; // toward the lamp, in the card plane
     const double rim = std::max(1.6, 3.2 * s);
     for (int y = 0; y < h; ++y)
@@ -89,6 +112,18 @@ std::vector<std::byte> card_finish(int w, int h) {
                 light += std::min(.1, facing * .1);
             else
                 dark += std::min(.06, -facing * .06);
+            // Paper fibres and grain: a little lighter and darker, finer than the dimples.
+            {
+                const double f = fibres(px, py) - .5;
+                std::uint32_t k = static_cast<std::uint32_t>(x) * 2654435761U ^ static_cast<std::uint32_t>(y) * 2246822519U;
+                k = (k ^ (k >> 15)) * 0x2c1b3c6dU;
+                const double grain = ((k >> 8) & 255) / 255.0 - .5;
+                const double tone = f * .07 + grain * .025;
+                if (tone > 0)
+                    light += tone;
+                else
+                    dark += -tone;
+            }
             // Rolled edge: the outline's outward normal, lit or shaded.
             const double depth_in = -d;
             if (depth_in < rim) {
@@ -232,8 +267,14 @@ void Table::on_attached_to_window() {
         std::string number = i < 10 ? "0" + std::to_string(i) : std::to_string(i);
         faces_[i] = load_image(window, "card_" + number + ".png");
     }
-    for (int i = 0; i < 4; ++i)
-        backs_[i] = load_image(window, "back_" + std::to_string(i) + ".png");
+    for (int i = 0; i < card_back_count; ++i) {
+        if (i < painted_back_count) {
+            backs_[i] = load_image(window, "back_" + std::to_string(i) + ".png");
+            continue;
+        }
+        const std::vector<std::byte> drawn = make_card_back(i, card_art_width, card_art_height);
+        backs_[i] = window.load_bgra32_premultiplied(card_art_width, card_art_height, card_art_width * 4U, drawn).image;
+    }
     shadow_ = load_image(window, "card_shadow.png");
     paint::Image tile = paint::render_carpet_tile(paint::carpet_preset(3), 256);
     std::vector<std::byte> pixels(tile.pixels.size() * 4);
@@ -433,6 +474,15 @@ void Table::layout_cards(bool animate) {
             s.flip_progress = s.flipping ? 0 : 1;
             if (!animate || reduced_)
                 s.rect = s.target;
+            // A card out of sight (under the stock's top card, beneath a foundation's) is
+            // already in its pile: shown later, it moves from there, not from wherever it
+            // was last seen (a card turned from the stock seemed to leave a column).
+            if (!s.visible) {
+                s.rect = s.target;
+                s.moving = false;
+                s.flipping = false;
+                s.flip_progress = 1;
+            }
         }
     }
     (*buttons_[18])
@@ -660,15 +710,36 @@ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
     if (!selected && !lifted && s.pile == lift_pile_ && s.index >= lift_index_ && !animating_)
         p.fill_rounded_rect(r, 6, gf::Color::rgba(255, 255, 255, 46));
 }
+// Where a card dropped on a pile would lie: the next place down a column's fan (squeezed
+// as the layout squeezes a long column), or the pile's own place.
+gf::Rect Table::landing(int pile) const {
+    const int columns = game.state.kind == Kind::spider ? 10 : game.state.kind == Kind::freecell ? 8 : 7;
+    if (pile < 0 || pile >= 20)
+        return {};
+    const gf::Rect slot = slots_[pile];
+    const Pile& cards = game.state.piles[pile];
+    if (game.state.kind == Kind::hearts || pile >= columns || cards.empty())
+        return slot;
+    const gf::Rect bounds = client_rectangle();
+    const double available = std::max(40.0, bounds.height - 14 - slot.y - card_h_);
+    double exposed = 0;
+    for (const Card& card : cards)
+        exposed += card.up ? spread_ : 14;
+    const double factor = exposed > available ? available / exposed : 1;
+    return {slot.x, slot.y + exposed * factor, slot.width, slot.height};
+}
 void Table::on_paint(gf::Painter& p, gf::Rect) {
     gf::Rect b = client_rectangle();
     p.fill_rect(b, gf::Color::rgba(22, 75, 54));
     if (felt_.value)
         p.fill_image_pattern(felt_, {256, 256}, b, {256, 256});
-    std::array<gf::GradientStop, 3> light{{{0, gf::Color::rgba(122, 168, 110, 50)},
-                                           {.7, gf::Color::rgba(0, 26, 20, 25)},
-                                           {1, gf::Color::rgba(0, 16, 13, 130)}}};
-    p.fill_radial_gradient(b, {b.width * .47, b.height * .38}, {b.width * .8, b.height * .85},
+    // A lamp over the table: a warm pool that lifts the felt's own colour without washing
+    // it pale, falling away into deep shade at the edges.
+    std::array<gf::GradientStop, 4> light{{{0, gf::Color::rgba(120, 160, 70, 26)},
+                                           {.42, gf::Color::rgba(0, 0, 0, 0)},
+                                           {.8, gf::Color::rgba(0, 14, 10, 105)},
+                                           {1, gf::Color::rgba(0, 8, 6, 175)}}};
+    p.fill_radial_gradient(b, {b.width * .5, b.height * .42}, {b.width * .78, b.height * .9},
                            light);
     gf::Color cream = gf::Color::rgba(223, 229, 204);
     gf::Color muted = gf::Color::rgba(156, 189, 160);
@@ -791,7 +862,7 @@ void Table::on_paint(gf::Painter& p, gf::Rect) {
     if (hover_ >= 0 && selection_ < 0 && slots_[hover_].width > 0)
         p.stroke_rounded_rect(enlarged(slots_[hover_], 4), 8, gf::Color::rgba(239, 220, 151), 2);
     if (hover_ >= 0 && selection_ >= 0 && game.legal({selection_, selected_index_, hover_}))
-        p.stroke_rounded_rect(enlarged(slots_[hover_], 5), 9, gf::Color::rgba(246, 228, 155), 3);
+        p.stroke_rounded_rect(enlarged(landing(hover_), 5), 9, gf::Color::rgba(246, 228, 155), 3);
     if (cascading_)
         // As each top card leaps away, the next one down shows on its foundation.
         for (int f = 10; f < 14; ++f)
@@ -1057,7 +1128,7 @@ void Table::persist() {
     cabinet_.started[current] = true;
     // The cabinet keeps a copy of the masters for earlier versions of PlaySuite.
     const SuiteSettings& masters = SettingsStore::shared().values();
-    cabinet_.back = masters.card_back;
+    cabinet_.back = cabinet_back(masters.card_back);
     cabinet_.reduced = masters.reduced;
     cabinet_.sound = masters.sound;
     cabinet_.music = masters.music;
@@ -1418,11 +1489,16 @@ void Table::on_pointer(gf::PointerEvent& e) {
         pointer_ = local_position;
         if (selection_ >= 0 && std::hypot(pointer_.x - press_.x, pointer_.y - press_.y) > 4)
             dragging_ = true;
-        if (hover_ >= 0)
+        // The destination outline lies where the card would land; repaint both places.
+        if (hover_ >= 0) {
             invalidate(enlarged(slots_[hover_], 12));
+            invalidate(enlarged(landing(hover_), 12));
+        }
         hover_ = hit_slot(pointer_);
-        if (hover_ >= 0)
+        if (hover_ >= 0) {
             invalidate(enlarged(slots_[hover_], 12));
+            invalidate(enlarged(landing(hover_), 12));
+        }
         for (const Sprite& sprite : sprites_) {
             if (sprite.visible && sprite.pile == selection_ && sprite.index >= selected_index_) {
                 gf::Rect before = sprite.rect;

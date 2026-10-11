@@ -16,7 +16,12 @@ struct SuiteSettings {
     int card_back = 0; // 0..card_back_count-1, shared by every game on shared/cards
     bool operator==(const SuiteSettings& other) const;
 };
-inline constexpr int card_back_count = 4;
+inline constexpr int card_back_count = 8;
+// The card cabinet's own field (read by older builds) holds only the four painted backs:
+// a drawn back is mirrored there as the painted one of its colour.
+[[nodiscard]] inline int cabinet_back(int back) {
+    return back < 0 ? 0 : back % 4;
+}
 // The gain a volume slider position gives: squared, so equal steps sound even.
 [[nodiscard]] double audio_gain(double volume);
 

@@ -54,7 +54,7 @@ class Table final : public gf::Control, public CommandSource {
     std::array<std::shared_ptr<gf::Button>, 22> buttons_{};
     std::vector<gf::SubscriptionToken> subscriptions_;
     std::array<gf::ImageId, 52> faces_{};
-    std::array<gf::ImageId, 4> backs_{};
+    std::array<gf::ImageId, card_back_count> backs_{};
     gf::ImageId felt_{};
     gf::ImageId shadow_{};
     // Lighting and texture laid over every card, rendered at the cards' device size.
@@ -110,6 +110,7 @@ class Table final : public gf::Control, public CommandSource {
     [[nodiscard]] bool movable(int pile, int index) const;
     void track_hover(gf::Point point);
     int hit_slot(gf::Point point) const;
+    [[nodiscard]] gf::Rect landing(int pile) const;
     void request_tick();
     struct Bouncer {
         Card card;
