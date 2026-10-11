@@ -102,7 +102,7 @@ limits. Read the one you build on before writing a line.
 |---|---|---|
 | [`grass`](../../shared/grass/README.md) | Whole-lawn pictures grown blade by blade: long grass with wildflowers, mown turf laid each way, bark mulch, beds and tree canopies, in any season. Tenths of a second, every core. | Mowing, Catching Thieves, Pen the Sheep |
 | [`soil`](../../shared/soil/README.md) | Garden ground: clods and crumbs with soft self-shadowing, rows and rake lines, stones, straw and leaves, damp, cracks, frost and snow, as repeating surfaces or the spoil round a hole. Milliseconds. | Catching Thieves |
-| [`paper`](../../shared/paper/README.md) | Paper: mottling, tooth, grain, fibres, laid and chain lines, parchment blotches, a gutter shadow; seven presets from India paper to kraft; seamless tiles or whole sheets, sized in points for any display scale. A millisecond a tile. | The shell's help and Settings sheets; any game with a page, label or parcel |
+| [`paper`](../../shared/paper/README.md) | Paper: machine-made printing paper as a flat fibre mat with formation clouds (book, copy, recycled), and handmade and decorative papers with lit tooth, fibre inclusions, laid and chain lines or parchment blotches; a gutter shadow; seamless tiles or whole sheets, sized in points for any display scale. Milliseconds a tile. | The shell's help and Settings sheets; any game with a page, label or parcel |
 | [felt](../../shared/felt/README.md) (`shared/felt`, not an engine: linked once by the suite) | Fibre-rendered cloth with real pile and sheen, twelve presets. About a second a tile, so rendered once at attach time. | The card games, Koi-Koi |
 
 **Brains**

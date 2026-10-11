@@ -18,10 +18,10 @@ void PaperSheet::prepare(gf::Window& window) {
     if (image_.value && scale == scale_)
         return;
     release(window);
-    paper::Parameters p = paper::preset(paper::Preset::wove);
+    // Uncoated book paper in the sheet's own cream: a flat fibre mat, no lit relief.
+    paper::Parameters p = paper::preset(paper::Preset::book);
     p.pixels_per_point = scale;
     p.colour = {255.0 / 255.0, 252.0 / 255.0, 215.0 / 255.0};
-    p.fibre_contrast = 0.06;
     p.seed = 1909;
     const int side = static_cast<int>(std::lround(kTilePoints * scale));
     paper::Image tile;

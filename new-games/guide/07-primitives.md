@@ -168,7 +168,7 @@ record the source in `HANDOFF.md`. Take the newest copy; older ones lack fixes.
 | Character posing and faces | `games/switchbox/src/` (`girl.*`, `face.*`, `actor.*`) | A jointed, expressive 3D character with speech timing |
 | Speech lines and typewriter text | `games/switchbox/src/platform/lines.*` | Line pools and reveal timing |
 | Felt and cloth | [`shared/felt`](../../shared/felt/README.md) | Fibre-rendered felt (`paint::render_carpet_tile`), under its own MIT license. This one is linked once by the suite; use it through `paint::` as `games/koikoi` does, do not copy it. About a second a tile: render once at attach time. |
-| Paper | Declare the [`paper`](../../shared/paper/README.md) engine | Seamless tiles or whole sheets of book, laid, India, parchment, rag, kraft or night paper in a millisecond, sized in points for any display scale. The shell prints its help and Settings sheets on it (`src/paper_sheet.*`). |
+| Paper | Declare the [`paper`](../../shared/paper/README.md) engine | Seamless tiles or whole sheets of book, copy, recycled, laid, India, parchment, rag, kraft or night paper in milliseconds, sized in points for any display scale. The shell prints its help and Settings sheets on book paper (`src/paper_sheet.*`). |
 | Card finish | `games/koikoi/src/card_finish.*` | The lit, slightly raised card look |
 | Rigid-body physics | `games/zenconstruction/phys/` | Convex hulls, friction, sleeping, deterministic. Read `games/zenconstruction/PHYSICS_SPEC.md` and `phys/NOTES.md` first. |
 | Hex-grid puzzle generation with a proving solver | `games/penthesheep/src/field.*` | The pattern for "generate, then prove solvable" |

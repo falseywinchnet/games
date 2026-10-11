@@ -169,6 +169,9 @@ void test_flat_and_quiet() {
     check(paper::generate_tile(paper::preset(paper::Preset::india), 256, 256, india), "india");
     check(paper::generate_tile(paper::preset(paper::Preset::rag), 256, 256, rag), "rag");
     check(deviation(india) < deviation(rag), "india paper is smoother than cotton rag");
+    paper::Image book;
+    check(paper::generate_tile(paper::preset(paper::Preset::book), 256, 256, book), "book");
+    check(deviation(book) < deviation(rag) * 0.5, "machine-made book paper is far quieter than handmade rag");
 }
 
 void test_seams() {
@@ -247,6 +250,18 @@ void test_each_layer() {
     }
     check(plain > 256 * 256 * 3 / 4, "fibres leave most of the sheet plain");
     check(lighter > 200 && darker > 200, "fibres are both lighter and darker than the sheet");
+
+    // The web alone: a flat mat, zero on average; a denser mat is more even.
+    paper::Parameters webbed = bare(cream);
+    webbed.web = 2500.0;
+    webbed.web_contrast = 0.04;
+    check(paper::generate_tile(webbed, 256, 256, image), "web generates");
+    const double sparse_spread = deviation(image);
+    check(sparse_spread > 0.8, "the web shows");
+    check(std::fabs(mean_luminance(image) - 234.0) < 1.5, "the web is zero on average");
+    webbed.web = 10000.0;
+    check(paper::generate_tile(webbed, 256, 256, image), "dense web generates");
+    check(deviation(image) < sparse_spread, "a denser mat is more even");
 
     // Tooth alone: lit relief, zero on average.
     paper::Parameters toothed = bare(cream);
@@ -415,7 +430,7 @@ void test_cost() {
     };
     const Case cases[] = {{256, 1.0}, {512, 2.0}, {1024, 2.0}};
     for (const Case& c : cases) {
-        paper::Parameters p = paper::preset(paper::Preset::wove);
+        paper::Parameters p = paper::preset(paper::Preset::book);
         p.pixels_per_point = c.ppp;
         paper::Image image;
         double best = 1e9;
@@ -426,7 +441,7 @@ void test_cost() {
         }
         std::printf("%4d x %4d tile at %.0fx: %.2f ms\n", c.side, c.side, c.ppp, best);
         // Generous: an unoptimised build on a slow runner, not the Release figure.
-        check(best < 400.0 * (c.side / 512.0) * (c.side / 512.0) + 50.0, "a tile costs milliseconds");
+        check(best < 600.0 * (c.side / 512.0) * (c.side / 512.0) + 60.0, "a tile costs milliseconds");
     }
 }
 

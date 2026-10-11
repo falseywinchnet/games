@@ -62,6 +62,12 @@ Parameters sanitized(const Parameters& p) {
     s.mottle_size = clamp_finite(p.mottle_size, 2.0, 4096.0, d.mottle_size);
     s.tooth = clamp_finite(p.tooth, 0.0, 0.5, d.tooth);
     s.tooth_size = clamp_finite(p.tooth_size, 1.0, 256.0, d.tooth_size);
+    s.machine_grain = clamp_finite(p.machine_grain, 1.0, 8.0, d.machine_grain);
+    s.web = clamp_finite(p.web, 0.0, 20000.0, d.web);
+    s.web_length = clamp_finite(p.web_length, 0.5, 100.0, d.web_length);
+    s.web_contrast = clamp_finite(p.web_contrast, 0.0, 0.5, d.web_contrast);
+    s.flecks = clamp_finite(p.flecks, 0.0, 500.0, d.flecks);
+    s.fleck_contrast = clamp_finite(p.fleck_contrast, 0.0, 0.5, d.fleck_contrast);
     s.grain = clamp_finite(p.grain, 0.0, 0.3, d.grain);
     s.fibres = clamp_finite(p.fibres, 0.0, 500.0, d.fibres);
     s.fibre_length = clamp_finite(p.fibre_length, 1.0, 400.0, d.fibre_length);
@@ -96,23 +102,23 @@ struct NoiseScratch {
     std::vector<float> bottom;
 };
 
-void add_value_noise(std::vector<float>& field, int w, int h, double cell_px, bool periodic, std::uint32_t seed,
-                     float amplitude, NoiseScratch& scratch) {
+void add_value_noise(std::vector<float>& field, int w, int h, double cell_px_x, double cell_px_y, bool periodic,
+                     std::uint32_t seed, float amplitude, NoiseScratch& scratch) {
     if (amplitude == 0.0f) {
         return;
     }
     int cells_x = 0;
     int cells_y = 0;
-    double cell_w = cell_px;
-    double cell_h = cell_px;
+    double cell_w = cell_px_x;
+    double cell_h = cell_px_y;
     if (periodic) {
-        cells_x = std::max(2, static_cast<int>(std::lround(w / cell_px)));
-        cells_y = std::max(2, static_cast<int>(std::lround(h / cell_px)));
+        cells_x = std::max(2, static_cast<int>(std::lround(w / cell_px_x)));
+        cells_y = std::max(2, static_cast<int>(std::lround(h / cell_px_y)));
         cell_w = static_cast<double>(w) / cells_x;
         cell_h = static_cast<double>(h) / cells_y;
     } else {
-        cells_x = static_cast<int>(std::ceil(w / cell_px)) + 1;
-        cells_y = static_cast<int>(std::ceil(h / cell_px)) + 1;
+        cells_x = static_cast<int>(std::ceil(w / cell_px_x)) + 1;
+        cells_y = static_cast<int>(std::ceil(h / cell_px_y)) + 1;
     }
     scratch.ix_of_x.resize(static_cast<std::size_t>(w));
     scratch.sx_of_x.resize(static_cast<std::size_t>(w));
@@ -164,12 +170,14 @@ void add_value_noise(std::vector<float>& field, int w, int h, double cell_px, bo
 }
 
 // Three octaves, the finer ones at half and a quarter of the cell, so a repeating
-// tile keeps repeating.
-void add_fractal_noise(std::vector<float>& field, int w, int h, double cell_px, bool periodic, std::uint32_t seed,
-                       float amplitude, NoiseScratch& scratch) {
-    add_value_noise(field, w, h, cell_px, periodic, seed, amplitude * 0.55f, scratch);
-    add_value_noise(field, w, h, cell_px * 0.5, periodic, seed + 7U, amplitude * 0.30f, scratch);
-    add_value_noise(field, w, h, cell_px * 0.25, periodic, seed + 13U, amplitude * 0.15f, scratch);
+// tile keeps repeating. `stretch` elongates every cell along x (a running grain).
+void add_fractal_noise(std::vector<float>& field, int w, int h, double cell_px, double stretch, bool periodic,
+                       std::uint32_t seed, float amplitude, NoiseScratch& scratch) {
+    add_value_noise(field, w, h, cell_px * stretch, cell_px, periodic, seed, amplitude * 0.55f, scratch);
+    add_value_noise(field, w, h, cell_px * 0.5 * stretch, cell_px * 0.5, periodic, seed + 7U, amplitude * 0.30f,
+                    scratch);
+    add_value_noise(field, w, h, cell_px * 0.25 * stretch, cell_px * 0.25, periodic, seed + 13U,
+                    amplitude * 0.15f, scratch);
 }
 
 // Fibres: short quadratic curves, each splatted as a soft stroke into a signed field
@@ -253,6 +261,119 @@ void draw_fibres(FibreField& field, const Parameters& p, std::uint32_t seed) {
     }
 }
 
+// The fibre web: tiny fibres accumulated as density. Each is a gently curved segment
+// a fraction of a point wide; its coverage is added, so overlaps count.
+struct WebField {
+    int w = 0;
+    int h = 0;
+    bool periodic = false;
+    std::vector<float> density;
+
+    void add(double cx, double cy, double radius, float weight) {
+        const int x0 = static_cast<int>(std::floor(cx - radius - 0.5));
+        const int x1 = static_cast<int>(std::ceil(cx + radius + 0.5));
+        const int y0 = static_cast<int>(std::floor(cy - radius - 0.5));
+        const int y1 = static_cast<int>(std::ceil(cy + radius + 0.5));
+        for (int y = y0; y <= y1; ++y) {
+            int py = y;
+            if (periodic) {
+                py = ((y % h) + h) % h;
+            } else if (y < 0 || y >= h) {
+                continue;
+            }
+            for (int x = x0; x <= x1; ++x) {
+                int px = x;
+                if (periodic) {
+                    px = ((x % w) + w) % w;
+                } else if (x < 0 || x >= w) {
+                    continue;
+                }
+                const double dx = x + 0.5 - cx;
+                const double dy = y + 0.5 - cy;
+                const double distance = std::sqrt(dx * dx + dy * dy);
+                const double coverage = std::clamp(radius - distance + 0.5, 0.0, 1.0);
+                if (coverage > 0.0) {
+                    density[static_cast<std::size_t>(py) * w + px] += static_cast<float>(coverage) * weight;
+                }
+            }
+        }
+    }
+};
+
+void draw_web(WebField& field, const Parameters& p, std::uint32_t seed) {
+    const double ppp = p.pixels_per_point;
+    const double area_points = (field.w / ppp) * (field.h / ppp);
+    const int count = static_cast<int>(std::lround(p.web * area_points / 10000.0));
+    if (count <= 0) {
+        return;
+    }
+    Random random{seed * 0x7FEB352DU + 0x846CA68BU};
+    const double spread = pi / p.machine_grain;
+    for (int i = 0; i < count; ++i) {
+        const double x = random.uniform() * field.w;
+        const double y = random.uniform() * field.h;
+        const double length = p.web_length * (0.5 + random.uniform()) * ppp;
+        const double angle = (random.uniform() - 0.5) * spread;
+        const double bend = (random.uniform() - 0.5) * 0.25 * length;
+        const double radius = (0.06 + 0.10 * random.uniform()) * ppp;
+        const float weight = static_cast<float>(0.6 + 0.8 * random.uniform());
+        const double ca = std::cos(angle);
+        const double sa = std::sin(angle);
+        const double end_x = x + ca * length;
+        const double end_y = y + sa * length;
+        const double control_x = (x + end_x) * 0.5 - sa * bend;
+        const double control_y = (y + end_y) * 0.5 + ca * bend;
+        const int steps = std::max(1, static_cast<int>(std::ceil(length / 0.7)));
+        for (int step = 0; step <= steps; ++step) {
+            const double t = static_cast<double>(step) / steps;
+            const double u = 1.0 - t;
+            const double px = u * u * x + 2.0 * u * t * control_x + t * t * end_x;
+            const double py = u * u * y + 2.0 * u * t * control_y + t * t * end_y;
+            field.add(px, py, radius, weight);
+        }
+    }
+    // Centre the density on its mean so the sheet keeps its colour.
+    double sum = 0.0;
+    for (float value : field.density) {
+        sum += value;
+    }
+    const double mean = sum / static_cast<double>(field.density.size());
+    if (mean <= 0.0) {
+        field.density.clear();
+        return;
+    }
+    const float scale = static_cast<float>(1.0 / mean);
+    for (float& value : field.density) {
+        value = std::clamp(value * scale - 1.0f, -1.0f, 1.0f);
+    }
+}
+
+// Flecks: short dark specks lying along the machine direction, splatted like fibres.
+void draw_flecks(FibreField& field, const Parameters& p, std::uint32_t seed) {
+    const double ppp = p.pixels_per_point;
+    const double area_points = (field.w / ppp) * (field.h / ppp);
+    const int count = static_cast<int>(std::lround(p.flecks * area_points / 10000.0));
+    if (count <= 0 || p.fleck_contrast <= 0.0) {
+        return;
+    }
+    Random random{seed * 0x27D4EB2FU + 0x165667B1U};
+    for (int i = 0; i < count; ++i) {
+        const double x = random.uniform() * field.w;
+        const double y = random.uniform() * field.h;
+        const double length = (0.3 + 1.2 * random.uniform()) * ppp;
+        const double angle = (random.uniform() - 0.5) * 0.9;
+        const double radius = (0.2 + 0.35 * random.uniform()) * ppp + 0.1;
+        const float strength = static_cast<float>(-p.fleck_contrast * (0.35 + 0.65 * random.uniform()));
+        const double ca = std::cos(angle);
+        const double sa = std::sin(angle);
+        const int steps = std::max(1, static_cast<int>(std::ceil(length / 0.5)));
+        for (int step = 0; step <= steps; ++step) {
+            const double t = static_cast<double>(step) / steps - 0.5;
+            field.splat(x + ca * length * t, y + sa * length * t, radius, strength);
+        }
+    }
+}
+
 // A soft line every `period` pixels: 1 on the line, falling to 0 `half_width` pixels
 // away. Fitted to whole periods across a repeating tile.
 struct Lines {
@@ -300,28 +421,45 @@ void render(const Parameters& given, int w, int h, bool periodic, const Shading&
 
     // Slow tone: the mottle and, for parchment, the blotches.
     std::vector<float> tone(count, 0.0f);
-    add_fractal_noise(tone, w, h, p.mottle_size * ppp, periodic, p.seed * 3U + 101U, static_cast<float>(2.0 * p.mottle),
-                      scratch);
+    add_fractal_noise(tone, w, h, p.mottle_size * ppp, 1.0, periodic, p.seed * 3U + 101U,
+                      static_cast<float>(2.0 * p.mottle), scratch);
     std::vector<float> blotch;
     if (p.blotch > 0.0) {
         blotch.assign(count, 0.0f);
-        add_fractal_noise(blotch, w, h, p.blotch_size * ppp, periodic, p.seed * 5U + 211U, 1.0f, scratch);
+        add_fractal_noise(blotch, w, h, p.blotch_size * ppp, 1.0, periodic, p.seed * 5U + 211U, 1.0f, scratch);
     }
 
     // The tooth: fine relief, lit from the upper left by its slope.
     std::vector<float> relief;
     if (p.tooth > 0.0) {
         relief.assign(count, 0.0f);
-        add_fractal_noise(relief, w, h, p.tooth_size * ppp, periodic, p.seed * 7U + 307U, 1.0f, scratch);
+        add_fractal_noise(relief, w, h, p.tooth_size * ppp, p.machine_grain, periodic, p.seed * 7U + 307U, 1.0f,
+                          scratch);
     }
 
     FibreField fibres;
     fibres.w = w;
     fibres.h = h;
     fibres.periodic = periodic;
-    if (p.fibres > 0.0 && p.fibre_contrast > 0.0) {
+    const bool any_fibres = p.fibres > 0.0 && p.fibre_contrast > 0.0;
+    const bool any_flecks = p.flecks > 0.0 && p.fleck_contrast > 0.0;
+    if (any_fibres || any_flecks) {
         fibres.value.assign(count, 0.0f);
-        draw_fibres(fibres, p, p.seed);
+        if (any_fibres) {
+            draw_fibres(fibres, p, p.seed);
+        }
+        if (any_flecks) {
+            draw_flecks(fibres, p, p.seed);
+        }
+    }
+
+    WebField web;
+    web.w = w;
+    web.h = h;
+    web.periodic = periodic;
+    if (p.web > 0.0 && p.web_contrast > 0.0) {
+        web.density.assign(count, 0.0f);
+        draw_web(web, p, p.seed);
     }
 
     const Lines laid = fit_lines(p.laid_spacing, ppp, h, periodic, 0.55);
@@ -368,6 +506,9 @@ void render(const Parameters& given, int w, int h, bool periodic, const Shading&
             if (!fibres.value.empty()) {
                 shade += fibres.value[at];
             }
+            if (!web.density.empty()) {
+                shade += p.web_contrast * web.density[at];
+            }
             if (!blotch.empty()) {
                 const double n = std::clamp(blotch[at] + 0.5, 0.0, 1.0);
                 shade -= p.blotch * (n * n - 0.3);
@@ -406,6 +547,12 @@ void render(const Parameters& given, int w, int h, bool periodic, const Shading&
 
 const char* preset_name(Preset preset) {
     switch (preset) {
+    case Preset::book:
+        return "book";
+    case Preset::copy:
+        return "copy";
+    case Preset::recycled:
+        return "recycled";
     case Preset::wove:
         return "wove";
     case Preset::laid:
@@ -427,6 +574,51 @@ const char* preset_name(Preset preset) {
 Parameters preset(Preset preset) {
     Parameters p;
     switch (preset) {
+    case Preset::book:
+        // Uncoated book paper: a dense fibre mat seen flat, faint formation clouds a few
+        // millimetres across, no lit relief and no visible fibre inclusions.
+        p.colour = {0.969, 0.949, 0.894};
+        p.mottle = 0.008;
+        p.mottle_size = 9.0;
+        p.tooth = 0.0;
+        p.machine_grain = 2.0;
+        p.grain = 0.006;
+        p.fibres = 0.0;
+        p.web = 6000.0;
+        p.web_length = 5.0;
+        p.web_contrast = 0.02;
+        break;
+    case Preset::copy:
+        // Bright, slightly cool office paper: a denser, shorter-fibred mat, smoother still.
+        p.colour = {0.980, 0.980, 0.969};
+        p.mottle = 0.006;
+        p.mottle_size = 8.0;
+        p.tooth = 0.0;
+        p.machine_grain = 1.6;
+        p.grain = 0.005;
+        p.fibres = 0.0;
+        p.web = 8000.0;
+        p.web_length = 4.0;
+        p.web_contrast = 0.016;
+        p.warmth = 0.4;
+        break;
+    case Preset::recycled:
+        // Greyer stock: the same mat with flecks of unbleached fibre and old ink.
+        p.colour = {0.925, 0.906, 0.859};
+        p.mottle = 0.012;
+        p.mottle_size = 9.0;
+        p.tooth = 0.0;
+        p.machine_grain = 2.0;
+        p.grain = 0.007;
+        p.web = 6000.0;
+        p.web_length = 5.0;
+        p.web_contrast = 0.025;
+        p.fibres = 2.0;
+        p.fibre_length = 4.0;
+        p.fibre_contrast = 0.05;
+        p.flecks = 40.0;
+        p.fleck_contrast = 0.14;
+        break;
     case Preset::wove:
         break;
     case Preset::laid:

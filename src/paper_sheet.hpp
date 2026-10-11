@@ -1,6 +1,6 @@
 #pragma once
-// The shell's paper: the cream sheet the help document and the Settings screen are
-// printed on, made once per window scale by the paper engine (shared/paper) as one
+// The shell's paper: the cream book paper the help document and the Settings screen
+// are printed on, made once per window scale by the paper engine (shared/paper) as one
 // seamless tile and kept as a window image, so a sheet of any size is one pattern
 // fill. Before a window is attached, or if the toolkit refuses the image, the sheet
 // is its flat colour, which is what it always was.
