@@ -108,7 +108,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: falseywinchnet/gui_forms
-          ref: 5bb7a8ba74ccb358f11d1b9056831e0130bdd8d0
+          ref: c91afd9175844da6cd270834e497d43778e82dc0
           path: gui_forms
       - uses: actions/setup-python@v5
         if: runner.os == 'Windows'
@@ -205,12 +205,14 @@ jobs:
           echo "CCACHE_COMPILERCHECK=content" >> "$GITHUB_ENV"
           ccache --max-size=900M
           ccache --zero-stats
+      # Keyed on how GUI.Forms fetches and configures Skia, so a pin that builds it
+      # differently (phase 7 dropped its font backend) never restores the old archive.
       - uses: actions/cache/restore@v4
         if: runner.os != 'Windows'
         id: skia
         with:
           path: gui_forms/third_party/skia
-          key: games-skia-7b260cf-llvm22-v1-${{ matrix.platform }}
+          key: games-skia-llvm22-v2-${{ matrix.platform }}-${{ hashFiles('gui_forms/third_party/fetch_skia_cpu.sh', 'gui_forms/third_party/build_skia_cpu*.sh', 'gui_forms/third_party/skia_cpu*.gn', 'gui_forms/third_party/skia_*.patch') }}
       - name: Build CPU renderer on Linux
         if: runner.os == 'Linux' && steps.skia.outputs.cache-hit != 'true'
         run: |
@@ -225,7 +227,7 @@ jobs:
         if: runner.os != 'Windows' && steps.skia.outputs.cache-hit != 'true'
         with:
           path: gui_forms/third_party/skia
-          key: games-skia-7b260cf-llvm22-v1-${{ matrix.platform }}
+          key: ${{ steps.skia.outputs.cache-primary-key }}
       - uses: actions/download-artifact@v4
         with:
           name: runtime

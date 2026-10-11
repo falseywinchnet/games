@@ -95,7 +95,7 @@ executables that pass falsely.
 
 [docs/BUILDING.md](docs/BUILDING.md) and `.github/workflows/applications.yml` are the
 recipe for the complete application and its packages. Release CI pins GUI.Forms
-`5bb7a8ba74ccb358f11d1b9056831e0130bdd8d0` from `falseywinchnet/gui_forms` and follows
+`c91afd9175844da6cd270834e497d43778e82dc0` from `falseywinchnet/gui_forms` and follows
 its LLVM 22.1.8 contract on every platform (macOS 14.0 Apple silicon with GUI.Forms'
 bundled runtime, Windows 10, Ubuntu 24.04), restoring that revision's published
 compiler cache. Ogg Vorbis is decoded by GUI.Forms' stx_vorbis; packages carry its
