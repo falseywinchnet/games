@@ -11,7 +11,8 @@ constexpr gf::Color rgb(int r, int g, int b, int a = 255) {
     return gf::Color::rgba(static_cast<unsigned char>(r), static_cast<unsigned char>(g),
                            static_cast<unsigned char>(b), static_cast<unsigned char>(a));
 }
-constexpr double kLiftRoom = 16;
+constexpr double kLiftRoom = 22; // above a box: how far it lifts, and its top face
+constexpr double kTravel = 16;
 constexpr double kAspect = 1.38; // box height / width, like a big-box game
 constexpr gf::Color gold = rgb(255, 210, 122);
 std::string upper(std::string s) {
@@ -19,16 +20,36 @@ std::string upper(std::string s) {
         c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
     return s;
 }
-// A plank seen slightly from above: lit top edge, grained front, cast shadow.
-void paint_plank(gf::Painter& p, double x, double y, double w, double depth) {
-    p.fill_rect({x, y + depth + 4, w, 10}, rgb(10, 5, 2, 120));
-    fill_vertical(p, {x, y - 5, w, 6}, rgb(176, 124, 76), rgb(140, 92, 52));
-    fill_vertical(p, {x, y, w, depth}, rgb(122, 78, 42), rgb(74, 44, 22));
-    for (int i = 0; i < 3; ++i)
-        p.draw_line({x, y + 3 + i * depth / 3.4}, {x + w, y + 3.5 + i * depth / 3.4},
-                    rgb(60, 34, 16, 70), 1);
-    p.draw_line({x, y - 5}, {x + w, y - 5}, rgb(214, 170, 120, 160), 1);
-    p.draw_line({x, y + depth}, {x + w, y + depth}, rgb(30, 16, 6), 1);
+// A plank seen slightly from above, the boxes standing on it at `y`: its top runs back
+// behind them, its front edge catches the light, and it throws a soft shadow down the
+// wall. Grained in oak once the wood is made.
+void paint_plank(gf::Painter& p, double x, double y, double w, const ShelfWood* wood) {
+    const double top = y - 3, front = y + 5, thick = 12;
+    const gf::GradientStop drop[] = {{0, rgb(8, 4, 2, 150)}, {.35, rgb(8, 4, 2, 70)}, {1, rgb(8, 4, 2, 0)}};
+    const gf::Rect below{x - 4, front + thick, w + 8, 20};
+    p.fill_linear_gradient(below, {x, below.y}, {x, below.y + below.height}, drop);
+    const gf::Rect upper{x, top, w, front - top};
+    const gf::Rect face{x, front, w, thick};
+    if (wood != nullptr && (*wood).ready()) {
+        const gf::Size tile{ShelfWood::plank_w, ShelfWood::plank_h};
+        p.fill_image_pattern((*wood).plank, (*wood).plank_pixels, upper, tile);
+        p.fill_image_pattern((*wood).plank, (*wood).plank_pixels, face, tile);
+    } else {
+        p.fill_rect(upper, rgb(160, 110, 66));
+        p.fill_rect(face, rgb(112, 70, 38));
+    }
+    // The top darkens toward the wall, in the boxes' shade; the front falls away below.
+    const gf::GradientStop back[] = {{0, rgb(20, 10, 4, 150)}, {.6, rgb(20, 10, 4, 30)}, {1, rgb(255, 232, 196, 40)}};
+    p.fill_linear_gradient(upper, {x, upper.y}, {x, upper.y + upper.height}, back);
+    const gf::GradientStop fall[] = {{0, rgb(255, 236, 204, 36)}, {.4, rgb(0, 0, 0, 0)}, {1, rgb(10, 5, 2, 110)}};
+    p.fill_linear_gradient(face, {x, face.y}, {x, face.y + face.height}, fall);
+    // The rounded nosing: a bright line where top meets front, a dark one under the front.
+    p.draw_line({x, front}, {x + w, front}, rgb(238, 196, 146, 190), 1);
+    p.draw_line({x, front + 1}, {x + w, front + 1}, rgb(255, 230, 190, 60), 1);
+    p.draw_line({x, front + thick}, {x + w, front + thick}, rgb(26, 14, 6), 1);
+    // The plank's ends, end grain darker.
+    p.fill_rect({x, top, 2, front + thick - top}, rgb(40, 22, 10, 120));
+    p.fill_rect({x + w - 2, top, 2, front + thick - top}, rgb(40, 22, 10, 160));
 }
 } // namespace
 
@@ -41,6 +62,23 @@ void ShelfBox::on_focus_changed(bool has_focus) {
     gf::Button::on_focus_changed(has_focus);
     if (has_focus && focused)
         focused(entry_);
+}
+void ShelfBox::on_pointer(gf::PointerEvent& e) {
+    const bool was = hot();
+    gf::Button::on_pointer(e);
+    // A leave reaches only the box itself, so the shelf's frames start here.
+    if (hot() != was && wake)
+        wake();
+}
+void ShelfBox::forget_pointer() {
+    if (!hovered_visual())
+        return;
+    gf::PointerEvent leave{};
+    leave.action = gf::PointerAction::leave;
+    gf::Button::on_pointer(leave);
+    // The shelf is going away, so there are no frames to settle in: settle now.
+    lift_ = selected() ? 1.0 : 0.0;
+    invalidate(gf::Dirty::paint);
 }
 bool ShelfBox::step(double dt, bool reduced) {
     const double target = selected() ? 1.0 : hot() ? .55 : 0.0;
@@ -56,21 +94,30 @@ void ShelfBox::on_paint(gf::Painter& p, gf::Rect) {
     const EntryInfo& info = entry_info(entry_);
     const gf::Rect b = client_rectangle();
     const double h = b.height - kLiftRoom, depth = std::max(4.0, b.width * .07);
-    const double y0 = kLiftRoom * (1 - lift_);
+    // Seen from a little above and to the left, as the planks are: the top and the right
+    // side recede up and to the right.
+    const double rise = std::min(kLiftRoom - kTravel, depth * .62);
+    const double y0 = kLiftRoom - kTravel + kTravel * (1 - lift_);
     const gf::Rect c{0, y0, b.width - depth, h};
-    // Shadow falls onto the back of the shelf; it softens as the box comes forward.
-    p.draw_box_shadow(c, 2, {3 + lift_ * 2, 4 + lift_ * 5}, 5 + lift_ * 6, 0, rgb(0, 0, 0, 150));
+    // Shadow falls onto the wall behind; it softens as the box comes forward.
+    p.draw_box_shadow({c.x + depth * .5, c.y - rise, c.width, c.height}, 2, {3 + lift_ * 2, 2 + lift_ * 5},
+                      5 + lift_ * 6, 0, rgb(0, 0, 0, 150));
     if (selected())
         p.draw_box_shadow(c, 3, {0, 0}, 14, 2, with_alpha(gold, 150));
-    // Right side of the box, receding.
+    // Right side, in shade, darker toward the back.
     paint_polygon(p,
                   {{c.x + c.width, c.y},
-                   {c.x + c.width + depth, c.y + depth * .7},
-                   {c.x + c.width + depth, c.y + c.height - depth * .3},
+                   {c.x + c.width + depth, c.y - rise},
+                   {c.x + c.width + depth, c.y + c.height - rise},
                    {c.x + c.width, c.y + c.height}},
-                  mix_color(info.cover_bottom, rgb(0, 0, 0), .35));
-    p.draw_line({c.x + c.width, c.y}, {c.x + c.width + depth, c.y + depth * .7},
-                with_alpha(info.accent, 90), 1);
+                  mix_color(info.cover_bottom, rgb(0, 0, 0), .42));
+    p.draw_line({c.x + c.width + .5, c.y}, {c.x + c.width + .5, c.y + c.height}, rgb(0, 0, 0, 90), 1);
+    // Top, in the light from above.
+    paint_polygon(p,
+                  {{c.x, c.y}, {c.x + depth, c.y - rise}, {c.x + c.width + depth, c.y - rise}, {c.x + c.width, c.y}},
+                  mix_color(info.cover_top, rgb(255, 255, 255), .22));
+    p.draw_line({c.x + depth, c.y - rise}, {c.x + c.width + depth, c.y - rise}, rgb(255, 255, 255, 90), 1);
+    p.draw_line({c.x + c.width, c.y}, {c.x + c.width + depth, c.y - rise}, with_alpha(info.accent, 110), 1);
     p.save();
     p.clip_rect(c);
     fill_vertical(p, c, info.cover_top, info.cover_bottom);
@@ -348,7 +395,7 @@ void ShelfRows::on_paint(gf::Painter& p, gf::Rect) {
     p.save();
     p.clip_rect(view);
     for (double line : shelf_lines_)
-        paint_plank(p, 10, line - offset_, view.width - 20, 14);
+        paint_plank(p, 10, line - offset_, view.width - 20, wood);
     p.restore();
 }
 
@@ -382,6 +429,7 @@ void ShelfView::initialize_control_tree() {
         boxes_[i] = gf::make_control<ShelfBox>(gf::StableId("shelf.box." + std::to_string(static_cast<int>(entries[i]))),
                                                entries[i], sprites_);
         (*boxes_[i]).focused = std::bind(&ShelfView::focused_box, this, entries[i]);
+        (*boxes_[i]).wake = std::bind_front(&ShelfView::request_animation, this);
         (*rows_).add_box(boxes_[i]);
         gf::on((*boxes_[i]).clicked(), *this, &ShelfView::launch, entries[i]);
     }
@@ -405,6 +453,8 @@ void ShelfView::launch(Entry entry) {
     select(entry);
     (*rows_).reveal(entry);
     if (reduced_ || !timer_) {
+        for (const std::shared_ptr<ShelfBox>& box : boxes_)
+            (*box).forget_pointer();
         if (open)
             open(entry);
         return;
@@ -422,15 +472,23 @@ void ShelfView::launch(Entry entry) {
     last_ = std::chrono::steady_clock::now();
 }
 void ShelfView::on_attached_to_window() {
+    wood_.make(*attached_window());
+    wood_scale_ = (*attached_window()).scale();
+    (*rows_).wood = &wood_;
     timer_ = std::make_unique<gf::Timer>(*attached_window(), std::chrono::milliseconds(16));
     gf::on((*timer_).tick(), *this, &ShelfView::tick);
     last_ = std::chrono::steady_clock::now();
     (*timer_).start();
 }
-void ShelfView::on_detaching_from_window(gf::Window&) noexcept {
+void ShelfView::on_detaching_from_window(gf::Window& window) noexcept {
     if (timer_)
         (*timer_).stop();
     timer_.reset();
+    try {
+        wood_.release(window);
+    } catch (...) {
+    }
+    wood_scale_ = 0;
 }
 void ShelfView::request_animation() {
     if (!timer_ || !visible())
@@ -473,6 +531,9 @@ void ShelfView::tick() {
             launching_ = false;
             (*curtain_).set_visible(false);
             (*curtain_).progress = 0;
+            // The shelf hides for the game: no box keeps the pointer it had.
+            for (const std::shared_ptr<ShelfBox>& box : boxes_)
+                (*box).forget_pointer();
             if (open)
                 open((*curtain_).entry);
         }
@@ -549,6 +610,11 @@ gf::Rect ShelfView::help_slot(gf::Size size) {
 }
 void ShelfView::arrange(gf::Rect bounds) {
     arrange_self(bounds);
+    // The wood is made at the window's scale; a move to another display makes it again.
+    if (attached_window() != nullptr && wood_scale_ != 0 && (*attached_window()).scale() != wood_scale_) {
+        wood_.make(*attached_window());
+        wood_scale_ = (*attached_window()).scale();
+    }
     const double w = bounds.width, h = bounds.height;
     const bool compact = h < 520 || w < 760;
     header_ = {0, 0, w, compact ? 54.0 : 76.0};
@@ -565,11 +631,22 @@ void ShelfView::arrange(gf::Rect bounds) {
 void ShelfView::on_paint(gf::Painter& p, gf::Rect) {
     const gf::Rect b = client_rectangle();
     const EntryInfo& chosen = entry_info(shown_);
-    // Walnut wall with vertical panels and a warm spotlight from above.
-    fill_vertical(p, b, rgb(58, 36, 22), rgb(30, 18, 10));
+    // Walnut wall of vertical boards, falling into shade toward the floor, with a warm
+    // spotlight from above.
+    if (wood_.ready()) {
+        p.fill_image_pattern(wood_.wall, wood_.wall_pixels, b, {ShelfWood::wall_w, ShelfWood::wall_h});
+        // Boards differ a little in tone.
+        for (double x = 0; x < b.width; x += 92)
+            if (static_cast<int>(x / 92) % 3 != 1)
+                p.fill_rect({x, 0, 92, b.height}, rgb(10, 5, 2, static_cast<int>(x / 92) % 3 == 0 ? 26 : 50));
+        const gf::GradientStop shade[] = {{0, rgb(0, 0, 0, 0)}, {1, rgb(8, 4, 2, 120)}};
+        p.fill_linear_gradient(b, {0, header_.height}, {0, b.height}, shade);
+    } else {
+        fill_vertical(p, b, rgb(58, 36, 22), rgb(30, 18, 10));
+    }
     for (double x = 0; x < b.width; x += 92) {
-        p.draw_line({x, header_.height}, {x, b.height}, rgb(20, 11, 5, 120), 1);
-        p.draw_line({x + 1, header_.height}, {x + 1, b.height}, rgb(120, 80, 48, 40), 1);
+        p.draw_line({x, header_.height}, {x, b.height}, rgb(14, 7, 3, 170), 1);
+        p.draw_line({x + 1, header_.height}, {x + 1, b.height}, rgb(140, 96, 58, 46), 1);
     }
     const gf::GradientStop spot[] = {{0, rgb(255, 214, 150, 60)}, {1, rgb(255, 214, 150, 0)}};
     p.fill_radial_gradient(b, {b.width * .5, header_.height}, {b.width * .62, b.height * .78},

@@ -3,6 +3,7 @@
 #include "suite.hpp"
 #include "suite_model.hpp"
 #include "text_sprites.hpp"
+#include "wood.hpp"
 #include <functional>
 #include <memory>
 namespace games {
@@ -20,8 +21,14 @@ class ShelfBox final : public gf::Button {
     // Returns true while still moving.
     bool step(double dt, bool reduced);
     void on_paint(gf::Painter& painter, gf::Rect damage) override;
+    void on_pointer(gf::PointerEvent& event) override;
     void on_focus_changed(bool focused) override;
+    // Drops the pointer's hover: the window does not tell a box that is hidden while
+    // hovered that the pointer went (docs/TOOLKIT_REQUESTS.md).
+    void forget_pointer();
     std::function<void(Entry)> focused;
+    // Asks the shelf for frames: the box lifts or settles when the pointer comes or goes.
+    std::function<void()> wake;
 
   private:
     Entry entry_;
@@ -64,6 +71,8 @@ class ShelfRows final : public gf::Control {
     [[nodiscard]] double scroll_offset() const { return offset_; }
     // Asks the shelf for animation frames while a glide runs.
     std::function<void()> wake;
+    // The planks' wood, owned by the shelf; plain colour until it is made.
+    const ShelfWood* wood = nullptr;
 
   private:
     std::vector<std::shared_ptr<ShelfBox>> boxes_;
@@ -134,6 +143,8 @@ class ShelfView final : public gf::Control {
     std::array<bool, entry_count> started_{};
     bool reduced_ = false;
     gf::Rect header_{}, ticket_{};
+    ShelfWood wood_;
+    double wood_scale_ = 0;
     void on_attached_to_window() override;
     void on_detaching_from_window(gf::Window& window) noexcept override;
     void tick();

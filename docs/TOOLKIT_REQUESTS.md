@@ -201,3 +201,18 @@ enlarging copy.
    for Pen the Sheep at 2200 x 1440) is the largest cost left outside the game.
    Intersecting the presentation clip with the frame's damage, when the window's
    retained raster already holds the previous generation, would remove most of it.
+
+## Hover when the pointer leaves (found with the shelf, 2026-10-10)
+
+1. **Leave the hovered control when the pointer leaves the window.** The macOS host's
+   `mouseExited:` (`macos_host.mm`) resets the cursor but neither sends
+   `PointerAction::leave` to the hovered control nor clears `Window::hovered_`.
+   `Window::dispatch_pointer` only changes hover on a `move` inside the window. So a
+   control the pointer was over when it left the window stays `hovered_visual()`
+   until the pointer comes back: the shelf's boxes, which lift while hovered, stay
+   lifted. Likewise a control hidden while hovered is skipped (`eligible`) and keeps
+   its hovered state. Wanted: on window exit, and when the hovered control becomes
+   hidden or disabled, send it `leave` and clear the window's hover (the next `move`
+   then sends `enter` as usual). PlaySuite works around the hidden case by giving
+   each box a synthetic `leave` when the shelf hides for a game
+   (`ShelfBox::forget_pointer`); it cannot see the window exit.
