@@ -154,12 +154,6 @@ void PuzzleRaster::line(Point2 a, Point2 b, double thickness, PixelColor color, 
     triangle(p, q, r, id);
     triangle(p, r, s, id);
 }
-static PixelColor jewel(int color) {
-    const PixelColor colors[] = {{220, 230, 240}, {228, 49, 86},   {59, 181, 255},
-                                 {255, 182, 48},  {126, 224, 111}, {168, 101, 249},
-                                 {53, 220, 208},  {244, 119, 44},  {233, 127, 203}};
-    return colors[std::clamp(color, 0, 8)];
-}
 // Nature Cube pair colors: nine hues that stay apart on the glass.
 static PixelColor pair_color(int pair) {
     const PixelColor colors[] = {{220, 230, 240}, {232, 58, 90},   {52, 170, 255}, {255, 186, 40},
@@ -172,96 +166,6 @@ static PixelColor shade(PixelColor c, double n) {
     c.g = std::clamp(c.g * n, 0.0, 255.0);
     c.b = std::clamp(c.b * n, 0.0, 255.0);
     return c;
-}
-void PuzzleRaster::gem(Point2 center, double radius, int value, double angle, double glisten,
-                       int id) {
-    int color = value % 16, n = color == 1   ? 6
-                                : color == 2 ? 4
-                                : color == 3 ? 8
-                                : color == 4 ? 5
-                                : color == 5 ? 6
-                                : color == 6 ? 4
-                                             : 8;
-    if (value == 48)
-        n = 4;
-    PixelColor base = jewel(color);
-    double tilt = std::cos(angle) * .18 + .82;
-    const double light = -2.356; // light falls from the upper left
-    struct FacetLight {
-        double light;
-        double operator()(double a, double strength) const {
-            return .5 + strength * std::max(0.0, std::cos(a - light)) +
-                   .12 * std::cos(a - light + 3.14159) * -1;
-        }
-    };
-    FacetLight lit{light};
-    const double spin = angle * .17 + .785398;
-    struct GemCorner {
-        int n;
-        double spin;
-        Point2 center;
-        double tilt;
-        Point2 operator()(int i, double r) const {
-            const double a = 6.283185307 * i / n + spin;
-            return Point2{center.x + std::cos(a) * r * tilt, center.y + std::sin(a) * r};
-        }
-    };
-    GemCorner corner{n, spin, center, tilt};
-    for (int i = 0; i < n; ++i) {
-        const double a = 6.283185307 * (i + .5) / n + spin;
-        Point2 p = corner(i, radius), q = corner(i + 1, radius), ip = corner(i, radius * .56),
-               iq = corner(i + 1, radius * .56);
-        PixelColor face = value == 48 ? jewel(1 + i % 6) : base;
-        const double outer = lit(a, .62), inner = outer + .22;
-        // Crown facets: two triangles from the girdle to the table.
-        triangle({p.x, p.y, 0, shade(face, outer)}, {q.x, q.y, 0, shade(face, outer)},
-                 {ip.x, ip.y, 0, shade(face, inner)}, id);
-        triangle({q.x, q.y, 0, shade(face, outer * .94)}, {iq.x, iq.y, 0, shade(face, inner)},
-                 {ip.x, ip.y, 0, shade(face, inner)}, id);
-        // Table: brightest at the center, shaded toward the far side.
-        const double ta = lit(6.283185307 * i / n + spin, .4) + .35,
-                     tb = lit(6.283185307 * (i + 1) / n + spin, .4) + .35;
-        triangle({center.x, center.y, 0, shade(value == 48 ? jewel(1 + (i + 3) % 6) : base, 1.42)},
-                 {ip.x, ip.y, 0, shade(face, ta)}, {iq.x, iq.y, 0, shade(face, tb)}, id);
-    }
-    // The girdle and the shadow lie behind the stone (deeper), so drawn after it they fill
-    // only what it leaves: the depth test skips the pixels the stone already covers.
-    // Girdle: a dark outline just outside the stone.
-    for (int i = 0; i < n; ++i) {
-        Point2 p = corner(i, radius * 1.07), q = corner(i + 1, radius * 1.07);
-        PixelColor edge = shade(base, .28);
-        if (value == 48)
-            edge = {40, 40, 60};
-        triangle({center.x, center.y, 1, edge}, {p.x, p.y, 1, edge}, {q.x, q.y, 1, edge}, id);
-    }
-    disc({center.x + radius * .05, center.y + radius * .12}, radius * .92, {6, 2, 16, 110}, id, 3);
-    // Specular glint on the table, upper left.
-    {
-        const double gx = center.x - radius * .22 * tilt, gy = center.y - radius * .26,
-                     g = radius * .13;
-        triangle({gx - g, gy, -.5, {255, 255, 255}}, {gx, gy - g * .7, -.5, {255, 255, 255}},
-                 {gx + g * .5, gy + g * .2, -.5, {235, 240, 255}}, id);
-    }
-    if (glisten > .7) {
-        double r = radius * (glisten - .7) * 1.7;
-        line({center.x - radius * .3 - r, center.y - radius * .35},
-             {center.x - radius * .3 + r, center.y - radius * .35}, 1.3, {255, 255, 255}, id, -1);
-        line({center.x - radius * .3, center.y - radius * .35 - r},
-             {center.x - radius * .3, center.y - radius * .35 + r}, 1.3, {255, 255, 255}, id, -1);
-    }
-    if (value >= 16 && value < 32) {
-        disc(center, radius * .24, {32, 27, 52}, id, -2);
-        line({center.x + radius * .09, center.y - radius * .12},
-             {center.x + radius * .25, center.y - radius * .38}, 2, {255, 240, 192}, id, -3);
-    }
-    if (value >= 32 && value < 48) {
-        for (int i = 0; i < 5; ++i) {
-            double a = i * 6.283185307 / 5 - 1.5708, b = (i + 2) * 6.283185307 / 5 - 1.5708;
-            line({center.x + std::cos(a) * radius * .34, center.y + std::sin(a) * radius * .34},
-                 {center.x + std::cos(b) * radius * .34, center.y + std::sin(b) * radius * .34}, 2,
-                 {255, 255, 225}, id, -2);
-        }
-    }
 }
 static Point3 rotate(Point3 p, double yaw, double pitch) {
     double x = p.x * std::cos(yaw) + p.z * std::sin(yaw),

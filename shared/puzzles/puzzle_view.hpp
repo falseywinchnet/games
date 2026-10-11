@@ -6,11 +6,15 @@
 #include "gui_forms/resources.hpp"
 #include "gui_forms/timer.hpp"
 #include "kitten.hpp"
+#include "gem_art.hpp"
 #include "puzzle_render.hpp"
+#include "r2d.hpp"
 #include "suite.hpp"
 #include <chrono>
 #include <memory>
 #include <optional>
+#include <span>
+#include <vector>
 namespace games {
 namespace gf = gui_forms;
 class PuzzleScenePart;
@@ -50,6 +54,21 @@ class PuzzleView final : public gf::Control, public CommandSource {
     void refresh_scene();
     void invalidate_static_scene();
     void present_framebuffer(gf::Rect damage);
+    // Gems: the still board and the gem layer laid straight into the live surface's buffer
+    // over `area` (device pixels), with no painter.
+    void present_gems(render::Rect area);
+    void compose_gems(const render::Target& target, render::Rect area);
+    // The board's device pixels, which the gem layer covers, and the same in points.
+    [[nodiscard]] render::Rect gem_box() const;
+    [[nodiscard]] gf::Rect gem_rect() const;
+    // Makes the gem layer an image for a frame the painter draws.
+    void upload_gem_layer();
+    std::vector<std::uint32_t> gem_pixels_;  // premultiplied BGRA, gem_scale_ x the board
+    render::r3d::Buffers gem_depth_;
+    int gem_scale_ = 1;
+    render::Order gem_order_ = render::Order::bgra;  // the window's, or BGRA for an image
+    bool gem_image_stale_ = true;
+    bool gems_direct_ = false;  // the last gems frame was laid without the painter
     // While a frame's moving layers are painted, the area being painted (empty: all of it):
     // what lies wholly outside it is not drawn.
     gf::Rect paint_area_{};

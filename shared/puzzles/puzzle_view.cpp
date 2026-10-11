@@ -170,8 +170,16 @@ void PuzzleView::present_framebuffer(gf::Rect damage) {
                  static_cast<int>(std::ceil((damage.y + damage.height) * framebuffer_scale_)));
     damage = {left / framebuffer_scale_, top / framebuffer_scale_,
               (right - left) / framebuffer_scale_, (bottom - top) / framebuffer_scale_};
+    // Gems with nothing over them go straight into the window's buffer: the still board put
+    // back, the gems laid over it. Frames with effects take the painter.
+    if (game.kind == PuzzleKind::gems && !rebuild && surface_whole_ && effects_.empty() &&
+        callout_life_ <= 0 && shake_ <= 0) {
+        present_gems({left, top, right, bottom});
+        return;
+    }
     if (!target.begin(frame_images_, damage))
         return;
+    gems_direct_ = false;
     framebuffer_painting_ = true;
     gf::Painter& painter = target.painter();
     std::span<std::byte> pixels = target.pixels();
@@ -248,6 +256,41 @@ void PuzzleView::present_framebuffer(gf::Rect damage) {
     if (!direct_)
         (*scene_parts_[0]).invalidate(published);
     framebuffer_painting_ = false;
+}
+void PuzzleView::present_gems(render::Rect area) {
+    gf::PaintFramebuffer& target = *framebuffer_;
+    const int width = static_cast<int>(target.width()), height = static_cast<int>(target.height());
+    gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write(true);
+    if (unpublished_[2] > unpublished_[0])
+        area = area.united({unpublished_[0], unpublished_[1], unpublished_[2], unpublished_[3]});
+    area = area.intersected({0, 0, width, height});
+    if (!lease) {
+        unpublished_[0] = area.x0;
+        unpublished_[1] = area.y0;
+        unpublished_[2] = area.x1;
+        unpublished_[3] = area.y1;
+        return;
+    }
+    const render::Order order = target.channel_order() == gf::FramebufferChannelOrder::rgba
+                                    ? render::Order::rgba
+                                    : render::Order::bgra;
+    const render::Target out{reinterpret_cast<std::uint32_t*>(lease.pixels().data()),
+                             static_cast<int>(lease.row_bytes() / 4), width, height, order};
+    const render::Target still{reinterpret_cast<std::uint32_t*>(static_pixels_.data()),
+                               static_cast<int>(target.row_bytes() / 4), width, height, order};
+    render::r2d::restore(out, still, area);
+    compose_gems(out, area);
+    gems_direct_ = true;
+    static_cast<void>(lease.publish({static_cast<double>(area.x0), static_cast<double>(area.y0),
+                                     static_cast<double>(area.x1 - area.x0),
+                                     static_cast<double>(area.y1 - area.y0)}));
+    unpublished_[0] = unpublished_[1] = unpublished_[2] = unpublished_[3] = 0;
+    const gf::Rect published{area.x0 / framebuffer_scale_, area.y0 / framebuffer_scale_,
+                             (area.x1 - area.x0) / framebuffer_scale_,
+                             (area.y1 - area.y0) / framebuffer_scale_};
+    render::refresh_overlays(*scene_parts_[0], published);
+    if (!direct_)
+        (*scene_parts_[0]).invalidate(published);
 }
 static const gf::Color ink = gf::Color::rgba(231, 238, 247), muted = gf::Color::rgba(154, 177, 198),
                        accent = gf::Color::rgba(119, 216, 229);
@@ -440,6 +483,22 @@ void PuzzleView::arrange(gf::Rect b) {
 // While the cube is tilting it renders lighter, then sharpens once it settles.
 void PuzzleView::fit_raster() {
     const double device = attached_window() ? (*attached_window()).scale() : 1.0;
+    if (game.kind == PuzzleKind::gems) {
+        // The gems lie over the board's own device pixels, drawn twice as fine below 1.5x
+        // and averaged down as they are laid, so their edges stay smooth on any screen.
+        const int scale = device < 1.5 ? 2 : 1;
+        const render::Rect box = gem_box();
+        const int w = std::max(2, (box.x1 - box.x0) * scale),
+                  h = std::max(2, (box.y1 - box.y0) * scale);
+        if (gem_scale_ != scale || raster_.width != w || raster_.height != h) {
+            gem_scale_ = scale;
+            raster_.width = w;
+            raster_.height = h;
+            gem_pixels_.assign(static_cast<std::size_t>(w) * static_cast<std::size_t>(h), 0);
+            gem_depth_.resize(w, h, false);
+        }
+        return;
+    }
     double density = std::min(std::max(1.5, device), 1400.0 / std::max(1.0, board_.width));
     if (coarse_)
         density = std::min(density, 1.1);
@@ -447,6 +506,93 @@ void PuzzleView::fit_raster() {
               h = std::max(2, static_cast<int>(board_.height * density));
     if (raster_.width != w || raster_.height != h)
         raster_.resize(w, h);
+}
+render::Rect PuzzleView::gem_box() const {
+    const double device = attached_window() ? (*attached_window()).scale() : 1.0;
+    return render::Rect{render::floor_int(board_.x * device), render::floor_int(board_.y * device),
+                        static_cast<int>(std::ceil((board_.x + board_.width) * device)),
+                        static_cast<int>(std::ceil((board_.y + board_.height) * device))};
+}
+gf::Rect PuzzleView::gem_rect() const {
+    const double device = attached_window() ? (*attached_window()).scale() : 1.0;
+    const render::Rect box = gem_box();
+    return {box.x0 / device, box.y0 / device, (box.x1 - box.x0) / device,
+            (box.y1 - box.y0) / device};
+}
+void PuzzleView::upload_gem_layer() {
+    if (!gem_image_stale_ && frame_image_.value)
+        return;
+    // The painter takes BGRA; a layer drawn in the window's RGBA order is turned for it.
+    std::vector<std::uint32_t> turned;
+    if (gem_order_ == render::Order::rgba) {
+        turned.reserve(gem_pixels_.size());
+        for (const std::uint32_t p : gem_pixels_)
+            turned.push_back((p & 0xff00ff00U) | ((p & 0xffU) << 16) | ((p >> 16) & 0xffU));
+    }
+    const std::span<const std::byte> bytes = std::as_bytes(
+        std::span<const std::uint32_t>(gem_order_ == render::Order::rgba ? turned : gem_pixels_));
+    const std::uint32_t w = static_cast<std::uint32_t>(raster_.width),
+                        h = static_cast<std::uint32_t>(raster_.height);
+    gf::ImageLoadResult frame =
+        !frame_image_.value
+            ? frame_images_.load_bgra32_premultiplied(w, h, w * 4, bytes)
+            : frame_images_.update_bgra32_premultiplied(frame_image_, w, h, w * 4, bytes);
+    if (!frame && frame_image_.value)
+        frame = frame_images_.replace_bgra32_premultiplied(frame_image_, w, h, w * 4, bytes);
+    if (frame) {
+        frame_image_ = frame.image;
+        gem_image_stale_ = false;
+    }
+}
+// What the gems' moving layer adds over the still board inside `area` (device pixels): the
+// square under the pointer, the picked gem and its neighbours, the gems, the picked gem's
+// ring. The painter draws the same for a frame with effects over it.
+void PuzzleView::compose_gems(const render::Target& target, render::Rect area) {
+    const double device = framebuffer_scale_, cell = board_.width / 8;
+    const double t = std::chrono::duration<double>(gf::FrameClock::now() - clock_start_).count();
+    struct Square {
+        gf::Rect board;
+        double cell, device;
+        gf::Rect operator()(int i, double inset) const {
+            return {(board.x + (i % 8) * cell + inset) * device,
+                    (board.y + (i / 8) * cell + inset) * device, (cell - inset * 2) * device,
+                    (cell - inset * 2) * device};
+        }
+    };
+    const Square square{board_, cell, device};
+    if (hover_ >= 0 && hover_ < 64 && animation_duration_ <= 0) {
+        const gf::Rect r = square(hover_, 2);
+        render::r2d::rounded(target, area, r.x, r.y, r.width, r.height, cell * .16 * device,
+                             render::Color{255, 220, 150}, 40 / 255.F, {}, 0);
+    }
+    const bool picked = gem_pick_ >= 0 && animation_duration_ <= 0;
+    const double pulse = .5 + .5 * std::sin(t * 7);
+    if (picked) {
+        const gf::Rect r = square(gem_pick_, 1);
+        render::r2d::rounded(target, area, r.x, r.y, r.width, r.height, cell * .18 * device,
+                             render::Color{255, 214, 120},
+                             static_cast<float>((50 + 40 * pulse) / 255), {}, 0);
+        // The four neighbors it can trade places with.
+        for (const int d : {-8, 8, -1, 1}) {
+            const int n = gem_pick_ + d;
+            if (n < 0 || n >= 64 || ((d == 1 || d == -1) && n / 8 != gem_pick_ / 8))
+                continue;
+            const gf::Rect q = square(n, 4);
+            render::r2d::rounded(target, area, q.x, q.y, q.width, q.height, cell * .16 * device,
+                                 render::Color{255, 230, 170}, 26 / 255.F, {}, 0);
+        }
+    }
+    const render::Rect box = gem_box();
+    lay_layer(target, area,
+              render::Target{gem_pixels_.data(), raster_.width, raster_.width, raster_.height,
+                             gem_order_},
+              box.x0, box.y0, gem_scale_);
+    if (picked) {
+        const gf::Rect r = square(gem_pick_, 2);
+        rounded_outline(target, area, r.x, r.y, r.width, r.height, cell * .16 * device,
+                        render::Color{255, 222, 140}, static_cast<float>((150 + 100 * pulse) / 255),
+                        2.5 * device);
+    }
 }
 void PuzzleView::text(gf::Painter& p, double x, double y, const std::string& s, double size,
                       gf::Color c) {
@@ -470,9 +616,22 @@ void PuzzleView::render() {
     if (game.kind == PuzzleKind::cube)
         raster_.cube(game, yaw_, pitch_, hover_);
     else if (game.kind == PuzzleKind::gems) {
-        raster_.clear();
+        std::fill(gem_pixels_.begin(), gem_pixels_.end(), 0U);
+        gem_depth_.clear({0, 0, raster_.width, raster_.height});
+        // Drawn in the order the window's buffer takes, so laying it is a straight blend.
+        const bool rgba = framebuffer_ &&
+                          (*framebuffer_).channel_order() == gf::FramebufferChannelOrder::rgba;
+        gem_order_ = rgba ? render::Order::rgba : render::Order::bgra;
+        render::r3d::Pass layer{render::Target{gem_pixels_.data(), raster_.width, raster_.width,
+                                              raster_.height, gem_order_},
+                                &gem_depth_, render::Rect{0, 0, raster_.width, raster_.height}};
+        // The board's corner inside the layer, which starts on a whole device pixel.
+        const double device = attached_window() ? (*attached_window()).scale() : 1.0;
+        const render::Rect box = gem_box();
+        const double origin_x = (board_.x * device - box.x0) * gem_scale_,
+                     origin_y = (board_.y * device - box.y0) * gem_scale_;
         double time = std::chrono::duration<double>(gf::FrameClock::now() - clock_start_).count();
-        double cell = raster_.width / 8.0;
+        double cell = board_.width * device * gem_scale_ / 8.0;
         double t = elapsed();
         bool moving = animation_duration_ > 0 && t < animation_duration_;
         const std::array<int, 96>* grid = &game.state.grid;
@@ -591,40 +750,33 @@ void PuzzleView::render() {
                 const bool turning = hover_ == i || i == gem_pick_ || i == lifted;
                 double spin = turning && !reduced_ ? time * 2.1 : 0,
                        glisten = reduced_ ? 0 : .5 + .5 * std::sin(time * 1.25 + i * 2.7);
-                raster_.z_bias = i == lifted ? -20 : 0;
-                raster_.gem({x, y}, radius, value, spin, glisten, i);
-                raster_.z_bias = 0;
+                draw_gem(layer, x + origin_x, y + origin_y, radius, value, spin, glisten,
+                         i == lifted ? -20.F : 0.F);
             }
     } else
         return;
-    // Board pixels do not change the surrounding legend or command capsule.
-    // Patching keeps damage local; a resized raster still replaces the image.
+    // On the live surface the gems are laid straight into the window's buffer; they become
+    // an image only for a frame the painter draws (with effects over them).
     if (framebuffer_ && game.kind == PuzzleKind::gems) {
-        gf::ImageLoadResult frame =
-            !frame_image_.value
-                ? frame_images_.load_bgra32_premultiplied(raster_.width, raster_.height,
-                                                          raster_.width * 4, raster_.pixels)
-                : frame_images_.update_bgra32_premultiplied(frame_image_, raster_.width,
-                                                            raster_.height, raster_.width * 4,
-                                                            raster_.pixels);
-        if (!frame && frame_image_.value)
-            frame = frame_images_.replace_bgra32_premultiplied(
-                frame_image_, raster_.width, raster_.height, raster_.width * 4, raster_.pixels);
-        if (frame)
-            frame_image_ = frame.image;
+        gem_image_stale_ = true;
         return;
     }
+    // Board pixels do not change the surrounding legend or command capsule.
+    // Patching keeps damage local; a resized raster still replaces the image.
+    const std::span<const std::byte> bytes =
+        game.kind == PuzzleKind::gems ? std::as_bytes(std::span<const std::uint32_t>(gem_pixels_))
+                                      : std::span<const std::byte>(raster_.pixels);
     gf::Window& window = *attached_window();
     gf::Control& consumer = scene_parts_[1] ? *scene_parts_[1] : *this;
     gf::ImageLoadResult result =
         !image_.value ? window.load_bgra32_premultiplied(raster_.width, raster_.height,
-                                                         raster_.width * 4, raster_.pixels)
+                                                         raster_.width * 4, bytes)
         : image_size_ ==
                 gf::Size{static_cast<double>(raster_.width), static_cast<double>(raster_.height)}
             ? window.patch_bgra32_premultiplied(image_, 0, 0, raster_.width, raster_.height,
-                                                raster_.width * 4, raster_.pixels, consumer, board_)
+                                                raster_.width * 4, bytes, consumer, board_)
             : window.replace_bgra32_premultiplied(image_, raster_.width, raster_.height,
-                                                  raster_.width * 4, raster_.pixels, consumer);
+                                                  raster_.width * 4, bytes, consumer);
     if (result) {
         image_ = result.image;
         image_size_ = {static_cast<double>(raster_.width), static_cast<double>(raster_.height)};
@@ -781,9 +933,11 @@ void PuzzleView::paint_gems(gf::Painter& p, int part) {
                                     cell * .16, gf::Color::rgba(255, 230, 170, 26));
             }
         }
+        if (framebuffer_painting_)
+            upload_gem_layer();
         const gf::ImageId gem_image = framebuffer_painting_ ? frame_image_ : image_;
         if (gem_image.value)
-            p.draw_image(gem_image, board_);
+            p.draw_image(gem_image, gem_rect());
         if (gem_pick_ >= 0 && animation_duration_ <= 0) {
             const double pulse = .5 + .5 * std::sin(t * 7);
             const gf::Rect pick{board_.x + (gem_pick_ % 8) * cell + 2,

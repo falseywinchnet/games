@@ -4,7 +4,7 @@ The suite's one renderer, for every game that draws its own pixels. Its rule is 
 less work, not the same work faster: the scene says what moved, the engine redraws only
 that, and pixels are written once, in the window's own byte order, at device
 resolution. `docs/RENDER_ENGINE.md` is the plan it follows and the reasons; this page
-is how to use it. Thirteen games draw through it (every `"engines": ["render"]` in
+is how to use it. Fourteen games draw through it (every `"engines": ["render"]` in
 `games/*/GAME.json`).
 
 ## The parts

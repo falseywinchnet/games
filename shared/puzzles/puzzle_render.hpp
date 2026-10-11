@@ -19,14 +19,13 @@ class PuzzleRaster {
     std::vector<std::byte> pixels;
     std::vector<int> ids;
     std::vector<double> depth;
-    double z_bias = 0; // added to ordinary depths; a lifted gem draws over its neighbors
+    double z_bias = 0; // added to ordinary depths
     void resize(int w, int h);
     void clear();
     void triangle(RasterVertex a, RasterVertex b, RasterVertex c, int id);
     void line(Point2 a, Point2 b, double width, PixelColor color, int id, double z = -10);
     void line(Point2 a, Point2 b, double width, PixelColor color, int id, double za, double zb);
     void disc(Point2 center, double radius, PixelColor color, int id, double z = -10);
-    void gem(Point2 center, double radius, int value, double angle, double glisten, int id);
     void cube(const PuzzleGame& game, double yaw, double pitch, int hover);
     void load_environment(const std::string& file);
 

@@ -4,6 +4,7 @@
 #include "runtime_paths.hpp"
 #include "test_paths.hpp"
 #include <cstring>
+#include <vector>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -28,7 +29,37 @@ std::uint32_t surface_bgra(std::uint32_t pixel, gf::LiveSurfacePixelFormat forma
 }
 } // namespace
 struct PuzzleFramebufferTest {
+    // Gems laid straight into the surface match the same laying over the whole board.
+    static bool compare_direct(PuzzleView& view) {
+        const gf::PaintFramebuffer& frame = *view.framebuffer_;
+        const int width = static_cast<int>(frame.width());
+        const int height = static_cast<int>(frame.height());
+        std::vector<std::byte> expected = view.static_pixels_;
+        const render::Order order = frame.channel_order() == gf::FramebufferChannelOrder::rgba
+                                        ? render::Order::rgba
+                                        : render::Order::bgra;
+        const render::Target reference{reinterpret_cast<std::uint32_t*>(expected.data()),
+                                       static_cast<int>(frame.row_bytes() / 4), width, height,
+                                       order};
+        view.compose_gems(reference, {0, 0, width, height});
+        const gf::LiveSurfaceFrame actual = (*view.surface_).acquire_latest();
+        std::size_t mismatches = 0;
+        for (int y = 0; y < height; ++y) {
+            const std::uint32_t* want = reference.row(y);
+            const std::uint32_t* seen = reinterpret_cast<const std::uint32_t*>(
+                actual.pixels().data() + static_cast<std::size_t>(y) * actual.row_bytes());
+            for (int x = 0; x < width; ++x)
+                if ((want[x] | 0xff000000U) != (seen[x] | 0xff000000U))
+                    ++mismatches;
+        }
+        if (mismatches)
+            std::cerr << "gems direct mismatch pixels=" << mismatches
+                      << " scale=" << view.framebuffer_scale_ << '\n';
+        return mismatches == 0;
+    }
     static bool compare(PuzzleView& view, gf::Window& window) {
+        if (view.game.kind == PuzzleKind::gems && view.gems_direct_)
+            return compare_direct(view);
         const gf::Rect bounds = view.client_rectangle();
         std::unique_ptr<gf::PaintFramebuffer> reference =
             window.create_framebuffer({bounds.width, bounds.height}, view.framebuffer_scale_);

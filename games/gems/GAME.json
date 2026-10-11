@@ -31,5 +31,8 @@
   "ui_sources": [],
   "audio_sources": [],
   "libraries": [],
-  "hosted": false
+  "hosted": false,
+  "engines": [
+    "render"
+  ]
 }

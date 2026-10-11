@@ -1,3 +1,4 @@
+#include "gem_art.hpp"
 #include "puzzle_render.hpp"
 #include "storage.hpp"
 #include <algorithm>
@@ -13,6 +14,9 @@ int main() {
     cube.deal(42);
     PuzzleGame gems(PuzzleKind::gems);
     gems.deal(42);
+    std::vector<std::uint32_t> layer(822 * 822);
+    render::r3d::Buffers depth;
+    depth.resize(822, 822, false);
     for (int kind = 0; kind < 2; ++kind) {
         std::vector<double> times;
         for (int frame = 0; frame < 180; ++frame) {
@@ -20,10 +24,14 @@ int main() {
             if (kind == 0)
                 raster.cube(cube, .5 + frame * .002, -.35, -1);
             else {
-                raster.clear();
+                // Gems are drawn by the render engine into their own layer.
+                std::fill(layer.begin(), layer.end(), 0U);
+                depth.clear({0, 0, 822, 822});
+                const render::Target target{layer.data(), 822, 822, 822, render::Order::bgra};
+                render::r3d::Pass pass{target, &depth, render::Rect{0, 0, 822, 822}};
                 for (int i = 0; i < 64; ++i)
-                    raster.gem({(i % 8 + .5) * 102.75, (i / 8 + .5) * 102.75}, 39,
-                               gems.state.grid[i], i == 0 ? frame * .01 : 0, .8, i);
+                    draw_gem(pass, (i % 8 + .5) * 102.75, (i / 8 + .5) * 102.75, 39,
+                             gems.state.grid[i], i == 0 ? frame * .01 : 0, .8, 0);
             }
             double ms =
                 std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
