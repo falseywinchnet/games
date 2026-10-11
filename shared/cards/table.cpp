@@ -501,7 +501,9 @@ void Table::layout_cards(bool animate) {
                 } else if (pile >= 16 && game.state.kind == Kind::freecell)
                     s.visible = true;
                 else if (pile >= 10 && pile < 14 && game.state.kind != Kind::spider)
-                    s.visible = i == static_cast<int>(cards.size()) - 1;
+                    // The card beneath the top shows too, so a card flying home lands on it
+                    // rather than on an empty pile.
+                    s.visible = i >= static_cast<int>(cards.size()) - 2;
             }
             if (s.start.width == 0)
                 s.start = {bounds.width * .5, 100, card_w_, card_h_};
