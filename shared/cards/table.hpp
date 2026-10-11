@@ -32,6 +32,7 @@ class Table final : public gf::Control, public CommandSource {
     Game game;
     void activate();
     void reload_preferences();
+    void load_back();
     // Shows one of the four card games, resuming its saved deal.
     void show_kind(Kind kind);
     [[nodiscard]] std::vector<GameCommand> commands() const override;

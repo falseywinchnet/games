@@ -1,5 +1,6 @@
 #include "settings_sheet.hpp"
 #include "card_backs.hpp"
+#include "table_art.hpp"
 #include "presentation.hpp"
 #include "runtime_paths.hpp"
 #include "gui_forms/window.hpp"
@@ -466,12 +467,18 @@ void SettingsSheet::initialize_control_tree() {
     add_child(close_);
 }
 void SettingsSheet::on_attached_to_window() {
-    gf::Window& window = *attached_window();
+    // The backs are loaded the first time the sheet is shown, not when the suite opens.
+}
+void SettingsSheet::load_backs() {
+    gf::Window* window = attached_window();
+    if (window == nullptr || backs_[painted_back_count].value)
+        return;
+    draw_card_backs();
     for (int i = 0; i < card_back_count; ++i) {
         if (i >= painted_back_count) {
-            const std::vector<std::byte> drawn = make_card_back(i, card_art_width, card_art_height);
             backs_[static_cast<std::size_t>(i)] =
-                window.load_bgra32_premultiplied(card_art_width, card_art_height, card_art_width * 4U, drawn).image;
+                (*window).load_bgra32_premultiplied(card_art_width, card_art_height, card_art_width * 4U,
+                                                    drawn_card_back(i)).image;
             continue;
         }
         const std::filesystem::path path =
@@ -483,7 +490,7 @@ void SettingsSheet::on_attached_to_window() {
                                       std::istreambuf_iterator<char>());
         const std::span<const std::byte> encoded(reinterpret_cast<const std::byte*>(bytes.data()),
                                                  bytes.size());
-        gf::ImageLoadResult loaded = window.load_png(encoded);
+        gf::ImageLoadResult loaded = (*window).load_png(encoded);
         if (loaded)
             backs_[static_cast<std::size_t>(i)] = loaded.image;
     }
@@ -498,6 +505,7 @@ void SettingsSheet::on_detaching_from_window(gf::Window& window) noexcept {
     (*page_).set_card_back_images(backs_);
 }
 void SettingsSheet::show_for(const std::string& title, CommandSource* game) {
+    load_backs();
     title_ = title;
     (*page_).build(game, title);
     invalidate(gf::Dirty::layout | gf::Dirty::paint);

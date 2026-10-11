@@ -2,7 +2,7 @@
 #include "audio.hpp"
 #include "card_backs.hpp"
 #include "classic_faces.hpp"
-#include "carpet.hpp"
+#include "table_art.hpp"
 #include "gui_forms/window.hpp"
 #include "help_route.hpp"
 #include "presentation.hpp"
@@ -268,24 +268,11 @@ void Table::on_attached_to_window() {
         std::string number = i < 10 ? "0" + std::to_string(i) : std::to_string(i);
         faces_[i] = load_image(window, "card_" + number + ".png");
     }
-    for (int i = 0; i < card_back_count; ++i) {
-        if (i < painted_back_count) {
-            backs_[i] = load_image(window, "back_" + std::to_string(i) + ".png");
-            continue;
-        }
-        const std::vector<std::byte> drawn = make_card_back(i, card_art_width, card_art_height);
-        backs_[i] = window.load_bgra32_premultiplied(card_art_width, card_art_height, card_art_width * 4U, drawn).image;
-    }
+    for (int i = 0; i < painted_back_count; ++i)
+        backs_[i] = load_image(window, "back_" + std::to_string(i) + ".png");
+    load_back();  // a drawn back only when it is the one chosen
     shadow_ = load_image(window, "card_shadow.png");
-    paint::Image tile = paint::render_carpet_tile(paint::carpet_preset(3), 256);
-    std::vector<std::byte> pixels(tile.pixels.size() * 4);
-    for (std::size_t i = 0; i < tile.pixels.size(); ++i) {
-        pixels[4 * i] = static_cast<std::byte>(tile.pixels[i].b);
-        pixels[4 * i + 1] = static_cast<std::byte>(tile.pixels[i].g);
-        pixels[4 * i + 2] = static_cast<std::byte>(tile.pixels[i].r);
-        pixels[4 * i + 3] = std::byte{255};
-    }
-    felt_ = window.load_bgra32_premultiplied(256, 256, 1024, pixels).image;
+    felt_ = window.load_bgra32_premultiplied(felt_tile_side, felt_tile_side, felt_tile_side * 4U, felt_tile()).image;
     timer_ = std::make_unique<gf::Timer>(window, std::chrono::milliseconds(8));
     subscriptions_.push_back(
         (*timer_).tick().subscribe(*this, gf::Delegate<>::bind<Table, &Table::tick>(*this)));
@@ -306,9 +293,11 @@ void Table::on_detaching_from_window(gf::Window& window) noexcept {
     for (gf::ImageId id : faces_)
         if (id.value)
             static_cast<void>(window.remove_image(id));
-    for (gf::ImageId id : backs_)
-        if (id.value)
+    for (gf::ImageId& id : backs_)
+        if (id.value) {
             static_cast<void>(window.remove_image(id));
+            id = {};
+        }
     for (gf::ImageId& id : classic_)
         if (id.value) {
             static_cast<void>(window.remove_image(id));
@@ -521,6 +510,7 @@ void Table::reload_preferences() {
     music_ = masters.music;
     if (back_ != masters.card_back) {
         back_ = masters.card_back;
+        load_back();
         invalidate(gf::Dirty::paint);
     }
     if (face_style_ != masters.card_face) {
@@ -532,6 +522,13 @@ void Table::reload_preferences() {
         static_cast<void>(make_classic_faces(*attached_window(), classic_));
         invalidate(gf::Dirty::paint);
     }
+}
+void Table::load_back() {
+    gf::Window* window = attached_window();
+    if (window == nullptr || back_ < painted_back_count || back_ >= card_back_count || backs_[back_].value)
+        return;
+    backs_[back_] = (*window).load_bgra32_premultiplied(card_art_width, card_art_height, card_art_width * 4U,
+                                                        drawn_card_back(back_)).image;
 }
 void Table::activate() {
     reload_preferences();
@@ -719,14 +716,18 @@ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
         p.fill_rounded_rect(enlarged(r, 4), 9, gf::Color::rgba(248, 220, 119));
         p.draw_box_shadow(r, 7, {0, 0}, 9, 3, gf::Color::rgba(255, 220, 103, 100));
     }
+    // A card that can move, under the pointer (with any run on it), glows and brightens:
+    // a pale lamp-light halo round its edge, and a wash over the face.
+    const bool hovered = !selected && !lifted && s.pile == lift_pile_ && s.index >= lift_index_ && !animating_;
+    if (hovered)
+        p.draw_box_shadow(r, 7, {0, 0}, 11, 2, gf::Color::rgba(255, 246, 204, 150));
     const std::size_t which = static_cast<std::size_t>(s.card.suit * 13 + s.card.rank - 1);
     const gf::ImageId face = face_style_ == 1 && classic_[which].value ? classic_[which] : faces_[which];
     p.draw_image(face_up ? face : backs_[back_], r);
     if (finish_.value)
         p.draw_image(finish_, r);
-    // A card that can move, under the pointer (with any run on it), faintly brightens.
-    if (!selected && !lifted && s.pile == lift_pile_ && s.index >= lift_index_ && !animating_)
-        p.fill_rounded_rect(r, 6, gf::Color::rgba(255, 255, 255, 46));
+    if (hovered)
+        p.fill_rounded_rect(r, 6, gf::Color::rgba(255, 252, 236, 78));
 }
 // Where a card dropped on a pile would lie: the next place down a column's fan (squeezed
 // as the layout squeezes a long column), or the pile's own place.

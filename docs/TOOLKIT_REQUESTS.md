@@ -216,3 +216,18 @@ enlarging copy.
    then sends `enter` as usual). PlaySuite works around the hidden case by giving
    each box a synthetic `leave` when the shelf hides for a game
    (`ShelfBox::forget_pointer`); it cannot see the window exit.
+
+## A few heavy jobs at once (found speeding up the card felt, 2026-10-10)
+
+1. **Let `AtomicThreadPool::run` spread a small batch of long tasks.** The pool runs any
+   batch of up to 64 tasks per thread on the caller alone
+   (`MINIMUM_TASKS_PER_WORKER` in `atomic_pool.c`), which suits many tiny tasks but
+   not a handful of long ones. The card felt (`shared/felt`, about 0.7 s on one core)
+   splits each round into a couple of dozen jobs of several milliseconds each; through
+   the pool they all ran on the caller and the felt took as long as before. PlaySuite
+   now shares each round among GUI.Forms `Worker`s and the caller, all taking jobs
+   from one atomic count (`shared/cards/table_art.cpp`), which starts threads for every
+   round. Wanted: a per-call or per-pool way to say the tasks are coarse (no
+   caller-only threshold, a claim size of one), or a `parallel_for(count, job)` on a
+   persistent pool, so engines can lend all cores to a few long jobs without
+   starting threads each time.

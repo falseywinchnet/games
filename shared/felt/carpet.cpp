@@ -73,18 +73,29 @@ template <bool full> struct Raster {
             surface.resize(z.size());
         }
     }
-    void segment(Vec a, Vec b, double radius, double dye) {
-        a = basis.project(a);
-        b = basis.project(b);
+    // The rows [y0, y1] a capsule (ends in this raster's basis) could touch; false if it
+    // misses the raster entirely. The same bounds segment() draws within.
+    bool cover(Vec a, Vec b, double radius, int& y0, int& y1) const {
+        const double sx = w / (2 * hw), sy = h / (2 * hh);
+        const int xmin =
+            std::max(0, static_cast<int>(std::floor((std::min(a.x, b.x) - radius + hw) * sx - .5)));
+        const int xmax =
+            std::min(w - 1, static_cast<int>(std::ceil((std::max(a.x, b.x) + radius + hw) * sx - .5)));
+        y0 = std::max(0, static_cast<int>(std::floor((std::min(a.y, b.y) - radius + hh) * sy - .5)));
+        y1 = std::min(h - 1, static_cast<int>(std::ceil((std::max(a.y, b.y) + radius + hh) * sy - .5)));
+        return xmin <= xmax && y0 <= y1;
+    }
+    // a and b are already in this raster's basis; only rows [y0, y1) are drawn.
+    void segment(Vec a, Vec b, double radius, double dye, int y0, int y1) {
         const double sx = w / (2 * hw), sy = h / (2 * hh);
         const int xmin =
             std::max(0, static_cast<int>(std::floor((std::min(a.x, b.x) - radius + hw) * sx - .5)));
         const int xmax =
             std::min(w - 1, static_cast<int>(std::ceil((std::max(a.x, b.x) + radius + hw) * sx - .5)));
         const int ymin =
-            std::max(0, static_cast<int>(std::floor((std::min(a.y, b.y) - radius + hh) * sy - .5)));
+            std::max(y0, static_cast<int>(std::floor((std::min(a.y, b.y) - radius + hh) * sy - .5)));
         const int ymax =
-            std::min(h - 1, static_cast<int>(std::ceil((std::max(a.y, b.y) + radius + hh) * sy - .5)));
+            std::min(y1 - 1, static_cast<int>(std::ceil((std::max(a.y, b.y) + radius + hh) * sy - .5)));
         if (xmin > xmax || ymin > ymax) {
             return;
         }
@@ -154,18 +165,46 @@ void check_cancel(const std::atomic<bool>* cancel) {
         throw std::runtime_error("Carpet rendering cancelled");
     }
 }
-void geometry(const CarpetParameters& p, double W, double H, Raster<true>& camera, Raster<false>& shadow,
-              const std::atomic<bool>* cancel) {
-    Random random{p.seed};
-    const int pile = std::min(
-        380000, static_cast<int>(std::round(W * H * p.coverage /
-                                            (2 * p.radius * std::max(.13, p.height * .60)) * (1 - p.web))));
-    const int web = std::min(
-        160000, static_cast<int>(std::round(W * H * p.coverage / (2 * p.radius * p.length) * p.web)));
-    for (int i = 0; i < pile; ++i) {
-        if (i % 1024 == 0) {
-            check_cancel(cancel);
+// One capsule of a fibre, already projected for the camera and for the light.
+struct Piece {
+    Vec camera_a, camera_b, light_a, light_b;
+    double radius, dye;
+};
+// The pile (short upright tufts), then the web (long lying fibres). Random draws a
+// fixed number of values per fibre, and its state only advances by a constant, so
+// fibre i can be made on its own, in any order, exactly as it is in sequence.
+struct Fibres {
+    static constexpr std::uint32_t pile_draws = 15, web_draws = 59, step = 0x6d2b79f5U;
+    const CarpetParameters& p;
+    double W, H;
+    const Basis &camera, &light;
+    int pile, web;
+    Fibres(const CarpetParameters& parameters, double width, double height, const Basis& camera_basis,
+           const Basis& light_basis)
+        : p(parameters), W(width), H(height), camera(camera_basis), light(light_basis),
+          pile(std::min(380000, static_cast<int>(std::round(W * H * p.coverage /
+                                                            (2 * p.radius * std::max(.13, p.height * .60)) *
+                                                            (1 - p.web))))),
+          web(std::min(160000,
+                       static_cast<int>(std::round(W * H * p.coverage / (2 * p.radius * p.length) * p.web)))) {}
+    int count() const {
+        return pile + web;
+    }
+    void emit(std::vector<Piece>& out, Vec a, Vec b, double radius, double dye) const {
+        out.push_back({camera.project(a), camera.project(b), light.project(a), light.project(b), radius, dye});
+    }
+    void make(int i, std::vector<Piece>& out) const {
+        const std::uint32_t draws = i < pile ? static_cast<std::uint32_t>(i) * pile_draws
+                                             : static_cast<std::uint32_t>(pile) * pile_draws +
+                                                   static_cast<std::uint32_t>(i - pile) * web_draws;
+        Random random{p.seed + draws * step};
+        if (i < pile) {
+            tuft(random, out);
+        } else {
+            strand(random, out);
         }
+    }
+    void tuft(Random& random, std::vector<Piece>& out) const {
         const double x = (random.uniform() - .5) * W, y = (random.uniform() - .5) * H;
         const double nap = field(x * .67, y * .67, p.seed * .17);
         const double theta = -.65 + 1.75 * p.disorder * nap + random.normal() * (.18 + .35 * p.disorder);
@@ -180,15 +219,11 @@ void geometry(const CarpetParameters& p, double W, double H, Raster<true>& camer
                          angle = theta + turn * t * t;
             const Vec b{x + std::cos(angle) * f - std::sin(theta) * side,
                         y + std::sin(angle) * f + std::cos(theta) * side, zcut * t};
-            camera.segment(a, b, r * (1 - .1 * t), dye);
-            shadow.segment(a, b, r * (1 - .1 * t), dye);
+            emit(out, a, b, r * (1 - .1 * t), dye);
             a = b;
         }
     }
-    for (int i = 0; i < web; ++i) {
-        if (i % 1024 == 0) {
-            check_cancel(cancel);
-        }
+    void strand(Random& random, std::vector<Piece>& out) const {
         double x = (random.uniform() - .5) * W, y = (random.uniform() - .5) * H;
         const double length = p.length * std::exp(.35 * random.normal() - .06), ds = length / 22;
         double theta = (random.uniform() - .5) * pi * 2;
@@ -212,10 +247,128 @@ void geometry(const CarpetParameters& p, double W, double H, Raster<true>& camer
             const double raw =
                 (z0 + amp * std::sin(phase + t * 14.7) + amp * .24 * std::sin(phase2 + t * 25)) / p.height;
             const Vec b{x, y, p.height * (.5 + .55 * std::tanh((raw - .5) * 1.9))};
-            camera.segment(a, b, r, dye);
-            shadow.segment(a, b, r, dye);
+            emit(out, a, b, r, dye);
             a = b;
         }
+    }
+};
+void run_jobs(const Parallel* parallel, int count, void (*job)(void*, int) noexcept, void* context) {
+    if (parallel && (*parallel).run && (*parallel).threads > 1) {
+        (*parallel).run((*parallel).runner, count, job, context);
+    } else {
+        for (int i = 0; i < count; ++i) {
+            job(context, i);
+        }
+    }
+}
+// Fibres are made a batch at a time while the batch before is drawn: the makers
+// split the next batch among themselves, and each raster is drawn in bands of
+// rows, so no two jobs write the same depth. Each maker sorts its pieces into
+// the bands they reach, keeping their order, so a band visits only its own
+// pieces, and every pixel still sees its capsules in the serial order: the
+// picture is the same however many threads help.
+struct Batch {
+    std::vector<Piece> pieces;
+    std::vector<std::vector<std::uint32_t>> bands;  // camera bands, then shadow bands
+};
+struct Weave {
+    static constexpr int batch = 8192;
+    const Fibres& fibres;
+    Raster<true>& camera;
+    Raster<false>& shadow;
+    const std::atomic<bool>* cancel;
+    int makers, bands;
+    std::vector<Batch> drawing, making;
+    int next = 0;
+    static void job(void* context, int index) noexcept {
+        Weave& w = *static_cast<Weave*>(context);
+        if (index < w.makers) {
+            w.make(index);
+        } else if (index < w.makers + w.bands) {
+            w.draw(w.camera, index - w.makers);
+        } else {
+            w.draw(w.shadow, index - w.makers - w.bands);
+        }
+    }
+    static int band_of(int row, int rows, int bands) {
+        int band = static_cast<int>(static_cast<long long>(row) * bands / rows);
+        while (band + 1 < bands && rows * (band + 1) / bands <= row) {
+            ++band;
+        }
+        while (band > 0 && rows * band / bands > row) {
+            --band;
+        }
+        return band;
+    }
+    template <bool full> void sort(const Raster<full>& raster, Vec a, Vec b, double radius, std::uint32_t index,
+                                   std::vector<std::vector<std::uint32_t>>& lists, int first) const {
+        int y0 = 0, y1 = 0;
+        if (!raster.cover(a, b, radius, y0, y1)) {
+            return;
+        }
+        const int last = band_of(y1, raster.h, bands);
+        for (int band = band_of(y0, raster.h, bands); band <= last; ++band) {
+            lists[static_cast<std::size_t>(first + band)].push_back(index);
+        }
+    }
+    void make(int part) noexcept {
+        Batch& out = making[static_cast<std::size_t>(part)];
+        out.pieces.clear();
+        out.bands.resize(static_cast<std::size_t>(2 * bands));
+        for (std::vector<std::uint32_t>& list : out.bands) {
+            list.clear();
+        }
+        if (cancel && (*cancel).load(std::memory_order_relaxed)) {
+            return;
+        }
+        const int end = std::min(fibres.count(), next + batch);
+        const int from = next + (end - next) * part / makers, to = next + (end - next) * (part + 1) / makers;
+        for (int i = from; i < to; ++i) {
+            fibres.make(i, out.pieces);
+        }
+        for (std::size_t k = 0; k < out.pieces.size(); ++k) {
+            const Piece& piece = out.pieces[k];
+            const std::uint32_t index = static_cast<std::uint32_t>(k);
+            sort(camera, piece.camera_a, piece.camera_b, piece.radius, index, out.bands, 0);
+            sort(shadow, piece.light_a, piece.light_b, piece.radius, index, out.bands, bands);
+        }
+    }
+    template <bool full> void draw(Raster<full>& raster, int band) noexcept {
+        const int y0 = raster.h * band / bands, y1 = raster.h * (band + 1) / bands;
+        const std::size_t list = static_cast<std::size_t>(full ? band : bands + band);
+        for (const Batch& part : drawing) {
+            for (const std::uint32_t index : part.bands[list]) {
+                const Piece& piece = part.pieces[index];
+                if constexpr (full) {
+                    raster.segment(piece.camera_a, piece.camera_b, piece.radius, piece.dye, y0, y1);
+                } else {
+                    raster.segment(piece.light_a, piece.light_b, piece.radius, piece.dye, y0, y1);
+                }
+            }
+        }
+    }
+};
+void geometry(const CarpetParameters& p, double W, double H, Raster<true>& camera, Raster<false>& shadow,
+              const std::atomic<bool>* cancel, const Parallel* parallel) {
+    const Fibres fibres(p, W, H, camera.basis, shadow.basis);
+    const int threads = parallel && (*parallel).run ? std::clamp((*parallel).threads, 1, 64) : 1;
+    Weave weave{fibres, camera, shadow, cancel, threads > 1 ? threads * 2 : 1, threads > 1 ? threads * 2 : 1, {}, {}};
+    weave.drawing.resize(static_cast<std::size_t>(weave.makers));
+    weave.making.resize(static_cast<std::size_t>(weave.makers));
+    // The first batch is made alone; after that each round draws one batch and makes the next.
+    run_jobs(parallel, weave.makers, Weave::job, &weave);
+    while (true) {
+        check_cancel(cancel);
+        std::swap(weave.drawing, weave.making);
+        weave.next = std::min(fibres.count(), weave.next + Weave::batch);
+        bool empty = true;
+        for (const Batch& part : weave.drawing) {
+            empty = empty && part.pieces.empty();
+        }
+        if (empty && weave.next >= fibres.count()) {
+            break;
+        }
+        run_jobs(parallel, weave.makers + 2 * weave.bands, Weave::job, &weave);
     }
 }
 double fresnel(double c) {
@@ -352,7 +505,135 @@ double horn_hillshade(const std::array<double, 9>& a, double cell_x, double cell
             std::sqrt(1 + dx * dx + dy * dy),
         0.0, 1.0);
 }
-Image render_carpet(const CarpetParameters& p, int width, int height, const std::atomic<bool>* cancel) {
+namespace {
+// Lights the camera's depth and surfaces, output rows [from, to) at a time; the
+// rows are independent, so bands of them are lit at once.
+struct Shade {
+    const CarpetParameters& p;
+    const Raster<true>& camera;
+    const Raster<false>& shadow;
+    const std::atomic<bool>* cancel;
+    Image& image;
+    int ss, w, h, width, height, bands;
+    Vec L, sr, su;
+    double px, py, variance, az;
+    double sigma[3], bed[3];
+    static constexpr int offsets[8][2] = {{-3, 0}, {3, 0}, {0, -3}, {0, 3}, {-5, -5}, {5, 5}, {-5, 5}, {5, -5}};
+    static void job(void* context, int band) noexcept {
+        Shade& shade = *static_cast<Shade*>(context);
+        shade.rows(shade.height * band / shade.bands, shade.height * (band + 1) / shade.bands);
+    }
+    void rows(int from, int to) noexcept {
+        // Only two output subpixel rows are accumulated; no full RGB float image.
+        std::vector<std::array<double, 3>> row(static_cast<std::size_t>(width));
+        for (int y = from * ss; y < to * ss; ++y) {
+            if (cancel && (*cancel).load(std::memory_order_relaxed)) {
+                return;
+            }
+            if (y % ss == 0) {
+                std::fill(row.begin(), row.end(), std::array<double, 3>{});
+            }
+            for (int x = 0; x < w; ++x) {
+                const std::size_t i = static_cast<std::size_t>(y) * w + x;
+                const Surface& s = camera.surface[i];
+                double result[3] = {bed[0] * .32, bed[1] * .32, bed[2] * .32};
+                if (s.radius > 0) {
+                    const Vec pos{(x + .5) * px - camera.hw, (y + .5) * py - camera.hh, camera.z[i]};
+                    const int qx = static_cast<int>(std::floor((dot(pos, sr) / shadow.hw * .5 + .5) * shadow.w)),
+                              qy = static_cast<int>(std::floor((dot(pos, su) / shadow.hh * .5 + .5) * shadow.h));
+                    const double qz = dot(pos, L);
+                    double visibility = 0, ao = 0;
+                    for (int by = -1; by <= 1; ++by) {
+                        for (int bx = -1; bx <= 1; ++bx) {
+                            const int a = qx + bx, b = qy + by;
+                            if (a < 0 || a >= shadow.w || b < 0 || b >= shadow.h) {
+                                visibility += 1;
+                            } else {
+                                visibility +=
+                                    std::exp(-std::max(0.0, shadow.z[static_cast<std::size_t>(b) * shadow.w + a] -
+                                                                qz - s.radius * .8) /
+                                             (p.radius * 2));
+                            }
+                        }
+                    }
+                    visibility /= 9;
+                    for (int j = 0; j < 8; ++j) {
+                        const int a = std::clamp(x + offsets[j][0], 0, w - 1),
+                                  b = std::clamp(y + offsets[j][1], 0, h - 1);
+                        ao += std::max(0.0, camera.z[static_cast<std::size_t>(b) * w + a] - pos.z) /
+                              (std::hypot(offsets[j][0] * px, offsets[j][1] * py) + .05);
+                    }
+                    ao = std::exp(-2.2 * ao / 8);
+                    const double so = std::clamp(s.tangent.z, -.998, .998), co = std::sqrt(1 - so * so),
+                                 si = std::clamp(s.tangent.x * L.x + s.tangent.y * L.y + so * L.z, -.998, .998),
+                                 ci = std::sqrt(1 - si * si);
+                    const double off = std::clamp((-s.normal.x * s.tangent.y + s.normal.y * s.tangent.x) / co,
+                                                  -.99, .99),
+                                 go = std::asin(off), gt = std::asin(off / (std::sqrt(2.25 - so * so) / co));
+                    const double F = fresnel(co * std::sqrt(1 - off * off)),
+                                 chord = s.radius / .010 * std::cos(gt) / std::sqrt(1 - so * so / 2.25) * s.dye;
+                    const double phi =
+                        std::atan2((L.x * s.tangent.y - L.y * s.tangent.x) / co,
+                                   (-L.x * s.tangent.x * so - L.y * s.tangent.y * so) / co + L.z * co);
+                    const double R = longitudinal(si, so, ci, co, variance) * azimuthal(phi, -2 * go, az),
+                                 TT = longitudinal(si, so, ci, co, .25 * variance) *
+                                      azimuthal(phi, pi + 2 * gt - 2 * go, az);
+                    const double wide = longitudinal(si, so, ci, co, 4 * variance),
+                                 TRT = wide * azimuthal(phi, 2 * pi + 4 * gt - 2 * go, az),
+                                 tail = wide / (2 * pi);
+                    double relief = 1;
+                    if (p.hillshade) {
+                        std::array<double, 9> heights{};
+                        for (int by = -1; by <= 1; ++by) {
+                            for (int bx = -1; bx <= 1; ++bx) {
+                                // Raster +y is north; Horn's rows run south. Missing hits
+                                // extend the local height, avoiding artificial abyss edges.
+                                const int a = std::clamp(x + bx, 0, w - 1), b = std::clamp(y - by, 0, h - 1);
+                                const double z = camera.z[static_cast<std::size_t>(b) * w + a];
+                                heights[(by + 1) * 3 + bx + 1] = z < -1e5 ? pos.z : z;
+                            }
+                        }
+                        const double dx = ((heights[2] + 2 * heights[5] + heights[8]) -
+                                           (heights[0] + 2 * heights[3] + heights[6])) /
+                                          (8 * px);
+                        const double dy = ((heights[6] + 2 * heights[7] + heights[8]) -
+                                           (heights[0] + 2 * heights[1] + heights[2])) /
+                                          (8 * py);
+                        // L is already transformed into the camera frame. Rows in
+                        // heights run southward, so the normal is (-dx,+dy,1).
+                        relief = .30 +
+                                 .70 * std::clamp((-dx * L.x + dy * L.y + L.z) / std::sqrt(1 + dx * dx + dy * dy),
+                                                  0.0, 1.0);
+                    }
+                    for (int k = 0; k < 3; ++k) {
+                        const double t = std::exp(-sigma[k] * chord), a1 = (1 - F) * (1 - F) * t, a2 = a1 * F * t,
+                                     a3 = a2 * F * t / (1 - F * t);
+                        const double incoming = .008 * ao + bed[k] * (.65 * ao + .22 * visibility + .12),
+                                     key = F * R + a1 * TT + a2 * TRT + a3 * tail;
+                        result[k] =
+                            ((F + a1 + a2 + a3) * incoming + key * 2.8 * (.03 + .97 * visibility)) * relief;
+                    }
+                }
+                for (int k = 0; k < 3; ++k) {
+                    row[x / ss][k] += result[k];
+                }
+            }
+            if (y % ss == ss - 1) {
+                for (int x = 0; x < width; ++x) {
+                    std::uint8_t c[3];
+                    for (int k = 0; k < 3; ++k) {
+                        double value = row[x][k] / (ss * ss) * p.exposure;
+                        c[k] = encode(value / (1 + .65 * value));
+                    }
+                    image.set(x, height - 1 - y / ss, {c[0], c[1], c[2], 255});
+                }
+            }
+        }
+    }
+};
+} // namespace
+Image render_carpet(const CarpetParameters& p, int width, int height, const std::atomic<bool>* cancel,
+                    const Parallel* parallel) {
     validate(p, width, height);
     check_cancel(cancel);
     const int ss = 2, w = width * ss, h = height * ss;
@@ -362,7 +643,7 @@ Image render_carpet(const CarpetParameters& p, int width, int height, const std:
     Raster<true> camera(w, h, ww / 2, hh / 2, Basis({0, std::sin(va), std::cos(va)}));
     Raster<false> shadow(900, 900, W * .56, H * .66 + p.height * 1.2,
                          Basis({std::cos(la) * std::cos(el), std::sin(la) * std::cos(el), std::sin(el)}));
-    geometry(p, W, H, camera, shadow, cancel);
+    geometry(p, W, H, camera, shadow, cancel, parallel);
     const double col[3] = {linear_channel(p.color.r), linear_channel(p.color.g), linear_channel(p.color.b)};
     double sigma[3], bed[3];
     for (int k = 0; k < 3; ++k) {
@@ -380,120 +661,32 @@ Image render_carpet(const CarpetParameters& p, int width, int height, const std:
     const double az = std::max(.06, .626657 * (.265 * p.azimuth_roughness +
                                                1.194 * p.azimuth_roughness * p.azimuth_roughness +
                                                5.372 * std::pow(p.azimuth_roughness, 22)));
-    const int offsets[8][2] = {{-3, 0}, {3, 0}, {0, -3}, {0, 3}, {-5, -5}, {5, 5}, {-5, 5}, {5, -5}};
     Image image;
     image.reset(width, height, {});
-    // Only two output subpixel rows are accumulated; no full RGB float image.
-    std::vector<std::array<double, 3>> row(width);
-    for (int y = 0; y < h; ++y) {
-        check_cancel(cancel);
-        if (y % ss == 0) {
-            std::fill(row.begin(), row.end(), std::array<double, 3>{});
-        }
-        for (int x = 0; x < w; ++x) {
-            const std::size_t i = static_cast<std::size_t>(y) * w + x;
-            const Surface& s = camera.surface[i];
-            double result[3] = {bed[0] * .32, bed[1] * .32, bed[2] * .32};
-            if (s.radius > 0) {
-                const Vec pos{(x + .5) * px - camera.hw, (y + .5) * py - camera.hh, camera.z[i]};
-                const int qx = static_cast<int>(std::floor((dot(pos, sr) / shadow.hw * .5 + .5) * shadow.w)),
-                          qy = static_cast<int>(std::floor((dot(pos, su) / shadow.hh * .5 + .5) * shadow.h));
-                const double qz = dot(pos, L);
-                double visibility = 0, ao = 0;
-                for (int by = -1; by <= 1; ++by) {
-                    for (int bx = -1; bx <= 1; ++bx) {
-                        const int a = qx + bx, b = qy + by;
-                        if (a < 0 || a >= shadow.w || b < 0 || b >= shadow.h) {
-                            visibility += 1;
-                        } else {
-                            visibility +=
-                                std::exp(-std::max(0.0, shadow.z[static_cast<std::size_t>(b) * shadow.w + a] -
-                                                            qz - s.radius * .8) /
-                                         (p.radius * 2));
-                        }
-                    }
-                }
-                visibility /= 9;
-                for (int j = 0; j < 8; ++j) {
-                    const int a = std::clamp(x + offsets[j][0], 0, w - 1),
-                              b = std::clamp(y + offsets[j][1], 0, h - 1);
-                    ao += std::max(0.0, camera.z[static_cast<std::size_t>(b) * w + a] - pos.z) /
-                          (std::hypot(offsets[j][0] * px, offsets[j][1] * py) + .05);
-                }
-                ao = std::exp(-2.2 * ao / 8);
-                const double so = std::clamp(s.tangent.z, -.998, .998), co = std::sqrt(1 - so * so),
-                             si = std::clamp(s.tangent.x * L.x + s.tangent.y * L.y + so * L.z, -.998, .998),
-                             ci = std::sqrt(1 - si * si);
-                const double off = std::clamp((-s.normal.x * s.tangent.y + s.normal.y * s.tangent.x) / co,
-                                              -.99, .99),
-                             go = std::asin(off), gt = std::asin(off / (std::sqrt(2.25 - so * so) / co));
-                const double F = fresnel(co * std::sqrt(1 - off * off)),
-                             chord = s.radius / .010 * std::cos(gt) / std::sqrt(1 - so * so / 2.25) * s.dye;
-                const double phi =
-                    std::atan2((L.x * s.tangent.y - L.y * s.tangent.x) / co,
-                               (-L.x * s.tangent.x * so - L.y * s.tangent.y * so) / co + L.z * co);
-                const double R = longitudinal(si, so, ci, co, variance) * azimuthal(phi, -2 * go, az),
-                             TT = longitudinal(si, so, ci, co, .25 * variance) *
-                                  azimuthal(phi, pi + 2 * gt - 2 * go, az);
-                const double wide = longitudinal(si, so, ci, co, 4 * variance),
-                             TRT = wide * azimuthal(phi, 2 * pi + 4 * gt - 2 * go, az),
-                             tail = wide / (2 * pi);
-                double relief = 1;
-                if (p.hillshade) {
-                    std::array<double, 9> heights{};
-                    for (int by = -1; by <= 1; ++by) {
-                        for (int bx = -1; bx <= 1; ++bx) {
-                            // Raster +y is north; Horn's rows run south. Missing hits
-                            // extend the local height, avoiding artificial abyss edges.
-                            const int a = std::clamp(x + bx, 0, w - 1), b = std::clamp(y - by, 0, h - 1);
-                            const double z = camera.z[static_cast<std::size_t>(b) * w + a];
-                            heights[(by + 1) * 3 + bx + 1] = z < -1e5 ? pos.z : z;
-                        }
-                    }
-                    const double dx = ((heights[2] + 2 * heights[5] + heights[8]) -
-                                       (heights[0] + 2 * heights[3] + heights[6])) /
-                                      (8 * px);
-                    const double dy = ((heights[6] + 2 * heights[7] + heights[8]) -
-                                       (heights[0] + 2 * heights[1] + heights[2])) /
-                                      (8 * py);
-                    // L is already transformed into the camera frame. Rows in
-                    // heights run southward, so the normal is (-dx,+dy,1).
-                    relief = .30 +
-                             .70 * std::clamp((-dx * L.x + dy * L.y + L.z) / std::sqrt(1 + dx * dx + dy * dy),
-                                              0.0, 1.0);
-                }
-                for (int k = 0; k < 3; ++k) {
-                    const double t = std::exp(-sigma[k] * chord), a1 = (1 - F) * (1 - F) * t, a2 = a1 * F * t,
-                                 a3 = a2 * F * t / (1 - F * t);
-                    const double incoming = .008 * ao + bed[k] * (.65 * ao + .22 * visibility + .12),
-                                 key = F * R + a1 * TT + a2 * TRT + a3 * tail;
-                    result[k] =
-                        ((F + a1 + a2 + a3) * incoming + key * 2.8 * (.03 + .97 * visibility)) * relief;
-                }
-            }
-            for (int k = 0; k < 3; ++k) {
-                row[x / ss][k] += result[k];
-            }
-        }
-        if (y % ss == ss - 1) {
-            for (int x = 0; x < width; ++x) {
-                std::uint8_t c[3];
-                for (int k = 0; k < 3; ++k) {
-                    double value = row[x][k] / (ss * ss) * p.exposure;
-                    c[k] = encode(value / (1 + .65 * value));
-                }
-                image.set(x, height - 1 - y / ss, {c[0], c[1], c[2], 255});
-            }
-        }
+    Shade shade{p, camera, shadow, cancel, image, ss, w, h, width, height, 1, {}, {}, {}, 0, 0, 0, 0, {}, {}};
+    for (int k = 0; k < 3; ++k) {
+        shade.sigma[k] = sigma[k];
+        shade.bed[k] = bed[k];
     }
+    shade.L = L;
+    shade.sr = sr;
+    shade.su = su;
+    shade.px = px;
+    shade.py = py;
+    shade.variance = variance;
+    shade.az = az;
+    shade.bands = parallel && (*parallel).run ? std::clamp((*parallel).threads * 2, 1, height) : 1;
+    run_jobs(parallel, shade.bands, Shade::job, &shade);
+    check_cancel(cancel);
     return image;
 }
-Image render_carpet_tile(const CarpetParameters& p, int side, const std::atomic<bool>* cancel) {
+Image render_carpet_tile(const CarpetParameters& p, int side, const std::atomic<bool>* cancel,
+                         const Parallel* parallel) {
     constexpr int overlap = 32;
     if (side < 16 || side > 1024 - overlap) {
         throw std::invalid_argument("Carpet tile size outside supported range");
     }
-    const Image source = render_carpet(p, side + overlap, side + overlap, cancel);
+    const Image source = render_carpet(p, side + overlap, side + overlap, cancel, parallel);
     Image tile;
     tile.reset(side, side, {});
     for (int y = 0; y < side; ++y) {

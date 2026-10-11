@@ -9,7 +9,6 @@
 #include "koikoi.hpp"
 #include "platform/image.hpp"
 #include "platform/present.hpp"
-#include "paint/carpet.hpp"
 
 #include "gui_forms/basic_controls.hpp"
 #include "gui_forms/live_surface.hpp"

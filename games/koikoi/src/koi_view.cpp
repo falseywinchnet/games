@@ -4,7 +4,7 @@
 
 #include "platform/audio.hpp"
 #include "platform/text.hpp"
-#include "paint/carpet.hpp"
+#include "cards/table_art.hpp"
 #include "card_finish.hpp"
 
 #include "gui_forms/surface_material.hpp"
@@ -164,15 +164,10 @@ void KoiView::build_art() {
     // the felt: the card table's own carpet (shared/felt, preset 3, a 256-point tile), on the
     // table's base green, under its radial light, exactly as shared/cards/table.cpp lays it
     if (carpet_.w == 0) {
-        // woven once, before the first frame, as the card table does (shared/cards/table.cpp, on attach)
-        const paint::Image tile = paint::render_carpet_tile(paint::carpet_preset(3), 256);
-        carpet_.resize(tile.width, tile.height);
-        for (size_t i = 0; i < tile.pixels.size(); ++i) {
-            carpet_.px[i * 4] = tile.pixels[i].b;
-            carpet_.px[i * 4 + 1] = tile.pixels[i].g;
-            carpet_.px[i * 4 + 2] = tile.pixels[i].r;
-            carpet_.px[i * 4 + 3] = 255;
-        }
+        // the card tables' own tile, woven once per run and shared (shared/cards/table_art.hpp)
+        const std::vector<std::byte>& tile = games::felt_tile();
+        carpet_.resize(games::felt_tile_side, games::felt_tile_side);
+        std::memcpy(carpet_.px.data(), tile.data(), tile.size());
     }
     felt_.resize(phys_w_, phys_h_);
     felt_.clear(rgb(22, 75, 54));

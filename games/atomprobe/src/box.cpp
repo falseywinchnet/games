@@ -112,21 +112,33 @@ const std::vector<std::uint64_t>& all_hashes() {
     static std::vector<std::uint64_t> v;
     static std::once_flag once;
     std::call_once(once, [] {
-        // split by the first atom across a few threads (about 0.1 s in all)
+        // split by the first atom across a few threads, each sorting its own share, and
+        // the eight sorted shares then merged in pairs
         std::vector<std::vector<std::uint64_t>> part(8);
         std::vector<std::thread> th;
         for (int k = 0; k < 8; ++k)
             th.emplace_back([k, &part] {
+                std::vector<std::uint64_t>& mine = part[static_cast<size_t>(k)];
                 for (int a = k; a < 64; a += 8)
                     for (int b = a + 1; b < 64; ++b)
                         for (int c = b + 1; c < 64; ++c)
                             for (int d = c + 1; d < 64; ++d)
-                                part[static_cast<size_t>(k)].push_back(sig_hash((1ULL << a) | (1ULL << b) | (1ULL << c) | (1ULL << d)));
+                                mine.push_back(sig_hash((1ULL << a) | (1ULL << b) | (1ULL << c) | (1ULL << d)));
+                std::sort(mine.begin(), mine.end());
             });
         for (std::thread& t : th) t.join();
         v.reserve(635376);
-        for (const auto& p : part) v.insert(v.end(), p.begin(), p.end());
-        std::sort(v.begin(), v.end());
+        std::vector<size_t> starts;
+        for (const auto& p : part) {
+            starts.push_back(v.size());
+            v.insert(v.end(), p.begin(), p.end());
+        }
+        starts.push_back(v.size());
+        for (size_t width = 1; width < part.size(); width *= 2)
+            for (size_t i = 0; i + width < part.size(); i += 2 * width)
+                std::inplace_merge(v.begin() + static_cast<std::ptrdiff_t>(starts[i]),
+                                   v.begin() + static_cast<std::ptrdiff_t>(starts[i + width]),
+                                   v.begin() + static_cast<std::ptrdiff_t>(starts[std::min(i + 2 * width, part.size())]));
     });
     return v;
 }

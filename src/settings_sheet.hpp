@@ -134,6 +134,7 @@ class SettingsSheet final : public gf::Control {
     gf::Rect paper_{};
     void clicked_close();
     void on_attached_to_window() override;
+    void load_backs();
     void on_detaching_from_window(gf::Window& window) noexcept override;
 };
 } // namespace games
