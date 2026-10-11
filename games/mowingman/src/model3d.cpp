@@ -1,5 +1,7 @@
 #include "model3d.hpp"
 
+#include "r3d.hpp"
+
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -1265,16 +1267,72 @@ Lin lit(const Look& look, const Material& m, const Fragment& f, V3 view, float s
 const double sample_x[4] = {0.375, 0.875, 0.125, 0.625};
 const double sample_y[4] = {0.125, 0.375, 0.625, 0.875};
 
+// Triangles are scanned by the suite's shared rasteriser (shared/render r3d), which
+// samples pixel centres with exact edges and the top-left rule: each of the four
+// samples is one scan of the triangle moved so that sample sits on the centre. Its
+// depth is smaller-nearer; the Shot's is larger-nearer, so depths pass negated.
+namespace r3 = render::r3d;
+
+// A solid's samples: claims what it covers and stands nearest, below the grass too
+// unless the ground clips it. Attribute 0 is world height.
+struct Seen {
+    static constexpr int N = 1;
+    static constexpr bool depth = true;
+    bool clip_ground = false;
+    bool shade(std::uint32_t*, const float* a) const {
+        return !clip_ground || a[0] >= 0;
+    }
+};
+
+// A see-through triangle's samples in front of the solids: marks them with `stamp`,
+// leaving depth alone. Attributes are its depth (smaller-nearer) and world height.
+struct Through {
+    static constexpr int N = 2;
+    static constexpr bool depth = false;
+    const std::uint32_t* base = nullptr;  // the marks' first pixel, to find the sample's index
+    const float* solid = nullptr;         // the solids' depth for this sample
+    std::uint32_t stamp = 0;
+    bool clip_ground = false;
+    bool shade(std::uint32_t* mark, const float* a) const {
+        if (clip_ground && a[1] < 0) {
+            return false;
+        }
+        if (!(a[0] < solid[mark - base])) {
+            return false;
+        }
+        *mark = stamp;
+        return true;
+    }
+};
+
+// A pixel of the ground shadow's mask.
+struct Covered {
+    static constexpr int N = 0;
+    static constexpr bool depth = false;
+    bool shade(std::uint32_t* cell, const float*) const {
+        *cell = 1;
+        return true;
+    }
+};
+
 struct Scratch {
     std::vector<Placed> placed{};
     std::vector<Tri> solid{};
     std::vector<Tri> clear{};
-    std::vector<float> depth{};
-    std::vector<std::int32_t> id{};
+    std::array<r3::Buffers, 4> samples{};      // the solids' depth and triangle per sample
+    std::array<std::vector<std::uint32_t>, 4> marks{};  // see-through marks per sample; the solids' scan target
     std::vector<float> colour{};  // premultiplied, display, 4 per pixel
     std::vector<float> zclip{};
-    std::vector<std::uint16_t> cover{};
 };
+
+render::Target target_of(std::vector<std::uint32_t>& pixels, int w, int h) {
+    render::Target t{};
+    t.pixels = pixels.data();
+    t.stride = w;
+    t.width = w;
+    t.height = h;
+    return t;
+}
 
 Scratch& scratch() {
     thread_local Scratch s{};
@@ -1405,43 +1463,22 @@ void shoot(const Frame& frame, const std::vector<Part>& parts, const ShotOptions
         shot.sw = static_cast<int>(std::ceil(gx1)) - shot.sx0 + soft + 2;
         shot.sh = static_cast<int>(std::ceil(gy1)) - shot.sy0 + soft + 2;
         if (shot.sw > 0 && shot.sh > 0 && shot.sw < 8000 && shot.sh < 8000) {
-            std::vector<std::uint8_t> bits(static_cast<std::size_t>(shot.sw * shot.sh), 0);
+            std::vector<std::uint32_t> bits(static_cast<std::size_t>(shot.sw * shot.sh), 0);
+            r3::Pass pass{target_of(bits, shot.sw, shot.sh), nullptr, render::Rect{0, 0, shot.sw, shot.sh}};
+            const Covered covered{};
             for (std::size_t t = 0; t + 2 < caster_indices.size(); t += 3) {
                 const std::uint32_t i0 = caster_indices[t], i1 = caster_indices[t + 1], i2 = caster_indices[t + 2];
                 if (casters[i0].z < 0 && casters[i1].z < 0 && casters[i2].z < 0)
                     continue;
-                const double ax = gx[i0] - shot.sx0, ay = gy[i0] - shot.sy0;
-                const double bx = gx[i1] - shot.sx0, by = gy[i1] - shot.sy0;
-                const double cx = gx[i2] - shot.sx0, cy = gy[i2] - shot.sy0;
-                const double area = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
-                if (std::abs(area) < 1e-9)
-                    continue;
-                const double inv = 1 / area;
-                const int xmin = std::max(0, static_cast<int>(std::floor(std::min({ax, bx, cx}))));
-                const int xmax = std::min(shot.sw - 1, static_cast<int>(std::ceil(std::max({ax, bx, cx}))));
-                const int ymin = std::max(0, static_cast<int>(std::floor(std::min({ay, by, cy}))));
-                const int ymax = std::min(shot.sh - 1, static_cast<int>(std::ceil(std::max({ay, by, cy}))));
-                const double e0a = (by - cy) * inv, e0b = (cx - bx) * inv, e0c = (bx * cy - by * cx) * inv;
-                const double e1a = (cy - ay) * inv, e1b = (ax - cx) * inv, e1c = (cx * ay - cy * ax) * inv;
-                for (int y = ymin; y <= ymax; ++y)
-                    for (int x = xmin; x <= xmax; ++x) {
-                        std::uint8_t& cell = bits[static_cast<std::size_t>(y * shot.sw + x)];
-                        if (cell != 0)
-                            continue;
-                        const double px = x + 0.5;
-                        const double py = y + 0.5;
-                        const double w0 = e0a * px + e0b * py + e0c;
-                        const double w1 = e1a * px + e1b * py + e1c;
-                        if (w0 >= 0 && w1 >= 0 && w0 + w1 <= 1)
-                            cell = 15;
-                    }
+                const auto corner = [&](std::uint32_t i) {
+                    return r3::Corner{static_cast<float>(gx[i] - shot.sx0), static_cast<float>(gy[i] - shot.sy0), 0};
+                };
+                r3::triangle(pass, corner(i0), corner(i1), corner(i2), covered);
             }
             // Coverage, then a small blur for the penumbra.
             std::vector<float> a(bits.size());
-            for (std::size_t k = 0; k < bits.size(); ++k) {
-                const unsigned b = bits[k];
-                a[k] = static_cast<float>(((b & 1U) + ((b >> 1U) & 1U) + ((b >> 2U) & 1U) + ((b >> 3U) & 1U)) / 4.0);
-            }
+            for (std::size_t k = 0; k < bits.size(); ++k)
+                a[k] = static_cast<float>(bits[k]);
             std::vector<float> tmp(a.size());
             for (int pass = 0; pass < 2; ++pass) {
                 const int w = shot.sw, h = shot.sh;
@@ -1486,9 +1523,10 @@ void shoot(const Frame& frame, const std::vector<Part>& parts, const ShotOptions
     }
     const int w = shot.w;
     const int h = shot.h;
-    const std::size_t samples = static_cast<std::size_t>(w * h * 4);
-    s.depth.assign(samples, -1e30F);
-    s.id.assign(samples, -1);
+    for (int k = 0; k < 4; ++k) {
+        s.samples[k].resize(w, h, true);
+        s.marks[k].assign(static_cast<std::size_t>(w * h), 0);
+    }
     if (options.occluder != nullptr) {
         const Shot& o = *options.occluder;
         for (int y = 0; y < h; ++y)
@@ -1498,56 +1536,32 @@ void shoot(const Frame& frame, const std::vector<Part>& parts, const ShotOptions
                 if (ox < 0 || oy < 0 || ox >= o.w || oy >= o.h)
                     continue;
                 const float d = o.depth[static_cast<std::size_t>(oy * o.w + ox)];
-                for (int k = 0; k < 4; ++k)
-                    s.depth[static_cast<std::size_t>((y * w + x) * 4 + k)] = d;
+                if (d > -1e29F)
+                    for (int k = 0; k < 4; ++k)
+                        s.samples[k].depth_row(y)[x] = -d;
             }
     }
+    // The corner of a placed vertex for sample k: moved so the sample sits on a pixel centre.
+    const auto corner = [&](const Placed& p, int k) {
+        return r3::Corner{static_cast<float>(p.sx - shot.x0 + 0.5 - sample_x[k]), static_cast<float>(p.sy - shot.y0 + 0.5 - sample_y[k]),
+                          static_cast<float>(-p.depth)};
+    };
 
-    // Solids into the sample buffer. Edge functions are planes in the picture, stepped per sample.
-    for (std::size_t t = 0; t < s.solid.size(); ++t) {
-        const Tri& tri = s.solid[t];
-        const Placed& A = s.placed[tri.a];
-        const Placed& B = s.placed[tri.b];
-        const Placed& C = s.placed[tri.c];
-        const double ax = A.sx - shot.x0, ay = A.sy - shot.y0;
-        const double bx = B.sx - shot.x0, by = B.sy - shot.y0;
-        const double cx = C.sx - shot.x0, cy = C.sy - shot.y0;
-        const double area = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
-        if (std::abs(area) < 1e-10)
-            continue;
-        const double inv = 1 / area;
-        // w0 = (e0a x + e0b y + e0c), w1 likewise; w2 = 1 - w0 - w1.
-        const double e0a = (by - cy) * inv, e0b = (cx - bx) * inv, e0c = (bx * cy - by * cx) * inv;
-        const double e1a = (cy - ay) * inv, e1b = (ax - cx) * inv, e1c = (cx * ay - cy * ax) * inv;
-        const double da = A.depth - C.depth, db = B.depth - C.depth;
-        const double za = A.p.z - C.p.z, zb = B.p.z - C.p.z;
-        const int xmin = std::max(0, static_cast<int>(std::floor(std::min({ax, bx, cx}))));
-        const int xmax = std::min(w - 1, static_cast<int>(std::floor(std::max({ax, bx, cx}))));
-        const int ymin = std::max(0, static_cast<int>(std::floor(std::min({ay, by, cy}))));
-        const int ymax = std::min(h - 1, static_cast<int>(std::floor(std::max({ay, by, cy}))));
-        const bool clip = options.clip_ground;
-        for (int y = ymin; y <= ymax; ++y) {
-            float* depth_row = s.depth.data() + static_cast<std::size_t>(y * w) * 4U;
-            std::int32_t* id_row = s.id.data() + static_cast<std::size_t>(y * w) * 4U;
-            for (int x = xmin; x <= xmax; ++x)
-                for (int k = 0; k < 4; ++k) {
-                    const double px = x + sample_x[k];
-                    const double py = y + sample_y[k];
-                    const double w0 = e0a * px + e0b * py + e0c;
-                    if (w0 < 0)
-                        continue;
-                    const double w1 = e1a * px + e1b * py + e1c;
-                    if (w1 < 0 || w0 + w1 > 1)
-                        continue;
-                    if (clip && C.p.z + za * w0 + zb * w1 < 0)
-                        continue;
-                    const float z = static_cast<float>(C.depth + da * w0 + db * w1);
-                    const std::size_t at = static_cast<std::size_t>(x * 4 + k);
-                    if (z > depth_row[at]) {
-                        depth_row[at] = z;
-                        id_row[at] = static_cast<std::int32_t>(t);
-                    }
-                }
+    // Solids into the sample planes.
+    {
+        const Seen seen{options.clip_ground};
+        for (int k = 0; k < 4; ++k) {
+            r3::Pass pass{target_of(s.marks[k], w, h), &s.samples[k], render::Rect{0, 0, w, h}};
+            for (std::size_t t = 0; t < s.solid.size(); ++t) {
+                const Tri& tri = s.solid[t];
+                const Placed& A = s.placed[tri.a];
+                const Placed& B = s.placed[tri.b];
+                const Placed& C = s.placed[tri.c];
+                const float za[1] = {static_cast<float>(A.p.z)};
+                const float zb[1] = {static_cast<float>(B.p.z)};
+                const float zc[1] = {static_cast<float>(C.p.z)};
+                r3::triangle(pass, corner(A, k), corner(B, k), corner(C, k), za, zb, zc, seen, static_cast<int>(t));
+            }
         }
     }
 
@@ -1561,20 +1575,23 @@ void shoot(const Frame& frame, const std::vector<Part>& parts, const ShotOptions
             float* out = &s.colour[at];
             float nearest = -1e30F;
             bool done[4] = {false, false, false, false};
+            std::int32_t ids[4];
+            for (int k = 0; k < 4; ++k)
+                ids[k] = s.samples[k].id_at(x, y);
             for (int k = 0; k < 4; ++k) {
-                const std::int32_t id = s.id[at + static_cast<std::size_t>(k)];
+                const std::int32_t id = ids[k];
                 if (id < 0 || done[k])
                     continue;
                 double mx = 0, my = 0;
                 int count = 0;
                 for (int j = k; j < 4; ++j)
-                    if (s.id[at + static_cast<std::size_t>(j)] == id) {
+                    if (ids[j] == id) {
                         done[j] = true;
                         mx += x + sample_x[j];
                         my += y + sample_y[j];
                         ++count;
                     }
-                nearest = std::max(nearest, s.depth[at + static_cast<std::size_t>(k)]);
+                nearest = std::max(nearest, -s.samples[k].depth_row(y)[x]);
                 mx /= count;
                 my /= count;
                 const Tri& tri = s.solid[static_cast<std::size_t>(id)];
@@ -1629,6 +1646,7 @@ void shoot(const Frame& frame, const std::vector<Part>& parts, const ShotOptions
             order.emplace_back(std::max({s.placed[tri.a].depth, s.placed[tri.b].depth, s.placed[tri.c].depth}), t);
         }
         std::sort(order.begin(), order.end());
+        std::uint32_t stamp = 0;
         for (const std::pair<double, std::size_t>& entry : order) {
             const Tri& tri = s.clear[entry.second];
             const Placed& A = s.placed[tri.a];
@@ -1643,12 +1661,16 @@ void shoot(const Frame& frame, const std::vector<Part>& parts, const ShotOptions
             const double inv = 1 / area;
             const double e0a = (by - cy) * inv, e0b = (cx - bx) * inv, e0c = (bx * cy - by * cx) * inv;
             const double e1a = (cy - ay) * inv, e1b = (ax - cx) * inv, e1c = (cx * ay - cy * ax) * inv;
-            // A shared edge belongs to one side only: samples exactly on it go to the triangle
-            // whose interior lies to its top or left.
-            const bool own0 = e0a > 0 || (e0a == 0 && e0b > 0);
-            const bool own1 = e1a > 0 || (e1a == 0 && e1b > 0);
-            const double e2a = -e0a - e1a, e2b = -e0b - e1b;
-            const bool own2 = e2a > 0 || (e2a == 0 && e2b > 0);
+            // Which samples it covers in front of the solids, each marked with this triangle's stamp.
+            stamp += 1;
+            for (int k = 0; k < 4; ++k) {
+                r3::Pass pass{target_of(s.marks[k], w, h), nullptr, render::Rect{0, 0, w, h}};
+                const Through through{s.marks[k].data(), s.samples[k].depth_row(0), stamp, options.clip_ground};
+                const float va[2] = {static_cast<float>(-A.depth), static_cast<float>(A.p.z)};
+                const float vb[2] = {static_cast<float>(-B.depth), static_cast<float>(B.p.z)};
+                const float vc[2] = {static_cast<float>(-C.depth), static_cast<float>(C.p.z)};
+                r3::triangle(pass, corner(A, k), corner(B, k), corner(C, k), va, vb, vc, through);
+            }
             const int xmin = std::max(0, static_cast<int>(std::floor(std::min({ax, bx, cx}))));
             const int xmax = std::min(w - 1, static_cast<int>(std::floor(std::max({ax, bx, cx}))));
             const int ymin = std::max(0, static_cast<int>(std::floor(std::min({ay, by, cy}))));
@@ -1656,27 +1678,16 @@ void shoot(const Frame& frame, const std::vector<Part>& parts, const ShotOptions
             for (int y = ymin; y <= ymax; ++y)
                 for (int x = xmin; x <= xmax; ++x) {
                     const std::size_t at = static_cast<std::size_t>((y * w + x) * 4);
+                    const std::size_t cell = static_cast<std::size_t>(y * w + x);
                     bool hit[4] = {false, false, false, false};
                     int count = 0;
                     double mx = 0, my = 0;
                     for (int k = 0; k < 4; ++k) {
-                        const double px = x + sample_x[k];
-                        const double py = y + sample_y[k];
-                        const double w0 = e0a * px + e0b * py + e0c;
-                        const double w1 = e1a * px + e1b * py + e1c;
-                        const double w2 = 1 - w0 - w1;
-                        if (w0 < 0 || w1 < 0 || w2 < 0)
-                            continue;
-                        if ((w0 == 0 && !own0) || (w1 == 0 && !own1) || (w2 == 0 && !own2))
-                            continue;
-                        if (options.clip_ground && C.p.z + (A.p.z - C.p.z) * w0 + (B.p.z - C.p.z) * w1 < 0)
-                            continue;
-                        const double z = C.depth + (A.depth - C.depth) * w0 + (B.depth - C.depth) * w1;
-                        if (z <= s.depth[at + static_cast<std::size_t>(k)])
+                        if (s.marks[k][cell] != stamp)
                             continue;
                         hit[k] = true;
-                        mx += px;
-                        my += py;
+                        mx += x + sample_x[k];
+                        my += y + sample_y[k];
                         ++count;
                     }
                     if (count == 0)
@@ -1695,7 +1706,6 @@ void shoot(const Frame& frame, const std::vector<Part>& parts, const ShotOptions
                     f.ao = A.ao * w0 + B.ao * w1 + C.ao * w2;
                     f.blend = A.blend * w0 + B.blend * w1 + C.blend * w2;
                     f.colour = A.colour * w0 + B.colour * w1 + C.colour * w2;
-                f.colour = A.colour * w0 + B.colour * w1 + C.colour * w2;
                     const Material& m = *tri.material;
                     const Look look = surface(m, f, *tri.place, options.time);
                     const float sun = map.light(f.p + f.n * (map.cell * 2.4), map.cell * 2.0);
