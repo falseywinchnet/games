@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -212,6 +213,29 @@ int main() {
         report("let go beside the stack: the loose rock flies back into the bowl", tidied && back && count_in(run, zc::Place::loose) == 0,
                format("tidied %.0f; third in the bowl %.0f; stack now %.0f", tidied ? 1 : 0, back ? 1 : 0, run.stack_count()) +
                    std::string(fell ? " (the stack lost a rock)" : ""));
+    }
+    // jiggling the bowl: its rocks hop, stay in the bowl and settle somewhere new
+    {
+        zc::Run shaken;
+        shaken.begin(11, "Pebble & Sons");
+        std::vector<zc::phys::Vec3> before;
+        for (size_t i = 0; i < shaken.rocks.size(); i += 1)
+            before.push_back(shaken.rock_pose(static_cast<int>(i)).p);
+        const bool shook = shaken.jiggle();
+        int frames = 0;
+        while (frames < 60 * 20 && !(frames > 30 && shaken.world().all_asleep())) {
+            step_frames(shaken, 1);
+            frames += 1;
+        }
+        int moved = 0, out = 0;
+        for (size_t i = 0; i < shaken.rocks.size(); i += 1) {
+            const zc::phys::Vec3 now = shaken.rock_pose(static_cast<int>(i)).p;
+            moved += zc::phys::length(now - before[i]) > 0.005 ? 1 : 0;
+            out += shaken.world().out_of_bounds(shaken.rocks[i].body) ? 1 : 0;
+        }
+        report("jiggle: the bowl's rocks hop, stay in it and settle anew",
+               shook && count_in(shaken, zc::Place::bowl) == 50 && out == 0 && moved > 25 && shaken.world().all_asleep(),
+               format("moved %.0f of 50; in the bowl %.0f; settled in %.1f s", moved, count_in(shaken, zc::Place::bowl), frames / 60.0));
     }
     const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     std::printf("%s (%.1f s)\n", failures == 0 ? "all tests passed" : (std::to_string(failures) + " FAILURES").c_str(), seconds);

@@ -68,7 +68,8 @@ enum class CraneMode { parked, fetching, attaching, lifting, steering, releasing
 struct CraneInput {
     double right = 0, forward = 0, up = 0;
     double yaw = 0, pitch = 0, roll = 0;
-    bool fine = false;
+    bool fine = false;   // a fifth of the pace, for setting a rock down
+    bool fast = false;   // over twice the pace, for getting across the site
 };
 
 struct Crane {
@@ -117,6 +118,7 @@ public:
     bool fetch(int rock);                  // the crane goes for this rock
     void release();                        // let go of the held rock where it is
     void throw_back();                     // carry the held rock to the bowl and drop it in
+    bool jiggle();                         // shake the bowl: its rocks hop and settle anew
     void cancel();                         // abandon a fetch before the wires attach
 
     // queries
@@ -147,6 +149,7 @@ public:
 private:
     std::unique_ptr<phys::World> world_;
     std::uint32_t seed_ = 1;
+    std::uint32_t jiggles_ = 0;            // shakes so far, for each one's own hops
     std::string company_;
     int base_ = -1;
     int generated_ = 0;

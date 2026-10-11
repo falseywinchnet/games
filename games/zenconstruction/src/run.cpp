@@ -1093,6 +1093,40 @@ void Run::release() {
     }
 }
 
+// Shaking the bowl: every rock lying in it hops a little, outward this way or that and
+// back toward the middle so none leaves the bowl, turning as it goes, and settles anew.
+bool Run::jiggle() {
+    if (!world_)
+        return false;
+    const SiteLayout& layout = site_layout();
+    Random random;
+    random.state = static_cast<std::uint32_t>(seed_ * 131u + jiggles_ * 977u + 5u);
+    jiggles_ += 1;
+    int moved = 0;
+    for (size_t i = 0; i < rocks.size(); i += 1) {
+        RockState& state = rocks[i];
+        if (state.place != Place::bowl || state.body < 0 || (crane.attached && crane.rock == static_cast<int>(i))) {
+            continue;
+        }
+        const phys::BodyState now = world_->state(state.body);
+        phys::Vec3 inward{layout.bowl_centre.x - now.pose.p.x, layout.bowl_centre.y - now.pose.p.y, 0};
+        const double reach = phys::length(inward);
+        inward = reach > 1e-6 ? inward * (1 / reach) : phys::Vec3{};
+        const double angle = 2 * kPi * random_unit(random);
+        const double push = 0.05 + 0.08 * random_unit(random);
+        const phys::Vec3 v{std::cos(angle) * push + inward.x * 0.14 * reach / layout.bowl_floor_radius,
+                           std::sin(angle) * push + inward.y * 0.14 * reach / layout.bowl_floor_radius,
+                           0.32 + 0.22 * random_unit(random)};
+        const phys::Vec3 w{(random_unit(random) - 0.5) * 6, (random_unit(random) - 0.5) * 6, (random_unit(random) - 0.5) * 3};
+        phys::Pose pose = now.pose;
+        pose.p.z += 0.003;  // just clear of what it lay on
+        world_->remove_body(state.body);
+        state.body = world_->add_body(state.rock.shape, pose, v, w);
+        moved += 1;
+    }
+    return moved > 0;
+}
+
 void Run::throw_back() {
     if (!crane.attached || (crane.mode != CraneMode::steering && crane.mode != CraneMode::lifting)) {
         return;
@@ -1187,9 +1221,18 @@ void Run::step_crane(const CraneInput& input, double camera_yaw, double camera_p
             }
         }
     } else if (crane.mode == CraneMode::steering) {
-        const double speed = input.fine ? 0.022 : 0.11;
-        const double lift = input.fine ? 0.012 : 0.07;
-        const double turn = input.fine ? 0.22 : 1.1;
+        // Fine work at a fifth of the pace, a hurry at over twice it; and a big rock comes
+        // round more slowly than a small one (by a gentle power of its volume).
+        const double pace = input.fine ? 0.2 : input.fast ? 2.2 : 1.0;
+        double heavy = 1;
+        if (crane.rock >= 0 && crane.rock < static_cast<int>(rocks.size())) {
+            const double volume = rocks[static_cast<size_t>(crane.rock)].rock.shape.volume;
+            if (volume > 0)
+                heavy = std::clamp(std::pow(0.0006 / volume, 0.35), 0.55, 1.25);
+        }
+        const double speed = 0.11 * pace * heavy;
+        const double lift = 0.07 * pace * heavy;
+        const double turn = 1.1 * pace * std::sqrt(heavy);
         // the arrows work the crane as its operator does: up and down telescope
         // the boom out and in along its line, left and right swing it round
         const phys::Vec3 pivot = crane_pivot();

@@ -31,6 +31,7 @@ constexpr std::uint32_t kKeyF1 = 0x3A, kKeyRight = 0x4F, kKeyLeft = 0x50, kKeyDo
 constexpr std::uint32_t kKeyPageUp = 0x4B, kKeyPageDown = 0x4E;
 constexpr std::uint32_t kKeyBracketLeft = 0x2F, kKeyBracketRight = 0x30;
 constexpr std::uint32_t kKeyShiftLeft = 0xE1, kKeyShiftRight = 0xE5;
+constexpr std::uint32_t kKeyAltLeft = 0xE2, kKeyAltRight = 0xE6, kKeyJ = 0x0D;
 
 const Col kInk = hex(0x2A241E);
 const Col kPaper = hex(0xFBF6EA);
@@ -82,6 +83,7 @@ const char* const kStuck[] = {"That one's wedged in. Try another.", "It won't bu
 const char* const kCovered[] = {"Something's sitting on that one.", "Take the one on top first."};
 const char* const kBack[] = {"Back it goes.", "Into the bowl."};
 const char* const kJoined[] = {"Nice and steady.", "It's holding.", "Lovely."};
+const char* const kJiggle[] = {"A good shake!", "Let's see what's underneath."};
 
 }  // namespace
 
@@ -470,7 +472,8 @@ CraneInput ZenView::gather_input() const {
     input.yaw = (keys_[kKeyQ] ? 1.0 : 0.0) - (keys_[kKeyE] ? 1.0 : 0.0);     // turn, about the vertical
     input.pitch = (keys_[kKeyR] ? 1.0 : 0.0) - (keys_[kKeyF] ? 1.0 : 0.0);   // tip, toward or away from the crane
     input.roll = (keys_[kKeyZ] ? 1.0 : 0.0) - (keys_[kKeyC] ? 1.0 : 0.0);
-    input.fine = keys_[kKeyShiftLeft] || keys_[kKeyShiftRight];
+    input.fast = keys_[kKeyShiftLeft] || keys_[kKeyShiftRight];
+    input.fine = keys_[kKeyAltLeft] || keys_[kKeyAltRight];
     return input;
 }
 
@@ -775,6 +778,12 @@ void ZenView::action(const std::string& id) {
         }
     } else if (id == "reroll") {
         seed_entry_ = fresh_seed();
+    } else if (id == "jiggle") {
+        if (run_ && !pending_.valid() && (*run_).jiggle()) {
+            play("zc_reset", .45f, 1.35f);
+            say_one(kJiggle, 2);
+            dirty_save_ = true;
+        }
     } else if (id == "release") {
         if (run_) {
             (*run_).release();
@@ -936,6 +945,8 @@ void ZenView::on_key(gf::KeyEvent& e) {
         action("help");
     } else if (k == kKeyM) {
         action("music");
+    } else if (k == kKeyJ) {
+        action("jiggle");
     } else if (k == kKeyBracketLeft) {
         action("prev");
     } else if (k == kKeyBracketRight) {
@@ -1001,7 +1012,7 @@ void ZenView::run_script() {
         } else if (c.rfind("dist=", 0) == 0) {
             camera_.distance = std::atof(c.c_str() + 5);
             camera_dirty_ = true;
-        } else if (c == "help" || c == "sites" || c == "close" || c == "new" || c == "next" || c == "prev") {
+        } else if (c == "help" || c == "sites" || c == "close" || c == "new" || c == "next" || c == "prev" || c == "jiggle") {
             action(c);
         } else if (c == "startover") {
             start_over();
@@ -1105,10 +1116,10 @@ gf::Color paper(double alpha = 1) { return gf::Color::rgba(0xFB, 0xF6, 0xEA, sta
 
 const char* const kHelp[] = {
     "Stack the rocks as tall as they'll stand. Your height is the top of the stack: the first rock you set down, and every rock resting on the ones below it.",
-    "Click a rock in the bowl and the crane fetches it. The up and down arrows telescope the boom out and in, left and right swing it round; W and S pay the line out and in. Turn the rock with Q and E, tip it toward or away from the crane with R and F, roll it with Z and C. Hold Shift for fine work.",
+    "Click a rock in the bowl and the crane fetches it. The up and down arrows telescope the boom out and in, left and right swing it round; W and S pay the line out and in. Turn the rock with Q and E, tip it toward or away from the crane with R and F, roll it with Z and C. Hold Shift to hurry, Option for fine work; a big rock comes round more slowly than a small one.",
     "Lower it slowly onto the stack: as it settles, the slings go slack. When they're slack and nothing moves, press Space to let go. B carries it back to the bowl.",
     "To take the stack apart, click its top rock. Rocks that fall are tidied back into the bowl. Drag to look around; scroll to zoom.",
-    "Every site is saved. Sites lets you go back to one; Start over (hold it) puts every rock back in the bowl."};
+    "Every site is saved. Sites lets you go back to one; Start over (hold it) puts every rock back in the bowl. Jiggle (or J) shakes the bowl so its rocks settle another way."};
 
 // A font only when it differs, so laying out never asks for another layout.
 void font(gf::Label& label, double size, int weight = 400, bool italic = false) {
@@ -1261,10 +1272,10 @@ void ZenView::update_hud() {
     std::string hint;
     if (crane != nullptr && !open && !speaking) {
         if ((*crane).mode == CraneMode::parked) {
-            hint = "Click a rock to fetch it   ·   drag to look around   ·   scroll to zoom";
+            hint = "Click a rock to fetch it   ·   drag to look around   ·   scroll to zoom   ·   J: jiggle the bowl";
         } else if (steering || (*crane).mode == CraneMode::steering) {
             hint = small ? "↑↓ reach · ←→ swing · W/S line · Q/E turn · R/F tip · Z/C roll · Space let go"
-                         : "↑ ↓ reach  ·  ← → swing  ·  W / S raise, lower  ·  Q / E turn  ·  R / F tip  ·  Z / C roll  ·  Shift: fine  ·  Space: let go";
+                         : "↑ ↓ reach  ·  ← → swing  ·  W / S raise, lower  ·  Q / E turn  ·  R / F tip  ·  Z / C roll  ·  Shift: hurry  ·  Option: fine  ·  Space: let go";
         } else if ((*crane).mode == CraneMode::fetching || (*crane).mode == CraneMode::attaching) {
             hint = "Off to fetch it   ·   Esc to call the crane back";
         } else if ((*crane).mode == CraneMode::lifting) {
@@ -1634,7 +1645,8 @@ void ZenView::draw_height_marks() {
 
 namespace zc {
 std::vector<games::GameCommand> ZenView::commands() const {
-    return {{"new", "New site", true, panel_ == Panel::new_site},
+    return {{"jiggle", "Jiggle", run_ != nullptr && !pending_.valid(), false},
+            {"new", "New site", true, panel_ == Panel::new_site},
             {"sites", "Sites", !sites_.empty(), panel_ == Panel::sites},
             {"help", "Help", true, panel_ == Panel::help}};
 }
