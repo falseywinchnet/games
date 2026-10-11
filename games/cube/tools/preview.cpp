@@ -1,7 +1,9 @@
 // Renders Nature Cube boards to PNG without the PlaySuite window, for looking at.
 //   cube_preview out.png width height scale level seed state [seconds] [environment.gpix backdrop.rgb]
 // state: start, half (half the witness drawn), solved (every line drawn), arrive
-// (`seconds` into the arrival), light (`seconds` into the finale), leave, portal.
+// (`seconds` into the arrival), light (`seconds` into the finale), leave, portal,
+// finale (`seconds` into the whole finale: flash, light, unwind, dark), next (`seconds`
+// into the next pattern coming up in the darkened cube).
 #include "generator.hpp"
 #include "png_writer.hpp"
 #include "session.hpp"
@@ -104,6 +106,13 @@ int main(int argc, char** argv) {
     if (state == "arrive") {
         ps_cube::begin_arrival(motion, puzzle, false);
         static_cast<void>(ps_cube::advance(motion, puzzle, play, seconds, false));
+    } else if (state == "finale" || state == "next") {
+        // The finale in the window's own small steps, through to the dark cube.
+        ps_cube::begin_completion(motion, false);
+        const double until = state == "finale" ? seconds : 60;
+        for (double t = 0; t < until && !motion.departed; t += 1.0 / 30) {
+            static_cast<void>(ps_cube::advance(motion, puzzle, play, 1.0 / 30, false));
+        }
     } else if (state == "light" || state == "leave") {
         ps_cube::begin_completion(motion, false);
         static_cast<void>(ps_cube::advance(motion, puzzle, play, state == "leave" ? ps_cube::lighting_seconds : seconds, false));
@@ -131,7 +140,18 @@ int main(int argc, char** argv) {
     ps_cube::Drawing drawing{render::r3d::Pass{target, &buffers, target.bounds()},
                              panorama.empty() ? nullptr : &panorama, board, false};
     std::vector<std::uint32_t> scratch;
-    ps_cube::show_cube(drawing, scratch, puzzle, play, motion, -1);
+    if (state == "next") {
+        // The next board comes up in the dark cube.
+        const ps_cube::Puzzle next = ps_cube::generate(level, seed + 1, ps_cube::GenerateOptions{});
+        const ps_cube::Play fresh = ps_cube::fresh_play(next);
+        ps_cube::begin_arrival(motion, next, false);
+        for (double t = 0; t < seconds; t += 1.0 / 30) {
+            static_cast<void>(ps_cube::advance(motion, next, fresh, 1.0 / 30, false));
+        }
+        ps_cube::show_cube(drawing, scratch, next, fresh, motion, -1);
+    } else {
+        ps_cube::show_cube(drawing, scratch, puzzle, play, motion, -1);
+    }
     std::memcpy(frame.data(), pixels.data(), frame.size());
     // The top band the capsule floats over, outlined for reference.
     if (!kit::write_png(out, width, height, frame)) {

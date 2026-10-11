@@ -6,7 +6,9 @@
 //               stones rise out of the glass and the coloured ends and portals open.
 //   Tracing     each new step of a line grows out of the last cell; a joined pair
 //               sends a ripple of light along its line.
-//   Completion  every line lights in turn, the cube spins away, and the next arrives.
+//   Completion  the cube flashes and its coloured ends pulse, every line lights in
+//               turn, then the lines unwind back into the squares they began from, the
+//               glass goes dark, and the next pattern comes up in the same cube.
 //
 // With reduced motion every change lands at once; a finished board rests lit for a
 // moment (one timed wake, no frames) before the next one replaces it.
@@ -48,7 +50,7 @@ struct Pose {
     double opacity = 1;
 };
 
-enum class Phase { resting, arriving, lighting, departing, holding, departed };
+enum class Phase { resting, arriving, lighting, unwinding, darkening, departing, holding, departed };
 
 struct Motion {
     Phase phase = Phase::resting;
@@ -58,6 +60,8 @@ struct Motion {
     double target_yaw = rest_yaw;
     double target_pitch = rest_pitch;
     bool departed = false;      // the finished cube has left; the view brings the next
+    bool dark = false;          // it ended dark, not gone: the next pattern comes up in it
+    bool in_place = false;      // this arrival is in the cube already standing there
     std::vector<int> drawn;     // per pair, line length last seen
     std::vector<double> grow;   // per pair, 0..1, how far the newest step has grown
     std::vector<double> ripple; // per pair, seconds since it was joined, or -1
@@ -89,6 +93,15 @@ void hold_tilt(Motion& motion);
 [[nodiscard]] double stone_rise(const Motion& motion, const Puzzle& puzzle, int cell);
 // 0 closed, 1 open: coloured ends and portals bloom after the stones.
 [[nodiscard]] double tile_bloom(const Motion& motion, const Puzzle& puzzle, int cell);
+// How much of a pair's line still shows, 0..1, as the finale unwinds it toward its start.
+[[nodiscard]] double line_shown(const Motion& motion, int pair);
+// The finale's flash of the whole cube, 0..1.
+[[nodiscard]] double cube_flash(const Motion& motion);
+// How far the glass has gone dark, 0..1: at the end of the finale, and lifting as the next
+// pattern comes up.
+[[nodiscard]] double cube_dark(const Motion& motion);
+// The coloured ends pulsing when the board is solved, 0..1.
+[[nodiscard]] double end_flash(const Motion& motion);
 // How bright a line glows at a point `along` it (0 start, 1 end): the ripple of a pair
 // just joined, or the finale's light.
 [[nodiscard]] double line_glow(const Motion& motion, int pair, double along);
@@ -101,5 +114,9 @@ inline constexpr double departure_seconds = .75;
 inline constexpr double hold_seconds = 1.2;
 inline constexpr double step_seconds = .09;
 inline constexpr double ripple_seconds = .7;
+inline constexpr double unwind_seconds = .6;    // each line; the pairs start a little apart
+inline constexpr double unwind_stagger = .08;
+inline constexpr double dark_seconds = .6;
+inline constexpr double undark_seconds = .9;
 
 }  // namespace ps_cube

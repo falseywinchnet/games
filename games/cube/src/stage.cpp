@@ -91,6 +91,9 @@ Layout compute_layout(double width, double height) {
 }
 
 void begin_arrival(Motion& motion, const Puzzle& puzzle, bool reduced) {
+    // After the finale the cube is still there, dark: the new pattern comes up in it.
+    motion.in_place = motion.dark && !reduced;
+    motion.dark = false;
     motion.departed = false;
     motion.clock = 0;
     motion.phase = reduced ? Phase::resting : Phase::arriving;
@@ -107,6 +110,7 @@ void begin_completion(Motion& motion, bool reduced) {
 }
 
 void begin_departure(Motion& motion, bool reduced) {
+    motion.dark = false;
     motion.clock = 0;
     motion.phase = reduced ? Phase::departed : Phase::departing;
     motion.departed = reduced;
@@ -179,8 +183,29 @@ bool advance(Motion& motion, const Puzzle& puzzle, const Play& play, double seco
         break;
     case Phase::lighting:
         motion.clock += seconds;
-        if (reduced || motion.clock >= lighting_seconds) {
+        if (reduced) {
             begin_departure(motion, reduced);
+        } else if (motion.clock >= lighting_seconds) {
+            motion.phase = Phase::unwinding;
+            motion.clock = 0;
+        }
+        moving = true;
+        break;
+    case Phase::unwinding:
+        motion.clock += seconds;
+        if (motion.clock >= unwind_seconds + unwind_stagger * static_cast<double>(motion.drawn.size())) {
+            motion.phase = Phase::darkening;
+            motion.clock = 0;
+        }
+        moving = true;
+        break;
+    case Phase::darkening:
+        motion.clock += seconds;
+        if (motion.clock >= dark_seconds) {
+            // Left standing dark; the view deals the next board into it.
+            motion.phase = Phase::departed;
+            motion.departed = true;
+            motion.dark = true;
         }
         moving = true;
         break;
@@ -219,6 +244,12 @@ Pose pose(const Motion& motion) {
     Pose result;
     result.yaw = motion.yaw;
     result.pitch = motion.pitch;
+    if (motion.phase == Phase::arriving && motion.in_place) {
+        return result;
+    }
+    if (motion.phase == Phase::departed && motion.dark) {
+        return result;
+    }
     if (motion.phase == Phase::arriving) {
         const double t = motion.clock / spin_seconds;
         const double settle = ease_out_cubic(t);
@@ -272,6 +303,48 @@ double growth(const Motion& motion, int pair) {
     return motion.grow[static_cast<std::size_t>(pair)];
 }
 
+double line_shown(const Motion& motion, int pair) {
+    if (motion.phase == Phase::unwinding) {
+        return 1 - ease_in_cubic(clamp01((motion.clock - unwind_stagger * pair) / unwind_seconds));
+    }
+    if (motion.phase == Phase::darkening || (motion.phase == Phase::departed && motion.dark)) {
+        return 0;
+    }
+    return 1;
+}
+
+double cube_flash(const Motion& motion) {
+    if (motion.phase != Phase::lighting) {
+        return 0;
+    }
+    // One bright flash as the board is solved, fading quickly.
+    return std::max(0.0, 1 - motion.clock / .35) * .7;
+}
+
+double cube_dark(const Motion& motion) {
+    if (motion.phase == Phase::darkening) {
+        return ease_out_cubic(clamp01(motion.clock / dark_seconds));
+    }
+    if (motion.phase == Phase::departed && motion.dark) {
+        return 1;
+    }
+    if (motion.phase == Phase::arriving && motion.in_place) {
+        return 1 - ease_out_cubic(clamp01(motion.clock / undark_seconds));
+    }
+    return 0;
+}
+
+double end_flash(const Motion& motion) {
+    if (motion.phase == Phase::lighting) {
+        // Three pulses of the coloured ends while the lines light.
+        return .8 * std::max(0.0, std::sin(motion.clock / lighting_seconds * 3 * 3.14159265358979));
+    }
+    if (motion.phase == Phase::unwinding) {
+        return .35;
+    }
+    return 0;
+}
+
 double line_glow(const Motion& motion, int pair, double along) {
     double glow = 0;
     if (pair >= 0 && pair < static_cast<int>(motion.ripple.size()) &&
@@ -287,7 +360,7 @@ double line_glow(const Motion& motion, int pair, double along) {
         const double front = (motion.clock - start) / .45 * 1.3 - .15;
         const double sparkle = std::max(0.0, 1 - std::fabs(along - front) / .15);
         glow = std::max(glow, .55 * lit + .45 * sparkle * (front < 1.2 ? 1 : 0));
-    } else if (motion.phase == Phase::departing || motion.phase == Phase::holding) {
+    } else if (motion.phase == Phase::departing || motion.phase == Phase::holding || motion.phase == Phase::unwinding) {
         glow = std::max(glow, .55);
     }
     return clamp01(glow);

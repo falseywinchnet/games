@@ -909,7 +909,14 @@ void CubeView::on_pointer(gf::PointerEvent& event) {
         if (tracing_) {
             tracing_ = false;
             seeking_ = false;
+            // Traced back to where it began, a line is gone: its square is as it was.
+            const int pair = session_.play.active;
             release(session_.play);
+            if (pair >= 0 && pair < static_cast<int>(session_.play.paths.size()) &&
+                session_.play.paths[static_cast<std::size_t>(pair)].size() <= 1) {
+                static_cast<void>(erase(session_.play, pair));
+                note_lines(motion_, session_.puzzle, session_.play, reduced_);
+            }
             set_pointer_capture(false);
             persist();
             request_frame();

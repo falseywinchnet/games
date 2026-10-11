@@ -34,6 +34,10 @@ struct Drawing {
     const render::r3d::Panorama* panorama = nullptr;   // the lake the tiles mirror; none: plain glass
     Box board;                                         // the board square, in the picture's pixels
     bool draft = false;                                // nearest reflections and coarser tiles, for slow computers
+    // Set by draw_cube from the motion: how bright the cube is (the finale darkens it)
+    // and how far it is washed toward white (the finale's flash).
+    double dim = 1;
+    double flash = 0;
 };
 
 // Draws everything that falls inside the pass's scissor at full opacity. Cell ids go to

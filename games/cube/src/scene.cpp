@@ -138,7 +138,17 @@ bool same(Rgba a, Rgba b) {
 }
 
 // One opaque colour.
+// A colour as the cube shows it this frame: dimmed, and washed toward white by a flash.
+Rgba lit(const Drawing& drawing, Rgba c) {
+    if (drawing.dim == 1 && drawing.flash == 0) {
+        return c;
+    }
+    const Rgba dimmed{c.r * drawing.dim, c.g * drawing.dim, c.b * drawing.dim, c.a};
+    return mix(dimmed, Rgba{255, 255, 250, c.a}, drawing.flash);
+}
+
 void flat(Drawing& drawing, r3d::Corner a, r3d::Corner b, r3d::Corner c, Rgba color, int id) {
+    color = lit(drawing, color);
     const r3d::Flat shader{drawing.pass.target.color(color_of(color))};
     r3d::triangle(drawing.pass, a, b, c, shader, id);
 }
@@ -149,6 +159,8 @@ void fan(Drawing& drawing, r3d::Corner a, r3d::Corner b, r3d::Corner c, Rgba mid
         flat(drawing, a, b, c, middle, id);
         return;
     }
+    middle = lit(drawing, middle);
+    rim = lit(drawing, rim);
     const float ca[3] = {static_cast<float>(middle.r), static_cast<float>(middle.g), static_cast<float>(middle.b)};
     const float cb[3] = {static_cast<float>(rim.r), static_cast<float>(rim.g), static_cast<float>(rim.b)};
     r3d::triangle(drawing.pass, a, b, c, ca, cb, cb, r3d::Smooth{drawing.pass.target.order}, id);
@@ -166,7 +178,7 @@ void stroke(Drawing& drawing, double ax, double ay, double bx, double by, double
     const r3d::Corner q{static_cast<float>(bx + dx), static_cast<float>(by + dy), 0};
     const r3d::Corner r{static_cast<float>(bx - dx), static_cast<float>(by - dy), 0};
     const r3d::Corner s{static_cast<float>(ax - dx), static_cast<float>(ay - dy), 0};
-    const r3d::Over shader = r3d::Over::make(drawing.pass.target.order, color_of(color));
+    const r3d::Over shader = r3d::Over::make(drawing.pass.target.order, color_of(lit(drawing, color)));
     r3d::triangle(drawing.pass, p, q, r, shader, id);
     r3d::triangle(drawing.pass, p, r, s, shader, id);
 }
@@ -175,6 +187,11 @@ void stroke(Drawing& drawing, double ax, double ay, double bx, double by, double
 void quad(Drawing& drawing, const Camera& camera, Point3 origin, Point3 du, Point3 dv, Point3 normal,
           Rgba tint, double env, int requested_steps, double bias, int id) {
     const bool mirrored = env > 0 && drawing.panorama != nullptr && !drawing.panorama->empty();
+    if (mirrored) {
+        // A dark cube reflects nothing; a flash washes the reflection out too.
+        tint = lit(drawing, tint);
+        env *= drawing.dim * (1 - drawing.flash);
+    }
     const int steps = drawing.draft ? 1 : requested_steps;
     const auto sharp = mirrored ? r3d::Mirror<false>::make(*drawing.panorama, color_of(tint), static_cast<float>(env))
                                 : r3d::Mirror<false>{};
@@ -502,6 +519,17 @@ void draw_cube(Drawing& drawing, const Puzzle& puzzle, const Play& play, const M
     if (look.opacity <= 0 || puzzle.tiles.empty()) {
         return;
     }
+    // The finale's flash and darkness, for this frame only.
+    struct Light {
+        Drawing& drawing;
+        ~Light() {
+            drawing.dim = 1;
+            drawing.flash = 0;
+        }
+    } restore{drawing};
+    drawing.dim = 1 - cube_dark(motion);
+    drawing.flash = cube_flash(motion);
+    const double pulse = end_flash(motion);
     const Camera camera = camera_for(motion, drawing.board);
     const int side = puzzle.side;
     const double half = 1.0 / side;          // half a cell, in cube units
@@ -539,7 +567,8 @@ void draw_cube(Drawing& drawing, const Puzzle& puzzle, const Play& play, const M
                 quad(drawing, camera, add(center, add(scaled(u, -socket), scaled(v, -socket))), scaled(u, 2 * socket),
                      scaled(v, 2 * socket), n, Rgba{250, 248, 232}, 0, 1, -.004, cell);
                 const double size = tile * bloom;
-                const Rgba color = shade(pair_color(pair), hot ? 1.18 : 1.0);
+                // Solved, the coloured ends pulse toward white.
+                const Rgba color = mix(shade(pair_color(pair), hot ? 1.18 : 1.0), Rgba{255, 255, 250}, pulse);
                 quad(drawing, camera, add(center, add(scaled(u, -size), scaled(v, -size))), scaled(u, 2 * size),
                      scaled(v, 2 * size), n, color, .2, 3, -.002, cell);
             }
@@ -555,8 +584,16 @@ void draw_cube(Drawing& drawing, const Puzzle& puzzle, const Play& play, const M
                  hot ? Rgba{150, 190, 196} : Rgba{70, 104, 112}, .45, 3, 0, cell);
             continue;
         }
-        quad(drawing, camera, origin, scaled(u, 2 * tile), scaled(v, 2 * tile), n,
-             hot ? Rgba{255, 236, 170} : Rgba{190, 226, 222}, hot ? .55 : .86, 3, 0, cell);
+        // A tile a line runs over takes on the line's colour faintly, the glass tinted from
+        // within, so the line itself can stay slim.
+        const int on = owner(play, cell);
+        Rgba glass = hot ? Rgba{255, 236, 170} : Rgba{190, 226, 222};
+        double reflect = hot ? .55 : .86;
+        if (on >= 0 && !hot && line_shown(motion, on) >= 1) {
+            glass = mix(glass, pair_color(on), .42);
+            reflect = .72;
+        }
+        quad(drawing, camera, origin, scaled(u, 2 * tile), scaled(v, 2 * tile), n, glass, reflect, 3, 0, cell);
     }
     // The glass body under the tiles, and the blank faces seen while the cube turns.
     for (int face = 0; face < 6; ++face) {
@@ -609,20 +646,38 @@ void draw_cube(Drawing& drawing, const Puzzle& puzzle, const Play& play, const M
     // The lines ride on the surface; a step between faces folds through the shared edge,
     // and a hop through a portal leaves a gap between the two wells. They are laid in the
     // faces' own planes, so stone blocks beside them hide them where they should.
-    const double width3d = half * .82;
+    const double width3d = half * .6;
     // The fill (nearer) before the dark edge under it.
     for (int pass = 1; pass >= 0; --pass) {
         for (std::size_t pair = 0; pair < play.paths.size(); ++pair) {
             const std::vector<int>& path = play.paths[pair];
             const int count = static_cast<int>(path.size());
-            if (count == 0) {
+            // A line traced back to its start is no line: its square shows as it was.
+            if (count <= 1) {
                 continue;
             }
-            const double grow = growth(motion, static_cast<int>(pair));
+            double grow = growth(motion, static_cast<int>(pair));
             int last_step = count - 1;
             if (count >= 2 && !adjacent(puzzle.geometry, path[static_cast<std::size_t>(count - 2)],
                                         path[static_cast<std::size_t>(count - 1)])) {
                 last_step = count - 2;  // the newest step went into a portal
+            }
+            // The finale unwinds each line back toward the square it began from.
+            const double shown = line_shown(motion, static_cast<int>(pair));
+            if (shown <= 0) {
+                continue;
+            }
+            if (shown < 1) {
+                const double reach = shown * (count - 1);
+                last_step = static_cast<int>(std::floor(reach)) + 1;
+                grow = reach - std::floor(reach);
+                if (last_step > count - 1) {
+                    last_step = count - 1;
+                    grow = 1;
+                }
+                if (grow <= 0) {
+                    grow = 1e-6;
+                }
             }
             for (int j = 0; j < count; ++j) {
                 const int b = path[static_cast<std::size_t>(j)];
