@@ -121,6 +121,58 @@ Rgb star(double x, double y, double half_w, double half_h) {
     return c;
 }
 
+// A parlour back in the old manner: on a red field, fine white scrollwork folded four
+// ways (every quarter the mirror of the next), a rose medallion at the heart, and a
+// double frame with a flourish in each corner.
+Rgb parlour(double x, double y, double half_w, double half_h) {
+    const Rgb red{168, 24, 34}, white{250, 244, 236};
+    const double X = std::abs(x), Y = std::abs(y);
+    double ink = 0;
+    // The double frame a little inside the panel, and a quarter-ring flourish at each corner.
+    const double frame = std::min(half_w - X, half_h - Y);
+    ink = std::max(ink, line(frame - 5, .7));
+    ink = std::max(ink, line(frame - 9, .55));
+    const double corner = std::hypot(X - (half_w - 9), Y - (half_h - 9));
+    ink = std::max(ink, line(corner - 16, .7) * (X < half_w - 9 && Y < half_h - 9 ? 1 : 0));
+    ink = std::max(ink, line(corner - 22, .55) * (X < half_w - 9 && Y < half_h - 9 ? 1 : 0));
+    if (frame > 12) {
+        // The field: rosettes of four petals on a staggered grid, linked by fine stems.
+        const double cell = 22;
+        const double gx = std::round(X / cell) * cell, gy = std::round(Y / cell) * cell;
+        const bool odd = (static_cast<int>(std::round(X / cell)) + static_cast<int>(std::round(Y / cell))) & 1;
+        const double dx = X - gx, dy = Y - gy;
+        const double r = std::hypot(dx, dy), a = std::atan2(dy, dx);
+        if (odd) {
+            const double petal = 7.5 * std::abs(std::cos(2 * a));
+            ink = std::max(ink, line(r - petal, .6) * (r > 1.2 ? 1 : 0));
+            ink = std::max(ink, 1 - smooth(1.1, 2.0, r));
+        } else {
+            // a small diamond of four dots between the rosettes
+            ink = std::max(ink, 1 - smooth(1.0, 1.9, std::hypot(std::abs(dx) - 4, dy)));
+            ink = std::max(ink, 1 - smooth(1.0, 1.9, std::hypot(dx, std::abs(dy) - 4)));
+        }
+        // Fine scroll lines on the diagonals between them.
+        const double u = (X + Y) / std::sqrt(2.0), v = (X - Y) / std::sqrt(2.0);
+        ink = std::max(ink, line(to_grid(u, cell * std::sqrt(2.0)), .35) * .55);
+        ink = std::max(ink, line(to_grid(v, cell * std::sqrt(2.0)), .35) * .55);
+        // The medallion: a red ground, three rings, and an eight-petal rose.
+        const double m = std::hypot(x / 1.12, y);
+        if (m < 64) {
+            ink = 0;
+            ink = std::max(ink, line(m - 62, .9));
+            ink = std::max(ink, line(m - 56, .55));
+            const double ma = std::atan2(y, x / 1.12);
+            const double rose = 40 * std::abs(std::cos(4 * ma)) + 8;
+            ink = std::max(ink, line(m - rose, .8));
+            ink = std::max(ink, line(m - 26, .6));
+            ink = std::max(ink, 1 - smooth(5, 6.5, m));
+        } else if (m < 72) {
+            ink = 0;  // a clear ring of red round the medallion
+        }
+    }
+    return mix(red, white, ink);
+}
+
 }  // namespace
 
 std::vector<std::byte> make_card_back(int design, int w, int h) {
@@ -130,8 +182,8 @@ std::vector<std::byte> make_card_back(int design, int w, int h) {
     const double inset = 2.4 * s, radius = 18 * s;
     const double border = 15 * s, rule_at = 19 * s, panel_at = 22 * s;
     const Rgb paper{250, 247, 238};
-    const Rgb rules[4] = {{200, 210, 236}, {232, 190, 104}, {214, 182, 80}, {236, 204, 122}};
-    const int which = std::clamp(design - painted_back_count, 0, 3);
+    const Rgb rules[5] = {{200, 210, 236}, {232, 190, 104}, {214, 182, 80}, {236, 204, 122}, {168, 24, 34}};
+    const int which = std::clamp(design - painted_back_count, 0, 4);
     constexpr int samples = 2;
     for (int py = 0; py < h; ++py)
         for (int px = 0; px < w; ++px) {
@@ -151,6 +203,7 @@ std::vector<std::byte> make_card_back(int design, int w, int h) {
                         case 0: c = lattice(ux, uy); break;
                         case 1: c = rings(ux, uy); break;
                         case 2: c = tartan(ux + 1000, uy + 1000); break;
+                        case 4: c = parlour(ux, uy, (half_w - panel_at) / s, (half_h - panel_at) / s); break;
                         default: c = star(ux, uy, (half_w - panel_at) / s, (half_h - panel_at) / s); break;
                         }
                     }

@@ -28,7 +28,8 @@ int percent(double volume) {
 bool SuiteSettings::operator==(const SuiteSettings& other) const {
     return music == other.music && sound == other.sound && reduced == other.reduced &&
            percent(music_volume) == percent(other.music_volume) &&
-           percent(sound_volume) == percent(other.sound_volume) && card_back == other.card_back;
+           percent(sound_volume) == percent(other.sound_volume) && card_back == other.card_back &&
+           card_face == other.card_face;
 }
 double audio_gain(double volume) {
     const double position = std::clamp(volume, 0.0, 1.0);
@@ -39,7 +40,7 @@ std::string encode_suite_settings(const SuiteSettings& s) {
     out << "PLAYSUITE_SETTINGS 1\n"
         << "music=" << (s.music ? 1 : 0) << "\nsound=" << (s.sound ? 1 : 0)
         << "\nreduced_motion=" << (s.reduced ? 1 : 0) << "\nmusic_volume=" << percent(s.music_volume)
-        << "\nsound_volume=" << percent(s.sound_volume) << "\ncard_back=" << s.card_back << '\n';
+        << "\nsound_volume=" << percent(s.sound_volume) << "\ncard_back=" << s.card_back << "\ncard_face=" << s.card_face << '\n';
     return out.str();
 }
 bool decode_suite_settings(const std::string& text, SuiteSettings& destination) {
@@ -72,6 +73,12 @@ bool decode_suite_settings(const std::string& text, SuiteSettings& destination) 
             good = static_cast<bool>(number >> back) && back >= 0 && back < card_back_count;
             if (good)
                 next.card_back = back;
+        } else if (key == "card_face") {
+            std::istringstream number(value);
+            int face = -1;
+            good = static_cast<bool>(number >> face) && face >= 0 && face < card_face_count;
+            if (good)
+                next.card_face = face;
         }
         if (!good)
             return false;
@@ -166,6 +173,7 @@ void SettingsStore::set(const SuiteSettings& requested) {
     next.music_volume = std::clamp(next.music_volume, 0.0, 1.0);
     next.sound_volume = std::clamp(next.sound_volume, 0.0, 1.0);
     next.card_back = std::clamp(next.card_back, 0, card_back_count - 1);
+    next.card_face = std::clamp(next.card_face, 0, card_face_count - 1);
     if (next == values())
         return;
     values_ = next;

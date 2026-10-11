@@ -1,6 +1,7 @@
 #include "table.hpp"
 #include "audio.hpp"
 #include "card_backs.hpp"
+#include "classic_faces.hpp"
 #include "carpet.hpp"
 #include "gui_forms/window.hpp"
 #include "help_route.hpp"
@@ -308,6 +309,12 @@ void Table::on_detaching_from_window(gf::Window& window) noexcept {
     for (gf::ImageId id : backs_)
         if (id.value)
             static_cast<void>(window.remove_image(id));
+    for (gf::ImageId& id : classic_)
+        if (id.value) {
+            static_cast<void>(window.remove_image(id));
+            id = {};
+        }
+    face_style_ = 0;  // attached again, the classic faces are made again if wanted
     if (felt_.value)
         static_cast<void>(window.remove_image(felt_));
     if (shadow_.value)
@@ -516,6 +523,15 @@ void Table::reload_preferences() {
         back_ = masters.card_back;
         invalidate(gf::Dirty::paint);
     }
+    if (face_style_ != masters.card_face) {
+        face_style_ = masters.card_face;
+        invalidate(gf::Dirty::paint);
+    }
+    // The classic faces are made the first time they are wanted with a window to make them in.
+    if (face_style_ == 1 && !classic_[0].value && attached_window() != nullptr) {
+        static_cast<void>(make_classic_faces(*attached_window(), classic_));
+        invalidate(gf::Dirty::paint);
+    }
 }
 void Table::activate() {
     reload_preferences();
@@ -703,7 +719,9 @@ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
         p.fill_rounded_rect(enlarged(r, 4), 9, gf::Color::rgba(248, 220, 119));
         p.draw_box_shadow(r, 7, {0, 0}, 9, 3, gf::Color::rgba(255, 220, 103, 100));
     }
-    p.draw_image(face_up ? faces_[s.card.suit * 13 + s.card.rank - 1] : backs_[back_], r);
+    const std::size_t which = static_cast<std::size_t>(s.card.suit * 13 + s.card.rank - 1);
+    const gf::ImageId face = face_style_ == 1 && classic_[which].value ? classic_[which] : faces_[which];
+    p.draw_image(face_up ? face : backs_[back_], r);
     if (finish_.value)
         p.draw_image(finish_, r);
     // A card that can move, under the pointer (with any run on it), faintly brightens.
@@ -1181,6 +1199,8 @@ std::vector<GameSetting> Table::settings() const {
                         : game.state.spider_suits == 2 ? 1.0
                                                        : 0.0,
                         {"One", "Two", "Four"}, 0, 2, 1, "Changing it deals again."});
+    list.push_back({"faces", "Card faces", GameSetting::Kind::choice, static_cast<double>(face_style_),
+                    {"Painted", "Classic"}, 0, 1, 1, "For every card game."});
     if (game.state.kind != Kind::hearts)
         list.push_back({"level", "Deals", GameSetting::Kind::choice,
                         static_cast<double>(levels_[static_cast<int>(game.state.kind)]),
@@ -1191,6 +1211,13 @@ std::vector<GameSetting> Table::settings() const {
 }
 void Table::change_setting(std::string_view id, double value) {
     const int choice = static_cast<int>(std::lround(value));
+    if (id == "faces") {
+        SuiteSettings next = SettingsStore::shared().values();
+        next.card_face = std::clamp(choice, 0, card_face_count - 1);
+        SettingsStore::shared().set(next);
+        reload_preferences();
+        return;
+    }
     if (id == "draw" && game.state.kind == Kind::solitaire)
         set_deal_option(choice == 1 ? 3 : 1);
     else if (id == "suits" && game.state.kind == Kind::spider)

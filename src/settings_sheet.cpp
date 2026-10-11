@@ -17,7 +17,7 @@ const gf::Color brown = rgb(140, 101, 34);
 const char* const back_names[card_back_count] = {"Sapphire clubs", "Ruby diamonds",
                                                  "Emerald hearts", "Amethyst spades",
                                                  "Sapphire lattice", "Ruby rings",
-                                                 "Forest tartan", "Midnight star"};
+                                                 "Forest tartan", "Midnight star", "Parlour rose"};
 // Master rows use these ids; a game's ids never start with "suite.".
 const std::string music_id = "suite.music", sound_id = "suite.sound",
                   reduced_id = "suite.reduced", backs_id = "suite.card_back";

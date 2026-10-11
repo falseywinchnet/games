@@ -14,13 +14,16 @@ struct SuiteSettings {
     // Slider positions, 0..1. audio_gain() turns a position into a voice gain.
     double music_volume = 1, sound_volume = 1;
     int card_back = 0; // 0..card_back_count-1, shared by every game on shared/cards
+    int card_face = 0; // 0 the painted faces, 1 the classic ones; shared like the back
     bool operator==(const SuiteSettings& other) const;
 };
-inline constexpr int card_back_count = 8;
+inline constexpr int card_back_count = 9;
+inline constexpr int card_face_count = 2;
 // The card cabinet's own field (read by older builds) holds only the four painted backs:
 // a drawn back is mirrored there as the painted one of its colour.
 [[nodiscard]] inline int cabinet_back(int back) {
-    return back < 0 ? 0 : back % 4;
+    constexpr int painted[card_back_count] = {0, 1, 2, 3, 0, 1, 2, 3, 1};
+    return back < 0 || back >= card_back_count ? 0 : painted[back];
 }
 // The gain a volume slider position gives: squared, so equal steps sound even.
 [[nodiscard]] double audio_gain(double volume);

@@ -7,6 +7,8 @@
 //   5  Ruby rings        interlocking rings, gold on deep red
 //   6  Forest tartan     a woven plaid of greens with a thin gold overcheck
 //   7  Midnight star     a compass star in a ring of small stars on violet
+//   8  Parlour rose      fine white scrollwork folded four ways about a rose medallion,
+//                        on red, in a double frame: the old parlour manner
 #include <cstddef>
 #include <vector>
 
