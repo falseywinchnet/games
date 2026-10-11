@@ -839,12 +839,16 @@ void CubeView::on_pointer(gf::PointerEvent& event) {
             const bool held = pair >= 0 && pair < static_cast<int>(session_.play.paths.size());
             const std::size_t before = held ? session_.play.paths[static_cast<std::size_t>(pair)].size() : 0;
             const int head = held && before > 0 ? session_.play.paths[static_cast<std::size_t>(pair)].back() : -1;
-            // After a hop, steps count again once the pointer reaches the far side.
+            // After a hop, steps count again once the pointer reaches the far side, or as soon as
+            // it backs onto the line short of the portal it went into: that undoes the hop.
             if (seeking_ && (cell == head || adjacent(session_.puzzle.geometry, head, cell))) {
                 seeking_ = false;
             }
             bool stepped = false;
-            if (!seeking_ && held) {
+            if (seeking_ && held && back_to(session_.puzzle, session_.play, cell)) {
+                seeking_ = false;
+                stepped = true;
+            } else if (!seeking_ && held) {
                 stepped = extend(session_.puzzle, session_.play, cell);
                 // A quick diagonal flick skips a cell: route through the free corner between.
                 if (!stepped && head >= 0) {
@@ -864,6 +868,13 @@ void CubeView::on_pointer(gf::PointerEvent& event) {
             }
             if (stepped) {
                 after_step(before, pair);
+                // Traced back through a portal, the line ends on the far side of it from the
+                // pointer: wait, as after a hop, for the pointer to come round to it.
+                const std::vector<int>& path = session_.play.paths[static_cast<std::size_t>(pair)];
+                if (!session_.play.won && !path.empty() && path.size() < before && path.back() != cell &&
+                    !adjacent(session_.puzzle.geometry, path.back(), cell)) {
+                    seeking_ = true;
+                }
             } else if (!seeking_ && held && cell != hover_ && head >= 0 &&
                        adjacent(session_.puzzle.geometry, head, cell) &&
                        owner(session_.play, cell) != pair) {

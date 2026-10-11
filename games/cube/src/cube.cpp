@@ -291,8 +291,15 @@ bool extend(const Puzzle& puzzle, Play& play, int cell) {
         if (static_cast<std::size_t>(index) + 1 == path.size()) {
             return false;
         }
-        // Tracing back over the cell where the line entered a portal undoes the hop.
-        const int keep = entered_portal(puzzle, path, index) ? index - 1 : index;
+        // Tracing back over the cell where the line entered a portal undoes the hop, and so
+        // does tracing back onto the portal it came out of: the line ends where it stood
+        // before it stepped in, and the pair is free again.
+        int keep = index;
+        if (entered_portal(puzzle, path, index)) {
+            keep = index - 1;
+        } else if (entered_portal(puzzle, path, index - 1)) {
+            keep = index - 2;
+        }
         path.resize(static_cast<std::size_t>(keep) + 1);
         return true;
     }
@@ -321,6 +328,20 @@ bool extend(const Puzzle& puzzle, Play& play, int cell) {
         return true;
     }
     path.push_back(cell);
+    return true;
+}
+
+bool back_to(const Puzzle& puzzle, Play& play, int cell) {
+    if (play.won || play.active < 0 || play.active >= static_cast<int>(play.paths.size())) {
+        return false;
+    }
+    std::vector<int>& path = play.paths[static_cast<std::size_t>(play.active)];
+    const int index = position(path, cell);
+    if (index < 0 || static_cast<std::size_t>(index) + 2 >= path.size()) {
+        return false;
+    }
+    const int keep = entered_portal(puzzle, path, index) ? index - 1 : index;
+    path.resize(static_cast<std::size_t>(keep) + 1);
     return true;
 }
 

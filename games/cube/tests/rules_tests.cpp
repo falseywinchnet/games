@@ -122,6 +122,13 @@ void test_rules() {
     require(press(puzzle, play, cell_at(4, 1, 2, 0)) && play.paths[1].size() == 3 &&
                 play.paths[1].back() == cell_at(4, 2, 2, 3),
             "a press on the portal it entered continues from the far side");
+    require(extend(puzzle, play, cell_at(4, 2, 1, 3)) && extend(puzzle, play, cell_at(4, 2, 2, 3)) &&
+                play.paths[1].size() == 1 && portal_owner(puzzle, play, 0) == -1,
+            "tracing back onto the portal it came out of undoes the hop and frees the pair");
+    require(extend(puzzle, play, cell_at(4, 1, 2, 0)) && play.paths[1].size() == 3 &&
+                !back_to(puzzle, play, cell_at(4, 1, 2, 0)) && back_to(puzzle, play, cell_at(4, 1, 3, 0)) &&
+                play.paths[1].size() == 1 && portal_owner(puzzle, play, 0) == -1,
+            "backing off a portal just gone into undoes the hop");
     // A path may never pass over a portal as an ordinary cell.
     std::vector<int> through{cell_at(4, 1, 3, 0), cell_at(4, 1, 2, 0), cell_at(4, 1, 1, 0)};
     require(!path_legal(puzzle, through, 1), "a portal is not an ordinary cell");

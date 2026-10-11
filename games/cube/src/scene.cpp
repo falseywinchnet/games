@@ -404,6 +404,26 @@ void draw_portal(Drawing& drawing, const Camera& camera, Point3 center, Point3 u
     }
 }
 
+// How far a square on a line shows its colour, 0 to 1: the newest square fades in as the
+// line grows onto it, and in the finale the squares give their colour up from the far end
+// back to the square the line began from. A line traced back to its start shows none.
+double trace_tint(const Motion& motion, const Play& play, int pair, int cell) {
+    const std::vector<int>& path = play.paths[static_cast<std::size_t>(pair)];
+    const int count = static_cast<int>(path.size());
+    const int at = static_cast<int>(std::find(path.begin(), path.end(), cell) - path.begin());
+    if (count <= 1 || at >= count) {
+        return 0;
+    }
+    const double shown = line_shown(motion, pair);
+    if (shown <= 0) {
+        return 0;
+    }
+    if (shown < 1) {
+        return std::clamp(shown * (count - 1) - (at - 1), 0.0, 1.0);
+    }
+    return at == count - 1 ? std::clamp(growth(motion, pair), 0.0, 1.0) : 1.0;
+}
+
 }  // namespace
 
 Rgba pair_color(int pair) {
@@ -584,14 +604,19 @@ void draw_cube(Drawing& drawing, const Puzzle& puzzle, const Play& play, const M
                  hot ? Rgba{150, 190, 196} : Rgba{70, 104, 112}, .45, 3, 0, cell);
             continue;
         }
-        // A tile a line runs over takes on the line's colour faintly, the glass tinted from
-        // within, so the line itself can stay slim.
+        // A square a line is drawn through takes on the line's colour faintly, the glass
+        // tinted from within: the trace is the coloured squares, with nothing laid over them.
         const int on = owner(play, cell);
         Rgba glass = hot ? Rgba{255, 236, 170} : Rgba{190, 226, 222};
         double reflect = hot ? .55 : .86;
-        if (on >= 0 && !hot && line_shown(motion, on) >= 1) {
-            glass = mix(glass, pair_color(on), .42);
-            reflect = .72;
+        const double traced = on >= 0 && !hot ? trace_tint(motion, play, on, cell) : 0;
+        if (traced > 0) {
+            const std::vector<int>& path = play.paths[static_cast<std::size_t>(on)];
+            const double at = static_cast<double>(std::find(path.begin(), path.end(), cell) - path.begin());
+            const double glow = line_glow(motion, on, path.size() > 1 ? at / static_cast<double>(path.size() - 1) : 0);
+            const Rgba colour = mix(pair_color(on), Rgba{255, 255, 250}, glow * .62);
+            glass = mix(glass, colour, .6 * traced);
+            reflect = .86 - .28 * traced;
         }
         quad(drawing, camera, origin, scaled(u, 2 * tile), scaled(v, 2 * tile), n, glass, reflect, 3, 0, cell);
     }
@@ -641,134 +666,6 @@ void draw_cube(Drawing& drawing, const Puzzle& puzzle, const Play& play, const M
             const Projected a = camera.project(corners[k]);
             const Projected b = camera.project(corners[(k + 1) % 4]);
             stroke(drawing, a.x, a.y, b.x, b.y, bevel, Rgba{214, 240, 236, 235}, -1);
-        }
-    }
-    // The lines ride on the surface; a step between faces folds through the shared edge,
-    // and a hop through a portal leaves a gap between the two wells. They are laid in the
-    // faces' own planes, so stone blocks beside them hide them where they should.
-    const double width3d = half * .6;
-    // The fill (nearer) before the dark edge under it.
-    for (int pass = 1; pass >= 0; --pass) {
-        for (std::size_t pair = 0; pair < play.paths.size(); ++pair) {
-            const std::vector<int>& path = play.paths[pair];
-            const int count = static_cast<int>(path.size());
-            // A line traced back to its start is no line: its square shows as it was.
-            if (count <= 1) {
-                continue;
-            }
-            double grow = growth(motion, static_cast<int>(pair));
-            int last_step = count - 1;
-            if (count >= 2 && !adjacent(puzzle.geometry, path[static_cast<std::size_t>(count - 2)],
-                                        path[static_cast<std::size_t>(count - 1)])) {
-                last_step = count - 2;  // the newest step went into a portal
-            }
-            // The finale unwinds each line back toward the square it began from.
-            const double shown = line_shown(motion, static_cast<int>(pair));
-            if (shown <= 0) {
-                continue;
-            }
-            if (shown < 1) {
-                const double reach = shown * (count - 1);
-                last_step = static_cast<int>(std::floor(reach)) + 1;
-                grow = reach - std::floor(reach);
-                if (last_step > count - 1) {
-                    last_step = count - 1;
-                    grow = 1;
-                }
-                if (grow <= 0) {
-                    grow = 1e-6;
-                }
-            }
-            for (int j = 0; j < count; ++j) {
-                const int b = path[static_cast<std::size_t>(j)];
-                const int face_b = b / (side * side);
-                const double along = count > 1 ? j / static_cast<double>(count - 1) : 0;
-                const double glow = line_glow(motion, static_cast<int>(pair), along);
-                const Rgba base = pair_color(static_cast<int>(pair));
-                const Rgba fill = mix(base, Rgba{255, 255, 250}, glow * .62);
-                const Rgba color = pass == 0 ? shade(base, .45) : fill;
-                const double radius = (pass == 0 ? width3d * .62 : width3d * .5) * (1 + .3 * glow);
-                const double bias = pass == 0 ? -.004 : -.014;
-                const Point3 cb = cell_center(side, b);
-                const bool partial = j == last_step && grow < 1 && j > 0;
-                const bool after_partial = j > last_step && grow < 1;
-                Point3 ub;
-                Point3 vb;
-                face_axes(face_b, ub, vb);
-                const Point3 nb = face_normal(face_b);
-                if (after_partial || j == 0 || !adjacent(puzzle.geometry, path[static_cast<std::size_t>(j - 1)], b)) {
-                    // A start gets a round end; the far side of a portal shows its well, which
-                    // has taken the line's colour, so nothing is drawn over it.
-                    if (j == 0 && visible[static_cast<std::size_t>(face_b)]) {
-                        ring(drawing, camera, cb, ub, vb, nb, 0, radius, .004, color, bias, b, false);
-                    }
-                    continue;
-                }
-                const int a = path[static_cast<std::size_t>(j - 1)];
-                const int face_a = a / (side * side);
-                const Point3 ca = cell_center(side, a);
-                // Points along the step: through the fold when it crosses an edge.
-                Point3 points[3] = {ca, cb, cb};
-                int faces_of[2] = {face_a, face_b};
-                int point_count = 2;
-                if (face_a != face_b) {
-                    points[1] = add(ca, scaled(nb, 1 - dot(ca, nb)));
-                    points[2] = cb;
-                    point_count = 3;
-                }
-                const double reach = partial ? grow * (point_count - 1) : point_count - 1;
-                for (int k = 0; k + 1 < point_count; ++k) {
-                    if (reach <= k) {
-                        break;
-                    }
-                    const double t = std::min(1.0, reach - k);
-                    const int face = point_count == 2 ? face_b : faces_of[k];
-                    if (!visible[static_cast<std::size_t>(face)]) {
-                        continue;
-                    }
-                    const Point3 n = face_normal(face);
-                    Point3 u;
-                    Point3 v;
-                    face_axes(face, u, v);
-                    Point3 from = points[k];
-                    const Point3 delta = add(points[k + 1], scaled(from, -1));
-                    Point3 to = add(from, scaled(delta, t));
-                    // A line meets a portal at its rim, leaving the well in view.
-                    const double step = std::sqrt(dot(delta, delta));
-                    const bool into_portal = k + 2 == point_count && t >= 1 &&
-                                             puzzle.tiles[static_cast<std::size_t>(b)] == Tile::portal;
-                    const bool out_of_portal = k == 0 && puzzle.tiles[static_cast<std::size_t>(a)] == Tile::portal &&
-                                               j >= 2 && !adjacent(puzzle.geometry, path[static_cast<std::size_t>(j - 2)], a);
-                    if (into_portal && step > 1e-9) {
-                        to = add(to, scaled(delta, -half * .78 / step));
-                    }
-                    if (out_of_portal && step > 1e-9) {
-                        from = add(from, scaled(delta, half * .78 / step));
-                    }
-                    // Across the line, in the face's plane.
-                    Point3 across{n.y * delta.z - n.z * delta.y, n.z * delta.x - n.x * delta.z,
-                                  n.x * delta.y - n.y * delta.x};
-                    const double length = std::sqrt(dot(across, across));
-                    if (length < 1e-9) {
-                        continue;
-                    }
-                    across = scaled(across, radius / length);
-                    const Point3 lift = scaled(n, .004);
-                    const Point3 corners[4] = {add(add(from, across), lift), add(add(to, across), lift),
-                                               add(add(to, scaled(across, -1)), lift),
-                                               add(add(from, scaled(across, -1)), lift)};
-                    facet(drawing, camera, corners, color, bias, b);
-                    // No round joint on the fold itself: half of it would hang past the
-                    // cube's edge, and the two halves already meet there.
-                    const bool at_fold = point_count == 3 && k == 0 && t >= 1;
-                    if (!into_portal && !at_fold) {
-                        ring(drawing, camera, to, u, v, n, 0, radius, .004, color, bias, b, false);
-                    }
-                    if (k == 0 && !out_of_portal) {
-                        ring(drawing, camera, from, u, v, n, 0, radius, .004, color, bias, b, false);
-                    }
-                }
-            }
         }
     }
 }
