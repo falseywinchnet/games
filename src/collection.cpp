@@ -8,6 +8,13 @@
 #include <fstream>
 namespace games {
 namespace {
+void repaint_tree(gf::Control& control) {
+    control.invalidate(gf::Dirty::paint);
+    for (const std::shared_ptr<gf::Control>& child : control.children())
+        repaint_tree(*child);
+}
+} // namespace
+namespace {
 std::filesystem::path entry_path() {
     return cabinet_path().parent_path() / "playsuite-entry.txt";
 }
@@ -159,9 +166,9 @@ void Collection::tick() {
     if (gf::Window* window = attached_window())
         set_polygon_scale((*window).scale());
     if (gf::Window* window = attached_window(); window && sprites_.update(*window)) {
-        (*shelf_).invalidate(gf::Dirty::paint);
-        for (const std::shared_ptr<gf::Control>& child : (*shelf_).children())
-            (*child).invalidate(gf::Dirty::paint);
+        // New lettering: every control that may paint it, however deep (the boxes sit in
+        // the shelf's rows), or the ones not hovered keep the stand-in face.
+        repaint_tree(*shelf_);
         (*capsule_).set_maximum_width(capsule_width_limit_);
         (*capsule_).invalidate(gf::Dirty::paint);
         invalidate(gf::Dirty::layout);
