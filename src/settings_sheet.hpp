@@ -133,6 +133,7 @@ class SettingsSheet final : public gf::Control, public render::StillOverlay {
     std::array<gf::ImageId, card_back_count> backs_{};
     std::string title_;
     gf::Rect paper_{};
+    PaperSheet sheet_;
     void clicked_close();
     void on_attached_to_window() override;
     void load_backs();

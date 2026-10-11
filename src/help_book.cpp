@@ -256,6 +256,10 @@ void HelpBook::clicked_close() {
         close();
 }
 void HelpBook::select(int entry, std::string_view topic) {
+    // The paper is made the first time the book is shown, not when the suite opens.
+    gf::Window* window = attached_window();
+    if (window != nullptr)
+        sheet_.prepare(*window);
     (*pages_).select(entry, topic);
 }
 void HelpBook::arrange(gf::Rect bounds) {
@@ -263,9 +267,12 @@ void HelpBook::arrange(gf::Rect bounds) {
     set_child_layout(close_, {bounds.width - 48, 9, 36, 36});
     set_child_layout(pages_, {20, 62, bounds.width - 36, bounds.height - 82});
 }
+void HelpBook::on_detaching_from_window(gf::Window& window) noexcept {
+    sheet_.release(window);
+}
 void HelpBook::on_paint(gf::Painter& p, gf::Rect) {
     const gf::Rect b = client_rectangle();
-    p.fill_rect(b, gf::Color::rgba(255, 252, 215));
+    sheet_.paint(p, b);
     p.stroke_rect(b, gf::Color::rgba(153, 137, 78), 1);
     p.draw_text_utf8({20, 36}, "PlaySuite · Help", {gf::FontRole::content, 24, 600, false},
                      gf::Color::rgba(42, 38, 24));

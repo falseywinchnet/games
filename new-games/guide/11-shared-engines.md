@@ -86,8 +86,37 @@ game whose sounds the engine plays may omit `audio_adapter`.
 
 ## The engines
 
+Each engine's README is its guide: what it makes, its interface, what it costs, and its
+limits. Read the one you build on before writing a line.
+
+**Drawing**
+
 | Engine | For | Games |
 |---|---|---|
-| [`ambient`](../../shared/ambient/README.md) | Living scenes drawn on the processor alone: retained 3D scenery, swaying foliage, creatures, animated light, all under a measured CPU budget | Stillwater |
-| [`grass`](../../shared/grass/README.md) | Whole-lawn pictures grown blade by blade: long grass with wildflowers, mown turf, bark mulch and canopies, in any season | Mowing, Catching Thieves |
-| [`soil`](../../shared/soil/README.md) | Garden ground painted once per scene and size: clods and crumbs with soft self-shadowing, rows, stones, straw and leaves, damp, cracks, frost and snow, as repeating surfaces or the spoil round a hole | Catching Thieves |
+| [`render`](../../shared/render/README.md) | The suite's one renderer. 2D: a vector `Canvas` (paths, curves, gradients, strokes, masks) and r2d's pixel operations (restore, fill, tint, mask, rounded, over). 3D: the r3d rasteriser (fixed-point edges, depth before shading, scissor, picking ids), the low-resolution `Renderer` (isometric or perspective camera, textured and lit triangles, toon light, shadows, dithered present) and one mesh library. `Surface` and `PixelSurface` draw straight into the window's live buffers and repair only what changed. | Thirteen: every game that draws its own pixels |
+| [`ambient`](../../shared/ambient/README.md) | Living 3D scenes on the processor alone: retained fixed scenery, foliage swaying in a current, creatures on analytic routes, caustics and animated light, under a measured CPU budget, with a complete `AmbientView` | Stillwater, Nature Cube, Koi-Koi, Mowing |
+
+**Materials** (painters: each returns a picture, deterministic from a seed, made once and kept)
+
+| Engine | For | Games |
+|---|---|---|
+| [`grass`](../../shared/grass/README.md) | Whole-lawn pictures grown blade by blade: long grass with wildflowers, mown turf laid each way, bark mulch, beds and tree canopies, in any season. Tenths of a second, every core. | Mowing, Catching Thieves, Pen the Sheep |
+| [`soil`](../../shared/soil/README.md) | Garden ground: clods and crumbs with soft self-shadowing, rows and rake lines, stones, straw and leaves, damp, cracks, frost and snow, as repeating surfaces or the spoil round a hole. Milliseconds. | Catching Thieves |
+| [`paper`](../../shared/paper/README.md) | Paper: mottling, tooth, grain, fibres, laid and chain lines, parchment blotches, a gutter shadow; seven presets from India paper to kraft; seamless tiles or whole sheets, sized in points for any display scale. A millisecond a tile. | The shell's help and Settings sheets; any game with a page, label or parcel |
+| [felt](../../shared/felt/README.md) (`shared/felt`, not an engine: linked once by the suite) | Fibre-rendered cloth with real pile and sheen, twelve presets. About a second a tile, so rendered once at attach time. | The card games, Koi-Koi |
+
+**Brains**
+
+| Engine | For | Games |
+|---|---|---|
+| [`coverage`](../../shared/coverage/README.md) | The path-planning and path-fitting AI for a machine that must cover ground: a simulated scanner and a belief map, germs that own ground geodesically, a menu of laps, stripes and tufts, one planned tape at a time, and tractor steering with fitted curves and planned reverses. Deterministic. | Mowing (passive mode and whenever the player lets go) |
+
+**Music and sound** (authoring, not engines: a game's audio is rendered or synthesized by its own code)
+
+| System | For | Where |
+|---|---|---|
+| [PlaySuite music](../../authoring/playsuite_music/README.md) | The offline synthesizer and sequencer the collection's music is written in: polyBLEP oscillators, filters, forty-odd instruments, a melody notation, chord symbols, drum grids, arranging helpers, a mastering chain (reverb, bus compression, BS.1770 loudness, true-peak limiting, seamless loop folding) and the `integrate.py` packager. A new game's score is a `song_*.cpp` beside the others, rendered with `playsuite_music render` and packaged with `integrate.py`. It also renders the card handling sounds (`sfx`). | `authoring/playsuite_music/` |
+| Live synthesis | Sound made as it plays, when synthesis is faster than real time: `SoundDesk::live` and `live_music` voices on `games::PcmPlayer`, as Nature Cube's music, Stillwater's ambience and Mowing's machines do. The kit's `make_sfx.py` and `games/zenconstruction/audio_src/engine/synth.py` are the offline starting points. | `src/scene_audio.*`, `src/pcm_player.*`, each game's `audio_src/` |
+
+The shell's own controls, and the concise way to write them, are in
+[controls](12-controls.md).

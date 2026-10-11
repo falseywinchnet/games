@@ -103,8 +103,10 @@ For anything that runs per pixel, per cell or per body:
 ## Callbacks and threads
 
 - A callback has a named target and explicit context: a member function bound
-  with `gf::Delegate<>::bind<View, &View::tick>(*this)`, with the subscription
-  token kept by the object so it disconnects when the object goes.
+  with `gf::on(event, *this, &View::tick)`, whose subscription the owner holds and
+  revokes when it is disposed. Controls made in a loop bind an index, never a
+  pointer search. `subscribe` with a kept token is for a connection that must be
+  cancelled on its own. See [controls](12-controls.md).
 - `std::function` only where a callable must be stored and owned, with a named
   target.
 - Asynchronous work is named, has a completion the owner polls, and is waited

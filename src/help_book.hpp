@@ -2,6 +2,7 @@
 #include "overlays.hpp"
 #include "gui_forms/controls/button_base/link_label/link_label.hpp"
 #include "gui_forms/controls/scrollable_control/scrollable_control.hpp"
+#include "paper_sheet.hpp"
 #include "suite.hpp"
 #include <functional>
 namespace games {
@@ -58,6 +59,8 @@ class HelpBook final : public gf::Control, public render::StillOverlay {
   private:
     std::shared_ptr<HelpPages> pages_;
     std::shared_ptr<HelpGlyph> close_;
+    PaperSheet sheet_;
     void clicked_close();
+    void on_detaching_from_window(gf::Window& window) noexcept override;
 };
 } // namespace games

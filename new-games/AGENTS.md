@@ -66,7 +66,9 @@ Run heavy builds through the root `AGENTS.md` host instructions.
 Read [the shell](guide/04-the-shell.md), [primitives](guide/07-primitives.md) and
 [performance](guide/05-performance.md). A game built on a shared engine supplies
 that engine's data and interface; read its README and
-[shared engines](guide/11-shared-engines.md).
+[shared engines](guide/11-shared-engines.md), which indexes every reusable system
+(the renderer, scenes, the grass, soil, paper and felt materials, the coverage
+brain, music). A panel built from GUI.Forms controls follows [controls](guide/12-controls.md).
 
 - `module.cpp`: the factory, using `games::HostedGameInstance<View>` or a
   module-owned `GameInstance`.

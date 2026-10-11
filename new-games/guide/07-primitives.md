@@ -135,7 +135,10 @@ Some machinery is shared rather than copied: a game declares the engine in
 
 | Engine | What it gives you |
 |---|---|
+| [`render`](../../shared/render/README.md) | The suite's renderer: the 2D `Canvas` and r2d, the r3d rasteriser and low-resolution `Renderer`, the mesh library, and the `Surface`/`PixelSurface` that draw straight into the window. Every new game that draws its own pixels declares it; the `Canvas` in `src/platform/raster.hpp` above is the kit's copy of its 2D half. |
 | [`ambient`](../../shared/ambient/README.md) | Living 3D scenes on the processor alone: retained fixed scenery, foliage swaying in a current, creatures on routes with startles, animated light, a CPU budget governor, and a complete PlaySuite view (`AmbientView`) with pause, detail, help, taps and sound. A scene game supplies an archive and a `Look`. |
+| [`grass`](../../shared/grass/README.md), [`soil`](../../shared/soil/README.md), [`paper`](../../shared/paper/README.md) | Materials: lawns, garden ground and paper, each a deterministic picture made once and kept. |
+| [`coverage`](../../shared/coverage/README.md) | A path-planning brain for a machine that covers ground. |
 
 ## The headless harness (`new-games/kit/`)
 
@@ -160,12 +163,12 @@ record the source in `HANDOFF.md`. Take the newest copy; older ones lack fixes.
 
 | What | Newest copy | Notes |
 |---|---|---|
-| Software 3D renderer | `games/zenconstruction/src/platform/r3d.*` | Orthographic or perspective camera, z-buffer, textured triangles with nearest sampling and mip levels, Gouraud or toon lighting, fog, cut-out and translucent materials, sun shadows, low-resolution output with dithered upscale (`present`). `project` and `unproject_plane` for picking. This copy fills in bands on worker threads; if you do not need that, `games/penthesheep/src/platform/r3d.*` is the single-threaded version. |
-| Mesh helpers | `games/zenconstruction/src/platform/mesh.*` | Sphere, hemisphere, cylinder, cone, box, disc, torus, star, lumpy rock; `draw_mesh`, inverted-hull `draw_outline`, `tint` |
+| Software 3D renderer and mesh helpers | Do not copy: declare the [`render`](../../shared/render/README.md) engine | `shared/render` holds the one r3d, `Renderer` and mesh library (sphere, cylinder, cone, box, torus, star, rock; `draw_mesh`, `draw_outline`, `tint`). The copies in `games/zenconstruction` and `games/penthesheep` predate it. |
 | Procedural textures, ground, plants, creatures | `games/eggy/src/textures.*`, `ground.*`, `flora.*`, `critters.*` | Generated, tileable |
 | Character posing and faces | `games/switchbox/src/` (`girl.*`, `face.*`, `actor.*`) | A jointed, expressive 3D character with speech timing |
 | Speech lines and typewriter text | `games/switchbox/src/platform/lines.*` | Line pools and reveal timing |
-| Felt and cloth | `shared/felt/carpet.*`, `image.*` | Fibre-rendered felt (`paint::render_carpet_tile`), under its own MIT license. This one is linked once by the suite; use it through `paint::` as `games/koikoi` does, do not copy it. |
+| Felt and cloth | [`shared/felt`](../../shared/felt/README.md) | Fibre-rendered felt (`paint::render_carpet_tile`), under its own MIT license. This one is linked once by the suite; use it through `paint::` as `games/koikoi` does, do not copy it. About a second a tile: render once at attach time. |
+| Paper | Declare the [`paper`](../../shared/paper/README.md) engine | Seamless tiles or whole sheets of book, laid, India, parchment, rag, kraft or night paper in a millisecond, sized in points for any display scale. The shell prints its help and Settings sheets on it (`src/paper_sheet.*`). |
 | Card finish | `games/koikoi/src/card_finish.*` | The lit, slightly raised card look |
 | Rigid-body physics | `games/zenconstruction/phys/` | Convex hulls, friction, sleeping, deterministic. Read `games/zenconstruction/PHYSICS_SPEC.md` and `phys/NOTES.md` first. |
 | Hex-grid puzzle generation with a proving solver | `games/penthesheep/src/field.*` | The pattern for "generate, then prove solvable" |
@@ -207,7 +210,8 @@ A view uses a small part of it, all visible in the template:
 | `gf::Control` | Base class: `arrange`, `on_paint`, `on_pointer`, `on_key`, `on_attached_to_window`, `on_detaching_from_window`, `visible`, `invalidate`, `set_cursor`, `point_from_window`, `client_rectangle` |
 | `gf::LiveSurface` | The game's pixels: `create`, `reconfigure`, `try_acquire_write` returning a lease with `pixels`, `row_bytes`, `publish` |
 | `gf::Window` | `scale`, `request_focus`, `queue_live_surface_presentation`, `active`, `occluded` |
-| `gf::Timer` | `start`, `stop`, `enabled`, `interval`, `set_interval`, and a `tick()` event bound with `gf::Delegate<>::bind` |
+| `gf::Timer` | `start`, `stop`, `enabled`, `interval`, `set_interval`, and a `tick()` event bound with `gf::on(timer.tick(), *this, &View::tick)` |
+| `gf::on`, `gf::Command`, `gf::Value<T>` | Named handlers, and state that controls bind to; see [controls](12-controls.md) |
 | `gf::PointerEvent`, `gf::KeyEvent`, `gf::PhysicalKey` | Input |
 | `gf::Painter` | Only for `draw_live_surface` in `on_paint`, and for the emblem |
 

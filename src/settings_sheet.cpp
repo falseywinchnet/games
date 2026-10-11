@@ -468,11 +468,15 @@ void SettingsSheet::initialize_control_tree() {
     add_child(close_);
 }
 void SettingsSheet::on_attached_to_window() {
-    // The backs are loaded the first time the sheet is shown, not when the suite opens.
+    // The backs and the paper are made the first time the sheet is shown, not when the
+    // suite opens.
 }
 void SettingsSheet::load_backs() {
     gf::Window* window = attached_window();
-    if (window == nullptr || backs_[painted_back_count].value)
+    if (window == nullptr)
+        return;
+    sheet_.prepare(*window);
+    if (backs_[painted_back_count].value)
         return;
     draw_card_backs();
     for (int i = 0; i < card_back_count; ++i) {
@@ -499,6 +503,7 @@ void SettingsSheet::load_backs() {
     (*page_).set_card_back_images(backs_);
 }
 void SettingsSheet::on_detaching_from_window(gf::Window& window) noexcept {
+    sheet_.release(window);
     for (gf::ImageId& image : backs_)
         if (image.value) {
             static_cast<void>(window.remove_image(image));
@@ -547,7 +552,7 @@ void SettingsSheet::on_paint(gf::Painter& p, gf::Rect) {
     p.fill_rect(b, rgb(8, 10, 18, 120));
     const gf::Rect r = paper_;
     p.draw_box_shadow(r, 4, {0, 8}, 24, 0, rgb(0, 0, 0, 110));
-    p.fill_rect(r, rgb(255, 252, 215));
+    sheet_.paint(p, r);
     p.stroke_rect(r, rgb(153, 137, 78), 1);
     const std::string heading = title_.empty() ? std::string("Settings") : title_ + " · Settings";
     p.draw_text_utf8({r.x + 20, r.y + 36}, heading, {gf::FontRole::content, 24, 600, false}, ink);

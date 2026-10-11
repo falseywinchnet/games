@@ -231,3 +231,16 @@ enlarging copy.
    overlay-plane controls over the damage. Doing it in the toolkit, for generations whose
    damage meets an overlay rectangle, would serve translucent overlays in other
    applications too; opaque ones would pay a repaint they do not need.
+## Text over paper (found with the paper engine, 2026-10-11)
+
+The help document and the Settings screen are now printed on a generated paper tile
+(`shared/paper`, drawn with `fill_image_pattern`). One finding for the painter:
+
+1. **Linear-light glyph blending with a fixed correction.** Dark text blended in sRGB
+   over a light, textured ground comes out thinner than the same text on a flat fill,
+   because the coverage ramp is applied to gamma-encoded values. The Pocket Bible
+   interview (its typography section, F009) settled on blending glyph coverage in
+   linear light with a fixed, measured correction so that dark-on-light text keeps its
+   weight; greyscale antialiasing (F007) composes correctly over paper where subpixel
+   rendering would fringe. A `Painter` or text-mask option for linear-light compositing
+   would let both applications share it. PlaySuite carries no stand-in.
