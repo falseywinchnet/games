@@ -93,7 +93,7 @@ Previews do not prove native behaviour. Build the application
 ```
 
 A script is lines of `<milliseconds> <operation>`, ending in `quit`. Operations:
-`key`, `click X Y`, `resize W H`, `help`, `command <id>`, `action <value>`,
+`key`, `click X Y`, `down X Y`, `up X Y`, `resize W H`, `help`, `command <id>`, `action <value>`,
 `capture <file.ppm>`, and, when hosted, `shelf` and `open <id>`. `--dev` keeps
 saves temporary. Add module actions to reach hard states; refuse them outside
 `--dev`.

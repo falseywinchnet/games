@@ -110,6 +110,12 @@ struct RunTick final {
             static_cast<void>((*window).dispatch_pointer(pointer));
             pointer.action = gf::PointerAction::up;
             static_cast<void>((*window).dispatch_pointer(pointer));
+        } else if (action.verb == "down" || action.verb == "up") {
+            // a press held across script lines, for controls that act when held
+            gf::PointerEvent pointer{};
+            pointer.position = {action.x,action.y}; pointer.button = gf::PointerButton::primary;
+            pointer.action = action.verb == "down" ? gf::PointerAction::down : gf::PointerAction::up;
+            static_cast<void>((*window).dispatch_pointer(pointer));
         } else if (action.verb == "hover") {
             gf::PointerEvent pointer{};
             pointer.position = {action.x,action.y}; pointer.action = gf::PointerAction::move;

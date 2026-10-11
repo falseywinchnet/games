@@ -35,8 +35,6 @@ constexpr std::uint32_t kKeyShiftLeft = 0xE1, kKeyShiftRight = 0xE5;
 const Col kInk = hex(0x2A241E);
 const Col kPaper = hex(0xFBF6EA);
 const Col kTimber = hex(0x8A6440);
-const Col kYellow = hex(0xF7BC1E);
-const Col kShade = hex(0x000000, .35f);
 
 std::string save_path(bool dev) {
     const char* name = dev ? "zen_construction-dev-v1.txt" : "zen_construction-v1.txt";
@@ -126,6 +124,7 @@ void ZenView::on_attached_to_window() {
     subs_.push_back((*timer_).tick().subscribe(*this, gf::Delegate<>::bind<ZenView, &ZenView::tick>(*this)));
     last_ = std::chrono::steady_clock::now();
     (*timer_).start();
+    hud_panel_ = -1;  // a panel already open takes the keyboard now there is a window
 }
 
 void ZenView::on_detaching_from_window(gf::Window&) noexcept {
@@ -159,9 +158,16 @@ void ZenView::set_cabinet(bool foreground, bool music, bool sound, bool reduced)
 
 void ZenView::arrange(gf::Rect bounds) {
     arrange_self(bounds);
+    const double scale = attached_window() ? (*attached_window()).scale() : 1.0;
+    // The controls ask for layout as they change; the scene is resized only with the window.
+    if (sized_ && bounds.width == W_ && bounds.height == H_ && scale == bs_) {
+        layout_hud();
+        return;
+    }
+    sized_ = true;
     W_ = bounds.width;
     H_ = bounds.height;
-    bs_ = attached_window() ? (*attached_window()).scale() : 1.0;
+    bs_ = scale;
     phys_w_ = std::max(1, static_cast<int>(std::lround(W_ * bs_)));
     phys_h_ = std::max(1, static_cast<int>(std::lround(H_ * bs_)));
     frame_.resize(phys_w_, phys_h_);
@@ -180,7 +186,9 @@ void ZenView::arrange(gf::Rect bounds) {
         d.opaque = true;  // every pixel is drawn opaque: the window copies, never blends
         static_cast<void>(surface_->reconfigure(d));
     }
-    layout_buttons();
+    hud_key_.clear();
+    update_hud();
+    layout_hud();
     want_render_ = true;
 }
 
@@ -202,7 +210,6 @@ void ZenView::start_new_site(const std::string& company, std::uint32_t seed) {
     pending_new_ = true;
     play("zc_reset", .8f);
     panel_ = Panel::none;
-    layout_buttons();
 }
 
 void ZenView::start_over() {
@@ -213,7 +220,6 @@ void ZenView::start_over() {
     pending_new_ = false;
     run_.reset();
     play("zc_reset", .8f);
-    layout_buttons();
 }
 
 void ZenView::adopt_pending() {
@@ -241,7 +247,6 @@ void ZenView::adopt_pending() {
     set_mood(OperatorMood::cheering, 1.5);
     dirty_save_ = true;
     persist();
-    layout_buttons();
 }
 
 void ZenView::switch_site(int index) {
@@ -264,7 +269,6 @@ void ZenView::switch_site(int index) {
     hover_rock_ = -1;
     dirty_save_ = true;
     play("zc_click", .5f);
-    layout_buttons();
 }
 
 // The current site's latest quiet arrangement into its record.
@@ -669,24 +673,22 @@ void ZenView::tick() {
     }
     if (say_.age < say_.life) {
         say_.age += dt;
-        want_render_ = true;
     }
     say_cooldown_ = std::max(0.0, say_cooldown_ - dt);
-    // The name field's caret blinks: a frame when it turns on or off, none between.
-    if (panel_ == Panel::new_site && (std::fmod(t_, 1.0) < 0.55) != caret_on_) {
-        want_render_ = true;
-    }
-    if (!pressed_.empty() && pressed_ == "reset" && hover_button_ == "reset") {
+    if (hud_.reset && (*hud_.reset).holding() && !hold_spent_) {
         hold_reset_ += dt;
-        want_render_ = true;
         if (hold_reset_ >= 1.6) {
-            pressed_.clear();
             hold_reset_ = 0;
+            hold_spent_ = true;
             start_over();
         }
     } else {
         hold_reset_ = 0;
+        if (!hud_.reset || !(*hud_.reset).pressed_visual()) {
+            hold_spent_ = false;
+        }
     }
+    update_hud();
     audio_music(front ? "zc_music" : "", (options_.hosted || music_) && cab_music_ && cab_front_);
     step_sound(dt);
     audio_tick(dt);
@@ -767,7 +769,10 @@ void ZenView::action(const std::string& id) {
         music_ = !music_;
         dirty_save_ = true;
     } else if (id == "start") {
-        start_new_site(name_entry_, seed_entry_);
+        // Enter in the name field and the button may both ask
+        if (panel_ == Panel::new_site) {
+            start_new_site(name_entry_, seed_entry_);
+        }
     } else if (id == "reroll") {
         seed_entry_ = fresh_seed();
     } else if (id == "release") {
@@ -787,21 +792,49 @@ void ZenView::action(const std::string& id) {
     } else if (id == "next") {
         switch_site(current_ + 1);
     }
-    layout_buttons();
+    update_hud();
     want_render_ = true;
+}
+
+void ZenView::clicked(int index) {
+    const std::string& id = button_ids_[static_cast<size_t>(index)];
+    if (id == "reset") {
+        return;  // it acts when held, not when clicked
+    }
+    if (id == "cancel") {
+        action("close");
+    } else if (id.rfind("row", 0) == 0) {
+        action("site" + std::to_string(hud_.first_row + std::atoi(id.c_str() + 3)));
+    } else {
+        action(id);
+    }
+    // the keys steer the crane again
+    if (panel_ == Panel::none) {
+        activate();
+    }
+}
+
+void ZenView::name_changed(const std::string& text) {
+    if (text.size() > name_entry_.size()) {
+        play("ui_name_key_0" + std::to_string(1 + (static_cast<int>(text.size()) % 3)), .55f);
+    } else if (text.size() < name_entry_.size()) {
+        play("ui_name_backspace", .6f);
+    }
+    name_entry_ = text;
+}
+
+void ZenView::name_committed(const std::string&) { action("start"); }
+
+void ZenView::name_cancelled() {
+    if (run_) {
+        action("close");
+    }
 }
 
 void ZenView::on_pointer(gf::PointerEvent& e) {
     const gf::Point local = point_from_window(e.position);
     mx_ = local.x;
     my_ = local.y;
-    std::string hit;
-    for (size_t i = 0; i < buttons_.size(); i += 1) {
-        const Button& b = buttons_[i];
-        if (b.enabled && mx_ >= b.x && mx_ < b.x + b.w && my_ >= b.y && my_ < b.y + b.h) {
-            hit = b.id;
-        }
-    }
     if (e.action == gf::PointerAction::wheel) {
         if (panel_ == Panel::none) {
             camera_.distance = std::clamp(camera_.distance * std::exp(-e.wheel_delta.y * 0.06), 0.7, 4.5);
@@ -812,10 +845,6 @@ void ZenView::on_pointer(gf::PointerEvent& e) {
         return;
     }
     if (e.action == gf::PointerAction::move) {
-        if (hit != hover_button_) {
-            hover_button_ = hit;
-            want_render_ = true;
-        }
         if (dragging_) {
             const double dx = mx_ - drag_x_;
             const double dy = my_ - drag_y_;
@@ -830,16 +859,12 @@ void ZenView::on_pointer(gf::PointerEvent& e) {
         } else {
             update_hover();
         }
-        set_cursor(!hit.empty() || hover_ok_ ? gf::CursorKind::hand : gf::CursorKind::arrow);
+        set_cursor(hover_ok_ ? gf::CursorKind::hand : gf::CursorKind::arrow);
         return;
     }
     if (e.action == gf::PointerAction::down) {
-        activate();
-        if (!hit.empty()) {
-            pressed_ = hit;
-            hover_button_ = hit;
-            e.handled = true;
-            return;
+        if (panel_ != Panel::new_site) {
+            activate();
         }
         if (panel_ != Panel::none) {
             e.handled = true;
@@ -853,18 +878,7 @@ void ZenView::on_pointer(gf::PointerEvent& e) {
         return;
     }
     if (e.action == gf::PointerAction::up) {
-        if (!pressed_.empty()) {
-            const Button* pressed_button = nullptr;
-            for (size_t i = 0; i < buttons_.size(); i += 1) {
-                if (buttons_[i].id == pressed_) {
-                    pressed_button = &buttons_[i];
-                }
-            }
-            if (hit == pressed_ && pressed_button != nullptr && (*pressed_button).style != 2) {
-                action(pressed_);
-            }
-            pressed_.clear();
-        } else if (dragging_) {
+        if (dragging_) {
             dragging_ = false;
             // a click (not a drag) on a rock sends the crane for it
             if (!drag_moved_ && e.button == gf::PointerButton::primary && run_) {
@@ -897,20 +911,11 @@ void ZenView::on_key(gf::KeyEvent& e) {
         return;
     }
     if (panel_ == Panel::new_site) {
-        if (k == kKeyBackspace && !name_entry_.empty()) {
-            // remove one UTF-8 character
-            size_t cut = name_entry_.size() - 1;
-            while (cut > 0 && (static_cast<unsigned char>(name_entry_[cut]) & 0xC0u) == 0x80u) {
-                cut -= 1;
-            }
-            name_entry_.erase(cut);
-            play("ui_name_backspace", .6f);
-        } else if (k == kKeyEnter) {
+        if (k == kKeyEnter) {
             action("start");
         } else if (k == kKeyEscape && run_) {
             action("close");
         }
-        want_render_ = true;
         e.handled = true;
         return;
     }
@@ -937,22 +942,6 @@ void ZenView::on_key(gf::KeyEvent& e) {
         action("next");
     }
     e.handled = true;
-}
-
-void ZenView::on_text_input(gf::TextInputEvent& e) {
-    if (panel_ != Panel::new_site) {
-        return;
-    }
-    const std::string& typed = e.text_utf8;
-    for (size_t i = 0; i < typed.size(); i += 1) {
-        const unsigned char c = static_cast<unsigned char>(typed[i]);
-        if (c < 0x20 || name_entry_.size() >= 28) {
-            continue;
-        }
-        name_entry_ += static_cast<char>(c);
-    }
-    play("ui_name_key_0" + std::to_string(1 + (static_cast<int>(name_entry_.size()) % 3)), .55f);
-    want_render_ = true;
 }
 
 namespace {
@@ -1018,6 +1007,9 @@ void ZenView::run_script() {
             start_over();
         } else if (c.rfind("type=", 0) == 0) {
             name_entry_ = c.substr(5);
+            if (hud_.name) {
+                (*hud_.name).set_text(name_entry_);
+            }
         } else if (c.rfind("hold=", 0) == 0) {
             // hold a key for a while: hold=up,1.5 (up down left right w s q e r f z c)
             const std::string spec = c.substr(5);
@@ -1061,11 +1053,6 @@ double ZenView::text_w(const std::string& s, double size, int font) const {
     return text_mask(s, f, size * bs_, 0).w / bs_;
 }
 
-double ZenView::text_h(const std::string& s, double size, int font, double wrap) const {
-    const Font f = font == 1 ? Font::speech_bold : font == 2 ? Font::title : font == 3 ? Font::ui : Font::speech;
-    return text_mask(s, f, size * bs_, wrap > 0 ? wrap * bs_ : 0).h / bs_;
-}
-
 void ZenView::rrect(double x, double y, double w, double h, double r, Col fill, Col line, double width) {
     frame_.begin();
     frame_.rrect(x * bs_, y * bs_, w * bs_, h * bs_, r * bs_);
@@ -1107,86 +1094,435 @@ void ZenView::paint_sign() {
     site_.set_sign(tex);
 }
 
-// ---------------------------------------------------------------- layout
+// ---------------------------------------------------------------- the controls
 
-void ZenView::layout_buttons() {
-    buttons_.clear();
+namespace {
+gf::Color ink(Col c, double alpha = 1) {
+    return gf::Color::rgba(static_cast<std::uint8_t>(std::lround(c.r * 255)), static_cast<std::uint8_t>(std::lround(c.g * 255)),
+                           static_cast<std::uint8_t>(std::lround(c.b * 255)), static_cast<std::uint8_t>(std::lround(c.a * alpha * 255)));
+}
+gf::Color paper(double alpha = 1) { return gf::Color::rgba(0xFB, 0xF6, 0xEA, static_cast<std::uint8_t>(std::lround(255 * alpha))); }
+
+const char* const kHelp[] = {
+    "Stack the rocks as tall as they'll stand. Your height is the top of the stack: the first rock you set down, and every rock resting on the ones below it.",
+    "Click a rock in the bowl and the crane fetches it. The up and down arrows telescope the boom out and in, left and right swing it round; W and S pay the line out and in. Turn the rock with Q and E, tip it toward or away from the crane with R and F, roll it with Z and C. Hold Shift for fine work.",
+    "Lower it slowly onto the stack: as it settles, the slings go slack. When they're slack and nothing moves, press Space to let go. B carries it back to the bowl.",
+    "To take the stack apart, click its top rock. Rocks that fall are tidied back into the bowl. Drag to look around; scroll to zoom.",
+    "Every site is saved. Sites lets you go back to one; Start over (hold it) puts every rock back in the bowl."};
+
+// A font only when it differs, so laying out never asks for another layout.
+void font(gf::Label& label, double size, int weight = 400, bool italic = false) {
+    const gf::FontSpec f{gf::FontRole::content, size, static_cast<std::uint16_t>(weight), italic};
+    if (!label.has_font_override() || !(label.font() == f)) {
+        label.set_font(f);
+    }
+}
+void set_words(gf::Label& label, const std::string& text) {
+    if (label.text() != text) {
+        label.set_text(text);
+    }
+}
+void show(gf::Control& control, bool shown) {
+    if (control.visible() != shown) {
+        control.set_visible(shown);
+    }
+}
+void enable(gf::Control& control, bool enabled) {
+    if (control.enabled() != enabled) {
+        control.set_enabled(enabled);
+    }
+}
+gf::Size size_of(gf::Label& label, double wrap) { return label.measure({wrap > 0 ? wrap : 1e6, 1e6}); }
+}  // namespace
+
+std::shared_ptr<games::SuiteButton> ZenView::make_button(const std::string& id, const std::string& label, games::GlossTone tone) {
+    std::shared_ptr<games::SuiteButton> b = gf::make_control<games::SuiteButton>(gf::StableId("zc." + id), label, tone);
+    (*b).set_radius(7);
+    (*b).set_accessible_name(label);
+    (*b).set_paint_plane(gf::PaintPlane::overlay);
+    (*b).set_visible(false);
+    add_child(b);
+    gf::on((*b).clicked(), *this, &ZenView::clicked, static_cast<int>(button_ids_.size()));
+    button_ids_.push_back(id);
+    return b;
+}
+
+std::shared_ptr<gf::Label> ZenView::make_label(const std::string& id, double size, int weight, bool italic, gf::Color colour, bool wrap) {
+    std::shared_ptr<gf::Label> l = gf::make_control<Words>(gf::StableId("zc." + id));
+    font(*l, size, weight, italic);
+    (*l).set_foreground(colour);
+    (*l).set_use_mnemonic(false);
+    if (wrap) {
+        (*l).set_text_wrapping(gf::TextWrapping::word);
+    }
+    (*l).set_paint_plane(gf::PaintPlane::overlay);
+    (*l).set_visible(false);
+    add_child(l);
+    return l;
+}
+
+void ZenView::initialize_control_tree() {
+    const gf::Color brown = ink(hex(0x5A4A36));
+    const gf::Color muted = ink(hex(0x6A5A44));
+    // the site's card, top left
+    hud_.card = gf::make_control<Paper>(gf::StableId("zc.card"), 10, paper(.9), 1.5);
+    (*hud_.card).set_visible(false);
+    add_child(hud_.card);
+    hud_.company = make_label("company", 17, 700, true, ink(kInk));
+    hud_.line = make_label("line", 12, 400, false, brown);
+    // a line from the worksite, bottom left
+    hud_.say = gf::make_control<Paper>(gf::StableId("zc.say"), 10, gf::Color::rgba(0xFF, 0xFC, 0xF3, 242), 1.2, true);
+    (*hud_.say).set_visible(false);
+    add_child(hud_.say);
+    hud_.say_text = make_label("say.text", 13, 400, false, ink(kInk), true);
+    // what the keys do now
+    hud_.hint = gf::make_control<Words>(gf::StableId("zc.hint"));
+    (*hud_.hint).set_text_wrapping(gf::TextWrapping::word);
+    (*hud_.hint).set_use_mnemonic(false);
+    (*hud_.hint).set_foreground(gf::Color::rgba(255, 255, 255, 235));
+    (*hud_.hint).set_paint_plane(gf::PaintPlane::overlay);
+    (*hud_.hint).set_visible(false);
+    add_child(hud_.hint);
+    hud_.slings = gf::make_control<SlingMeter>(gf::StableId("zc.slings"));
+    (*hud_.slings).set_visible(false);
+    add_child(hud_.slings);
+    // the top-right row; hosted, the capsule has Music, Help, New site and Sites
+    hud_.music = make_button("music", music_ ? "Music" : "Quiet", games::GlossTone::chrome);
+    hud_.help = make_button("help", "Help", games::GlossTone::chrome);
+    hud_.reset = gf::make_control<HoldButton>(gf::StableId("zc.reset"), "Start over");
+    (*hud_.reset).set_radius(7);
+    (*hud_.reset).set_accessible_name("Start over (hold)");
+    (*hud_.reset).set_paint_plane(gf::PaintPlane::overlay);
+    (*hud_.reset).set_visible(false);
+    add_child(hud_.reset);
+    button_ids_.push_back("reset");
+    hud_.new_site = make_button("new", "New site", games::GlossTone::chrome);
+    hud_.sites = make_button("sites", "Sites", games::GlossTone::chrome);
+    // while the crane holds a rock
+    hud_.back = make_button("throw", "Back to bowl", games::GlossTone::chrome);
+    hud_.let_go = make_button("release", "Let go", games::GlossTone::gold);
+    // while fresh rocks tip into the bowl
+    hud_.loading = gf::make_control<Paper>(gf::StableId("zc.loading"), 12, paper(), 2);
+    (*hud_.loading).set_visible(false);
+    add_child(hud_.loading);
+    hud_.loading_title = make_label("loading.title", 18, 700, true, ink(kInk));
+    hud_.loading_dots = make_label("loading.dots", 12, 400, false, muted);
+    (*hud_.loading_title).set_alignment(gf::HorizontalAlignment::center);
+    (*hud_.loading_dots).set_alignment(gf::HorizontalAlignment::center);
+    (*hud_.loading_title).set_text("Filling the bowl...");
+    // the panels, over the dimmed worksite
+    hud_.sheet = gf::make_control<Paper>(gf::StableId("zc.sheet"), 14, paper(), 2);
+    (*hud_.sheet).set_visible(false);
+    add_child(hud_.sheet);
+    hud_.sheet_title = make_label("sheet.title", 20, 700, true, ink(kInk));
+    (*hud_.sheet_title).set_alignment(gf::HorizontalAlignment::center);
+    hud_.sheet_note = make_label("sheet.note", 12.5, 400, false, brown, true);
+    hud_.seed_note = make_label("sheet.seed", 11, 400, false, muted, true);
+    for (const char* line : kHelp) {
+        hud_.help_lines.push_back(make_label("help." + std::to_string(hud_.help_lines.size()), 12.5, 400, false, ink(kInk), true));
+        (*hud_.help_lines.back()).set_text(line);
+    }
+    hud_.name = gf::make_control<gf::TextBox>(gf::StableId("zc.name"), name_entry_);
+    (*hud_.name).set_maximum_length(28);
+    (*hud_.name).set_font({gf::FontRole::content, 16, 700, false});
+    (*hud_.name).set_accessible_name("Your company's name, for the sign");
+    (*hud_.name).set_paint_plane(gf::PaintPlane::overlay);
+    (*hud_.name).set_visible(false);
+    add_child(hud_.name);
+    gf::on((*hud_.name).text_changed(), *this, &ZenView::name_changed);
+    gf::on((*hud_.name).committed(), *this, &ZenView::name_committed);
+    gf::on((*hud_.name).cancelled(), *this, &ZenView::name_cancelled);
+    hud_.reroll = make_button("reroll", "Other rocks", games::GlossTone::chrome);
+    hud_.cancel = make_button("cancel", "Cancel", games::GlossTone::chrome);
+    hud_.start = make_button("start", "Start the site", games::GlossTone::gold);
+    hud_.close = make_button("close", "Close", games::GlossTone::chrome);
+    update_hud();
+}
+
+// The controls follow the game: words change, controls appear and go. Layout is
+// asked for only when something moves or resizes.
+void ZenView::update_hud() {
+    if (!hud_.card) {
+        return;
+    }
     const bool small = compact();
+    const bool loaded = run_ != nullptr;
+    const bool open = panel_ != Panel::none;
+    const Crane* crane = loaded ? &(*run_).crane : nullptr;
+    const bool steering = crane != nullptr && (*crane).attached && (*crane).mode == CraneMode::steering;
+    const bool speaking = loaded && !open && say_.age < say_.life && !say_.text.empty();
+    std::string line;
+    if (loaded) {
+        char buffer[160];
+        std::snprintf(buffer, sizeof buffer, "Height %s   Best %s   Stack %d", centimetres((*run_).height()).c_str(),
+                      centimetres((*run_).best_height()).c_str(), (*run_).stack_count());
+        line = buffer;
+    }
+    std::string hint;
+    if (crane != nullptr && !open && !speaking) {
+        if ((*crane).mode == CraneMode::parked) {
+            hint = "Click a rock to fetch it   ·   drag to look around   ·   scroll to zoom";
+        } else if (steering || (*crane).mode == CraneMode::steering) {
+            hint = small ? "↑↓ reach · ←→ swing · W/S line · Q/E turn · R/F tip · Z/C roll · Space let go"
+                         : "↑ ↓ reach  ·  ← → swing  ·  W / S raise, lower  ·  Q / E turn  ·  R / F tip  ·  Z / C roll  ·  Shift: fine  ·  Space: let go";
+        } else if ((*crane).mode == CraneMode::fetching || (*crane).mode == CraneMode::attaching) {
+            hint = "Off to fetch it   ·   Esc to call the crane back";
+        } else if ((*crane).mode == CraneMode::lifting) {
+            hint = "Lifting...";
+        }
+    }
+    const bool loading = !loaded && pending_.valid();
+    const bool can_reset = loaded && !pending_.valid() && !(*run_).busy();
+    const int rows = panel_ == Panel::sites
+                         ? static_cast<int>(std::max(1.0, std::min(static_cast<double>(sites_.size()), std::floor((H_ - 140) / 34))))
+                         : 0;
+    // A panel opening or closing moves the keyboard.
+    if (attached_window() != nullptr && static_cast<int>(panel_) != hud_panel_) {
+        const bool first = hud_panel_ < 0;
+        hud_panel_ = static_cast<int>(panel_);
+        if (panel_ == Panel::new_site) {
+            (*hud_.name).set_text(name_entry_);
+            (*hud_.name).select_all();
+            static_cast<void>((*attached_window()).request_focus(hud_.name));
+        } else if (!first && (*hud_.name).visible()) {
+            activate();
+        }
+    }
+    std::string key;
+    key.reserve(256);
+    key += std::to_string(static_cast<int>(panel_)) + (small ? "s" : "l") + std::to_string(static_cast<int>(W_)) + "x" + std::to_string(static_cast<int>(H_));
+    key += loaded ? "|" + (*run_).company() + "|" + line : std::string("|-");
+    key += "|" + hint + "|" + (speaking ? say_.text : std::string()) + (steering ? "|S" : "|-") + (loading ? "L" : "-") + (can_reset ? "R" : "-");
+    key += music_ ? "M" : "Q";
+    if (panel_ == Panel::new_site) {
+        key += std::to_string(seed_entry_) + (run_ ? "c" : "-");
+    } else if (panel_ == Panel::sites) {
+        key += std::to_string(sites_.size()) + "@" + std::to_string(current_);
+    }
+    // what changes without moving anything
+    const double fade = speaking ? std::min(1.0, std::min(say_.age * 6, (say_.life - say_.age) * 3)) : 0;
+    if (std::abs(fade - say_fade_) > 0.004 || (fade == 0) != (say_fade_ == 0)) {
+        say_fade_ = fade;
+        (*hud_.say).set_fade(fade);
+        (*hud_.say_text).set_foreground(ink(kInk, fade));
+    }
+    if (steering && !open) {
+        (*hud_.slings).set_tension((*run_).world().hold_state().tension);
+    }
+    const int dots = loading ? static_cast<int>(t_ * 3) % 4 : -1;
+    if (dots != loading_dots_) {
+        loading_dots_ = dots;
+        const std::string d(static_cast<size_t>(std::max(0, dots)), '.');
+        set_words(*hud_.loading_dots, d + " Tipping in fresh rocks " + d);
+    }
+    (*hud_.reset).set_progress(hold_reset_ / 1.6);
+    if (key == hud_key_) {
+        return;
+    }
+    hud_key_ = key;
+    // the worksite's own controls, hidden while a panel is open
+    const bool working = loaded && !open;
+    show(*hud_.card, working);
+    show(*hud_.company, working);
+    show(*hud_.line, working);
+    if (loaded) {
+        set_words(*hud_.company, (*run_).company());
+        set_words(*hud_.line, line);
+    }
+    font(*hud_.company, small ? 14 : 17, 700, true);
+    font(*hud_.line, small ? 11 : 12);
+    show(*hud_.say, speaking);
+    show(*hud_.say_text, speaking);
+    if (speaking) {
+        set_words(*hud_.say_text, say_.text);
+        font(*hud_.say_text, small ? 11.5 : 13);
+    }
+    show(*hud_.hint, working && !hint.empty());
+    set_words(*hud_.hint, hint);
+    {
+        const gf::FontSpec f{gf::FontRole::content, small ? 10.5 : 11.5, 400, false};
+        if (!(*hud_.hint).has_font_override() || !((*hud_.hint).font() == f)) {
+            (*hud_.hint).set_font(f);
+        }
+    }
+    show(*hud_.slings, working && steering);
+    show(*hud_.music, working && !options_.hosted);
+    show(*hud_.help, working && !options_.hosted);
+    show(*hud_.new_site, working && !options_.hosted);
+    show(*hud_.sites, working && !options_.hosted);
+    show(*hud_.reset, working);
+    enable(*hud_.reset, can_reset);
+    enable(*hud_.sites, !sites_.empty());
+    (*hud_.music).set_text(music_ ? "Music" : "Quiet");
+    show(*hud_.let_go, working && steering);
+    show(*hud_.back, working && steering);
+    show(*hud_.loading, loading);
+    show(*hud_.loading_title, loading);
+    show(*hud_.loading_dots, loading);
+    // the panels
+    show(*hud_.sheet, open);
+    show(*hud_.sheet_title, open);
+    show(*hud_.sheet_note, panel_ == Panel::new_site || panel_ == Panel::sites);
+    show(*hud_.seed_note, panel_ == Panel::new_site);
+    show(*hud_.name, panel_ == Panel::new_site);
+    show(*hud_.start, panel_ == Panel::new_site);
+    show(*hud_.reroll, panel_ == Panel::new_site);
+    show(*hud_.cancel, panel_ == Panel::new_site && run_ != nullptr);
+    show(*hud_.close, panel_ == Panel::sites || panel_ == Panel::help);
+    for (const std::shared_ptr<gf::Label>& l : hud_.help_lines) {
+        show(*l, panel_ == Panel::help);
+        font(*l, std::min(H_ - 60, 420.0) < 360 ? 11 : 12.5);
+    }
+    if (panel_ == Panel::new_site) {
+        set_words(*hud_.sheet_title, "A new worksite");
+        set_words(*hud_.sheet_note, "Your company's name goes on the sign:");
+        font(*hud_.sheet_note, 12.5);
+        char seed[96];
+        std::snprintf(seed, sizeof seed, "Rocks no. %u: fifty stones in the bowl, the same for this number every time.", seed_entry_);
+        set_words(*hud_.seed_note, seed);
+    } else if (panel_ == Panel::sites) {
+        set_words(*hud_.sheet_title, "Your worksites");
+        set_words(*hud_.sheet_note, "Pick one to work on.  [ and ] flip between them.");
+        font(*hud_.sheet_note, 11.5);
+    } else if (panel_ == Panel::help) {
+        set_words(*hud_.sheet_title, "Rock Stack");
+    }
+    font(*hud_.sheet_title, panel_ == Panel::sites ? 19 : 20, 700, true);
+    {
+        const gf::HorizontalAlignment a = panel_ == Panel::sites ? gf::HorizontalAlignment::center : gf::HorizontalAlignment::near;
+        if ((*hud_.sheet_note).alignment() != a) {
+            (*hud_.sheet_note).set_alignment(a);
+        }
+    }
+    // the sites, as many rows as fit, around the current one
+    while (static_cast<int>(hud_.site_rows.size()) < rows) {
+        hud_.site_rows.push_back(make_button("row" + std::to_string(hud_.site_rows.size()), "", games::GlossTone::chrome));
+    }
+    hud_.first_row = 0;
+    if (static_cast<int>(sites_.size()) > rows) {
+        hud_.first_row = std::clamp(current_ - rows / 2, 0, static_cast<int>(sites_.size()) - rows);
+    }
+    for (int i = 0; i < static_cast<int>(hud_.site_rows.size()); i += 1) {
+        games::SuiteButton& row = *hud_.site_rows[static_cast<size_t>(i)];
+        const int index = hud_.first_row + i;
+        const bool shown = i < rows && index < static_cast<int>(sites_.size());
+        show(row, shown);
+        if (shown) {
+            const SavedSite& saved = sites_[static_cast<size_t>(index)];
+            char label[160];
+            std::snprintf(label, sizeof label, "%s   (rocks no. %u)   best %.1f cm", saved.company.c_str(), saved.seed, saved.best * 100);
+            if (row.text() != label) {
+                row.set_text(label);
+                row.set_accessible_name(label);
+            }
+            row.set_tone(index == current_ ? games::GlossTone::gold : games::GlossTone::chrome);
+        }
+    }
+    invalidate(gf::Dirty::layout);
+}
+
+void ZenView::layout_hud() {
+    if (!hud_.card) {
+        return;
+    }
+    const bool small = compact();
+    const double top = top_inset();
+    const double bh = small ? 24 : 28;
+    // the site's card, top left (hosted, below the capsule)
+    if ((*hud_.card).visible()) {
+        const gf::Size c = size_of(*hud_.company, 0);
+        const gf::Size l = size_of(*hud_.line, 0);
+        set_child_layout(hud_.card, {10, top, std::max(c.width, l.width) + 28, small ? 46.0 : 56.0});
+        set_child_layout(hud_.company, {24, top + (small ? 4 : 6), c.width + 2, c.height});
+        set_child_layout(hud_.line, {24, top + (small ? 25 : 31), l.width + 2, l.height});
+    }
+    // the top-right row, sized to the labels, from the right
+    {
+        double x = W_ - 10;
+        games::SuiteButton* row[5] = {hud_.music.get(), hud_.help.get(), hud_.reset.get(), hud_.new_site.get(), hud_.sites.get()};
+        for (games::SuiteButton* b : row) {
+            if (!(*b).visible()) {
+                continue;
+            }
+            // Start over is as wide as its words while held, so it doesn't grow under the pointer
+            const double w = b == hud_.reset.get() ? 15 * 7.3 + 24 : (*b).preferred_width();
+            x -= w;
+            set_child_layout((*b).shared_from_this(), {x, top, w, bh + 3});
+            x -= 6;
+        }
+    }
+    // a line from the worksite, bottom left
+    if ((*hud_.say).visible()) {
+        const double wrap = std::min(260.0, W_ - 170);
+        const gf::Size m = size_of(*hud_.say_text, wrap);
+        const double tw = std::min(wrap, m.width);
+        const double cy = H_ - (small ? 42 : 54);
+        const double by = cy - m.height / 2 - 8;
+        set_child_layout(hud_.say, {16, by, tw + 22, m.height + 16});
+        set_child_layout(hud_.say_text, {27, by + 8, tw + 1, m.height});
+    }
+    const bool steering = (*hud_.let_go).visible();
+    if ((*hud_.hint).visible()) {
+        const double wrap = W_ - 16 - (steering ? 240 : 20);
+        const gf::Size m = size_of(*hud_.hint, wrap);
+        set_child_layout(hud_.hint, {16, H_ - 14 - m.height, std::min(wrap, m.width) + 1, m.height});
+    }
+    if (steering) {
+        const double bw = small ? 86 : 104;
+        set_child_layout(hud_.let_go, {W_ - 10 - bw, H_ - 10 - bh, bw, bh + 3});
+        set_child_layout(hud_.back, {W_ - 10 - bw - 8 - (bw + 14), H_ - 10 - bh, bw + 14, bh + 3});
+        const double mw = small ? 90 : 130;
+        set_child_layout(hud_.slings, {W_ - 10 - mw, H_ - 10 - bh - 42, mw, 30});
+    }
+    if ((*hud_.loading).visible()) {
+        const double w = std::min(W_ - 40, 360.0);
+        const double x = (W_ - w) / 2;
+        const double y = (H_ - 96) / 2;
+        set_child_layout(hud_.loading, {x, y, w, 96});
+        set_child_layout(hud_.loading_title, {x, y + 18, w, 28});
+        set_child_layout(hud_.loading_dots, {x, y + 54, w, 20});
+    }
+    // the panels
     if (panel_ == Panel::new_site) {
         const double w = std::min(W_ - 24, 440.0);
         const double h = 230;
         const double x = (W_ - w) / 2;
         const double y = std::max(10.0, (H_ - h) / 2);
-        Button start{"start", "Start the site", x + w - 170, y + h - 46, 150, 32, !name_entry_.empty() || true, 1};
-        buttons_.push_back(start);
-        Button reroll{"reroll", "Other rocks", x + 20, y + h - 46, 120, 32, true, 0};
-        buttons_.push_back(reroll);
-        if (run_) {
-            Button cancel{"close", "Cancel", x + w - 170 - 100, y + h - 46, 88, 32, true, 0};
-            buttons_.push_back(cancel);
-        }
-        return;
-    }
-    if (panel_ == Panel::sites) {
+        set_child_layout(hud_.sheet, {x, y, w, h});
+        set_child_layout(hud_.sheet_title, {x, y + 12, w, 30});
+        set_child_layout(hud_.sheet_note, {x + 22, y + 52, w - 44, 22});
+        set_child_layout(hud_.name, {x + 20, y + 78, w - 40, 38});
+        set_child_layout(hud_.seed_note, {x + 22, y + 124, w - 44, size_of(*hud_.seed_note, w - 44).height});
+        set_child_layout(hud_.reroll, {x + 20, y + h - 46, 120, 35});
+        set_child_layout(hud_.cancel, {x + w - 270, y + h - 46, 88, 35});
+        set_child_layout(hud_.start, {x + w - 170, y + h - 46, 150, 35});
+    } else if (panel_ == Panel::sites) {
         const double w = std::min(W_ - 24, 520.0);
         const double rows = std::max(1.0, std::min(static_cast<double>(sites_.size()), std::floor((H_ - 140) / 34)));
         const double h = 74 + rows * 34 + 44;
         const double x = (W_ - w) / 2;
         const double y = std::max(10.0, (H_ - h) / 2);
-        int first = 0;
-        if (static_cast<int>(sites_.size()) > static_cast<int>(rows)) {
-            first = std::clamp(current_ - static_cast<int>(rows) / 2, 0, static_cast<int>(sites_.size()) - static_cast<int>(rows));
+        set_child_layout(hud_.sheet, {x, y, w, h});
+        set_child_layout(hud_.sheet_title, {x, y + 10, w, 30});
+        set_child_layout(hud_.sheet_note, {x + 16, y + 38, w - 32, 20});
+        for (size_t i = 0; i < hud_.site_rows.size(); i += 1) {
+            set_child_layout(hud_.site_rows[i], {x + 16, y + 60 + static_cast<double>(i) * 34, w - 32, 33});
         }
-        for (int i = 0; i < static_cast<int>(rows); i += 1) {
-            const int index = first + i;
-            if (index >= static_cast<int>(sites_.size())) {
-                break;
-            }
-            const SavedSite& saved = sites_[static_cast<size_t>(index)];
-            char label[160];
-            std::snprintf(label, sizeof label, "%s   (rocks no. %u)   best %.1f cm", saved.company.c_str(), saved.seed, saved.best * 100);
-            Button row{"site" + std::to_string(index), label, x + 16, y + 60 + i * 34, w - 32, 30, true, index == current_ ? 1 : 0};
-            buttons_.push_back(row);
-        }
-        Button close{"close", "Close", x + w / 2 - 50, y + h - 40, 100, 30, true, 0};
-        buttons_.push_back(close);
-        return;
-    }
-    if (panel_ == Panel::help) {
+        set_child_layout(hud_.close, {x + w / 2 - 50, y + h - 40, 100, 33});
+    } else if (panel_ == Panel::help) {
+        const double w = std::min(W_ - 24, 560.0);
         const double h = std::min(H_ - 60, 420.0);
+        const double x = (W_ - w) / 2;
         const double y = std::max(10.0, (H_ - h) / 2);
-        Button close{"close", "Close", W_ / 2 - 50, y + h - 42, 100, 30, true, 0};
-        buttons_.push_back(close);
-        return;
-    }
-    // the top-right row: sized to their labels, from the right (hosted, below Help)
-    double x = W_ - 10;
-    const double y = top_inset();
-    const double bh = small ? 24 : 28;
-    const double size = small ? 11.5 : 12.5;
-    const char* labels[5][2] = {{"music", music_ ? "Music" : "Quiet"}, {"help", "Help"}, {"reset", "Start over"}, {"new", "New site"}, {"sites", "Sites"}};
-    for (int i = 0; i < 5; i += 1) {
-        if (options_.hosted && i != 2) continue;
-        const std::string label = labels[i][1];
-        const double w = text_w(label, size, 0) + (small ? 16 : 22);
-        x -= w;
-        Button b{labels[i][0], label, x, y, w, bh, true, i == 2 ? 2 : 0};
-        if (i == 2) {
-            b.enabled = run_ != nullptr && !pending_.valid() && !(*run_).busy();
+        set_child_layout(hud_.sheet, {x, y, w, h});
+        set_child_layout(hud_.sheet_title, {x, y + 10, w, 30});
+        double ly = y + 50;
+        for (const std::shared_ptr<gf::Label>& l : hud_.help_lines) {
+            const double lh = size_of(*l, w - 48).height;
+            set_child_layout(l, {x + 24, ly, w - 48, lh});
+            ly += lh + 8;
         }
-        if (i == 4) {
-            b.enabled = sites_.size() > 0;
-        }
-        buttons_.push_back(b);
-        x -= 6;
-    }
-    // while the crane holds a rock: let go, back to the bowl
-    if (run_ && (*run_).crane.attached && (*run_).crane.mode == CraneMode::steering) {
-        const double bw = small ? 86 : 104;
-        Button let_go{"release", "Let go", W_ - 10 - bw, H_ - 10 - bh, bw, bh, true, 1};
-        Button back{"throw", "Back to bowl", W_ - 10 - bw - 8 - (bw + 14), H_ - 10 - bh, bw + 14, bh, true, 0};
-        buttons_.push_back(let_go);
-        buttons_.push_back(back);
+        set_child_layout(hud_.close, {W_ / 2 - 50, y + h - 42, 100, 33});
     }
 }
 
@@ -1243,29 +1579,13 @@ void ZenView::compose() {
         site_.render(state, (*run_).quiet() && !(*run_).busy());
         present_scene();
         draw_height_marks();
-        draw_hud();
     } else {
         frame_.clear(hex(0xC8D7DF));
-        draw_loading();
     }
-    layout_buttons();
-    draw_panel();
-    draw_buttons();
-}
-
-void ZenView::draw_loading() {
-    const double w = std::min(W_ - 40, 360.0);
-    const double h = 96;
-    const double x = (W_ - w) / 2;
-    const double y = (H_ - h) / 2;
-    if (!pending_.valid()) {
-        return;
+    // a panel's dimming belongs to the scene; the panel itself is a control above it
+    if (panel_ != Panel::none) {
+        frame_.fill_rect(0, 0, phys_w_, phys_h_, hex(0x000000, .45f));
     }
-    rrect(x, y, w, h, 12, kPaper, kTimber, 2);
-    text("Filling the bowl...", x + w / 2, y + 22, kInk, 18, 2, 0, 1);
-    const int dots = static_cast<int>(t_ * 3) % 4;
-    text(std::string(static_cast<size_t>(dots), '.') + " Tipping in fresh rocks " + std::string(static_cast<size_t>(dots), '.'), x + w / 2, y + 56,
-         hex(0x6A5A44), 12, 0, 0, 1);
 }
 
 // The stack's height and the best, marked beside the stack.
@@ -1310,147 +1630,6 @@ void ZenView::draw_height_marks() {
     }
 }
 
-void ZenView::draw_hud() {
-    const bool small = compact();
-    // the site's card, top left (hosted, below the capsule)
-    {
-        const double top = top_inset();
-        const std::string company = (*run_).company();
-        char line[160];
-        std::snprintf(line, sizeof line, "Height %s   Best %s   Stack %d", centimetres((*run_).height()).c_str(), centimetres((*run_).best_height()).c_str(),
-                      (*run_).stack_count());
-        const double title = small ? 14 : 17;
-        const double w = std::max(text_w(company, title, 2), text_w(line, small ? 11 : 12, 0)) + 28;
-        const double h = small ? 46 : 56;
-        rrect(10, top, w, h, 10, hex(0xFBF6EA, .9f), kTimber, 1.5);
-        text(company, 24, top + (small ? 5 : 7), kInk, title, 2);
-        text(line, 24, top + (small ? 24 : 30), hex(0x5A4A36), small ? 11 : 12, 0);
-    }
-    // Short worksite feedback without a second character floating over it.
-    const double cy = H_ - (small ? 42 : 54);
-    if (say_.age < say_.life && !say_.text.empty()) {
-        const double fade = std::min(1.0, std::min(say_.age * 6, (say_.life - say_.age) * 3));
-        const double wrap = std::min(260.0, W_ - 170);
-        const double size = small ? 11.5 : 13;
-        const double tw = std::min(wrap, text_w(say_.text, size, 0));
-        const double th = text_h(say_.text, size, 0, wrap);
-        const double bx = 16;
-        const double by = cy - th / 2 - 8;
-        const float a = static_cast<float>(fade);
-        rrect(bx, by, tw + 22, th + 16, 10, hex(0xFFFCF3, .95f * a), hex(0x8A6440, a), 1.2);
-        text(say_.text, bx + 11, by + 8, Col{kInk.r, kInk.g, kInk.b, a}, size, 0, wrap);
-    }
-    // what the keys do now, and the slings' tension
-    const Crane& crane = (*run_).crane;
-    std::string hint;
-    if (crane.mode == CraneMode::parked) {
-        hint = "Click a rock to fetch it   ·   drag to look around   ·   scroll to zoom";
-    } else if (crane.mode == CraneMode::steering) {
-        hint = small ? "↑↓ reach · ←→ swing · W/S line · Q/E turn · R/F tip · Z/C roll · Space let go"
-                     : "↑ ↓ reach  ·  ← → swing  ·  W / S raise, lower  ·  Q / E turn  ·  R / F tip  ·  Z / C roll  ·  Shift: fine  ·  Space: let go";
-    } else if (crane.mode == CraneMode::fetching || crane.mode == CraneMode::attaching) {
-        hint = "Off to fetch it   ·   Esc to call the crane back";
-    } else if (crane.mode == CraneMode::lifting) {
-        hint = "Lifting...";
-    }
-    const double hint_size = small ? 10.5 : 11.5;
-    const double hint_x = 16;
-    const double hint_wrap = W_ - hint_x - (crane.mode == CraneMode::steering ? 240 : 20);
-    if (!hint.empty() && !(say_.age < say_.life)) {
-        const double th = text_h(hint, hint_size, 0, hint_wrap);
-        text(hint, hint_x, H_ - 14 - th, hex(0xFFFFFF, .92f), hint_size, 0, hint_wrap);
-    }
-    if (crane.attached && crane.mode == CraneMode::steering) {
-        const double tension = std::clamp((*run_).world().hold_state().tension, 0.0, 1.2);
-        const double bw = small ? 90 : 130;
-        const double bx = W_ - 10 - bw;
-        const double by = H_ - 10 - (small ? 24 : 28) - 26;
-        rrect(bx, by, bw, 14, 7, hex(0x000000, .35f));
-        rrect(bx + 2, by + 2, (bw - 4) * std::min(1.0, tension), 10, 5, tension < 0.1 ? hex(0x9AD48A) : hex(0xF7BC1E));
-        text(tension < 0.1 ? "slings slack: resting" : "slings taut", bx, by - 15, hex(0xFFFFFF, .9f), 10.5, 0);
-    }
-}
-
-
-void ZenView::draw_panel() {
-    if (panel_ == Panel::none) {
-        return;
-    }
-    frame_.fill_rect(0, 0, phys_w_, phys_h_, hex(0x000000, .45f));
-    if (panel_ == Panel::new_site) {
-        const double w = std::min(W_ - 24, 440.0);
-        const double h = 230;
-        const double x = (W_ - w) / 2;
-        const double y = std::max(10.0, (H_ - h) / 2);
-        rrect(x, y, w, h, 14, kPaper, kTimber, 2);
-        text("A new worksite", x + w / 2, y + 16, kInk, 20, 2, 0, 1);
-        text("Your company's name goes on the sign:", x + 22, y + 56, hex(0x5A4A36), 12.5, 0);
-        rrect(x + 20, y + 78, w - 40, 38, 8, hex(0xFFFFFF), kTimber, 1.2);
-        caret_on_ = std::fmod(t_, 1.0) < 0.55;
-        const std::string shown = name_entry_ + (caret_on_ ? "|" : " ");
-        text(shown, x + 32, y + 87, kInk, 16, 1);
-        char seed[96];
-        std::snprintf(seed, sizeof seed, "Rocks no. %u: fifty stones in the bowl, the same for this number every time.", seed_entry_);
-        text(seed, x + 22, y + 128, hex(0x6A5A44), 11, 0, w - 44);
-        return;
-    }
-    if (panel_ == Panel::sites) {
-        const double w = std::min(W_ - 24, 520.0);
-        const double rows = std::max(1.0, std::min(static_cast<double>(sites_.size()), std::floor((H_ - 140) / 34)));
-        const double h = 74 + rows * 34 + 44;
-        const double x = (W_ - w) / 2;
-        const double y = std::max(10.0, (H_ - h) / 2);
-        rrect(x, y, w, h, 14, kPaper, kTimber, 2);
-        text("Your worksites", x + w / 2, y + 14, kInk, 19, 2, 0, 1);
-        text("Pick one to work on.  [ and ] flip between them.", x + w / 2, y + 40, hex(0x6A5A44), 11.5, 0, 0, 1);
-        return;
-    }
-    // help
-    const double w = std::min(W_ - 24, 560.0);
-    const double h = std::min(H_ - 60, 420.0);
-    const double x = (W_ - w) / 2;
-    const double y = std::max(10.0, (H_ - h) / 2);
-    rrect(x, y, w, h, 14, kPaper, kTimber, 2);
-    text("Rock Stack", x + w / 2, y + 14, kInk, 20, 2, 0, 1);
-    const char* lines[] = {
-        "Stack the rocks as tall as they'll stand. Your height is the top of the stack: the first rock you set down, and every rock resting on the ones below it.",
-        "Click a rock in the bowl and the crane fetches it. The up and down arrows telescope the boom out and in, left and right swing it round; W and S pay the line out and in. Turn the rock with Q and E, tip it toward or away from the crane with R and F, roll it with Z and C. Hold Shift for fine work.",
-        "Lower it slowly onto the stack: as it settles, the slings go slack. When they're slack and nothing moves, press Space to let go. B carries it back to the bowl.",
-        "To take the stack apart, click its top rock. Rocks that fall are tidied back into the bowl. Drag to look around; scroll to zoom.",
-        "Every site is saved. Sites lets you go back to one; Start over (hold it) puts every rock back in the bowl."};
-    double ly = y + 50;
-    const double size = h < 360 ? 11 : 12.5;
-    for (int i = 0; i < 5; i += 1) {
-        text(lines[i], x + 24, ly, kInk, size, 0, w - 48);
-        ly += text_h(lines[i], size, 0, w - 48) + 8;
-    }
-}
-
-void ZenView::draw_buttons() {
-    for (size_t i = 0; i < buttons_.size(); i += 1) {
-        const Button& b = buttons_[i];
-        const bool over = hover_button_ == b.id && b.enabled;
-        const bool down = pressed_ == b.id;
-        Col face = !b.enabled ? hex(0xCFC8B8, .85f) : over ? hex(0xFFFBF0) : hex(0xF4EDDC, .95f);
-        Col ink = b.enabled ? kInk : hex(0x8A8070);
-        if (b.style == 1 && b.enabled) {
-            face = over ? hex(0xFFCC3A) : kYellow;
-        }
-        rrect(b.x + 1, b.y + 2, b.w, b.h, 7, kShade);
-        rrect(b.x, b.y + (down ? 1 : 0), b.w, b.h, 7, face, kTimber, 1.1);
-        if (b.style == 2 && down && hold_reset_ > 0) {
-            // the hold-to-confirm fill
-            rrect(b.x + 2, b.y + 2, (b.w - 4) * std::min(1.0, hold_reset_ / 1.6), b.h - 4, 6, hex(0xE8826A));
-        }
-        const double size = compact() ? 11.5 : 12.5;
-        std::string label = b.label;
-        if (b.style == 2 && down) {
-            label = "Keep holding...";
-        }
-        text(label, b.x + b.w / 2, b.y + b.h / 2 - size * 0.62 + (down ? 1 : 0), ink, size, b.style == 1 ? 1 : 0, 0, 1);
-    }
-}
-
 }  // namespace zc
 
 namespace zc {
@@ -1464,7 +1643,6 @@ void ZenView::on_focus_changed(bool focused) {
     if (!focused) {
         std::fill(std::begin(keys_), std::end(keys_), false);
         dragging_ = false;
-        pressed_.clear();
         hold_reset_ = 0;
     }
 }

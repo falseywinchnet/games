@@ -30,6 +30,7 @@
   "build": "build.cmake",
   "ui_sources": [
     "src/zen_view.cpp",
+    "src/hud.cpp",
     "src/platform/text.cpp",
     "src/platform/present.cpp"
   ],

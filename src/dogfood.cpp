@@ -38,7 +38,7 @@ const char* usage() {
            "          [--script FILE] | --list-games | --profile-idle ID | --help\n"
            "--standalone requires --game. --script requires --dev and ends with quit.\n"
            "Script lines: milliseconds quit|help|shelf|open SLUG|command ID|key NAME|\n"
-           "              click X Y|hover X Y|resize WIDTH HEIGHT|capture FILE.ppm|action GAME_SPECIFIC_CODE\n"
+           "              click X Y|hover X Y|down X Y|up X Y|resize WIDTH HEIGHT|capture FILE.ppm|action GAME_SPECIFIC_CODE\n"
            "Scripts are chronological, at most five minutes. --dev uses temporary\n"
            "saves unless GAMES_STATE_DIR explicitly selects a development directory.\n";
 }
@@ -108,7 +108,8 @@ std::vector<Action> read_script(const std::filesystem::path& path) {
             if (action.argument.empty()) throw std::runtime_error(action.verb + " needs an argument");
             if (action.verb != "action" && action.verb != "capture" && action.argument.find_first_of(" \t") != std::string::npos)
                 throw std::runtime_error(action.verb + " expects one name");
-        } else if (action.verb == "click" || action.verb == "hover" || action.verb == "resize") {
+        } else if (action.verb == "click" || action.verb == "hover" || action.verb == "down" || action.verb == "up" ||
+                   action.verb == "resize") {
             std::istringstream coordinates(action.argument);
             std::string extra;
             if (!(coordinates >> action.x >> action.y) || (coordinates >> extra) ||
