@@ -1,4 +1,5 @@
 #include "puzzle_view.hpp"
+#include "overlays.hpp"
 #include "audio.hpp"
 #include "gui_forms/window.hpp"
 #include "help_route.hpp"
@@ -214,6 +215,7 @@ void PuzzleView::present_framebuffer(gf::Rect damage) {
         // The surface's own pixels: the presenter copies only this much of the frame.
         static_cast<void>(lease.publish({static_cast<double>(left), static_cast<double>(top), static_cast<double>(right - left),
                                          static_cast<double>(bottom - top)}));
+        render::refresh_overlays(*scene_parts_[0], damage);
         if (!direct_)
             (*scene_parts_[0]).invalidate(damage);
     }

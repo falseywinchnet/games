@@ -85,22 +85,22 @@ void paint_gloss(gf::Painter& p, gf::Rect r, double radius, GlossTone tone, Glos
     p.clip_rounded_rect(r, radius);
     const gf::GradientStop stops[] = {{0, c[0]}, {.48, c[1]}, {.52, c[2]}, {1, c[3]}};
     p.fill_linear_gradient(r, {r.x, r.y}, {r.x, r.y + r.height}, stops);
-    // A bright line under the flat of the top, fading out before the corners: where the
-    // top curves down (a pill's round ends) the clip would cut it into hard little bars.
-    // A circle has no flat top and keeps only its gradient.
-    const bool circle = radius * 2 >= std::min(r.width, r.height) - .5 && r.width < r.height + 1;
-    const double inset = radius > 6 ? radius : radius * .6, x0 = r.x + inset, x1 = r.x + r.width - inset;
-    if (!circle && x1 - x0 > 4) {
+    // A bright line a little under a flat top, fading out before the corners. A pill or a
+    // circle has none: just under its rim it reads as a second, top-only border, and its
+    // gradient already carries the shine.
+    const bool rounded_end = radius * 2 >= std::min(r.width, r.height) * .8;
+    const double inset = radius * .6 + 2, x0 = r.x + inset, x1 = r.x + r.width - inset;
+    if (!rounded_end && x1 - x0 > 4) {
         const gf::Color shine = rgb(255, 255, 255,
-                                    tone == GlossTone::smoke ? 50
-                                    : s.down                 ? 40
-                                                             : 190);
+                                    tone == GlossTone::smoke ? 40
+                                    : s.down                 ? 30
+                                                             : 150);
         const double fade = std::min(.25, 10 / (x1 - x0));
         const gf::GradientStop line[] = {{0, rgb(255, 255, 255, 0)},
                                          {fade, shine},
                                          {1 - fade, shine},
                                          {1, rgb(255, 255, 255, 0)}};
-        p.fill_linear_gradient({x0, r.y + 1, x1 - x0, 1}, {x0, r.y}, {x1, r.y}, line);
+        p.fill_linear_gradient({x0, r.y + 2, x1 - x0, 1}, {x0, r.y}, {x1, r.y}, line);
     }
     p.restore();
     p.stroke_rounded_rect(r, radius, border, 1);

@@ -68,12 +68,6 @@ class Collection final : public gf::Control, public HelpHost {
     std::map<Entry,std::unique_ptr<GameInstance>> games_;
     std::unique_ptr<gf::Timer> timer_{};
     std::chrono::steady_clock::time_point last_tick_{};
-    // GUI.Forms leaves the capsule's share of a live frame as it was last painted (see
-    // docs/TOOLKIT_REQUESTS.md); after a game opens or the window changes size the game's
-    // first frames arrive later, so until then the capsule is repainted every tick.
-    std::chrono::steady_clock::time_point capsule_fresh_until_{};
-    gf::Size arranged_{};
-    void refresh_capsule_share();
     double refresh_ = 0;
     double quiet_ = 0;  // seconds since the last input or capsule motion
     Entry active_ = entries.front();

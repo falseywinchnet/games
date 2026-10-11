@@ -1,4 +1,5 @@
 #include "surface.hpp"
+#include "overlays.hpp"
 
 #include "gui_forms/window.hpp"
 
@@ -36,6 +37,7 @@ bool Surface::configure(int width, int height) {
 }
 
 bool Surface::attach(gf::Window& window, std::shared_ptr<gf::Control> owner) {
+    owner_ = owner;
     direct_ = surface_ && window.queue_live_surface_presentation(std::move(owner), surface_);
     return direct_;
 }
@@ -123,6 +125,13 @@ void Surface::publish() {
     remember(writing_, frame_);
     writing_ = nullptr;
     pending_ = Rect{};
+    // The overlays over what changed paint again over the new frame (overlays.hpp).
+    if (const std::shared_ptr<gf::Control> owner = owner_.lock()) {
+        const gf::Rect area = (*owner).client_rectangle();
+        const double sx = width_ > 0 && area.width > 0 ? area.width / width_ : 1.0;
+        const double sy = height_ > 0 && area.height > 0 ? area.height / height_ : 1.0;
+        render::refresh_overlays(*owner, {changed.x * sx, changed.y * sy, changed.width * sx, changed.height * sy});
+    }
 }
 
 void Surface::abandon() {

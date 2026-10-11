@@ -757,14 +757,14 @@ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
     // a pale lamp-light halo round its edge, and a wash over the face.
     const bool hovered = !selected && !lifted && s.pile == lift_pile_ && s.index >= lift_index_ && !animating_;
     if (hovered)
-        p.draw_box_shadow(r, 7, {0, 0}, 11, 2, gf::Color::rgba(255, 246, 204, 150));
+        p.draw_box_shadow(r, 7, {0, 0}, 14, 3, gf::Color::rgba(255, 244, 196, 215));
     const std::size_t which = static_cast<std::size_t>(s.card.suit * 13 + s.card.rank - 1);
     const gf::ImageId face = face_style_ == 1 && classic_[which].value ? classic_[which] : faces_[which];
     p.draw_image(face_up ? face : backs_[back_], r);
     if (finish_.value)
         p.draw_image(finish_, r);
     if (hovered)
-        p.fill_rounded_rect(r, 6, gf::Color::rgba(255, 252, 236, 78));
+        p.fill_rounded_rect(r, 6, gf::Color::rgba(255, 253, 240, 120));
 }
 // Where a card dropped on a pile would lie: the next place down a column's fan (squeezed
 // as the layout squeezes a long column), or the pile's own place.
@@ -1510,6 +1510,10 @@ void Table::on_pointer(gf::PointerEvent& e) {
         int id = hit_card(local_position);
         int pile = hit_slot(local_position);
         int index = id < 0 ? -1 : sprites_[id].index;
+        // The pointer's own choices replace the keys' marker; a drag sets it again.
+        if (hover_ >= 0)
+            invalidate(enlarged(slots_[hover_], 12));
+        hover_ = -1;
         if (game.state.kind == Kind::hearts) {
             if (pile == 0 && index >= 0)
                 heart_card(index);
@@ -1603,6 +1607,12 @@ void Table::on_pointer(gf::PointerEvent& e) {
             changed("place");
         }
         pending_from_ = pending_index_ = pending_to_ = -1;
+        // Where the pointer passed while the button was down marks nothing once it is up.
+        if (hover_ >= 0) {
+            invalidate(enlarged(slots_[hover_], 12));
+            invalidate(enlarged(landing(hover_), 12));
+            hover_ = -1;
+        }
         e.handled = true;
     }
 }

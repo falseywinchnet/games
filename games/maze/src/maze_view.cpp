@@ -1,4 +1,5 @@
 #include "maze_view.hpp"
+#include "overlays.hpp"
 
 #include "cast.hpp"
 #include "idle.hpp"
@@ -347,6 +348,7 @@ void MazeView::publish() {
         }
         blit_texts(reinterpret_cast<std::uint32_t*>(dst.data()), rb / 4, k);
         static_cast<void>(lease.publish());
+        render::refresh_overlays(*this);
         ++published_frames_;
     }
     if (attached_window() && surface_) {

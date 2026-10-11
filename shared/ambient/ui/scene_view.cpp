@@ -1,4 +1,5 @@
 #include "scene_view.hpp"
+#include "overlays.hpp"
 
 #include "help_route.hpp"
 #include "portable_mask_cache.hpp"
@@ -396,6 +397,7 @@ void SceneView::publish(const std::vector<std::uint32_t>* picture, int width, in
     if (help_open_ || !(*scenery_).failure().empty())
         draw_help(destination.data(), row_bytes);
     static_cast<void>(lease.publish());
+    render::refresh_overlays(*this);
     if (!direct_)
         invalidate(gf::Dirty::paint);
     text_masks.trim();

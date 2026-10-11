@@ -77,11 +77,13 @@ void ShelfBox::forget_pointer() {
     leave.action = gf::PointerAction::leave;
     gf::Button::on_pointer(leave);
     // The shelf is going away, so there are no frames to settle in: settle now.
-    lift_ = selected() ? 1.0 : 0.0;
+    lift_ = selected() && focus_cue_visible() ? 1.0 : 0.0;
     invalidate(gf::Dirty::paint);
 }
 bool ShelfBox::step(double dt, bool reduced) {
-    const double target = selected() ? 1.0 : hot() ? .55 : 0.0;
+    // The game last open stays marked by its gold rim; it stands up off the shelf only while
+    // the keys are moving the selection, or under the pointer.
+    const double target = selected() && focus_cue_visible() ? 1.0 : hot() ? .55 : 0.0;
     const double next = reduced ? target : lift_ + (target - lift_) * std::min(1.0, dt * 13);
     const bool moving = std::abs(next - target) > .002;
     if (std::abs(next - lift_) > 1e-4) {

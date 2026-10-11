@@ -69,6 +69,7 @@ private:
         std::uint64_t frame = 0;        // the frame it holds
     };
     std::shared_ptr<gf::LiveSurface> surface_;
+    std::weak_ptr<gf::Control> owner_;  // whose overlays a published frame refreshes
     gf::LiveSurfaceWriteLease lease_;
     int width_ = 0;
     int height_ = 0;
