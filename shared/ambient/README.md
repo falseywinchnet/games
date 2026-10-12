@@ -17,12 +17,21 @@ processor redoes only what moved:
 | Layer | Contents | Redrawn |
 |---|---|---|
 | fixed | Everything that does not move: sand, rock, wood, pebbles, ferns, and foliage that cannot move half a pixel at this size. Shaded once per pixel with material maps, normal maps, shadows and 2 × 2 supersampling. Keeps colour, depth, and for surfaces that take animated light, their world position and brightening. | When the view's size or detail changes (on a worker) |
-| sway | The fixed layer plus moving foliage, bent by the current, Gouraud-shaded. Two buffers: one is shown while the other is rebuilt on a worker | On the sway cadence (8 per second preferred), beside the frames |
+| sway | The fixed layer plus moving foliage, bent by the current, Gouraud-shaded; at Balanced and Fine detail drawn with two samples per pixel across (and down, at Fine) and resolved, so thin blades cover a pixel in proportion rather than by whether its centre falls inside them. Two buffers: one is shown while the other is rebuilt on a worker | On the sway cadence (8 per second preferred), beside the frames |
 | frame | The sway layer, the caustics (or simpler animated light) on the lit pixels, then creatures (shaded per pixel, caustics included) and particles | Every animation tick (24 per second preferred) |
 
-The frame is enlarged to the device surface with nearest-pixel sampling. Each scene
-pixel covers a whole number of device pixels, and a detail-specific pixel budget caps
-the raster, so a full-screen window costs no more than a large one.
+The frame is enlarged into the window's own live buffers by the renderer's
+`PixelSurface` (`shared/render`), nearest pixel, in the window's byte order: only the
+window pixels under the scene rows and columns that changed since the buffer in hand
+last showed the scene are written again. Each scene pixel covers a whole number of
+device pixels, and a detail-specific pixel budget caps the raster, so a full-screen
+window costs no more than a large one.
+
+The triangles of every layer are scanned by the renderer's camera-space scan
+(`r3d_scan.hpp`, the scan this engine began with): near-plane clipping, fixed-point
+edges with the top-left rule and each row's run solved exactly, so shared edges are
+covered exactly once, with what happens at a covered pixel a policy chosen at compile
+time. The engine builds on the renderer (`"engines": ["render"]` in `ENGINE.json`).
 
 ## Caustics
 
@@ -75,8 +84,18 @@ again during a change redirects it. Dev scripts can say `action scene <id>`.
 - **Frames never wait for the grass.** Sway updates after the first run on a worker
   into the hidden sway buffer and are shown with the next frame, so a frame costs
   the same whether or not the foliage moved.
+- **An update streams through the moving foliage.** With each fixed layer the stage
+  packs the foliage left moving, in draw order and each vertex once: its rest
+  position, bend, current constants, rest shade and gradient side by side, and per
+  triangle its packed corners and the caustic light it takes. The per-vertex loop then
+  reads one record and writes its view, screen and shade in the same order.
 - **Foliage lighting is linearized** in the bend: each vertex is shaded at rest and
   at a small tilt once, and each update interpolates (a first-order approximation).
+- **A blade never shadows itself.** The shadow map keeps two layers, the nearest
+  caster with its ribbon (a connected thin leaf) and the nearest caster of any other
+  ribbon; a thin leaf reads the second where it is the first, so its own shadow, which
+  read as broad dark bands up the blade, is gone while every other blade and object
+  still shadows it. Fixed surfaces and broad leaves read the first layer, unchanged.
 - **Foliage is ordered by plant**: see-through plants farthest first so blending
   layers correctly, opaque plants nearest first so hidden pixels fail the depth test.
 
@@ -88,13 +107,13 @@ Measured costs for Stillwater are in `games/stillwater/HANDOFF.md`.
 |---|---|---|
 | `SceneData`, `parse_scene`, `load_scene` | `src/archive.hpp` | The archive: a header and a zlib stream of tagged sections. Every count, index and float is validated; a damaged file is refused without disturbing the loaded scene. |
 | `inflate_zlib`, `crc32` | `src/inflate.hpp` | Built-in decoder; no compression library. |
-| `rasterize`, `Projection`, `ShadowMap` | `src/raster3d.hpp` | Fixed-point scan conversion with the top-left rule and near-plane clipping; per-pixel work is a policy chosen at compile time. |
+| `rasterize`, `Projection`, `ShadowMap` | `src/raster3d.hpp` | The camera and the light's frame; the triangles go to the renderer's scan (`shared/render/src/r3d_scan.hpp`) with this engine's projection. |
 | `Creature`, `creature_pose`, `startle`, current | `src/motion.hpp` | Routes and the current as pure functions of time. |
 | `CausticField` | `src/caustics.hpp` | The traced, looping caustic pattern and its per-point taps. |
 | `Look` | `src/stage.hpp` | What a scene supplies: background, light, fixed-surface, foliage, creature and particle shading, creature deformation. |
 | `Foliage`, `build_fixed_layer`, `Stage` | `src/stage.hpp` | The three layers. `build_fixed_layer` is pure, so a view builds it on a worker. |
 | `Governor` | `src/cadence.hpp` | The budget. |
-| `scene_size`, `present_nearest` | `src/present.hpp` | Scene sizing per detail and enlargement. |
+| `scene_size` | `src/present.hpp` | Scene sizing per detail; the renderer's `PixelSurface` enlarges the frame into the window. |
 | `Settings` | `src/settings.hpp` | Paused and detail, remembered between sessions. |
 | `AmbientView`, `SceneSetup` | `ui/ambient_view.hpp` | The PlaySuite control: loading and rebuilding off the UI thread, the governed timer, pause, detail, scene and help commands, glass taps, sound, settings, and a standalone help card. |
 
@@ -146,7 +165,8 @@ Material numbers mean whatever the scene's `Look` says. The record layouts are i
 ## Limits
 
 - The camera is fixed per scene; moving it would rebuild the fixed layer.
-- Shadows of moving things are not drawn; foliage shadows are cast at rest.
+- Shadows of moving things are not drawn; foliage shadows are cast at rest, and a thin
+  leaf is lit as if it cast none on itself.
 - Foliage translucency is order-dependent blending per plant, an approximation of
   the coverage-based transparency a GPU would use.
 - Caustics are traced through one flat surface plane along the light's slant; things

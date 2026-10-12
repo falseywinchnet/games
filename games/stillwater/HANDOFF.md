@@ -350,3 +350,67 @@ after are with the review material, not committed.
 Not verified: listening (the samples are rendered for the owner to judge: the
 original's own, the PR #8 port's and the new voice's, per tank, with taps); Retina;
 the reef on other displays; Windows and Linux (CI).
+
+## 2026-10-12: on the shared renderer; the grass sampled; no blade shadows itself
+
+On the M4 Mac mini (`.build/app-dogfood`, LLVM 22, GUI.Forms 2d7e64f, Skia CPU): the
+whole suite passes (46 of 46 and the touched design tests `stillwater_rules`,
+`maze_rules`, `maze_idle`); native captures of the three tanks, help, resizes, a tap,
+hosted and standalone, and Mowing were viewed. `scripts/check-style.py` is clean on the
+touched folders.
+
+- **Rebase.** The ambient engine's triangles go through the renderer's camera-space scan
+  (`shared/render/src/r3d_scan.hpp`, the scan this engine began with); its own copy is
+  deleted (`raster3d.hpp` keeps the camera and the light's frame). `SceneView` shows its
+  frames through `render::PixelSurface`, which enlarges the raster straight into the
+  window's live buffers in their byte order and writes only the window pixels under the
+  rows and columns that changed; `present_nearest` is deleted. Mowing's view rides the
+  same `SceneView`. `shared/ambient/ENGINE.json` declares `"engines": ["render"]`; the
+  catalog generator, the kit's gate and `tools/test_reuse.py` follow engine dependencies.
+- **Hot path, pixel-identical.** The stage packs the moving foliage per fixed layer in
+  draw order, each vertex once with its rest position, bend, current constants, rest
+  shade and gradient, and each update streams through it. A scan path that tested
+  narrow rows centre by centre instead of solving them was tried and measured to cost
+  a tenth more (the three divisions were the cheaper way), so it was taken out again.
+  Exactness was proven with `sw_preview`'s new checksums (first
+  and last frames; 530 x 309 and 590 x 380, t = 12, 240 frames): the planted tank
+  `ae8225e969803442` / `bcb44159a8f89ae4`, the reef `9d989eeb15b0580a` /
+  `b2b3b001756753ab`, the pool `77ab7497700b8e0e` / `69cc2503f794349c` before and
+  after, and nine maze frames byte for byte.
+- **The grass is sampled.** The sway layer was one sample per pixel while the fixed
+  layer is supersampled, so thin blades read as dotted whorls. `build_fixed_layer`
+  takes the sway layer's samples per pixel across and down (resolved from its own
+  supersamples) and `Stage` draws the moving foliage at that grid and resolves it
+  (`resolve_samples`: mean colour, nearest depth, a lit leaf's tap with its boost in
+  proportion to the samples it covers). Shown to the owner as labelled candidates
+  (A as is, B two across, C two down, D two by two, magnified): the owner chose D as
+  best and, as in Mowing, by detail: Light A, Balanced B, Fine D
+  (`Diorama::set_detail`, `Scenery::set_detail`). `SW_SWAY_SAMPLES=2x1` asks
+  `sw_preview` for a sampling.
+- **A blade never shadows itself.** The owner's crop of candidate B showed one blade
+  shaded nearly black: its own shadow through the shadow map, the same bands the
+  native Stillwater found and switched off after this port's base commit (its
+  `0cbdc5b`, "Disable ribbon blade self-shadowing while preserving foreign
+  occluders"). The same policy here: `foliage_ribbons` numbers the connected thin
+  leaves at load; the shadow map keeps the nearest caster with its ribbon and the
+  nearest caster of any other ribbon; a thin leaf reads the second where it is the
+  first. Fixed surfaces and broad leaves are unchanged; the reef's frame is byte for
+  byte the same, the planted tank changes 23,594 of 163,770 pixels (the shadowed
+  blades), the pool its own. The shadow map costs about 10 ms more once per tank.
+
+Cost (headless `sw_preview`, 530 x 309, the Balanced size of a 1060 x 618 window; M4
+at load 2.5, eight interleaved runs, best of each; compose is a frame, sway one update):
+
+| Build | Planted compose | Planted sway | Pool compose | Pool sway |
+|---|---|---|---|---|
+| Before (HEAD) | 1.28 ms | 9.07 ms | 1.32 ms | 1.66 ms |
+| After, grass sampled once (Light) | 1.28 ms | 9.46 ms | 1.32 ms | 1.82 ms |
+| After, two across (Balanced) | 1.32 ms | 13.28 ms | 1.34 ms | 2.88 ms |
+| After, two by two (Fine) | 1.34 ms | 20.47 ms | 1.35 ms | 4.50 ms |
+
+With the packed foliage alone (the same run, eight interleaved runs at load 2): the
+planted tank's sway update 9.13 ms before and 8.44 ms after, the pool's 1.67 and 1.58
+ms, so the sampled rows above carry about 0.7 ms less than they show. In the window at Balanced the governor sits at its floors (12 frames,
+3 sway updates a second); Balanced's sampling stays inside the budget there, and Fine
+draws fewer frames a second in the planted tank, as Fine already did. The fish cost the
+same at every detail, being drawn per frame.

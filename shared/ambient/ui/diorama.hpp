@@ -87,6 +87,7 @@ class Diorama final : public Scenery {
     [[nodiscard]] bool ready() const override;
     [[nodiscard]] std::string failure() const override;
     void resize(SceneSize size, bool settled) override;
+    void set_detail(Detail detail) override;
     void advance(double seconds, SceneContext& context) override;
     const std::vector<std::uint32_t>& draw(SceneContext& context, int& width, int& height) override;
     void press(double x, double y, SceneContext& context) override;
@@ -160,6 +161,11 @@ class Diorama final : public Scenery {
     SceneSize building_size_{};
     SceneSize wanted_{};
     bool settled_{};
+    // The foliage's samples per pixel follow the detail: Light one, Balanced two across,
+    // Fine two by two (thin blades then cover a pixel in proportion, not by its centre).
+    Detail detail_{Detail::balanced};
+    [[nodiscard]] int sway_samples_x() const;
+    [[nodiscard]] int sway_samples_y() const;
     // The foliage is redrawn on a worker into the stage's hidden sway layer while
     // frames keep composing over the shown one; the result is the worker's seconds.
     std::future<double> swaying_{};

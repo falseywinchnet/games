@@ -66,6 +66,20 @@ def tree(path: str) -> str:
     return TREES[path]
 
 
+def engine_dependencies(engine: str, seen: set[str] | None = None) -> set[str]:
+    """The shared/ folders an engine builds on (its ENGINE.json "engines"), transitively."""
+    seen = set() if seen is None else seen
+    manifest = ROOT / "shared" / engine / "ENGINE.json"
+    if engine in seen or not manifest.is_file():
+        return set()
+    seen.add(engine)
+    found = set()
+    for needed in json.loads(manifest.read_text(encoding="utf-8")).get("engines", []):
+        found.add("shared/" + needed)
+        found |= engine_dependencies(needed, seen)
+    return found
+
+
 def games() -> dict[str, list[str]]:
     """Each game's folder and the shared/ folders it depends on."""
     found: dict[str, list[str]] = {}
@@ -73,6 +87,8 @@ def games() -> dict[str, list[str]]:
         folder = manifest.parent
         data = json.loads(manifest.read_text(encoding="utf-8"))
         shared = {"shared/" + engine for engine in data.get("engines", [])}
+        for engine in data.get("engines", []):
+            shared |= engine_dependencies(engine)
         for build in ("build.cmake", "CMakeLists.txt"):
             if (folder / build).is_file():
                 shared |= set(re.findall(r"shared/[A-Za-z0-9_]+", (folder / build).read_text(encoding="utf-8")))
@@ -122,7 +138,7 @@ def owner(test: dict, graph: dict, known: dict[str, list[str]]) -> tuple[str, li
     if len(parts) > 1 and parts[0] == "games" and parts[1] in known:
         return "game:" + parts[1], known[parts[1]]
     if len(parts) > 1 and parts[0] == "shared":
-        return "engine:" + parts[1], ["shared/" + parts[1]]
+        return "engine:" + parts[1], ["shared/" + parts[1]] + sorted(engine_dependencies(parts[1]))
     # The shell's harness runs some tests per game (<id>_native_frames, <id>_view_contract).
     for game in sorted(known, key=len, reverse=True):
         if test["name"].startswith(game + "_"):

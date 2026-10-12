@@ -148,8 +148,10 @@ def check_portability(directory: Path, manifest: dict, report: Report) -> None:
     files = authored_sources(directory, manifest)
     core = {directory / item for item in manifest.get("core_sources", [])}
     core |= {path.with_suffix(".hpp") for path in core}
-    # A game may use the shared engines it declares in GAME.json, and no other game's code.
-    engine_namespaces = {kitlib.engines()[e]["namespace"] for e in manifest.get("engines", []) if e in kitlib.engines()}
+    # A game may use the shared engines it declares in GAME.json (and the engines those
+    # build on), and no other game's code.
+    engine_namespaces = {kitlib.engines()[e]["namespace"]
+                         for e in kitlib.engine_closure(manifest.get("engines", [])) if e in kitlib.engines()}
     others = {name for name in kitlib.used_namespaces()
               if name not in (manifest["namespace"], "games", "kit", "gui_forms", "paint") and name not in engine_namespaces}
     problems = 0

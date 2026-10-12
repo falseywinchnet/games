@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 
 namespace ambient {
 namespace {
@@ -38,50 +37,6 @@ SceneSize scene_size(int device_width, int device_height, double scale, Detail d
     size.width = std::max(16, static_cast<int>(std::ceil(static_cast<double>(device_width) / factor)));
     size.height = std::max(16, static_cast<int>(std::ceil(static_cast<double>(device_height) / factor)));
     return size;
-}
-
-void build_column_map(int scene_width, int device_width, std::vector<std::uint32_t>& columns) {
-    columns.resize(static_cast<std::size_t>(std::max(device_width, 0)));
-    if (scene_width <= 0 || device_width <= 0)
-        return;
-    for (int x = 0; x < device_width; ++x) {
-        const long long source = static_cast<long long>(x) * scene_width / device_width;
-        columns[static_cast<std::size_t>(x)] =
-            static_cast<std::uint32_t>(std::min<long long>(source, scene_width - 1));
-    }
-}
-
-void present_nearest(const std::uint32_t* scene, int scene_width, int scene_height,
-                     const std::vector<std::uint32_t>& columns, std::byte* destination, std::size_t row_bytes,
-                     int device_width, int device_height, bool rgba) {
-    if (scene == nullptr || destination == nullptr || scene_width <= 0 || scene_height <= 0 || device_width <= 0 ||
-        device_height <= 0 || columns.size() != static_cast<std::size_t>(device_width))
-        return;
-    const std::size_t device_row_bytes = static_cast<std::size_t>(device_width) * 4U;
-    int previous_source = -1;
-    std::byte* previous_row = nullptr;
-    for (int y = 0; y < device_height; ++y) {
-        const int source_row = std::min(
-            scene_height - 1, static_cast<int>(static_cast<long long>(y) * scene_height / device_height));
-        std::byte* row = destination + static_cast<std::size_t>(y) * row_bytes;
-        if (source_row == previous_source && previous_row != nullptr) {
-            std::memcpy(row, previous_row, device_row_bytes);
-            continue;
-        }
-        const std::uint32_t* source = scene + static_cast<std::size_t>(source_row) * static_cast<std::size_t>(scene_width);
-        std::uint32_t* out = reinterpret_cast<std::uint32_t*>(row);
-        if (rgba) {
-            for (int x = 0; x < device_width; ++x) {
-                const std::uint32_t pixel = source[columns[static_cast<std::size_t>(x)]];
-                out[x] = 0xFF000000U | (pixel & 0xFF00U) | ((pixel >> 16) & 0xFFU) | ((pixel & 0xFFU) << 16);
-            }
-        } else {
-            for (int x = 0; x < device_width; ++x)
-                out[x] = source[columns[static_cast<std::size_t>(x)]] | 0xFF000000U;  // the surface is declared opaque
-        }
-        previous_source = source_row;
-        previous_row = row;
-    }
 }
 
 } // namespace ambient

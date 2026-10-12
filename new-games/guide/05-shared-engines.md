@@ -43,13 +43,15 @@ shared/<id>/
 | `id`, `namespace` | The folder name and the C++ namespace. Both are reserved for every game. |
 | `title`, `summary` | What it is, in a phrase and a sentence. |
 | `build` | CMake included once, before the games, with `ENGINE_DIR` set. Guard it with `if(TARGET <core>) return() endif()`. |
+| `engines` | Optional: the engines this one builds on (the ambient engine draws through the renderer). Its `build.cmake` includes theirs first; a game that declares the engine may use their namespaces too, and gets their interface code. |
 | `libraries` | The core targets a game links (for example `ambient_core`). |
 | `ui_sources`, `ui_libraries` | Interface code added to the application's module library, and the interface target that carries its headers, only when an enabled game uses the engine. |
 | `source_directories`, `ui_directories` | Include directories, used by the gate's syntax check. |
 | `tests` | The engine's test sources, for reference; `build.cmake` registers them. |
 
 `tools/game_catalog.py` validates engines before games: unique ids and namespaces,
-files inside the folder, and that every engine a game names exists.
+files inside the folder, that every engine a game or an engine names exists, and that
+engines do not depend on each other in a circle.
 
 ## Building a game on an engine
 

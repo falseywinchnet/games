@@ -462,26 +462,6 @@ void test_presentation() {
     const SceneSize light = scene_size(1180, 760, 1.0, Detail::light);
     require(fine.width > retina.width / 2 && light.width < fine.width, "detail orders the raster size");
     require(scene_size(0, 10, 1, Detail::fine).width == 0, "an empty view has no scene");
-
-    const int sw = 3;
-    const int sh = 2;
-    const std::vector<std::uint32_t> scene{1, 2, 3, 4, 5, 6};  // alpha 0: the copy must make them opaque
-    std::vector<std::uint32_t> columns{};
-    build_column_map(sw, 7, columns);
-    std::vector<std::uint32_t> device(7 * 5, 0);
-    present_nearest(scene.data(), sw, sh, columns, reinterpret_cast<std::byte*>(device.data()), 7 * 4, 7, 5);
-    const std::uint32_t opaque = 0xFF000000U;
-    require(device[0] == (opaque | 1) && device[6] == (opaque | 3) && device[34] == (opaque | 6), "corners map to corners");
-    for (int y = 0; y < 5; ++y)
-        for (int x = 0; x < 7; ++x)
-            require(device[static_cast<std::size_t>(y * 7 + x)] ==
-                        (opaque | scene[static_cast<std::size_t>((y * sh / 5) * sw + x * sw / 7)]),
-                    "nearest sampling, made opaque");
-    // the same into an RGBA surface: red and blue exchanged in the one store
-    const std::vector<std::uint32_t> colour{0x00112233U, 0x00445566U, 0x00778899U, 0x00AABBCCU, 0x00DDEEFFU, 0x00102030U};
-    std::vector<std::uint32_t> rgba(7 * 5, 0);
-    present_nearest(colour.data(), sw, sh, columns, reinterpret_cast<std::byte*>(rgba.data()), 7 * 4, 7, 5, true);
-    require(rgba[0] == 0xFF332211U && rgba[34] == 0xFF302010U, "an RGBA surface gets red and blue in its own places");
 }
 
 void test_settings() {
@@ -591,6 +571,36 @@ void test_stage() {
     stage.compose(2.0, 3.0, creatures);
     require(stage.frame() != first, "the animated light moves with its own clock");
     require(stage.counters().sway_updates == 1 && stage.counters().frames == 4, "work is counted");
+
+    // A multisampled sway layer: the fixed layer carries its surfaces at the sample
+    // grid, the foliage is drawn there and resolved, and the frames are as reproducible.
+    FixedLayer sampled = build_fixed_layer(scene, look, shadows, foliage, 160, 100, 2, 0.5F, 2, 1);
+    require(sampled.samples_x == 2 && sampled.samples_y == 1 && sampled.sample_color.size() == 320U * 100U &&
+                sampled.sample_depth.size() == sampled.sample_color.size() &&
+                sampled.sample_lit.size() == sampled.sample_color.size(),
+            "a layer for two samples across keeps the fixed surfaces at that grid");
+    require(sampled.color == again.color && sampled.depth == again.depth, "its pixels are the same fixed layer");
+    const FixedLayer none = build_fixed_layer(scene, look, shadows, foliage, 160, 100, 1, 0.5F, 2, 1);
+    require(none.samples_x == 1 && none.samples_y == 1 && none.sample_color.empty(),
+            "an unsupersampled fixed layer cannot offer sway samples");
+    Stage multisampled(scene, look, foliage);
+    multisampled.adopt(std::move(sampled));
+    multisampled.update_sway(2.0);
+    multisampled.compose(2.0, 2.0, creatures);
+    const std::vector<std::uint32_t> resolved = multisampled.frame();
+    int differs = 0;
+    for (std::size_t index = 0; index < resolved.size(); ++index) {
+        require((resolved[index] >> 24U) == 255U, "multisampled frames are opaque");
+        differs += resolved[index] != first[index] ? 1 : 0;
+    }
+    require(differs > 0 && differs < static_cast<int>(resolved.size()) / 2,
+            "the samples change the foliage's edges and nothing else");
+    multisampled.update_sway(2.0);
+    multisampled.compose(2.0, 2.0, creatures);
+    require(multisampled.frame() == resolved, "a multisampled frame is reproducible");
+    multisampled.update_sway(4.0);
+    multisampled.compose(2.0, 2.0, creatures);
+    require(multisampled.frame() != resolved, "the multisampled foliage sways");
 }
 
 // The caustic pattern: valid sizes only, in range, looping, sharp near the surface
@@ -696,7 +706,7 @@ void test_near_clip_attributes() {
     ambient::rasterize(actual, p, a, b, c, ambient::Cull::none);
     const float t = (p.near_plane - a.depth) / (b.depth - a.depth);
     const float u = (p.near_plane - c.depth) / (a.depth - c.depth);
-    const ambient::detail::ClipVertex vertices[3] = {
+    const render::r3d::detail::ClipVertex vertices[3] = {
         {a, 1, 0, 0},
         {{ambient::mix(a.x, b.x, t), ambient::mix(a.y, b.y, t), p.near_plane}, 1 - t, t, 0},
         {{ambient::mix(c.x, a.x, u), ambient::mix(c.y, a.y, u), p.near_plane}, u, 0, 1 - u}};
@@ -706,7 +716,7 @@ void test_near_clip_attributes() {
     const bool front = (screen[1].x - screen[0].x) * (screen[2].y - screen[0].y) -
                            (screen[2].x - screen[0].x) * (screen[1].y - screen[0].y) <
                        0;
-    ambient::detail::scan<ClipPicture, false>(expected, 64, 64, screen, vertices, front);
+    render::r3d::detail::sweep<ClipPicture, false>(expected, 64, 64, screen, vertices, front);
     int covered = 0, wrong = 0;
     for (std::size_t i = 0; i < actual.value.size(); ++i) {
         wrong += actual.covered[i] != expected.covered[i] ? 1 : 0;

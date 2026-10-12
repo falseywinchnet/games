@@ -39,6 +39,11 @@ public:
     // publishes. Nothing is returned when nothing changed or no buffer is free.
     [[nodiscard]] std::optional<Surface::Frame> begin(const r2d::Canvas& low, double scale,
                                                       const std::vector<Text>& texts);
+    // The same for a frame of `w` x `h` words (0xAARRGGBB: a canvas's bytes), enlarged by
+    // `scale_x` across and `scale_y` down (an ambient scene's raster is sized to its window
+    // by whole pixels, so the two differ a little at an odd size).
+    [[nodiscard]] std::optional<Surface::Frame> begin(const std::uint32_t* low, int w, int h, double scale_x,
+                                                      double scale_y, const std::vector<Text>& texts);
     void publish() {
         surface_.publish();
         owed_ = Rect{};
@@ -68,10 +73,11 @@ public:
 
 private:
     Surface surface_;
-    std::vector<std::uint8_t> shown_;  // the small frame last shown
+    std::vector<std::uint32_t> shown_;  // the small frame last shown
     int shown_w_ = 0;
     int shown_h_ = 0;
-    double shown_scale_ = 0;
+    double shown_scale_x_ = 0;
+    double shown_scale_y_ = 0;
     std::vector<Text> shown_texts_;
     Rect owed_;  // changes not yet published
     std::vector<int> columns_;  // per window column, its game column

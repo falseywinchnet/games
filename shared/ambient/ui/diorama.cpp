@@ -164,7 +164,7 @@ bool Diorama::poll(SceneContext& context) {
         const Bundle& bundle = *next_.bundle;
         next_building_ = std::async(std::launch::async, &build_fixed_layer, std::cref(bundle.scene),
                                     std::cref(*bundle.look), std::cref(bundle.shadows), std::cref(bundle.foliage),
-                                    next_size_.width, next_size_.height, 2, 0.5F);
+                                    next_size_.width, next_size_.height, 2, 0.5F, sway_samples_x(), sway_samples_y());
     }
     if (next_.stage && (*next_.stage).ready() && fade_ == Fade::out && fade_level() <= 0.0) {
         swap_in();
@@ -186,7 +186,9 @@ bool Diorama::poll(SceneContext& context) {
         }
     }
     if (shown_.stage && !building_.valid() && wanted_.width > 0) {
-        const bool stale = (*shown_.stage).width() != wanted_.width || (*shown_.stage).height() != wanted_.height;
+        const bool stale = (*shown_.stage).width() != wanted_.width || (*shown_.stage).height() != wanted_.height ||
+                           (*shown_.stage).samples_x() != sway_samples_x() ||
+                           (*shown_.stage).samples_y() != sway_samples_y();
         // The first layer is built at once; later ones wait for a resize to settle, and
         // the previous picture is enlarged to the new size in the meantime.
         if (stale && (!(*shown_.stage).ready() || settled_))
@@ -246,7 +248,19 @@ void Diorama::start_build() {
     const Bundle& bundle = *shown_.bundle;
     building_ = std::async(std::launch::async, &build_fixed_layer, std::cref(bundle.scene), std::cref(*bundle.look),
                            std::cref(bundle.shadows), std::cref(bundle.foliage), building_size_.width,
-                           building_size_.height, 2, 0.5F);
+                           building_size_.height, 2, 0.5F, sway_samples_x(), sway_samples_y());
+}
+
+void Diorama::set_detail(Detail detail) {
+    detail_ = detail;  // a layer at the old sampling is stale: poll() rebuilds it
+}
+
+int Diorama::sway_samples_x() const {
+    return detail_ == Detail::light ? 1 : 2;
+}
+
+int Diorama::sway_samples_y() const {
+    return detail_ == Detail::fine ? 2 : 1;
 }
 
 void Diorama::advance(double, SceneContext& context) {

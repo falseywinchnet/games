@@ -1,9 +1,7 @@
 #pragma once
-// From a scene raster to the device surface: choosing the scene's size for a view
-// and enlarging it, nearest pixel, into the surface the window shows.
-#include <cstddef>
+// The scene raster's size for a view: a detail chooses the size of a scene pixel, and
+// the renderer's PixelSurface enlarges the raster into the window (scene_view.cpp).
 #include <cstdint>
-#include <vector>
 
 namespace ambient {
 
@@ -21,17 +19,5 @@ struct SceneSize {
 // device pixels where possible, and the raster never exceeds the detail's pixel
 // budget, so a full-screen window costs no more than a large one.
 [[nodiscard]] SceneSize scene_size(int device_width, int device_height, double scale, Detail detail);
-
-// Maps each device column to its scene column; reused across frames.
-void build_column_map(int scene_width, int device_width, std::vector<std::uint32_t>& columns);
-
-// Enlarges `scene` (scene_width x scene_height, 0xAARRGGBB) to the device surface
-// with nearest-pixel sampling, fully opaque (the live surface promises it), in the
-// surface's byte order: BGRA as packed, or RGBA (red and blue exchanged in the same
-// store) where that is the host's own. Rows repeated from the previous device row are
-// copied whole. `destination` rows are `row_bytes` apart.
-void present_nearest(const std::uint32_t* scene, int scene_width, int scene_height,
-                     const std::vector<std::uint32_t>& columns, std::byte* destination, std::size_t row_bytes,
-                     int device_width, int device_height, bool rgba = false);
 
 } // namespace ambient

@@ -139,6 +139,7 @@ SceneView::SceneView(gf::StableId id, HostSetup setup, std::unique_ptr<Scenery> 
     trace_.on = std::getenv("GAMES_SCENE_TRACE") != nullptr;
     restore();
     update_limits();
+    (*scenery_).set_detail(settings_.detail);
 }
 
 SceneView::~SceneView() = default;
@@ -169,6 +170,7 @@ void SceneView::on_detaching_from_window(gf::Window&) noexcept {
         report_trace();
     } catch (...) {
     }
+    pixels_attached_ = false;  // the surface is kept; a new window is given it again
     subscriptions_.clear();
     if (timer_)
         (*timer_).stop();
@@ -255,22 +257,15 @@ void SceneView::arrange(gf::Rect bounds) {
     last_arrange_ = Clock::now();
     (*scenery_).resize(wanted_, false);
     update_card();
-    if (surface_) {
-        gf::LiveSurfaceDescription description;
-        description.width = static_cast<std::uint32_t>(device_width_);
-        description.height = static_cast<std::uint32_t>(device_height_);
-        description.opaque = true;  // every pixel is written opaque: the host may copy, not blend
-        description.pixel_format = gf::native_live_surface_pixel_format();  // the host's own byte order: a straight copy
-        rgba_ = description.pixel_format == gf::LiveSurfacePixelFormat::rgba32_premultiplied_srgb;
-        static_cast<void>((*surface_).reconfigure(description));
-    }
+    if (pixels_.live())
+        static_cast<void>(pixels_.configure(device_width_, device_height_));
     request_frame();
 }
 
 void SceneView::on_paint(gf::Painter& painter, gf::Rect) {
     const gf::Rect bounds = client_rectangle();
-    if (surface_)
-        painter.draw_live_surface(surface_, bounds);
+    if (pixels_.live())
+        painter.draw_live_surface(pixels_.live(), bounds);
     else
         painter.fill_rect(bounds, backdrop_color(setup_.backdrop));
 }
@@ -388,56 +383,43 @@ void SceneView::tick() {
 
 // ---------------------------------------------------------------- drawing
 
-// A packed 0xRRGGBB colour as the surface stores it (red and blue exchanged for RGBA).
-std::uint32_t SceneView::in_order(std::uint32_t rgb) const {
-    return rgba_ ? ((rgb & 0xFF00U) | ((rgb >> 16) & 0xFFU) | ((rgb & 0xFFU) << 16)) : rgb;
-}
-
+// The scene's raster (or the backdrop until there is one) enlarged into the window's
+// live buffers, nearest pixel, in the window's own byte order: only the window pixels
+// under the rows and columns that changed since the buffer in hand last showed the
+// scene are written again (render::PixelSurface).
 void SceneView::publish(const std::vector<std::uint32_t>* picture, int width, int height) {
-    if (!surface_) {
-        gf::LiveSurfaceDescription description;
-        description.width = static_cast<std::uint32_t>(device_width_);
-        description.height = static_cast<std::uint32_t>(device_height_);
-        description.opaque = true;  // every pixel is written opaque: the host may copy, not blend
-        description.pixel_format = gf::native_live_surface_pixel_format();  // the host's own byte order: a straight copy
-        rgba_ = description.pixel_format == gf::LiveSurfacePixelFormat::rgba32_premultiplied_srgb;
-        surface_ = gf::LiveSurface::create(description);
-        gf::Window* window = attached_window();
-        if (surface_ && window != nullptr)
-            direct_ = (*window).queue_live_surface_presentation(shared_from_this(), surface_);
-            invalidate(gf::Dirty::paint);  // the paint now shows the live surface
-    }
-    if (!surface_)
-        return;
-    gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write();
-    const bool matches = lease && static_cast<int>(lease.width()) == device_width_ &&
-                         static_cast<int>(lease.height()) == device_height_;
-    if (!matches) {
+    if (!pixels_.configure(device_width_, device_height_)) {
         render_dirty_ = true;
-        ++trace_.lease_misses;
         return;
     }
-    const std::span<std::byte> destination = lease.pixels();
-    const std::size_t row_bytes = lease.row_bytes();
+    gf::Window* window = attached_window();
+    if (!pixels_attached_ && window != nullptr) {
+        static_cast<void>(pixels_.attach(*window, shared_from_this()));
+        pixels_attached_ = true;
+        invalidate(gf::Dirty::paint);  // the paint now shows the live surface
+    }
     const bool drawable = picture != nullptr && width > 0 && height > 0 &&
                           (*picture).size() >= static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
-    if (drawable) {
-        if (columns_.size() != static_cast<std::size_t>(device_width_) || columns_width_ != width) {
-            build_column_map(width, device_width_, columns_);
-            columns_width_ = width;
+    const std::uint32_t backdrop = 0xFF000000U | setup_.backdrop;
+    const std::uint32_t* source = drawable ? (*picture).data() : &backdrop;
+    const int source_width = drawable ? width : 1;
+    const int source_height = drawable ? height : 1;
+    static const std::vector<render::PixelSurface::Text> no_texts{};
+    const std::optional<render::Surface::Frame> frame =
+        pixels_.begin(source, source_width, source_height, static_cast<double>(device_width_) / source_width,
+                      static_cast<double>(device_height_) / source_height, no_texts);
+    if (!frame) {
+        // The picture shown is still right, or no buffer was free: what is owed is drawn
+        // with the next frame.
+        if (pixels_.owes()) {
+            render_dirty_ = true;
+            ++trace_.lease_misses;
         }
-        present_nearest((*picture).data(), width, height, columns_, destination.data(), row_bytes, device_width_,
-                        device_height_, rgba_);
-    } else {
-        const std::uint32_t backdrop = 0xFF000000U | in_order(setup_.backdrop);
-        for (int y = 0; y < device_height_; ++y) {
-            std::uint32_t* row = reinterpret_cast<std::uint32_t*>(destination.data() + static_cast<std::size_t>(y) * row_bytes);
-            std::fill(row, row + device_width_, backdrop);
-        }
+        return;
     }
-    static_cast<void>(lease.publish());
+    pixels_.publish();
     render::refresh_overlays(*this);
-    if (!direct_)
+    if (!pixels_.direct())
         invalidate(gf::Dirty::paint);
 }
 
@@ -583,6 +565,7 @@ void SceneView::set_detail(Detail detail) {
     settings_.detail = detail;
     persist();
     update_limits();
+    (*scenery_).set_detail(detail);
     wanted_ = (*scenery_).size_for(device_width_, device_height_, scale_, settings_.detail);
     (*scenery_).resize(wanted_, true);
     request_frame();

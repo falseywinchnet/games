@@ -45,8 +45,10 @@ beside real work, that asks for nothing and can be left at any moment.
 - **Pause / Resume** (Space or the capsule's primary command): the tank stops on the
   exact frame and costs nothing until resumed. Resuming continues from the same
   moment.
-- **Detail** (Q or Settings): Light, Balanced (default) or Fine, the size of the
-  scene's pixels and the processor budget.
+- **Detail** (Q or Settings): Light, Balanced (default) or Fine: the size of the
+  scene's pixels, the processor budget, and how finely the swaying grass is drawn
+  (Balanced samples each pixel twice across, Fine twice across and down, Light once;
+  the finer, the smoother the thin blades).
 - **Tank** (S or Settings): the planted tank (default), the reef or the river
   pool; S takes them in turn. The tank dims to dark water while the next one is prepared on a
   worker, then brightens; this works while paused too.
@@ -94,13 +96,17 @@ frame with Metal; this port keeps the picture by doing less, not by drawing less
   size, supersampled, with shadows and material maps;
 - foliage ribbons are thinned along their length offline (502,000 → 126,000
   triangles); foliage that cannot move half a pixel at the current size is drawn
-  once with the fixed scenery; the rest is redrawn about eight times a second;
+  once with the fixed scenery; the rest is redrawn about eight times a second, with
+  two samples per pixel at Balanced (two by two at Fine) resolved into the frame;
 - fish are decimated (11,916 → 1,500 body triangles) and shaded per pixel;
 - the caustics are traced once as a tank opens (about 20 ms on a worker) into a
   looping, tileable pattern of 32 steps, kept sharp and soft; a frame then reads two
   bytes per lit pixel;
 - the engine measures its own cost and holds the tank within a processor budget,
-  half of it while another window is in front, none while paused or hidden.
+  half of it while another window is in front, none while paused or hidden;
+- the triangles are scanned and the frame shown by the suite's renderer
+  (`shared/render`): the frame is enlarged straight into the window's own buffers, and
+  only the window pixels under what changed are written again.
 
 ## Out of scope
 

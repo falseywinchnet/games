@@ -47,7 +47,7 @@ shared/render/
                      shaders chosen at compile time (flat, Gouraud, mirror, over, ...)
   src/r3d_scan.hpp   the same scan for triangles in camera space: near-plane clipping,
                      a policy per pixel with perspective-correct weights (first-person
-                     views; the ambient engine's core, Maze's correction)
+                     views; the ambient engine's triangles, Maze's correction)
   src/mesh.*         one mesh library (later): indexed, bounded, Mowing's Builder plus
                      the r3d primitives
   ui/surface.*       GUI.Forms side: a LiveSurface in the native byte order, opaque, with
@@ -89,7 +89,9 @@ Each costs nothing unless a game enables it:
 4. Stillwater (the ambient engine's core is r3d's ancestor), Maze (perspective-correct),
    and Mowing (visibility buffer, materials and kept shots move into the engine).
    Maze: done 2026-10-12 (`r3d_scan.hpp`, the window end on `PixelSurface`). Stillwater:
-   held; the ambient engine keeps its own copy of the scan until its move is taken up.
+   done 2026-10-12: the ambient engine's triangles go through `r3d_scan.hpp` (its own copy
+   of the scan is deleted) and `SceneView` shows its frames through `PixelSurface`, which
+   Mowing's view rides too; `ENGINE.json` declares the dependency (`"engines"`).
 5. The game copies are deleted.
 
 Each step lands with a timing against the previous build on the M4, measured the same

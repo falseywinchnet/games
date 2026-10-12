@@ -2,7 +2,8 @@
 // A living scene as a PlaySuite control. The view hosts one Scenery and owns what
 // every scene shares:
 //
-//   * the window surface, enlarged from the scene's raster;
+//   * the window surface (the renderer's PixelSurface), the scene's raster enlarged
+//     into the window's own buffers where it changed;
 //   * a governed clock: frames at rates that keep the scene inside its processor
 //     budget (cadence.hpp), half the budget while the window is not active, and no
 //     timer at all while paused, hidden or occluded;
@@ -12,13 +13,13 @@
 #include "suite.hpp"
 
 #include "cadence.hpp"
+#include "pixel_surface.hpp"
 #include "present.hpp"
 #include "scenery.hpp"
 #include "settings.hpp"
 #include "sound_desk.hpp"
 
 #include "gui_forms/basic_controls.hpp"
-#include "gui_forms/live_surface.hpp"
 #include "gui_forms/timer.hpp"
 
 #include <chrono>
@@ -87,11 +88,10 @@ class SceneView : public gf::Control, public games::CommandSource {
     Settings settings_{};
     Governor governor_{};
     SoundDesk sound_{};
-    std::shared_ptr<gf::LiveSurface> surface_{};
+    render::PixelSurface pixels_{};  // the window's live buffers, in their own byte order
+    bool pixels_attached_{};         // presented through this control's window
     std::unique_ptr<gf::Timer> timer_{};
     std::vector<gf::SubscriptionToken> subscriptions_{};
-    std::vector<std::uint32_t> columns_{};  // device column -> scene column
-    int columns_width_{};                    // the scene width columns_ was built for
     std::chrono::steady_clock::time_point last_tick_{};
     std::chrono::steady_clock::time_point last_arrange_{};
     double scene_time_{};
@@ -100,8 +100,6 @@ class SceneView : public gf::Control, public games::CommandSource {
     int device_height_{};
     SceneSize wanted_{};
     bool render_dirty_{true};
-    bool direct_{};
-    bool rgba_{};         // the live surface is RGBA (the host's own order), not BGRA
     bool front_{true};
     bool music_{true};
     bool sound_on_{true};
@@ -122,7 +120,7 @@ class SceneView : public gf::Control, public games::CommandSource {
     struct Trace {
         bool on{};
         std::uint64_t frames{};        // pictures drawn
-        std::uint64_t lease_misses{};  // pictures drawn but not presented (surface busy)
+        std::uint64_t lease_misses{};  // pictures drawn but not presented (no buffer free)
         std::uint64_t late_frames{};   // frames more than half an interval late
         double gap_sum{};              // seconds between drawn frames
         double gap_square{};
@@ -146,7 +144,6 @@ class SceneView : public gf::Control, public games::CommandSource {
     void finish(const SceneContext& context);
     void publish(const std::vector<std::uint32_t>* picture, int width, int height);
     [[nodiscard]] std::vector<std::byte> render_card(int& width, int& height, int& left, int& top);
-    [[nodiscard]] std::uint32_t in_order(std::uint32_t rgb) const;
     void set_paused(bool paused);
     void set_detail(Detail detail);
     void set_help(bool open);

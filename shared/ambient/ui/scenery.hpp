@@ -55,6 +55,9 @@ class Scenery {
     // The view wants pictures of `size`. `settled` is false while a resize is still
     // under way, so expensive rebuilds can wait for it to stop.
     virtual void resize(SceneSize size, bool settled) = 0;
+    // The view's detail (Light, Balanced, Fine), when restored and whenever it changes;
+    // a scene that draws differently per detail takes it here.
+    virtual void set_detail(Detail) {}
     // Advances the scene by `seconds` (never called while paused, hidden or occluded).
     virtual void advance(double seconds, SceneContext& context) = 0;
     // Draws the current picture: width * height pixels, 0xFFRRGGBB, row-major.

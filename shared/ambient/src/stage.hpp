@@ -61,6 +61,13 @@ struct SwayShade {
     float alpha{1};
     Rgb light_boost{};  // display colour added at full caustic light (zero when none)
 };
+// A swaying vertex's shade this update, in display levels 0..255 (the sway layer's
+// Gouraud units), front and back.
+struct FoliageShade {
+    Rgb front{};
+    Rgb back{};
+    float alpha{1};
+};
 
 struct ActorSample {
     Vec3 world{};
@@ -118,6 +125,13 @@ struct FixedLayer {
     std::vector<float> light_position{};     // width * height * 3: world x, y, z where boost != 0
     std::vector<std::uint8_t> settled{};     // per foliage triangle: 1 when drawn here, at rest
     std::vector<std::uint8_t> hidden{};      // per foliage triangle: 1 when this layer hides it however it sways
+    // The sway layer's samples per pixel across and down (1 or 2 each); with more than
+    // one, the fixed surfaces at that sampling, which the swaying foliage is drawn over.
+    int samples_x{1};
+    int samples_y{1};
+    std::vector<std::uint32_t> sample_color{};  // (width * samples_x) x (height * samples_y)
+    std::vector<float> sample_depth{};
+    std::vector<std::uint8_t> sample_lit{};     // 1 where the sample takes animated light
 };
 
 // Foliage data prepared once per scene and read-only afterwards, so a worker
@@ -154,15 +168,26 @@ struct StageCounters {
     std::uint64_t actor_fragments{};
 };
 
+// Per foliage vertex, its ribbon: the connected piece of the foliage mesh it belongs to
+// when that piece is a thin leaf (every vertex see-through at the tips, translucency 0.7
+// or more), numbered from 1; ShadowMap::no_ribbon for broad leaves. Shadows are cast
+// per ribbon so a blade never shadows itself.
+[[nodiscard]] std::vector<std::uint16_t> foliage_ribbons(const SceneData& scene);
+
 // Shadow map of the fixed scenery and the foliage at rest.
 [[nodiscard]] ShadowMap build_shadow_map(const SceneData& scene, const Look& look, int size);
 
 // Builds the fixed layer, including foliage that settles at this size. Pure: reads
 // only its arguments, so a view may run it on a worker while it keeps drawing with
 // the previous layer.
+// `sway_samples_x` and `sway_samples_y` (1 or 2 each) ask for the sway layer to be
+// drawn with that many samples per pixel: thin blades of grass then cover a pixel in
+// proportion rather than by whether its centre falls inside them. The samples are
+// resolved from the fixed layer's own, so `supersample` must be a multiple of each.
 [[nodiscard]] FixedLayer build_fixed_layer(const SceneData& scene, const Look& look, const ShadowMap& shadows,
                                            const Foliage& foliage, int width, int height, int supersample,
-                                           float settle_threshold_pixels);
+                                           float settle_threshold_pixels, int sway_samples_x = 1,
+                                           int sway_samples_y = 1);
 
 // An item (a triangle or a plant) and the depth it is ordered by.
 struct SortKey {
@@ -182,6 +207,13 @@ class Stage final {
     }
     [[nodiscard]] int height() const {
         return fixed_.height;
+    }
+    // The sway layer's samples per pixel (FixedLayer::samples_x, samples_y).
+    [[nodiscard]] int samples_x() const {
+        return fixed_.samples_x;
+    }
+    [[nodiscard]] int samples_y() const {
+        return fixed_.samples_y;
     }
     // Takes ownership of a fixed layer built for the current camera.
     void adopt(FixedLayer layer);
@@ -211,6 +243,7 @@ class Stage final {
   private:
     void draw_actors(double time, float light_time, const std::vector<Creature>& creatures);
     void draw_risers(double time);
+    void resolve_samples(int target);
 
     const SceneData& scene_;
     const Look& look_;
@@ -229,16 +262,45 @@ class Stage final {
     std::vector<std::uint32_t> sway_tap_[2]{};
     std::vector<std::uint32_t> sway_boost_[2]{};
     std::vector<CausticPoint> sway_light_{};  // this update, per moving foliage vertex
+    // The sway layer multisampled (FixedLayer::samples_x, samples_y): drawn here, then
+    // resolved into the sway buffers above.
+    std::vector<std::uint32_t> sample_color_{};
+    std::vector<float> sample_depth_{};
+    std::vector<std::uint8_t> sample_lit_{};
+    std::vector<std::uint32_t> sample_tap_{};
+    std::vector<std::uint32_t> sample_boost_{};
+    Projection sample_projection_{};
+    float sample_stretch_{1};  // view x is scaled by samples_x / samples_y before projecting
     int shown_{};
     std::vector<std::uint8_t> lit_mask_{};     // 1 where the fixed surface still shows
     std::vector<std::uint8_t> fixed_lit_{};    // 1 where the fixed layer takes animated light
     std::vector<CurrentRoot> roots_{};
-    std::vector<std::uint32_t> moving_order_{};     // foliage triangles redrawn, in draw order
-    std::vector<std::uint32_t> moving_vertices_{};  // their vertices
+    // The foliage a fixed layer leaves moving, packed once per layer in draw order so
+    // an update streams through it: per vertex, all the current and the shade read;
+    // per triangle, its packed corners and the caustic light it takes.
+    struct MovingVertex {
+        Vec3 position{};
+        Vec3 bend{};  // the direction the current displaces it, decoded
+        CurrentVertex current{};
+        std::uint32_t root{};
+        Rgb rest_front{};
+        Rgb rest_back{};
+        Rgb gradient_front{};
+        Rgb gradient_back{};
+        float alpha{1};
+        std::uint32_t boost{};  // its caustic light at full strength, 0x00RRGGBB, or 0
+    };
+    struct MovingTriangle {
+        std::uint32_t vertex[3]{};
+        std::uint32_t boost{};  // the leaf's light, when all three corners take it
+    };
+    std::vector<MovingVertex> moving_{};
+    std::vector<MovingTriangle> moving_triangles_{};
+    // Per moving vertex, this update.
     std::vector<ViewPoint> sway_view_{};
     std::vector<ScreenPoint> sway_screen_{};
     std::vector<std::uint8_t> sway_in_front_{};
-    std::vector<SwayShade> sway_shade_{};  // this update
+    std::vector<FoliageShade> sway_shade_{};
     // Frame.
     std::vector<std::uint32_t> frame_color_{};
     std::vector<float> frame_depth_{};

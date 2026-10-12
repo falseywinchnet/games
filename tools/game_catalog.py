@@ -82,10 +82,38 @@ def discover_engines(root: Path) -> dict[str, dict]:
                 fail(f'{key} must be a list')
             for value in data[key]:
                 local(value, True)
+        # Engines an engine builds on (shared/<id>/ENGINE.json), by id.
+        data.setdefault('engines', [])
+        if (not isinstance(data['engines'], list) or any(not isinstance(e, str) for e in data['engines'])
+                or len(set(data['engines'])) != len(data['engines']) or data['id'] in data['engines']):
+            fail('engines must be a list of distinct other engine ids')
         data['directory'] = path.parent
         data['manifest_path'] = path
         engines[data['id']] = data
+    for engine in engines.values():
+        for needed in engine['engines']:
+            if needed not in engines:
+                raise ValueError(f'{engine["manifest_path"]}: unknown engine {needed!r}; engines live in shared/<id>/ENGINE.json')
+    for engine_id in engines:
+        if engine_id in engine_closure(engines, [engine_id])[1:]:
+            raise ValueError(f'{engines[engine_id]["manifest_path"]}: engines depend on each other in a circle')
     return engines
+
+
+def engine_closure(engines: dict[str, dict], ids) -> list[str]:
+    """The engines named and, after each, the engines it builds on, transitively; each once."""
+    result = []
+    def visit(engine_id, trail):
+        if engine_id in result:
+            return
+        result.append(engine_id)
+        if engine_id in trail:
+            return
+        for needed in engines[engine_id].get('engines', []):
+            visit(needed, trail + [engine_id])
+    for engine_id in ids:
+        visit(engine_id, [])
+    return result
 
 
 def discover(root: Path, extra_dirs=(), include_disabled=False) -> list[dict]:
@@ -234,7 +262,8 @@ std::optional<Entry> find_entry(std::string_view id) {
 }
 '''
     engines = discover_engines(root)
-    used_engines = sorted({e for g in games for e in g['engines']})
+    # An engine used brings the engines it builds on.
+    used_engines = sorted(set(engine_closure(engines, sorted({e for g in games for e in g['engines']}))))
     metadata = '# Generated discovery metadata; safe to include without creating build targets.\n'
     metadata += 'set(GAMES_MODULE_IDS ' + ' '.join(g['id'] for g in games) + ')\n'
     metadata += 'set(GAMES_ENGINE_IDS ' + ' '.join(sorted(engines)) + ')\n'

@@ -180,6 +180,9 @@ void sweep(Policy& policy, int width, int height, const ScreenPoint* s, const Cl
     const ClipVertex& c2 = weights[order[2]];
     const std::int64_t row_steps[3] = {step_x0, step_x1, step_x2};
     const std::int64_t span_limit = static_cast<std::int64_t>(end_x - start_x) + 1;
+    // Every row is solved, the narrow ones too: testing a narrow row's centres instead
+    // (to save its divisions) was measured to cost the ambient engine's grass a tenth
+    // more, so the three divisions are the cheaper way.
     for (int y = start_y; y <= end_y; ++y) {
         // The row's covered run, solved exactly from the three edge functions: an edge
         // rising along x bounds it on the left, a falling one on the right. Every pixel

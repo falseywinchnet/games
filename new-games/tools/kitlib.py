@@ -55,11 +55,23 @@ def engines() -> dict[str, dict]:
     return discover_engines(REPO)
 
 
+def engine_closure(ids) -> list[str]:
+    """The engines named and the engines they build on, transitively (an ambient scene
+    draws through the renderer, say); unknown ids are kept so the caller can report them."""
+    sys.path.insert(0, str(REPO / "tools"))
+    from game_catalog import engine_closure as close
+    found = engines()
+    known = [engine_id for engine_id in ids if engine_id in found]
+    unknown = [engine_id for engine_id in ids if engine_id not in found]
+    return close(found, known) + unknown
+
+
 def engine_directories(manifest: dict) -> list[Path]:
-    """Include directories of the engines a game declares: sources, then interface code."""
+    """Include directories of the engines a game declares, and of the engines those
+    build on: sources, then interface code."""
     found = engines()
     result = []
-    for engine_id in manifest.get("engines", []):
+    for engine_id in engine_closure(manifest.get("engines", [])):
         engine = found.get(engine_id)
         if engine is None:
             raise SystemExit(f"GAME.json names engine {engine_id!r}, which is not in shared/")

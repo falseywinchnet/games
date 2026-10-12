@@ -19,6 +19,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <thread>
 #include <vector>
@@ -30,6 +31,16 @@ using Clock = std::chrono::steady_clock;
 double milliseconds_since(Clock::time_point start) {
     const double result = std::chrono::duration<double, std::milli>(Clock::now() - start).count();
     return result;
+}
+
+// A checksum of a frame's words, so a change can be shown to draw the same pixels.
+std::uint64_t checksum(const std::vector<std::uint32_t>& pixels) {
+    std::uint64_t hash = 1469598103934665603ULL;
+    for (const std::uint32_t pixel : pixels) {
+        hash ^= pixel;
+        hash *= 1099511628211ULL;
+    }
+    return hash;
 }
 
 // The stage's 0xAARRGGBB words, as the BGRA bytes the PNG writer takes.
@@ -128,9 +139,18 @@ int main(int argc, char** argv) {
     const ambient::Foliage foliage = ambient::prepare_foliage(scene, look, shadows);
     const double foliage_ms = milliseconds_since(start);
 
+    // SW_SWAY_SAMPLES=2x1 (or 1x2, 2x2) draws the swaying foliage with that many samples
+    // per pixel across and down, resolved into the frame.
+    int sway_samples_x = 1;
+    int sway_samples_y = 1;
+    const char* sway_samples = std::getenv("SW_SWAY_SAMPLES");
+    if (sway_samples != nullptr && std::strlen(sway_samples) == 3) {
+        sway_samples_x = sway_samples[0] - '0';
+        sway_samples_y = sway_samples[2] - '0';
+    }
     start = Clock::now();
-    ambient::FixedLayer layer =
-        ambient::build_fixed_layer(scene, look, shadows, foliage, width, height, supersample, settle_pixels);
+    ambient::FixedLayer layer = ambient::build_fixed_layer(scene, look, shadows, foliage, width, height, supersample,
+                                                           settle_pixels, sway_samples_x, sway_samples_y);
     const double fixed_ms = milliseconds_since(start);
     std::size_t settled = 0;
     for (const std::uint8_t flag : layer.settled)
@@ -148,6 +168,7 @@ int main(int argc, char** argv) {
     stage.compose(time, time, creatures);
     const double compose_ms = milliseconds_since(start);
     write_frame(argv[2], width, height, stage.frame());
+    const std::uint64_t first_checksum = checksum(stage.frame());
 
     // Steady animation: sway every third frame (about 8 Hz at 24 frames a second).
     start = Clock::now();
@@ -171,7 +192,8 @@ int main(int argc, char** argv) {
     }
     const double animated_ms = milliseconds_since(start) - idle_total;
     const double compose_mean = frames > 0 ? (animated_ms - sway_total) / frames : 0;
-    std::printf("scene %d x %d, fixed supersample %d\n", width, height, supersample);
+    std::printf("scene %d x %d, fixed supersample %d, sway samples %d x %d\n", width, height, supersample,
+                layer.samples_x, layer.samples_y);
     std::printf("load %.1f ms, look %.1f ms, shadow map %.1f ms, foliage %.1f ms, fixed layer %.1f ms\n", load_ms,
                 look_ms, shadow_ms, foliage_ms, fixed_ms);
     std::printf("foliage settled into the fixed layer: %zu of %zu triangles (threshold %.2f px)\n", settled,
@@ -184,5 +206,7 @@ int main(int argc, char** argv) {
                 sway_count, compose_mean * 24 + (sway_count > 0 ? sway_total / sway_count : 0.0) * 8);
     std::printf("fragments/frame %.0f\n",
                 frames > 0 ? static_cast<double>(stage.counters().actor_fragments) / (frames + 1) : 0.0);
+    std::printf("first frame %016llx, last frame %016llx\n", static_cast<unsigned long long>(first_checksum),
+                static_cast<unsigned long long>(checksum(stage.frame())));
     return 0;
 }
