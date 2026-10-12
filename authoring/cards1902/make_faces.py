@@ -18,8 +18,12 @@ folder, then:
 
 which writes assets/classic_00.png ... classic_51.png (suit * 13 + rank - 1,
 suits clubs, diamonds, hearts, spades), 360 x 504 like the painted faces, each design
-centred on its card and cleared of the flecks listed in SPECKS. Faces reprinted before
-both were added are centred and cleared in place by
+on cardstock of #FBFCFC, centred on its card and cleared of the flecks listed in SPECKS.
+Faces reprinted on the earlier, creamier board are laid on the present one by
+
+    python3 authoring/cards1902/make_faces.py --repaper assets
+
+and faces reprinted before centring was added are centred and cleared in place by
 
     python3 authoring/cards1902/make_faces.py --centre assets
  The classic
@@ -155,10 +159,49 @@ def vote(labels: np.ndarray, r: int = 1) -> np.ndarray:
     return counts.argmax(axis=2).astype(np.uint8)
 
 
+# The cardstock, #FBFCFC. Its tint, formation, fibres and the grain of the ink are the
+# table's own finish, laid over every style as the game draws the card.
+BOARD = np.array([251.0, 252.0, 252.0])
+# The board the faces were first reprinted on, which --repaper replaces.
+OLD_BOARD = np.array([245.0, 244.0, 238.0])
+
+
 def paper(h: int, w: int) -> np.ndarray:
-    """Soft off-white board. Its tint, formation, fibres and the grain of the ink are the
-    table's own finish, laid over every style as the game draws the card."""
-    return np.broadcast_to(np.array([245.0, 244.0, 238.0]), (h, w, 3)).copy()
+    """The bare cardstock."""
+    return np.broadcast_to(BOARD, (h, w, 3)).copy()
+
+
+def repaper(art: np.ndarray, inks: list) -> np.ndarray:
+    """`art` laid on the present cardstock instead of OLD_BOARD. A pixel that is the board
+    with one ink antialiased onto it has only the board's share of it changed; bare board
+    becomes BOARD exactly, and solid ink, or two inks meeting, is untouched."""
+    rgb = art[..., :3].astype(np.float64)
+    share = np.zeros(rgb.shape[:2])
+    best_miss = np.full(rgb.shape[:2], np.inf)
+    for ink_colour in inks:
+        towards = np.asarray(ink_colour, dtype=np.float64) - OLD_BOARD
+        ink = np.clip(((rgb - OLD_BOARD) @ towards) / (towards @ towards), 0, 1)
+        miss = np.linalg.norm(rgb - (OLD_BOARD + ink[..., None] * towards), axis=2)
+        better = miss < best_miss
+        best_miss[better] = miss[better]
+        share[better] = 1 - ink[better]
+    share[best_miss > 6] = 0
+    out = art.copy()
+    out[..., :3] = np.clip(np.round(rgb + share[..., None] * (BOARD - OLD_BOARD)), 0, 255)
+    return out
+
+
+def repaper_faces(folder: Path) -> None:
+    """The faces and the classic back already in `folder`, laid on the present cardstock."""
+    for index in range(52):
+        path = folder / f"classic_{index:02d}.png"
+        art = np.asarray(Image.open(path).convert("RGBA"))
+        Image.fromarray(repaper(art, [INKS[k] for k in (RED, BLUE, BLACK, YELLOW)]), "RGBA").save(
+            path, optimize=True)
+    back = folder / "back_1899.png"
+    if back.exists():
+        art = np.asarray(Image.open(back).convert("RGBA"))
+        Image.fromarray(repaper(art, [BACK_INKS[BLUE]]), "RGBA").save(back, optimize=True)
 
 
 def rounded_alpha(h: int, w: int) -> np.ndarray:
@@ -320,6 +363,9 @@ def centre_faces(folder: Path) -> None:
 
 
 def main() -> None:
+    if len(sys.argv) == 3 and sys.argv[1] == "--repaper":
+        repaper_faces(Path(sys.argv[2]))
+        return
     if len(sys.argv) == 3 and sys.argv[1] == "--centre":
         centre_faces(Path(sys.argv[2]))
         return
