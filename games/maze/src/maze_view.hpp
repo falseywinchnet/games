@@ -1,10 +1,12 @@
 #pragma once
 // The game as a GUI.Forms control: the first-person maze in a small low-res
-// frame the compositor magnifies, wrapped in Windows-95 chrome gone vaporwave
+// frame the shared render engine's PixelSurface enlarges straight into the window's
+// buffers (only what changed), wrapped in Windows-95 chrome gone vaporwave
 // (pink-to-teal title bars): the briefing that names what you seek, the speech
 // box with its speaker's portrait, the status bar, the win dialog, the trophy
 // shelf and help. Keys, mouse, autosave, music and sound.
 #include "maze.hpp"
+#include "pixel_surface.hpp"
 #include "save.hpp"
 #include "session.hpp"
 #include "soft3d.hpp"
@@ -12,7 +14,6 @@
 #include "platform/canvas.hpp"
 
 #include "gui_forms/basic_controls.hpp"
-#include "gui_forms/live_surface.hpp"
 #include "gui_forms/timer.hpp"
 
 #include <chrono>
@@ -43,6 +44,8 @@ public:
     void set_cabinet(bool foreground, bool music, bool sound, bool reduced = false);
     std::vector<games::GameCommand> commands() const override;
     void run_command(std::string_view id) override;
+    std::vector<games::GameSetting> settings() const override;
+    void change_setting(std::string_view id, double value) override;
     bool scripted_action(std::string_view code);
     std::uint64_t published_frames() const { return published_frames_; }
     std::uint64_t timer_callbacks() const { return timer_callbacks_; }
@@ -59,9 +62,11 @@ private:
     Options opt_;
     SaveData save_;
     Session sess_;
+    static constexpr int kSamples = 2;  // the scene is drawn this many times finer each way, then averaged
     Soft3D r_;
     Canvas frame_;
-    std::shared_ptr<gf::LiveSurface> surface_;
+    render::PixelSurface pixels_;  // the window end: the small frame enlarged, and the text
+    bool pixels_attached_ = false;
     std::unique_ptr<gf::Timer> timer_;
     std::vector<gf::SubscriptionToken> subs_;
     std::chrono::steady_clock::time_point last_{};
@@ -72,6 +77,8 @@ private:
     int& level_reached();
     std::string maze_name() const;
     void set_difficulty(int difficulty);
+    void dress(Level& level) const;
+    std::uint64_t level_seed_ = 0;
     std::vector<std::string> news_;   // what's new in this maze (for the briefing)
     int autowalk_ = 0;                // dev: steps still to walk along a best route (re-planned each step)
     Panel panel_ = Panel::none;
@@ -85,8 +92,7 @@ private:
     double pixel_ = 3;
     double bs_ = 2;
     int pw_ = 0, ph_ = 0, phys_w_ = 0, phys_h_ = 0;
-    std::vector<int> xmap_;
-    bool direct_ = false, cab_reduced_ = false, render_dirty_ = true;
+    bool cab_reduced_ = false, render_dirty_ = true;
     std::uint64_t published_frames_ = 0, timer_callbacks_ = 0;
     std::vector<HiText> texts_;
 
@@ -106,6 +112,7 @@ private:
     void run_script();
     // drawing
     void compose();
+    void resolve_frame();
     void draw_status();
     void draw_speech();
     void draw_panel();
@@ -117,7 +124,10 @@ private:
     int text(const std::string& s, int x, int y, Col c, double size = 9, int font = 0, int wrap = 0);
     int text_w(const std::string& s, double size, int font) const;
     int text_h(const std::string& s, double size, int font, int wrap = 0) const;
-    void blit_texts(std::uint32_t* dst, size_t stride_px, double k);
+    // The texts this frame, as the surface tracks them (what and where, in window pixels).
+    [[nodiscard]] std::vector<render::PixelSurface::Text> text_marks(double k) const;
+    // Blends them over the enlarged frame, inside `clip`, at window resolution.
+    void blit_texts(const render::Target& target, render::Rect clip, double k) const;
 };
 
 }  // namespace mz

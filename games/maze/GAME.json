@@ -48,6 +48,8 @@
   "core_sources": [
     "src/soft3d.cpp",
     "src/textures.cpp",
+    "src/paints.cpp",
+    "src/art.cpp",
     "src/maze.cpp",
     "src/world.cpp",
     "src/session.cpp",
@@ -66,18 +68,8 @@
     "src/cast.cpp",
     "src/cast.hpp",
     "src/maze.cpp",
-    "src/maze.hpp",
     "src/rewards.cpp",
-    "src/rewards.hpp",
-    "src/save.hpp",
-    "src/soft3d.cpp",
-    "src/soft3d.hpp",
-    "src/textures.cpp",
-    "src/textures.hpp",
-    "src/world.cpp",
-    "src/world.hpp",
-    "tests/maze_tests.cpp",
-    "tests/preview.cpp"
+    "src/rewards.hpp"
   ],
   "engines": [
     "render"

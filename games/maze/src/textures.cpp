@@ -483,71 +483,10 @@ std::vector<std::unique_ptr<Tex32>>& posters() {
     return v;
 }
 
-std::vector<std::pair<std::unique_ptr<Tex32>, bool>>& paints() {
-    static std::vector<std::pair<std::unique_ptr<Tex32>, bool>> v;
-    if (!v.empty()) return v;
-    auto add = [&](const Canvas& c, bool glitch) { v.push_back({std::make_unique<Tex32>(to_tex(c)), glitch}); };
-    Canvas c;
-    c.resize(64, 64);
-    // zebra
-    c.clear(hex(0xF4F4F0));
-    for (int k = 0; k < 8; ++k) { c.begin(); c.move(k * 10 - 6, 0); c.quad(k * 10 + 6, 32, k * 10 - 4, 64); c.line(k * 10 + 1, 64); c.quad(k * 10 + 11, 32, k * 10, 0); c.close(); c.fill(hex(0x101010)); }
-    add(c, false);
-    // rainbow plasma
-    for (int y = 0; y < 64; ++y)
-        for (int x = 0; x < 64; ++x) {
-            const double v2 = std::sin(x * .2) + std::sin(y * .15) + std::sin((x + y) * .1);
-            const double hue = (v2 + 3) / 6;
-            c.fill_rect(x, y, 1, 1, {static_cast<float>(.5 + .5 * std::sin(6.283 * hue)), static_cast<float>(.5 + .5 * std::sin(6.283 * (hue + .33))), static_cast<float>(.5 + .5 * std::sin(6.283 * (hue + .66))), 1});
-        }
-    add(c, true);
-    // eyes, watching
-    c.clear(hex(0xF0A0C0));
-    for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x) {
-        const double cx = 16 + x * 32 + (y % 2) * 8, cy = 16 + y * 32;
-        c.fill_ellipse(cx, cy, 11, 7, hex(0xFFFFFF)); c.fill_circle(cx + 2, cy, 4.5, hex(0x2A8A4A)); c.fill_circle(cx + 2, cy, 2, hex(0x000000));
-        c.begin(); c.ellipse(cx, cy, 11, 7); c.stroke(hex(0x5A1A3A), 1.2);
-    }
-    add(c, false);
-    // polka dots
-    c.clear(hex(0xF8D040));
-    for (int y = 0; y < 64; y += 16) for (int x = 0; x < 64; x += 16) c.fill_circle(x + 8 + (y / 16 % 2) * 8, y + 8, 5, hex(0xE83A6A));
-    add(c, false);
-    // television static
-    for (int y = 0; y < 64; ++y) for (int x = 0; x < 64; ++x) { const float g = static_cast<float>(h01(x * 64 + y + 5000)); c.fill_rect(x, y, 1, 1, {g, g, g, 1}); }
-    add(c, true);
-    // a checkerboard that will not hold still
-    c.clear(hex(0x101010));
-    for (int y = 0; y < 8; ++y) for (int x = 0; x < 8; ++x) if ((x + y) % 2) c.fill_rect(x * 8, y * 8, 8, 8, hex(0xF0F0F0));
-    add(c, true);
-    // fish scales
-    c.clear(hex(0x2A8AA8));
-    for (int y = 0; y < 72; y += 8) for (int x = -8; x < 72; x += 16) { c.begin(); c.circle(x + (y / 8 % 2) * 8, y, 8); c.stroke(hex(0x8AE8F0), 1.5); }
-    add(c, false);
-    // tie-dye
-    for (int y = 0; y < 64; ++y)
-        for (int x = 0; x < 64; ++x) {
-            const double r = std::hypot(x - 32, y - 32), a = std::atan2(y - 32, x - 32);
-            const double hue = r * .05 + a * .3;
-            c.fill_rect(x, y, 1, 1, {static_cast<float>(.6 + .4 * std::sin(hue * 6)), static_cast<float>(.6 + .4 * std::sin(hue * 6 + 2)), static_cast<float>(.6 + .4 * std::sin(hue * 6 + 4)), 1});
-        }
-    add(c, true);
-    // ERROR, over and over
-    c.clear(hex(0x0000A0));
-    for (int k = 0; k < 6; ++k) pixel_text(c, "ERROR", 2 + (k % 2) * 6, 2 + k * 10, 1, k % 2 ? hex(0xF0F0F0) : hex(0xF0F040));
-    add(c, true);
-    // little houndstooth
-    c.clear(hex(0xF0E8D8));
-    for (int y = 0; y < 64; y += 8) for (int x = 0; x < 64; x += 8) { c.begin(); c.move(x, y); c.line(x + 4, y); c.line(x + 8, y + 4); c.line(x + 4, y + 4); c.line(x + 4, y + 8); c.line(x, y + 4); c.close(); c.fill(hex(0x2A2A2A)); }
-    add(c, false);
-    return v;
-}
 }  // namespace
 
 int poster_count() { return static_cast<int>(posters().size()); }
 const Tex32& tex_poster(int i) { return *posters()[static_cast<size_t>(((i % poster_count()) + poster_count()) % poster_count())]; }
-int paint_count() { return static_cast<int>(paints().size()); }
-const Tex32& tex_paint(int i) { return *paints()[static_cast<size_t>(((i % paint_count()) + paint_count()) % paint_count())].first; }
-bool paint_glitches(int i) { return paints()[static_cast<size_t>(((i % paint_count()) + paint_count()) % paint_count())].second; }
+const char* pixel_glyph(char ch) { return glyph(static_cast<char>(std::toupper(static_cast<unsigned char>(ch)))); }
 
 }  // namespace mz

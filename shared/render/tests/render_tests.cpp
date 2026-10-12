@@ -1,11 +1,15 @@
 // The renderer's promises: shared edges covered exactly once, nothing written outside the
-// scissor, depth decided before shading, and blends that stay inside a byte.
+// scissor, depth decided before shading, blends that stay inside a byte, and a camera-space
+// scan whose solved rows match the edge functions, clips at the near plane and corrects
+// its weights for perspective.
 #include "r2d.hpp"
 #include "r2d_canvas.hpp"
 #include "r3d.hpp"
+#include "r3d_scan.hpp"
 
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <random>
 #include <vector>
@@ -158,6 +162,208 @@ void layer_over_and_restore() {
     assert(base.pixels[9] == 0xff000000U && base.pixels[2] == 0xff102030U);
 }
 
+// --- The camera-space scan (r3d_scan.hpp).
+
+// Counts coverage per pixel and the facings reported.
+struct Counting {
+    static constexpr bool perspective = false;
+    int width = 0;
+    std::vector<int>* counts = nullptr;
+    int fronts = 0;
+    int backs = 0;
+    bool test(int, int, float) {
+        return true;
+    }
+    void cover(const r3d::Coverage& at, bool front) {
+        ++(*counts)[static_cast<std::size_t>(at.y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(at.x)];
+        fronts += front ? 1 : 0;
+        backs += front ? 0 : 1;
+    }
+};
+
+// The pixels a triangle covers by the per-pixel edge test the scan's row solver stands
+// in for: the same quantisation, orientation and top-left bias, at every centre.
+void reference_coverage(const r3d::ScreenPoint* s, int width, int height, std::vector<int>& counts) {
+    std::int64_t fx[3];
+    std::int64_t fy[3];
+    for (int k = 0; k < 3; ++k) {
+        fx[k] = static_cast<std::int64_t>(std::lrint(std::clamp(s[k].x, -4.0e6F, 4.0e6F) * 256.0F));
+        fy[k] = static_cast<std::int64_t>(std::lrint(std::clamp(s[k].y, -4.0e6F, 4.0e6F) * 256.0F));
+    }
+    const std::int64_t area = (fx[1] - fx[0]) * (fy[2] - fy[0]) - (fy[1] - fy[0]) * (fx[2] - fx[0]);
+    if (area == 0) {
+        return;
+    }
+    const int o1 = area < 0 ? 2 : 1;
+    const int o2 = area < 0 ? 1 : 2;
+    const std::int64_t x[3] = {fx[0], fx[o1], fx[o2]};
+    const std::int64_t y[3] = {fy[0], fy[o1], fy[o2]};
+    // Edge k runs from corner (k + 1) % 3 to (k + 2) % 3, opposite corner k.
+    for (int py = 0; py < height; ++py) {
+        for (int px = 0; px < width; ++px) {
+            const std::int64_t cx = static_cast<std::int64_t>(px) * 256 + 128;
+            const std::int64_t cy = static_cast<std::int64_t>(py) * 256 + 128;
+            bool inside = true;
+            for (int k = 0; k < 3; ++k) {
+                const int from = (k + 1) % 3;
+                const int to = (k + 2) % 3;
+                const std::int64_t a = y[from] - y[to];
+                const std::int64_t b = x[to] - x[from];
+                const std::int64_t bias = (a > 0 || (a == 0 && b > 0)) ? 0 : -1;
+                const std::int64_t w = a * (cx - x[from]) + b * (cy - y[from]) + bias;
+                inside = inside && w >= 0;
+            }
+            if (inside) {
+                ++counts[static_cast<std::size_t>(py) * static_cast<std::size_t>(width) + static_cast<std::size_t>(px)];
+            }
+        }
+    }
+}
+
+void scan_rows_match_edge_functions() {
+    // Random triangles, sharp and fat, partly off screen: the solved rows cover exactly
+    // the pixels the three edge functions admit, so the pixel loop may skip the test.
+    std::mt19937 random(5);
+    std::uniform_real_distribution<float> at(-20, 84);
+    const r3d::Lens lens{64, 64, 1, .1F};
+    for (int trial = 0; trial < 400; ++trial) {
+        std::vector<int> scanned(64 * 64, 0);
+        std::vector<int> expected(64 * 64, 0);
+        const r3d::ScreenPoint s[3] = {{at(random), at(random), 1}, {at(random), at(random), 1}, {at(random), at(random), 1}};
+        Counting policy{64, &scanned, 0, 0};
+        r3d::rasterize_projected(policy, lens, s[0], s[1], s[2], r3d::Cull::none);
+        reference_coverage(s, 64, 64, expected);
+        assert(scanned == expected);
+    }
+    // A fan of triangles sharing edges covers every pixel inside once, none twice.
+    for (int trial = 0; trial < 100; ++trial) {
+        std::vector<int> counts(64 * 64, 0);
+        std::uniform_real_distribution<float> jitter(-.49F, .49F);
+        const r3d::ScreenPoint centre{32 + jitter(random) * 6, 32 + jitter(random) * 6, 1};
+        const int spokes = 3 + trial % 7;
+        std::vector<r3d::ScreenPoint> rim;
+        for (int k = 0; k < spokes; ++k) {
+            const float angle = 6.2831853F * (static_cast<float>(k) + jitter(random) * .4F) / static_cast<float>(spokes);
+            rim.push_back({32 + 29 * std::cos(angle), 32 + 29 * std::sin(angle), 1});
+        }
+        Counting policy{64, &counts, 0, 0};
+        for (int k = 0; k < spokes; ++k) {
+            r3d::rasterize_projected(policy, lens, centre, rim[static_cast<std::size_t>(k)],
+                                     rim[static_cast<std::size_t>((k + 1) % spokes)], r3d::Cull::none);
+        }
+        for (int value : counts) {
+            assert(value <= 1);
+        }
+        assert(counts[32 * 64 + 32] == 1);
+    }
+}
+
+// Keeps one attribute, interpolated from the three corners, per covered pixel.
+struct Picture {
+    static constexpr bool perspective = false;
+    float corner[3] = {0, 1, 0};
+    std::vector<float> value = std::vector<float>(64 * 64, -1.0F);
+    bool test(int, int, float) {
+        return true;
+    }
+    void cover(const r3d::Coverage& at, bool) {
+        value[static_cast<std::size_t>(at.y) * 64 + static_cast<std::size_t>(at.x)] =
+            corner[0] * at.weight0 + corner[1] * at.weight1 + corner[2] * at.weight2;
+    }
+};
+
+void scan_clips_at_the_near_plane() {
+    // One corner in front of the near plane, two behind: the clipped triangle keeps the
+    // attributes of the original corners (not the unit weights of its cut polygon).
+    const r3d::Lens lens{64, 64, 40, .1F};
+    const r3d::ViewPoint a{-.04F, -.04F, .2F};
+    const r3d::ViewPoint b{.04F, -.04F, .05F};
+    const r3d::ViewPoint c{-.04F, .04F, .05F};
+    Picture actual;
+    r3d::rasterize(actual, lens, a, b, c, r3d::Cull::none);
+    const float t = (lens.near_plane - a.depth) / (b.depth - a.depth);
+    const float u = (lens.near_plane - c.depth) / (a.depth - c.depth);
+    const r3d::detail::ClipVertex vertices[3] = {
+        {a, 1, 0, 0},
+        {{a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, lens.near_plane}, 1 - t, t, 0},
+        {{c.x + (a.x - c.x) * u, c.y + (a.y - c.y) * u, lens.near_plane}, u, 0, 1 - u}};
+    r3d::ScreenPoint screen[3];
+    for (int k = 0; k < 3; ++k) {
+        screen[k] = r3d::to_screen(lens, vertices[k].view);
+    }
+    const bool front = (screen[1].x - screen[0].x) * (screen[2].y - screen[0].y) -
+                           (screen[2].x - screen[0].x) * (screen[1].y - screen[0].y) <
+                       0;
+    Picture expected;
+    r3d::detail::sweep<Picture, false>(expected, 64, 64, screen, vertices, front);
+    int covered = 0;
+    for (std::size_t i = 0; i < actual.value.size(); ++i) {
+        assert((actual.value[i] < 0) == (expected.value[i] < 0));
+        if (expected.value[i] < 0) {
+            continue;
+        }
+        ++covered;
+        assert(std::fabs(actual.value[i] - expected.value[i]) <= 1e-6F);
+    }
+    assert(covered > 20);
+    // A triangle wholly behind the near plane draws nothing; one wholly in front, all of it.
+    Picture behind;
+    r3d::rasterize(behind, lens, {0, 0, .05F}, {.1F, 0, .05F}, {0, .1F, .05F}, r3d::Cull::none);
+    for (float value : behind.value) {
+        assert(value < 0);
+    }
+}
+
+// Checks the corrected weights against the depth the scan itself interpolates.
+struct Depths {
+    static constexpr bool perspective = true;
+    float depth[3] = {0, 0, 0};
+    int covered = 0;
+    float worst = 0;
+    bool test(int, int, float) {
+        return true;
+    }
+    void cover(const r3d::Coverage& at, bool) {
+        const float from_weights = depth[0] * at.weight0 + depth[1] * at.weight1 + depth[2] * at.weight2;
+        const float from_scan = 1.0F / at.inverse_depth;
+        worst = std::max(worst, std::fabs(from_weights - from_scan) / from_scan);
+        worst = std::max(worst, std::fabs(at.weight0 + at.weight1 + at.weight2 - 1));
+        ++covered;
+    }
+};
+
+void scan_corrects_for_perspective() {
+    // A floor receding from depth 1 to 9: perspective-correct weights interpolate depth
+    // itself to the depth the scan steps, and sum to one.
+    const r3d::Lens lens{64, 64, 48, .1F};
+    const r3d::ViewPoint a{-1, -.5F, 1};
+    const r3d::ViewPoint b{1, -.5F, 1};
+    const r3d::ViewPoint c{0, -.5F, 9};
+    Depths policy;
+    policy.depth[0] = a.depth;
+    policy.depth[1] = b.depth;
+    policy.depth[2] = c.depth;
+    r3d::rasterize(policy, lens, a, b, c, r3d::Cull::none);
+    assert(policy.covered > 200);
+    assert(policy.worst < 2e-3F);
+}
+
+void scan_reports_and_culls_facing() {
+    const r3d::Lens lens{64, 64, 1, .1F};
+    std::vector<int> counts(64 * 64, 0);
+    const r3d::ViewPoint a{-20, -20, 1};
+    const r3d::ViewPoint b{20, -20, 1};
+    const r3d::ViewPoint c{0, 20, 1};
+    Counting drawn{64, &counts, 0, 0};
+    r3d::rasterize(drawn, lens, a, b, c, r3d::Cull::none);
+    assert(drawn.fronts > 0 && drawn.backs == 0);
+    Counting reversed{64, &counts, 0, 0};
+    r3d::rasterize(reversed, lens, a, c, b, r3d::Cull::back);
+    assert(reversed.fronts + reversed.backs == 0);
+    r3d::rasterize(reversed, lens, a, c, b, r3d::Cull::none);
+    assert(reversed.backs > 0 && reversed.fronts == 0);
+}
+
 void canvas_rectangles_match_paths() {
     // The rectangle path and the general rasteriser cover pixels alike, edges included.
     std::mt19937 random(11);
@@ -196,6 +402,10 @@ int main() {
     blends_stay_in_bytes();
     mirror_mixes();
     layer_over_and_restore();
+    scan_rows_match_edge_functions();
+    scan_clips_at_the_near_plane();
+    scan_corrects_for_perspective();
+    scan_reports_and_culls_facing();
     canvas_rectangles_match_paths();
     std::puts("render: all checks passed");
     return 0;

@@ -45,6 +45,9 @@ shared/render/
   src/r3d.*          rasteriser: 8-bit subpixel fixed-point edges, top-left rule, exact
                      spans, depth test before shading, scissor, optional ids for picking;
                      shaders chosen at compile time (flat, Gouraud, mirror, over, ...)
+  src/r3d_scan.hpp   the same scan for triangles in camera space: near-plane clipping,
+                     a policy per pixel with perspective-correct weights (first-person
+                     views; the ambient engine's core, Maze's correction)
   src/mesh.*         one mesh library (later): indexed, bounded, Mowing's Builder plus
                      the r3d primitives
   ui/surface.*       GUI.Forms side: a LiveSurface in the native byte order, opaque, with
@@ -63,7 +66,7 @@ Each costs nothing unless a game enables it:
 | `ids` (picking buffer) | off | the cube, card and puzzle games that pick on the picture |
 | `shadows` (sun map, static half kept) | off | Rock Stack, Mowing, the r3d games that want it |
 | `samples` (4-sample visibility, resolved once) | 1 | Mowing's clean edges; Four Pegs' lair |
-| `perspective_correct` textures | off | Maze, close-up perspective scenes |
+| `perspective` weights (a policy of `r3d_scan.hpp`) | per policy | Maze, close-up perspective scenes |
 | `grid` (k × k output pixels) and `dither` | 1, off | the low-resolution r3d games |
 | `threads` (bands over GUI.Forms' `AtomicThreadPool`) | off | Only once the work is already minimal |
 
@@ -85,6 +88,8 @@ Each costs nothing unless a game enables it:
    painter.
 4. Stillwater (the ambient engine's core is r3d's ancestor), Maze (perspective-correct),
    and Mowing (visibility buffer, materials and kept shots move into the engine).
+   Maze: done 2026-10-12 (`r3d_scan.hpp`, the window end on `PixelSurface`). Stillwater:
+   held; the ambient engine keeps its own copy of the scan until its move is taken up.
 5. The game copies are deleted.
 
 Each step lands with a timing against the previous build on the M4, measured the same

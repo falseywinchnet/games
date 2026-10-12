@@ -1,8 +1,125 @@
 #include "soft3d.hpp"
 
+#include "r3d_scan.hpp"
+
 #include <algorithm>
 
 namespace mz {
+namespace {
+
+// A channel (0..1) to a byte, rounded.
+std::uint32_t byte_of(float value) {
+    const std::uint32_t result = static_cast<std::uint32_t>(std::clamp(value, 0.f, 1.f) * 255.f + .5f);
+    return result;
+}
+
+// What happens at a pixel a maze triangle covers: the texel under the perspective-
+// correct u, v (sheared and split for a glitching paint), the corners' tint, the light
+// by depth (fog, or the lamp in a blackout), the blend the flags ask for, the depth
+// write. The frame's buffers and the frame's light are read into it once per draw.
+struct Pixel {
+    static constexpr bool perspective = true;
+    int width = 0;
+    std::uint32_t* color = nullptr;
+    float* zinv = nullptr;
+    // the light, fixed for the frame
+    const float* light_lut = nullptr;
+    float lut_scale = 1;
+    bool blackout = false;
+    float fog_r = 0, fog_g = 0, fog_b = 0;
+    double time = 0;
+    // the triangle
+    const Tex32* tex = nullptr;
+    float u[3] = {0, 0, 0};
+    float v[3] = {0, 0, 0};
+    float r[3] = {1, 1, 1};
+    float g[3] = {1, 1, 1};
+    float b[3] = {1, 1, 1};
+    bool alpha_test = false, additive = false, z_write = true, unlit = false, glitch = false, translucent = false;
+    bool rain = false, slide = false;
+    // the glitch's shear, solved once per row
+    int shear_row = -1;
+    int shear = 0;
+
+    bool test(int x, int y, float inverse_depth) const {
+        const std::size_t index = static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x);
+        const bool nearer = inverse_depth > zinv[index];
+        return nearer;
+    }
+    void cover(const render::r3d::Coverage& at, bool) {
+        const std::size_t index = static_cast<std::size_t>(at.y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(at.x);
+        const float z = 1.f / at.inverse_depth;
+        const float tu = u[0] * at.weight0 + u[1] * at.weight1 + u[2] * at.weight2;
+        const float tv = v[0] * at.weight0 + v[1] * at.weight1 + v[2] * at.weight2;
+        std::uint32_t texel = 0xFFFFFFFFu;
+        if (tex != nullptr) {
+            if (glitch && at.y != shear_row) {
+                // datamosh: every ninth row or so slides sideways, drifting with time
+                shear_row = at.y;
+                shear = (at.y + static_cast<int>(time * 9)) % 9 < 2 ? static_cast<int>(6 * std::sin(at.y * .7 + time * 17)) : 0;
+            }
+            const int tx = static_cast<int>(std::floor(tu * static_cast<float>((*tex).w))) + (glitch ? shear : 0);
+            int ty = static_cast<int>(std::floor(tv * static_cast<float>((*tex).h)));
+            if (rain) {
+                // every 8-texel column falls at its own pace
+                ty -= static_cast<int>(time * (10 + ((tx >> 3) & 15) * 2.5));
+            }
+            if (slide) {
+                // the whole texture creeps up the wall
+                ty += static_cast<int>(time * 5);
+            }
+            texel = (*tex).at(tx, ty);
+            if (glitch) {
+                // split the red channel off sideways
+                const std::uint32_t beside = (*tex).at(tx + 3, ty);
+                texel = (texel & 0xFF00FFFFu) | (beside & 0x00FF0000u);
+            }
+            if (alpha_test && (texel >> 24) < 128) {
+                return;
+            }
+        }
+        const float lr = r[0] * at.weight0 + r[1] * at.weight1 + r[2] * at.weight2;
+        const float lg = g[0] * at.weight0 + g[1] * at.weight1 + g[2] * at.weight2;
+        const float lb = b[0] * at.weight0 + b[1] * at.weight1 + b[2] * at.weight2;
+        float cr = static_cast<float>((texel >> 16) & 255) / 255.f * lr;
+        float cg = static_cast<float>((texel >> 8) & 255) / 255.f * lg;
+        float cb = static_cast<float>(texel & 255) / 255.f * lb;
+        if (!unlit) {
+            const int li = std::min(511, static_cast<int>(z * lut_scale));
+            const float k = light_lut[li];
+            if (blackout) {
+                cr *= k;
+                cg *= k;
+                cb *= k;
+            } else {
+                cr = cr * k + fog_r * (1 - k);
+                cg = cg * k + fog_g * (1 - k);
+                cb = cb * k + fog_b * (1 - k);
+            }
+        }
+        if (additive || translucent) {
+            const std::uint32_t under = color[index];
+            const float dr = static_cast<float>((under >> 16) & 255) / 255.f;
+            const float dg = static_cast<float>((under >> 8) & 255) / 255.f;
+            const float db = static_cast<float>(under & 255) / 255.f;
+            if (additive) {
+                cr += dr;
+                cg += dg;
+                cb += db;
+            } else {
+                cr = (cr + dr) * .5f;
+                cg = (cg + dg) * .5f;
+                cb = (cb + db) * .5f;
+            }
+        }
+        color[index] = 0xFF000000u | (byte_of(cr) << 16) | (byte_of(cg) << 8) | byte_of(cb);
+        if (z_write) {
+            zinv[index] = at.inverse_depth;
+        }
+    }
+};
+
+}  // namespace
 
 void Soft3D::resize(int w, int h) {
     W = std::max(16, w);
@@ -26,7 +143,7 @@ void Soft3D::begin(std::uint32_t clear_rgb) {
     lut_scale_ = 512 / 40.0;
     for (int i = 0; i < 512; ++i) {
         const double d = i / lut_scale_;
-        double f;
+        double f = 1;
         if (blackout) {
             const double k = std::clamp(1 - d / lamp_radius, 0.0, 1.0);
             f = std::pow(k, 1.4) * 1.15;
@@ -51,106 +168,45 @@ bool Soft3D::project(V3 p, double& sx, double& sy, double& depth) const {
 void Soft3D::tri(const Vert& a, const Vert& b, const Vert& c, const Tex32* tex, std::uint32_t flags) {
     // facing, decided in the world: every surface winds so its normal points away from the side it is seen from
     if (!(flags & kTwoSided) && dot(cross(b.p - a.p, c.p - a.p), eye - a.p) >= 0) return;
-    CV v[3];
     const Vert* in[3] = {&a, &b, &c};
+    render::r3d::ViewPoint view[3];
     for (int k = 0; k < 3; ++k) {
-        const V3 d = in[k]->p - eye;
-        v[k] = {dot(d, R_), dot(d, U_), dot(d, F_), in[k]->u, in[k]->v, in[k]->r, in[k]->g, in[k]->b};
+        const V3 d = (*in[k]).p - eye;
+        view[k] = {static_cast<float>(dot(d, R_)), static_cast<float>(dot(d, U_)), static_cast<float>(dot(d, F_))};
     }
     // cheap reject: wholly behind the camera
-    if (v[0].z < near_z && v[1].z < near_z && v[2].z < near_z) return;
-    // clip against the near plane
-    CV out[4];
-    int n = 0;
+    const float near_plane = static_cast<float>(near_z);
+    if (view[0].depth < near_plane && view[1].depth < near_plane && view[2].depth < near_plane) return;
+    Pixel pixel;
+    pixel.width = W;
+    pixel.color = color.data();
+    pixel.zinv = zinv.data();
+    pixel.light_lut = light_lut_;
+    pixel.lut_scale = static_cast<float>(lut_scale_);
+    pixel.blackout = blackout;
+    pixel.fog_r = static_cast<float>((fog_rgb >> 16) & 255) / 255.f;
+    pixel.fog_g = static_cast<float>((fog_rgb >> 8) & 255) / 255.f;
+    pixel.fog_b = static_cast<float>(fog_rgb & 255) / 255.f;
+    pixel.time = time;
+    pixel.tex = tex;
     for (int k = 0; k < 3; ++k) {
-        const CV& p = v[k];
-        const CV& q = v[(k + 1) % 3];
-        const bool pin = p.z >= near_z, qin = q.z >= near_z;
-        if (pin) out[n++] = p;
-        if (pin != qin) {
-            const double t = (near_z - p.z) / (q.z - p.z);
-            auto L = [t](double x0, double x1) { return x0 + (x1 - x0) * t; };
-            auto Lf = [t](float x0, float x1) { return static_cast<float>(x0 + (x1 - x0) * t); };
-            out[n++] = {L(p.x, q.x), L(p.y, q.y), near_z, Lf(p.u, q.u), Lf(p.v, q.v), Lf(p.r, q.r), Lf(p.g, q.g), Lf(p.b, q.b)};
-        }
+        pixel.u[k] = (*in[k]).u;
+        pixel.v[k] = (*in[k]).v;
+        pixel.r[k] = (*in[k]).r;
+        pixel.g[k] = (*in[k]).g;
+        pixel.b[k] = (*in[k]).b;
     }
-    if (n < 3) return;
-    raster(out, n, tex, flags);
-}
-
-void Soft3D::raster(const CV* v, int n, const Tex32* tex, std::uint32_t flags) {
-    // to the screen; attributes divided by z so they interpolate correctly in perspective
-    CV s[4];
-    for (int k = 0; k < n; ++k) {
-        const double iz = 1 / v[k].z;
-        s[k] = {W * .5 + v[k].x * iz * focal_, H * .5 - v[k].y * iz * focal_, iz, static_cast<float>(v[k].u * iz), static_cast<float>(v[k].v * iz),
-                static_cast<float>(v[k].r * iz), static_cast<float>(v[k].g * iz), static_cast<float>(v[k].b * iz)};
-    }
-    for (int k = 1; k + 1 < n; ++k) tri_screen(s[0], s[k], s[k + 1], tex, flags);
-}
-
-void Soft3D::tri_screen(const CV& a, const CV& b, const CV& c, const Tex32* tex, std::uint32_t flags) {
-    const double area = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-    if (std::fabs(area) < 1e-9) return;
-    const double inv = 1 / area;
-    const int x0 = std::max(0, static_cast<int>(std::floor(std::min({a.x, b.x, c.x})))), x1 = std::min(W - 1, static_cast<int>(std::ceil(std::max({a.x, b.x, c.x}))));
-    const int y0 = std::max(0, static_cast<int>(std::floor(std::min({a.y, b.y, c.y})))), y1 = std::min(H - 1, static_cast<int>(std::ceil(std::max({a.y, b.y, c.y}))));
-    if (x0 > x1 || y0 > y1) return;
+    pixel.alpha_test = (flags & kAlphaTest) != 0;
+    pixel.additive = (flags & kAdditive) != 0;
+    pixel.z_write = (flags & kNoZWrite) == 0;
+    pixel.unlit = (flags & kUnlit) != 0;
+    pixel.glitch = (flags & kGlitch) != 0;
+    pixel.translucent = (flags & kTranslucent) != 0;
+    pixel.rain = (flags & kRain) != 0;
+    pixel.slide = (flags & kSlide) != 0;
     ++tris;
-    const bool alpha = flags & kAlphaTest, add = flags & kAdditive, zw = !(flags & kNoZWrite), unlit = flags & kUnlit, glitch = flags & kGlitch,
-               half = flags & kTranslucent;
-    const float fr = ((fog_rgb >> 16) & 255) / 255.f, fg = ((fog_rgb >> 8) & 255) / 255.f, fb = (fog_rgb & 255) / 255.f;
-    for (int y = y0; y <= y1; ++y) {
-        const double py = y + .5;
-        const int shear = glitch && ((y + static_cast<int>(time * 9)) % 9 < 2) ? static_cast<int>(6 * std::sin(y * .7 + time * 17)) : 0;
-        bool was_in = false;
-        for (int x = x0; x <= x1; ++x) {
-            const double px = x + .5;
-            const double w1 = ((c.x - a.x) * (py - a.y) - (c.y - a.y) * (px - a.x)) * -inv;
-            const double w2 = ((b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x)) * inv;
-            const double w0 = 1 - w1 - w2;
-            if (w0 < 0 || w1 < 0 || w2 < 0) { if (was_in) break; continue; }  // a triangle's row is one unbroken span
-            was_in = true;
-            const double iz = w0 * a.z + w1 * b.z + w2 * c.z;
-            const size_t i = static_cast<size_t>(y) * W + x;
-            if (iz <= zinv[i]) continue;
-            const double z = 1 / iz;
-            const float u = static_cast<float>((w0 * a.u + w1 * b.u + w2 * c.u) * z), vv = static_cast<float>((w0 * a.v + w1 * b.v + w2 * c.v) * z);
-            float r = static_cast<float>((w0 * a.r + w1 * b.r + w2 * c.r) * z), g = static_cast<float>((w0 * a.g + w1 * b.g + w2 * c.g) * z),
-                  bl = static_cast<float>((w0 * a.b + w1 * b.b + w2 * c.b) * z);
-            std::uint32_t t = 0xFFFFFFFFu;
-            if (tex) {
-                const int tx = static_cast<int>(std::floor(u * tex->w)) + shear, ty = static_cast<int>(std::floor(vv * tex->h));
-                t = tex->at(tx, ty);
-                if (glitch) {
-                    // split the red channel off sideways
-                    const std::uint32_t t2 = tex->at(tx + 3, ty);
-                    t = (t & 0xFF00FFFFu) | (t2 & 0x00FF0000u);
-                }
-                if (alpha && (t >> 24) < 128) continue;
-            }
-            float lr = r, lg = g, lb = bl;
-            float k = 1;
-            if (!unlit) {
-                const int li = std::min(511, static_cast<int>(z * lut_scale_));
-                k = light_lut_[li];
-            }
-            float cr = ((t >> 16) & 255) / 255.f * lr, cg = ((t >> 8) & 255) / 255.f * lg, cb = (t & 255) / 255.f * lb;
-            if (!unlit) {
-                if (blackout) { cr *= k; cg *= k; cb *= k; }
-                else { cr = cr * k + fr * (1 - k); cg = cg * k + fg * (1 - k); cb = cb * k + fb * (1 - k); }
-            }
-            std::uint32_t& d = color[i];
-            if (add || half) {
-                const float dr = ((d >> 16) & 255) / 255.f, dg = ((d >> 8) & 255) / 255.f, db = (d & 255) / 255.f;
-                if (add) { cr += dr; cg += dg; cb += db; }
-                else { cr = (cr + dr) * .5f; cg = (cg + dg) * .5f; cb = (cb + db) * .5f; }
-            }
-            const auto q8 = [](float f) { return static_cast<std::uint32_t>(std::clamp(f, 0.f, 1.f) * 255.f + .5f); };
-            d = 0xFF000000u | q8(cr) << 16 | q8(cg) << 8 | q8(cb);
-            if (zw) zinv[i] = static_cast<float>(iz);
-        }
-    }
+    const render::r3d::Lens lens{W, H, static_cast<float>(focal_), near_plane};
+    render::r3d::rasterize(pixel, lens, view[0], view[1], view[2], render::r3d::Cull::none);
 }
 
 void Soft3D::sprite(V3 base, double w, double h, const Tex32* tex, std::uint32_t flags, float tint, double spin) {

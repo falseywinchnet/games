@@ -5,6 +5,11 @@
 // camera that can pitch and roll right over onto the ceiling. In a blackout the
 // only light is a lamp on the camera. Output is 0xAARRGGBB, which is the byte
 // order a Canvas (BGRA in memory) already uses.
+//
+// The triangles are scanned by the shared render engine's camera-space scan
+// (shared/render, r3d_scan.hpp): near clipping, exact fixed-point coverage and
+// perspective-correct weights are its; the texel, the light and the blend are this
+// game's, as a pixel policy in soft3d.cpp.
 #include <cmath>
 #include <cstdint>
 #include <vector>
@@ -43,6 +48,8 @@ enum Flags : std::uint32_t {
     kTwoSided = 16,
     kGlitch = 32,       // datamosh: shear rows, split the colour channels
     kTranslucent = 64,  // 50% blend
+    kRain = 128,        // every 8-texel column falls at its own pace
+    kSlide = 256,       // the whole texture creeps up the wall
 };
 
 class Soft3D {
@@ -85,9 +92,6 @@ private:
     double focal_ = 1;
     float light_lut_[512];
     double lut_scale_ = 1;
-    struct CV { double x, y, z; float u, v, r, g, b; };
-    void raster(const CV* v, int n, const Tex32* tex, std::uint32_t flags);
-    void tri_screen(const CV& a, const CV& b, const CV& c, const Tex32* tex, std::uint32_t flags);
 };
 
 }  // namespace mz

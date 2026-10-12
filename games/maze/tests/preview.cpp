@@ -49,6 +49,10 @@ int main(int argc, char** argv) {
     const int W = argc > 6 ? std::atoi(argv[5]) : 366, H = argc > 6 ? std::atoi(argv[6]) : 240;
     const auto t0 = std::chrono::steady_clock::now();
     Level lv = generate(params_for(n, 1234 + n));
+    // the surfaces (art.hpp), when given: MZ_FLOOR, MZ_WALL, MZ_CEILING
+    if (const char* v = std::getenv("MZ_FLOOR")) lv.carpet = std::atoi(v);
+    if (const char* v = std::getenv("MZ_WALL")) lv.wall = std::atoi(v);
+    if (const char* v = std::getenv("MZ_CEILING")) lv.ceiling = std::atoi(v);
     std::printf("level %d: %dx%d floors %zu doors %d steps %d (gen %.0f ms)\n", n, lv.floors[0].w, lv.floors[0].h, lv.floors.size(), lv.params.doors, lv.optimal_steps,
                 std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
     Soft3D r;

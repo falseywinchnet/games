@@ -20,7 +20,8 @@ bool write_save(const std::filesystem::path& path, const SaveData& d) {
     o << "level=" << d.level << "\nseed=" << d.run_seed << "\ncollected=" << d.collected << "\ncleared=" << d.cleared << "\nsteps=" << d.steps
       << "\nperfect=" << d.perfect << "\nsound=" << d.sound << "\nmusic=" << d.music
       << "\ndifficulty=" << d.difficulty << "\nlevel_medium=" << d.level_medium
-      << "\nlevel_hard=" << d.level_hard << "\nmet=" << d.met << "\n";
+      << "\nlevel_hard=" << d.level_hard << "\nmet=" << d.met << "\nfloor_art=" << d.floor_art
+      << "\nwall_art=" << d.wall_art << "\nceiling_art=" << d.ceiling_art << "\n";
     std::string body = o.str();
     body = kHeader + body + "check=" + std::to_string(fnv(body)) + "\n";
     std::error_code ec;
@@ -68,6 +69,9 @@ bool load_save(const std::filesystem::path& path, SaveData& out) {
             else if (k == "level_medium") d.level_medium = std::max(1, std::min(100000, std::stoi(v)));
             else if (k == "level_hard") d.level_hard = std::max(1, std::min(100000, std::stoi(v)));
             else if (k == "met") d.met = std::stoull(v);
+            else if (k == "floor_art") d.floor_art = std::max(0, std::min(64, std::stoi(v)));
+            else if (k == "wall_art") d.wall_art = std::max(0, std::min(64, std::stoi(v)));
+            else if (k == "ceiling_art") d.ceiling_art = std::max(0, std::min(64, std::stoi(v)));
         }
     } catch (...) {
         return false;

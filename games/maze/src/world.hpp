@@ -29,6 +29,14 @@ struct Visitor {        // someone met in the corridors
     double w = .7, h = .9;
 };
 
+struct Fresh {          // a face the snail has just repainted: the new paint rising up the wall over the old
+    Pos at;
+    int dir = 0;
+    std::uint8_t was = 0;  // the face's look before
+    double age = 0;        // seconds since the snail passed
+};
+constexpr double kPaintRise = 1.4;  // seconds for fresh paint to climb the wall
+
 struct WorldState {
     std::vector<double> door_open;   // per door colour, 0 shut .. 1 sunk into the floor
     std::uint32_t pressed = 0;
@@ -40,11 +48,12 @@ struct WorldState {
     Pos elevator_at{-1, 0, 0};
     int floor = 0;                   // the floor being walked
     std::vector<bool> bulb_spent;    // per thing (unused for flip stones)
+    std::vector<Fresh> fresh;        // repaints still rising
 };
 
 V3 cell_center(Pos p, double z = 0);
 void draw_world(Soft3D& r, const Level& lv, const WorldState& s, double t);
 const Tex32& tex_bulb();
-const Tex32& tex_snail();
+const Tex32& tex_snail(int frame);  // four frames of its crawl
 
 }  // namespace mz

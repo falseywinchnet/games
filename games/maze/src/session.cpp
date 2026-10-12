@@ -1,5 +1,6 @@
 #include "session.hpp"
 
+#include "paints.hpp"
 #include "textures.hpp"
 
 #include <algorithm>
@@ -361,6 +362,8 @@ void Session::marble_update(double dt) {
 
 // ------------------------------------------------------------------ the paint snail
 void Session::snail_update(double dt) {
+    for (Fresh& f : world.fresh) f.age += dt;
+    world.fresh.erase(std::remove_if(world.fresh.begin(), world.fresh.end(), [](const Fresh& f) { return f.age >= kPaintRise; }), world.fresh.end());
     Mover& s = world.snail;
     if (!s.alive) return;
     if (s.t < 1) {
@@ -374,6 +377,7 @@ void Session::snail_update(double dt) {
         for (int d = 0; d < 4; ++d) {
             const int nx = s.at.x + kDX[d], ny = s.at.y + kDY[d];
             if (fl.in(nx, ny) && fl.at(nx, ny).block == Block::wall && !c.goal && rand01() < .6) {
+                world.fresh.push_back({s.at, d, c.face[static_cast<size_t>(d)], 0});
                 c.face[static_cast<size_t>(d)] = static_cast<std::uint8_t>(64 + rand_int(paint_count()));
                 repainted.push_back(s.at);
             }

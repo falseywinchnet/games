@@ -4,6 +4,7 @@
 // joins two floors; the same seed builds the same maze; a session walked by
 // the route wins without the marble ever sharing a square with the player;
 // the snail repaints; the save file round-trips and refuses tampering.
+#include "art.hpp"
 #include "maze.hpp"
 #include "save.hpp"
 #include "session.hpp"
@@ -86,6 +87,30 @@ int main() {
                 CHECK(lifts == 1);
             }
         }
+    }
+    // every surface paints, at sizes the renderer wraps, and each list has calm and loud ones
+    {
+        const auto ta = std::chrono::steady_clock::now();
+        bool pow2 = true, calm[3] = {}, loud[3] = {};
+        for (int i = 0; i < floor_count(); ++i) {
+            const Tex32& t = tex_floor(i);
+            pow2 = pow2 && t.w == 256 && t.h == 256 && tex_floor_portal(i).w == 256;
+            (floor_calm(i) ? calm[0] : loud[0]) = true;
+        }
+        for (int i = 0; i < wall_count(); ++i) {
+            const Tex32& t = tex_wall(i, 1);
+            pow2 = pow2 && (t.w & (t.w - 1)) == 0 && (t.h & (t.h - 1)) == 0 && t.w == 128 * wall_span(i) / (wall_span(i) > 1 ? 1 : 2);
+            (wall_calm(i) ? calm[1] : loud[1]) = true;
+        }
+        for (int i = 0; i < ceiling_count(); ++i) {
+            const Tex32& t = tex_ceiling_art(i);
+            pow2 = pow2 && t.w == 256 && t.h == 256;
+            (ceiling_calm(i) ? calm[2] : loud[2]) = true;
+        }
+        CHECK(pow2);
+        CHECK(calm[0] && loud[0] && calm[1] && loud[1] && calm[2] && loud[2]);
+        std::printf("art: %d floors, %d walls, %d ceilings painted in %.2fs\n", floor_count(), wall_count(), ceiling_count(),
+                    std::chrono::duration<double>(std::chrono::steady_clock::now() - ta).count());
     }
     // Medium and Hard mix every trick from their first maze; Hard's mazes are the longer walk
     CHECK(params_for(Difficulty::medium, 1, 5).doors > 0 || params_for(Difficulty::medium, 1, 5).sealed_portal);

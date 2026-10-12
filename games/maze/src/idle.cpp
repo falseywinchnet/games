@@ -49,6 +49,11 @@ bool visible_world_animation(const Soft3D& r,const Level& lv,const WorldState& s
         const double w=s.visitor.h*(*s.visitor.tex).w/(*s.visitor.tex).h;
         if (bound(r,cell_center(s.visitor.at,s.visitor.h*.5),{w*.5+.01,w*.5+.01,s.visitor.h*.5+.03})) return true;
     }
+    for (const Fresh& fresh:s.fresh) {  // paint still rising up a wall
+        if (fresh.at.f != s.floor) continue;
+        const V3 center{fresh.at.x+.5+kDX[fresh.dir]*.5,fresh.at.y+.5+kDY[fresh.dir]*.5,s.floor*kH+kH*.5};
+        if (bound(r,center,{kDX[fresh.dir] ? .005 : .505,kDY[fresh.dir] ? .005 : .505,kH*.5+.005})) return true;
+    }
     const Floor& floor=lv.floors[static_cast<std::size_t>(s.floor)];
     for (int y=std::max(0,static_cast<int>(r.eye.y)-15);y<std::min(floor.h,static_cast<int>(r.eye.y)+16);++y)
         for (int x=std::max(0,static_cast<int>(r.eye.x)-15);x<std::min(floor.w,static_cast<int>(r.eye.x)+16);++x) {
@@ -56,7 +61,7 @@ bool visible_world_animation(const Soft3D& r,const Level& lv,const WorldState& s
             if (cell.block == Block::wall || cell.goal) continue;
             for (int d=0;d<4;++d) {
                 const int look=cell.face[static_cast<std::size_t>(d)];
-                if (look<64 || !paint_glitches(look-64)) continue;
+                if (look<64) continue;  // every paint moves
                 const int nx=x+kDX[d],ny=y+kDY[d];
                 if (floor.in(nx,ny) && floor.at(nx,ny).block!=Block::wall) continue;
                 const V3 center{x+.5+kDX[d]*.5,y+.5+kDY[d]*.5,s.floor*kH+kH*.5};

@@ -72,7 +72,8 @@ struct Level {
     std::vector<std::pair<Pos, Pos>> portals;
     std::vector<Thing> things;
     Pos marble{-1, 0, 0}, snail{-1, 0, 0};
-    int carpet = 0, ceiling = 0;
+    int carpet = 0, ceiling = 0;  // indices into art.hpp's floors and ceilings (set by the view)
+    int wall = 0;                 // and its walls
     int optimal_steps = 0;          // the fewest steps to the reward (proven by the search)
     bool has_portal(Pos p) const;
     Pos portal_twin(Pos p) const;

@@ -1,7 +1,8 @@
 add_library(mz_core STATIC ${GAME_MODULE_DIR}/src/soft3d.cpp
  ${GAME_MODULE_DIR}/src/textures.cpp ${GAME_MODULE_DIR}/src/maze.cpp
  ${GAME_MODULE_DIR}/src/idle.cpp ${GAME_MODULE_DIR}/src/world.cpp ${GAME_MODULE_DIR}/src/session.cpp
- ${GAME_MODULE_DIR}/src/rewards.cpp ${GAME_MODULE_DIR}/src/cast.cpp ${GAME_MODULE_DIR}/src/save.cpp)
+ ${GAME_MODULE_DIR}/src/rewards.cpp ${GAME_MODULE_DIR}/src/cast.cpp ${GAME_MODULE_DIR}/src/save.cpp
+ ${GAME_MODULE_DIR}/src/art.cpp ${GAME_MODULE_DIR}/src/paints.cpp)
 target_include_directories(mz_core PUBLIC ${GAME_MODULE_DIR}/src)
 target_link_libraries(mz_core PUBLIC render_core)  # the 2D canvas (shared/render)
 target_compile_definitions(mz_core PRIVATE _USE_MATH_DEFINES)

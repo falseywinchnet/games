@@ -15,6 +15,7 @@ is how to use it. Fourteen games draw through it (every `"engines": ["render"]` 
 | r2d | `src/r2d.hpp` | The few pixel operations around a 3D picture, each bounded by a clip rectangle: `restore` (put back a kept layer under something that moved), `fill`, `tint` (dim under a panel), `mask` (blend a colour through an 8-bit coverage mask: text), `rounded` (an anti-aliased rounded rectangle), `over` (lay a premultiplied layer at an opacity: fades). |
 | Canvas | `src/r2d_canvas.hpp` | The 2D vector rasteriser: paths of lines, quadratic and cubic curves, ellipses and rounded rectangles; affine transforms with `save`/`restore`; solid, linear and radial paints with any number of stops; strokes with round joins; signed-area coverage, so same-winding overlaps union and a reversed sub-path cuts a hole; `draw_mask` for text and `draw_canvas` for layers. Output is premultiplied BGRA a `LiveSurface` takes as-is. |
 | r3d | `src/r3d.hpp` | The triangle rasteriser: 8-bit subpixel fixed-point edges with the top-left rule (shared edges covered exactly once), each row's run solved exactly from the edges, depth tested before any shading, a scissor bounding every write, optional triangle ids for picking (`Buffers`), and shaders chosen at compile time (`Flat`, `Smooth`, `Mirror` over a `Panorama`, and the ones the renderer below adds). |
+| Camera-space scan | `src/r3d_scan.hpp` | Triangles given in camera space, for first-person views: clipped at the near plane, projected through a `Lens`, scanned with the same fixed-point edges and top-left rule, and handed pixel by pixel to a policy chosen at compile time (`test` and `cover`) with the original corners' barycentric weights, perspective-correct when the policy says so. The renderer study's core (the ambient engine's rasteriser) with Maze's perspective correction as the policy option; Maze's `soft3d` draws through it. |
 | Renderer | `src/r3d_renderer.hpp` | The 1990s-style low-resolution 3D view on top of r3d: an orthographic (isometric) or mildly perspective camera (`yaw`, `pitch`, `scale`, `persp`, `target`), z-buffered textured triangles with nearest sampling between dithered mip levels (`Tex::build_mips`), Gouraud or two-tone (`toon`) light with sky and ground ambient, highlights (`gloss`), haze, cut-out and translucent materials, billboards, sun shadows with a kept static half (`shadow_begin`, `shadow_cast`, `shadow_save`), optional bands across the cores (`threads`), and `present` or `present_supersampled` with ordered dithering and whole-pixel enlargement. `project`, `unproject_ground` and `unproject_plane` for picking. |
 | Meshes | `src/r3d_mesh.hpp` | One mesh library: sphere, hemisphere, cylinder, disc, cone, box, torus, star, a seeded lumpy rock; `draw_mesh` with a tint and texture scale read as the mesh is drawn (no copies), inverted-hull `draw_outline`, `tint`. |
 | Surface | `ui/surface.hpp` | The window's end: a `LiveSurface` in the native byte order, opaque, with per-buffer age. `begin(damage)` hands back a `Target` and the rectangle to repair (this frame's damage plus what that buffer missed), `publish` shows it. Compiled into the application only when a game uses the engine. |
@@ -47,10 +48,21 @@ only once the work is already minimal).
 ## Cost
 
 `r3d_bench [frames]` times a scene like the games' (textured ground, toon-lit characters
-with outlines, props, translucent glows, the dithered present) and prints milliseconds
-per stage and a checksum, so a change can be shown to draw the same pixels in less
-time. Measure a game's own frames with the application's `--profile-idle` and
-`GAMES_SCENE_TRACE`; `docs/PERFORMANCE.md` has the protocol.
+with outlines, props, translucent glows, the dithered present) and a frame's worth of
+canvas drawing (a dimming sheet, gradient panels, strokes, text), and prints
+milliseconds per stage with a checksum of the picture and one of the canvas, so a
+change can be shown to draw the same pixels in less time. Measure a game's own frames
+with the application's `--profile-idle` and `GAMES_SCENE_TRACE`; `docs/PERFORMANCE.md`
+has the protocol.
+
+What a pixel loop reads, it owns: a shader is copied into the scan and carries its
+picture by value (`PanoramaView`), the fill reads the light and the buffers into locals,
+and `present` settles the rows and columns it reaches before its loops and writes each
+pixel as one word. The per-pixel functions are marked `RENDER_PER_PIXEL` because the
+compiler otherwise leaves the panorama sampler out of line, a call per pixel. Keep the
+texture levels as pointers, though: holding every field of two levels in registers for
+a per-pixel select was measured to spill the textured loop and cost more than the loads
+it saved.
 
 ## Tests (`tests/render_tests.cpp`, CTest `render_engine`)
 
@@ -64,3 +76,5 @@ scissor, depth decided before shading, and blends that stay inside a byte.
   are an option for close-up scenes (Maze), not the default.
 - A game that still carries its own copy of the older `r3d` (`games/zenconstruction`,
   `games/penthesheep`) is on the list to move over; new games use the engine.
+- Stillwater's ambient engine (`shared/ambient`) still carries its own copy of the
+  camera-space scan, the ancestor of `r3d_scan.hpp`; its move is held for now.

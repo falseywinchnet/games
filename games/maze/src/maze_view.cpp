@@ -1,4 +1,5 @@
 #include "maze_view.hpp"
+#include "art.hpp"
 #include "overlays.hpp"
 
 #include "cast.hpp"
@@ -14,6 +15,7 @@
 #include "gui_forms/window.hpp"
 
 #include <algorithm>
+#include <functional>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -73,6 +75,7 @@ void MazeView::on_detaching_from_window(gf::Window&) noexcept {
     try { persist(); } catch (...) {}
     if (timer_) (*timer_).stop();
     timer_.reset();
+    pixels_attached_ = false;  // the surface is kept; a new window is given it again
     audio_stop();
 }
 
@@ -87,18 +90,12 @@ void MazeView::arrange(gf::Rect bounds) {
     pw_ = std::max(64, static_cast<int>(std::ceil(bounds.width / pixel_)));
     ph_ = std::max(64, static_cast<int>(std::ceil(bounds.height / pixel_)));
     frame_.resize(pw_, ph_);
-    r_.resize(pw_, ph_);
+    r_.resize(pw_ * kSamples, ph_ * kSamples);
     bs_ = attached_window() ? (*attached_window()).scale() : 1.0;
     phys_w_ = std::max(1, static_cast<int>(std::lround(bounds.width * bs_)));
     phys_h_ = std::max(1, static_cast<int>(std::lround(bounds.height * bs_)));
-    xmap_.clear();
-    if (surface_) {
-        gf::LiveSurfaceDescription d;
-        d.width = static_cast<std::uint32_t>(phys_w_);
-        d.height = static_cast<std::uint32_t>(phys_h_);
-        d.opaque = true;  // every pixel is drawn opaque: the window copies, never blends
-        static_cast<void>((*surface_).reconfigure(d));
-    }
+    // The surface takes its new size with the layout, before the next frame is drawn.
+    if (pixels_.live()) static_cast<void>(pixels_.configure(phys_w_, phys_h_));
     layout_buttons();
     request_frame();
 }
@@ -106,7 +103,7 @@ void MazeView::arrange(gf::Rect bounds) {
 void MazeView::on_paint(gf::Painter& p, gf::Rect) {
     if (render_dirty_ && attached_window() && !(*attached_window()).occluded()) request_frame();
     const gf::Rect b = client_rectangle();
-    if (surface_) p.draw_live_surface(surface_, b);
+    if (pixels_.live()) p.draw_live_surface(pixels_.live(), b);
     else p.fill_rect(b, gf::Color::rgba(0, 128, 128));
 }
 
@@ -118,6 +115,63 @@ std::string MazeView::maze_name() const {
     const char* names[] = {"Maze ", "Medium maze ", "Hard maze "};
     return names[std::clamp(save_.difficulty, 0, 2)] + std::to_string(level_);
 }
+// The maze's surfaces: those chosen in Settings, and for "surprise me" a draw of the
+// level's own. About one maze in three is a calm one, drawn only from the quiet surfaces.
+namespace {
+int surprise(int count, bool (*calm)(int), bool want_calm, std::uint64_t h) {
+    std::vector<int> pool;
+    for (int i = 0; i < count; ++i)
+        if (calm(i) == want_calm) pool.push_back(i);
+    return pool.empty() ? 0 : pool[static_cast<size_t>(h % pool.size())];
+}
+std::uint64_t stir(std::uint64_t h) {
+    h ^= h >> 31; h *= 0x7FB5D329728EA185ULL; h ^= h >> 27;
+    return h;
+}
+}  // namespace
+void MazeView::dress(Level& lv) const {
+    const std::uint64_t h = stir(level_seed_ ^ 0xA27ULL);
+    const bool calm = h % 3 == 0;
+    lv.carpet = save_.floor_art > 0 ? std::min(save_.floor_art - 1, floor_count() - 1)
+                                    : surprise(floor_count(), floor_calm, calm, stir(h + 1));
+    lv.wall = save_.wall_art > 0 ? std::min(save_.wall_art - 1, wall_count() - 1)
+                                 : surprise(wall_count(), wall_calm, calm, stir(h + 2));
+    lv.ceiling = save_.ceiling_art > 0 ? std::min(save_.ceiling_art - 1, ceiling_count() - 1)
+                                       : surprise(ceiling_count(), ceiling_calm, calm, stir(h + 3));
+}
+std::vector<games::GameSetting> MazeView::settings() const {
+    std::vector<games::GameSetting> list;
+    const char* labels[] = {"Walls", "Floor", "Ceiling"};
+    const char* ids[] = {"walls", "floor", "ceiling"};
+    const int values[] = {save_.wall_art, save_.floor_art, save_.ceiling_art};
+    const int counts[] = {wall_count(), floor_count(), ceiling_count()};
+    for (int k = 0; k < 3; ++k) {
+        games::GameSetting s;
+        s.id = ids[k];
+        s.label = labels[k];
+        s.kind = games::GameSetting::Kind::choice;
+        s.value = values[k];
+        s.choices.push_back("Surprise me");
+        for (int i = 0; i < counts[k]; ++i)
+            s.choices.push_back(k == 0 ? wall_name(i) : k == 1 ? floor_name(i) : ceiling_name(i));
+        s.maximum = counts[k];
+        s.step = 1;
+        if (k == 0) s.note = "Surprise me varies them maze by maze, and now and then keeps a maze calm.";
+        list.push_back(s);
+    }
+    return list;
+}
+void MazeView::change_setting(std::string_view id, double value) {
+    const int v = static_cast<int>(std::lround(value));
+    if (id == "walls") save_.wall_art = std::clamp(v, 0, wall_count());
+    else if (id == "floor") save_.floor_art = std::clamp(v, 0, floor_count());
+    else if (id == "ceiling") save_.ceiling_art = std::clamp(v, 0, ceiling_count());
+    else return;
+    dress(sess_.lv);  // the maze you are in changes at once
+    persist();
+    request_frame();
+}
+
 // Easy, Medium or Hard: each keeps its own place, and a switch goes straight to it.
 void MazeView::set_difficulty(int d) {
     if (save_.difficulty == d) return;
@@ -134,7 +188,9 @@ void MazeView::start_level(int n) {
     // Easy's seeds are as they always were, so a saved maze is the same maze.
     const std::uint64_t seed = save_.run_seed * 0x9E3779B97F4A7C15ULL + static_cast<std::uint64_t>(level_) * 7919ULL +
                                static_cast<std::uint64_t>(save_.difficulty) * 0x5BD1E995ULL;
-    const Level lv = generate(params_for(difficulty, level_, seed));
+    Level lv = generate(params_for(difficulty, level_, seed));
+    level_seed_ = seed;
+    dress(lv);
     // what to seek: the cheese first, then something not yet on the shelf
     if (level_ == 1 && difficulty == Difficulty::easy) reward_ = 0;
     else {
@@ -332,7 +388,8 @@ void MazeView::tick() {
     }
     if (changed) render_dirty_=true;
     if (!hidden && !frame_.px.empty() && render_dirty_) {
-        compose(); publish(); render_dirty_=false;
+        compose(); publish();
+        render_dirty_ = pixels_.owes();  // a frame no buffer was free for is drawn next tick
     }
     double delay=std::numeric_limits<double>::infinity();
     if (panel_==Panel::none) {
@@ -349,44 +406,20 @@ void MazeView::tick() {
 }
 
 void MazeView::publish() {
-    if (!surface_) {
-        gf::LiveSurfaceDescription d;
-        d.width = static_cast<std::uint32_t>(phys_w_);
-        d.height = static_cast<std::uint32_t>(phys_h_);
-        d.opaque = true;  // every pixel is drawn opaque: the window copies, never blends
-        surface_ = gf::LiveSurface::create(d);
-        if (surface_ && attached_window()) {
-            direct_ = (*attached_window()).queue_live_surface_presentation(shared_from_this(), surface_);
-            invalidate(gf::Dirty::paint);  // the paint now shows the live surface
-        }
-    }
-    if (!surface_) return;
-    gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write();
-    if (lease && static_cast<int>(lease.width()) == phys_w_ && static_cast<int>(lease.height()) == phys_h_) {
-        std::span<std::byte> dst = lease.pixels();
-        const size_t rb = lease.row_bytes();
-        const double k = pixel_ * bs_;
-        if (xmap_.size() != static_cast<size_t>(phys_w_)) {
-            xmap_.resize(static_cast<size_t>(phys_w_));
-            for (int x = 0; x < phys_w_; ++x) xmap_[static_cast<size_t>(x)] = std::min(frame_.w - 1, static_cast<int>(x / k));
-        }
-        const std::uint32_t* src = reinterpret_cast<const std::uint32_t*>(frame_.px.data());
-        for (int y = 0; y < phys_h_; ++y) {
-            const int sy = std::min(frame_.h - 1, static_cast<int>(y / k));
-            std::uint32_t* o = reinterpret_cast<std::uint32_t*>(dst.data() + static_cast<size_t>(y) * rb);
-            const std::uint32_t* sr = src + static_cast<size_t>(sy) * frame_.w;
-            for (int x = 0; x < phys_w_; ++x) o[x] = sr[xmap_[static_cast<size_t>(x)]];
-        }
-        blit_texts(reinterpret_cast<std::uint32_t*>(dst.data()), rb / 4, k);
-        static_cast<void>(lease.publish());
-        render::refresh_overlays(*this);
-        ++published_frames_;
-    }
-    if (attached_window() && surface_) {
-        direct_ = (*attached_window()).queue_live_surface_presentation(shared_from_this(),surface_);
+    if (!pixels_.configure(phys_w_, phys_h_)) return;
+    if (!pixels_attached_ && attached_window()) {
+        static_cast<void>(pixels_.attach(*attached_window(), shared_from_this()));
+        pixels_attached_ = true;
         invalidate(gf::Dirty::paint);  // the paint now shows the live surface
     }
-    if (!direct_) invalidate(gf::Dirty::paint);
+    // Only the window pixels under what changed are enlarged again; an unchanged
+    // frame with the same texts publishes nothing.
+    const double k = pixel_ * bs_;
+    const std::optional<render::Surface::Frame> frame = pixels_.begin(frame_, k, text_marks(k));
+    if (!frame) return;
+    blit_texts((*frame).target, (*frame).repair, k);
+    pixels_.publish();
+    ++published_frames_;
     text_cache_trim();
 }
 
@@ -712,7 +745,7 @@ void MazeView::compose() {
     r_.fog_rgb = 0x000000;
     r_.begin(0x000000);
     draw_world(r_, sess_.lv, sess_.world, t_);
-    std::memcpy(frame_.px.data(), r_.color.data(), r_.color.size() * 4);
+    resolve_frame();
     // a portal's white blink
     if (sess_.flash() > 0) frame_.fill_rect(0, 0, pw_, ph_, hex(0xFFFFFF, static_cast<float>(sess_.flash())));
     draw_speech();
@@ -720,33 +753,54 @@ void MazeView::compose() {
     draw_panel();
 }
 
-void MazeView::blit_texts(std::uint32_t* dst, size_t stride_px, double k) {
+std::vector<render::PixelSurface::Text> MazeView::text_marks(double k) const {
+    const int sc = std::max(1, static_cast<int>(std::lround(bs_)));
+    std::vector<render::PixelSurface::Text> marks;
+    marks.reserve(texts_.size());
+    for (const HiText& h : texts_) {
+        const Mask& m = tmask(h.s, h.font, h.size, h.wrap);
+        std::uint64_t key = std::hash<std::string>{}(h.s);
+        const float parts[] = {static_cast<float>(h.font), static_cast<float>(h.size), static_cast<float>(h.wrap),
+                               h.c.r, h.c.g, h.c.b, h.c.a};
+        for (float part : parts) key = (key ^ std::hash<float>{}(part)) * 1099511628211ULL;
+        const int x = static_cast<int>(h.x * k), y = static_cast<int>(h.y * k);
+        marks.push_back({key, render::Rect{x, y, x + m.w * sc, y + m.h * sc}});
+    }
+    return marks;
+}
+
+// The frame is drawn at kSamples x kSamples the size the game shows and averaged down:
+// edges come out clean while the texels keep the game's pixel size (the owner chose this
+// from labelled candidates, 2026-10-12). Channels are averaged in pairs of lanes (red
+// with blue, green alone); the sums stay well inside each lane.
+void MazeView::resolve_frame() {
+    const int w = r_.W, h = r_.H;
+    std::uint32_t* out = reinterpret_cast<std::uint32_t*>(frame_.px.data());
+    const std::uint32_t* source = r_.color.data();
+    constexpr std::uint32_t count = kSamples * kSamples;
+    for (int y = 0; y < ph_; ++y) {
+        for (int x = 0; x < pw_; ++x) {
+            std::uint32_t red_blue = 0, green = 0;
+            for (int sy = 0; sy < kSamples; ++sy) {
+                const std::uint32_t* row = source + static_cast<size_t>(std::min(h - 1, y * kSamples + sy)) * w;
+                for (int sx = 0; sx < kSamples; ++sx) {
+                    const std::uint32_t p = row[std::min(w - 1, x * kSamples + sx)];
+                    red_blue += p & 0x00FF00FFu;
+                    green += p & 0x0000FF00u;
+                }
+            }
+            red_blue = ((red_blue + (count / 2) * 0x00010001u) / count) & 0x00FF00FFu;
+            green = ((green + (count / 2) * 0x00000100u) / count) & 0x0000FF00u;
+            out[static_cast<size_t>(y) * pw_ + x] = 0xFF000000u | red_blue | green;
+        }
+    }
+}
+
+void MazeView::blit_texts(const render::Target& target, render::Rect clip, double k) const {
     const int sc = std::max(1, static_cast<int>(std::lround(bs_)));
     for (const HiText& h : texts_) {
         const Mask& m = tmask(h.s, h.font, h.size, h.wrap);
-        const int ox = static_cast<int>(h.x * k), oy = static_cast<int>(h.y * k);
-        const float pr = h.c.r * h.c.a, pg = h.c.g * h.c.a, pb = h.c.b * h.c.a;
-        for (int my = 0; my < m.h * sc; ++my) {
-            const int dy = oy + my;
-            if (dy < 0 || dy >= phys_h_) continue;
-            const std::uint8_t* srow = m.a.data() + static_cast<size_t>(my / sc) * m.w;
-            std::uint32_t* drow = dst + static_cast<size_t>(dy) * stride_px;
-            for (int mx = 0; mx < m.w * sc; ++mx) {
-                const int dx = ox + mx;
-                if (dx < 0 || dx >= phys_w_) continue;
-                const float cov = srow[mx / sc] * (1.f / 255.f);
-                if (cov <= 0) continue;
-                const std::uint32_t d = drow[dx];
-                const float a = h.c.a * cov, kk = 1 - a;
-                struct Channel { std::uint32_t d; float cov,kk;
-                    std::uint32_t operator()(int sh,float src) const {
-                        return static_cast<std::uint32_t>(std::min(255.f,src*cov*255+static_cast<float>((d>>sh)&255)*kk+.5f))<<sh;
-                    }
-                };
-                const Channel ch{d,cov,kk};
-                drow[dx] = ch(0, pb) | ch(8, pg) | ch(16, pr) | (0xFFu << 24);
-            }
-        }
+        render::r2d::blit_text(target, clip, m, static_cast<int>(h.x * k), static_cast<int>(h.y * k), sc, h.c);
     }
 }
 

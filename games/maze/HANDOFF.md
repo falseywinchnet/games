@@ -26,4 +26,37 @@ The original save format records the current maze seed/level, trophies and total
 
 The original actors continue while actively playing. Hidden views stop callbacks and audio; static panels stop once audio has settled. Reduced motion snaps the camera instead of smoothing movement, turns, ceiling rolls or portal flashes while retaining the actors and rules. Minimum-size rendering uses a logical canvas of at least 320 × 200. The trophy shelf pages when needed. Hosted music/sound controls belong to the suite.
 
+2026-10-12: the renderer moved onto the shared render engine. `soft3d.*` keeps its
+interface (every caller in `world.cpp`, `session.cpp`, `idle.cpp` and the preview is
+untouched and still borrowed) but its triangles go through `shared/render`'s
+camera-space scan (`r3d_scan.hpp`: near-plane clipping, 8-bit subpixel fixed-point
+edges with the top-left rule, perspective-correct weights), with the maze's texel, light
+and blend as a pixel policy in `soft3d.cpp`. The two files left the `borrowed` list.
+Frames compared with the previous renderer (`maze_preview`, levels 1, 5, 9, 14, 22, 30,
+with yaw, roll, blackout and sizes to 800 x 500): at most 0.5 % of pixels differ,
+all along the seams between walls, floor and ceiling (the exact fill rule decides a
+pixel centre on an edge once; the old per-pixel test could cover it from both sides)
+and a few far texel boundaries; views at an arbitrary yaw differ in under 0.01 %.
+`maze_idle` still matches demand rendering to full rendering pixel for pixel. The
+frame cost about halved (366 x 240: 2.0 to 1.0 ms a frame on an A18 Pro; 800 x 500
+close to a wall: 7.3 to 4.1 ms). The window end moved from the game's own `LiveSurface`
+and enlargement loop onto the engine's `PixelSurface` and `blit_text`: the frame is
+written in the window's own byte order, only the rows and texts that changed are
+enlarged again, and an unchanged frame publishes nothing.
+
+The frame is drawn at twice the size the game shows and averaged down (2 x 2
+supersampling, `MazeView::resolve_frame`): the owner chose this on 2026-10-12 from five
+labelled candidates (as before; double resolution shown whole; double resolution averaged
+down; bilinear enlargement; both), for clean edges with the game's pixel size kept. It
+costs four times the renderer's pixel work, which the shared scan now affords (a 366 x 240
+view draws 732 x 480: about 5 to 9 ms a frame on an A18 Pro with the new surfaces), and the
+maze still draws only when something changed.
+
+The same day the sibling session's surface work (choosable floors, walls and ceilings in
+`art.*`, the snail's moving repaints in `paints.*`, the `kRain` and `kSlide` texture
+flags, fresh paint rising, the four-frame snail, Settings for the three surfaces) was
+merged in from its uncommitted tree; the two flags live in the pixel policy. `borrowed`
+now lists only the files still byte-identical to the delivered package (`cast.*`,
+`maze.cpp`, `rewards.*`); the edited ones are the gate's to style.
+
 `mz_step_0` is a dynamically completed filename prefix; files `mz_step_01` through `mz_step_03` exist. Unused generic original UI cues were renamed with `mz_ui_` to avoid collisions. No maze feature or reward was removed.

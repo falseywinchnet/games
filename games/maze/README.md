@@ -95,13 +95,13 @@ is its registration; no shell or release-version edits are required.
 
 | Part | Files |
 |---|---|
-| The renderer: perspective-correct textures, near-plane clipping, z-buffer, roll, fog, the blackout lamp, glitch, sprites | `soft3d.*` |
+| The renderer: perspective-correct textures, near-plane clipping, z-buffer, roll, fog, the blackout lamp, glitch, sprites. Triangles are scanned by the shared render engine's camera-space scan (`shared/render`, `r3d_scan.hpp`); the texel, light and blend are this game's pixel policy | `soft3d.*` |
 | Rules, generation and the solver (state search over floor, square, flip and pads), the route for the dev walker | `maze.*` |
 | Drawing the maze and what lives in it | `world.*` |
 | A level in motion: steps, turns, doors, elevator ride, flip roll, portal blink, the marble, the snail, visitors | `session.*` |
 | Painted surfaces (brick, carpets, ceilings, doors, pads, posters, the snail's paints) | `textures.*` |
 | The 46 rewards, and the cast with their lines and sources | `rewards.*`, `cast.*` |
-| Window, chrome, briefing, speech, win, trophy shelf, help, credits, autosave | `maze_view.*`, `save.*` |
+| Window, chrome, briefing, speech, win, trophy shelf, help, credits, autosave; the frame enlarged into the window's buffers by the render engine's `PixelSurface`, repairing only what changed | `maze_view.*`, `save.*` |
 | Portable raster, GUI.Forms text masks and scene audio, namespace `mz` | `platform/` |
 
 All audio is synthesized (`audio_src/`):

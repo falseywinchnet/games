@@ -18,6 +18,7 @@ struct SaveData {
     int difficulty = 0;             // 0 Easy (the course), 1 Medium, 2 Hard
     int level_medium = 1, level_hard = 1;  // the maze reached at each; `level` is Easy's
     std::uint64_t met = 0;          // one bit for each trick already explained
+    int floor_art = 0, wall_art = 0, ceiling_art = 0;  // 0: surprise me; else art.hpp's index + 1
     bool sound = true, music = true;
 };
 

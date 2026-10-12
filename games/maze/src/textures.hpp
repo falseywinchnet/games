@@ -3,7 +3,7 @@
 // into power-of-two texel maps: red brick, hotel carpet, acoustic ceiling
 // tiles, doors and pads in five colours, the portal carpet that is *almost*
 // the normal one, the elevator plate, the reward room, vaporwave posters and
-// the retro computing signs, and the snail's bizarre repaints.
+// the retro computing signs. The snail's repaints are in paints.hpp.
 #include "soft3d.hpp"
 
 #include <string>
@@ -27,9 +27,7 @@ const Tex32& tex_marble();
 const Tex32& tex_glow();
 int poster_count();
 const Tex32& tex_poster(int i);                 // vaporwave and retro-computing wall signs
-int paint_count();
-const Tex32& tex_paint(int i);                  // the snail's repaints (some of them glitch)
-bool paint_glitches(int i);
+const char* pixel_glyph(char ch);               // the sign font: 35 '0'/'1' cells, 5 wide and 7 down
 int carpet_themes();
 const char* carpet_name(int theme);
 

@@ -1,6 +1,8 @@
 #include "world.hpp"
 
 #include "platform/canvas.hpp"
+#include "art.hpp"
+#include "paints.hpp"
 #include "textures.hpp"
 
 #include <algorithm>
@@ -26,7 +28,8 @@ Tex32 to_tex(const Canvas& c) {
 Vert vx(V3 p, float u, float v, float k) { return {p, u, v, k, k, k}; }
 
 // a quad on the boundary of square (x,y) on side d, seen from inside the square
-void wall_face(Soft3D& r, double fz, int x, int y, int d, double z0, double z1, const Tex32* tex, float k, std::uint32_t flags, double v0 = 0, double v1 = 1) {
+void wall_face(Soft3D& r, double fz, int x, int y, int d, double z0, double z1, const Tex32* tex, float k, std::uint32_t flags, double v0 = 0, double v1 = 1,
+               int span = 1) {
     V3 a, b;
     switch (d) {
         case kN: a = {double(x + 1), double(y + 1), 0}; b = {double(x), double(y + 1), 0}; break;
@@ -36,13 +39,27 @@ void wall_face(Soft3D& r, double fz, int x, int y, int d, double z0, double z1, 
     }
     a.z = b.z = fz;
     const V3 up0{0, 0, z0}, up1{0, 0, z1};
-    // `a` is the right-hand end as seen from inside the square, so u runs from b to a (left to right)
-    r.quad(vx(a + up0, 1, static_cast<float>(v1), k), vx(b + up0, 0, static_cast<float>(v1), k), vx(b + up1, 0, static_cast<float>(v0), k), vx(a + up1, 1, static_cast<float>(v0), k), tex, flags);
+    // `a` is the right-hand end as seen from inside the square, so u runs from b to a (left to right).
+    // A tile spanning several faces takes u from the position along the wall, so it runs on.
+    float ua = 1, ub = 0;
+    if (span > 1) {
+        const bool along_x = d == kN || d == kS;
+        ua = static_cast<float>((along_x ? a.x : a.y) / span);
+        ub = static_cast<float>((along_x ? b.x : b.y) / span);
+    }
+    r.quad(vx(a + up0, ua, static_cast<float>(v1), k), vx(b + up0, ub, static_cast<float>(v1), k), vx(b + up1, ub, static_cast<float>(v0), k), vx(a + up1, ua, static_cast<float>(v0), k), tex, flags);
 }
 
-void flat(Soft3D& r, double x0, double y0, double x1, double y1, double z, bool up, const Tex32* tex, float k, std::uint32_t flags) {
-    // `up`: seen from above (a floor); otherwise from below (a ceiling)
-    const Vert a = vx({x0, y0, z}, 0, 1, k), b = vx({x1, y0, z}, 1, 1, k), c = vx({x1, y1, z}, 1, 0, k), d = vx({x0, y1, z}, 0, 0, k);
+void flat(Soft3D& r, double x0, double y0, double x1, double y1, double z, bool up, const Tex32* tex, float k, std::uint32_t flags,
+          int span = 0) {
+    // `up`: seen from above (a floor); otherwise from below (a ceiling). With a span, the tile
+    // covers span x span squares and each square takes its part of it.
+    float u0 = 0, u1 = 1, v0 = 1, v1 = 0;
+    if (span > 0) {
+        u0 = static_cast<float>(x0 / span); u1 = static_cast<float>(x1 / span);
+        v0 = static_cast<float>(-y0 / span); v1 = static_cast<float>(-y1 / span);
+    }
+    const Vert a = vx({x0, y0, z}, u0, v0, k), b = vx({x1, y0, z}, u1, v0, k), c = vx({x1, y1, z}, u1, v1, k), d = vx({x0, y1, z}, u0, v1, k);
     if (up) r.quad(a, d, c, b, tex, flags);
     else r.quad(a, b, c, d, tex, flags);
 }
@@ -120,27 +137,77 @@ const Tex32& tex_bulb() {
     return t;
 }
 
-const Tex32& tex_snail() {
-    static Tex32 t = [] {
-        Canvas c;
-        c.resize(64, 32);
-        c.clear({0, 0, 0, 0});
-        // body, shell spiral, eye stalks, and a paintbrush tail of colour
-        c.begin(); c.move(4, 28); c.quad(30, 30, 56, 28); c.quad(60, 22, 52, 20); c.line(10, 22); c.close(); c.fill(hex(0xC8D890));
-        c.fill_circle(30, 15, 12, hex(0xE07AB0));
-        c.begin();
-        for (int k = 0; k <= 30; ++k) { const double a = k * .45, rr = 1 + k * .32; k == 0 ? c.move(30 + std::cos(a) * rr, 15 + std::sin(a) * rr) : c.line(30 + std::cos(a) * rr, 15 + std::sin(a) * rr); }
-        c.stroke(hex(0x7A2A6A), 1.5);
-        c.stroke_line(54, 21, 58, 10, hex(0xA8B870), 1.5);
-        c.stroke_line(51, 21, 52, 11, hex(0xA8B870), 1.5);
-        c.fill_circle(58, 10, 2, hex(0x101010));
-        c.fill_circle(52, 11, 2, hex(0x101010));
-        c.fill_rect(2, 24, 6, 3, hex(0x40D0F0));
-        c.fill_rect(0, 26, 4, 3, hex(0xF0E040));
-        return to_tex(c);
+const Tex32& tex_snail(int frame) {
+    static const std::vector<Tex32> frames = [] {
+        std::vector<Tex32> v;
+        const Col drips[] = {hex(0x40D0F0), hex(0xF0E040), hex(0xF050C0), hex(0x60E080)};
+        for (int f = 0; f < 4; ++f) {
+            const double ph = f * 1.5707963, reach = 2 * std::sin(ph), bob = .8 * std::sin(ph + 1);
+            Canvas c;
+            c.resize(64, 32);
+            c.clear({0, 0, 0, 0});
+            // body (its head stretching forward and back as it crawls), shell, eye stalks, and a paintbrush tail
+            c.begin(); c.move(4, 28); c.quad(30, 30 + .6 * std::sin(ph * 2), 56 + reach, 28); c.quad(60 + reach, 22, 52 + reach, 20); c.line(10, 22); c.close();
+            c.fill(hex(0xC8D890));
+            const double sx = 30 - reach * .3, sy = 15 + bob;
+            c.fill_circle(sx, sy, 12, hex(0xE07AB0));
+            c.begin();
+            for (int k = 0; k <= 30; ++k) {
+                const double a = k * .45, rr = 1 + k * .32;
+                if (k) c.line(sx + std::cos(a) * rr, sy + std::sin(a) * rr); else c.move(sx + std::cos(a) * rr, sy + std::sin(a) * rr);
+            }
+            c.stroke(hex(0x7A2A6A), 1.5);
+            const double s1 = 1.6 * std::sin(ph), s2 = 1.6 * std::sin(ph + 2.2);  // the stalks wave, out of step
+            c.stroke_line(54 + reach, 21, 58 + reach + s1, 10 + .5 * s2, hex(0xA8B870), 1.5);
+            c.stroke_line(51 + reach, 21, 52 + reach + s2, 11 + .5 * s1, hex(0xA8B870), 1.5);
+            c.fill_circle(58 + reach + s1, 10 + .5 * s2, 2, hex(0x101010));
+            c.fill_circle(52 + reach + s2, 11 + .5 * s1, 2, hex(0x101010));
+            c.fill_rect(2, 24, 6, 3, drips[f]);
+            c.fill_rect(0, 26, 4, 3, drips[(f + 1) % 4]);
+            v.push_back(to_tex(c));
+        }
+        return v;
     }();
-    return t;
+    return frames[static_cast<size_t>(frame & 3)];
 }
+
+namespace {
+// where a face's paint stands in its loop, so neighbouring faces don't move in step
+std::uint32_t face_phase(int f, int x, int y, int d) { return static_cast<std::uint32_t>(x * 7919 + y * 104729 + d * 131 + f * 31); }
+
+// where the viewer stands across a face: -1 toward its left end, 1 toward its right, seen from inside the square
+double face_gaze(const Soft3D& r, double fz, int x, int y, int d) {
+    const V3 centre{x + .5 + kDX[d] * .5, y + .5 + kDY[d] * .5, fz + kH * .5};
+    const V3 along = d == kN ? V3{1, 0, 0} : d == kS ? V3{-1, 0, 0} : d == kE ? V3{0, 1, 0} : V3{0, -1, 0};  // the way u runs
+    const V3 to = r.eye - centre;
+    return std::clamp(dot(to, along) / std::max(len(to), 1e-6) * 1.5, -1.0, 1.0);
+}
+
+// one face's look between heights z0 and z1 (texture v0 at the top, v1 at the bottom): the wall,
+// the wall with a framed poster inset over it, or one of the snail's paints
+void face_look(Soft3D& r, const Level& lv, double fz, int f, int x, int y, int d, int look, double z0, double z1, double v0, double v1, float shade,
+               double t, bool poster) {
+    if (look >= 64) {
+        const int p = look - 64;
+        wall_face(r, fz, x, y, d, z0, z1, &tex_paint_at(p, t, face_phase(f, x, y, d), face_gaze(r, fz, x, y, d)), shade, paint_flags(p), v0, v1);
+        return;
+    }
+    wall_face(r, fz, x, y, d, z0, z1, &tex_wall(lv.wall, (x * 7 + y * 13 + d) % 4), shade, 0, v0, v1, wall_span(lv.wall));
+    if (look < 1 || !poster) return;
+    const V3 in{static_cast<double>(-kDX[d]) * .004, static_cast<double>(-kDY[d]) * .004, 0};
+    V3 a, b;
+    switch (d) {
+        case kN: a = {x + .82, y + 1.0, 0}; b = {x + .18, y + 1.0, 0}; break;
+        case kS: a = {x + .18, double(y), 0}; b = {x + .82, double(y), 0}; break;
+        case kE: a = {x + 1.0, y + .18, 0}; b = {x + 1.0, y + .82, 0}; break;
+        default: a = {double(x), y + .82, 0}; b = {double(x), y + .18, 0}; break;
+    }
+    a = a + in; b = b + in;
+    const double p0 = fz + .22, p1 = fz + .86;
+    r.quad(vx({a.x, a.y, p0}, 1, 1, shade), vx({b.x, b.y, p0}, 0, 1, shade), vx({b.x, b.y, p1}, 0, 0, shade), vx({a.x, a.y, p1}, 1, 0, shade),
+           &tex_poster(look - 1), 0);
+}
+}  // namespace
 
 V3 cell_center(Pos p, double z) { return {p.x + .5, p.y + .5, p.f * kH + z}; }
 
@@ -170,14 +237,19 @@ void draw_world(Soft3D& r, const Level& lv, const WorldState& s, double t) {
                 const Pos here{f, x, y};
                 const bool lift_here = riding && s.elevator_at.x == x && s.elevator_at.y == y;
                 // floor and ceiling
-                const Tex32* ftex = c.elevator ? &tex_elevator() : c.portal >= 0 ? &tex_portal_carpet(car) : &tex_carpet(car);
-                if (!(lift_here && f == 1)) flat(r, x, y, x + 1, y + 1, fz, true, ftex, .92f, 0);
-                if (!(lift_here && f == 0)) flat(r, x, y, x + 1, y + 1, fz + kH, false, c.goal ? &tex_gold_wall() : &tex_ceiling(ceil), .86f, 0);
+                if (!(lift_here && f == 1)) {
+                    if (c.elevator) flat(r, x, y, x + 1, y + 1, fz, true, &tex_elevator(), .92f, 0);
+                    else flat(r, x, y, x + 1, y + 1, fz, true, c.portal >= 0 ? &tex_floor_portal(car) : &tex_floor(car), .92f, 0, kFloorSpan);
+                }
+                if (!(lift_here && f == 0)) {
+                    if (c.goal) flat(r, x, y, x + 1, y + 1, fz + kH, false, &tex_gold_wall(), .86f, 0);
+                    else flat(r, x, y, x + 1, y + 1, fz + kH, false, &tex_ceiling_art(ceil), .86f, 0, kCeilingSpan);
+                }
                 // the elevator platform itself, riding up between the floors
                 if (lift_here && f == 0) {
                     const double lz = std::clamp(s.elevator_lift, 0.0, 1.0) * kH;
                     flat(r, x, y, x + 1, y + 1, lz, true, &tex_elevator(), .95f, 0);
-                    for (int dd = 0; dd < 4; ++dd) wall_face(r, 0, x, y, dd, kH, 2 * kH, &tex_brick(), .7f, kTwoSided);
+                    for (int dd = 0; dd < 4; ++dd) wall_face(r, 0, x, y, dd, kH, 2 * kH, &tex_wall(lv.wall, 0), .7f, kTwoSided, 0, 1, wall_span(lv.wall));
                 }
                 // pads
                 if (c.pad >= 0) flat(r, x + .15, y + .15, x + .85, y + .85, fz + .004, true, &tex_pad(c.pad, s.pressed >> c.pad & 1), 1.f, kAlphaTest);
@@ -189,29 +261,22 @@ void draw_world(Soft3D& r, const Level& lv, const WorldState& s, double t) {
                     const Cell* n = edge ? nullptr : &fl.at(nx, ny);
                     const float shade = dd == kN || dd == kS ? 1.f : .8f;
                     if (edge || n->block == Block::wall) {
-                        const std::uint8_t look = c.face[static_cast<size_t>(dd)];
-                        const Tex32* tex = &tex_brick_alt((x * 7 + y * 13 + dd) % 4);
-                        std::uint32_t fl2 = 0;
-                        if (c.goal) tex = &tex_gold_wall();
-                        else if (look >= 64) { tex = &tex_paint(look - 64); if (paint_glitches(look - 64)) fl2 = kGlitch; }
-                        else if (look >= 1) {
-                            // a framed poster on the brick: brick first, then the poster inset over it
-                            wall_face(r, fz, x, y, dd, 0, kH, tex, shade, 0);
-                            const V3 in{static_cast<double>(-kDX[dd]) * .004, static_cast<double>(-kDY[dd]) * .004, 0};
-                            const Tex32* pt = &tex_poster(look - 1);
-                            V3 a, b;
-                            switch (dd) {
-                                case kN: a = {x + .82, y + 1.0, 0}; b = {x + .18, y + 1.0, 0}; break;
-                                case kS: a = {x + .18, double(y), 0}; b = {x + .82, double(y), 0}; break;
-                                case kE: a = {x + 1.0, y + .18, 0}; b = {x + 1.0, y + .82, 0}; break;
-                                default: a = {double(x), y + .82, 0}; b = {double(x), y + .18, 0}; break;
-                            }
-                            a = a + in; b = b + in;
-                            const double z0 = fz + .22, z1 = fz + .86;
-                            r.quad(vx({a.x, a.y, z0}, 1, 1, shade), vx({b.x, b.y, z0}, 0, 1, shade), vx({b.x, b.y, z1}, 0, 0, shade), vx({a.x, a.y, z1}, 1, 0, shade), pt, 0);
+                        const int look = c.face[static_cast<size_t>(dd)];
+                        if (c.goal) {
+                            wall_face(r, fz, x, y, dd, 0, kH, &tex_gold_wall(), shade, 0);
                             continue;
                         }
-                        wall_face(r, fz, x, y, dd, 0, kH, tex, shade, fl2);
+                        // fresh paint climbing the wall over what was there
+                        const Fresh* fresh = nullptr;
+                        for (const Fresh& fr : s.fresh)
+                            if (fr.at == here && fr.dir == dd) fresh = &fr;
+                        if (fresh) {
+                            const double k = std::clamp(fresh->age / kPaintRise, 0.0, 1.0), h = k * k * (3 - 2 * k) * kH;
+                            face_look(r, lv, fz, f, x, y, dd, look, 0, h, 1 - h / kH, 1, shade, t, false);
+                            face_look(r, lv, fz, f, x, y, dd, fresh->was, h, kH, 0, 1 - h / kH, shade, t, h < .2);
+                        } else {
+                            face_look(r, lv, fz, f, x, y, dd, look, 0, kH, 0, 1, shade, t, true);
+                        }
                     } else if (n->block == Block::door) {
                         const double open = n->door >= 0 && n->door < static_cast<int>(s.door_open.size()) ? s.door_open[static_cast<size_t>(n->door)] : 0;
                         const double top = kH * (1 - open);
@@ -261,7 +326,9 @@ void draw_world(Soft3D& r, const Level& lv, const WorldState& s, double t) {
     }
     // the snail, leaving its paint behind
     if (s.snail.alive && s.snail.at.f == s.floor) {
-        r.sprite(s.snail.world() + V3{0, 0, .0}, .32, .16, &tex_snail(), kAlphaTest, 1.f);
+        // facing the way it crawls: the sprite's head is on its right, so it turns when it heads left across the view
+        const double across = kDX[s.snail.dir] * std::cos(r.yaw) - kDY[s.snail.dir] * std::sin(r.yaw);
+        r.sprite(s.snail.world(), .32, .16, &tex_snail(static_cast<int>(t * 6)), kAlphaTest, 1.f, across < -.1 ? -1 : 1);
     }
     // a visitor
     if (s.visitor.alive && s.visitor.at.f == s.floor && s.visitor.tex) {
