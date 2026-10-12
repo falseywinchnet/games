@@ -7,12 +7,15 @@ integration evidence and limitations.
 The 3D maze from 1995, as a game, by way of a dead shopping mall's vaporwave
 and Encarta Mind Maze's castle full of chance meetings.
 
-- **The maze:** walk it in first person, a square at a time, turning in quarter turns. Big red brick walls, hotel and arcade carpets, acoustic ceiling tiles or a starry night overhead, and vaporwave posters on the walls.
-- **The posters:** sunset grids, a marble bust, palms and a dolphin, AESTHETIC, a floppy disk, "please wait", the Rainstar 95 logo, Tux, a gnu, a smiley, a contented blue screen, the lady with the smile, KILROY WAS HERE.
-- **The goal:** every maze opens with a briefing naming what you seek. The first is the cheese; after that it's something else from 46 iconic odds and ends:
+- **The maze:** walk it in first person, a square at a time, turning in quarter turns. Big red brick walls, hotel and arcade carpets, acoustic ceiling tiles or a starry night overhead, and pictures on the walls.
+- **The pictures:** each maze hangs one or two posters and three or four framed pieces at random.
+  - The 27 posters are made-up ads in 90s and 2000s box-art style (airbrushed, Bryce-rendered, Windows 95 to ME), plus WANTED posters for Wojak and Chudjak.
+  - The 51 framed pieces cover the same eras.
+  - All are painted offline in `authoring/maze_posters/` and loaded from `assets/posters/`.
+- **The goal:** every maze opens with a briefing naming what you seek. The first is the cheese; after that it's something else from 47 iconic odds and ends:
   - a striped bucket of fried chicken, a floppy disk, a lava lamp, a boombox, a VHS tape
   - a rotary phone, a goldfish in a bowl, a disco ball, a puzzle cube, a pet rock
-  - a pocket game machine, a pot of honey, a tin of spinach, and the rest.
+  - a pocket game machine, a pot of honey, a tin of spinach, a dancing hamster, and the rest.
 - **The reward room:** it waits at the far end, and it is full of the thing.
 - **The trophy shelf:** fills up as you go.
 
@@ -27,10 +30,12 @@ They are dynamically generated: new tricks arrive one at a time, then mix.
   - It keeps to the maze's loops, never its dead ends, so it only ever turns back when it meets you.
   - If a portal or the elevator drops you right on it, it rolls aside.
 - **Light bulbs:** touching one kills the lights except a little lamp on your head. Find another bulb, or finish, and they snap back on. The music sounds as if it's coming through a wall meanwhile.
-- **The paint snail:** it wanders the maze with a hand on the right-hand wall, repainting the brick behind it. The repaints include zebra, plasma, eyes, polka dots, television static, tie-dye and ERROR, some of them glitching. A long level ends as a patchwork.
+- **The paint snail:** a 3D snail that crawls the floor, walls and ceiling, never in a straight line. It leaves a painted path wider than itself, with a slime trail.
+  - There are 18 animated paints, among them a blue-screen debug-log rain, polka-dot spam, houndstooth patterns, and eyes that blink and look around.
+  - It ignores you until you come close, then hides in its shell and peeks out once you back off. It squelches, hides and peeks with sounds of its own.
 - **The elevator tile:** the floor lifts you up through the ceiling into another maze that was running directly above all along, and the camera rides up with it.
 - **The flip stone:** the original screensaver's spinning grey polyhedron. Touch it and the whole maze rolls over: you walk on the ceiling and left and right swap. Floor pads, portals and elevators go out of reach, and ceiling pads go live. The music plays backwards.
-- **Encounters:** someone steps into the corridor ahead, says something, and vanishes with a poof. About thirty characters, around six lines each, plus the occasional good turn:
+- **Encounters:** the Shiba, Apu or the Doomer steps into the corridor ahead, says something, and vanishes with a poof. Now and then they also do you a good turn:
   - pointing the way to the reward, as the crow flies
   - producing a key for the next locked door
   - distracting the marble
@@ -39,16 +44,23 @@ Every maze is proven solvable by a search over the whole state (floor, square, f
 
 ## Who you meet
 
-Everyone is in the public domain in the United States, drawn afresh after their original illustrators. They have lines of their own, and here and there their own words from the books.
+The maze's residents are memes, drawn for PlaySuite (the Shiba, Apu and Monke after the owner's own crayon drawings).
 
-- **Alice:** Alice, the Cheshire Cat, the Hatter, the White Rabbit, the Queen of Hearts, Humpty Dumpty.
-- **Oz:** Dorothy (silver shoes, as in the book), the Scarecrow, the Tin Woodman, the Cowardly Lion.
-- **Pooh:** Winnie-the-Pooh, Piglet, Eeyore, Tigger.
-- **The funnies:** Popeye and Olive Oyl (Thimble Theatre), Krazy Kat and Ignatz, Gertie the Dinosaur.
-- **Everyone else:** Count Orlok, Sherlock Holmes, Pinocchio, Peter Rabbit, Mr. Toad, the Gingerbread Man, Sun Wukong, Robin Hood, the Frog Prince, and a knight errant.
-- **Tux:** Larry Ewing's, drawn with credit.
+- **Visitors:**
+  - **The Shiba:** such maze, a dozen lines.
+  - **Apu:** a small one in a blue shirt, holding a spatula and clutching a teddy, asking if you've seen his mommy.
+  - **The Doomer:** asks if you've seen the exit.
+- **On the ceiling:** Ceiling Cat, who only meows, and the Goose, who honks.
+- **Keyboard Cat:** waits just beyond a portal and taunts you to come closer.
+- **Philosoraptor:** stands in the reward room staring at the trophy and wonders aloud.
+- **Monke:** sometimes rides the elevator with you.
+- **The giant ball:** it may be the stone marble, or one of these:
+  - a monocled frog on a penny-farthing, who rings his bell and is irritated if you block him
+  - the Thinking Face, glowing, with a glam-pop tune you only hear up close
+  - Mazeball, in the maze's own brick, with googly eyes, who burps
+- **A reward:** one of them is a dancing hamster.
 
-The in-game "Who's who" lists every source. No trademarks are used: the rewards carry no brand marks, and the only OS logo on the walls is the made-up Rainstar 95.
+The in-game "Who's who" lists them. No trademarks are used: the rewards carry no brand marks, and the only OS logo on the walls is the made-up Rainstar 95. The old public-domain cast (`cast.*`) remains only as test fixtures.
 
 ## Play
 
@@ -98,19 +110,28 @@ is its registration; no shell or release-version edits are required.
 | The renderer: perspective-correct textures, near-plane clipping, z-buffer, roll, fog, the blackout lamp, glitch, sprites. Triangles are scanned by the shared render engine's camera-space scan (`shared/render`, `r3d_scan.hpp`); the texel, light and blend are this game's pixel policy | `soft3d.*` |
 | Rules, generation and the solver (state search over floor, square, flip and pads), the route for the dev walker | `maze.*` |
 | Drawing the maze and what lives in it | `world.*` |
-| A level in motion: steps, turns, doors, elevator ride, flip roll, portal blink, the marble, the snail, visitors | `session.*` |
+| A level in motion: steps, turns, doors, elevator ride, flip roll, portal blink, the ball, the snail, visitors and residents | `session.*` |
+| The snail: crawling every surface, its painted path and slime, hiding | `snail.*` |
+| The snail's animated paints | `paints.*` |
+| The residents: their pictures, lines and credits | `residents.*` |
+| Hanging the pictures; PNG decoding for the painted assets | `art.*`, `png.*` |
 | Painted surfaces (brick, carpets, ceilings, doors, pads, posters, the snail's paints) | `textures.*` |
-| The 46 rewards, and the cast with their lines and sources | `rewards.*`, `cast.*` |
+| The rewards | `rewards.*` |
 | Window, chrome, briefing, speech, win, trophy shelf, help, credits, autosave; the frame enlarged into the window's buffers by the render engine's `PixelSurface`, repairing only what changed | `maze_view.*`, `save.*` |
 | Portable raster, GUI.Forms text masks and scene audio, namespace `mz` | `platform/` |
 
 All audio is synthesized (`audio_src/`):
 
-- "Atrium", a mallsoft loop at 78 BPM in D-flat: electric piano ninths, a vibraphone tune, synth bass, a soft swung drum machine, a big wet hall and tape wobble. It comes in three versions:
+- Three upbeat loops of about two minutes, one chosen at random for each level (`score.py`):
+  - "Maze Run": synth rock in A major at 98 BPM
+  - "Bonus Round": a bouncy romp in C major at 124 BPM
+  - "Turbo": a funky groove in B-flat at 112 BPM
+- Each loop comes in three versions:
   - as it is
   - through a wall, for the blackout
   - backwards, for the ceiling
-- A start-up chime and a win jingle.
+- A start-up chime and a win jingle (`mall_music.py`).
+- The residents' sounds: the meow, the honk, the bell, the burp, Keyboard Cat's keys, Monke's ooh, the Thinking Face's tune, and the snail's squelch, hide and peek.
 - Effects: steps on carpet, turns, bumps, locks, pads, grinding doors, the flip, bulbs, the elevator and its ding, portals, the marble's rumble, knock and thud, appearances and poofs.
 
 ## Original delivery measurements

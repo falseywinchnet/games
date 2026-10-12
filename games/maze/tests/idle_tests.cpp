@@ -2,6 +2,9 @@
 #include "session.hpp"
 #include "rewards.hpp"
 #include "cast.hpp"
+#include "residents.hpp"
+#include "textures.hpp"
+#include <filesystem>
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -15,6 +18,9 @@ void render(mz::Soft3D& r,const mz::Session& s,double time) {
 }
 int main() {
     try {
+        const std::filesystem::path assets=std::filesystem::path(__FILE__).parent_path().parent_path()/"assets";
+        mz::use_resident_art((assets/"residents").string());  // the residents drawn, so the test sees them too
+        mz::use_poster_art((assets/"posters").string());
         mz::Soft3D r; r.resize(96,72); r.begin(0);
         require(mz::visible_box(r,{-.2,3,-.2},{.2,3.5,.2}),"unoccluded bound is visible");
         std::fill(r.zinv.begin(),r.zinv.end(),.5f);
@@ -43,8 +49,9 @@ int main() {
                     }
                 }
                 const bool before=s.camera_animating() || mz::visible_world_animation(cached,s.lv,s.world);
+                const std::uint64_t said=s.speech_revision;
                 s.update(.033); time+=.033;
-                bool draw=before || s.camera_animating() || mz::visible_world_animation(cached,s.lv,s.world);
+                bool draw=before || s.camera_animating() || mz::visible_world_animation(cached,s.lv,s.world) || said!=s.speech_revision;  // as the view does
                 for (const mz::Pos& cell:s.repainted)
                     if (cell.f==s.world.floor && mz::visible_box(cached,{double(cell.x),double(cell.y),double(cell.f)},
                         {cell.x+1.0,cell.y+1.0,cell.f+1.0})) draw=true;

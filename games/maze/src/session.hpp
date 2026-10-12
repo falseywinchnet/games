@@ -3,10 +3,11 @@
 // glide; doors sink when their pad is pressed; the elevator rises through the
 // ceiling into the maze above; a flip stone rolls the whole world over; a bulb
 // puts the lights out; portals blink you away. The marble rolls the corridors
-// and gets in your way but never traps you; the snail repaints the walls behind
-// it. Now and then someone steps into the corridor ahead with something to say,
-// and occasionally something useful to do. Rules always commit before the
-// animation catches up.
+// and gets in your way but never traps you; the snail paints its way over floor,
+// walls and ceiling, and hides in its shell when you come close. Now and then
+// someone steps into the corridor ahead with something to say, and occasionally
+// something useful to do; the other residents keep to their places
+// (residents.hpp). Rules always commit before the animation catches up.
 #include "maze.hpp"
 #include "soft3d.hpp"
 #include "world.hpp"
@@ -37,6 +38,7 @@ struct VisitorDef {            // supplied by the view: who might drop by
     const Tex32* tex = nullptr;
     std::vector<std::string> lines;
     double w = .7, h = .9;
+    double lift = 0;            // hovering this far above the floor
 };
 
 class Session {
@@ -52,7 +54,7 @@ public:
     std::vector<Pos> repainted;
     void camera(Soft3D& r) const;     // where the eye is and how it is turned
 
-    Level lv;                         // a copy: the snail repaints it
+    Level lv;                         // a copy, for this play of it
     Play play;
     WorldState world;
     std::vector<Event> events;
@@ -96,6 +98,10 @@ private:
     void marble_update(double dt);
     void snail_update(double dt);
     void visitor_update(double dt);
+    void residents_update(double dt);
+    void place_residents();
+    double thinker_t_ = 0;           // when the Thinking Face's loop next starts
+    double ball_grumble_ = 0;        // the ball's next bell or burp
     void say(const std::string& who, const std::string& text);
     bool blocked_by_movers(Pos p) const;
     void sfx(const std::string& name, float gain = 1, float rate = 1) { events.push_back({Event::sound, name, {}, gain, rate}); }

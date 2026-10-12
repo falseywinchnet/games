@@ -4,7 +4,11 @@ Soft steps on carpet, a turn's swish, a bump into brick, a locked door's
 clunk, a pad's click, a door grinding down into the floor, the flip stone's
 great roll, a bulb popping out and humming back, the elevator's motor and
 its ding, a portal's shimmer, the marble rumbling, knocking and thudding,
-someone appearing and vanishing, and the click of a 1995 button. Writes
+someone appearing and vanishing, the click of a 1995 button, and the paint
+snail: the sticky crackle of slime as it crawls, the suck and knock of it pulling into its
+shell, and a small rising pip as it peeks out again. And the residents: Ceiling Cat's
+meow, the goose's honk, the penny-farthing frog's bell, Mazeball's baby burp, Keyboard
+Cat's riff, Monke's hoot, and the Thinking Face's own little glam-pop loop. Writes
 48 kHz 16-bit mono WAVs into ../assets/audio.
 """
 import os
@@ -14,7 +18,7 @@ import wave
 import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'engine'))
-from synth import SR, tarr, noise, fft_filter, mtof  # noqa: E402
+from synth import SR, tarr, noise, fft_filter, mtof, ep, bass, vibes  # noqa: E402
 
 OUT = os.path.join(os.path.dirname(__file__), '..', 'assets', 'audio')
 rng = np.random.default_rng(95)
@@ -135,8 +139,128 @@ def main():
     n = int(.05 * SR)
     t = tarr(n)
     write('mz_click', np.sin(2 * np.pi * 2200 * t) * np.exp(-t / .006), -22)
+    snail()
+    residents()
     print('ok')
+
+
+def snail():
+    """the paint snail, with its own noise so the effects above stay as they were"""
+    own = np.random.default_rng(1995)
+    n = int(.5 * SR)  # the crawl: sticky crackle, slime pulled off a surface, over a soft wet hush
+    t = tarr(n)
+    pops = np.zeros(n)
+    for at in own.integers(0, n - 400, 130):  # tiny air pockets tearing open: clicks of noise, not tones
+        k = int(own.uniform(.0006, .0025) * SR)
+        pops[at:at + k] += own.standard_normal(k) * np.exp(-np.arange(k) / (k / 4)) * own.uniform(.2, 1) ** 2
+    crackle = fft_filter(pops, 1200, 8000) * np.minimum(1, t / .06) * np.exp(-np.maximum(0, t - .25) / .12)
+    hush = fft_filter(own.standard_normal(n), 300, 2500) * np.sin(np.pi * np.clip(t / .5, 0, 1)) ** 2
+    write('mz_snail_squelch', crackle / np.max(np.abs(crackle)) + .35 * hush / np.max(np.abs(hush)), -22)
+    n = int(.32 * SR)  # into the shell: a suck of air, then the shell's hollow knock on the floor
+    t = tarr(n)
+    suck = sweep(240, 70, .32, .5) * env(n, .004, .07)
+    hiss = fft_filter(own.standard_normal(n), 600, 3500) * env(n, .002, .03)
+    knock = np.where(t > .09, np.sin(2 * np.pi * 420 * (t - .09)) * np.exp(-np.maximum(0, t - .09) / .035), 0)
+    write('mz_snail_hide', suck + .3 * hiss + .55 * knock, -17)
+    n = int(.22 * SR)  # peeking out: a tiny rising pip and a little wet
+    t = tarr(n)
+    pip = sweep(520, 1150, .22, 1.4) * np.minimum(1, t / .02) * np.exp(-t / .07)
+    write('mz_snail_peek', pip + .3 * fft_filter(own.standard_normal(n), 400, 2000) * env(n, .01, .05), -24)
 
 
 if __name__ == '__main__':
     main()
+
+
+def place(out, x, at):
+    i = int(at * SR)
+    n = min(len(x), len(out) - i)
+    if n > 0:
+        out[i:i + n] += x[:n]
+
+
+def formant(x, centre, width):
+    return fft_filter(x, max(30, centre - width), centre + width)
+
+
+def residents():
+    """the meme residents, each with their own noise so nothing above changes"""
+    own = np.random.default_rng(2026)
+    n = int(.62 * SR)  # a meow: the pitch rising then falling through an 'ee-ow' of a mouth
+    t = tarr(n)
+    f0 = 520 + 260 * np.sin(np.pi * np.clip(t / .5, 0, 1)) ** 1.5 - 120 * t
+    ph = 2 * np.pi * np.cumsum(f0 * (1 + .012 * np.sin(2 * np.pi * 6 * t))) / SR
+    voice = sum(np.sin(ph * k) / k ** 1.2 for k in range(1, 9))
+    shape = np.minimum(1, t / .05) * np.exp(-np.maximum(0, t - .32) / .1)
+    opening = np.sin(np.pi * np.clip(t / .55, 0, 1))  # the mouth opens on the 'ee' and closes on the 'ow'
+    mouth = formant(voice, 900, 500) * (1 - opening) + formant(voice, 2000, 700) * opening + .5 * formant(voice, 2600, 500)
+    write('mz_meow', mouth * shape, -15)
+    n = int(.36 * SR)  # a honk: harsh, nasal, a little flat at the end
+    t = tarr(n)
+    f0 = 400 - 70 * t / .36
+    ph = 2 * np.pi * np.cumsum(f0) / SR
+    saw = sum(np.sin(ph * k) / k for k in range(1, 24))
+    honk = formant(saw, 1300, 450) + .6 * formant(saw, 2900, 600) + .25 * fft_filter(own.standard_normal(n), 900, 4000)
+    write('mz_honk', np.tanh(honk * 2.5) * np.minimum(1, t / .015) * np.exp(-np.maximum(0, t - .22) / .05), -12)
+    n = int(1.0 * SR)  # the bicycle bell: ding-ding, struck twice
+    out = np.zeros(n)
+    for at in (0, .17):
+        m = int(.8 * SR)
+        tt = tarr(m)
+        ding = sum(a * np.sin(2 * np.pi * 2350 * r * tt) * np.exp(-tt / d) for r, a, d in ((1, 1, .5), (2.76, .5, .25), (5.4, .25, .1), (1.5, .3, .35)))
+        place(out, ding * np.minimum(1, tt / .002), at)
+    write('mz_bell', out, -14)
+    n = int(.42 * SR)  # a baby's burp: a short, wet, low croak
+    t = tarr(n)
+    f0 = 140 - 50 * t / .42
+    pulses = np.sin(2 * np.pi * np.cumsum(f0) / SR)
+    pulses = np.sign(pulses) * np.abs(pulses) ** .3
+    burp = formant(pulses, 420, 260) + .5 * formant(pulses, 1100, 300) + .15 * fft_filter(own.standard_normal(n), 200, 1600)
+    burp *= np.minimum(1, t / .02) * np.exp(-np.maximum(0, t - .18) / .09) * (1 + .4 * np.sin(2 * np.pi * 23 * t))
+    write('mz_burp', burp, -13)
+    n = int(1.9 * SR)  # Keyboard Cat's riff: a jaunty little run on an electric piano (our own tune)
+    out = np.zeros(n)
+    beat = .16
+    for k, m in enumerate((67, 71, 74, 79, 78, 74, 76, 72, 67)):
+        place(out, ep(m, beat * (2 if k == 8 else .9), .75), k * beat)
+    for k, m in enumerate((43, 47, 50, 43)):
+        place(out, bass(m, beat * 2, .7), k * beat * 2.25)
+    write('mz_keys', out, -14)
+    n = int(.9 * SR)  # Monke: ooh ooh
+    out = np.zeros(n)
+    for at, base in ((0, 330), (.32, 380)):
+        m = int(.34 * SR)
+        tt = tarr(m)
+        f0 = base + 160 * np.clip(tt / .2, 0, 1)
+        v = np.sin(2 * np.pi * np.cumsum(f0) / SR) + .3 * np.sin(4 * np.pi * np.cumsum(f0) / SR)
+        place(out, formant(v, 500, 300) * np.sin(np.pi * tt / .34) ** .8, at)
+    write('mz_ooh', out, -15)
+    thinker_loop(own)
+
+
+def thinker_loop(own):
+    """the Thinking Face's own music: two bars at 120, glam, peachy and upbeat, looping cleanly"""
+    bar = 2.0
+    n = int(2 * bar * SR)
+    out = np.zeros(n + int(2 * SR))
+    q = bar / 4
+    chords = ((65, 69, 72, 76), (64, 67, 71, 74))   # Fmaj7, Em7
+    for b, chord in enumerate(chords):
+        for k in range(4):
+            for m in chord:
+                place(out, ep(m, q * .45, .55, 1.3) * .5, b * bar + k * q + q * .5)   # off-beat stabs
+        for k, m in enumerate((41, 41, 53, 48) if b == 0 else (40, 40, 52, 47)):
+            place(out, bass(m, q * .8, .8), b * bar + k * q)
+    for k in range(8):  # four on the floor, with handclaps on two and four
+        tt = tarr(int(.3 * SR))
+        kick = np.sin(2 * np.pi * np.cumsum(50 + 110 * np.exp(-tt / .03)) / SR) * np.exp(-tt / .14)
+        place(out, kick * .9, k * q)
+        if k % 2:
+            clap = fft_filter(own.standard_normal(len(tt)), 900, 6000) * np.exp(-tt / .05)
+            place(out, clap * .45, k * q)
+    for k in range(16):  # sparkle: a vibraphone arpeggio in sixteenths
+        m = (77, 81, 84, 88)[k % 4] if k < 8 else (76, 79, 83, 86)[k % 4]
+        place(out, vibes(m, q * .4, .35) * .35, k * q / 2)
+    loop = out[:n].copy()
+    loop[:len(out) - n] += out[n:]  # the tails wrap round, so the loop has no seam
+    write('mz_thinker', loop, -10)

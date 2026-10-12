@@ -1,5 +1,7 @@
 #include "rewards.hpp"
 
+#include "residents.hpp"
+
 #include "platform/canvas.hpp"
 
 #include <cmath>
@@ -288,6 +290,11 @@ const std::vector<Reward>& table() {
              c.begin(); c.move(24, 14); c.quad(28, 8, 24, 2); c.stroke(hex(0xC8C8C8, .7f), 1.5); c.begin(); c.move(32, 14); c.quad(36, 8, 32, 2); c.stroke(hex(0xC8C8C8, .7f), 1.5);
              c.begin(); c.rect(14, 22, 30, 34); ink(c);
          }},
+        {"a", "dancing hamster", [](Canvas& c) {  // a stand-in: the painted hamster (residents) is used when it is there
+             c.fill_ellipse(32, 38, 16, 18, hex(0xE0A060)); c.fill_ellipse(32, 44, 10, 11, hex(0xFFF4E6)); c.fill_ellipse(32, 20, 13, 11, hex(0xE0A060));
+             c.fill_circle(23, 11, 4, hex(0xE0A060)); c.fill_circle(41, 11, 4, hex(0xE0A060)); c.fill_circle(27, 19, 2, hex(0x101010)); c.fill_circle(37, 19, 2, hex(0x101010));
+             c.stroke_line(18, 34, 8, 20, hex(0xE0A060), 4); c.stroke_line(46, 34, 56, 20, hex(0xE0A060), 4);
+         }},
     };
     return v;
 }
@@ -302,6 +309,8 @@ std::string reward_the(int i) { return "the " + reward_name(i); }
 const Tex32& reward_tex(int i) {
     static std::vector<std::unique_ptr<Tex32>> cache(static_cast<size_t>(reward_count()));
     const size_t k = static_cast<size_t>(((i % reward_count()) + reward_count()) % reward_count());
+    if (table()[k].name == "dancing hamster")
+        if (const Tex32* painted = resident_tex(Resident::hamster)) return *painted;
     if (!cache[k]) {
         Canvas c;
         c.resize(64, 64);

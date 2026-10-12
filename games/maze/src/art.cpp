@@ -864,4 +864,56 @@ const Tex32& tex_ceiling_art(int i) {
     return it != cache.end() ? it->second : cache.emplace(i, paint_ceiling(i)).first->second;
 }
 
+namespace {
+struct Splitmix {  // the picture hanger's own dice, apart from the maze's
+    std::uint64_t r;
+    std::uint64_t next(std::uint64_t n) {
+        r += 0x9E3779B97F4A7C15ULL;
+        std::uint64_t z = r;
+        z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+        z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+        return (z ^ (z >> 31)) % n;
+    }
+};
+}  // namespace
+
+void hang_pictures(Level& lv, std::uint64_t seed, int posters, int pieces) {
+    struct Face {
+        int f, x, y, d;
+    };
+    std::vector<Face> faces;
+    for (int f = 0; f < static_cast<int>(lv.floors.size()); ++f) {
+        Floor& fl = lv.floors[static_cast<size_t>(f)];
+        for (int y = 0; y < fl.h; ++y)
+            for (int x = 0; x < fl.w; ++x) {
+                Cell& c = fl.at(x, y);
+                for (int d = 0; d < 4; ++d) {
+                    std::uint8_t& look = c.face[static_cast<size_t>(d)];
+                    if ((look >= 1 && look < 64) || look >= kArtLook) look = 0;
+                    const int nx = x + kDX[d], ny = y + kDY[d];
+                    const bool wall = !fl.in(nx, ny) || fl.at(nx, ny).block == Block::wall;
+                    if (wall && c.block == Block::open && !c.goal && !c.elevator) faces.push_back({f, x, y, d});
+                }
+            }
+    }
+    Splitmix rng{seed};
+    const int want_posters = posters > 0 ? 1 + static_cast<int>(rng.next(2)) : 0, want_art = pieces > 0 ? 3 + static_cast<int>(rng.next(2)) : 0;
+    const int poster_pool = std::min(posters, 63), art_pool = std::min(pieces, 255 - kArtLook);
+    std::vector<int> used_posters, used_art;
+    for (int k = 0; k < want_posters + want_art && !faces.empty(); ++k) {
+        const size_t i = static_cast<size_t>(rng.next(faces.size()));
+        const Face face = faces[i];
+        faces[i] = faces.back();
+        faces.pop_back();
+        const bool poster = k < want_posters;
+        std::vector<int>& used = poster ? used_posters : used_art;
+        const int pool = poster ? poster_pool : art_pool;
+        int pick = static_cast<int>(rng.next(static_cast<std::uint64_t>(pool)));
+        while (static_cast<int>(used.size()) < pool && std::find(used.begin(), used.end(), pick) != used.end()) pick = (pick + 1) % pool;  // no repeats
+        used.push_back(pick);
+        lv.floors[static_cast<size_t>(face.f)].at(face.x, face.y).face[static_cast<size_t>(face.d)] =
+            static_cast<std::uint8_t>(poster ? 1 + pick : kArtLook + pick);
+    }
+}
+
 }  // namespace mz

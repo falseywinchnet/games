@@ -25,8 +25,12 @@ const Tex32& tex_elevator();
 const Tex32& tex_gold_wall();
 const Tex32& tex_marble();
 const Tex32& tex_glow();
+// Where the painted posters and art are (poster_00.png, art_00.png ...); call before the first is drawn.
+void use_poster_art(const std::string& dir);
 int poster_count();
-const Tex32& tex_poster(int i);                 // vaporwave and retro-computing wall signs
+const Tex32& tex_poster(int i);                 // box art, flyers and ads from inside the maze's world
+int art_count();                                // 0 without the painted files
+const Tex32& tex_art(int i);                    // framed pictures: 3D renders, fractals, airbrush, screensavers ...
 const char* pixel_glyph(char ch);               // the sign font: 35 '0'/'1' cells, 5 wide and 7 down
 int carpet_themes();
 const char* carpet_name(int theme);

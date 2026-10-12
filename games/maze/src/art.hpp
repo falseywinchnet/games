@@ -5,7 +5,10 @@
 // surface is painted the first time it is wanted, and kept.
 //
 // "Calm" surfaces are the quiet ones a calmer level draws from.
+#include "maze.hpp"
 #include "soft3d.hpp"
+
+#include <cstdint>
 
 namespace mz {
 
@@ -27,5 +30,11 @@ int ceiling_count();
 const char* ceiling_name(int i);
 bool ceiling_calm(int i);
 const Tex32& tex_ceiling_art(int i);
+
+// Pictures on the walls: one or two posters and three or four pieces of art, on faces picked
+// from `seed`; whatever the maze was generated with comes down first. A face's look is then
+// 1 + a poster's index, or kArtLook + a piece's index.
+constexpr int kArtLook = 128;
+void hang_pictures(Level& lv, std::uint64_t seed, int posters, int pieces);
 
 }  // namespace mz

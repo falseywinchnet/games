@@ -6,6 +6,7 @@
 // the snail repaints; the save file round-trips and refuses tampering.
 #include "art.hpp"
 #include "maze.hpp"
+#include "png.hpp"
 #include "save.hpp"
 #include "session.hpp"
 #include "textures.hpp"
@@ -144,11 +145,61 @@ int main() {
             won += s.won_t >= 0;
             if (s.won_t < 0) std::printf("  level %d not won: at (%d,%d,%d) marble at (%d,%d) to (%d,%d), route %zu\n", n, s.play.at.f, s.play.at.x, s.play.at.y, s.world.marble.at.x, s.world.marble.at.y,
                                          s.world.marble.to.x, s.world.marble.to.y, solve_route(s.lv, s.play).size());
-            for (const Floor& f : s.lv.floors) for (const Cell& c : f.cells) for (auto face : c.face) painted += face >= 64;
+            painted += static_cast<int>(s.world.patches.size());
         }
         CHECK(won == sessions);
         CHECK(marble_overlaps == 0);
-        std::printf("sessions: %d of %d walked to the reward; the marble never shared a square; the snail painted %d wall faces\n", won, sessions, painted);
+        std::printf("sessions: %d of %d walked to the reward; the marble never shared a square; the snail painted %d surfaces\n", won, sessions, painted);
+    }
+    // --- the pictures, as painted: every one decodes, 256 square (posters opaque); a damaged file is refused
+    {
+        const std::filesystem::path dir = std::filesystem::path(__FILE__).parent_path().parent_path() / "assets" / "posters";
+        int posters = 0;
+        for (;; ++posters) {
+            const std::filesystem::path p = dir / ((posters < 10 ? "poster_0" : "poster_") + std::to_string(posters) + ".png");
+            if (!std::filesystem::exists(p)) break;
+            Tex32 t;
+            CHECK(load_png(p.string(), t));
+            CHECK(t.w == 256 && t.h == 256);
+            CHECK(std::all_of(t.px.begin(), t.px.end(), [](std::uint32_t c) { return c >> 24 == 255; }));
+        }
+        CHECK(posters >= 25);
+        int pieces = 0;
+        for (;; ++pieces) {
+            const std::filesystem::path p = dir / ((pieces < 10 ? "art_0" : "art_") + std::to_string(pieces) + ".png");
+            if (!std::filesystem::exists(p)) break;
+            Tex32 t;
+            CHECK(load_png(p.string(), t));
+            CHECK(t.w == 256 && t.h == 256);
+        }
+        CHECK(pieces >= 50);
+        std::ifstream in(dir / "poster_00.png", std::ios::binary);
+        std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        bytes[bytes.size() / 2] ^= 0x5A;
+        Tex32 broken;
+        CHECK(!decode_png(bytes, broken));
+        use_poster_art(dir.string());
+        CHECK(poster_count() == posters && art_count() == pieces);
+        // every maze hangs one or two posters and three or four pieces of art, the same each time
+        for (int level = 1; level <= 40; ++level) {
+            Level lv = generate(params_for(level, 99 + static_cast<std::uint64_t>(level)));
+            hang_pictures(lv, 7 + static_cast<std::uint64_t>(level), posters, pieces);
+            int on_posters = 0, on_art = 0;
+            for (const Floor& f : lv.floors)
+                for (const Cell& c : f.cells)
+                    for (std::uint8_t look : c.face) {
+                        on_posters += look >= 1 && look < 64;
+                        on_art += look >= kArtLook;
+                    }
+            CHECK(on_posters >= 1 && on_posters <= 2);
+            CHECK(on_art >= 3 && on_art <= 4);
+            Level again = generate(params_for(level, 99 + static_cast<std::uint64_t>(level)));
+            hang_pictures(again, 7 + static_cast<std::uint64_t>(level), posters, pieces);
+            hang_pictures(again, 7 + static_cast<std::uint64_t>(level), posters, pieces);
+            for (size_t f = 0; f < lv.floors.size(); ++f)
+                for (size_t i = 0; i < lv.floors[f].cells.size(); ++i) CHECK(lv.floors[f].cells[i].face == again.floors[f].cells[i].face);
+        }
+        std::printf("pictures: %d posters and %d pieces of art decode; each maze hangs 1-2 and 3-4\n", posters, pieces);
     }
     // --- the save file
     {

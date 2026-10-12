@@ -44,15 +44,17 @@ bool visible_world_animation(const Soft3D& r,const Level& lv,const WorldState& s
     }
     if (lv.goal.f == s.floor && s.reward && bound(r,cell_center(lv.goal,.6),{.31,.31,.34})) return true;
     if (s.marble.alive && s.marble.at.f == s.floor && bound(r,s.marble.world()+V3{0,0,.42},{.43,.43,.43})) return true;
-    if (s.snail.alive && s.snail.at.f == s.floor && bound(r,s.snail.world()+V3{0,0,.08},{.18,.18,.09})) return true;
+    if (s.snail.alive && s.snail.on.f == s.floor && bound(r,s.snail.world(),{.22,.22,.22})) return true;
     if (s.visitor.alive && s.visitor.at.f == s.floor && s.visitor.tex) {
         const double w=s.visitor.h*(*s.visitor.tex).w/(*s.visitor.tex).h;
         if (bound(r,cell_center(s.visitor.at,s.visitor.h*.5),{w*.5+.01,w*.5+.01,s.visitor.h*.5+.03})) return true;
     }
-    for (const Fresh& fresh:s.fresh) {  // paint still rising up a wall
-        if (fresh.at.f != s.floor) continue;
-        const V3 center{fresh.at.x+.5+kDX[fresh.dir]*.5,fresh.at.y+.5+kDY[fresh.dir]*.5,s.floor*kH+kH*.5};
-        if (bound(r,center,{kDX[fresh.dir] ? .005 : .505,kDY[fresh.dir] ? .005 : .505,kH*.5+.005})) return true;
+    for (const std::pair<const Surface,Patch>& patch:s.patches) {  // the snail's paint moves, and its slime glistens
+        if (patch.first.f != s.floor) continue;
+        const Frame fr=surface_frame(patch.first);
+        const V3 c=fr.o+fr.u*.5+fr.v*.5;
+        const V3 half{std::fabs(fr.u.x+fr.v.x)*.5+.005,std::fabs(fr.u.y+fr.v.y)*.5+.005,std::fabs(fr.u.z+fr.v.z)*.5+.005};
+        if (bound(r,c,half)) return true;
     }
     const Floor& floor=lv.floors[static_cast<std::size_t>(s.floor)];
     for (int y=std::max(0,static_cast<int>(r.eye.y)-15);y<std::min(floor.h,static_cast<int>(r.eye.y)+16);++y)

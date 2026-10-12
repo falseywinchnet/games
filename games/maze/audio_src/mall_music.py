@@ -1,18 +1,12 @@
-"""Maze 95 score: "Atrium".
+"""Maze 95: the start chime and the win jingle, from "Atrium".
 
-Vaporwave of the mallsoft kind: a slow, smooth-jazz loop for an empty
-shopping centre in 1995, in D-flat major at 78 BPM. Electric piano comping on
-ninth chords, a vibraphone tune, a round synth bass, a soft swung drum machine,
-all bathed in a big wet hall and a touch of tape wobble. Three versions:
-
-  mz_music       the loop as it is
-  mz_music_dark  for a blackout: the same loop heard through a wall (low-passed, slowed in feel by a longer reverb, quieter)
-  mz_music_flip  for walking on the ceiling: the whole loop played backwards
-
-Plus a win jingle and a little start-up chime. Everything is synthesized
-(engine/synth.py); no samples. Writes 48 kHz 16-bit WAV masters into masters/
-and the manifest (exact loop lengths) into ../assets/audio. The game ships
-AAC encodings (afconvert -f m4af -d aac -b 192000).
+"Atrium" was the first score: a mallsoft loop in D-flat major at 78 BPM
+(electric piano on ninth chords, vibraphone, round bass, swung drum machine,
+a big wet hall and tape wobble). The level music is score.py's now; this
+keeps the two jingles made in Atrium's voice (arrange() still renders the old
+loop, for reference) and the helpers score.py shares: wobble, finish, write.
+Writes 48 kHz 16-bit WAV masters into masters/ and the stinger list of the
+manifest. The game ships AAC encodings (afconvert -f m4af -d aac -b 192000).
 """
 import json
 import os
@@ -179,24 +173,15 @@ def jingle(kind):
 
 
 def main():
-    os.makedirs(OUT, exist_ok=True)
+    """The start chime and the win jingle; the level music is score.py's now."""
     os.makedirs(MASTERS, exist_ok=True)
-    manifest = {'music': [], 'stingers': []}
-    x = finish(master(arrange()))
-    # the blackout: through a wall
-    dark = np.stack([fft_filter(c, 40, 700, 2, circular=True) for c in x])
-    dark = dark + conv_reverb(dark * .5, make_ir(length=4.0, rt_low=3.5, rt_mid=3.0, rt_high=1.0), True) * .6
-    dark = finish(dark, -24, -6)
-    # the ceiling: backwards
-    flip = x[:, ::-1].copy()
-    for name, y in (('mz_music', x), ('mz_music_dark', dark), ('mz_music_flip', flip)):
-        write(os.path.join(MASTERS, name + '.wav'), y)
-        manifest['music'].append({'id': name, 'bpm': BPM, 'bars': BARS, 'bar_samples': 4 * SPB, 'loop_end_sample_exclusive': L, 'seconds': round(L / SR, 3)})
-        print(name, round(L / SR, 2), 's')
+    path = os.path.join(OUT, 'maze_audio_manifest.json')
+    manifest = json.load(open(path)) if os.path.exists(path) else {'music': []}
+    manifest['stingers'] = []
     for kind, name in (('win', 'mz_stinger_win'), ('start', 'mz_start')):
         write(os.path.join(MASTERS, name + '.wav'), finish(jingle(kind), -18, -2.5))
         manifest['stingers'].append(name)
-    json.dump(manifest, open(os.path.join(OUT, 'maze_audio_manifest.json'), 'w'), indent=1)
+    json.dump(manifest, open(path, 'w'), indent=1)
 
 
 if __name__ == '__main__':

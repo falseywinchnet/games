@@ -1,11 +1,13 @@
 #include "textures.hpp"
 
 #include "platform/canvas.hpp"
+#include "png.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <map>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace mz {
@@ -337,9 +339,38 @@ void palm(Canvas& c, double x, double y, double s, Col col) {
     }
 }
 
+std::string& poster_dir() {
+    static std::string dir;
+    return dir;
+}
+
+void load_pictures(const char* kind, std::vector<std::unique_ptr<Tex32>>& into) {
+    for (int i = 0; !poster_dir().empty(); ++i) {
+        const std::string name = "/" + std::string(kind) + (i < 10 ? "_0" : "_") + std::to_string(i) + ".png";
+        auto t = std::make_unique<Tex32>();
+        if (!load_png(poster_dir() + name, *t)) break;
+        into.push_back(std::move(t));
+    }
+}
+
+// the art pieces, framed (art_00.png on); none without the painted files
+std::vector<std::unique_ptr<Tex32>>& pieces() {
+    static std::vector<std::unique_ptr<Tex32>> v;
+    static bool tried = false;
+    if (!tried && !poster_dir().empty()) {
+        tried = true;
+        load_pictures("art", v);
+    }
+    return v;
+}
+
 std::vector<std::unique_ptr<Tex32>>& posters() {
     static std::vector<std::unique_ptr<Tex32>> v;
     if (!v.empty()) return v;
+    // the posters as painted (authoring/maze_posters): poster_00.png on, as many as there are
+    load_pictures("poster", v);
+    if (!v.empty()) return v;
+    // without them (a test, or a build without its assets), the little signs drawn here
     auto add = [&](const Canvas& c) { v.push_back(std::make_unique<Tex32>(to_tex(c))); };
     Canvas c;
     // 0: the sunset over the neon grid
@@ -485,7 +516,10 @@ std::vector<std::unique_ptr<Tex32>>& posters() {
 
 }  // namespace
 
+void use_poster_art(const std::string& dir) { poster_dir() = dir; }
 int poster_count() { return static_cast<int>(posters().size()); }
+int art_count() { return static_cast<int>(pieces().size()); }
+const Tex32& tex_art(int i) { return *pieces()[static_cast<size_t>(((i % art_count()) + art_count()) % art_count())]; }
 const Tex32& tex_poster(int i) { return *posters()[static_cast<size_t>(((i % poster_count()) + poster_count()) % poster_count())]; }
 const char* pixel_glyph(char ch) { return glyph(static_cast<char>(std::toupper(static_cast<unsigned char>(ch)))); }
 

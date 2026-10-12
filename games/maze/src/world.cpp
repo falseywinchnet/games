@@ -107,6 +107,19 @@ void icosahedron(Soft3D& r, V3 c, double rad, double spin, double tilt) {
     }
 }
 
+// a picture hanging upside down from the ceiling, turned to face the camera
+void hanging(Soft3D& r, V3 top, double w, double h, const Tex32* tex, float k = 1) {
+    const V3 rh = norm(V3{std::cos(r.yaw), -std::sin(r.yaw), 0}) * (w * .5);
+    const V3 down{0, 0, -h};
+    // the texture's foot (its bottom row, v = 1) against the ceiling, its head hanging down
+    r.quad({top - rh, 1, 1, k, k, k}, {top + rh, 0, 1, k, k, k}, {top + rh + down, 0, 0, k, k, k}, {top - rh + down, 1, 0, k, k, k}, tex, kAlphaTest | kTwoSided);
+}
+
+// a resident standing (or hovering) in its square; `face` mirrors it to look the other way
+void standing(Soft3D& r, V3 base, double size, const Tex32* tex, bool face_left = true, float k = 1) {
+    if (tex) r.sprite(base, size, size, tex, kAlphaTest, k, face_left ? 1 : -1);
+}
+
 void box(Soft3D& r, V3 lo, V3 hi, const Tex32* tex, float k) {
     // a pedestal: four sides and a top
     const Vert t[8] = {vx({lo.x, lo.y, lo.z}, 0, 1, k), vx({hi.x, lo.y, lo.z}, 1, 1, k), vx({hi.x, hi.y, lo.z}, 0, 1, k), vx({lo.x, hi.y, lo.z}, 1, 1, k),
@@ -137,40 +150,6 @@ const Tex32& tex_bulb() {
     return t;
 }
 
-const Tex32& tex_snail(int frame) {
-    static const std::vector<Tex32> frames = [] {
-        std::vector<Tex32> v;
-        const Col drips[] = {hex(0x40D0F0), hex(0xF0E040), hex(0xF050C0), hex(0x60E080)};
-        for (int f = 0; f < 4; ++f) {
-            const double ph = f * 1.5707963, reach = 2 * std::sin(ph), bob = .8 * std::sin(ph + 1);
-            Canvas c;
-            c.resize(64, 32);
-            c.clear({0, 0, 0, 0});
-            // body (its head stretching forward and back as it crawls), shell, eye stalks, and a paintbrush tail
-            c.begin(); c.move(4, 28); c.quad(30, 30 + .6 * std::sin(ph * 2), 56 + reach, 28); c.quad(60 + reach, 22, 52 + reach, 20); c.line(10, 22); c.close();
-            c.fill(hex(0xC8D890));
-            const double sx = 30 - reach * .3, sy = 15 + bob;
-            c.fill_circle(sx, sy, 12, hex(0xE07AB0));
-            c.begin();
-            for (int k = 0; k <= 30; ++k) {
-                const double a = k * .45, rr = 1 + k * .32;
-                if (k) c.line(sx + std::cos(a) * rr, sy + std::sin(a) * rr); else c.move(sx + std::cos(a) * rr, sy + std::sin(a) * rr);
-            }
-            c.stroke(hex(0x7A2A6A), 1.5);
-            const double s1 = 1.6 * std::sin(ph), s2 = 1.6 * std::sin(ph + 2.2);  // the stalks wave, out of step
-            c.stroke_line(54 + reach, 21, 58 + reach + s1, 10 + .5 * s2, hex(0xA8B870), 1.5);
-            c.stroke_line(51 + reach, 21, 52 + reach + s2, 11 + .5 * s1, hex(0xA8B870), 1.5);
-            c.fill_circle(58 + reach + s1, 10 + .5 * s2, 2, hex(0x101010));
-            c.fill_circle(52 + reach + s2, 11 + .5 * s1, 2, hex(0x101010));
-            c.fill_rect(2, 24, 6, 3, drips[f]);
-            c.fill_rect(0, 26, 4, 3, drips[(f + 1) % 4]);
-            v.push_back(to_tex(c));
-        }
-        return v;
-    }();
-    return frames[static_cast<size_t>(frame & 3)];
-}
-
 namespace {
 // where a face's paint stands in its loop, so neighbouring faces don't move in step
 std::uint32_t face_phase(int f, int x, int y, int d) { return static_cast<std::uint32_t>(x * 7919 + y * 104729 + d * 131 + f * 31); }
@@ -184,16 +163,17 @@ double face_gaze(const Soft3D& r, double fz, int x, int y, int d) {
 }
 
 // one face's look between heights z0 and z1 (texture v0 at the top, v1 at the bottom): the wall,
-// the wall with a framed poster inset over it, or one of the snail's paints
+// the wall with a poster or a framed piece of art inset over it
 void face_look(Soft3D& r, const Level& lv, double fz, int f, int x, int y, int d, int look, double z0, double z1, double v0, double v1, float shade,
                double t, bool poster) {
-    if (look >= 64) {
+    if (look >= 64 && look < kArtLook) {
         const int p = look - 64;
         wall_face(r, fz, x, y, d, z0, z1, &tex_paint_at(p, t, face_phase(f, x, y, d), face_gaze(r, fz, x, y, d)), shade, paint_flags(p), v0, v1);
         return;
     }
     wall_face(r, fz, x, y, d, z0, z1, &tex_wall(lv.wall, (x * 7 + y * 13 + d) % 4), shade, 0, v0, v1, wall_span(lv.wall));
     if (look < 1 || !poster) return;
+    const Tex32* picture = look >= kArtLook ? &tex_art(look - kArtLook) : &tex_poster(look - 1);
     const V3 in{static_cast<double>(-kDX[d]) * .004, static_cast<double>(-kDY[d]) * .004, 0};
     V3 a, b;
     switch (d) {
@@ -205,7 +185,7 @@ void face_look(Soft3D& r, const Level& lv, double fz, int f, int x, int y, int d
     a = a + in; b = b + in;
     const double p0 = fz + .22, p1 = fz + .86;
     r.quad(vx({a.x, a.y, p0}, 1, 1, shade), vx({b.x, b.y, p0}, 0, 1, shade), vx({b.x, b.y, p1}, 0, 0, shade), vx({a.x, a.y, p1}, 1, 0, shade),
-           &tex_poster(look - 1), 0);
+           picture, kAlphaTest);
 }
 }  // namespace
 
@@ -266,17 +246,7 @@ void draw_world(Soft3D& r, const Level& lv, const WorldState& s, double t) {
                             wall_face(r, fz, x, y, dd, 0, kH, &tex_gold_wall(), shade, 0);
                             continue;
                         }
-                        // fresh paint climbing the wall over what was there
-                        const Fresh* fresh = nullptr;
-                        for (const Fresh& fr : s.fresh)
-                            if (fr.at == here && fr.dir == dd) fresh = &fr;
-                        if (fresh) {
-                            const double k = std::clamp(fresh->age / kPaintRise, 0.0, 1.0), h = k * k * (3 - 2 * k) * kH;
-                            face_look(r, lv, fz, f, x, y, dd, look, 0, h, 1 - h / kH, 1, shade, t, false);
-                            face_look(r, lv, fz, f, x, y, dd, fresh->was, h, kH, 0, 1 - h / kH, shade, t, h < .2);
-                        } else {
-                            face_look(r, lv, fz, f, x, y, dd, look, 0, kH, 0, 1, shade, t, true);
-                        }
+                        face_look(r, lv, fz, f, x, y, dd, look, 0, kH, 0, 1, shade, t, true);
                     } else if (n->block == Block::door) {
                         const double open = n->door >= 0 && n->door < static_cast<int>(s.door_open.size()) ? s.door_open[static_cast<size_t>(n->door)] : 0;
                         const double top = kH * (1 - open);
@@ -316,24 +286,55 @@ void draw_world(Soft3D& r, const Level& lv, const WorldState& s, double t) {
                     r.sprite(cell_center(here, .2), 1.2, .9, &tex_glow(), kAdditive | kNoZWrite | kUnlit, .25f);
                 }
             }
+        draw_patches(r, s.patches, f, t, s.snail.clock);  // the snail's paint, over floor, walls and ceiling
     }
-    // the marble: a great stone ball, rolling
+    // the giant ball: the stone marble, or the frog on his penny-farthing, the Thinking Face, or Mazeball
     if (s.marble.alive && (s.marble.at.f == s.floor || s.elevator_lift >= 0)) {
         const V3 p = s.marble.world() + V3{0, 0, .42};
         const double rx = s.marble.dir == kE || s.marble.dir == kW ? s.marble.roll * (s.marble.dir == kE ? 1 : -1) : 0;
         const double ry = s.marble.dir == kN || s.marble.dir == kS ? s.marble.roll * (s.marble.dir == kN ? -1 : 1) : 0;
-        sphere(r, p, .42, rx, ry, &tex_marble());
+        // heading left across the view, or right: the frog is drawn riding to the left
+        const double across = kDX[s.marble.dir] * std::cos(r.yaw) - kDY[s.marble.dir] * std::sin(r.yaw);
+        const Resident wheel[] = {Resident::frog0, Resident::frog1, Resident::frog2, Resident::frog3};
+        const Tex32* frog = resident_tex(wheel[static_cast<int>(s.marble.roll * 3) & 3]);
+        const Tex32* thinker = resident_tex(Resident::thinker);
+        const Tex32* eyes = resident_tex(Resident::googly);
+        if (s.ball == Ball::frog && frog) {
+            standing(r, s.marble.world(), 1.05, frog, across <= .1);
+        } else if (s.ball == Ball::thinker && thinker) {
+            const V3 at = s.marble.world() + V3{0, 0, .06 + .04 * std::sin(t * 2.2)};
+            r.sprite(at, .92, .92, thinker, kAlphaTest | kUnlit, 1.f);  // he glows: lit from within, and the halo is his own
+        } else if (s.ball == Ball::mazeball && eyes) {
+            sphere(r, p, .42, rx, ry, &tex_wall(lv.wall, 0));
+            const V3 to_eye = norm(V3{r.eye.x - p.x, r.eye.y - p.y, 0});
+            r.sprite(p + to_eye * .43 + V3{0, 0, .02}, .5, .25, eyes, kAlphaTest, 1.f);  // googly eyes, always on you
+        } else {
+            sphere(r, p, .42, rx, ry, &tex_marble());
+        }
     }
-    // the snail, leaving its paint behind
-    if (s.snail.alive && s.snail.at.f == s.floor) {
-        // facing the way it crawls: the sprite's head is on its right, so it turns when it heads left across the view
-        const double across = kDX[s.snail.dir] * std::cos(r.yaw) - kDY[s.snail.dir] * std::sin(r.yaw);
-        r.sprite(s.snail.world(), .32, .16, &tex_snail(static_cast<int>(t * 6)), kAlphaTest, 1.f, across < -.1 ? -1 : 1);
+    // the stay-at-homes
+    const auto here_floor = [&s](const Dweller& d) { return d.alive && d.at.f == s.floor; };
+    if (here_floor(s.ceiling_cat)) hanging(r, cell_center(s.ceiling_cat.at, kH - .004), .36, .36, resident_tex(Resident::ceiling_cat));
+    if (here_floor(s.goose)) hanging(r, cell_center(s.goose.at, kH - .004), .42, .42, resident_tex(Resident::goose));
+    if (here_floor(s.keyboard_cat)) standing(r, cell_center(s.keyboard_cat.at), .62, resident_tex(Resident::keyboard_cat));
+    if (here_floor(s.raptor)) {
+        // he faces the trophy: drawn looking left, so mirrored when the trophy is to his right as you see it
+        const V3 rp = cell_center(s.raptor.at), gp = cell_center(lv.goal);
+        const bool trophy_left = dot(gp - rp, r.right()) < 0;
+        standing(r, rp, .95, resident_tex(s.raptor.pose ? Resident::raptor_fold : Resident::raptor_think), trophy_left);
     }
+    if (s.monke_rides && s.elevator_lift >= 0 && s.elevator_at.x >= 0) {
+        // on the plate with you, just in front
+        const V3 plate = cell_center({0, s.elevator_at.x, s.elevator_at.y}, std::clamp(s.elevator_lift, 0.0, 1.0) * kH);
+        const V3 ahead = norm(V3{r.fwd().x, r.fwd().y, 0});
+        standing(r, plate + ahead * .46, .7, resident_tex(Resident::monke));
+    }
+    // the snail, in the round
+    if (s.snail.alive && s.snail.on.f == s.floor) draw_snail(r, s.snail);
     // a visitor
     if (s.visitor.alive && s.visitor.at.f == s.floor && s.visitor.tex) {
         const double a = std::clamp(s.visitor.appear, 0.0, 1.0);
-        r.sprite(cell_center(s.visitor.at, .0 + .02 * std::sin(s.visitor.bob)), s.visitor.h * s.visitor.tex->w / s.visitor.tex->h, s.visitor.h * a, s.visitor.tex, kAlphaTest, static_cast<float>(.6 + .4 * a));
+        r.sprite(cell_center(s.visitor.at, s.visitor.lift + .02 * std::sin(s.visitor.bob)), s.visitor.h * s.visitor.tex->w / s.visitor.tex->h, s.visitor.h * a, s.visitor.tex, kAlphaTest, static_cast<float>(.6 + .4 * a));
     }
 }
 

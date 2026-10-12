@@ -2,11 +2,11 @@
 #include "art.hpp"
 #include "overlays.hpp"
 
-#include "cast.hpp"
 #include "idle.hpp"
 #include "help_route.hpp"
 #include "platform/audio.hpp"
 #include "platform/text.hpp"
+#include "residents.hpp"
 #include "rewards.hpp"
 #include "textures.hpp"
 #include "world.hpp"
@@ -64,6 +64,8 @@ MazeView::MazeView(gf::StableId id, Options opt) : Control(std::move(id)), opt_(
 
 void MazeView::on_attached_to_window() {
     audio_start(asset_dir());
+    use_poster_art(asset_dir() + "/maze/posters");
+    use_resident_art(asset_dir() + "/maze/residents");
     subs_.push_back(visible_changed().subscribe(*this, gf::Delegate<bool>::bind<MazeView, &MazeView::on_visible_changed>(*this)));
     timer_ = std::make_unique<gf::Timer>(*attached_window(), std::chrono::milliseconds(33));
     subs_.push_back((*timer_).tick().subscribe(*this, gf::Delegate<>::bind<MazeView, &MazeView::tick>(*this)));
@@ -138,6 +140,7 @@ void MazeView::dress(Level& lv) const {
                                  : surprise(wall_count(), wall_calm, calm, stir(h + 2));
     lv.ceiling = save_.ceiling_art > 0 ? std::min(save_.ceiling_art - 1, ceiling_count() - 1)
                                        : surprise(ceiling_count(), ceiling_calm, calm, stir(h + 3));
+    hang_pictures(lv, stir(h + 4), poster_count(), art_count());
 }
 std::vector<games::GameSetting> MazeView::settings() const {
     std::vector<games::GameSetting> list;
@@ -204,14 +207,15 @@ void MazeView::start_level(int n) {
     sess_.reward_tex = &reward_tex(reward_);
     sess_.reward_name = reward_name(reward_);
     sess_.cast.clear();
-    for (int i = 0; i < cast_count(); ++i) {
-        const CastMember& m = cast_member(i);
+    for (const Talker& t : visitors()) {  // who comes by: the Shiba, Apu, the Doomer (residents.hpp)
         VisitorDef v;
-        v.name = m.name;
-        v.tex = &cast_tex(i);
-        for (const std::string& l : m.lines) v.lines.push_back(replace_all(l, "{R}", reward_the(reward_)));
-        v.w = m.w;
-        v.h = m.h;
+        v.name = t.name;
+        v.tex = resident_tex(t.look);
+        if (!v.tex) continue;  // without their pictures, they stay home
+        for (const std::string& l : t.lines) v.lines.push_back(replace_all(l, "{R}", reward_the(reward_)));
+        v.w = t.w;
+        v.h = t.h;
+        v.lift = t.lift;
         sess_.cast.push_back(v);
     }
     sess_.start(lv, seed ^ 0xABCDEFULL);
@@ -372,7 +376,10 @@ void MazeView::tick() {
     if (sess_.won_t > 1.6 && panel_ == Panel::none) finish_level();
     {
         const bool on = (opt_.hosted || save_.music) && cab_music_ && cab_front_;
-        const char* track = sess_.play.blackout ? "mz_music_dark" : sess_.play.flipped ? "mz_music_flip" : "mz_music";
+        // one of three loops for each level, chosen by its seed; a blackout and the ceiling have their own versions of it
+        static const char* const kScore[] = {"mz_music", "mz_music_bonus", "mz_music_turbo"};
+        const std::string track = std::string(kScore[stir(level_seed_ ^ 0x5C0BEULL) % 3]) +
+                                  (sess_.play.blackout ? "_dark" : sess_.play.flipped ? "_flip" : "");
         audio_music(visible() && cab_front_ ? track : "", on);
     }
     audio_tick(dt);
@@ -502,7 +509,7 @@ void MazeView::action(const std::string& id) {
     else if (id == "restart") { open(Panel::none); start_level(level_); }
     else if (id == "easy" || id == "medium" || id == "hard") set_difficulty(id == "easy" ? 0 : id == "medium" ? 1 : 2);
     else if (id == "credits") { credits_page_ = 0; open(Panel::credits); }
-    else if (id == "more") { credits_page_ = (credits_page_ + 1) % ((cast_count() + 7) / 8 + 1); layout_buttons(); }
+    else if (id == "more") { credits_page_ = (credits_page_ + 1) % ((static_cast<int>(resident_credits().size()) + 7) / 8 + 1); layout_buttons(); }
     if (dirty_) persist();
     request_frame();
 }
@@ -632,13 +639,11 @@ void MazeView::draw_speech() {
     int tx = x + 7;
     if (!sp.who.empty()) {
         // the speaker's portrait, framed
-        for (int i = 0; i < cast_count(); ++i)
-            if (cast_member(i).name == sp.who) {
-                bevel(x + 5, y + 15, 38, 36, true);
-                frame_.fill_rect(x + 6, y + 16, 36, 34, hex(0xF0E8F8));
-                blit(cast_tex(i), x + 6, y + 15, 36, 36);
-                break;
-            }
+        if (const Tex32* face = portrait_of(sp.who)) {
+            bevel(x + 5, y + 15, 38, 36, true);
+            frame_.fill_rect(x + 6, y + 16, 36, 34, hex(0xF0E8F8));
+            blit(*face, x + 6, y + 15, 36, 36);
+        }
         tx = x + 47;
     }
     text(sp.text, tx, y + 16, kInk, 13.1, 0, wrap);
@@ -717,17 +722,17 @@ void MazeView::draw_panel() {
             int ly = y + 17;
             if (credits_page_ == 0) {
                 const std::string s =
-                    "Everyone you meet in the maze is in the public domain in the United States, drawn afresh after their original illustrators, with lines of "
-                    "their own (and here and there their own words from the books).\n\nTux the penguin is Larry Ewing's, made with The GIMP, drawn here with "
-                    "credit and thanks.\n\nNo trademarks: the rewards carry no brand marks, and the only operating system on the walls is our own Rainstar 95.";
+                    "Who you meet in the maze: the internet's own residents, after their memes. The Shiba, Apu and Monke are drawn for PlaySuite in "
+                    "crayon; the Wojaks are drawn to match; the rest are modelled here. Keyboard Cat plays a tune of our own.\n\nNo trademarks: "
+                    "the rewards carry no brand marks, and the only operating system on the walls is our own Rainstar 95.";
                 text(s, x + 8, ly, kInk, 12.5, 0, w - 16);
             } else {
+                const std::vector<Credit>& who = resident_credits();
                 const int first = (credits_page_ - 1) * 8;
-                for (int i = first; i < std::min(cast_count(), first + 8); ++i) {
-                    const CastMember& m = cast_member(i);
-                    blit(cast_tex(i), x + 6, ly - 2, 16, 16);
-                    text(m.name, x + 25, ly, kInk, 11, 1);
-                    text(m.source, x + 25, ly + 8, hex(0x404040), 9.5, 0, w - 34);
+                for (int i = first; i < std::min(static_cast<int>(who.size()), first + 8); ++i) {
+                    if (const Tex32* t = resident_tex(who[static_cast<size_t>(i)].look)) blit(*t, x + 6, ly - 2, 16, 16);
+                    text(who[static_cast<size_t>(i)].name, x + 25, ly, kInk, 11, 1);
+                    text(who[static_cast<size_t>(i)].note, x + 25, ly + 8, hex(0x404040), 9.5, 0, w - 34);
                     ly += 17;
                 }
             }

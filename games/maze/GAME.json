@@ -49,6 +49,9 @@
     "src/soft3d.cpp",
     "src/textures.cpp",
     "src/paints.cpp",
+    "src/snail.cpp",
+    "src/png.cpp",
+    "src/residents.cpp",
     "src/art.cpp",
     "src/maze.cpp",
     "src/world.cpp",
@@ -72,6 +75,7 @@
     "src/rewards.hpp"
   ],
   "engines": [
-    "render"
+    "render",
+    "ambient"
   ]
 }
