@@ -86,21 +86,35 @@ struct Variation {
 Clip pickup(int index) {
     Variation v(11, index);
     Clip c(0.32);
-    // The card slides off its neighbor and lifts: a short rising rasp, almost no impact.
-    rasp(c, v.rng, 0.004, 0.16 * v.speed, 1300 * v.pitch, 2600 * v.pitch, 0.9, 0.55, 0.012, 0.045,
-         v.pan);
-    rasp(c, v.rng, 0.01, 0.07, 600 * v.pitch, 900 * v.pitch, 0.7, 0.25, 0.006, 0.02, v.pan);
+    // Barely there: a low, slow whisper of the card leaving the cloth.
+    rasp(c, v.rng, 0.0, 0.18 * v.speed, 500 * v.pitch, 900 * v.pitch, 2.0, 0.8, 0.04, 0.06, v.pan);
     return c;
+}
+
+// A small rounded click: a resonance struck by a brief breath of noise, ringing for about
+// `decay` seconds, its top rolled off.
+void click(Clip& c, Rng& rng, double start, double freq, double decay, double gain, double pan) {
+    SVF ring;
+    ring.set(freq, PI * freq * decay);
+    OnePole soften;
+    soften.set(4500);
+    double l = 0, r = 0;
+    panGains(pan, l, r);
+    const std::size_t a = std::size_t(start * SR), n = std::size_t((decay * 8 + 0.004) * SR);
+    for (std::size_t i = 0; i < n && a + i < c.frames(); ++i) {
+        const double t = double(i) / SR;
+        ring.tick(rng.bip() * envelope(t, 0.0005, 0.0012));
+        const double x = soften.lp(ring.bp) * gain;
+        c.audio.add(a + i, x * l, x * r);
+    }
 }
 
 Clip place(int index) {
     Variation v(23, index);
     Clip c(0.38);
-    // A short slide on arrival, the soft thump of the card meeting the cloth, and a settle.
-    rasp(c, v.rng, 0.0, 0.06 * v.speed, 2400 * v.pitch, 1600 * v.pitch, 0.9, 0.32, 0.008, 0.02,
-         v.pan);
-    thump(c, v.rng, 0.038, 135 * v.pitch, 0.5, 0.026, v.pan);
-    rasp(c, v.rng, 0.045, 0.09, 900 * v.pitch, 700 * v.pitch, 0.8, 0.14, 0.004, 0.03, v.pan);
+    // A soft click: the card's edge, then its face, touching down a few milliseconds apart.
+    click(c, v.rng, 0.0, 2100 * v.pitch, 0.003, 0.6, v.pan);
+    click(c, v.rng, 0.007 * v.speed, 1650 * v.pitch, 0.0045, 1.0, v.pan);
     return c;
 }
 
@@ -201,8 +215,8 @@ int renderCardSfx(const std::string& out, const std::set<std::string>& want) {
         Clip (*make)(int);
         int count;
         double peak_db;
-    } kinds[] = {{"card_pickup", "Card lifted from felt", pickup, 4, -18},
-                 {"card_place", "Card laid on felt", place, 4, -20},
+    } kinds[] = {{"card_pickup", "Card lifted from felt", pickup, 4, -28},
+                 {"card_place", "Card laid on felt", place, 4, -22},
                  {"card_flip", "Card turned over", flip, 4, -20.5},
                  {"card_foundation", "Card squared onto a pile", foundation, 4, -15.5},
                  {"card_deal", "Card dealt to the table", deal, 4, -20},

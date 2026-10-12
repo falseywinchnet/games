@@ -132,6 +132,14 @@ def encode_and_verify(ffmpeg, renderer, masters: Path, work: Path, stem: str, re
     return result
 
 
+def entry_stem(entry: dict) -> str:
+    # The packaged file names the entry; `file` reads "authoring/playsuite_music sfx: <stem>.wav"
+    # once packaged, whose path stem is not the sound's.
+    if entry.get("runtime"):
+        return Path(entry["runtime"][0]).stem
+    return Path(entry["file"]).stem
+
+
 def update_manifests(assets_audio: Path, replaced: dict, reports: dict, sections_desc: dict):
     path = assets_audio / "audio_manifest.json"
     text = path.read_text(encoding="utf-8")
@@ -171,7 +179,7 @@ def update_manifests(assets_audio: Path, replaced: dict, reports: dict, sections
             "loop_metadata_basis": "Decoded PCM trimmed to loop_end_sample_exclusive; the AAC carries a short circular wrap after the loop",
         })
     for entry in manifest["stingers"]:
-        stem = Path(entry["file"]).stem
+        stem = entry_stem(entry)
         if stem not in replaced:
             continue
         r, dec = reports[stem], replaced[stem]
@@ -190,7 +198,7 @@ def update_manifests(assets_audio: Path, replaced: dict, reports: dict, sections
             "measurement_basis": "Rendered master; packaged AAC decoded and verified sample-aligned (offset 0)",
         })
     for entry in manifest["sfx"]:
-        stem = Path(entry["file"]).stem
+        stem = entry_stem(entry)
         if stem not in replaced:
             continue
         r, dec = reports[stem], replaced[stem]

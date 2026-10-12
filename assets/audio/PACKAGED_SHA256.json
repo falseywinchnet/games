@@ -62,42 +62,42 @@
   {
     "file": "card_pickup_01.m4a",
     "batch": "playsuite-v2",
-    "sha256": "8595d367cd527394fe2fd4826122eba35ae2c5b691f6d219ad48ad75e09cda20"
+    "sha256": "27f15a0a236609cbcdc792725911c34d2a36cee044afa61aa975be644e011da7"
   },
   {
     "file": "card_pickup_02.m4a",
     "batch": "playsuite-v2",
-    "sha256": "230c612ce864d870e95edc3b85e09f7e2ad995c1972c15cd78e1507557b7f344"
+    "sha256": "98ccaa2d1549374086ea014f28cdc74e40bb0c68fcd2f46d7ff3bcca6dacf8bf"
   },
   {
     "file": "card_pickup_03.m4a",
     "batch": "playsuite-v2",
-    "sha256": "d4d185195ffc3fc6cae95c9f1f54d960e5ac9ea19c08e7bb0b7c61e6a737a68b"
+    "sha256": "5ec6262cc5183865d032ca2e31298f860e874e2389c1b8620613c82f5aa5a5a8"
   },
   {
     "file": "card_pickup_04.m4a",
     "batch": "playsuite-v2",
-    "sha256": "1840eded5fe9ed6b33d16ef06548ee8c57bfd61239a5cdd3bf3291b13f7bb2b7"
+    "sha256": "461a970ab7fea70ccdb1a67be2adbbe2a5a3ee969c50b43fc064fe8d643dcd7c"
   },
   {
     "file": "card_place_01.m4a",
     "batch": "playsuite-v2",
-    "sha256": "0dba0f019c78c69f31bfafe50247d2f126661879fa2b1708dcf305f1798b2b33"
+    "sha256": "f50a2f778faaa50c478e551b2ccc29af5ff699ec1a22a26ef7f17d9006a06dd7"
   },
   {
     "file": "card_place_02.m4a",
     "batch": "playsuite-v2",
-    "sha256": "4e72daa2802922bcff512e5b9302d8e5817c05819e6b731d939735272a2d5922"
+    "sha256": "aa3b3a9976b129181bdfb04f08b3559b6198cc5c4bb8d0d735bc4428e805732d"
   },
   {
     "file": "card_place_03.m4a",
     "batch": "playsuite-v2",
-    "sha256": "050615b15576a97b8dff55b813939c35bad25c1b53ea8d515ccd51771b43b7b6"
+    "sha256": "058f337ff822bf0b993c2e5b545693cd629eefe4dcbf425aefc81f8a53fe64e9"
   },
   {
     "file": "card_place_04.m4a",
     "batch": "playsuite-v2",
-    "sha256": "e50a85cc6dc4a68517a7ffe6c8ba5ecb25b17de40981ab53635f2926aca0cb69"
+    "sha256": "8a4cd3cd15711ab50a7707d3055eb44e3091a091711ee0868ef024c932a09ed0"
   },
   {
     "file": "card_shuffle_01.m4a",

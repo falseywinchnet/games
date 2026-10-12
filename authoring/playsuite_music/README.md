@@ -67,7 +67,10 @@ would restore the previous recordings; run `integrate.py` again afterwards if it
 `playsuite_music sfx <out_dir>` renders the 22 card sounds (`src/card_sfx.cpp`: pickup, place,
 flip, foundation, deal and two riffle shuffles) from filtered noise and damped low "thumps" for
 paper on felt, with soft attacks and the top end rolled off. They are peak-normalised between
--15.5 and -20.5 dBFS, a few dB under the earlier effects in short-term loudness. Package them with
+-15.5 and -20.5 dBFS, a few dB under the earlier effects in short-term loudness, except the two
+heard on every move, which the owner chose by listening on 2026-10-12: the lift is a low whisper
+of the card leaving the cloth (-28 dBFS), and the put-down a soft click, the card's edge and then
+its face touching down a few milliseconds apart (-22 dBFS). Package them with
 `integrate.py --masters <out_dir> --work <scratch> --runtime-base .build/runtime-playsuite
 --runtime-out <new runtime>`; it updates the `sfx` entries of `audio_manifest.json`. The 2026-10-02
 render passed the same decode-alignment checks and `verify_portable_assets`; like the music, it
