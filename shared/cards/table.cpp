@@ -1353,6 +1353,15 @@ std::vector<GameCommand> Table::commands() const {
     std::vector<GameCommand> list{{"new", "New game", true, false, true},
                                   {"undo", "Undo", !game.history.empty() && panel_ == 0},
                                   {"hint", "Hint", panel_ == 0 && !game.state.over}};
+    // The deal level, one click away: the one in force lit. Choosing it deals again when
+    // the deal is untouched, otherwise from the next deal (set_level).
+    if (game.state.kind != Kind::hearts) {
+        const int level = levels_[static_cast<int>(game.state.kind)];
+        const char* ids[] = {"easy", "medium", "hard"};
+        for (int i = 0; i < 3; ++i)
+            list.push_back({ids[i], difficulty_name(static_cast<Difficulty>(i)), true,
+                            level == i, false, true});
+    }
     list.push_back({"help", "Help", true, panel_ == 1});
     list.push_back({"scores", "Top scores", true, panel_ == 3});
     return list;
@@ -1428,6 +1437,10 @@ void Table::run_command(std::string_view id) {
     else if (id == "deal") {
         open_panel(0);
         action(*buttons_[14]);
+    } else if ((id == "easy" || id == "medium" || id == "hard") &&
+               game.state.kind != Kind::hearts) {
+        open_panel(0);
+        set_level(id == "easy" ? 0 : id == "medium" ? 1 : 2);
     } else if (id == "level" && game.state.kind != Kind::hearts) {
         // Scripts may still cycle the level; the Settings screen chooses it directly.
         set_level((levels_[static_cast<int>(game.state.kind)] + 1) % 3);

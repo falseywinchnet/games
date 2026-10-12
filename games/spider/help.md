@@ -3,3 +3,5 @@ Build downward from king to ace. A card may be placed on the next higher rank re
 A complete king-to-ace run of one suit moves home automatically. Clear eight runs to win. Click the stock to deal one card onto every column; every column must contain a card first. Settings (the cog) offers one, two or four suits and starts a new deal when this rule changes.
 
 Click a card then its destination, or drag a legal run. Arrows select, Enter picks up or places, Space deals, Z undoes. The visible Hint action suggests a move.
+
+Every deal is shuffled fresh and proven winnable before it reaches you. Choose its level with Easy, Medium and Hard in the command bar: at Easy a good player almost always wins, at Medium about four games in five, and at Hard only now and then. A level chosen mid-game applies from the next deal.

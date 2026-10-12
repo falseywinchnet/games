@@ -23,7 +23,7 @@ SPEC.loader.exec_module(catalog)
 ORIGINAL_HELP = {'atom': 'ca18af9d89d615ad304a8208d958e7aace41d77f15a4e9ce7ca101b05cfd5467',
  'cube': 'a40a53845a6f5f01840fcddfca60e899d9d04576b2fb767f9b2718e32151d83e',
  'eggy': 'd899bd545ea8ac4956a1bd9f554d2df1794f0a138a2e7f78e9e041089d172c3d',
- 'freecell': 'b41e475de83b95b1e0172736c9c2ddb272d094f8d5d5512d03a3040bc2f74407',
+ 'freecell': 'd30fad3d5f2ced150b5ec51c708664019ef030b69aa9f2c1350777dba8af5cbc',
  'gems': 'cfa82cf3f67b37ae0750339eec92c21e7a5ded06fb51e0eb37e8aa307fa9cfce',
  'hearts': '2cb0d288172f0f823ba50a9400e6ac8ff555664b300b69492b7a77cc23845a9a',
  'koikoi': '32d15393b7d307472e00dc9a949b12b3b02e705729a2869ce6176fddb71945a3',
@@ -35,9 +35,9 @@ ORIGINAL_HELP = {'atom': 'ca18af9d89d615ad304a8208d958e7aace41d77f15a4e9ce7ca101
  # Sudoku's digits moved beside the board and gained an eraser (2026-10-08).
  # Solitaire, Spider, Puzzle Solve, Nature Cube and Untangle: one sentence each now
  # names the shared Settings screen, which replaced the Options panel and Next command.
- 'solitaire': 'cee297ec0e58760775836e3ae4ec3eb942fa45bae255bff03a59104fcb883c5d',
+ 'solitaire': '9dcfa1f94bb5fbebc72ed7d06e0fc0953d784fb7e7c394c8ba17fce890517898',
  'solve': 'ad54c2a2be773917f955cb662547f9d9a50feb6b9c42cd47193951101036599b',
- 'spider': '266678a16d2fd59aca72e53af62221b24b0ae722e7cb87450423f209bd808b56',
+ 'spider': 'f3ffd088cef47869eb23fc81fbdfd2dd3f080953b42828fca2898b2b4d54f410',
  'sudoku': '9b4c028f42e73415f6b26e502d45cea6d16f1b2b2b78cdcbb3329c6a7f861fab',
  'switchbox': 'a900bf901111325449ad65dea3871803b5e104ea4db4fdf90af72b7a32405c65',
  'untangle': '90254adc26499fe7a6745291a71878dac9b8f505c161803dae8c47f068eac522'}
