@@ -17,7 +17,12 @@ folder, then:
     python3 authoring/cards1902/make_faces.py <scan-folder> assets
 
 which writes assets/classic_00.png ... classic_51.png (suit * 13 + rank - 1,
-suits clubs, diamonds, hearts, spades), 360 x 504 like the painted faces. The classic
+suits clubs, diamonds, hearts, spades), 360 x 504 like the painted faces, each design
+centred on its card and cleared of the flecks listed in SPECKS. Faces reprinted before
+both were added are centred and cleared in place by
+
+    python3 authoring/cards1902/make_faces.py --centre assets
+ The classic
 back is reprinted the same way from New York Consolidated's 1899 back (W0305_Back1.jpg):
 
     python3 authoring/cards1902/make_faces.py --back <W0305_Back1.jpg> assets/back_1899.png
@@ -184,7 +189,44 @@ def board_of(rgb: np.ndarray) -> np.ndarray:
     return box(inside.astype(np.float64), 12) > .999
 
 
-def reprint(scan: Path, allowed: list, inks: np.ndarray = INKS, on_board: bool = True) -> Image.Image:
+def design_offset(inked: np.ndarray, rank: int) -> tuple:
+    """How far (pixels: right, down) the printed design sits off the card's middle. A card's
+    design is point-symmetric, so turned upside down it lands on itself moved by twice the
+    offset. The sevens and the aces are not symmetric as a whole; for them only the corner
+    indices, which always are, are compared."""
+    mask = inked.astype(np.float64)
+    if rank in (1, 7):
+        h, w = mask.shape
+        keep = np.zeros_like(mask)
+        keep[:int(h * .2), :int(w * .17)] = 1
+        keep[h - int(h * .2):, w - int(w * .17):] = 1
+        mask = mask * keep
+    turned = mask[::-1, ::-1]
+    match = np.fft.irfft2(np.fft.rfft2(mask) * np.conj(np.fft.rfft2(turned)), s=mask.shape)
+    y, x = np.unravel_index(np.argmax(match), match.shape)
+    h, w = mask.shape
+    return ((x - w) if x > w // 2 else x) / 2, ((y - h) if y > h // 2 else y) / 2
+
+
+def moved(a: np.ndarray, dx: int, dy: int, fill) -> np.ndarray:
+    """`a` moved dx right and dy down, the uncovered edge filled."""
+    out = np.empty_like(a)
+    out[...] = fill
+    h, w = a.shape[:2]
+    out[max(0, dy):h + min(0, dy), max(0, dx):w + min(0, dx)] = \
+        a[max(0, -dy):h - max(0, dy), max(0, -dx):w - max(0, dx)]
+    return out
+
+
+def centre(labels: np.ndarray, rank: int) -> np.ndarray:
+    """The design moved to the card's middle: a scan cropped a little unevenly at a worn or
+    shadowed edge would otherwise sit high or to one side (some by 3% of the card)."""
+    dx, dy = design_offset(labels != PAPER, rank)
+    return moved(labels, -int(round(dx)), -int(round(dy)), PAPER)
+
+
+def reprint(scan: Path, allowed: list, inks: np.ndarray = INKS, on_board: bool = True,
+            rank: int = 0) -> Image.Image:
     rgb = straighten(np.asarray(Image.open(scan).convert("RGB")))
     # The card's own area in the art, worked at SS times.
     cw, ch = round((W - 2 * INSET) * SS), round((H - 2 * INSET) * SS)
@@ -195,6 +237,8 @@ def reprint(scan: Path, allowed: list, inks: np.ndarray = INKS, on_board: bool =
     # new cut is made below.
     if on_board:
         labels[~board_of(rgb)] = PAPER
+    if rank:
+        labels = centre(labels, rank)
     # Coverage of each colour at the art's size: the mean of the SS x SS cell.
     oh, ow = ch // SS, cw // SS
     ox, oy = int(round(INSET)), int(round(INSET))
@@ -221,7 +265,64 @@ BACK_INKS = INKS.copy()
 BACK_INKS[BLUE] = [20, 34, 104]
 
 
+# Flecks of dust and stray ink on the old board that the cleaning keeps, found by eye on the
+# centred faces (x, y in the art): lone dots on bare paper. The fine print near them (the
+# fives' flags, the courts' thin frame corners, the Ace of spades' ornament) is not.
+SPECKS = {
+    0: [(285, 185), (247, 206)], 1: [(205, 490)], 4: [(147, 458)], 5: [(264, 19)],
+    10: [(30, 418)], 11: [(344, 154)],
+    13: [(155, 61), (48, 210), (122, 221), (298, 312), (234, 323), (30, 367), (74, 430)],
+    16: [(190, 273)], 17: [(259, 26), (199, 448)], 18: [(136, 270)], 19: [(250, 136)],
+    25: [(15, 146)], 29: [(296, 24), (262, 27), (276, 29)],
+    30: [(236, 245), (162, 295), (156, 436)], 33: [(17, 287)], 36: [(71, 15)],
+    39: [(341, 343), (216, 457)], 43: [(11, 171)], 51: [(4, 51)],
+}
+
+
+def inked_of(art: np.ndarray, threshold: float = .25) -> np.ndarray:
+    """Where a face carries ink: darker or more coloured than the board, inside the cut."""
+    rgb = art[..., :3].astype(np.float64)
+    return (((rgb.max(axis=2) - rgb.min(axis=2)) / 255 + 1 - rgb.mean(axis=2) / 255) > threshold) & \
+        (art[..., 3] == 255)
+
+
+def clean(art: np.ndarray, index: int) -> np.ndarray:
+    """The face's listed flecks laid over with fresh board, each only if it is a fleck: a
+    dozen inked pixels at most where it lies, and a few dozen in the 21 x 21 square round
+    it, so no line or corner of the print is ever touched."""
+    out = art.copy()
+    faint = inked_of(art, .12)
+    board = paper(H, W)[0, 0]
+    for x, y in SPECKS.get(index, []):
+        near = faint[max(0, y - 10):y + 11, max(0, x - 10):x + 11]
+        here = faint[max(0, y - 5):y + 6, max(0, x - 5):x + 6]
+        if near.sum() > 40 or here.sum() > 12:
+            print(f"classic_{index:02d}: ({x}, {y}) is not alone; left", flush=True)
+            continue
+        spot = np.zeros(faint.shape, dtype=bool)
+        spot[max(0, y - 5):y + 6, max(0, x - 5):x + 6] = True
+        out[spot & faint, :3] = board
+    return out
+
+
+def centre_faces(folder: Path) -> None:
+    """Centre the reprinted faces already in `folder`, by whole pixels, the ink moved over
+    fresh board (the cut, the alpha, stays where it is), and lay over their flecks."""
+    for index in range(52):
+        path = folder / f"classic_{index:02d}.png"
+        art = np.asarray(Image.open(path).convert("RGBA"))
+        dx, dy = design_offset(inked_of(art), index % 13 + 1)
+        dx, dy = -int(round(dx)), -int(round(dy))
+        out = art.copy()
+        out[..., :3] = moved(art[..., :3], dx, dy, paper(H, W)[0, 0])
+        Image.fromarray(clean(out, index), "RGBA").save(path, optimize=True)
+        print(f"{path.name}: moved {dx:+d}, {dy:+d}", flush=True)
+
+
 def main() -> None:
+    if len(sys.argv) == 3 and sys.argv[1] == "--centre":
+        centre_faces(Path(sys.argv[2]))
+        return
     if len(sys.argv) == 4 and sys.argv[1] == "--back":
         # The scan is cut close to the card on a pale ground, so the board is all of it.
         reprint(Path(sys.argv[2]), [PAPER, BLUE], BACK_INKS, on_board=False).save(sys.argv[3], optimize=True)
@@ -239,7 +340,8 @@ def main() -> None:
         index = suit * 13 + rank - 1
         # Courts are in all four inks; aces and pips only in their suit's.
         allowed = [PAPER, RED, BLUE, BLACK, YELLOW] if rank > 10 else [PAPER, RED if suit in (1, 2) else BLACK]
-        reprint(scan, allowed).save(out / f"classic_{index:02d}.png", optimize=True)
+        art = np.asarray(reprint(scan, allowed, rank=rank))
+        Image.fromarray(clean(art, index), "RGBA").save(out / f"classic_{index:02d}.png", optimize=True)
         print(f"{scan.name} -> classic_{index:02d}.png", flush=True)
 
 
