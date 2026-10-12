@@ -85,11 +85,43 @@ void rounded(const Target& target, Rect clip, double x, double y, double w, doub
     const Rect area = pixel_bounds(x, y, x + w, y + h).intersected(clip).intersected(target.bounds());
     const std::uint32_t fill_value = target.color(Color{fill_color.r, fill_color.g, fill_color.b, 255});
     const std::uint32_t line_value = target.color(Color{line.r, line.g, line.b, 255});
+    // Between the corner arcs, a pixel centre is its own nearest point on the centre
+    // line (cx == px + .5), so its distance from the edge, and the fill and line
+    // coverages it gets, are the same across the row: solved once per row, and the
+    // distance (a hypot) is evaluated only in the corners.
+    const double inner_left = x + radius;
+    const double inner_right = x + w - radius;
     for (int py = area.y0; py < area.y1; ++py) {
         std::uint32_t* row = target.row(py);
         const double cy = std::clamp(py + .5, y + radius, y + h - radius);
+        // The columns whose centre lies between the arcs, found exactly as the clamp
+        // below decides them.
+        int first = std::max(area.x0, floor_int(inner_left - .5));
+        while (first < area.x1 && !(first + .5 >= inner_left && first + .5 <= inner_right)) {
+            ++first;
+        }
+        int last = std::min(area.x1, floor_int(inner_right - .5) + 2);
+        while (last > first && !(last - 1 + .5 >= inner_left && last - 1 + .5 <= inner_right)) {
+            --last;
+        }
+        const double between_distance = std::hypot(0.0, py + .5 - cy) - radius;
+        const double between_inside = std::clamp(.5 - between_distance, 0.0, 1.0);
+        const std::uint32_t between_fill = coverage(between_inside * alpha);
+        const double between_edge =
+            line_width > 0 ? std::clamp(line_width - std::fabs(between_distance + line_width * .5) + .5, 0.0, 1.0) : 0.0;
+        const std::uint32_t between_line = coverage(between_edge * .75);
         for (int px = area.x0; px < area.x1; ++px) {
-            const double cx = std::clamp(px + .5, x + radius, x + w - radius);
+            if (px >= first && px < last) {
+                if (between_inside <= 0) {
+                    continue;
+                }
+                row[px] = blend(row[px], fill_value, between_fill);
+                if (between_edge > 0) {
+                    row[px] = blend(row[px], line_value, between_line);
+                }
+                continue;
+            }
+            const double cx = std::clamp(px + .5, inner_left, inner_right);
             const double distance = std::hypot(px + .5 - cx, py + .5 - cy) - radius;
             const double inside = std::clamp(.5 - distance, 0.0, 1.0);
             if (inside <= 0) {

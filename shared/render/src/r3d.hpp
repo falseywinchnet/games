@@ -17,6 +17,14 @@
 #include <span>
 #include <vector>
 
+// A function run per pixel that the compiler must inline into the scan: left to its
+// own judgement, clang keeps the panorama sampler out of line, at a call per pixel.
+#if defined(_MSC_VER)
+#define RENDER_PER_PIXEL __forceinline
+#else
+#define RENDER_PER_PIXEL inline __attribute__((always_inline))
+#endif
+
 namespace render::r3d {
 
 // A projected vertex: device pixels, and a depth that is affine in screen space
@@ -71,6 +79,68 @@ struct Pass {
     Rect clip;
 };
 
+namespace detail {
+
+// Two 8-bit lanes (0x00ff00ff) blended from p to q by w / 256.
+[[nodiscard]] RENDER_PER_PIXEL std::uint32_t mix_lanes(std::uint32_t p, std::uint32_t q, std::uint32_t w) {
+    const std::uint32_t rb = ((p & 0x00ff00ffU) * (256 - w) + (q & 0x00ff00ffU) * w) >> 8;
+    const std::uint32_t ga = (((p >> 8) & 0x00ff00ffU) * (256 - w) + ((q >> 8) & 0x00ff00ffU) * w) >> 8;
+    return (rb & 0x00ff00ffU) | ((ga & 0x00ff00ffU) << 8);
+}
+
+// Two 8-bit lanes times k / 255, rounded: t + t / 256, then / 256.
+[[nodiscard]] RENDER_PER_PIXEL std::uint32_t scale_lanes(std::uint32_t lanes, std::uint32_t k) {
+    const std::uint32_t t = lanes * k + 0x00800080U;
+    return ((t + ((t >> 8) & 0x00ff00ffU)) >> 8) & 0x00ff00ffU;
+}
+
+}  // namespace detail
+
+// A panorama's texels and shape, held by value. A shader carries one, so a pixel loop
+// reads the picture's size, wrap mask and texel pointer from its own registers instead
+// of through the Panorama (and an out-of-line call) at every pixel.
+struct PanoramaView {
+    const std::uint32_t* texels = nullptr;
+    int width = 0;
+    int height = 0;
+    int wrap_mask = 0;  // width - 1 when the width is a power of two
+
+    // u wraps around, v clamps at the poles; both 0..1. Nearest texel.
+    [[nodiscard]] RENDER_PER_PIXEL std::uint32_t nearest(float u, float v) const {
+        float x = u * static_cast<float>(width);
+        x -= std::floor(x / static_cast<float>(width)) * static_cast<float>(width);
+        const int sx = std::clamp(static_cast<int>(x), 0, width - 1);
+        const int sy = std::clamp(static_cast<int>(v * static_cast<float>(height)), 0, height - 1);
+        return texels[static_cast<std::size_t>(sy) * static_cast<std::size_t>(width) + static_cast<std::size_t>(sx)];
+    }
+    // Bilinear: longitude wraps, latitude clamps. Positions in 8-bit fixed point, two
+    // channels per multiply; a power-of-two width wraps with a mask.
+    [[nodiscard]] RENDER_PER_PIXEL std::uint32_t bilinear(float u, float v) const {
+        int sx = 0;
+        int ex = 0;
+        std::uint32_t wx = 0;
+        if (wrap_mask != 0) {
+            const int fx = static_cast<int>(u * static_cast<float>(width) * 256.0F) - 128;
+            sx = (fx >> 8) & wrap_mask;
+            ex = (sx + 1) & wrap_mask;
+            wx = static_cast<std::uint32_t>(fx & 255);
+        } else {
+            float x = u * static_cast<float>(width) - .5F;
+            x -= std::floor(x / static_cast<float>(width)) * static_cast<float>(width);
+            sx = std::min(static_cast<int>(x), width - 1);
+            ex = sx + 1 == width ? 0 : sx + 1;
+            wx = static_cast<std::uint32_t>((x - static_cast<float>(sx)) * 256.0F);
+        }
+        const int fy = std::clamp(static_cast<int>(v * static_cast<float>(height) * 256.0F) - 128, 0, (height - 1) * 256);
+        const int sy = fy >> 8;
+        const int ey = std::min(sy + 1, height - 1);
+        const std::uint32_t wy = static_cast<std::uint32_t>(fy & 255);
+        const std::uint32_t* top = texels + static_cast<std::size_t>(sy) * static_cast<std::size_t>(width);
+        const std::uint32_t* bottom = texels + static_cast<std::size_t>(ey) * static_cast<std::size_t>(width);
+        return detail::mix_lanes(detail::mix_lanes(top[sx], top[ex], wx), detail::mix_lanes(bottom[sx], bottom[ex], wx), wy);
+    }
+};
+
 // An equirectangular picture of the surroundings for mirrored surfaces, prepared once:
 // in the target's byte order, with the darkening and lift the surface wants baked in.
 class Panorama {
@@ -83,9 +153,17 @@ public:
     [[nodiscard]] Order order() const {
         return order_;
     }
+    // The texels by value, for a shader to carry; good while the panorama is unchanged.
+    [[nodiscard]] PanoramaView view() const {
+        return PanoramaView{texels_.data(), width_, height_, wrap_mask_};
+    }
     // u wraps around, v clamps at the poles; both 0..1. Bilinear, or nearest.
-    [[nodiscard]] std::uint32_t bilinear(float u, float v) const;
-    [[nodiscard]] std::uint32_t nearest(float u, float v) const;
+    [[nodiscard]] std::uint32_t bilinear(float u, float v) const {
+        return view().bilinear(u, v);
+    }
+    [[nodiscard]] std::uint32_t nearest(float u, float v) const {
+        return view().nearest(u, v);
+    }
 
 private:
     std::vector<std::uint32_t> texels_;
@@ -103,7 +181,7 @@ struct Flat {
     static constexpr int N = 0;
     static constexpr bool depth = true;
     std::uint32_t color = 0;
-    bool shade(std::uint32_t* pixel, const float*) const {
+    RENDER_PER_PIXEL bool shade(std::uint32_t* pixel, const float*) const {
         *pixel = color;
         return true;
     }
@@ -114,7 +192,7 @@ struct Smooth {
     static constexpr int N = 3;
     static constexpr bool depth = true;
     Order order = Order::bgra;
-    bool shade(std::uint32_t* pixel, const float* a) const {
+    RENDER_PER_PIXEL bool shade(std::uint32_t* pixel, const float* a) const {
         *pixel = pack(order, a[0], a[1], a[2], 255);
         return true;
     }
@@ -126,12 +204,12 @@ template <bool Nearest>
 struct Mirror {
     static constexpr int N = 2;
     static constexpr bool depth = true;
-    const Panorama* panorama = nullptr;
+    PanoramaView panorama;      // the picture, by value (see PanoramaView)
     std::uint32_t tint_rb = 0;  // tint * keep / 256, red-blue lanes (0x00ff00ff)
     std::uint32_t tint_g = 0;   // and green, in the low lane
     std::uint32_t mirror = 256; // share of the reflection, 0..256
-    bool shade(std::uint32_t* pixel, const float* a) const {
-        const std::uint32_t seen = Nearest ? (*panorama).nearest(a[0], a[1]) : (*panorama).bilinear(a[0], a[1]);
+    RENDER_PER_PIXEL bool shade(std::uint32_t* pixel, const float* a) const {
+        const std::uint32_t seen = Nearest ? panorama.nearest(a[0], a[1]) : panorama.bilinear(a[0], a[1]);
         const std::uint32_t rb = ((((seen & 0x00ff00ffU) * mirror) >> 8) & 0x00ff00ffU) + tint_rb;
         const std::uint32_t g = ((((seen >> 8) & 0xffU) * mirror) >> 8) + tint_g;
         *pixel = rb | (g << 8) | 0xff000000U;
@@ -148,7 +226,15 @@ struct Over {
     std::uint32_t premultiplied = 0;  // in the target's order
     std::uint32_t keep = 0;           // 255 - alpha
     bool claims = false;
-    bool shade(std::uint32_t* pixel, const float*) const;
+    RENDER_PER_PIXEL bool shade(std::uint32_t* pixel, const float*) const {
+        // Premultiplied "over", two channels per multiply. Lanes cannot overflow: source +
+        // destination * (1 - alpha) <= 255 for valid premultiplied pixels.
+        const std::uint32_t d = *pixel;
+        const std::uint32_t kept =
+            detail::scale_lanes(d & 0x00ff00ffU, keep) | (detail::scale_lanes((d >> 8) & 0x00ff00ffU, keep) << 8);
+        *pixel = premultiplied + kept;
+        return claims;
+    }
     static Over make(Order order, Color color);
 };
 
@@ -175,12 +261,15 @@ struct Plane {
 
 // Scans one triangle into the pass. `values[k][i]` is attribute i at corner k.
 template <typename Shader>
-void scan(Pass& pass, const Corner* c, const float (*values)[Shader::N > 0 ? Shader::N : 1], const Shader& shader,
+void scan(Pass& pass, const Corner* c, const float (*values)[Shader::N > 0 ? Shader::N : 1], const Shader& shader_in,
           int id) {
     const Rect clip = pass.clip.intersected(pass.target.bounds());
     if (clip.empty()) {
         return;
     }
+    // The scan's own copy of the shader: its colour, tint and picture stay in registers,
+    // where the pixel stores below cannot alias them.
+    const Shader shader = shader_in;
     // Reject from float bounds first, widened past the fixed-point rounding, so a
     // triangle is skipped only when the exact scan would be empty.
     {

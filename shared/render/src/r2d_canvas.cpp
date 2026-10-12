@@ -5,6 +5,46 @@
 
 namespace render::r2d {
 
+namespace {
+
+// A pixel's four bytes as one little-endian word (byte 0 low), read and written once:
+// one load and one store per pixel instead of four of each.
+std::uint32_t load_word(const std::uint8_t* at) {
+    std::uint32_t word = 0;
+    std::memcpy(&word, at, 4);
+    return word;
+}
+void store_word(std::uint8_t* at, std::uint32_t word) {
+    std::memcpy(at, &word, 4);
+}
+// Byte n of a word as a float (0..255), as the byte itself converts.
+float lane(std::uint32_t word, int n) {
+    return static_cast<float>((word >> (n * 8)) & 255);
+}
+std::uint32_t word_of(std::uint8_t b0, std::uint8_t b1, std::uint8_t b2, std::uint8_t b3) {
+    return static_cast<std::uint32_t>(b0) | (static_cast<std::uint32_t>(b1) << 8) | (static_cast<std::uint32_t>(b2) << 16) |
+           (static_cast<std::uint32_t>(b3) << 24);
+}
+
+// Premultiplied source channels (0..1, already covered) over one BGRA pixel: byte 0 is
+// blue, byte 2 red. Additive adds the colour and keeps the alpha.
+std::uint32_t blend_pixel(std::uint32_t d, float r, float g, float b, float a, bool additive) {
+    if (additive) {
+        const std::uint8_t ob = static_cast<std::uint8_t>(std::min(255.f, lane(d, 0) + b * 255));
+        const std::uint8_t og = static_cast<std::uint8_t>(std::min(255.f, lane(d, 1) + g * 255));
+        const std::uint8_t orr = static_cast<std::uint8_t>(std::min(255.f, lane(d, 2) + r * 255));
+        return word_of(ob, og, orr, static_cast<std::uint8_t>(d >> 24));
+    }
+    const float k = 1 - a;
+    const std::uint8_t ob = static_cast<std::uint8_t>(b * 255 + lane(d, 0) * k + .5f);
+    const std::uint8_t og = static_cast<std::uint8_t>(g * 255 + lane(d, 1) * k + .5f);
+    const std::uint8_t orr = static_cast<std::uint8_t>(r * 255 + lane(d, 2) * k + .5f);
+    const std::uint8_t oa = static_cast<std::uint8_t>(std::min(255.f, a * 255 + lane(d, 3) * k + .5f));
+    return word_of(ob, og, orr, oa);
+}
+
+}  // namespace
+
 void Canvas::resize(int width, int height) {
     w = std::max(1, width);
     h = std::max(1, height);
@@ -16,8 +56,9 @@ void Canvas::clear(Col c) {
     const std::uint8_t g = static_cast<std::uint8_t>(c.g * c.a * 255 + .5f);
     const std::uint8_t r = static_cast<std::uint8_t>(c.r * c.a * 255 + .5f);
     const std::uint8_t a = static_cast<std::uint8_t>(c.a * 255 + .5f);
+    const std::uint32_t word = word_of(b, g, r, a);
     for (size_t i = 0; i < px.size(); i += 4) {
-        px[i] = b; px[i + 1] = g; px[i + 2] = r; px[i + 3] = a;
+        store_word(px.data() + i, word);
     }
 }
 
@@ -125,26 +166,40 @@ void Canvas::fill_box(double x0, double y0, double x1, double y1, Col c) {
     const int iy0 = std::max(0, static_cast<int>(std::floor(y0))), iy1 = std::min(h, static_cast<int>(std::ceil(y1)));
     if (ix0 >= ix1 || iy0 >= iy1) return;
     const float sc[4] = {c.r * c.a, c.g * c.a, c.b * c.a, c.a};
+    const float ga = global_alpha;
+    const bool add = additive;
+    // Columns the rectangle covers whole, x >= x0 and x + 1 <= x1: their overlap in x
+    // is exactly 1, so the coverage and the colour laid down are the row's alone,
+    // solved once. At most one column either side is partial.
+    const int whole0 = std::clamp(static_cast<int>(std::ceil(x0)), ix0, ix1);
+    const int whole1 = std::clamp(static_cast<int>(std::floor(x1)), whole0, ix1);
     for (int y = iy0; y < iy1; ++y) {
         const float cover_y = static_cast<float>(std::min(y + 1.0, y1) - std::max(static_cast<double>(y), y0));
         std::uint8_t* out = px.data() + (static_cast<size_t>(y) * w + ix0) * 4;
-        for (int x = ix0; x < ix1; ++x, out += 4) {
+        for (int x = ix0; x < whole0; ++x, out += 4) {
             float cov = static_cast<float>(std::min(x + 1.0, x1) - std::max(static_cast<double>(x), x0)) * cover_y;
             if (cov < 0.002f) continue;
             if (cov > 1) cov = 1;
-            cov *= global_alpha;
+            cov *= ga;
+            store_word(out, blend_pixel(load_word(out), sc[0] * cov, sc[1] * cov, sc[2] * cov, sc[3] * cov, add));
+        }
+        float cov = 1.f * cover_y;
+        if (cov >= 0.002f) {
+            if (cov > 1) cov = 1;
+            cov *= ga;
             const float r = sc[0] * cov, g = sc[1] * cov, b = sc[2] * cov, a = sc[3] * cov;
-            if (additive) {
-                out[0] = static_cast<std::uint8_t>(std::min(255.f, out[0] + b * 255));
-                out[1] = static_cast<std::uint8_t>(std::min(255.f, out[1] + g * 255));
-                out[2] = static_cast<std::uint8_t>(std::min(255.f, out[2] + r * 255));
-            } else {
-                const float k = 1 - a;
-                out[0] = static_cast<std::uint8_t>(b * 255 + out[0] * k + .5f);
-                out[1] = static_cast<std::uint8_t>(g * 255 + out[1] * k + .5f);
-                out[2] = static_cast<std::uint8_t>(r * 255 + out[2] * k + .5f);
-                out[3] = static_cast<std::uint8_t>(std::min(255.f, a * 255 + out[3] * k + .5f));
+            for (int x = whole0; x < whole1; ++x, out += 4) {
+                store_word(out, blend_pixel(load_word(out), r, g, b, a, add));
             }
+        } else {
+            out += static_cast<std::ptrdiff_t>(whole1 - whole0) * 4;
+        }
+        for (int x = whole1; x < ix1; ++x, out += 4) {
+            float cov = static_cast<float>(std::min(x + 1.0, x1) - std::max(static_cast<double>(x), x0)) * cover_y;
+            if (cov < 0.002f) continue;
+            if (cov > 1) cov = 1;
+            cov *= ga;
+            store_word(out, blend_pixel(load_word(out), sc[0] * cov, sc[1] * cov, sc[2] * cov, sc[3] * cov, add));
         }
     }
 }
@@ -319,6 +374,7 @@ void Canvas::rasterize(const std::vector<std::vector<Pt>>& polys, const Paint& p
         }
     }
     const float ga = global_alpha;
+    const bool add = additive;
     for (int y = 0; y < bh; ++y) {
         float* row = acc_.data() + static_cast<size_t>(y) * stride;
         std::uint8_t* out = px.data() + (static_cast<size_t>(iy0 + y) * w + ix0) * 4;
@@ -341,18 +397,7 @@ void Canvas::rasterize(const std::vector<std::vector<Pt>>& polys, const Paint& p
                 ti = ti < 0 ? 0 : (ti > 255 ? 255 : ti);
                 s = lut.c[ti];
             }
-            const float r = s[0] * cov, g = s[1] * cov, b = s[2] * cov, a = s[3] * cov;
-            if (additive) {
-                out[0] = static_cast<std::uint8_t>(std::min(255.f, out[0] + b * 255));
-                out[1] = static_cast<std::uint8_t>(std::min(255.f, out[1] + g * 255));
-                out[2] = static_cast<std::uint8_t>(std::min(255.f, out[2] + r * 255));
-            } else {
-                const float k = 1 - a;
-                out[0] = static_cast<std::uint8_t>(b * 255 + out[0] * k + .5f);
-                out[1] = static_cast<std::uint8_t>(g * 255 + out[1] * k + .5f);
-                out[2] = static_cast<std::uint8_t>(r * 255 + out[2] * k + .5f);
-                out[3] = static_cast<std::uint8_t>(std::min(255.f, a * 255 + out[3] * k + .5f));
-            }
+            store_word(out, blend_pixel(load_word(out), s[0] * cov, s[1] * cov, s[2] * cov, s[3] * cov, add));
         }
         row[bw] = 0;
         row[bw + 1] = 0;
@@ -361,37 +406,51 @@ void Canvas::rasterize(const std::vector<std::vector<Pt>>& polys, const Paint& p
 
 void Canvas::draw_mask(const Mask& m, int x, int y, Col c, int scale) {
     const float pr = c.r * c.a * global_alpha, pg = c.g * c.a * global_alpha, pb = c.b * c.a * global_alpha, pa = c.a * global_alpha;
-    for (int my = 0; my < m.h * scale; ++my) {
+    // The rows and columns inside the canvas, settled once.
+    const int my0 = std::max(0, -y), my1 = std::min(m.h * scale, h - y);
+    const int mx0 = std::max(0, -x), mx1 = std::min(m.w * scale, w - x);
+    for (int my = my0; my < my1; ++my) {
         const int dy = y + my;
-        if (dy < 0 || dy >= h) continue;
         const std::uint8_t* src = m.a.data() + static_cast<size_t>(my / scale) * m.w;
-        for (int mx = 0; mx < m.w * scale; ++mx) {
-            const int dx = x + mx;
-            if (dx < 0 || dx >= w) continue;
-            const float cov = src[mx / scale] / 255.f;
+        std::uint8_t* out = px.data() + (static_cast<size_t>(dy) * w + static_cast<size_t>(x + mx0)) * 4;
+        // the mask column and how many of its `scale` copies are still to come
+        int column = mx0 / scale;
+        int left = scale - mx0 % scale;
+        for (int mx = mx0; mx < mx1; ++mx, out += 4) {
+            const float cov = src[column] / 255.f;
+            if (--left == 0) {
+                left = scale;
+                ++column;
+            }
             if (cov <= 0) continue;
-            std::uint8_t* out = px.data() + (static_cast<size_t>(dy) * w + dx) * 4;
+            const std::uint32_t d = load_word(out);
             const float k = 1 - pa * cov;
-            out[0] = static_cast<std::uint8_t>(pb * cov * 255 + out[0] * k + .5f);
-            out[1] = static_cast<std::uint8_t>(pg * cov * 255 + out[1] * k + .5f);
-            out[2] = static_cast<std::uint8_t>(pr * cov * 255 + out[2] * k + .5f);
-            out[3] = static_cast<std::uint8_t>(std::min(255.f, pa * cov * 255 + out[3] * k + .5f));
+            const std::uint8_t ob = static_cast<std::uint8_t>(pb * cov * 255 + lane(d, 0) * k + .5f);
+            const std::uint8_t og = static_cast<std::uint8_t>(pg * cov * 255 + lane(d, 1) * k + .5f);
+            const std::uint8_t orr = static_cast<std::uint8_t>(pr * cov * 255 + lane(d, 2) * k + .5f);
+            const std::uint8_t oa = static_cast<std::uint8_t>(std::min(255.f, pa * cov * 255 + lane(d, 3) * k + .5f));
+            store_word(out, word_of(ob, og, orr, oa));
         }
     }
 }
 
 void Canvas::draw_canvas(const Canvas& src, int x, int y, float opacity) {
-    for (int sy = 0; sy < src.h; ++sy) {
+    const int sy0 = std::max(0, -y), sy1 = std::min(src.h, h - y);
+    const int sx0 = std::max(0, -x), sx1 = std::min(src.w, w - x);
+    for (int sy = sy0; sy < sy1; ++sy) {
         const int dy = y + sy;
-        if (dy < 0 || dy >= h) continue;
-        for (int sx = 0; sx < src.w; ++sx) {
-            const int dx = x + sx;
-            if (dx < 0 || dx >= w) continue;
-            const std::uint8_t* s = src.px.data() + (static_cast<size_t>(sy) * src.w + sx) * 4;
-            if (s[3] == 0) continue;
-            std::uint8_t* o = px.data() + (static_cast<size_t>(dy) * w + dx) * 4;
-            const float k = 1 - s[3] / 255.f * opacity;
-            for (int c = 0; c < 4; ++c) o[c] = static_cast<std::uint8_t>(std::min(255.f, s[c] * opacity + o[c] * k + .5f));
+        const std::uint8_t* s = src.px.data() + (static_cast<size_t>(sy) * src.w + static_cast<size_t>(sx0)) * 4;
+        std::uint8_t* o = px.data() + (static_cast<size_t>(dy) * w + static_cast<size_t>(x + sx0)) * 4;
+        for (int sx = sx0; sx < sx1; ++sx, s += 4, o += 4) {
+            const std::uint32_t source = load_word(s);
+            if ((source >> 24) == 0) continue;
+            const std::uint32_t d = load_word(o);
+            const float k = 1 - lane(source, 3) / 255.f * opacity;
+            std::uint8_t result[4];
+            for (int c = 0; c < 4; ++c) {
+                result[c] = static_cast<std::uint8_t>(std::min(255.f, lane(source, c) * opacity + lane(d, c) * k + .5f));
+            }
+            store_word(o, word_of(result[0], result[1], result[2], result[3]));
         }
     }
 }
@@ -405,8 +464,15 @@ void blit_text(const Target& target, Rect clip, const Mask& m, int x, int y, int
     for (int dy = area.y0; dy < area.y1; ++dy) {
         const std::uint8_t* source = m.a.data() + static_cast<size_t>((dy - y) / scale) * m.w;
         std::uint32_t* row = target.row(dy);
+        // the mask column and how many of its `scale` copies are still to come
+        int column = (area.x0 - x) / scale;
+        int left = scale - (area.x0 - x) % scale;
         for (int dx = area.x0; dx < area.x1; ++dx) {
-            const float cov = source[(dx - x) / scale] * (1.f / 255.f);
+            const float cov = source[column] * (1.f / 255.f);
+            if (--left == 0) {
+                left = scale;
+                ++column;
+            }
             if (cov <= 0) continue;
             const std::uint32_t d = row[dx];
             const float a = c.a * cov, keep = 1 - a;

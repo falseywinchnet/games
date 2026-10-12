@@ -199,12 +199,11 @@ private:
     std::vector<float> shadow_map_;   // per texel: the nearest caster's height toward the sun
     V3 shadow_centre_{}, shadow_r_{}, shadow_u_{}, shadow_sun_{};
     double shadow_scale_ = 1;          // texels per world unit
+    float shadow_bias_ = 0;            // about 1.6 texels of height, in world units
     int shadow_dirty_x0_ = 0, shadow_dirty_y0_ = 0;
     int shadow_dirty_x1_ = -1, shadow_dirty_y1_ = -1;
     void shadow_coords(V3 p, double& u, double& v, double& h) const;
-    float shadow_lit(float u, float v, float h) const;
     V3 R_{}, U_{}, F_{};
-    r2d::Col shade_vertex(const Vtx& v, std::uint16_t mat) const;
 };
 
 }  // namespace render::r3d

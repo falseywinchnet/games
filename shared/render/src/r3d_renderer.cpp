@@ -6,6 +6,7 @@
 #include <thread>
 
 #include <algorithm>
+#include <cstring>
 
 namespace render::r3d {
 
@@ -43,6 +44,91 @@ std::uint8_t quantize(float v, int th) {
     const int l = (iv + th) >> 4;
     return kLevels.v[l > 31 ? 31 : l];
 }
+
+// One presented pixel, BGRA bytes as one little-endian word: dithered to 15-bit colour,
+// or plain.
+std::uint32_t present_dithered(const float* c, int th) {
+    const std::uint32_t r8 = quantize(c[0], th), g8 = quantize(c[1], th), b8 = quantize(c[2], th);
+    return b8 | (g8 << 8) | (r8 << 16) | 0xFF000000U;
+}
+std::uint32_t present_plain(const float* c) {
+    const std::uint32_t r8 = static_cast<std::uint8_t>(std::clamp(c[0], 0.f, 1.f) * 255);
+    const std::uint32_t g8 = static_cast<std::uint8_t>(std::clamp(c[1], 0.f, 1.f) * 255);
+    const std::uint32_t b8 = static_cast<std::uint8_t>(std::clamp(c[2], 0.f, 1.f) * 255);
+    return b8 | (g8 << 8) | (r8 << 16) | 0xFF000000U;
+}
+// Four presented pixels, dithered, each channel through quantize's steps: a loop of a
+// fixed count over the pixels, which the compiler runs across lanes with the three
+// channels loaded deinterleaved. `th` holds each pixel's threshold.
+void present_dithered_4(const float* c, const int* th, std::uint8_t* out) {
+    std::uint32_t word[4];
+    for (int j = 0; j < 4; ++j) {
+        int level[3];
+        for (int ch = 0; ch < 3; ++ch) {
+            int iv = static_cast<int>(c[j * 3 + ch] * (31.f * 16.f));
+            iv = iv < 0 ? 0 : (iv > 31 * 16 ? 31 * 16 : iv);
+            const int l = (iv + th[j]) >> 4;
+            level[ch] = l > 31 ? 31 : l;
+        }
+        const std::uint32_t r8 = static_cast<std::uint32_t>(level[0] * 255 / 31);
+        const std::uint32_t g8 = static_cast<std::uint32_t>(level[1] * 255 / 31);
+        const std::uint32_t b8 = static_cast<std::uint32_t>(level[2] * 255 / 31);
+        word[j] = b8 | (g8 << 8) | (r8 << 16) | 0xFF000000U;
+    }
+    std::memcpy(out, word, 16);
+}
+
+// The sun's shadow map as a pixel loop reads it, by value.
+struct ShadowMap {
+    const float* cells = nullptr;  // size * size heights toward the sun
+    int size = 0;
+    float bias = 0;                // about 1.6 texels of height
+    // Share of the sun reaching a point (0 shadowed, 1 lit), from a 2x2 filtered lookup.
+    float lit(float u, float v, float h) const {
+        const int n = size;
+        if (u <= -.5f || v <= -.5f || u >= n + .5f || v >= n + .5f) return 1.f;
+        const float fu = u - .5f, fv = v - .5f;
+        const int x0 = static_cast<int>(std::floor(fu)), y0 = static_cast<int>(std::floor(fv));
+        const float ax = fu - static_cast<float>(x0), ay = fv - static_cast<float>(y0);
+        float taps[4];
+        if (x0 >= 0 && y0 >= 0 && x0 + 1 < n && y0 + 1 < n) {
+            const float* first = cells + static_cast<std::size_t>(y0) * n + x0;
+            const float compare = h + bias;
+            taps[0] = compare >= first[0] ? 1.f : 0.f;
+            taps[1] = compare >= first[1] ? 1.f : 0.f;
+            taps[2] = compare >= first[n] ? 1.f : 0.f;
+            taps[3] = compare >= first[n + 1] ? 1.f : 0.f;
+        } else {
+            for (int k = 0; k < 4; ++k) {
+                const int x = x0 + (k & 1), y = y0 + (k >> 1);
+                if (x < 0 || y < 0 || x >= n || y >= n) { taps[k] = 1; continue; }
+                const float stored = cells[static_cast<size_t>(y) * static_cast<size_t>(n) + static_cast<size_t>(x)];
+                taps[k] = h + bias >= stored ? 1.f : 0.f;
+            }
+        }
+        const float top = taps[0] + (taps[1] - taps[0]) * ax;
+        const float bottom = taps[2] + (taps[3] - taps[2]) * ax;
+        return top + (bottom - top) * ay;
+    }
+};
+
+// The three edges of a triangle on the screen, as a row's span is solved from them:
+// each from (x, y) to (x + dx, y + dy), with the far end's y kept as given.
+struct Edges {
+    double x[3], y[3], end_y[3], dx[3], dy[3];
+    // The span [left, right] of pixel centres on row `py`, or left > right for none.
+    void span(double py, double& left, double& right) const {
+        left = 1e30;
+        right = -1e30;
+        for (int e = 0; e < 3; ++e) {
+            if ((y[e] <= py && end_y[e] > py) || (end_y[e] <= py && y[e] > py)) {
+                const double at = x[e] + (py - y[e]) * dx[e] / dy[e];
+                left = std::min(left, at);
+                right = std::max(right, at);
+            }
+        }
+    }
+};
 
 }  // namespace
 
@@ -161,20 +247,11 @@ bool Renderer::unproject_ground(double sx, double sy, double gz, double& wx, dou
     return true;
 }
 
-// the ambient light a surface facing `n` receives
-static r2d::Col ambient_for(const Lighting& light, V3 n) {
+// the ambient light a surface whose unit normal has `up` for z receives
+static r2d::Col ambient_for(const Lighting& light, double up) {
     if (!light.hemisphere) return light.amb_col;
-    const float up = static_cast<float>(std::clamp((norm(n).z + 1) * .5, 0.0, 1.0));
-    return mix(light.amb_ground, light.amb_col, up);
-}
-
-r2d::Col Renderer::shade_vertex(const Vtx& v, std::uint16_t mat) const {
-    if (mat & unlit) return v.c;
-    const double nd = std::max(0.0, dot(norm(v.n), light.sun));
-    const float k = static_cast<float>(nd);
-    const r2d::Col amb = ambient_for(light, v.n);
-    return {v.c.r * (amb.r + light.sun_col.r * k), v.c.g * (amb.g + light.sun_col.g * k),
-            v.c.b * (amb.b + light.sun_col.b * k), v.c.a};
+    const float k = static_cast<float>(std::clamp((up + 1) * .5, 0.0, 1.0));
+    return mix(light.amb_ground, light.amb_col, k);
 }
 
 void Renderer::shadow_coords(V3 p, double& u, double& v, double& h) const {
@@ -193,6 +270,7 @@ void Renderer::shadow_begin(V3 centre, double radius, int size) {
     shadow_r_ = norm(cross(helper, shadow_sun_));
     shadow_u_ = cross(shadow_sun_, shadow_r_);
     shadow_scale_ = shadow_size_ / (2 * radius);
+    shadow_bias_ = static_cast<float>(1.6 / shadow_scale_);
     shadow_saved_.clear();
     shadow_dirty_x1_ = shadow_dirty_y1_ = -1;
     shadows_on_ = false;
@@ -252,16 +330,16 @@ void Renderer::shadow_cast(const Vtx* verts, size_t count, const M34* model) {
         const double gx = (d1 * (v[2] - v[0]) - d2 * (v[1] - v[0])) * inv;
         const double gy = (d2 * (u[1] - u[0]) - d1 * (u[2] - u[0])) * inv;
         const double g0 = h[0] - gx * u[0] - gy * v[0];
+        Edges edges;
+        for (int e = 0; e < 3; ++e) {
+            const int f = (e + 1) % 3;
+            edges.x[e] = u[e]; edges.y[e] = v[e]; edges.end_y[e] = v[f];
+            edges.dx[e] = u[f] - u[e]; edges.dy[e] = v[f] - v[e];
+        }
         for (int y = y0; y <= y1; ++y) {
             const double py = y + .5;
-            double xl = 1e30, xr = -1e30;
-            for (int e = 0; e < 3; ++e) {
-                const int f = (e + 1) % 3;
-                if ((v[e] <= py && v[f] > py) || (v[f] <= py && v[e] > py)) {
-                    const double x = u[e] + (py - v[e]) * (u[f] - u[e]) / (v[f] - v[e]);
-                    xl = std::min(xl, x); xr = std::max(xr, x);
-                }
-            }
+            double xl = 0, xr = 0;
+            edges.span(py, xl, xr);
             if (xl > xr) continue;
             const int xa = std::max(0, static_cast<int>(std::ceil(xl - .5)));
             const int xb = std::min(n - 1, static_cast<int>(std::floor(xr - .5)));
@@ -295,53 +373,27 @@ void Renderer::shadow_band(float sun_share, int band0, int band1) {
     const V3 forward{dot(world_f, shadow_r_) * shadow_scale_, dot(world_f, shadow_u_) * shadow_scale_, dot(world_f, shadow_sun_)};
     V3 origin;
     shadow_coords(target, origin.x, origin.y, origin.z);
+    const ShadowMap map{shadow_map_.data(), shadow_size_, shadow_bias_};
+    const float darkness = shadow_darkness;
+    const int width = W;
+    const float* depth_px = depth.data();
+    float* rgb_px = rgb.data();
     for (int y = band0; y <= band1; ++y) {
         const V3 row = up * (H * ay - (y + .5));
-        for (int x = 0; x < W; ++x) {
-            const size_t pi = static_cast<size_t>(y) * static_cast<size_t>(W) + static_cast<size_t>(x);
-            const float z = depth[pi];
+        for (int x = 0; x < width; ++x) {
+            const size_t pi = static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
+            const float z = depth_px[pi];
             if (z >= 1e29f) continue;
             const double factor = (persp > 0 ? std::max(.05, persp + z) / persp : 1.0) / scale;
             const V3 light_point = origin + (right * (x + .5 - W * ax) + row) * factor + forward * static_cast<double>(z);
-            const float lit = shadow_lit(static_cast<float>(light_point.x), static_cast<float>(light_point.y), static_cast<float>(light_point.z));
+            const float lit = map.lit(static_cast<float>(light_point.x), static_cast<float>(light_point.y), static_cast<float>(light_point.z));
             if (lit >= 1.f) continue;
-            const float keep = 1.f - sun_share * shadow_darkness * (1.f - lit);
-            float* o = rgb.data() + pi * 3;
+            const float keep = 1.f - sun_share * darkness * (1.f - lit);
+            float* o = rgb_px + pi * 3;
             o[0] *= keep; o[1] *= keep; o[2] *= keep;
         }
     }
 }
-
-// Share of the sun reaching a point (0 shadowed, 1 lit), from a 2x2 filtered lookup.
-float Renderer::shadow_lit(float u, float v, float h) const {
-    const int n = shadow_size_;
-    if (u <= -.5f || v <= -.5f || u >= n + .5f || v >= n + .5f) return 1.f;
-    const float bias = static_cast<float>(1.6 / shadow_scale_);   // about 1.6 texels of height
-    const float fu = u - .5f, fv = v - .5f;
-    const int x0 = static_cast<int>(std::floor(fu)), y0 = static_cast<int>(std::floor(fv));
-    const float ax = fu - static_cast<float>(x0), ay = fv - static_cast<float>(y0);
-    float taps[4];
-    if (x0 >= 0 && y0 >= 0 && x0 + 1 < n && y0 + 1 < n) {
-        const float* first = shadow_map_.data() + static_cast<std::size_t>(y0) * n + x0;
-        const float compare = h + bias;
-        taps[0] = compare >= first[0] ? 1.f : 0.f;
-        taps[1] = compare >= first[1] ? 1.f : 0.f;
-        taps[2] = compare >= first[n] ? 1.f : 0.f;
-        taps[3] = compare >= first[n + 1] ? 1.f : 0.f;
-    } else {
-        for (int k = 0; k < 4; ++k) {
-            const int x = x0 + (k & 1), y = y0 + (k >> 1);
-            if (x < 0 || y < 0 || x >= n || y >= n) { taps[k] = 1; continue; }
-            const float stored = shadow_map_[static_cast<size_t>(y) * static_cast<size_t>(n) + static_cast<size_t>(x)];
-            taps[k] = h + bias >= stored ? 1.f : 0.f;
-        }
-    }
-    const float top = taps[0] + (taps[1] - taps[0]) * ax;
-    const float bottom = taps[2] + (taps[3] - taps[2]) * ax;
-    return top + (bottom - top) * ay;
-}
-
-
 
 // ---------------------------------------------------------------- bands across the cores
 
@@ -473,46 +525,65 @@ void Renderer::draw(const Vtx* verts, size_t count, const Tex* tex0, std::uint16
     M34 nm;
     if (model) nm = (*model).normal_matrix();
     const bool shadow_px = shadows_on_ && !(mat & unlit) && !(mat & toon);
+    // What the material reads of a vertex's unit normal, decided once: Gouraud light,
+    // the toon ramp's input, the highlight, a shadowed draw's sun share. An unlit flat
+    // draw (outlines, glows) reads none and skips the normalisation.
+    const bool gouraud = !(mat & unlit) && !(mat & toon);
+    const bool toon_px = (mat & toon) != 0;
+    const bool glossy = (mat & gloss) && !(mat & unlit);
+    const bool normal_read = gouraud || toon_px || glossy || shadow_px;
+    const bool fogged = !(mat & no_fog);
+    // the highlight: Blinn's half vector between the sun and the eye, one for the draw
+    const V3 half = glossy ? norm(light.sun - F_) : V3{};
     for (size_t i = 0; i + 2 < count; i += 3) {
         SV sv[3];
         for (int k = 0; k < 3; ++k) {
-            Vtx v = verts[i + static_cast<size_t>(k)];
-            if (tinted) v.c = {v.c.r * tint.r, v.c.g * tint.g, v.c.b * tint.b, v.c.a * tint.a};
-            if (scaled) { v.s *= tex_scale; v.t *= tex_scale; }
+            const Vtx& in = verts[i + static_cast<size_t>(k)];
+            r2d::Col vc = in.c;
+            if (tinted) vc = {vc.r * tint.r, vc.g * tint.g, vc.b * tint.b, vc.a * tint.a};
+            double s = in.s, t = in.t;
+            if (scaled) { s *= tex_scale; t *= tex_scale; }
+            V3 p = in.p;
+            V3 vn = in.n;
             if (model) {
                 // model matrices are already in render space (their z is pre-scaled)
-                v.p = (*model).apply(v.p); v.n = nm.dir(v.n);
-                project({v.p.x, v.p.y, v.p.z / height_scale}, sv[k].x, sv[k].y, sv[k].z);
+                p = (*model).apply(p); vn = nm.dir(vn);
+                project({p.x, p.y, p.z / height_scale}, sv[k].x, sv[k].y, sv[k].z);
             } else {
-                project(v.p, sv[k].x, sv[k].y, sv[k].z);
+                project(p, sv[k].x, sv[k].y, sv[k].z);
             }
-            r2d::Col c = (mat & toon) ? v.c : shade_vertex(v, mat);
-            // the highlight: Blinn's half vector between the sun and the eye
+            const V3 n = normal_read ? norm(vn) : V3{};
+            const double sun_dot = normal_read ? dot(n, light.sun) : 0;
+            r2d::Col c = vc;
+            if (gouraud) {
+                const float kk = static_cast<float>(std::max(0.0, sun_dot));
+                const r2d::Col amb = ambient_for(light, n.z);
+                c = {vc.r * (amb.r + light.sun_col.r * kk), vc.g * (amb.g + light.sun_col.g * kk),
+                     vc.b * (amb.b + light.sun_col.b * kk), vc.a};
+            }
             float spec = 0;
-            if ((mat & gloss) && !(mat & unlit)) {
-                const V3 n = norm(v.n);
-                const V3 half = norm(light.sun - F_);
+            if (glossy) {
                 const double nh = std::max(0.0, dot(n, half));
-                const double lit = dot(n, light.sun) > 0 ? 1.0 : 0.0;
+                const double lit = sun_dot > 0 ? 1.0 : 0.0;
                 spec = static_cast<float>(lit * light.gloss_strength * std::pow(nh, light.gloss_power));
             }
             sv[k].sr = sv[k].sg = sv[k].sb = 0; sv[k].u = sv[k].v = sv[k].h = 0;
             if (shadow_px) {
                 // ambient here, the sun apart, so a shadow can take the sun alone
-                const r2d::Col amb = ambient_for(light, v.n);
-                const float kk = static_cast<float>(std::max(0.0, dot(norm(v.n), light.sun)));
-                sv[k].sr = (v.c.r * kk + spec) * light.sun_col.r; sv[k].sg = (v.c.g * kk + spec) * light.sun_col.g; sv[k].sb = (v.c.b * kk + spec) * light.sun_col.b;
-                c = {v.c.r * amb.r, v.c.g * amb.g, v.c.b * amb.b, v.c.a};
-                shadow_coords(v.p, sv[k].u, sv[k].v, sv[k].h);
+                const r2d::Col amb = ambient_for(light, n.z);
+                const float kk = static_cast<float>(std::max(0.0, sun_dot));
+                sv[k].sr = (vc.r * kk + spec) * light.sun_col.r; sv[k].sg = (vc.g * kk + spec) * light.sun_col.g; sv[k].sb = (vc.b * kk + spec) * light.sun_col.b;
+                c = {vc.r * amb.r, vc.g * amb.g, vc.b * amb.b, vc.a};
+                shadow_coords(p, sv[k].u, sv[k].v, sv[k].h);
             } else if (spec > 0) {
                 c = {c.r + spec * light.sun_col.r, c.g + spec * light.sun_col.g, c.b + spec * light.sun_col.b, c.a};
             }
-            sv[k].l = (mat & toon) ? dot(norm(v.n), light.sun) : 0;
-            sv[k].s = v.s; sv[k].t = v.t; sv[k].w = v.w;
+            sv[k].l = toon_px ? sun_dot : 0;
+            sv[k].s = s; sv[k].t = t; sv[k].w = in.w;
             sv[k].r = c.r; sv[k].g = c.g; sv[k].b = c.b; sv[k].a = c.a;
             double f = 0;
-            if (!(mat & no_fog)) {
-                const double dist = std::hypot(v.p.x - light.focus.x, v.p.y - light.focus.y);
+            if (fogged) {
+                const double dist = std::hypot(p.x - light.focus.x, p.y - light.focus.y);
                 f = std::clamp((dist - light.fog_near) / (light.fog_far - light.fog_near), 0.0, 1.0) * .85;
             }
             sv[k].f = f;
@@ -567,11 +638,26 @@ template <unsigned F>
 void Renderer::fill_band(const BandJob& job, int band0, int band1) {
     constexpr bool textured = (F & fill_texture) != 0;
     constexpr bool splatted = (F & fill_splat) != 0;
+    constexpr bool shadow_px = (F & fill_shadow) != 0;
+    constexpr bool toon_px = (F & fill_toon) != 0;
+    constexpr bool trans = (F & (fill_translucent | fill_additive)) != 0, add = (F & fill_additive) != 0;
     const Tex* tex0 = job.tex0;
     const Tex* tex2_0 = job.tex2_0;
-    const Tex* splat = job.splat;
     const std::uint16_t mat = job.mat;
-    constexpr bool shadow_px = (F & fill_shadow) != 0;
+    // Everything the pixel loop reads of the renderer, as locals: a store to a pixel's
+    // colour or depth cannot alias a local, so none is read again per pixel.
+    const int width = W;
+    float* const rgb_px = rgb.data();
+    float* const depth_px = depth.data();
+    const float fog_r = light.fog_col.r, fog_g = light.fog_col.g, fog_b = light.fog_col.b;
+    const float amb_r = light.amb_col.r, amb_g = light.amb_col.g, amb_b = light.amb_col.b;
+    const float sun_r = light.sun_col.r, sun_g = light.sun_col.g, sun_b = light.sun_col.b;
+    const float te0 = light.toon_edge - light.toon_soft * .5f, tinv = 1.f / std::max(1e-4f, light.toon_soft);
+    const float darkness = shadow_darkness;
+    const ShadowMap map{shadow_map_.data(), shadow_size_, shadow_bias_};
+    const Tex* splat = job.splat;
+    const bool cut = mat & cutout;
+    const bool zwrite = !(mat & no_depth_write) && !trans;
     for (size_t q = 0; q < prepared_.size(); q += 1) {
         const Prepared& item = prepared_[q];
         if (item.y1 < band0 || item.y0 > band1) continue;
@@ -593,13 +679,14 @@ void Renderer::fill_band(const BandJob& job, int band0, int band1) {
             plane_of(sv, inv, &SV::sr, srx, sry, sr0); plane_of(sv, inv, &SV::sg, sgx, sgy, sg0); plane_of(sv, inv, &SV::sb, sbx, sby, sb0);
             plane_of(sv, inv, &SV::u, ux, uy, u0); plane_of(sv, inv, &SV::v, vx, vy, v0); plane_of(sv, inv, &SV::h, hx, hy, h0);
         }
-        constexpr bool toon_px = (F & fill_toon) != 0;
         float lx = 0, ly = 0, l0 = 0;
         if constexpr (toon_px) plane_of(sv, inv, &SV::l, lx, ly, l0);
-        const float te0 = light.toon_edge - light.toon_soft * .5f, tinv = 1.f / std::max(1e-4f, light.toon_soft);
         // mip level from the texel footprint of one screen pixel (per triangle), as a
         // fraction between two levels: each pixel takes the finer or the coarser by an
-        // ordered dither, so triangles at slightly different depths blend, not step
+        // ordered dither, so triangles at slightly different depths blend, not step.
+        // The loop keeps the levels as pointers and reads their sizes and texels through
+        // them: those loads are cheap, while holding every field of every level in
+        // registers for a select was measured to spill the loop.
         const Tex* tex = tex0;
         const Tex* tex2 = tex2_0;
         const Tex* tex_coarse = tex0;
@@ -618,28 +705,25 @@ void Renderer::fill_band(const BandJob& job, int band0, int band1) {
                 tex2_coarse = &(*tex2_0).level(lvl + 1);
             }
         }
-        constexpr bool trans = (F & (fill_translucent | fill_additive)) != 0, add = (F & fill_additive) != 0;
-        const bool cut = mat & cutout;
-        const bool zwrite = !(mat & no_depth_write) && !trans;
         const bool fog = f0 != 0 || fx != 0 || fy != 0;
+        Edges edges;
+        for (int e = 0; e < 3; ++e) {
+            const SV& A = sv[e];
+            const SV& B = sv[(e + 1) % 3];
+            edges.x[e] = A.x; edges.y[e] = A.y; edges.end_y[e] = B.y;
+            edges.dx[e] = B.x - A.x; edges.dy[e] = B.y - A.y;
+        }
         for (int y = y0; y <= y1; ++y) {
             const double py = y + .5;
             // span of the triangle on this scanline
-            double xl = 1e30, xr = -1e30;
-            for (int e = 0; e < 3; ++e) {
-                const SV& A = sv[e];
-                const SV& B = sv[(e + 1) % 3];
-                if ((A.y <= py && B.y > py) || (B.y <= py && A.y > py)) {
-                    const double x = A.x + (py - A.y) * (B.x - A.x) / (B.y - A.y);
-                    xl = std::min(xl, x); xr = std::max(xr, x);
-                }
-            }
+            double xl = 0, xr = 0;
+            edges.span(py, xl, xr);
             if (xl > xr) continue;
-            int xa = std::max(0, static_cast<int>(std::ceil(xl - .5)));
-            int xb = std::min(W - 1, static_cast<int>(std::floor(xr - .5)));
+            const int xa = std::max(0, static_cast<int>(std::ceil(xl - .5)));
+            const int xb = std::min(width - 1, static_cast<int>(std::floor(xr - .5)));
             if (xa > xb) continue;
             const float fpy = static_cast<float>(py);
-            float px0 = static_cast<float>(xa) + .5f;
+            const float px0 = static_cast<float>(xa) + .5f;
             float z = z0 + zx * px0 + zy * fpy, s = s0 + sx_ * px0 + sy_ * fpy, t = t0 + tx_ * px0 + ty_ * fpy;
             float cr0 = r0 + rx * px0 + ry * fpy, cg0 = g0 + gx_ * px0 + gy_ * fpy, cb0 = b0 + bx * px0 + by * fpy;
             float ca0 = a0v + axx * px0 + ayy * fpy, f = f0 + fx * px0 + fy * fpy;
@@ -647,16 +731,17 @@ void Renderer::fill_band(const BandJob& job, int band0, int band1) {
             float lv = l0 + lx * px0 + ly * fpy;
             float sr = sr0 + srx * px0 + sry * fpy, sg = sg0 + sgx * px0 + sgy * fpy, sb = sb0 + sbx * px0 + sby * fpy;
             float su = u0 + ux * px0 + uy * fpy, svv = v0 + vx * px0 + vy * fpy, sh = h0 + hx * px0 + hy * fpy;
-            size_t pi = static_cast<size_t>(y) * W + xa;
+            const float* dither_row = kLevelDither + (y & 3) * 4;
+            size_t pi = static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(xa);
             // Each pixel steps only the values its material uses.
             for (int x = xa; x <= xb; ++x, ++pi, z += zx, cr0 += rx, cg0 += gx_, cb0 += bx, ca0 += axx, f += fx,
                      s += textured ? sx_ : 0.f, t += textured ? tx_ : 0.f, wv += splatted ? wx : 0.f, lv += toon_px ? lx : 0.f,
                      sr += shadow_px ? srx : 0.f, sg += shadow_px ? sgx : 0.f, sb += shadow_px ? sbx : 0.f,
                      su += shadow_px ? ux : 0.f, svv += shadow_px ? vx : 0.f, sh += shadow_px ? hx : 0.f) {
-                if (z >= depth[pi]) continue;
+                if (z >= depth_px[pi]) continue;
                 float cr = cr0, cg = cg0, cb = cb0, ca = ca0;
                 if constexpr (shadow_px) {
-                    const float lit = 1.f - shadow_darkness * (1.f - shadow_lit(su, svv, sh));
+                    const float lit = 1.f - darkness * (1.f - map.lit(su, svv, sh));
                     cr += sr * lit; cg += sg * lit; cb += sb * lit;
                 }
                 if constexpr (toon_px) {
@@ -664,18 +749,20 @@ void Renderer::fill_band(const BandJob& job, int band0, int band1) {
                     float k = (lv - te0) * tinv;
                     k = k < 0 ? 0 : (k > 1 ? 1 : k);
                     k = k * k * (3 - 2 * k);
-                    cr *= light.amb_col.r + light.sun_col.r * k;
-                    cg *= light.amb_col.g + light.sun_col.g * k;
-                    cb *= light.amb_col.b + light.sun_col.b * k;
+                    cr *= amb_r + sun_r * k;
+                    cg *= amb_g + sun_g * k;
+                    cb *= amb_b + sun_b * k;
                 }
                 if constexpr (textured) {
                     // organic splat: a world-locked noise threshold picks the second ground texture
-                    const bool coarse = lod_frac > kLevelDither[((y & 3) << 2) | (x & 3)];
+                    const bool coarse = lod_frac > dither_row[x & 3];
                     const Tex* tt = coarse ? tex_coarse : tex;
-                    if (splatted && wv > .02f) {
-                        const int nx = static_cast<int>(s * 64.f + 1048576.f) & (*splat).wm, ny = static_cast<int>(t * 64.f + 1048576.f) & (*splat).hm;
-                        const float nz = static_cast<float>((*splat).px[static_cast<size_t>(ny * (*splat).w + nx)] & 255) * (1.f / 255.f);
-                        if (wv > nz) tt = coarse ? tex2_coarse : tex2;
+                    if constexpr (splatted) {
+                        if (wv > .02f) {
+                            const int nx = static_cast<int>(s * 64.f + 1048576.f) & (*splat).wm, ny = static_cast<int>(t * 64.f + 1048576.f) & (*splat).hm;
+                            const float nz = static_cast<float>((*splat).px[static_cast<size_t>(ny * (*splat).w + nx)] & 255) * (1.f / 255.f);
+                            if (wv > nz) tt = coarse ? tex2_coarse : tex2;
+                        }
                     }
                     // texel coordinates via a positive bias instead of floor()
                     const int tx = static_cast<int>(s * static_cast<float>((*tt).w) + 1048576.f) & (*tt).wm;
@@ -689,9 +776,9 @@ void Renderer::fill_band(const BandJob& job, int band0, int band1) {
                     ca *= ta;
                 }
                 if (fog && f > 0) {
-                    cr += (light.fog_col.r - cr) * f; cg += (light.fog_col.g - cg) * f; cb += (light.fog_col.b - cb) * f;
+                    cr += (fog_r - cr) * f; cg += (fog_g - cg) * f; cb += (fog_b - cb) * f;
                 }
-                float* o = rgb.data() + pi * 3;
+                float* o = rgb_px + pi * 3;
                 if constexpr (add) {
                     o[0] += cr * ca; o[1] += cg * ca; o[2] += cb * ca;
                 } else if constexpr (trans) {
@@ -699,7 +786,7 @@ void Renderer::fill_band(const BandJob& job, int band0, int band1) {
                 } else {
                     o[0] = cr; o[1] = cg; o[2] = cb;
                 }
-                if (zwrite) depth[pi] = z;
+                if (zwrite) depth_px[pi] = z;
             }
         }
     }
@@ -747,29 +834,52 @@ void Renderer::fill_rect2(int x0, int y0, int x1, int y1, r2d::Col c, float a) {
 }
 
 void Renderer::present(r2d::Canvas& out, int s, int ox, int oy, bool dither) const {
-    // 15-bit colour with a 4x4 ordered dither, done with integer lookups
+    // 15-bit colour with a 4x4 ordered dither, done with integer lookups. Each output
+    // pixel is one word, written once; the canvas rows and columns the picture reaches
+    // are settled before the loops, so nothing inside them tests bounds.
     static const int bayer[16] = {0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5};
+    if (s <= 0) return;
+    if (s == 1) {
+        const int x0 = std::max(0, -ox), x1 = std::min(W, out.w - ox);
+        const int y0 = std::max(0, -oy), y1 = std::min(H, out.h - oy);
+        if (x0 >= x1 || y0 >= y1) return;
+        for (int y = y0; y < y1; ++y) {
+            const float* c = rgb.data() + (static_cast<size_t>(y) * W + static_cast<size_t>(x0)) * 3;
+            std::uint8_t* o = out.px.data() + (static_cast<size_t>(oy + y) * out.w + static_cast<size_t>(ox + x0)) * 4;
+            if (dither) {
+                // the row's thresholds repeat every four pixels from x0
+                const int* row_th = bayer + (y & 3) * 4;
+                const int th[4] = {row_th[x0 & 3], row_th[(x0 + 1) & 3], row_th[(x0 + 2) & 3], row_th[(x0 + 3) & 3]};
+                int x = x0;
+                for (; x + 4 <= x1; x += 4, c += 12, o += 16) {
+                    present_dithered_4(c, th, o);
+                }
+                for (; x < x1; ++x, c += 3, o += 4) {
+                    const std::uint32_t w = present_dithered(c, row_th[x & 3]);
+                    std::memcpy(o, &w, 4);
+                }
+            } else {
+                for (int x = x0; x < x1; ++x, c += 3, o += 4) {
+                    const std::uint32_t w = present_plain(c);
+                    std::memcpy(o, &w, 4);
+                }
+            }
+        }
+        return;
+    }
+    // Whole-pixel enlargement: each source pixel's s x s block, clipped to the canvas.
     for (int y = 0; y < H; ++y) {
+        const int dy0 = std::max(0, oy + y * s), dy1 = std::min(out.h, oy + y * s + s);
+        if (dy0 >= dy1) continue;
         const float* c = rgb.data() + static_cast<size_t>(y) * W * 3;
         for (int x = 0; x < W; ++x, c += 3) {
-            std::uint8_t r8, g8, b8;
-            if (dither) {
-                const int th = bayer[(y & 3) * 4 + (x & 3)];
-                r8 = quantize(c[0], th); g8 = quantize(c[1], th); b8 = quantize(c[2], th);
-            } else {
-                r8 = static_cast<std::uint8_t>(std::clamp(c[0], 0.f, 1.f) * 255);
-                g8 = static_cast<std::uint8_t>(std::clamp(c[1], 0.f, 1.f) * 255);
-                b8 = static_cast<std::uint8_t>(std::clamp(c[2], 0.f, 1.f) * 255);
-            }
-            for (int yy = 0; yy < s; ++yy) {
-                const int dy = oy + y * s + yy;
-                if (dy < 0 || dy >= out.h) continue;
-                std::uint8_t* row = out.px.data() + static_cast<size_t>(dy) * out.w * 4;
-                for (int xx = 0; xx < s; ++xx) {
-                    const int dx = ox + x * s + xx;
-                    if (dx < 0 || dx >= out.w) continue;
-                    std::uint8_t* o = row + dx * 4;
-                    o[0] = b8; o[1] = g8; o[2] = r8; o[3] = 255;
+            const int dx0 = std::max(0, ox + x * s), dx1 = std::min(out.w, ox + x * s + s);
+            if (dx0 >= dx1) continue;
+            const std::uint32_t w = dither ? present_dithered(c, bayer[(y & 3) * 4 + (x & 3)]) : present_plain(c);
+            for (int dy = dy0; dy < dy1; ++dy) {
+                std::uint8_t* o = out.px.data() + (static_cast<size_t>(dy) * out.w + static_cast<size_t>(dx0)) * 4;
+                for (int dx = dx0; dx < dx1; ++dx, o += 4) {
+                    std::memcpy(o, &w, 4);
                 }
             }
         }
@@ -780,31 +890,34 @@ void Renderer::present_supersampled(r2d::Canvas& out, int samples, bool dither) 
     static const int bayer[16] = {0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5};
     const int ow = std::min(out.w, W / samples), oh = std::min(out.h, H / samples);
     const float k = 1.f / static_cast<float>(samples * samples);
+    const float* const rgb_px = rgb.data();
+    const int width = W;
     for (int y = 0; y < oh; ++y) {
-        std::uint8_t* row = out.px.data() + static_cast<size_t>(y) * out.w * 4;
-        for (int x = 0; x < ow; ++x) {
+        std::uint8_t* o = out.px.data() + static_cast<size_t>(y) * out.w * 4;
+        const int* row_th = bayer + (y & 3) * 4;
+        for (int x = 0; x < ow; ++x, o += 4) {
             float sum[3] = {0, 0, 0};
             for (int sy = 0; sy < samples; ++sy) {
-                const float* c = rgb.data() + (static_cast<size_t>(y * samples + sy) * W + static_cast<size_t>(x * samples)) * 3;
+                const float* c = rgb_px + (static_cast<size_t>(y * samples + sy) * width + static_cast<size_t>(x * samples)) * 3;
                 for (int sx = 0; sx < samples; ++sx, c += 3) {
                     sum[0] += c[0];
                     sum[1] += c[1];
                     sum[2] += c[2];
                 }
             }
-            std::uint8_t channel[3];
+            std::uint32_t channel[3];
             for (int i = 0; i < 3; ++i) {
                 const float v = std::clamp(sum[i] * k, 0.f, 1.f);
                 if (dither) {
                     // 15-bit colour with the same 4x4 ordered dither as present
-                    const int level = std::min(31, (static_cast<int>(v * (31.f * 16.f)) + bayer[(y & 3) * 4 + (x & 3)]) >> 4);
+                    const int level = std::min(31, (static_cast<int>(v * (31.f * 16.f)) + row_th[x & 3]) >> 4);
                     channel[i] = static_cast<std::uint8_t>(level * 255 / 31);
                 } else {
                     channel[i] = static_cast<std::uint8_t>(v * 255);
                 }
             }
-            std::uint8_t* o = row + x * 4;
-            o[0] = channel[2]; o[1] = channel[1]; o[2] = channel[0]; o[3] = 255;
+            const std::uint32_t w = channel[2] | (channel[1] << 8) | (channel[0] << 16) | 0xFF000000U;
+            std::memcpy(o, &w, 4);
         }
     }
 }
