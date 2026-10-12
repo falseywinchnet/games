@@ -11,7 +11,9 @@ target_include_directories(game_text_frames PUBLIC src)
 target_link_libraries(game_text_frames PUBLIC GUIForms::TextMasks)
 add_library(game_felt STATIC shared/felt/carpet.cpp shared/felt/image.cpp)
 # The felt and drawn card backs every card table shares, made once per run (Koi-Koi too).
-add_library(game_table_art STATIC shared/cards/table_art.cpp shared/cards/card_backs.cpp)
+# Also the room's light on a card's face, baked offline (shared/cards/table_light.hpp).
+add_library(game_table_art STATIC shared/cards/table_art.cpp shared/cards/card_backs.cpp
+            shared/cards/table_light.cpp shared/cards/table_light_bake.cpp)
 target_include_directories(game_table_art PUBLIC shared PRIVATE shared/cards shared/felt)
 target_link_libraries(game_table_art PUBLIC game_felt game_paths GUIForms::Application)
 if(GAMES_MODULE_UI)

@@ -63,6 +63,11 @@ class Table final : public gf::Control, public CommandSource {
     gf::ImageId shadow_{};
     // Lighting and texture laid over every card, rendered at the cards' device size.
     gf::ImageId finish_{};
+    // The room's light on a card's face, by where it lies (table_light.hpp); made again only
+    // when the table or its cards change size.
+    gf::ImageId light_{};
+    double light_width_ = 0, light_height_ = 0, light_card_ = 0;
+    void refresh_light();
     int finish_width_ = 0, finish_height_ = 0;
     void refresh_finish();
     std::array<Sprite, 104> sprites_{};

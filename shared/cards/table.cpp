@@ -2,6 +2,7 @@
 #include "audio.hpp"
 #include "card_backs.hpp"
 #include "table_art.hpp"
+#include "table_light.hpp"
 #include "gui_forms/window.hpp"
 #include "help_route.hpp"
 #include "presentation.hpp"
@@ -345,6 +346,10 @@ void Table::on_detaching_from_window(gf::Window& window) noexcept {
         static_cast<void>(window.remove_image(finish_));
     finish_ = {};
     finish_width_ = finish_height_ = 0;
+    if (light_.value)
+        static_cast<void>(window.remove_image(light_));
+    light_ = {};
+    light_width_ = light_height_ = light_card_ = 0;
     music_play("", false);
 }
 void Table::arrange(gf::Rect bounds) {
@@ -365,6 +370,28 @@ void Table::arrange(gf::Rect bounds) {
                      {popup_.x + popup_.width - 140, popup_.y + popup_.height - 48, 110, 30});
     layout_cards(false);
     refresh_finish();
+    refresh_light();
+}
+void Table::refresh_light() {
+    gf::Window* window = attached_window();
+    const gf::Rect b = client_rectangle();
+    if (!window || b.width <= 0 || b.height <= 0 ||
+        (light_.value && b.width == light_width_ && b.height == light_height_ &&
+         card_w_ == light_card_))
+        return;
+    const TableLight light = light_table(b.width, b.height, card_w_);
+    const std::uint32_t w = static_cast<std::uint32_t>(light.width),
+                        h = static_cast<std::uint32_t>(light.height);
+    gf::ImageLoadResult result =
+        light_.value
+            ? (*window).replace_bgra32_premultiplied(light_, w, h, w * 4, light.face, *this)
+            : (*window).load_bgra32_premultiplied(w, h, w * 4, light.face);
+    if (result) {
+        light_ = result.image;
+        light_width_ = b.width;
+        light_height_ = b.height;
+        light_card_ = card_w_;
+    }
 }
 void Table::refresh_finish() {
     gf::Window* window = attached_window();
@@ -806,6 +833,13 @@ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
     p.draw_image(face_up ? face : backs_[back_], r);
     if (finish_.value)
         p.draw_image(finish_, r);
+    if (light_.value) {
+        // The room's light where the card lies: its gloss changes as it crosses the table.
+        p.save();
+        p.clip_rounded_rect(r, 6);
+        p.draw_image(light_, client_rectangle());
+        p.restore();
+    }
     if (hovered)
         p.fill_rounded_rect(r, 6, gf::Color::rgba(255, 253, 240, 120));
 }
