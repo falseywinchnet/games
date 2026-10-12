@@ -1,8 +1,9 @@
 #pragma once
-// Solver, difficulty grading and verified deal tables for Solitaire (Klondike),
-// Spider and FreeCell. The solver works on its own compact state but follows
-// exactly the rules of games::Game (game.cpp); every solution it reports has
-// been replayed through Game::move/Game::draw and ends with state.over.
+// Solver and dealer for Solitaire (Klondike), Spider and FreeCell. The solver works on its
+// own compact state but follows exactly the rules of games::Game (game.cpp); every line it
+// reports has been replayed through Game::move/Game::draw and ends with state.over. The
+// dealer makes deals as they are wanted, each winnable and of the level asked for
+// (solitaire_solver.cpp, "Dealing").
 #include "game.hpp"
 #include <cstdint>
 #include <vector>
@@ -32,52 +33,36 @@ SolveReport solve_state(const State& state, long node_budget,
                         std::vector<SolverStep>* solution = nullptr);
 SolveReport solve_deal(Kind kind, int option, std::uint32_t seed, long node_budget,
                        std::vector<SolverStep>* solution = nullptr);
-// The "casual player" model used for Easy: plays obvious moves by fixed priorities
-// using only face-up information, never backtracks. True when it wins the deal.
-bool greedy_wins(Kind kind, int option, std::uint32_t seed,
-                 std::vector<SolverStep>* solution = nullptr);
 
-// Difficulty, as defined in solitaire_solver.cpp (widths per bucket in
-// grading_limits): the solver runs beam searches of width 10, 20, 40, ...;
-//   easy   - the casual player wins, or a beam of at most easy_width wins;
-//   medium - a beam of at most medium_width wins;
-//   hard   - a wider beam is needed, within the node budget.
-struct DealGrade {
-    bool winnable = false; // proven by a verified winning line
-    Difficulty difficulty = Difficulty::medium;
-    bool greedy = false;
-    SolveReport report; // solver result; not run when the casual player already won
+// The reference player plays each deal this many times; its wins set the deal's level.
+constexpr int reference_games = 20;
+
+// The reference player's record on a deal, and the proof it can be won: a line of Game
+// actions (a winning game of the reference player's, or the solver's when it never wins).
+struct DealRecord {
+    int wins = 0;
+    bool winnable = false;
+    std::vector<SolverStep> line;
 };
-DealGrade grade_deal(Kind kind, int option, std::uint32_t seed);
-struct GradingLimits {
-    long node_budget = 0; // solver expansions; deals not won within it are left out
-    int easy_width = 0;   // 0: Easy only through the casual player
-    int medium_width = 0;
+DealRecord measure_deal(Kind kind, int option, std::uint32_t seed);
+// Whether that many wins of reference_games put a deal at the level.
+bool fits(Difficulty difficulty, int wins);
+
+// A new deal for game.deal(kind, seed, option) at the level: random deals are shuffled from
+// `luck` until one fits and is proven winnable. Between games `stop(context)` is asked
+// whether to give up; then found is false.
+struct DealPick {
+    std::uint32_t seed = 0;
+    int wins = 0;     // of reference_games
+    int examined = 0; // deals shuffled
+    bool found = false;
 };
-GradingLimits grading_limits(Kind kind, int option);
+DealPick generate_deal(Kind kind, int option, Difficulty difficulty, std::uint64_t luck,
+                       bool (*stop)(const void*) = nullptr, const void* context = nullptr);
 
 // Option as Game::deal interprets it: Solitaire 1|3 (draw), Spider 1|2|4 (suits),
 // FreeCell 0 (unused). Other values map to the game's default.
 int normalized_option(Kind kind, int option);
-
-// A verified winnable seed for game.deal(kind, seed, option) at the requested
-// difficulty. `pick` indexes the table and wraps around. Returns pick + 1 when the
-// table is empty (Hearts or an unsupported option).
-std::uint32_t graded_seed(Kind kind, int option, Difficulty difficulty, std::uint32_t pick);
-int graded_count(Kind kind, int option, Difficulty difficulty);
 const char* difficulty_name(Difficulty difficulty);
-
-namespace detail {
-struct DealTable {
-    Kind kind;
-    int option;
-    Difficulty difficulty;
-    const std::uint32_t* seeds;
-    int count;
-};
-// Defined in the generated deal_tables.cpp.
-extern const DealTable deal_tables[];
-extern const int deal_table_count;
-} // namespace detail
 
 } // namespace games

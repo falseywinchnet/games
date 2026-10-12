@@ -1,4 +1,5 @@
 #pragma once
+#include "dealer.hpp"
 #include "game.hpp"
 #include "gui_forms/basic_controls.hpp"
 #include "gui_forms/controls/panel/text_box/text_box.hpp"
@@ -85,11 +86,13 @@ class Table final : public gf::Control, public CommandSource {
     gf::Point press_{}, pointer_{};
     gf::Rect popup_{};
     std::uint32_t next_seed_ = 0;
-    // Easy, Medium or Hard for Solitaire, Spider and FreeCell. Every deal is drawn from the
-    // verified winnable tables (deal_tables.cpp); `picks_` walks each table. Both are kept
-    // beside the cabinet in card-levels.txt.
+    // Easy, Medium or Hard for Solitaire, Spider and FreeCell, kept beside the cabinet in
+    // card-levels.txt. Every deal is made fresh by the dealer, winnable and of its level
+    // (solitaire_solver.hpp); while one is being made, `waiting_deal_` is the game waiting.
     std::array<int, 3> levels_{1, 1, 1};
-    std::array<std::uint32_t, 3> picks_{};
+    Dealer dealer_{cabinet_path().parent_path() / "card-deals.txt"};
+    int waiting_deal_ = -1;
+    void want_deals();
     void load_levels();
     void set_level(int level);
     void set_deal_option(int option);

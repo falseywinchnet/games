@@ -1,5 +1,6 @@
 #include "solitaire_solver.hpp"
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <utility>
 
@@ -26,24 +27,23 @@
 // a longer run, or into an empty column when the empty columns could not otherwise
 // all be filled before a deal; empty targets are tried in the first empty column.
 //
-// Difficulty
-// ----------
-// Two player models measure a deal:
-//  * the casual player: plays by fixed human priorities (foundation moves,
-//    uncovering face-down cards, building down in suit, filling empty columns),
-//    only looks at face-up cards (FreeCell is fully open, so there it compares the
-//    positions one move ahead), never undoes and never returns to a position;
-//  * the solver's beam ladder: beam searches of width 10, 20, 40, ... (each keeps
-//    that many best positions per move) until one wins. The width that wins is how
-//    many alternatives a player has to keep in mind.
-// easy   the casual player wins, or the beam width needed is at most easy_width;
-// medium the beam width needed is at most medium_width;
-// hard   a wider beam is needed (up to the node budget).
-// grading_limits() holds the per-bucket widths, calibrated on seeds 1-200 so each
-// bucket gets a sensible share (casual-player wins of all deals: Klondike draw 1
-// 45%, draw 3 12%, Spider 1 suit 68%, 2 suits <1%, 4 suits 0%, FreeCell 4%).
-// Klondike and Spider 1 suit use the casual player alone for Easy; Spider 2/4 suits
-// and FreeCell, where it almost never wins, also admit the narrowest beams.
+// Dealing
+// -------
+// Deals are made as they are wanted, not taken from tables: random deals are shuffled
+// until one fits the level, measured by the reference player, a good player who weighs a
+// few lines at once (the solver's beam search, narrow, with a little noise in how it
+// judges positions, so that each of its games is different) and gives up after a set
+// number of positions. Its strength per game is in reference_player(): wide enough that
+// random deals spread across all three levels. It plays each deal 20 times:
+//   easy    it wins 19 or 20 of them;
+//   medium  it wins 14 to 18: four games in five;
+//   hard    it wins 6 or fewer.
+// Every deal handed out is winnable, proven by a winning line replayed through Game: one
+// of the reference player's own wins or, for a deal it never wins, the solver's.
+// Measured on 100 random deals each (shares of all deals, easy / medium / hard):
+// Klondike draw 1 60/11/7%, draw 3 21/13/22%, FreeCell 25/34/14%, Spider 1 suit
+// 63/7/9%, 2 suits 8/31/23%, 4 suits 4/15/39%. A Klondike or FreeCell deal is measured in
+// about 25 ms, Spider in 0.2 s (1 or 2 suits) to 1.2 s (4).
 
 namespace games {
 namespace {
@@ -482,40 +482,6 @@ struct Klondike {
         }
     }
 
-    // Casual player priorities (face-up information only). 0 = not considered.
-    int casual(const S& s, const SMove& m) const {
-        switch (m.type) {
-        case T2F: {
-            int L = s.t.len[m.a];
-            return L - 1 == s.t.hid[m.a] && s.t.hid[m.a] > 0 ? 1000 : 800;
-        }
-        case T2T: {
-            int hid = s.t.hid[m.a];
-            if (m.b == hid && hid > 0)
-                return 900 + hid;
-            if (m.b == 0) {
-                // Emptying a column is worth it when a king is waiting somewhere visible.
-                for (int c = 0; c < 7; ++c)
-                    for (int i = std::max<int>(1, s.t.hid[c]); i < s.t.len[c]; ++i)
-                        if (rank_of(s.t.at(c, i)) == 13)
-                            return 300;
-                for (int i = 0; i < s.tn; ++i)
-                    if (rank_of(s.talon[i]) == 13)
-                        return 300;
-                return 0;
-            }
-            if (m.b > hid && fits_found(s, s.t.at(m.a, m.b - 1)))
-                return 400;
-            return 0;
-        }
-        case W2F:
-            return 700 - m.d;
-        case W2T:
-            return (rank_of(s.talon[m.a - 1]) == 13 ? 500 : 600) - m.d;
-        default:
-            return 0;
-        }
-    }
 };
 
 // ---------------------------------------------------------------- FreeCell
@@ -893,44 +859,6 @@ struct SpiderE {
         return m.type == T2T && r.move({m.a, m.b, m.c});
     }
 
-    int casual(const S& s, const SMove& m) const {
-        if (m.type == DEAL)
-            return 10;
-        int L = s.t.len[m.a], hd = s.t.hid[m.a], k = L - m.b;
-        int st = s.t.start(m.a);
-        const u8* col = s.t.cards + st;
-        u8 c = col[m.b];
-        int run = run_length(s, m.a, col);
-        bool reveals = m.b == hd && hd > 0;
-        bool empties = m.b == 0;
-        {
-            S after = s;
-            apply_raw(after, m);
-            if (after.done > s.done)
-                return 1000;
-        }
-        if (!s.t.len[m.c]) {
-            if (reveals)
-                return 150;
-            if (k == run && m.b > hd && rank_of(col[m.b - 1]) != rank_of(c) + 1)
-                return 20;         // lift a run off a card it does not belong on
-            return s.rows ? 5 : 0; // empty columns must be filled before dealing
-        }
-        if (k < run)
-            return 300; // generated only when it joins into a longer same-suit run
-        u8 target = s.t.top(m.c);
-        if (m.b > hd && rank_of(col[m.b - 1]) == rank_of(c) + 1) {
-            // Already sits on a natural (off-suit) card: only move onto its own suit.
-            if (suit_of(target) != suit_of(c) || suit_of(col[m.b - 1]) == suit_of(c))
-                return 0;
-        }
-        int score = suit_of(target) == suit_of(c) ? 500 : 200;
-        if (reveals)
-            score += 100;
-        if (empties)
-            score += 50;
-        return score;
-    }
 };
 
 // ---------------------------------------------------------------- search
@@ -1064,8 +992,7 @@ template <class E>
 SolveReport solve_with(const E& e, const typename E::S& root, const State& start, long budget,
                        std::vector<SolverStep>* solution) {
     SolveReport report;
-    // Beam ladder: widths 10, 20, 40, ... until the expansion budget is spent. The
-    // cumulative expansions needed are the difficulty measure.
+    // Beam ladder: widths 10, 20, 40, ... until the expansion budget is spent.
     SearchOut out;
     long used = 0;
     int rung = 0;
@@ -1095,38 +1022,97 @@ SolveReport solve_with(const E& e, const typename E::S& root, const State& start
     return report;
 }
 
-// Casual player: picks the highest-priority move whose result is new, never undoes.
-template <class E, class Score>
-bool casual_play(const E& e, typename E::S s, Score score, std::vector<SMove>& path) {
-    using S = typename E::S;
-    e.autos(s, &path);
-    SeenSet visited;
-    std::vector<SMove> moves;
-    for (int step = 0; step < 4000; ++step) {
-        if (e.won(s))
-            return true;
-        visited.insert(e.hash(s));
-        moves.clear();
-        e.gen(s, moves);
-        int best = 0;
-        SMove choice{};
-        for (const SMove& m : moves) {
-            int v = score(s, m);
-            if (v <= best)
-                continue;
-            S c = s;
-            e.apply(c, m, nullptr);
-            if (visited.contains(e.hash(c)))
-                continue;
-            best = v;
-            choice = m;
-        }
-        if (best <= 0)
-            return false;
-        path.push_back(choice);
-        e.apply(s, choice, &path);
+// ---------------------------------------------------------------- dealing
+
+// The reference player: weighs `width` lines at once (the beam), judging positions by the
+// engine's estimate with a little noise of its own each game, and gives up after `budget`
+// positions. It stands for a good player who thinks a few moves ahead and takes back a move
+// now and then; each game it plays is a different game of that player.
+struct Player {
+    int width;
+    long budget;
+    int noise;
+};
+Player reference_player(Kind kind, int option) {
+    switch (kind) {
+    case Kind::solitaire:
+    case Kind::freecell:
+        return {10, 3000, 4};
+    case Kind::spider:
+        return option == 4 ? Player{80, 300000, 20}
+               : option == 2 ? Player{10, 10000, 20}
+                             : Player{10, 3000, 20};
+    default:
+        return {0, 0, 0};
     }
-    return false;
+}
+
+template <class E> struct Noisy : E {
+    u64 salt = 0;
+    int noise = 0;
+    int h(const typename E::S& s) const {
+        const u64 r = mix64(E::hash(s) ^ salt);
+        const double u = static_cast<double>(r >> 11) * (1.0 / 9007199254740992.0);
+        return E::h(s) + static_cast<int>(noise * (u - .5) * 2);
+    }
+};
+
+// One game of the deal by the reference player; with `line`, a win is replayed through Game
+// and its actions recorded there.
+template <class E>
+bool reference_game(const E& base, const typename E::S& root, const State& start,
+                    const Player& player, u64 luck, std::vector<SolverStep>* line) {
+    Noisy<E> e;
+    static_cast<E&>(e) = base;
+    e.salt = luck;
+    e.noise = player.noise;
+    const SearchOut out =
+        beam_search(e, root, static_cast<std::size_t>(player.width), player.budget);
+    if (!out.solved)
+        return false;
+    int actions = 0;
+    return !line || replay(base, root, start, out.path, line, actions);
+}
+bool reference_game(const State& start, int game, std::vector<SolverStep>* line) {
+    const Player player = reference_player(start.kind, start.spider_suits);
+    const u64 luck = mix64(0xbea3ULL + start.seed * 1000003ULL + static_cast<u64>(game));
+    switch (start.kind) {
+    case Kind::solitaire: {
+        Klondike e;
+        e.draw = start.draw_count == 3 ? 3 : 1;
+        return reference_game(e, Klondike::from_state(start), start, player, luck, line);
+    }
+    case Kind::spider: {
+        SpiderE e;
+        e.profile = game % 2;
+        return reference_game(e, e.from_state(start), start, player, luck, line);
+    }
+    case Kind::freecell: {
+        FreeCellE e;
+        return reference_game(e, FreeCellE::from_state(start), start, player, luck, line);
+    }
+    default:
+        return false;
+    }
+}
+
+// The wins of `reference_games` a level asks of the reference player.
+struct Band {
+    int least, most;
+};
+Band band(Difficulty difficulty) {
+    switch (difficulty) {
+    case Difficulty::easy:
+        return {19, reference_games};
+    case Difficulty::medium:
+        return {14, 18};
+    default:
+        return {0, 6};
+    }
+}
+// A deal the reference player never wins is proven by the solver, with this many positions.
+long proof_budget(Kind kind, int option) {
+    return kind == Kind::spider && option == 4 ? 600000 : 200000;
 }
 
 Game dealt(Kind kind, int option, std::uint32_t seed) {
@@ -1175,94 +1161,67 @@ SolveReport solve_deal(Kind kind, int option, std::uint32_t seed, long node_budg
     return solve_state(game.state, node_budget, solution);
 }
 
-// Scores a casual player's candidate move with the engine's own priorities.
-template <class Engine, class Position> struct CasualScore {
-    Engine& e;
-    int operator()(const Position& s, const SMove& m) const {
-        return e.casual(s, m);
-    }
-};
-// FreeCell's casual player looks one move ahead.
-struct LookAhead {
-    FreeCellE& e;
-    int operator()(const FState& s, const SMove& m) const {
-        FState c = s;
-        e.apply(c, m, nullptr);
-        return 100000 - e.h(c);
-    }
-};
-bool greedy_wins(Kind kind, int option, std::uint32_t seed, std::vector<SolverStep>* solution) {
-    Game game = dealt(kind, option, seed);
-    const State& start = game.state;
-    std::vector<SMove> path;
-    int actions = 0;
-    switch (kind) {
-    case Kind::solitaire: {
-        Klondike e;
-        e.draw = start.draw_count == 3 ? 3 : 1;
-        KState root = Klondike::from_state(start);
-        const CasualScore<Klondike, KState> score{e};
-        bool won = casual_play(e, root, score, path);
-        return replay(e, root, start, path, solution, actions) && won;
-    }
-    case Kind::spider: {
-        SpiderE e;
-        SState root = e.from_state(start);
-        const CasualScore<SpiderE, SState> score{e};
-        bool won = casual_play(e, root, score, path);
-        return replay(e, root, start, path, solution, actions) && won;
-    }
-    case Kind::freecell: {
-        // Everything is face up, so the casual player compares positions one move ahead.
-        FreeCellE e;
-        FState root = FreeCellE::from_state(start);
-        const LookAhead score{e};
-        bool won = casual_play(e, root, score, path);
-        return replay(e, root, start, path, solution, actions) && won;
-    }
-    default:
-        return false;
-    }
+DealRecord measure_deal(Kind kind, int option, std::uint32_t seed) {
+    const Game game = dealt(kind, option, seed);
+    DealRecord record;
+    int first = -1;
+    for (int g = 0; g < reference_games; ++g)
+        if (reference_game(game.state, g, nullptr)) {
+            ++record.wins;
+            if (first < 0)
+                first = g;
+        }
+    record.winnable =
+        first >= 0 ? reference_game(game.state, first, &record.line)
+                   : solve_state(game.state, proof_budget(kind, option), &record.line).solved;
+    return record;
 }
 
-GradingLimits grading_limits(Kind kind, int option) {
-    option = normalized_option(kind, option);
-    switch (kind) {
-    case Kind::solitaire:
-        // Easy only through the casual player; hard needs a beam of 40 or more.
-        return {200000, 0, 20};
-    case Kind::spider:
-        if (option == 1)
-            return {200000, 0, 10};
-        if (option == 2)
-            return {200000, 10, 20};
-        return {300000, 20, 80};
-    case Kind::freecell:
-        return {200000, 10, 40};
-    default:
-        return {0, 0, 0};
-    }
+bool fits(Difficulty difficulty, int wins) {
+    const Band b = band(difficulty);
+    return wins >= b.least && wins <= b.most;
 }
 
-DealGrade grade_deal(Kind kind, int option, std::uint32_t seed) {
-    DealGrade grade;
+DealPick generate_deal(Kind kind, int option, Difficulty difficulty, std::uint64_t luck,
+                       bool (*stop)(const void*), const void* context) {
     option = normalized_option(kind, option);
-    GradingLimits limits = grading_limits(kind, option);
-    grade.greedy = greedy_wins(kind, option, seed);
-    if (grade.greedy) {
-        grade.winnable = true;
-        grade.difficulty = Difficulty::easy;
-        return grade;
+    const Band b = band(difficulty);
+    DealPick pick;
+    for (u64 draw = 0;; ++draw) {
+        ++pick.examined;
+        std::uint32_t seed = static_cast<std::uint32_t>(mix64(luck * 0x9e3779b97f4a7c15ULL + draw));
+        if (seed == 0)
+            seed = 1;
+        const Game game = dealt(kind, option, seed);
+        // Play its games until it is clear the deal is outside the level.
+        int wins = 0, losses = 0, first = -1;
+        bool outside = false;
+        for (int g = 0; g < reference_games && !outside; ++g) {
+            if (stop && stop(context))
+                return pick;
+            if (reference_game(game.state, g, nullptr)) {
+                ++wins;
+                if (first < 0)
+                    first = g;
+            } else
+                ++losses;
+            outside = wins > b.most || losses > reference_games - b.least;
+        }
+        if (outside)
+            continue;
+        if (stop && stop(context))
+            return pick;
+        std::vector<SolverStep> line;
+        const bool proven =
+            first >= 0 ? reference_game(game.state, first, &line)
+                       : solve_state(game.state, proof_budget(kind, option), &line).solved;
+        if (!proven)
+            continue;
+        pick.seed = seed;
+        pick.wins = wins;
+        pick.found = true;
+        return pick;
     }
-    grade.report = solve_deal(kind, option, seed, limits.node_budget);
-    if (!grade.report.solved)
-        return grade;
-    grade.winnable = true;
-    int width = grade.report.width;
-    grade.difficulty = width <= limits.easy_width     ? Difficulty::easy
-                       : width <= limits.medium_width ? Difficulty::medium
-                                                      : Difficulty::hard;
-    return grade;
 }
 
 const char* difficulty_name(Difficulty difficulty) {
@@ -1274,30 +1233,6 @@ const char* difficulty_name(Difficulty difficulty) {
     default:
         return "Hard";
     }
-}
-
-namespace {
-const detail::DealTable* find_table(Kind kind, int option, Difficulty difficulty) {
-    option = normalized_option(kind, option);
-    for (int i = 0; i < detail::deal_table_count; ++i) {
-        const detail::DealTable& t = detail::deal_tables[i];
-        if (t.kind == kind && t.option == option && t.difficulty == difficulty)
-            return &t;
-    }
-    return nullptr;
-}
-} // namespace
-
-int graded_count(Kind kind, int option, Difficulty difficulty) {
-    const detail::DealTable* t = find_table(kind, option, difficulty);
-    return t ? (*t).count : 0;
-}
-
-std::uint32_t graded_seed(Kind kind, int option, Difficulty difficulty, std::uint32_t pick) {
-    const detail::DealTable* t = find_table(kind, option, difficulty);
-    if (!t || (*t).count <= 0)
-        return pick + 1;
-    return (*t).seeds[pick % static_cast<std::uint32_t>((*t).count)];
 }
 
 } // namespace games

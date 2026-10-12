@@ -258,9 +258,14 @@ Table::Table(gf::StableId id) : Control(std::move(id)) {
     next_seed_ =
         static_cast<std::uint32_t>(std::chrono::system_clock::now().time_since_epoch().count());
     load_levels();
-    game.deal(Kind::solitaire, deal_seed(Kind::solitaire, 1));
     if (load_cabinet(cabinet_path(), cabinet_))
         game = cabinet_.games[cabinet_.active];
+    else {
+        // The very first deal: one made here when none is ready.
+        const Difficulty level = static_cast<Difficulty>(levels_[0]);
+        std::uint32_t seed = dealer_.take(Kind::solitaire, 1, level);
+        game.deal(Kind::solitaire, seed ? seed : Dealer::make_now(Kind::solitaire, 1, level));
+    }
     reload_preferences();
 }
 void Table::initialize_control_tree() {
@@ -319,6 +324,7 @@ void Table::on_attached_to_window() {
 void Table::on_detaching_from_window(gf::Window& window) noexcept {
     try {
         persist();
+        dealer_.pause();
     } catch (...) {
     }
     if (timer_)
@@ -622,6 +628,8 @@ void Table::load_back() {
 }
 void Table::activate() {
     reload_preferences();
+    dealer_.resume();
+    want_deals();
     music_play(audio_name(game.state.kind), music_);
     request_tick();
     if (attached_window())
@@ -630,11 +638,15 @@ void Table::activate() {
 void Table::tick() {
     waiting_ai_ = false;
     if (!effectively_visible()) {
+        // Hidden: no work goes on behind the shelf.
+        dealer_.pause();
         if (timer_)
             (*timer_).stop();
         return;
     }
     gf::FrameTime now = gf::FrameClock::now();
+    if (dealer_.collect() && waiting_deal_ >= 0)
+        new_game(static_cast<Kind>(waiting_deal_));
     if (animating_) {
         double elapsed = std::chrono::duration<double>(now - animation_start_).count();
         bool pending = false;
@@ -680,13 +692,17 @@ void Table::tick() {
     if (cascading_)
         step_cascade();
     if (!animating_ && !cascading_) {
-        if (!ai || panel_ != 0)
+        // At rest, the timer wakes only for the next computer play, and to see whether the
+        // dealer has finished a deal (a few times a second, only while it works).
+        const bool playing = ai && panel_ == 0;
+        if (!playing && !dealer_.busy())
             (*timer_).stop();
         else {
-            // The next computer play already has a deadline. Do not poll it
-            // every eight milliseconds while the cards are at rest.
             waiting_ai_ = true;
-            (*timer_).start_at(ai_due_);
+            const gf::FrameTime dealer_due = now + std::chrono::milliseconds(150);
+            (*timer_).start_at(playing && !dealer_.busy() ? ai_due_
+                               : playing                  ? std::min(ai_due_, dealer_due)
+                                                          : dealer_due);
         }
     }
 }
@@ -1189,9 +1205,6 @@ void Table::open_panel(int panel) {
     invalidate(gf::Dirty::paint);
 }
 void Table::load_levels() {
-    // A fresh install starts each table at a different place.
-    for (int k = 0; k < 3; ++k)
-        picks_[k] = (next_seed_ >> (k * 5)) % 9973;
     std::ifstream file(cabinet_path().parent_path() / "card-levels.txt");
     int version = 0;
     std::array<int, 3> levels{};
@@ -1202,25 +1215,32 @@ void Table::load_levels() {
         if (!(file >> levels[k] >> picks[k]) || levels[k] < 0 || levels[k] > 2)
             return;
     levels_ = levels;
-    picks_ = picks;
 }
 void Table::save_levels() const {
     std::error_code error;
     std::filesystem::create_directories(cabinet_path().parent_path(), error);
     std::ofstream file(cabinet_path().parent_path() / "card-levels.txt");
+    // Version 1 also kept a place in each deal table; the tables are gone, the field stays.
     file << 1;
     for (int k = 0; k < 3; ++k)
-        file << ' ' << levels_[k] << ' ' << picks_[k];
+        file << ' ' << levels_[k] << " 0";
     file << '\n';
 }
+// A ready deal of the game's level, or 0 when the dealer has none yet.
 std::uint32_t Table::deal_seed(Kind kind, int option) {
     if (kind == Kind::hearts)
         return ++next_seed_;
-    const int k = static_cast<int>(kind);
-    const std::uint32_t seed = graded_seed(kind, normalized_option(kind, option),
-                                           static_cast<Difficulty>(levels_[k]), picks_[k]++);
-    save_levels();
-    return seed;
+    return dealer_.take(kind, option, static_cast<Difficulty>(levels_[static_cast<int>(kind)]));
+}
+// The dealer gets the open game's next deals ready: its level first, then the other two.
+void Table::want_deals() {
+    const Kind kind = game.state.kind;
+    if (kind == Kind::hearts)
+        return;
+    const int option = kind == Kind::spider ? game.state.spider_suits : game.state.draw_count;
+    const int level = levels_[static_cast<int>(kind)];
+    for (int i = 0; i < 3; ++i)
+        dealer_.want(kind, option, static_cast<Difficulty>((level + i) % 3));
 }
 std::string Table::level_name() const {
     const int k = static_cast<int>(game.state.kind);
@@ -1228,7 +1248,37 @@ std::string Table::level_name() const {
 }
 void Table::new_game(Kind kind) {
     int option = kind == Kind::spider ? game.state.spider_suits : game.state.draw_count;
-    game.deal(kind, deal_seed(kind, option), option);
+    std::uint32_t seed = deal_seed(kind, option);
+    // None ready: Solitaire and FreeCell deals are made here, in well under a second; a
+    // Spider deal can take seconds, so the dealer makes it and tick() deals it the moment
+    // it is ready, the game on the table staying until then.
+    if (seed == 0 && kind != Kind::spider)
+        seed = Dealer::make_now(kind, option,
+                                static_cast<Difficulty>(levels_[static_cast<int>(kind)]));
+    if (seed == 0) {
+        // The game on the table is kept; an empty table of the new one waits for its deal
+        // (and is never saved: persist() leaves the cabinet as it was).
+        if (waiting_deal_ < 0)
+            persist();
+        const Difficulty level = static_cast<Difficulty>(levels_[static_cast<int>(kind)]);
+        waiting_deal_ = static_cast<int>(kind);
+        dealer_.hurry(kind, option, level);
+        game = Game{};
+        game.state.kind = kind;
+        (kind == Kind::spider ? game.state.spider_suits : game.state.draw_count) = option;
+        game.message = std::string("Shuffling a fresh ") + difficulty_name(level) + " deal\u2026";
+        selection_ = -1;
+        selected_index_ = -1;
+        dragging_ = false;
+        pointer_down_ = false;
+        set_pointer_capture(false);
+        layout_cards(false);
+        request_tick();
+        invalidate(gf::Dirty::paint);
+        return;
+    }
+    waiting_deal_ = -1;
+    game.deal(kind, seed, option);
     dealing_ = true;
     cabinet_.result_recorded[static_cast<int>(kind)] = false;
     selection_ = -1;
@@ -1241,6 +1291,7 @@ void Table::new_game(Kind kind) {
     music_play(audio_name(kind), music_);
     sound_play("deal", sound_);
     persist();
+    want_deals();
 }
 bool Table::pending_score() const {
     return !cabinet_.result_recorded[static_cast<int>(game.state.kind)] &&
@@ -1255,6 +1306,8 @@ void Table::show_result() {
     }
 }
 void Table::persist() {
+    if (waiting_deal_ >= 0)
+        return; // an empty table waiting for its deal is not a game to keep
     int current = static_cast<int>(game.state.kind);
     cabinet_.active = current;
     cabinet_.games[current].state = game.state;
@@ -1271,6 +1324,7 @@ void Table::persist() {
 }
 void Table::switch_game(Kind kind) {
     persist();
+    waiting_deal_ = -1; // a deal still being made for the table left is given up
     cabinet_.games[static_cast<int>(game.state.kind)].history = game.history;
     int next = static_cast<int>(kind);
     if (cabinet_.started[next]) {
@@ -1394,6 +1448,8 @@ void Table::action(gf::ButtonBase& button) {
         pass_cards_.clear();
         changed("undo");
     }
+    if (a == 6 && waiting_deal_ >= 0)
+        return; // no cards yet
     if (a == 6) {
         sound_play("hint", sound_);
         if (game.state.kind == Kind::hearts) {

@@ -66,12 +66,13 @@ collection. Read it first; then the document for the work in hand:
   stone-texture caches immutable after synchronized initialization; do not serialize
   the factory or remove parallel generation. Its cold-start test covers both mesh
   levels and compares concurrent with serial construction.
-- Solitaire, Spider and FreeCell deal only from the verified, graded tables in
-  `shared/cards/deal_tables.cpp`. If their rules in `game.cpp`, the solver in
-  `shared/cards/solitaire_solver.cpp` or its grading limits change, regenerate the
-  tables (`cmake --build .build/portable-core --target deal_grader -j 1`, then
-  `.build/portable-core/deal_grader generate shared/cards/deal_tables.cpp 500 12`,
-  about 21 minutes single-threaded) or the `solver` test fails.
+- Solitaire, Spider and FreeCell deal only what `games::generate_deal`
+  (`shared/cards/solitaire_solver.cpp`, "Dealing") makes as it is wanted: winnable,
+  proven by a line replayed through `Game`, and Easy, Medium or Hard by the reference
+  player's wins in 20 games (19-20, 14-18, 6 or fewer). `shared/cards/dealer.*` keeps the
+  next deals ready in the background. If the rules in `game.cpp` or the reference player
+  change, run `ctest -L design` (the `solver` test) and re-measure the level shares
+  quoted in the solver's "Dealing" note.
 - Write new C++ in the house style
   ([new-games/guide/07-house-style.md](new-games/guide/07-house-style.md)) and run
   `python3 scripts/check-style.py` before publishing. Keep compile parallelism at two

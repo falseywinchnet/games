@@ -1,7 +1,6 @@
 #include "solitaire_solver.hpp"
 #include <chrono>
 #include <cstdio>
-#include <set>
 #include <stdexcept>
 #include <string>
 
@@ -35,6 +34,10 @@ int replay(Kind kind, int option, std::uint32_t seed, const std::vector<SolverSt
     return draws;
 }
 
+bool stop_at_once(const void*) {
+    return true;
+}
+
 struct Group {
     Kind kind;
     int option;
@@ -51,72 +54,45 @@ int main() {
                 normalized_option(Kind::spider, 4) == 4 &&
                 normalized_option(Kind::freecell, 7) == 0,
             "options");
-    require(graded_count(Kind::hearts, 0, Difficulty::easy) == 0, "hearts has no table");
-    require(graded_seed(Kind::hearts, 0, Difficulty::easy, 4) == 5, "fallback seed");
-
+    // Every game, option and level: deals made from fixed luck fit their level when measured
+    // again from scratch, and the proof that comes with them wins when replayed through Game.
     int klondike3_recycles = 0;
-    for (const Group& g : groups) {
-        std::set<std::uint32_t> seen;
-        for (Difficulty d : levels) {
-            int count = graded_count(g.kind, g.option, d);
-            require(count >= 100, label(g.kind, g.option, d, 0) + ": table too small");
-            for (int i = 0; i < count; ++i) {
-                std::uint32_t seed =
-                    graded_seed(g.kind, g.option, d, static_cast<std::uint32_t>(i));
-                require(seen.insert(seed).second,
-                        label(g.kind, g.option, d, seed) + ": seed in two buckets");
-            }
-            require(graded_seed(g.kind, g.option, d, static_cast<std::uint32_t>(count)) ==
-                        graded_seed(g.kind, g.option, d, 0),
-                    "pick wraps around");
-
-            // Sample eight entries spread over the table: each is solved and its line
-            // replayed through Game; the first two are also re-graded from scratch.
-            const int samples = 8;
-            for (int p = 0; p < samples; ++p) {
-                std::uint32_t pick = static_cast<std::uint32_t>(p * (count - 1) / (samples - 1));
-                std::uint32_t seed = graded_seed(g.kind, g.option, d, pick);
-                std::string what = label(g.kind, g.option, d, seed);
-                std::vector<SolverStep> steps;
-                if (p < 2) {
-                    DealGrade grade = grade_deal(g.kind, g.option, seed);
-                    require(grade.winnable && grade.difficulty == d,
-                            what + ": grade differs from table");
-                }
-                GradingLimits limits = grading_limits(g.kind, g.option);
-                bool casual = greedy_wins(g.kind, g.option, seed, &steps);
-                require(!casual || d == Difficulty::easy, what + ": casual win outside Easy");
-                if (casual) {
-                    replay(g.kind, g.option, seed, steps, what + " (casual line)");
-                    steps.clear();
-                    if (g.kind == Kind::spider && g.option == 4)
-                        continue; // the casual player never wins 4 suits; nothing more to check
-                }
-                SolveReport report = solve_deal(g.kind, g.option, seed, limits.node_budget, &steps);
-                if (casual && !report.solved)
-                    continue; // the casual line above is the proof
-                require(report.solved, what + ": solver did not win");
-                require(report.moves == static_cast<int>(steps.size()), what + ": move count");
-                if (!casual) {
-                    int band = report.width <= limits.easy_width     ? 0
-                               : report.width <= limits.medium_width ? 1
-                                                                     : 2;
-                    require(band == static_cast<int>(d), what + ": beam width outside its band");
-                }
-                int draws = replay(g.kind, g.option, seed, steps, what);
+    std::uint32_t freecell_seed = 0, klondike3_easy = 0;
+    for (const Group& g : groups)
+        for (Difficulty d : levels)
+            for (std::uint64_t luck : {7ULL, 8ULL}) {
+                const DealPick pick = generate_deal(g.kind, g.option, d, luck);
+                const std::string what = label(g.kind, g.option, d, pick.seed);
+                require(pick.found && pick.seed != 0, what + ": no deal made");
+                require(fits(d, pick.wins), what + ": outside its level");
+                const DealRecord record = measure_deal(g.kind, g.option, pick.seed);
+                require(record.wins == pick.wins, what + ": measured differently a second time");
+                require(record.winnable, what + ": not proven winnable");
+                const int draws = replay(g.kind, g.option, pick.seed, record.line, what);
                 if (g.kind == Kind::solitaire && g.option == 3 && draws > 8)
                     ++klondike3_recycles;
+                require(generate_deal(g.kind, g.option, d, luck).seed == pick.seed,
+                        what + ": the same luck made another deal");
+                if (g.kind == Kind::freecell && !freecell_seed)
+                    freecell_seed = pick.seed;
+                if (g.kind == Kind::solitaire && g.option == 3 && d == Difficulty::easy)
+                    klondike3_easy = pick.seed;
             }
-        }
-    }
     // Draw-3 lines that use more than the eight draws of one stock pass prove the
     // recycling model against Game::draw.
     require(klondike3_recycles > 0, "no draw-3 line exercised stock recycling");
 
+    // Asked to stop, the dealer stops at once and says it made nothing.
+    {
+        const DealPick stopped =
+            generate_deal(Kind::spider, 4, Difficulty::easy, 1, stop_at_once, nullptr);
+        require(!stopped.found, "the dealer did not stop");
+    }
+
     // Positions in progress: make a few legal moves, then solve from there.
     for (std::uint32_t seed = 1; seed <= 3; ++seed) {
         Game game;
-        game.deal(Kind::freecell, graded_seed(Kind::freecell, 0, Difficulty::medium, seed), 0);
+        game.deal(Kind::freecell, freecell_seed + seed, 0);
         for (int i = 0; i < 6; ++i) {
             Move m = game.hint();
             if (m.from < 0 || !game.move(m))
@@ -131,7 +107,7 @@ int main() {
     }
     {
         Game game;
-        game.deal(Kind::solitaire, graded_seed(Kind::solitaire, 3, Difficulty::easy, 0), 3);
+        game.deal(Kind::solitaire, klondike3_easy, 3);
         for (int i = 0; i < 4; ++i)
             game.draw(); // waste and stock both non-empty
         std::vector<SolverStep> steps;
