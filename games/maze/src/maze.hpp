@@ -84,8 +84,13 @@ struct Level {
 
 struct Play;
 
-// The level's parameters grow with its number: new things arrive one at a time, then mix.
+// Easy is the course: a level's parameters grow with its number, and new things arrive one
+// at a time before they mix. Medium and Hard know every trick: each maze draws its own mix
+// (params_mixed), Hard larger, with fewer loops and more of everything.
+enum class Difficulty { easy, medium, hard };
 LevelParams params_for(int number, std::uint64_t seed);
+LevelParams params_mixed(int number, bool hard, std::uint64_t seed);
+LevelParams params_for(Difficulty difficulty, int number, std::uint64_t seed);
 Level generate(const LevelParams& p);
 
 // Shortest number of steps from the start to the reward, or -1 if it cannot be reached.

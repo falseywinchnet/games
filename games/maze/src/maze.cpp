@@ -248,6 +248,44 @@ LevelParams params_for(int n, std::uint64_t seed) {
     return p;
 }
 
+LevelParams params_mixed(int n, bool hard, std::uint64_t seed) {
+    // Every trick is known here: each maze draws its own mix. Hard mazes are larger, have
+    // fewer loops, and carry more of everything; both grow a little over the first levels.
+    Rng rng(seed ^ 0x6D69786564ULL);
+    const int grow = std::min(4, n / 3);
+    LevelParams p;
+    p.seed = seed;
+    if (hard) {
+        p.cells = std::min(13, 10 + grow / 2 + rng.range(2));
+        p.braid = .12 + .06 * rng.unit();
+        p.floors = rng.unit() < .5 ? 2 : 1;
+        p.doors = 2 + rng.range(3);
+        p.ceiling_doors = std::min(p.doors, 1 + rng.range(2));
+        p.portals = 1 + rng.range(2);
+        p.sealed_portal = rng.unit() < .15;
+        p.bulbs = 1 + rng.range(2);
+        p.marble = rng.unit() < .75;
+        p.snail = rng.unit() < .75;
+    } else {
+        p.cells = std::min(12, 9 + grow / 2 + rng.range(3));
+        p.braid = .25 + .1 * rng.unit();
+        p.floors = rng.unit() < .25 ? 2 : 1;
+        p.doors = 1 + rng.range(3);
+        p.ceiling_doors = rng.unit() < .3 ? 1 : 0;
+        p.portals = rng.range(2);
+        p.sealed_portal = rng.unit() < .12;
+        p.bulbs = rng.unit() < .4 ? 1 : 0;
+        p.marble = rng.unit() < .5;
+        p.snail = rng.unit() < .5;
+    }
+    if (p.sealed_portal) { p.doors = 0; p.ceiling_doors = 0; }
+    return p;
+}
+
+LevelParams params_for(Difficulty d, int number, std::uint64_t seed) {
+    return d == Difficulty::easy ? params_for(number, seed) : params_mixed(number, d == Difficulty::hard, seed);
+}
+
 Level generate(const LevelParams& in) {
     for (std::uint64_t attempt = 0;; ++attempt) {
         Rng rng(in.seed * 1000003ULL + attempt);

@@ -34,12 +34,15 @@ static bool replay(const Level& lv, const std::vector<int>& route) {
 int main() {
     const auto t0 = std::chrono::steady_clock::now();
     int mazes = 0, with_doors = 0, sealed = 0, ceil = 0, two_floor = 0;
+    long route_sum[3] = {};
+    for (int d = 0; d < 3; ++d)
     for (std::uint64_t run : {1ULL, 77ULL, 31337ULL}) {
         for (int n = 1; n <= 40; ++n) {
-            const LevelParams p = params_for(n, run * 1000 + static_cast<std::uint64_t>(n));
+            const LevelParams p = params_for(static_cast<Difficulty>(d), n, run * 1000 + static_cast<std::uint64_t>(n));
             const Level lv = generate(p);
             ++mazes;
             CHECK(lv.optimal_steps > 0);
+            route_sum[d] += lv.optimal_steps;
             const Play start{lv.start, lv.start_dir};
             const std::vector<int> route = solve_route(lv, start);
             CHECK(static_cast<int>(route.size()) == lv.optimal_steps);
@@ -84,6 +87,9 @@ int main() {
             }
         }
     }
+    // Medium and Hard mix every trick from their first maze; Hard's mazes are the longer walk
+    CHECK(params_for(Difficulty::medium, 1, 5).doors > 0 || params_for(Difficulty::medium, 1, 5).sealed_portal);
+    CHECK(route_sum[2] > route_sum[1]);
     std::printf("mazes: %d generated and solved (%d with doors, %d with ceiling pads, %d sealed portals, %d two-floor) in %.2fs\n", mazes, with_doors, ceil, sealed, two_floor,
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
     // --- sessions: walk the best route while the marble rolls and the snail paints

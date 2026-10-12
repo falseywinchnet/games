@@ -46,7 +46,7 @@ MazeView::MazeView(gf::StableId id, Options opt) : Control(std::move(id)), opt_(
                         "Pads open doors of their colour. F1 help, T trophy shelf, M music.");
     load_save(save_path(opt_.dev), save_);
     if (!save_.run_seed) { save_.run_seed = seed_now() | 1; dirty_ = true; }
-    start_level(save_.level);
+    start_level(level_reached());
     if (const char* sc = std::getenv("MZ_SCRIPT"); sc && opt_.dev) {
         std::string all = sc;
         for (size_t pos = 0; pos < all.size();) {
@@ -111,14 +111,32 @@ void MazeView::on_paint(gf::Painter& p, gf::Rect) {
 }
 
 // ------------------------------------------------------------------ levels
+int& MazeView::level_reached() {
+    return save_.difficulty == 2 ? save_.level_hard : save_.difficulty == 1 ? save_.level_medium : save_.level;
+}
+std::string MazeView::maze_name() const {
+    const char* names[] = {"Maze ", "Medium maze ", "Hard maze "};
+    return names[std::clamp(save_.difficulty, 0, 2)] + std::to_string(level_);
+}
+// Easy, Medium or Hard: each keeps its own place, and a switch goes straight to it.
+void MazeView::set_difficulty(int d) {
+    if (save_.difficulty == d) return;
+    save_.difficulty = d;
+    open(Panel::none);
+    start_level(level_reached());
+}
+
 void MazeView::start_level(int n) {
     awarded_ = false;
     level_ = std::max(1, n);
-    save_.level = level_;
-    const std::uint64_t seed = save_.run_seed * 0x9E3779B97F4A7C15ULL + static_cast<std::uint64_t>(level_) * 7919ULL;
-    const Level lv = generate(params_for(level_, seed));
+    level_reached() = level_;
+    const Difficulty difficulty = static_cast<Difficulty>(save_.difficulty);
+    // Easy's seeds are as they always were, so a saved maze is the same maze.
+    const std::uint64_t seed = save_.run_seed * 0x9E3779B97F4A7C15ULL + static_cast<std::uint64_t>(level_) * 7919ULL +
+                               static_cast<std::uint64_t>(save_.difficulty) * 0x5BD1E995ULL;
+    const Level lv = generate(params_for(difficulty, level_, seed));
     // what to seek: the cheese first, then something not yet on the shelf
-    if (level_ == 1) reward_ = 0;
+    if (level_ == 1 && difficulty == Difficulty::easy) reward_ = 0;
     else {
         std::uint64_t h = seed ^ 0xC0FFEEULL;
         std::vector<int> fresh;
@@ -142,17 +160,27 @@ void MazeView::start_level(int n) {
     }
     sess_.start(lv, seed ^ 0xABCDEFULL);
     autowalk_ = 0;
-    // the briefing mentions whatever this maze has that the last did not
+    // The briefing mentions whatever this maze has that the last did not (Easy, the course),
+    // or, at Medium and Hard, whatever is met here for the first time.
     news_.clear();
     const LevelParams& p = lv.params;
-    const LevelParams prev = params_for(level_ - 1, seed);
-    if (p.doors && (level_ == 2 || !prev.doors)) news_.push_back("Locked doors. Step on the pad of the same colour to open one.");
-    if ((p.portals || p.sealed_portal) && (level_ == 4 || (!prev.portals && !prev.sealed_portal))) news_.push_back("Portals. Nothing marks them but the carpet, which is a little... off.");
-    if (p.marble && !prev.marble) news_.push_back("A giant marble rolls these halls. It will block you, never crush you.");
-    if (p.bulbs && !prev.bulbs) news_.push_back("Floating light bulbs. Touch one and the lights go out. Touch another to bring them back.");
-    if (p.snail && !prev.snail) news_.push_back("A paint snail. It redecorates. You'll see.");
-    if (p.floors > 1 && prev.floors <= 1) news_.push_back("An elevator tile. There's another maze up there.");
-    if (p.ceiling_doors && !prev.ceiling_doors) news_.push_back("A flip stone, and a pad on the ceiling. Touch the stone and walk upside down.");
+    const LevelParams prev = difficulty == Difficulty::easy ? params_for(level_ - 1, seed) : LevelParams{};
+    const bool has[] = {p.doors > 0, p.portals > 0 || p.sealed_portal, p.marble, p.bulbs > 0, p.snail,
+                        p.floors > 1, p.ceiling_doors > 0};
+    const bool had[] = {prev.doors > 0 && level_ != 2, (prev.portals > 0 || prev.sealed_portal) && level_ != 4,
+                        prev.marble, prev.bulbs > 0, prev.snail, prev.floors > 1, prev.ceiling_doors > 0};
+    const char* tell[] = {"Locked doors. Step on the pad of the same colour to open one.",
+                          "Portals. Nothing marks them but the carpet, which is a little... off.",
+                          "A giant marble rolls these halls. It will block you, never crush you.",
+                          "Floating light bulbs. Touch one and the lights go out. Touch another to bring them back.",
+                          "A paint snail. It redecorates. You'll see.",
+                          "An elevator tile. There's another maze up there.",
+                          "A flip stone, and a pad on the ceiling. Touch the stone and walk upside down."};
+    for (int t = 0; t < 7; ++t) {
+        const bool fresh = difficulty == Difficulty::easy ? !had[t] : !(save_.met >> t & 1);
+        if (has[t] && fresh) news_.push_back(tell[t]);
+        if (has[t]) save_.met |= 1ULL << t;
+    }
     open(Panel::briefing);
     play("mz_start", .8f);
     dirty_ = true;
@@ -232,6 +260,9 @@ void MazeView::set_cabinet(bool foreground, bool music, bool sound, bool reduced
 }
 std::vector<games::GameCommand> MazeView::commands() const {
     return {{"restart","Restart maze",true,false,true},
+            {"easy","Easy",true,save_.difficulty == 0,false,true},
+            {"medium","Medium",true,save_.difficulty == 1,false,true},
+            {"hard","Hard",true,save_.difficulty == 2,false,true},
             {"help","Help",true,panel_ == Panel::help},
             {"trophies","Trophy shelf",true,panel_ == Panel::shelf},
             {"credits","Who's who",true,panel_ == Panel::credits}};
@@ -436,6 +467,7 @@ void MazeView::action(const std::string& id) {
     else if (id == "music") { save_.music = !save_.music; dirty_ = true; layout_buttons(); }
     else if (id == "sound") { save_.sound = !save_.sound; dirty_ = true; layout_buttons(); }
     else if (id == "restart") { open(Panel::none); start_level(level_); }
+    else if (id == "easy" || id == "medium" || id == "hard") set_difficulty(id == "easy" ? 0 : id == "medium" ? 1 : 2);
     else if (id == "credits") { credits_page_ = 0; open(Panel::credits); }
     else if (id == "more") { credits_page_ = (credits_page_ + 1) % ((cast_count() + 7) / 8 + 1); layout_buttons(); }
     if (dirty_) persist();
@@ -551,7 +583,7 @@ void MazeView::draw_status() {
         }
     };
     const Field field{*this,y,h};
-    field(2, 56, "Maze " + std::to_string(level_));
+    field(2, 56, maze_name());
     field(60, pw_ - 60 - 74, "Seeking: " + reward_the(reward_));
     field(pw_ - 72, 70, "Steps: " + std::to_string(sess_.play.steps));
 }
@@ -585,7 +617,7 @@ void MazeView::draw_panel() {
     switch (panel_) {
         case Panel::briefing: {
             const int w = std::min(pw_ - 20, 280), h = 132 + 11 * static_cast<int>(news_.size()), x = (pw_ - w) / 2, y = ph_ / 2 + 70 - h;
-            window(x, y, w, h, "Maze " + std::to_string(level_) + " - Briefing");
+            window(x, y, w, h, maze_name() + " - Briefing");
             bevel(x + 10, y + 20, 52, 52, true);
             frame_.fill_rect(x + 11, y + 21, 50, 50, hex(0xFFFFFF));
             blit(reward_tex(reward_), x + 12, y + 22, 48, 48);

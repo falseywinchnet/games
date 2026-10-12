@@ -18,7 +18,9 @@ std::uint64_t fnv(const std::string& s) {
 bool write_save(const std::filesystem::path& path, const SaveData& d) {
     std::ostringstream o;
     o << "level=" << d.level << "\nseed=" << d.run_seed << "\ncollected=" << d.collected << "\ncleared=" << d.cleared << "\nsteps=" << d.steps
-      << "\nperfect=" << d.perfect << "\nsound=" << d.sound << "\nmusic=" << d.music << "\n";
+      << "\nperfect=" << d.perfect << "\nsound=" << d.sound << "\nmusic=" << d.music
+      << "\ndifficulty=" << d.difficulty << "\nlevel_medium=" << d.level_medium
+      << "\nlevel_hard=" << d.level_hard << "\nmet=" << d.met << "\n";
     std::string body = o.str();
     body = kHeader + body + "check=" + std::to_string(fnv(body)) + "\n";
     std::error_code ec;
@@ -62,6 +64,10 @@ bool load_save(const std::filesystem::path& path, SaveData& out) {
             else if (k == "perfect") d.perfect = std::stoi(v);
             else if (k == "sound") d.sound = v == "1";
             else if (k == "music") d.music = v == "1";
+            else if (k == "difficulty") d.difficulty = std::max(0, std::min(2, std::stoi(v)));
+            else if (k == "level_medium") d.level_medium = std::max(1, std::min(100000, std::stoi(v)));
+            else if (k == "level_hard") d.level_hard = std::max(1, std::min(100000, std::stoi(v)));
+            else if (k == "met") d.met = std::stoull(v);
         }
     } catch (...) {
         return false;

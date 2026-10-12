@@ -69,6 +69,9 @@ private:
     bool dirty_ = false, awarded_ = false;
 
     int level_ = 1, reward_ = 0;
+    int& level_reached();
+    std::string maze_name() const;
+    void set_difficulty(int difficulty);
     std::vector<std::string> news_;   // what's new in this maze (for the briefing)
     int autowalk_ = 0;                // dev: steps still to walk along a best route (re-planned each step)
     Panel panel_ = Panel::none;

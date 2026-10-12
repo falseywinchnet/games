@@ -15,6 +15,9 @@ struct SaveData {
     int cleared = 0;                // mazes finished
     long long steps = 0;            // steps taken, ever
     int perfect = 0;                // mazes finished in the fewest possible steps
+    int difficulty = 0;             // 0 Easy (the course), 1 Medium, 2 Hard
+    int level_medium = 1, level_hard = 1;  // the maze reached at each; `level` is Easy's
+    std::uint64_t met = 0;          // one bit for each trick already explained
     bool sound = true, music = true;
 };
 
