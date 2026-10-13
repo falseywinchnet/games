@@ -63,10 +63,11 @@ def run_once(app: Path, game: str, seconds: float, size: tuple[int, int]) -> dic
         wall = time.monotonic() - started
         after = resource.getrusage(resource.RUSAGE_CHILDREN) if resource else None
     output = finished.stdout + finished.stderr
-    start = output.find('{"stable_id"')
-    if start < 0:
+    # The statistics are one JSON line holding "window" (macOS prints a "stable_id" first).
+    lines = [line for line in output.splitlines() if line.startswith("{") and '"window"' in line]
+    if not lines:
         raise RuntimeError(f"{game}: no window statistics in the output (exit {finished.returncode})")
-    stats = json.loads(output[start:].split("\n", 1)[0])
+    stats = json.loads(lines[-1])
     numbers = {}
 
     def collect(prefix: str, node) -> None:
