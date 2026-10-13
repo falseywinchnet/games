@@ -70,6 +70,10 @@ jobs:
       - name: Install authoring tools
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         run: sudo apt-get update && sudo apt-get install -y ffmpeg python3-pil
+      # The verification reads the lake's reduced picture (Pillow) on a cache hit too.
+      - name: Install the verifier's image reader
+        if: steps.runtime-cache.outputs.cache-hit == 'true'
+        run: sudo apt-get update && sudo apt-get install -y python3-pil
       - name: Prepare compact audio, fonts and artwork
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         run: /usr/bin/python3 tools/prepare_portable_assets.py --output build/runtime-assets --ffmpeg ffmpeg
