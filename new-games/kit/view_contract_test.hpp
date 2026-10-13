@@ -25,6 +25,7 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <thread>
 #include <vector>
 
@@ -47,11 +48,29 @@ inline void contract_require(bool condition, const std::string& message) {
     }
 }
 
+// The save directories a test made, removed when it exits, so repeated runs do not
+// fill the temporary folder.
+inline std::vector<std::filesystem::path>& contract_save_directories() {
+    static std::vector<std::filesystem::path> made;
+    return made;
+}
+
+inline void contract_remove_saves() {
+    for (const std::filesystem::path& directory : contract_save_directories()) {
+        std::error_code ignored;
+        std::filesystem::remove_all(directory, ignored);
+    }
+}
+
 inline void contract_isolate_saves(const char* name) {
     const std::chrono::steady_clock::duration stamp = std::chrono::steady_clock::now().time_since_epoch();
     const std::filesystem::path directory = std::filesystem::temp_directory_path() /
         (std::string("playsuite-contract-") + name + "-" + std::to_string(stamp.count()));
     std::filesystem::create_directories(directory);
+    if (contract_save_directories().empty()) {
+        std::atexit(contract_remove_saves);
+    }
+    contract_save_directories().push_back(directory);
 #ifdef _WIN32
     const int status = _wputenv_s(L"GAMES_STATE_DIR", directory.c_str());
 #else
