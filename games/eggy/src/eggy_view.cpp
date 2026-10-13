@@ -99,6 +99,8 @@ void EggyView::on_attached_to_window() {
     cabinet_visibility(visible());
     timer_ = std::make_unique<gf::Timer>(*attached_window(), std::chrono::milliseconds(66));
     subs_.push_back((*timer_).tick().subscribe(*this, gf::Delegate<>::bind<EggyView, &EggyView::tick>(*this)));
+    activation_ = (*attached_window()).active_changed().subscribe(
+        *this, gf::Delegate<bool>::bind<EggyView, &EggyView::window_activation>(*this));
     last_ = std::chrono::steady_clock::now();
     (*timer_).start();
 }
@@ -107,6 +109,7 @@ void EggyView::on_detaching_from_window(gf::Window&) noexcept {
     try { persist(); } catch (...) {}
     if (timer_) (*timer_).stop();
     timer_.reset();
+    activation_ = gf::SubscriptionToken{};
     audio_stop();
 }
 
@@ -127,6 +130,14 @@ void EggyView::cabinet_visibility(bool shown) {
         persist();
     }
     if(timer_) (*timer_).set_interval(std::chrono::milliseconds(shown ? 66 : 1000));
+}
+// Back in front (after alt-tab, say): resume the watching pace at once rather than
+// on the background timer's next tick, up to a second away.
+void EggyView::window_activation(bool active) {
+    if (!active || !timer_ || !visible()) return;
+    (*timer_).stop();
+    (*timer_).set_interval(std::chrono::milliseconds(50));
+    (*timer_).start();
 }
 void EggyView::set_cabinet_preferences(bool music, bool sound, bool reduced) {
     cabinet_music_=music; cabinet_sound_=sound; cabinet_reduced_=reduced;
@@ -467,7 +478,9 @@ void EggyView::tick() {
             std::filesystem::path(games::asset_directory()) / "fonts", "Carlito");
     }
     if (!rendering_pending_) {
-        if (!no_render) scene_.render(s, t_, dt);
+        // The climb runs on through a slow background tick; the camera and the
+        // animations take at most one step's worth, so they glide after it, not jump.
+        if (!no_render) scene_.render(s, t_, std::min(dt, .25));
         capture_render_state();
     }
     (*game_text_).begin();

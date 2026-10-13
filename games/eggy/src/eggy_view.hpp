@@ -88,6 +88,7 @@ private:
     void layout_render_buttons();
     void blit_title_mask(const games::TextImage& image, int x, int y, Col color, int scale);
     void cabinet_visibility(bool shown);
+    void window_activation(bool active);
     bool cabinet_music_ = true, cabinet_sound_ = true, cabinet_reduced_ = false;
     Options opt_;
     // Hosted, PlaySuite's Sound master is the only switch; standalone, the game's own.
@@ -105,6 +106,7 @@ private:
     std::shared_ptr<gf::LiveSurface> surface_;
     std::unique_ptr<gf::Timer> timer_;
     std::vector<gf::SubscriptionToken> subs_;
+    gf::SubscriptionToken activation_{};  // the window's, dropped on detach
     std::chrono::steady_clock::time_point last_{};
     double t_ = 0, save_t_ = 0, chatter_t_ = 20, speech_cool_ = 0, banner_t_ = 0, music_hold_ = 0;
     std::uint64_t ticks_ = 0;
