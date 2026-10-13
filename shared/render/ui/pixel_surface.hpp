@@ -60,6 +60,17 @@ public:
     }
     // Everything is drawn again next frame.
     void invalidate_all();
+    // Back to how it was made (detached from its window, say).
+    void reset() {
+        surface_.reset();
+        shown_.clear();
+        shown_w_ = shown_h_ = 0;
+        shown_scale_x_ = shown_scale_y_ = 0;
+        shown_texts_.clear();
+        owed_ = Rect{};
+        columns_.clear();
+        row_.clear();
+    }
 
     [[nodiscard]] const std::shared_ptr<gf::LiveSurface>& live() const {
         return surface_.live();

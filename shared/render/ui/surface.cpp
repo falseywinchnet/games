@@ -4,6 +4,8 @@
 #include "gui_forms/window.hpp"
 
 #include <algorithm>
+#include <cstring>
+#include <vector>
 
 namespace render {
 
@@ -38,15 +40,93 @@ bool Surface::configure(int width, int height) {
     return true;
 }
 
+namespace {
+// The surfaces attached now, on the interface thread.
+std::vector<Surface*>& attached_surfaces() {
+    static std::vector<Surface*> list;
+    return list;
+}
+void forget(Surface* surface) {
+    std::vector<Surface*>& list = attached_surfaces();
+    list.erase(std::remove(list.begin(), list.end(), surface), list.end());
+}
+}  // namespace
+
+Surface::~Surface() {
+    forget(this);
+}
+
 bool Surface::attach(gf::Window& window, std::shared_ptr<gf::Control> owner) {
     owner_ = owner;
     direct_ = surface_ && window.queue_live_surface_presentation(std::move(owner), surface_);
+    forget(this);
+    attached_surfaces().push_back(this);
     return direct_;
 }
 
 void Surface::detach() {
     abandon();
     direct_ = false;
+    forget(this);
+}
+
+void Surface::reset() {
+    abandon();
+    forget(this);
+    surface_.reset();
+    owner_.reset();
+    lease_ = gf::LiveSurfaceWriteLease{};
+    width_ = 0;
+    height_ = 0;
+    order_ = Order::bgra;
+    direct_ = false;
+    frame_ = 0;
+    damage_ = {};
+    kept_ = {};
+    pending_ = Rect{};
+    overlays_.clear();
+    writing_ = nullptr;
+}
+
+bool Surface::present_again() {
+    if (!surface_ || lease_ || frame_ == 0) {
+        return false;
+    }
+    const void* latest = nullptr;
+    for (const Kept& kept : kept_) {
+        if (kept.frame == frame_) {
+            latest = kept.address;
+        }
+    }
+    if (latest == nullptr) {
+        return false;
+    }
+    gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write();
+    if (!lease || static_cast<int>(lease.width()) != width_ || static_cast<int>(lease.height()) != height_) {
+        lease.abandon();
+        return false;
+    }
+    const std::span<std::byte> pixels = lease.pixels();
+    // Buffers of one size share one layout: the last frame copies across as it is.
+    if (static_cast<const void*>(pixels.data()) != latest) {
+        std::memcpy(pixels.data(), latest, pixels.size());
+    }
+    ++frame_;
+    damage_[frame_ % history] = Rect{};  // the picture is the one before
+    static_cast<void>(lease.publish(gf::Rect{0, 0, static_cast<double>(width_), static_cast<double>(height_)}));
+    remember(pixels.data(), frame_);
+    return true;
+}
+
+void present_live_again(gf::Window& window) {
+    // A copy: presenting changes nothing in the list, but stays safe if it ever did.
+    const std::vector<Surface*> surfaces = attached_surfaces();
+    for (Surface* surface : surfaces) {
+        const std::shared_ptr<gf::Control> owner = (*surface).owner();
+        if (owner && (*owner).attached_window() == &window && (*owner).effectively_visible()) {
+            static_cast<void>((*surface).present_again());
+        }
+    }
 }
 
 void Surface::invalidate_all() {

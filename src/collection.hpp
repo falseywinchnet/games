@@ -70,6 +70,7 @@ class Collection final : public gf::Control, public HelpHost {
     std::chrono::steady_clock::time_point last_tick_{};
     double refresh_ = 0;
     double quiet_ = 0;  // seconds since the last input or capsule motion
+    bool capsule_moved_ = false;  // the capsule moved last tick: live views present again
     Entry active_ = entries.front();
     bool shelf_open_ = true, reduced_ = false;
     std::set<int> opened_; // permanent IDs, including temporarily absent modules

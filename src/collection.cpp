@@ -5,6 +5,7 @@
 #include "gui_forms/controls/panel/text_box/text_box.hpp"
 #include <sstream>
 #include "gui_forms/window.hpp"
+#include "surface.hpp"
 #include <fstream>
 namespace games {
 namespace {
@@ -183,7 +184,12 @@ void Collection::tick() {
     // The placement includes the shadow margin, which doubles as a forgiving hover border.
     const bool inside = pointer_.x >= r.x && pointer_.x <= r.x + r.width && pointer_.y >= r.y - 8 &&
                         pointer_.y <= r.y + r.height;
-    if ((*capsule_).step(dt, inside, reduced_))
+    // The capsule's last move is laid out by now: live views beneath it show their whole
+    // picture again, or what it uncovered keeps what lay under it (render::present_live_again).
+    if (capsule_moved_ && attached_window())
+        render::present_live_again(*attached_window());
+    capsule_moved_ = (*capsule_).step(dt, inside, reduced_);
+    if (capsule_moved_)
         invalidate(gf::Dirty::layout);
     refresh_ += dt;
     if (refresh_ > .2) {

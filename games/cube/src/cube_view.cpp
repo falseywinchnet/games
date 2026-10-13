@@ -296,7 +296,7 @@ void CubeView::on_detaching_from_window(gf::Window&) noexcept {
         (*timer_).stop();
     }
     timer_.reset();
-    surface_ = render::Surface{};
+    surface_.reset();
     surface_attached_ = false;
     shown_ = Shown{};
     backdrop_.clear();

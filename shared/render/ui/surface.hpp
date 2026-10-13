@@ -24,6 +24,11 @@ namespace gf = gui_forms;
 
 class Surface {
 public:
+    Surface() = default;
+    ~Surface();
+    // Kept in a list while attached (present_live_again), so it stays where it is.
+    Surface(const Surface&) = delete;
+    Surface& operator=(const Surface&) = delete;
     // Sizes the surface in device pixels, creating it on first use. A new size makes
     // every buffer stale. Returns false if GUI.Forms could not provide one.
     bool configure(int width, int height);
@@ -31,6 +36,8 @@ public:
     // (otherwise the owner repaints with draw_live_surface on publish).
     bool attach(gf::Window& window, std::shared_ptr<gf::Control> owner);
     void detach();
+    // Back to how it was made: no surface, no buffers, nothing remembered.
+    void reset();
 
     struct Frame {
         Target target;  // the buffer itself
@@ -46,7 +53,14 @@ public:
     void abandon();
     // Everything is redrawn next frame (lost contents, a new picture).
     void invalidate_all();
+    // Publishes the last frame again, all of it changed, without drawing: the window
+    // copies the whole picture once (see present_live_again). False when there is none
+    // to give, or a frame is being drawn now (its publish will do).
+    bool present_again();
 
+    [[nodiscard]] std::shared_ptr<gf::Control> owner() const {
+        return owner_.lock();
+    }
     [[nodiscard]] Order order() const {
         return order_;
     }
@@ -86,5 +100,12 @@ private:
     [[nodiscard]] std::uint64_t held_by(const void* address) const;
     void remember(const void* address, std::uint64_t frame);
 };
+
+// Every live surface attached in `window` presents its last frame again, whole. For whoever
+// moves a floating control over live views: where an overlay was, the macOS host neither
+// repaints (the live surface covers it) nor copies again (it takes the window to hold the
+// picture already), so a folded capsule leaves what lay beneath it, in a game that draws no
+// new frame to correct it. Call it once the move has been laid out.
+void present_live_again(gf::Window& window);
 
 }  // namespace render

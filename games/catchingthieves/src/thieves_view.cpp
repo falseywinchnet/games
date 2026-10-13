@@ -166,7 +166,7 @@ void ThievesView::on_detaching_from_window(gf::Window&) noexcept {
     try { persist(); } catch (...) {}
     if (timer_) (*timer_).stop();
     timer_.reset();
-    pixels_ = render::PixelSurface{};
+    pixels_.reset();
     pixels_attached_ = false;
     if (hint_) (*hint_).cancellation.request_stop();
     if (gen_) (*gen_).cancellation.request_stop();
