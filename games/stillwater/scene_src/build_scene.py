@@ -11,7 +11,7 @@ Reductions, all deterministic:
     along the blade, columns kept at the edges and midrib);
   * rocks, wood, sand and fish: quadric decimation with open borders preserved,
     so texture seams and fin edges stay where they were;
-  * material maps: box-filtered to 256 x 256.
+  * material maps: reduced to 256 x 256 with Plan Paint's CONV (material_maps.py).
 """
 from __future__ import annotations
 
@@ -21,6 +21,8 @@ import hashlib
 import json
 import struct
 import zlib
+
+from material_maps import texture_record
 from pathlib import Path
 
 import numpy as np
@@ -353,9 +355,8 @@ def crab_parts(actor_index, sphere):
 
 
 def texture(path: Path, normal_map: bool):
-    image = Image.open(path).convert("RGB").resize((TEXTURE_SIZE, TEXTURE_SIZE), Image.Resampling.BOX)
-    data = np.asarray(image, dtype=np.uint8)
-    return struct.pack("<HHI", TEXTURE_SIZE, TEXTURE_SIZE, 1 if normal_map else 0) + data.tobytes()
+    # Reduced with Plan Paint's CONV: colour in linear light, normals as unit vectors (material_maps.py).
+    return texture_record(path, normal_map)
 
 
 def build(source: Path, output: Path, spacing: float):

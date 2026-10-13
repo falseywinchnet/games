@@ -14,8 +14,17 @@ from pathlib import Path
 
 def prepare_image(source: Path, destination: Path) -> None:
     from PIL import Image
-    with Image.open(source) as original:
-        image = original.convert("RGBA").resize((1024, 512), Image.Resampling.LANCZOS)
+    # The reduced picture made offline with CONV (tools/make_lake_environment.py), used as it is;
+    # without it, the source reduced here as before.
+    reduced = source.with_name(source.stem + "-environment.png")
+    if reduced.is_file():
+        with Image.open(reduced) as made:
+            image = made.convert("RGBA")
+        if image.size != (1024, 512):
+            raise ValueError("The reduced environment artwork must be 1024 x 512")
+    else:
+        with Image.open(source) as original:
+            image = original.convert("RGBA").resize((1024, 512), Image.Resampling.LANCZOS)
     # Explicit top-left, tightly packed RGBA8. This artwork is opaque.
     alpha = image.getchannel("A").getextrema()
     if alpha != (255, 255):
@@ -301,7 +310,7 @@ def main() -> None:
     output.mkdir(parents=True, exist_ok=True)
     prepare_fonts(source / "fonts", output / "fonts")
     for path in source.iterdir():
-        if path.name in ("audio", "cards", "fonts"):
+        if path.name in ("audio", "cards", "fonts", "nature-lake-environment.png"):
             continue
         target = output / path.name
         if path.is_dir():

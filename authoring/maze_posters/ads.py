@@ -39,7 +39,7 @@ def box_art():
         a = rng.uniform(0, 2 * np.pi)
         d.line([(256 + np.cos(a) * 60, 120 + np.sin(a) * 30), (256 + np.cos(a) * 420, 120 + np.sin(a) * 210)], fill=(255, 240, 140, 60), width=3)
     canvas.alpha_composite(sl)
-    paste(canvas, props.mascot().resize((340, 340), Image.LANCZOS), (230, 250), ((-10, 10), 10, .6))
+    paste(canvas, resample(props.mascot(), 340, 340), (230, 250), ((-10, 10), 10, .6))
     canvas.alpha_composite(chrome_text('MAZE', font(BARLOW, 150), (230, 92), angle=6))
     canvas.alpha_composite(chrome_text('95', font(BARLOW, 120), (412, 112), angle=6, depth=6))
     canvas.alpha_composite(starburst(92, 250, 70, 14, (255, 230, 40, 255), (220, 20, 40, 255), 'ENDLESS\nMAZES!', font(BARLOW, 26)))
@@ -76,7 +76,7 @@ def arcade_flyer():
     d.polygon([(440, 236), (476, 254), (480, 480), (452, 490)], fill=(180, 180, 186, 255))
     d.polygon([(322, 236), (442, 222), (444, 252), (320, 262)], fill=(40, 40, 50, 255))
     d.text((382, 242), 'MAZE 95', font=font(BARLOW, 16), fill=(255, 70, 200, 255), anchor='mm')
-    shot = Image.open(FOOT[3]).convert('RGB').resize((100, 76))
+    shot = resample(Image.open(FOOT[3]).convert('RGB'), 100, 76)
     cab.paste(shot, (334, 276))
     d.rectangle([332, 274, 435, 353], outline=(20, 20, 20, 255), width=3)
     d.polygon([(326, 368), (444, 360), (446, 396), (328, 404)], fill=(200, 40, 40, 255))
@@ -119,7 +119,7 @@ def snail_slime():
     d.text((260, 318), 'SNAIL', font=font('ComicNeue-Bold.ttf', 28), fill=(220, 20, 60, 255), anchor='mm')
     d.text((260, 344), 'SLIME', font=font('ComicNeue-Bold.ttf', 28), fill=(30, 90, 220, 255), anchor='mm')
     canvas.alpha_composite(shadowed(tub, (8, 8), 6, .45))
-    paste(canvas, props.mascot().resize((170, 170), Image.LANCZOS), (330, 250), ((4, 6), 4, .4))
+    paste(canvas, resample(props.mascot(), 170, 170), (330, 250), ((4, 6), 4, .4))
     # the title, every letter its own colour and angle
     title = 'SNAIL SLIME!'
     cols = [(255, 240, 40), (40, 220, 255), (255, 80, 40), (120, 255, 60), (255, 255, 255), (0, 0, 0), (255, 60, 200), (60, 255, 160), (255, 200, 40), (90, 120, 255),
@@ -170,7 +170,7 @@ def buddies_shade(mat, p, n, v):
 def collect_all():
     rgb, cov, _ = render(buddies_scene, buddies_shade, sky_gradient([(-1, 0xFFD040), (1, 0xFF7020)]), (0, 1.6, 3.6), (0, .2, 0), 1.0, light=(-.4, 1, .6))
     canvas = to_img(rgb).convert('RGBA')
-    paste(canvas, props.mascot().resize((200, 200), Image.LANCZOS), (300, 170), ((4, 6), 4, .4))
+    paste(canvas, resample(props.mascot(), 200, 200), (300, 170), ((4, 6), 4, .4))
     canvas.alpha_composite(wordart('COLLECT', font(BARLOW, 74), (256, 60), bend=18, outline=3))
     canvas.alpha_composite(wordart('ALL 7!', font(BARLOW, 90), (256, 136), stops=[(0, 0xFFFFFF), (1, 0x40E0FF)], horizontal=False, outline=4, shadow=(5, 5)))
     labels = [('MARBLE', 70, 380), ('BULB', 175, 300), ('PAD', 270, 420), ('DOOR', 448, 330), ('STONE', 345, 430), ('CRATE', 230, 248), ('SNAIL', 420, 190)]

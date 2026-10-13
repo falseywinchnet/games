@@ -73,7 +73,7 @@ def framed(art, style='gallery'):
         out = Image.new('RGBA', (S, S), (0, 0, 0, 255))
         opening = (6, 6, S - 6, S - 6)
     x0, y0, x1, y1 = opening
-    inner = art.convert('RGBA').resize((x1 - x0, y1 - y0), Image.LANCZOS)
+    inner = resample(art.convert('RGBA'), x1 - x0, y1 - y0)
     if style == 'taped':
         sheet = Image.new('RGBA', (x1 - x0 + 24, y1 - y0 + 24), (252, 252, 250, 255))
         sheet.alpha_composite(inner, (12, 12))

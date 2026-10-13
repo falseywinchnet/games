@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw, ImageFilter
 
 import creatures
 import jaks
-from kit import S, font, fbm3, hexc, to_img
+from kit import S, font, fbm3, hexc, to_img, resample, fit_within
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, '..', '..', 'games', 'maze', 'assets', 'residents')
@@ -22,7 +22,7 @@ def fit(img, size=256, pad=4):
     a = np.asarray(img)[..., 3]
     ys, xs = np.nonzero(a > 8)
     img = img.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
-    img.thumbnail((size - 2 * pad, size - pad), Image.LANCZOS)
+    img = fit_within(img, size - 2 * pad, size - pad)
     out = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     out.alpha_composite(img, ((size - img.width) // 2, size - img.height))
     return out
@@ -60,13 +60,13 @@ def wanted(face, name, crime, reward):
     d.text((256, 56), 'WANTED', font=font('LibreBaskerville-Bold.ttf', 76), anchor='mm', fill=(60, 30, 10, 255))
     d.rectangle([110, 102, 402, 362], fill=(250, 246, 236, 255), outline=(60, 30, 10, 255), width=4)
     f = face.copy()
-    f.thumbnail((286, 256), Image.LANCZOS)
+    f = fit_within(f, 286, 256)
     img.alpha_composite(f, (256 - f.width // 2, 360 - f.height))
     d.rectangle([110, 102, 402, 362], outline=(60, 30, 10, 255), width=4)
     d.text((256, 390), name, font=font('LibreBaskerville-Bold.ttf', 30), anchor='mm', fill=(60, 30, 10, 255))
     d.text((256, 426), crime, font=font('LibreBaskerville-Regular.ttf', 18), anchor='mm', fill=(60, 30, 10, 255))
     d.text((256, 468), reward, font=font('LibreBaskerville-Bold.ttf', 24), anchor='mm', fill=(120, 20, 10, 255))
-    return img.resize((256, 256), Image.LANCZOS).convert('RGB')
+    return resample(img, 256, 256).convert('RGB')
 
 
 def wanted_wojak():

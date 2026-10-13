@@ -5,6 +5,7 @@ import sys
 import time
 
 from frames import framed
+from kit import resample
 
 mod = importlib.import_module(sys.argv[1])
 out = sys.argv[2]
@@ -14,5 +15,5 @@ for i, (make, style) in enumerate(mod.ALL):
     if names and make.__name__ not in names:
         continue
     t0 = time.time()
-    framed(make(), style).resize((256, 256), 1).save(os.path.join(out, f'{sys.argv[1]}_{i:02d}_{make.__name__}.png'))
+    resample(framed(make(), style), 256, 256).save(os.path.join(out, f'{sys.argv[1]}_{i:02d}_{make.__name__}.png'))
     print(f'{i:02d} {make.__name__} {time.time() - t0:.1f}s', flush=True)

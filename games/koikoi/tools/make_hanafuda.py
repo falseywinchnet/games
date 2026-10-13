@@ -5,7 +5,8 @@ and a back (hana_back.png), 360 x 504 like the collection's other cards: a cream
 house border, and on it a hanafuda painting in the traditional flat colours (vermilion skies,
 black hills, deep greens) drawn here from simple shapes, plus a small label (the month's
 number and flower, and the card's kind) to help newcomers learn the deck. No borrowed or
-generated images. Drawn at double size and reduced for clean edges.
+generated images. Drawn at double size and reduced for clean edges, with Plan Paint's CONV
+(authoring/conv) in linear light.
 
   python3 tools/make_hanafuda.py <output-directory>
 """
@@ -15,6 +16,9 @@ import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'authoring' / 'conv'))
+import conv  # noqa: E402  Plan Paint's CONV: reduced in linear light, never ringing
 
 W, H = 360, 504
 S = 2  # supersampling
@@ -500,7 +504,7 @@ def face(cid):
         d.text(((PX + PW - 4) * S, (PY + PH + 30) * S), kind, font=f2, fill=col, anchor='rm')
         if kind == 'Bright':
             d.ellipse(((PX + PW - 22) * S, (PY + 8) * S, (PX + PW - 6) * S, (PY + 24) * S), fill=GOLD, outline=INK, width=S)
-    return img.resize((W, H), Image.LANCZOS)
+    return conv.resize_srgb_image(img, W, H)
 
 
 def back():
@@ -526,7 +530,7 @@ def back():
     pen.circle(196, 172, 2.5, '#7a1e1e')
     for x, y in ((150, 160), (165, 205)):
         pen.ellipse(x, y, 10, 5, '#e8c870')
-    return img.resize((W, H), Image.LANCZOS)
+    return conv.resize_srgb_image(img, W, H)
 
 
 def main():

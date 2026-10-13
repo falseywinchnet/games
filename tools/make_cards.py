@@ -2,6 +2,9 @@
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from pathlib import Path
 import math
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'authoring' / 'conv'))
+import conv  # Plan Paint's CONV: the icon's cards are shrunk in linear light, never ringing
 ROOT = Path(__file__).resolve().parents[1] / 'assets'
 ROOT.mkdir(exist_ok=True)
 W, H = 360, 504
@@ -95,7 +98,7 @@ icon=Image.new('RGBA',(1024,1024),(0,0,0,0)); d=ImageDraw.Draw(icon)
 d.rounded_rectangle((24,24,1000,1000),radius=210,fill='#174b3b',outline=GOLD,width=16)
 d.rounded_rectangle((58,58,966,966),radius=180,outline='#65a080',width=8)
 for s in range(4):
-    card=Image.open(ROOT / ('card_%02d.png'%(s*13))).resize((250,350),Image.Resampling.LANCZOS)
+    card=conv.resize_srgb_image(Image.open(ROOT / ('card_%02d.png'%(s*13))).convert('RGBA'),250,350)
     card=card.rotate((1.5-s)*12,resample=Image.Resampling.BICUBIC,expand=True)
     icon.alpha_composite(card,(int(120+s*155),int(310+abs(s-1.5)*25)))
 icon.save(ROOT / 'Games.png')

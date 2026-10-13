@@ -339,13 +339,13 @@ def text3d():
     base = black()
     t = chrome_text('Rainstar', font('LibreBaskerville-Bold.ttf', 70), (256, 256), outline=3, depth=6)
     # turned in space, as the screensaver turned it: squeezed across, tipped, leaning
-    t = t.resize((380, 560), Image.BICUBIC).rotate(10, resample=Image.BICUBIC, expand=False)
+    t = resample(t, 380, 560).rotate(10, resample=Image.BICUBIC, expand=False)
     base.alpha_composite(t, (66, -24))
     return base
 
 
 def maze_saver():
-    return Image.open(ads.FOOT[0]).convert('RGBA').resize((S, S), Image.LANCZOS)
+    return resample(Image.open(ads.FOOT[0]).convert('RGBA'), S, S)
 
 
 # ---------------------------------------------------------------- Memphis, jazz, carpet

@@ -14,6 +14,7 @@ import gallery_a
 import gallery_b
 import residents
 from frames import framed
+from kit import resample
 
 POSTERS = ads.ALL + eras.ALL + [residents.wanted_wojak, residents.wanted_chudjak]
 ART = gallery_a.ALL + gallery_b.ALL  # (painting, frame)
@@ -38,7 +39,7 @@ def main():
             continue
         t0 = time.time()
         name = f'art_{i:02d}_{make.__name__}.png' if named else f'art_{i:02d}.png'
-        framed(make(), frame).resize((256, 256), Image.LANCZOS).save(os.path.join(out, name), optimize=True)
+        resample(framed(make(), frame), 256, 256).save(os.path.join(out, name), optimize=True)
         print(f'art {i:02d} {make.__name__} {time.time() - t0:.1f}s', flush=True)
 
 if __name__ == '__main__':

@@ -87,7 +87,7 @@ def helper():
     canvas = teal_desktop()
     window(canvas, 360, 240, 'MAZE95.EXE', (90, 40))
     inner = layer()
-    shot = Image.open(FOOT[0]).convert('RGB').resize((350, 210))
+    shot = resample(Image.open(FOOT[0]).convert('RGB'), 350, 210)
     inner.paste(shot, (95, 68))
     canvas.alpha_composite(inner)
     # the helper: a folded paper map with googly eyes (no relation to any paper clip)
@@ -313,7 +313,7 @@ def candy():
         d = ImageDraw.Draw(m)
         d.rounded_rectangle([x - 44, y - 50, x + 44, y + 46], 26, fill=c + (150,), outline=c + (255,), width=2)
         d.rounded_rectangle([x - 32, y - 38, x + 32, y + 10], 6, fill=(20, 20, 30, 255))
-        shot = Image.open(FOOT[i % 6]).convert('RGB').resize((60, 44))
+        shot = resample(Image.open(FOOT[i % 6]).convert('RGB'), 60, 44)
         m.paste(shot, (x - 30, y - 36))
         for k in range(4):
             d.line([(x - 30 + k * 18, y + 18), (x - 20 + k * 18, y + 38)], fill=tuple(int(v * .7) for v in c) + (120,), width=2)

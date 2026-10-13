@@ -7,6 +7,10 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 S = 512  # working size; posters ship at 256
 
 import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'conv'))
+import conv as _conv  # noqa: E402  Plan Paint's CONV (authoring/conv)
 
 FONTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'assets', 'fonts') + os.sep  # the repository's own OFL fonts
 
@@ -447,9 +451,23 @@ def vhs(rgb, seed=1, bands=3):
     return out
 
 
+def resample(img, width, height):
+    """Every resize of the posters: Plan Paint's CONV, in linear light with premultiplied
+    alpha, rounded to 8 bits only at the end (authoring/conv). It never rings."""
+    if img.size == (width, height):
+        return img.copy()
+    return _conv.resize_srgb_image(img, width, height)
+
+
+def fit_within(img, width, height):
+    """Scaled down, keeping its shape, to fit within width x height (never enlarged)."""
+    k = min(width / img.width, height / img.height, 1.0)
+    return resample(img, max(1, round(img.width * k)), max(1, round(img.height * k)))
+
+
 def finish(rgb, size=256):
     im = to_img(np.clip(rgb, 0, 1))
-    return im.resize((size, size), Image.LANCZOS)
+    return resample(im, size, size)
 
 
 def sd_capsule(p, a, b, r):
@@ -811,7 +829,7 @@ def cd_badge(cx, cy, r=30, label='CD-ROM'):
 def frame_shot(lay, path, box, border=(240, 240, 240, 255)):
     """a screenshot with a chunky border, as on the back of a box"""
     x0, y0, x1, y1 = box
-    im = Image.open(path).convert('RGB').resize((x1 - x0, y1 - y0), Image.LANCZOS)
+    im = resample(Image.open(path).convert('RGB'), x1 - x0, y1 - y0)
     d = ImageDraw.Draw(lay)
     d.rectangle([x0 - 4, y0 - 4, x1 + 3, y1 + 3], fill=border, outline=(0, 0, 0, 255), width=2)
     lay.paste(im, (x0, y0))
