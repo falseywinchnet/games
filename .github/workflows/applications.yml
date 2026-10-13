@@ -85,15 +85,6 @@ jobs:
           - runner: windows-2022
             platform: windows-x64
             shell: 'msys2 {0}'
-          - runner: macos-15
-            platform: macos-arm64
-            shell: bash
-          - runner: ubuntu-24.04
-            platform: linux-amd64
-            shell: bash
-          - runner: ubuntu-24.04-arm
-            platform: linux-arm64
-            shell: bash
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     defaults:

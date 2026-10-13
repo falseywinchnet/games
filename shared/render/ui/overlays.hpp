@@ -59,7 +59,7 @@ inline void refresh_overlays_in(const gf::Control& control, const gf::Rect& dama
 // A frame was published for `owner`, changing `local_damage` (the owner's own points;
 // empty for all of it): every overlay over that paints again.
 inline void refresh_overlays(const gf::Control& owner, gf::Rect local_damage = {}) {
-#if defined(__APPLE__)
+#if 1  // TRIAL: off on every host, to see GUI.Forms #69 alone on Windows
     // GUI.Forms repaints an overlay's share of each new live frame itself (3e4812b, #69:
     // the core marks the overlap, and the macOS host redraws it in the same update).
     // Asking again only added far-apart invalidations whose union repainted the window.
