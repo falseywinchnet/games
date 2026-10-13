@@ -120,4 +120,9 @@ void draw_card_backs() {
     crew_run(&crew, drawn_back_count, draw_back, &job);
 }
 
+void run_on_every_core(int count, void (*job)(void*, int) noexcept, void* context) {
+    Crew crew{crew_size()};
+    crew_run(&crew, count, job, context);
+}
+
 }  // namespace games

@@ -3,7 +3,7 @@
 #include "card_backs.hpp"
 #include "table_art.hpp"
 #include "table_light.hpp"
-#include "paper.hpp"
+#include "card_print.hpp"
 #include "gui_forms/window.hpp"
 #include "help_route.hpp"
 #include "presentation.hpp"
@@ -27,169 +27,59 @@ const char* audio_name(Kind kind) {
     const char* names[] = {"solitaire", "spider", "freecell", "hearts"};
     return names[static_cast<int>(kind)];
 }
-// The card's paper, as one layer laid over the printed artwork. Every face was printed on a
-// flat stock of #FBFCFC; this layer turns that stock into paper, worked out in linear light:
-//   - the sheet: the paper engine's copy stock (shared/paper) in the artwork's own cool white,
-//     its fibres laid at random and never warmed, a flat mat as paper is;
-//   - the air-cushion finish: dimples pressed into the stock, baked once offline on a grid four
-//     times finer than the screen and brought to device pixels with Plan Paint's CONV
-//     (authoring/card_paper, assets/card_emboss.r16), here kKeepDepth sRGB levels deep;
-//   - the lamp's falloff across the card and the rolled edge catching the light;
-//   - exposure: the paper's average set at kPaperLevel in sRGB, the highlights above a knee
-//     rolled off toward white rather than clipped, and only then encoded and rounded.
-// Over the stock the layer is black, as deep as the paper is darker than the stock, so a face
-// shows that paper and its ink takes the same shading (a multiply; it never lightens). The artwork's card
-// is a 360 x 504 image whose rounded rectangle starts 2 px in with an 18 px corner radius.
-constexpr double kPaperLevel = 238;   // the paper's average, sRGB 0..255
-constexpr double kKeepDepth = 6;      // the emboss's depth: its standard deviation, sRGB levels
-constexpr double kKnee = .92;         // linear light above which highlights roll off
-
-double to_linear(double c) {
-    const double v = c <= .04045 ? c / 12.92 : std::pow((c + .055) / 1.055, 2.4);
-    return v;
-}
-double to_srgb(double x) {
-    const double v = x <= .0031308 ? x * 12.92 : 1.055 * std::pow(x, 1 / 2.4) - .055;
-    return std::clamp(v, 0.0, 1.0);
-}
-// Linear below the knee; above it, a smooth approach to 1.
-double roll_off(double x) {
-    if (x < kKnee)
-        return x;
-    const double result = kKnee + (1 - kKnee) * std::tanh((x - kKnee) / (1 - kKnee));
-    return result;
-}
-
-// The baked emboss: the light's deviation, in standard deviations, device pixel by pixel.
-struct Emboss {
-    int width = 0, height = 0;
-    std::vector<double> deviation;  // width * height, row-major
+// A card's artwork brought to the paper's size, on any core: a face or back from its PNG, or
+// a drawn back (an empty path).
+struct ArtWork {
+    std::string path;
+    int design = -1;
+    CardArt* out = nullptr;
+    bool made = false;
+    int face = -1;  // which face, or -1 for the back
 };
-Emboss load_emboss() {
-    Emboss out;
-    std::ifstream file(asset_directory() + "/card_emboss.r16", std::ios::binary);
-    char magic[4] = {};
-    std::uint32_t size[2] = {};
-    if (!file.read(magic, 4) || std::string(magic, 4) != "CEMB" || !file.read(reinterpret_cast<char*>(size), 8))
-        return out;   // without it the paper is smooth
-    if (size[0] == 0 || size[1] == 0 || size[0] > 4096 || size[1] > 4096)
-        return out;
-    std::vector<std::uint16_t> codes(static_cast<std::size_t>(size[0]) * size[1]);
-    if (!file.read(reinterpret_cast<char*>(codes.data()), static_cast<std::streamsize>(codes.size() * 2)))
-        return out;
-    out.width = static_cast<int>(size[0]);
-    out.height = static_cast<int>(size[1]);
-    out.deviation.resize(codes.size());
-    for (std::size_t i = 0; i < codes.size(); ++i)
-        out.deviation[i] = (static_cast<double>(codes[i]) - 32768.0) / 4096.0;
-    return out;
-}
-const Emboss& card_emboss() {
-    static const Emboss loaded = load_emboss();
-    return loaded;
-}
-
-std::vector<std::byte> card_finish(int w, int h, double pixels_per_point) {
-    std::vector<std::byte> out(static_cast<std::size_t>(w) * h * 4);
-    const double s = w / 360.0;
-    const double inset = 2.4 * s, radius = 18 * s;
-    const double half_w = w * .5 - inset, half_h = h * .5 - inset;
-    // Signed distance to the card's rounded outline (negative inside).
-    struct Outline {
-        double half_w, half_h, radius, cx, cy;
-        double operator()(double x, double y) const {
-            const double qx = std::abs(x - cx) - (half_w - radius),
-                         qy = std::abs(y - cy) - (half_h - radius);
-            const double ox = std::max(qx, 0.0), oy = std::max(qy, 0.0);
-            return std::hypot(ox, oy) + std::min(std::max(qx, qy), 0.0) - radius;
-        }
-    };
-    const Outline outline{half_w, half_h, radius, w * .5, h * .5};
-    // The sheet, in linear light, its brightest channel averaging 1.
-    paper::Parameters sheet_parameters = paper::preset(paper::Preset::copy);
-    sheet_parameters.colour = {0.991, 1.0, 0.997};
-    sheet_parameters.machine_grain = 1.0;
-    sheet_parameters.warmth = 0.0;
-    sheet_parameters.pixels_per_point = pixels_per_point;
-    paper::Image sheet;
-    const bool have_sheet = paper::generate_tile(sheet_parameters, w, h, sheet);
-    const std::size_t pixels = static_cast<std::size_t>(w) * h;
-    std::vector<double> sheet_linear(pixels * 3, 1.0);
-    if (have_sheet) {
-        double sums[3] = {};
-        for (std::size_t i = 0; i < pixels; ++i)
-            for (int c = 0; c < 3; ++c) {
-                const double v = to_linear(sheet.rgba[i * 4 + static_cast<std::size_t>(c)] / 255.0);
-                sheet_linear[i * 3 + static_cast<std::size_t>(c)] = v;
-                sums[c] += v;
-            }
-        const double brightest = std::max({sums[0], sums[1], sums[2]}) / static_cast<double>(pixels);
-        for (double& v : sheet_linear)
-            v /= brightest;
+struct ArtRound {
+    int width = 0, height = 0;
+    std::vector<ArtWork> works;
+};
+void make_art(void* context, int index) noexcept {
+    ArtRound& round = *static_cast<ArtRound*>(context);
+    ArtWork& work = round.works[static_cast<std::size_t>(index)];
+    try {
+        CardArt full;
+        if (work.path.empty())
+            full = card_art_from_bgra(card_art_width, card_art_height, drawn_card_back(work.design));
+        else if (!load_card_png(work.path, full))
+            return;
+        if (full.width == 0)
+            return;
+        reduce_card_art(full, round.width, round.height, *work.out);
+        work.made = (*work.out).width == round.width;
+    } catch (...) {
+        work.made = false;  // drawn the old way
     }
-    // The shading: emboss, lamp and rolled edge; then exposure.
-    const Emboss& emboss = card_emboss();
-    const double target = to_linear(kPaperLevel / 255.0);
-    const double level = to_linear((kPaperLevel + .5) / 255.0) - to_linear((kPaperLevel - .5) / 255.0);
-    const double depth = kKeepDepth * level / target;
-    const double lx = -.5, ly = -.7;  // toward the lamp, in the card plane
-    const double rim = std::max(1.6, 3.2 * s);
-    std::vector<double> shade(pixels, 0.0);
-    std::vector<double> cover(pixels, 0.0);
-    double sum = 0;
-    long long counted = 0;
-    for (int y = 0; y < h; ++y)
-        for (int x = 0; x < w; ++x) {
-            const std::size_t i = static_cast<std::size_t>(y) * w + x;
-            const double px = x + .5, py = y + .5;
-            const double d = outline(px, py);
-            cover[i] = std::clamp(.5 - d, 0.0, 1.0);
-            if (cover[i] <= 0)
-                continue;
-            double relief = 1;
-            if (emboss.width > 0) {
-                const double e = emboss.deviation[static_cast<std::size_t>(y % emboss.height) * emboss.width + x % emboss.width];
-                relief = 1 + e * depth;
-            }
-            const double u = px / w, v = py / h, diagonal = u * .45 + v * .55;
-            const double falloff = 1 + .10 * (1 - diagonal) * (1 - diagonal) - .10 * diagonal * diagonal * diagonal;
-            double edge = 1;
-            const double depth_in = -d;
-            if (depth_in < rim) {
-                const double nx = outline(px + .5, py) - outline(px - .5, py),
-                             ny = outline(px, py + .5) - outline(px, py - .5);
-                const double band = 1 - depth_in / rim;
-                edge = 1 + (nx * lx + ny * ly) * band * band * .6;
-            }
-            shade[i] = relief * falloff * edge;
-            if (cover[i] > .99) {
-                sum += shade[i];
-                ++counted;
-            }
-        }
-    const double exposure = counted > 0 ? target / (sum / static_cast<double>(counted)) : 1.0;
-    // The paper in sRGB, and the layer that turns the stock into it.
-    const double stock[3] = {251 / 255.0, 252 / 255.0, 252 / 255.0};
-    const double stock_mean = (stock[0] + stock[1] + stock[2]) / 3;
-    for (std::size_t i = 0; i < pixels; ++i) {
-        if (cover[i] <= 0)
-            continue;
-        double paper_mean = 0;
-        for (int c = 0; c < 3; ++c)
-            paper_mean += to_srgb(roll_off(sheet_linear[i * 3 + static_cast<std::size_t>(c)] * shade[i] * exposure));
-        paper_mean /= 3;
-        // Black only: a black layer multiplies what is under it, ink and paper alike, so the
-        // ink takes the paper's shading and stays ink. (A white layer for paper brighter than
-        // the stock lifted the ink with it, pitting it with pale specks.) Paper meant to be
-        // brighter than the stock stays at the stock: the lamp's brightest few percent.
-        const double a = std::clamp(1 - paper_mean / stock_mean, 0.0, 1.0) * cover[i];
-        const std::size_t n = i * 4;
-        out[n] = std::byte{0};
-        out[n + 1] = std::byte{0};
-        out[n + 2] = std::byte{0};
-        out[n + 3] = static_cast<std::byte>(std::lround(a * 255));
+}
+// One card's picture, on any core.
+struct Sheet {
+    const CardArt* art = nullptr;
+    int x = 0, y = 0;
+    CardGlint glint;
+    std::vector<std::byte> pixels;
+};
+struct PrintRound {
+    const CardPaper* paper = nullptr;
+    LightAt light;
+    std::vector<Sheet> sheets;
+};
+void print_sheet(void* context, int index) noexcept {
+    PrintRound& round = *static_cast<PrintRound*>(context);
+    Sheet& sheet = round.sheets[static_cast<std::size_t>(index)];
+    LightAt at = round.light;
+    at.x = sheet.x;
+    at.y = sheet.y;
+    try {
+        print_card(*sheet.art, *round.paper, at, sheet.glint, sheet.pixels);
+    } catch (...) {
+        sheet.pixels.clear();
     }
-    return out;
 }
 // The Hearts table's own button (Pass cards / Next hand): a glossy crimson pill
 // with a white heart, rimmed in gold.
@@ -355,6 +245,7 @@ void Table::on_detaching_from_window(gf::Window& window) noexcept {
         static_cast<void>(window.remove_image(finish_));
     finish_ = {};
     finish_width_ = finish_height_ = 0;
+    forget_pictures(window);
     if (light_.value)
         static_cast<void>(window.remove_image(light_));
     light_ = {};
@@ -380,6 +271,7 @@ void Table::arrange(gf::Rect bounds) {
     layout_cards(false);
     refresh_finish();
     refresh_light();
+    request_tick();
 }
 void Table::refresh_light() {
     gf::Window* window = attached_window();
@@ -400,6 +292,8 @@ void Table::refresh_light() {
         light_width_ = b.width;
         light_height_ = b.height;
         light_card_ = card_w_;
+        light_grid_ = light;
+        ++print_generation_;
     }
 }
 void Table::refresh_finish() {
@@ -407,11 +301,16 @@ void Table::refresh_finish() {
     if (!window)
         return;
     const double scale = std::max(1.0, (*window).scale());
+    scale_ = scale;
     const int w = std::max(8, static_cast<int>(std::lround(card_w_ * scale)));
     const int h = std::max(8, static_cast<int>(std::lround(card_w_ * 1.4 * scale)));
     if (finish_.value && w == finish_width_ && h == finish_height_)
         return;
-    const std::vector<std::byte> pixels = card_finish(w, h, scale);
+    if (finish_width_ > 0)
+        resized_at_ = gf::FrameClock::now();  // a resize: printed when it settles
+    paper_ = make_card_paper(w, h, scale, 12 * emboss_, .8 + 5.2 * emboss_size_);
+    ++print_generation_;
+    const std::vector<std::byte> pixels = paper_overlay(paper_);
     gf::ImageLoadResult result =
         finish_.value ? (*window).replace_bgra32_premultiplied(finish_, w, h, w * 4, pixels, *this)
                       : (*window).load_bgra32_premultiplied(w, h, w * 4, pixels);
@@ -420,6 +319,175 @@ void Table::refresh_finish() {
         finish_width_ = w;
         finish_height_ = h;
     }
+    // The shadow at whole device pixels: the artwork's is 440 x 584 about a 360 x 504 card,
+    // 40 px of it all round; in the hand a card rides higher and its shadow is larger.
+    if (shadow_art_.width == 0 && !load_card_png(asset_directory() + "/card_shadow.png", shadow_art_))
+        return;
+    const double margin = 40.0 * w / 360;
+    for (int lifted = 0; lifted < 2; ++lifted) {
+        const double grow = lifted ? 1.06 : 1;
+        CardArt shadow;
+        reduce_card_art(shadow_art_, static_cast<int>(std::lround((w + 2 * margin) * grow)),
+                        static_cast<int>(std::lround((w * 1.4 + 2 * margin) * grow)), shadow);
+        const std::vector<std::byte> bgra = premultiplied_bgra(shadow);
+        const std::uint32_t sw = static_cast<std::uint32_t>(shadow.width), sh = static_cast<std::uint32_t>(shadow.height);
+        gf::ImageId& image = lifted ? lifted_shadow_ : rest_shadow_;
+        gf::ImageLoadResult made = image.value
+                                       ? (*window).replace_bgra32_premultiplied(image, sw, sh, sw * 4, bgra, *this)
+                                       : (*window).load_bgra32_premultiplied(sw, sh, sw * 4, bgra);
+        image = made ? made.image : gf::ImageId{};
+    }
+}
+bool Table::picture_shows(const Printed& printed, const Card& card, bool up) const {
+    const bool shows = printed.image.value && printed.card == card.id && printed.generation == print_generation_ &&
+                       printed.width == paper_.width && printed.up == up && (up || printed.design == back_);
+    return shows;
+}
+void Table::print_stale() {
+    gf::Window* window = attached_window();
+    if (!window || paper_.width <= 0 || light_grid_.width <= 0)
+        return;
+    // What is out of date: the card under the pointer glinting, then every card in sight.
+    std::vector<Printed*> targets;
+    std::vector<int> cards;
+    std::vector<bool> glints;
+    if (glint_ && glint_card_ >= 0 && glint_card_ < 104) {
+        const Sprite& s = sprites_[static_cast<std::size_t>(glint_card_)];
+        const int x = static_cast<int>(std::lround(s.rect.x * scale_)), y = static_cast<int>(std::lround(s.rect.y * scale_));
+        if (s.visible && s.card.up && !(picture_shows(glinted_, s.card, true) && glinted_.x == x && glinted_.y == y)) {
+            targets.push_back(&glinted_);
+            cards.push_back(glint_card_);
+            glints.push_back(true);
+        }
+    }
+    for (const Pile& pile : game.state.piles)
+        for (const Card& c : pile) {
+            if (c.id < 0 || c.id >= 104)
+                continue;
+            const Sprite& s = sprites_[static_cast<std::size_t>(c.id)];
+            Printed& printed = printed_[static_cast<std::size_t>(c.id)];
+            const int x = static_cast<int>(std::lround(s.rect.x * scale_)), y = static_cast<int>(std::lround(s.rect.y * scale_));
+            if (!s.visible || (picture_shows(printed, s.card, s.card.up) && printed.x == x && printed.y == y))
+                continue;
+            targets.push_back(&printed);
+            cards.push_back(c.id);
+            glints.push_back(false);
+        }
+    if (targets.empty())
+        return;
+    // The artwork they want, brought to the paper's size where it is not yet.
+    if (back_art_design_ != back_ || back_art_.width != paper_.width || back_art_.height != paper_.height) {
+        if (back_art_design_ != back_)
+            back_failed_ = false;
+        back_art_design_ = back_;
+        back_art_ = {};
+    }
+    ArtRound arts{paper_.width, paper_.height, {}};
+    std::array<bool, 52> wanted{};
+    bool back_wanted = false;
+    for (int card : cards) {
+        const Card& c = sprites_[static_cast<std::size_t>(card)].card;
+        if (c.up) {
+            const std::size_t k = static_cast<std::size_t>(std::clamp(c.suit * 13 + c.rank - 1, 0, 51));
+            if (wanted[k] || face_failed_[k] || (face_art_[k].width == paper_.width && face_art_[k].height == paper_.height))
+                continue;
+            wanted[k] = true;
+            const std::string number = k < 10 ? "0" + std::to_string(k) : std::to_string(k);
+            arts.works.push_back({asset_directory() + "/classic_" + number + ".png", -1, &face_art_[k], false, static_cast<int>(k)});
+        } else if (!back_wanted && !back_failed_ && back_art_.width == 0) {
+            back_wanted = true;
+            const std::string path = back_ < painted_back_count ? asset_directory() + "/back_" + std::to_string(back_) + ".png"
+                                     : back_ == classic_back   ? asset_directory() + "/" + classic_back_file
+                                                               : std::string();
+            arts.works.push_back({path, back_, &back_art_, false, -1});
+        }
+    }
+    if (!arts.works.empty())
+        run_on_every_core(static_cast<int>(arts.works.size()), make_art, &arts);
+    for (const ArtWork& work : arts.works)
+        if (!work.made) {
+            if (work.face >= 0)
+                face_failed_[static_cast<std::size_t>(work.face)] = true;
+            else
+                back_failed_ = true;
+        }
+    // The pictures, each on its own.
+    const gf::Rect b = client_rectangle();
+    PrintRound round{&paper_, {&light_grid_, b.width * scale_, b.height * scale_, 0, 0}, {}};
+    std::vector<std::size_t> printing;
+    for (std::size_t i = 0; i < targets.size(); ++i) {
+        const Sprite& s = sprites_[static_cast<std::size_t>(cards[i])];
+        const CardArt* art = nullptr;
+        if (s.card.up) {
+            const std::size_t k = static_cast<std::size_t>(std::clamp(s.card.suit * 13 + s.card.rank - 1, 0, 51));
+            if (face_art_[k].width == paper_.width && face_art_[k].height == paper_.height)
+                art = &face_art_[k];
+        } else if (back_art_.width == paper_.width && back_art_.height == paper_.height) {
+            art = &back_art_;
+        }
+        if (!art)
+            continue;  // drawn the old way
+        round.sheets.push_back({art, static_cast<int>(std::lround(s.rect.x * scale_)),
+                                static_cast<int>(std::lround(s.rect.y * scale_)),
+                                glints[i] ? CardGlint{sparkle_, glare_, 1.5 + 6.5 * grain_,
+                                                      static_cast<std::uint32_t>(cards[i]) * 2654435761U}
+                                          : CardGlint{},
+                                {}});
+        printing.push_back(i);
+    }
+    if (round.sheets.empty())
+        return;
+    run_on_every_core(static_cast<int>(round.sheets.size()), print_sheet, &round);
+    for (std::size_t n = 0; n < printing.size(); ++n)
+        if (!round.sheets[n].pixels.empty())
+            keep_print(*targets[printing[n]], sprites_[static_cast<std::size_t>(cards[printing[n]])], round.sheets[n].pixels);
+}
+void Table::keep_print(Printed& printed, const Sprite& sprite, std::span<const std::byte> pixels) {
+    gf::Window& window = *attached_window();
+    const int x = static_cast<int>(std::lround(sprite.rect.x * scale_)), y = static_cast<int>(std::lround(sprite.rect.y * scale_));
+    const std::uint32_t w = static_cast<std::uint32_t>(paper_.width), h = static_cast<std::uint32_t>(paper_.height);
+    const gf::Rect place{x / scale_, y / scale_, w / scale_, h / scale_};
+    gf::ImageLoadResult result;
+    if (printed.image.value && printed.width == paper_.width && printed.height == paper_.height)
+        // the same size: only where the card lies is painted again
+        result = window.patch_bgra32_premultiplied(printed.image, 0, 0, w, h, w * 4, pixels, *this, place);
+    else if (printed.image.value)
+        result = window.replace_bgra32_premultiplied(printed.image, w, h, w * 4, pixels, *this);
+    else {
+        result = window.load_bgra32_premultiplied(w, h, w * 4, pixels);
+        invalidate(place);
+    }
+    if (!result)
+        return;
+    printed.image = result.image;
+    printed.width = paper_.width;
+    printed.height = paper_.height;
+    printed.x = x;
+    printed.y = y;
+    printed.card = sprite.card.id;
+    printed.up = sprite.card.up;
+    printed.design = sprite.card.up ? -1 : back_;
+    printed.generation = print_generation_;
+}
+void Table::forget_pictures(gf::Window& window) {
+    for (Printed& printed : printed_) {
+        if (printed.image.value)
+            static_cast<void>(window.remove_image(printed.image));
+        printed = {};
+    }
+    if (glinted_.image.value)
+        static_cast<void>(window.remove_image(glinted_.image));
+    glinted_ = {};
+    for (gf::ImageId* image : {&rest_shadow_, &lifted_shadow_}) {
+        if ((*image).value)
+            static_cast<void>(window.remove_image(*image));
+        *image = {};
+    }
+    face_art_ = {};
+    face_failed_ = {};
+    back_art_ = {};
+    back_art_design_ = -1;
+    paper_ = {};
 }
 void Table::layout_cards(bool animate) {
     gf::Rect bounds = client_rectangle();
@@ -580,8 +648,8 @@ void Table::layout_cards(bool animate) {
     dealing_ = false;
     animating_ = animate && !reduced_;
     animation_start_ = gf::FrameClock::now();
-    if (animating_)
-        request_tick();
+    // at rest too: what moved is printed again where it lies
+    request_tick();
     invalidate(gf::Dirty::paint);
 }
 void Table::request_tick() {
@@ -599,10 +667,30 @@ void Table::reload_preferences() {
     reduced_ = masters.reduced;
     sound_ = masters.sound;
     music_ = masters.music;
+    if (move_glow_ != masters.card_move_glow || glint_ != masters.card_glint || sparkle_ != masters.card_sparkle ||
+        glare_ != masters.card_glare || grain_ != masters.card_grain) {
+        move_glow_ = masters.card_move_glow;
+        glint_ = masters.card_glint;
+        sparkle_ = masters.card_sparkle;
+        glare_ = masters.card_glare;
+        grain_ = masters.card_grain;
+        glinted_.generation = -1;  // printed again as it now glints
+        invalidate(gf::Dirty::paint);
+        request_tick();
+    }
+    if (emboss_ != masters.card_emboss || emboss_size_ != masters.card_emboss_size) {
+        emboss_ = masters.card_emboss;
+        emboss_size_ = masters.card_emboss_size;
+        finish_width_ = 0;  // the paper is made again, and every card printed on it
+        refresh_finish();
+        invalidate(gf::Dirty::paint);
+        request_tick();
+    }
     if (back_ != masters.card_back) {
         back_ = masters.card_back;
         load_back();
         invalidate(gf::Dirty::paint);
+        request_tick();
     }
 }
 void Table::load_back() {
@@ -692,10 +780,18 @@ void Table::tick() {
             persist();
         }
         dealer_.save_if_due();
-        // At rest, the timer wakes only for the next computer play, and to see whether the
-        // dealer has finished a deal (a few times a second, only while it works).
+        // At rest, cards are printed where they lie (not in the hand, nor while the window is
+        // being sized); then the timer wakes only for the next computer play, and to see
+        // whether the dealer has finished a deal (a few times a second, only while it works).
+        const gf::FrameTime settled = resized_at_ + std::chrono::milliseconds(150);
+        const bool sizing = now < settled;
+        if (!dragging_ && !sizing)
+            print_stale();
         const bool playing = ai && panel_ == 0;
-        if (!playing && !dealer_.busy())
+        if (sizing && !dragging_) {
+            waiting_ai_ = true;
+            (*timer_).start_at(playing ? std::min(ai_due_, settled) : settled);
+        } else if (!playing && !dealer_.busy())
             (*timer_).stop();
         else {
             waiting_ai_ = true;
@@ -815,17 +911,56 @@ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
              r.height * grow};
     }
     const double full_width = r.width;
-    if (animating_ && s.flipping && s.flip_progress < 1) {
+    const bool turning = animating_ && s.flipping && s.flip_progress < 1;
+    if (turning) {
         double turn = s.flip_progress;
         double width = r.width * std::max(.018, std::abs(std::cos(turn * 3.141592653589793)));
         r.x += (r.width - width) * .5;
         r.width = width;
         face_up = turn < .5 ? s.prior_up : s.card.up;
     }
-    // A card turning edge-on casts a narrower shadow, never a shorter one.
-    const double shadow_scale = r.width / 360.0, shadow_height = full_width / 360.0;
     // A card in the hand rides higher: its shadow falls further and softer.
     const bool lifted = dragging_ && s.pile == selection_ && s.index >= selected_index_;
+    // A card that can move, under the pointer (with any run on it), glows and brightens:
+    // a pale lamp-light halo round its edge, and a wash over the face.
+    // In a Hearts hand only the card itself: the cards after it are not a run.
+    const bool covered = game.state.kind == Kind::hearts ? s.index == lift_index_
+                                                         : s.index >= lift_index_;
+    const bool hovered = move_glow_ && !selected && !lifted && s.pile == lift_pile_ && !animating_ && covered;
+    const std::size_t id = static_cast<std::size_t>(std::clamp(s.card.id, 0, 103));
+    const Printed& printed = printed_[id];
+    const bool pictured = picture_shows(printed, s.card, face_up);
+    // Flat on the table or in the hand, at the cards' own size: its picture, copied whole at
+    // whole device pixels (where it was printed, or, moved, until it is printed again).
+    const bool whole = pictured && rise <= 0 && !turning && rest_shadow_.value && lifted_shadow_.value &&
+                       std::abs(r.width * scale_ - paper_.width) < .5;
+    if (whole) {
+        const int x = static_cast<int>(std::lround(r.x * scale_)), y = static_cast<int>(std::lround(r.y * scale_));
+        const double w = paper_.width, margin = 40.0 * w / 360;
+        // as the artwork's shadow is drawn below: risen by a full height in the hand
+        const double grow = lifted ? 1.06 : 1, drop = lifted ? w * .07 : 0;
+        const double shadow_x = static_cast<double>(std::lround(x - margin * grow + drop * .6)),
+                     shadow_y = static_cast<double>(std::lround(y - margin * grow + drop));
+        const double shadow_w = static_cast<double>(std::lround((w + 2 * margin) * grow)),
+                     shadow_h = static_cast<double>(std::lround((w * 1.4 + 2 * margin) * grow));
+        p.draw_image(lifted ? lifted_shadow_ : rest_shadow_,
+                     {shadow_x / scale_, shadow_y / scale_, shadow_w / scale_, shadow_h / scale_});
+        const gf::Rect at{x / scale_, y / scale_, paper_.width / scale_, paper_.height / scale_};
+        if (selected) {
+            p.fill_rounded_rect(enlarged(at, 4), 9, gf::Color::rgba(248, 220, 119));
+            p.draw_box_shadow(at, 7, {0, 0}, 9, 3, gf::Color::rgba(255, 220, 103, 100));
+        }
+        if (hovered)
+            p.draw_box_shadow(at, 7, {0, 0}, 14, 3, gf::Color::rgba(255, 244, 196, 215));
+        const bool glinting = glint_ && face_up && !animating_ && static_cast<int>(id) == glint_card_ &&
+                              picture_shows(glinted_, s.card, true) && glinted_.x == x && glinted_.y == y;
+        p.draw_image(glinting ? glinted_.image : printed.image, at);
+        if (hovered)
+            p.fill_rounded_rect(at, 6, gf::Color::rgba(255, 253, 240, 120));
+        return;
+    }
+    // A card turning edge-on casts a narrower shadow, never a shorter one.
+    const double shadow_scale = r.width / 360.0, shadow_height = full_width / 360.0;
     const double height = lifted ? 1 : rise;
     const double drop = r.width * .07 * height, grow = 1 + .06 * height;
     p.draw_image(shadow_,
@@ -836,25 +971,24 @@ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
         p.fill_rounded_rect(enlarged(r, 4), 9, gf::Color::rgba(248, 220, 119));
         p.draw_box_shadow(r, 7, {0, 0}, 9, 3, gf::Color::rgba(255, 220, 103, 100));
     }
-    // A card that can move, under the pointer (with any run on it), glows and brightens:
-    // a pale lamp-light halo round its edge, and a wash over the face.
-    // In a Hearts hand only the card itself: the cards after it are not a run.
-    const bool covered = game.state.kind == Kind::hearts ? s.index == lift_index_
-                                                         : s.index >= lift_index_;
-    const bool hovered = !selected && !lifted && s.pile == lift_pile_ && !animating_ && covered;
     if (hovered)
         p.draw_box_shadow(r, 7, {0, 0}, 14, 3, gf::Color::rgba(255, 244, 196, 215));
-    const std::size_t which = static_cast<std::size_t>(s.card.suit * 13 + s.card.rank - 1);
-    const gf::ImageId face = faces_[which];
-    p.draw_image(face_up ? face : backs_[back_], r);
-    if (finish_.value)
-        p.draw_image(finish_, r);
-    if (light_.value) {
-        // The room's light where the card lies: its gloss changes as it crosses the table.
-        p.save();
-        p.clip_rounded_rect(r, 6);
-        p.draw_image(light_, client_rectangle());
-        p.restore();
+    if (pictured) {
+        // In the air: its picture, drawn to the card's place (a draft, printed again on landing).
+        p.draw_image(printed.image, r);
+    } else {
+        // Not printed yet: the artwork, the paper and the room's light, layer by layer.
+        const std::size_t which = static_cast<std::size_t>(s.card.suit * 13 + s.card.rank - 1);
+        p.draw_image(face_up ? faces_[which] : backs_[back_], r);
+        if (finish_.value)
+            p.draw_image(finish_, r);
+        if (light_.value) {
+            // The room's light where the card lies: its gloss changes as it crosses the table.
+            p.save();
+            p.clip_rounded_rect(r, 6);
+            p.draw_image(light_, client_rectangle());
+            p.restore();
+        }
     }
     if (hovered)
         p.fill_rounded_rect(r, 6, gf::Color::rgba(255, 253, 240, 120));
@@ -1383,6 +1517,20 @@ std::vector<GameSetting> Table::settings() const {
                         : game.state.spider_suits == 2 ? 1.0
                                                        : 0.0,
                         {"One", "Two", "Four"}, 0, 2, 1, "Changing it deals again."});
+    list.push_back({"move_glow", "Glow on movable cards", GameSetting::Kind::toggle, move_glow_ ? 1.0 : 0.0, {}, 0, 1, 1,
+                    "A card that can move glows when the pointer is over it. For every card game."});
+    list.push_back({"glint", "Glint", GameSetting::Kind::toggle, glint_ ? 1.0 : 0.0, {}, 0, 1, 1,
+                    "The card under the pointer catches the light in its finish. For every card game."});
+    list.push_back({"sparkle", "Glint sparkle", GameSetting::Kind::slider, sparkle_, {}, 0, 1, .05,
+                    "Facets of the finish catching the lamp, on the paper."});
+    list.push_back({"grain", "Glint size", GameSetting::Kind::slider, grain_, {}, 0, 1, .05,
+                    "How large each glinting facet is."});
+    list.push_back({"glare", "Glint glare", GameSetting::Kind::slider, glare_, {}, 0, 1, .05,
+                    "The lamp mirrored in the varnish: a soft band across the card."});
+    list.push_back({"emboss", "Card emboss", GameSetting::Kind::slider, emboss_, {}, 0, 1, .05,
+                    "How deep the finish's dimples look on every card."});
+    list.push_back({"emboss_size", "Emboss size", GameSetting::Kind::slider, emboss_size_, {}, 0, 1, .05,
+                    "How large the finish's dimples are."});
     if (game.state.kind != Kind::hearts)
         list.push_back({"level", "Deals", GameSetting::Kind::choice,
                         static_cast<double>(levels_[static_cast<int>(game.state.kind)]),
@@ -1393,6 +1541,27 @@ std::vector<GameSetting> Table::settings() const {
 }
 void Table::change_setting(std::string_view id, double value) {
     const int choice = static_cast<int>(std::lround(value));
+    if (id == "move_glow" || id == "glint" || id == "sparkle" || id == "glare" || id == "emboss" || id == "grain" ||
+        id == "emboss_size") {
+        SuiteSettings next = SettingsStore::shared().values();
+        if (id == "move_glow")
+            next.card_move_glow = choice != 0;
+        else if (id == "glint")
+            next.card_glint = choice != 0;
+        else if (id == "sparkle")
+            next.card_sparkle = value;
+        else if (id == "glare")
+            next.card_glare = value;
+        else if (id == "grain")
+            next.card_grain = value;
+        else if (id == "emboss_size")
+            next.card_emboss_size = value;
+        else
+            next.card_emboss = value;
+        SettingsStore::shared().set(next);
+        reload_preferences();
+        return;
+    }
     if (id == "draw" && game.state.kind == Kind::solitaire)
         set_deal_option(choice == 1 ? 3 : 1);
     else if (id == "suits" && game.state.kind == Kind::spider)
@@ -1547,6 +1716,7 @@ void Table::action(gf::ButtonBase& button) {
 }
 void Table::changed(const char* effect) {
     lift_pile_ = lift_index_ = -1;
+    glint_card_ = -1;
     save_soon();
     if (game.state.over && game.state.kind != Kind::hearts && !reduced_ && !cascading_ &&
         !cabinet_.result_recorded[static_cast<int>(game.state.kind)])
@@ -1589,15 +1759,25 @@ bool Table::movable(int pile, int index) const {
 void Table::track_hover(gf::Point point) {
     const int id = hit_card(point);
     int pile = -1, index = -1;
+    const int glint = id >= 0 && sprites_[id].card.up ? id : -1;
     if (id >= 0 && movable(sprites_[id].pile, sprites_[id].index)) {
         pile = sprites_[id].pile;
         index = sprites_[id].index;
     }
-    if (pile == lift_pile_ && index == lift_index_)
+    if (pile == lift_pile_ && index == lift_index_ && glint == glint_card_)
         return;
+    if (pile != lift_pile_ || index != lift_index_)
+        invalidate(gf::Dirty::paint);
+    else
+        // only the glint moved: the card it left and the card it found
+        for (int card : {glint_card_, glint})
+            if (card >= 0)
+                invalidate(sprites_[card].rect);
     lift_pile_ = pile;
     lift_index_ = index;
-    invalidate(gf::Dirty::paint);
+    glint_card_ = glint;
+    if (glint_)
+        request_tick();
 }
 int Table::hit_slot(gf::Point point) const {
     int card = hit_card(point);

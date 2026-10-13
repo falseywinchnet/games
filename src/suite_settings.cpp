@@ -29,7 +29,10 @@ bool SuiteSettings::operator==(const SuiteSettings& other) const {
     return music == other.music && sound == other.sound && reduced == other.reduced &&
            percent(music_volume) == percent(other.music_volume) &&
            percent(sound_volume) == percent(other.sound_volume) && card_back == other.card_back &&
-           card_face == other.card_face;
+           card_face == other.card_face && card_move_glow == other.card_move_glow && card_glint == other.card_glint &&
+           percent(card_emboss) == percent(other.card_emboss) && percent(card_sparkle) == percent(other.card_sparkle) &&
+           percent(card_glare) == percent(other.card_glare) && percent(card_emboss_size) == percent(other.card_emboss_size) &&
+           percent(card_grain) == percent(other.card_grain);
 }
 double audio_gain(double volume) {
     const double position = std::clamp(volume, 0.0, 1.0);
@@ -40,7 +43,11 @@ std::string encode_suite_settings(const SuiteSettings& s) {
     out << "PLAYSUITE_SETTINGS 1\n"
         << "music=" << (s.music ? 1 : 0) << "\nsound=" << (s.sound ? 1 : 0)
         << "\nreduced_motion=" << (s.reduced ? 1 : 0) << "\nmusic_volume=" << percent(s.music_volume)
-        << "\nsound_volume=" << percent(s.sound_volume) << "\ncard_backs=" << s.card_back << "\ncard_faces=" << s.card_face << '\n';
+        << "\nsound_volume=" << percent(s.sound_volume) << "\ncard_backs=" << s.card_back << "\ncard_faces=" << s.card_face
+        << "\ncard_move_glow=" << (s.card_move_glow ? 1 : 0) << "\ncard_glint=" << (s.card_glint ? 1 : 0)
+        << "\ncard_emboss=" << percent(s.card_emboss) << "\ncard_sparkle=" << percent(s.card_sparkle)
+        << "\ncard_glare=" << percent(s.card_glare) << "\ncard_emboss_size=" << percent(s.card_emboss_size)
+        << "\ncard_grain=" << percent(s.card_grain) << '\n';
     return out.str();
 }
 bool decode_suite_settings(const std::string& text, SuiteSettings& destination) {
@@ -75,6 +82,20 @@ bool decode_suite_settings(const std::string& text, SuiteSettings& destination) 
             good = static_cast<bool>(number >> back) && back >= 0 && back < card_back_count;
             if (good)
                 next.card_back = back;
+        } else if (key == "card_move_glow") {
+            good = read_flag(value, next.card_move_glow);
+        } else if (key == "card_glint") {
+            good = read_flag(value, next.card_glint);
+        } else if (key == "card_emboss") {
+            good = read_percent(value, next.card_emboss);
+        } else if (key == "card_sparkle") {
+            good = read_percent(value, next.card_sparkle);
+        } else if (key == "card_glare") {
+            good = read_percent(value, next.card_glare);
+        } else if (key == "card_emboss_size") {
+            good = read_percent(value, next.card_emboss_size);
+        } else if (key == "card_grain") {
+            good = read_percent(value, next.card_grain);
         } else if (key == "card_faces") {
             // Saved as card_faces since Classic became the default; an older card_face line
             // is passed over, so every player starts once on Classic.
@@ -178,6 +199,11 @@ void SettingsStore::set(const SuiteSettings& requested) {
     next.sound_volume = std::clamp(next.sound_volume, 0.0, 1.0);
     next.card_back = std::clamp(next.card_back, 0, card_back_count - 1);
     next.card_face = std::clamp(next.card_face, 0, card_face_count - 1);
+    next.card_emboss = std::clamp(next.card_emboss, 0.0, 1.0);
+    next.card_sparkle = std::clamp(next.card_sparkle, 0.0, 1.0);
+    next.card_glare = std::clamp(next.card_glare, 0.0, 1.0);
+    next.card_emboss_size = std::clamp(next.card_emboss_size, 0.0, 1.0);
+    next.card_grain = std::clamp(next.card_grain, 0.0, 1.0);
     if (next == values())
         return;
     values_ = next;

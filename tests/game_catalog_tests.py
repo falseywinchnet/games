@@ -35,7 +35,7 @@ ORIGINAL_HELP = {'atom': 'ca18af9d89d615ad304a8208d958e7aace41d77f15a4e9ce7ca101
  # Sudoku's digits moved beside the board and gained an eraser (2026-10-08).
  # Solitaire, Spider, Puzzle Solve, Nature Cube and Untangle: one sentence each now
  # names the shared Settings screen, which replaced the Options panel and Next command.
- 'solitaire': '9dcfa1f94bb5fbebc72ed7d06e0fc0953d784fb7e7c394c8ba17fce890517898',
+ 'solitaire': 'c3af6b1376005add6ce94880a01f3e155a3ae0730d0dc494f84b0fb55436f8c6',
  'solve': 'ad54c2a2be773917f955cb662547f9d9a50feb6b9c42cd47193951101036599b',
  'spider': 'f3ffd088cef47869eb23fc81fbdfd2dd3f080953b42828fca2898b2b4d54f410',
  'sudoku': '9b4c028f42e73415f6b26e502d45cea6d16f1b2b2b78cdcbb3329c6a7f861fab',

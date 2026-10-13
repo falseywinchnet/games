@@ -20,4 +20,8 @@ inline constexpr int felt_tile_side = 256;
 // Draws, all at once, every drawn back not yet drawn.
 void draw_card_backs();
 
+// Runs job(context, 0 .. count - 1) with every core lending a hand (up to eight) and returns
+// when all are done. A job must not throw.
+void run_on_every_core(int count, void (*job)(void*, int) noexcept, void* context);
+
 }  // namespace games

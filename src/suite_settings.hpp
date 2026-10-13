@@ -15,6 +15,13 @@ struct SuiteSettings {
     double music_volume = 1, sound_volume = 1;
     int card_back = 9; // 0..card_back_count-1, shared by every game on shared/cards; 9, the 1899 back, is the default
     int card_face = 1; // kept as saved; the painted faces are retired and every card game shows the classic ones
+    // The card table's hints, for every card game: a glow on a card that can move, under the
+    // pointer; a glint in the finish of any card under the pointer.
+    bool card_move_glow = false, card_glint = true;
+    // The card finish, slider positions 0..1 (card_print.hpp): the emboss's depth (1 is 12 sRGB
+    // levels) and dimple size (0.8 to 6 device pixels), and the glint's sparkle, facet size
+    // (1.5 to 8 device pixels) and glare.
+    double card_emboss = .4, card_emboss_size = .45, card_sparkle = 1, card_grain = .4, card_glare = .7;
     bool operator==(const SuiteSettings& other) const;
 };
 inline constexpr int card_back_count = 10;

@@ -1,4 +1,5 @@
 #pragma once
+#include "card_print.hpp"
 #include "dealer.hpp"
 #include "game.hpp"
 #include "gui_forms/basic_controls.hpp"
@@ -64,15 +65,48 @@ class Table final : public gf::Control, public CommandSource {
     std::array<gf::ImageId, card_back_count> backs_{};
     gf::ImageId felt_{};
     gf::ImageId shadow_{};
-    // Lighting and texture laid over every card, rendered at the cards' device size.
+    // The paper (card_print.hpp) at the cards' device size, and laid over a face drawn the old
+    // way while its picture is not made yet.
+    CardPaper paper_;
     gf::ImageId finish_{};
+    double scale_ = 1;  // device pixels to a point
     // The room's light on a card's face, by where it lies (table_light.hpp); made again only
     // when the table or its cards change size.
     gf::ImageId light_{};
+    TableLight light_grid_;
     double light_width_ = 0, light_height_ = 0, light_card_ = 0;
     void refresh_light();
     int finish_width_ = 0, finish_height_ = 0;
     void refresh_finish();
+    // Each card's finished picture (card_print.hpp): printed at rest where it lies, at whole
+    // device pixels, and copied to the screen as it is; moved as it is while the card is in
+    // motion, and printed again where it lands.
+    struct Printed {
+        gf::ImageId image{};
+        int width = 0, height = 0;  // device pixels
+        int x = 0, y = 0;           // where it was printed, device pixels in the table
+        int card = -1;              // the card's id
+        bool up = false;
+        int design = -1;            // the back it shows, face down
+        int generation = -1;        // print_generation_ when printed
+    };
+    std::array<Printed, 104> printed_{};
+    Printed glinted_{};           // the card under the pointer, glinting
+    int print_generation_ = 0;    // counts changes of the paper and the light
+    std::array<CardArt, 52> face_art_{};  // at the paper's size, made as wanted
+    std::array<bool, 52> face_failed_{};
+    CardArt back_art_, shadow_art_;
+    int back_art_design_ = -1;
+    bool back_failed_ = false;
+    // The shadow at the cards' device size, at rest and in the hand.
+    gf::ImageId rest_shadow_{}, lifted_shadow_{};
+    gf::FrameTime resized_at_{};  // when the cards last changed size (printed once it settles)
+    [[nodiscard]] bool picture_shows(const Printed& printed, const Card& card, bool up) const;
+    // Prints every card whose picture is out of date (the card under the pointer glinting),
+    // every core lending a hand: a move's few cards in a few milliseconds, a deck in tens.
+    void print_stale();
+    void keep_print(Printed& printed, const Sprite& sprite, std::span<const std::byte> pixels);
+    void forget_pictures(gf::Window& window);
     std::array<Sprite, 104> sprites_{};
     std::array<gf::Rect, 20> slots_{};
     std::vector<int> pass_cards_;
@@ -119,7 +153,11 @@ class Table final : public gf::Control, public CommandSource {
                    gf::Color color);
     int hit_card(gf::Point point) const;
     // The run under the pointer, when it can go somewhere: its cards faintly brighten.
-    int lift_pile_ = -1, lift_index_ = -1;
+    int lift_pile_ = -1, lift_index_ = -1;      // a card that can move, under the pointer (with its run)
+    int glint_card_ = -1;                        // any face-up card under the pointer, by id
+    bool move_glow_ = false, glint_ = true;     // SuiteSettings::card_move_glow, card_glint
+    // SuiteSettings::card_emboss, card_emboss_size, card_sparkle, card_grain, card_glare
+    double emboss_ = .4, emboss_size_ = .45, sparkle_ = 1, grain_ = .4, glare_ = .7;
     // Face-up cards in play that cannot move now (by card id): drawn dimmed. Worked out
     // at each paint, so a computer's turn or a new deal is always reflected.
     [[nodiscard]] bool movable(int pile, int index) const;
