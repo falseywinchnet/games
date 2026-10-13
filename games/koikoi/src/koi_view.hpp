@@ -6,6 +6,7 @@
 // by kind; a scoreboard of the twelve months; cards that travel (a played card lands on its
 // match before both go to the captures; the drawn card turns over on the pile first); and the
 // koi-koi decision, rounds and matches, hints, rules and autosave.
+#include "cards/card_press.hpp"
 #include "koikoi.hpp"
 #include "platform/image.hpp"
 #include "platform/present.hpp"
@@ -45,6 +46,9 @@ public:
     std::vector<games::GameCommand> commands() const override;
     void run_command(std::string_view id) override;
     void set_cabinet(bool foreground, bool music, bool sound, bool reduced = false);
+    // The PlaySuite card finish (the Settings screen's emboss and glint, as the patience
+    // table's), and whether the card under the pointer glints.
+    void set_card_finish(const games::CardFinish& finish, bool glint);
     // Ticks the game has run: the count advances whether or not the picture changes.
     std::uint64_t ticks() const { return ticks_; }
 
@@ -85,6 +89,30 @@ private:
     // The deck of this deal: the black on even rounds, the red on odd.
     [[nodiscard]] std::size_t deck() const { return static_cast<std::size_t>(s_.round % 2); }
     Canvas art_shadow_, shadow_big_, shadow_small_, finish_big_, finish_small_;
+    // The cards printed as they lie (shared/cards/card_press.hpp), full size and small (the
+    // captured): a card at rest is drawn as its finished picture, printed where it lies in the
+    // room's light; one moving or turning is drawn as before, under the paper (finish_big_).
+    std::array<games::CardPress, 2> press_{};
+    games::CardFinish finish_{};
+    bool glint_ = true;
+    struct Printed {
+        Canvas picture;
+        int x = 0, y = 0;     // device pixels in the frame
+        int face = -2;        // the face shown, or -1 for a back
+        int design = -1;      // the back's deck
+        int size = -1;        // 0 full, 1 small
+        bool glint = false;
+        int generation = -1;  // the press's, when printed
+    };
+    std::array<Printed, 48> printed_{};
+    // The picture card `id` wants now (its place, face, size and glint), or false while it
+    // moves or turns or is not at one of the presses' sizes.
+    [[nodiscard]] bool picture_wanted(int id, bool lift, Printed& wanted) const;
+    [[nodiscard]] bool picture_current(int id, const Printed& wanted) const;
+    // A card sliding at its own size, flat (a hand closing up, say): its last picture, moved,
+    // until it is printed again where it lands. False while it turns or changes size.
+    [[nodiscard]] bool picture_moved(int id, bool lift, int& x, int& y) const;
+    void print_stale(const std::array<bool, 48>& lifts);
     int built_w_ = 0;
 
     // geometry (points)

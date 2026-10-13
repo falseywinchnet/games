@@ -32,7 +32,6 @@
     "src/koi_view.cpp",
     "src/platform/text.cpp",
     "src/platform/present.cpp",
-    "src/card_finish.cpp",
     "src/platform/image.cpp"
   ],
   "engines": [

@@ -5,7 +5,6 @@
 #include "platform/audio.hpp"
 #include "platform/text.hpp"
 #include "cards/table_art.hpp"
-#include "card_finish.hpp"
 
 #include "gui_forms/surface_material.hpp"
 #include "gui_forms/window.hpp"
@@ -65,6 +64,11 @@ KoiView::KoiView(gf::StableId id, Options opt) : Control(std::move(id)), opt_(op
         paths.push_back(asset_dir() + "/cards/card_shadow.png");
         art.push_back(&art_shadow_);
         static_cast<void>(load_pngs(paths, art));
+        // the same artwork for the presses, which print each card as it lies
+        std::vector<std::string> faces(paths.begin(), paths.begin() + 48);
+        std::vector<std::string> backs{paths[48], paths[49]};
+        for (games::CardPress& press : press_)
+            press.set_deck(faces, backs);
     }
     if (!load()) new_match();
     if (const char* sc = std::getenv("KK_SCRIPT"); sc && opt_.dev) {
@@ -152,14 +156,20 @@ void KoiView::build_art() {
     }
     for (std::size_t d = 0; d < art_back_.size(); ++d)
         if (art_back_[d].w) { reduce(art_back_[d], bw, bh, big_back_[d]); reduce(art_back_[d], sw, shh, small_back_[d]); }
-    // the card table's finish (texture, rolled edge, lamp) and its card shadow, at both sizes
-    auto finish = [](int w, int h, Canvas& out) {
-        const std::vector<std::byte> px = games::card_finish(w, h);
-        out.resize(w, h);
-        std::memcpy(out.px.data(), px.data(), px.size());
-    };
-    finish(bw, bh, finish_big_);
-    finish(sw, shh, finish_small_);
+    // the card table's paper and the room's light, at both sizes (shared/cards/card_press.hpp);
+    // the paper is also laid over a card drawn the old way, moving or not yet printed
+    press_[0].prepare(bw, bh, bs_, finish_);
+    static_cast<void>(press_[0].light(W_, H_, cw_));
+    press_[1].prepare(sw, shh, bs_, finish_);
+    static_cast<void>(press_[1].light(W_, H_, cw_ * small_k_));
+    for (std::size_t z = 0; z < press_.size(); ++z) {
+        const games::CardPaper& paper = press_[z].paper();
+        const std::vector<std::byte> overlay = games::paper_overlay(paper);
+        Canvas& finish = z == 0 ? finish_big_ : finish_small_;
+        finish.resize(paper.width, paper.height);
+        if (overlay.size() == finish.px.size())
+            std::memcpy(finish.px.data(), overlay.data(), overlay.size());
+    }
     if (art_shadow_.w) {
         reduce(art_shadow_, static_cast<int>(std::lround(bw * 440.0 / 360)), static_cast<int>(std::lround(bw * 584.0 / 360)), shadow_big_);
         reduce(art_shadow_, static_cast<int>(std::lround(sw * 440.0 / 360)), static_cast<int>(std::lround(sw * 584.0 / 360)), shadow_small_);
@@ -837,6 +847,19 @@ void KoiView::draw_card(int id, const Sprite& p, bool lift, bool glow, bool dim)
         rrect(p.x + t * .2, y + t * .5, w - t * .1, h, 7 * p.s + 1, hex(0x6A2420));
     }
     if (glow) rrect(p.x - 4, y - 4, w + 8, h + 8, 10, hex(0xFFE27A, .55f + .25f * static_cast<float>(std::sin(t_ * 6))));
+    // at rest: its finished picture, printed where it lies; sliding: that picture, moved
+    {
+        Printed wanted;
+        int moved_x = 0, moved_y = 0;
+        if (picture_wanted(id, lift, wanted) && picture_current(id, wanted)) {
+            frame_.draw_canvas(printed_[static_cast<size_t>(id)].picture, wanted.x, wanted.y, dim ? .55f : 1.f);
+            return;
+        }
+        if (picture_moved(id, lift, moved_x, moved_y)) {
+            frame_.draw_canvas(printed_[static_cast<size_t>(id)].picture, moved_x, moved_y, dim ? .55f : 1.f);
+            return;
+        }
+    }
     // the flip: the card narrows to its edge and opens on the other side
     const double f = p.face;
     const double squeeze = std::fabs(f - .5) * 2;  // 1 flat, 0 edge-on
@@ -858,6 +881,98 @@ void KoiView::draw_card(int id, const Sprite& p, bool lift, bool glow, bool dim)
         reduce(img, std::max(1, static_cast<int>(img.w * squeeze)), img.h, thin);
         frame_.draw_canvas(thin, static_cast<int>(std::lround((p.x + w * (1 - squeeze) / 2) * bs_)), static_cast<int>(std::lround(y * bs_)), 1.f);
     }
+}
+
+bool KoiView::picture_wanted(int id, bool lift, Printed& wanted) const {
+    const Sprite& p = sp_[static_cast<size_t>(id)];
+    if (!p.placed || p.x != p.tx || p.y != p.ty || p.s != p.ts || p.face != p.tface || (p.face != 0 && p.face != 1))
+        return false;
+    const int size = p.s < .8 ? 1 : 0;
+    const games::CardPress& press = press_[static_cast<size_t>(size)];
+    if (!press.ready() || static_cast<int>(std::lround(cw_ * p.s * bs_)) != press.paper().width)
+        return false;
+    wanted.x = static_cast<int>(std::lround(p.x * bs_));
+    wanted.y = static_cast<int>(std::lround((p.y - (lift ? ch_ * .12 : 0)) * bs_));
+    wanted.face = p.face == 1 ? id : -1;
+    wanted.design = p.face == 1 ? -1 : static_cast<int>(deck());
+    wanted.size = size;
+    wanted.glint = lift && glint_ && p.face == 1;
+    wanted.generation = press.generation();
+    return true;
+}
+
+bool KoiView::picture_current(int id, const Printed& wanted) const {
+    const Printed& have = printed_[static_cast<size_t>(id)];
+    return have.picture.w > 0 && have.x == wanted.x && have.y == wanted.y && have.face == wanted.face &&
+           have.design == wanted.design && have.size == wanted.size && have.glint == wanted.glint &&
+           have.generation == wanted.generation;
+}
+
+bool KoiView::picture_moved(int id, bool lift, int& x, int& y) const {
+    const Sprite& p = sp_[static_cast<size_t>(id)];
+    if (!p.placed || p.s != p.ts || p.face != p.tface || (p.face != 0 && p.face != 1))
+        return false;
+    const int size = p.s < .8 ? 1 : 0;
+    const Printed& have = printed_[static_cast<size_t>(id)];
+    const int face = p.face == 1 ? id : -1;
+    const int design = p.face == 1 ? -1 : static_cast<int>(deck());
+    if (have.picture.w == 0 || have.size != size || have.face != face || have.design != design ||
+        have.generation != press_[static_cast<size_t>(size)].generation())
+        return false;
+    x = static_cast<int>(std::lround(p.x * bs_));
+    y = static_cast<int>(std::lround((p.y - (lift ? ch_ * .12 : 0)) * bs_));
+    return true;
+}
+
+// Prints every card at rest whose picture is out of date, a batch per size, every core
+// lending a hand: a move's few cards in a few milliseconds, a deal in tens.
+void KoiView::print_stale(const std::array<bool, 48>& lifts) {
+    std::array<std::vector<games::PressSheet>, 2> sheets;
+    std::array<std::vector<Printed>, 2> keys;
+    std::array<std::vector<int>, 2> ids;
+    for (int c = 0; c < 48; ++c) {
+        Printed wanted;
+        if (!picture_wanted(c, lifts[static_cast<size_t>(c)], wanted) || picture_current(c, wanted))
+            continue;
+        const std::size_t z = static_cast<std::size_t>(wanted.size);
+        sheets[z].push_back({wanted.face, wanted.design, wanted.x, wanted.y, wanted.glint,
+                             static_cast<std::uint32_t>(c + 1) * 2654435761U});
+        keys[z].push_back(wanted);
+        ids[z].push_back(c);
+    }
+    for (std::size_t z = 0; z < press_.size(); ++z) {
+        if (sheets[z].empty())
+            continue;
+        const std::vector<std::vector<std::byte>> pictures = press_[z].print(sheets[z]);
+        const games::CardPaper& paper = press_[z].paper();
+        for (std::size_t i = 0; i < pictures.size(); ++i) {
+            if (pictures[i].size() != static_cast<std::size_t>(paper.width) * paper.height * 4)
+                continue;  // drawn the old way
+            Printed& printed = printed_[static_cast<size_t>(ids[z][i])];
+            printed = keys[z][i];
+            printed.picture.resize(paper.width, paper.height);
+            std::memcpy(printed.picture.px.data(), pictures[i].data(), pictures[i].size());
+        }
+    }
+}
+
+void KoiView::set_card_finish(const games::CardFinish& finish, bool glint) {
+    const bool paper = finish.emboss != finish_.emboss || finish.emboss_size != finish_.emboss_size;
+    const bool shine = finish.sparkle != finish_.sparkle || finish.grain != finish_.grain ||
+                       finish.glare != finish_.glare || glint != glint_;
+    if (!paper && !shine)
+        return;
+    finish_ = finish;
+    glint_ = glint;
+    for (games::CardPress& press : press_)
+        press.set_glint(finish);
+    if (paper)
+        built_w_ = 0;  // the paper is made again, and every card printed on it
+    for (Printed& printed : printed_)
+        if (printed.glint)
+            printed.generation = -1;  // printed again as it now glints
+    render_dirty_ = true;
+    request_frame();
 }
 
 void KoiView::draw_captures_labels() {
@@ -1084,10 +1199,16 @@ void KoiView::compose() {
     const bool my_play = s_.turn == 0 && s_.phase == koi::Phase::play;
     if (my_play && hover_card_ >= 0 && std::find(s_.hand[0].begin(), s_.hand[0].end(), hover_card_) != s_.hand[0].end()) lit = koi::matches(s_, hover_card_);
     if (s_.pending >= 0 && s_.turn == 0) lit = s_.choices;
+    std::array<bool, 48> lifts{};
+    for (int c = 0; c < 48; ++c) {
+        const bool in_hand = std::find(s_.hand[0].begin(), s_.hand[0].end(), c) != s_.hand[0].end();
+        lifts[static_cast<size_t>(c)] = in_hand && my_play && (c == hover_card_ || c == hint_);
+    }
+    print_stale(lifts);
     for (int c : order) {
         const Sprite& p = sp_[static_cast<size_t>(c)];
         const bool in_hand = std::find(s_.hand[0].begin(), s_.hand[0].end(), c) != s_.hand[0].end();
-        const bool lift = in_hand && my_play && (c == hover_card_ || c == hint_);
+        const bool lift = lifts[static_cast<size_t>(c)];
         const bool glow = std::find(lit.begin(), lit.end(), c) != lit.end() || (c == hint_ && hint_ >= 0);
         const bool dim = my_play && in_hand && hover_card_ >= 0 && false;
         draw_card(c, p, lift, glow, dim);
