@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <vector>
 
 namespace render {
 namespace gf = gui_forms;
@@ -79,6 +80,7 @@ private:
     std::array<Rect, history> damage_{};      // damage_[n % history]: what frame n changed
     std::array<Kept, gf::maximum_live_surface_buffer_count> kept_{};
     Rect pending_;                            // damage of frames not yet published
+    std::vector<gf::Rect> overlays_;          // the overlays over the owner at the last publish
     const void* writing_ = nullptr;
 
     [[nodiscard]] std::uint64_t held_by(const void* address) const;

@@ -10,6 +10,7 @@
 #include "gui_forms/window.hpp"
 
 #include <memory>
+#include <vector>
 
 namespace render {
 namespace gf = gui_forms;
@@ -54,7 +55,33 @@ inline void refresh_overlays_in(const gf::Control& control, const gf::Rect& dama
         refresh_overlays_in(*child, damage);
     }
 }
+inline void collect_overlays_in(const gf::Control& control, const gf::Rect& area, std::vector<gf::Rect>& out) {
+    for (const gf::Control::Ptr& child : control.children()) {
+        if (!child || !(*child).visible())
+            continue;
+        if ((*child).paint_plane() == gf::PaintPlane::overlay) {
+            const gf::Rect placed = (*child).committed_arranged_bounds();
+            const gf::Rect bounds = committed_in_window(*child, {0, 0, placed.width, placed.height});
+            if (!gf::Rect::intersection(bounds, area).empty())
+                out.push_back(bounds);
+            continue;
+        }
+        collect_overlays_in(*child, area, out);
+    }
+}
 } // namespace detail
+
+// Where the overlays over `owner` lie, in the window, by the layout last committed. A live
+// view compares them from frame to frame: see Surface::publish.
+inline std::vector<gf::Rect> overlays_over(const gf::Control& owner) {
+    std::vector<gf::Rect> found;
+    gf::Window* window = owner.attached_window();
+    if (window == nullptr || !(*window).root())
+        return found;
+    const gf::Rect all = owner.client_rectangle();
+    detail::collect_overlays_in(*(*window).root(), detail::committed_in_window(owner, {0, 0, all.width, all.height}), found);
+    return found;
+}
 
 // Every overlay over `local_damage` of `owner` (its own points; empty for all of it)
 // paints again, on every host. For a new picture: another scene, or the first frames

@@ -118,11 +118,22 @@ void Surface::publish() {
     }
     ++frame_;
     damage_[frame_ % history] = pending_;
-    const gf::Rect changed = pending_.empty()
-                                 ? gf::Rect{0, 0, 1, 1}
-                                 : gf::Rect{static_cast<double>(pending_.x0), static_cast<double>(pending_.y0),
-                                            static_cast<double>(pending_.x1 - pending_.x0),
-                                            static_cast<double>(pending_.y1 - pending_.y0)};
+    gf::Rect changed = pending_.empty()
+                           ? gf::Rect{0, 0, 1, 1}
+                           : gf::Rect{static_cast<double>(pending_.x0), static_cast<double>(pending_.y0),
+                                      static_cast<double>(pending_.x1 - pending_.x0),
+                                      static_cast<double>(pending_.y1 - pending_.y0)};
+    // An overlay that moved, folded or went away leaves pixels the host neither repaints (the
+    // live surface covers them) nor copies again (outside this frame's damage, it takes the
+    // window to hold the picture already): they keep whatever lay under the overlay, an old
+    // scene behind a folded capsule. When the overlays change, the whole frame is presented.
+    if (const std::shared_ptr<gf::Control> owner = owner_.lock()) {
+        std::vector<gf::Rect> overlays = render::overlays_over(*owner);
+        if (overlays != overlays_) {
+            overlays_ = std::move(overlays);
+            changed = gf::Rect{0, 0, static_cast<double>(width_), static_cast<double>(height_)};
+        }
+    }
     static_cast<void>(lease_.publish(changed));
     remember(writing_, frame_);
     writing_ = nullptr;
