@@ -24,7 +24,7 @@ Preserved the full user-supplied `maze` game: software 3D renderer, textures, de
 
 The original save format records the current maze seed/level, trophies and totals; reopening starts that maze at its entrance. It does not save a mid-corridor camera position. The port retains those semantics and explains them in player help. Within a session, visiting panels after a win cannot award its statistics twice.
 
-The original actors continue while actively playing. Hidden views stop callbacks and audio; static panels stop once audio has settled. Reduced motion snaps the camera instead of smoothing movement, turns, ceiling rolls or portal flashes while retaining the actors and rules. Minimum-size rendering uses a logical canvas of at least 320 × 200. The trophy shelf pages when needed. Hosted music/sound controls belong to the suite.
+The original actors continue while actively playing. Hidden views stop callbacks and audio; static panels stop once audio has settled. Reduced motion snaps the camera instead of smoothing movement, turns, ceiling rolls or portal flashes while retaining the actors and rules. Minimum-size rendering uses a logical canvas of at least 320 × 200. Hosted music/sound controls belong to the suite.
 
 2026-10-12: the renderer moved onto the shared render engine. `soft3d.*` keeps its
 interface (every caller in `world.cpp`, `session.cpp`, `idle.cpp` and the preview is
@@ -60,3 +60,15 @@ now lists only the files still byte-identical to the delivered package (`cast.*`
 `maze.cpp`, `rewards.*`); the edited ones are the gate's to style.
 
 `mz_step_0` is a dynamically completed filename prefix; files `mz_step_01` through `mz_step_03` exist. Unused generic original UI cues were renamed with `mz_ui_` to avoid collisions. No maze feature or reward was removed.
+
+2026-10-13: endless mazes and a passive player. The briefing, the win dialog and the trophy
+shelf are gone: a maze names its reward in the speech box as it begins, the reward room is
+admired for five seconds, and the next maze starts. Rewards come in a shuffled order per run.
+The save format is unchanged (its trophy bits are still written, no longer shown). Left
+alone, the maze walks itself (`wanderer.*`): this is deliberate ambient motion, so
+`settles_when_untouched` is false. It walks only while the window is active, not under
+reduced motion, and not while hidden; after the player takes over, the only wake is one
+twenty seconds after their last input, to hand the maze back. `maze_view_contract` checks
+that the opening maze settles under reduced motion, that the passive player walks in an
+active window, and that an inactive window stops it. `maze_rules` walks 120 mazes with it:
+every reward is found, at about 2.7 times the shortest way.

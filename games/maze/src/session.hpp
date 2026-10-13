@@ -107,6 +107,8 @@ private:
     void sfx(const std::string& name, float gain = 1, float rate = 1) { events.push_back({Event::sound, name, {}, gain, rate}); }
 
 public:
+    // The maze itself says something in the speech box (no speaker): what it holds, what is new.
+    void announce(const std::string& text) { say("", text); }
     double flash() const { return reduced_ ? 0 : flash_; }
 };
 

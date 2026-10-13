@@ -9,6 +9,7 @@
 #include "pixel_surface.hpp"
 #include "save.hpp"
 #include "session.hpp"
+#include "wanderer.hpp"
 #include "soft3d.hpp"
 #include "suite.hpp"
 #include "platform/canvas.hpp"
@@ -52,12 +53,13 @@ public:
     std::uint64_t published_frames() const { return published_frames_; }
     std::uint64_t timer_callbacks() const { return timer_callbacks_; }
     int current_level() const { return level_; }
+    [[nodiscard]] int steps_walked() const { return sess_.play.steps; }   // in this maze (tests)
     int walked_steps() const { return sess_.play.steps; }
     bool controls_fit() const;
 
 
 private:
-    enum class Panel { none, briefing, won, shelf, help, credits };
+    enum class Panel { none, help, credits };
     struct Button { std::string id, label; int x, y, w, h; };
     struct HiText { std::string s; int font; double size; int wrap; int x, y; Col c; };
 
@@ -81,13 +83,19 @@ private:
     void set_difficulty(int difficulty);
     void dress(Level& level) const;
     std::uint64_t level_seed_ = 0;
+    // The passive player walks until you do: a key or a click in the view hands it to you,
+    // and after kIdleSeconds of nothing from you it walks on from wherever you left it.
+    Wanderer wanderer_{};
+    bool passive_ = true;
+    double idle_t_ = 0;        // seconds since you last did anything
+    double pause_t_ = 0;       // the passive player standing still (a dawdle, someone talking)
+    std::uint64_t heard_ = 0;  // the speech it last stopped for
     std::shared_ptr<LiveBand> band_{};   // the music, made up as it plays (band.hpp)
     int band_style_ = -1;
     std::uint32_t band_tunes_ = 0;
-    std::vector<std::string> news_;   // what's new in this maze (for the briefing)
     int autowalk_ = 0;                // dev: steps still to walk along a best route (re-planned each step)
     Panel panel_ = Panel::none;
-    int credits_page_ = 0, trophy_page_ = 0;
+    int credits_page_ = 0;
     std::vector<Button> buttons_;
     std::string pressed_, hover_;
     double mouse_x_ = 0, mouse_y_ = 0;
@@ -102,13 +110,18 @@ private:
     std::vector<HiText> texts_;
 
     void on_attached_to_window() override;
+    void on_window_active(bool active);
+    [[nodiscard]] bool walking_passively() const;
     void on_detaching_from_window(gf::Window& window) noexcept override;
     void tick();
     void request_frame();
     void on_visible_changed(bool visible);
     void publish();
     void start_level(int n);
-    void finish_level();
+    void advance();          // the reward room admired: on to the next maze
+    void take_over();        // you play: the passive player stands aside
+    void walk_passively(double dt);
+    [[nodiscard]] int reward_for(int level) const;
     void persist();
     void play(const std::string& name, float gain = 1, float rate = 1);
     void action(const std::string& id);

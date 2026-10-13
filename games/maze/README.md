@@ -12,12 +12,12 @@ and Encarta Mind Maze's castle full of chance meetings.
   - The 27 posters are made-up ads in 90s and 2000s box-art style (airbrushed, Bryce-rendered, Windows 95 to ME), plus WANTED posters for Wojak and Chudjak.
   - The 51 framed pieces cover the same eras.
   - All are painted offline in `authoring/maze_posters/` and loaded from `assets/posters/`.
-- **The goal:** every maze opens with a briefing naming what you seek. The first is the cheese; after that it's something else from 47 iconic odds and ends:
+- **The goal:** every maze says what it holds as it begins. The first is the cheese; after that it's something else from 47 iconic odds and ends, each run in its own shuffled order, so none comes round again until all have:
   - a striped bucket of fried chicken, a floppy disk, a lava lamp, a boombox, a VHS tape
   - a rotary phone, a goldfish in a bowl, a disco ball, a puzzle cube, a pet rock
   - a pocket game machine, a pot of honey, a tin of spinach, a dancing hamster, and the rest.
-- **The reward room:** it waits at the far end, and it is full of the thing.
-- **The trophy shelf:** fills up as you go.
+- **The reward room:** it waits at the far end, and it is full of the thing. A few seconds there, and the next maze begins. There is no end and no collecting: the mazes go on.
+- **The passive player:** left alone, the maze walks itself, like the screensaver it comes from. It finds the reward somewhat dumbly: it goes where it has been least, dawdles, glances down side passages, and stops a beat for anyone who speaks. If it wanders far longer than the best route would take, it gets the hang of it and goes straight there (`wanderer.*`). A key or a click hands the maze to you; leave it alone for twenty seconds and it walks on from wherever you stopped. It walks only while the window is in use, and not under reduced motion.
 
 ## What's in the mazes
 
@@ -40,7 +40,7 @@ They are dynamically generated: new tricks arrive one at a time, then mix.
   - producing a key for the next locked door
   - distracting the marble
 
-Every maze is proven solvable by a search over the whole state (floor, square, flipped or not, pads pressed). That search also gives the shortest route, which the win dialog compares with yours.
+Every maze is proven solvable by a search over the whole state (floor, square, flipped or not, pads pressed). That search also gives the shortest route, which the passive player falls back on once it has wandered long enough.
 
 ## Who you meet
 
@@ -71,10 +71,10 @@ games --game maze --standalone --dev --script games/maze/tests/native.script
 
 - **Keys:** Up / W walks forward, Down / S steps back, Left and Right turn.
 - **Mouse:** the left and right thirds of the view turn, the middle walks, and the bottom middle steps back.
-- **Panels:** T trophy shelf, H or F1 help. The capsule provides Restart and Who's who. Hosted audio uses the suite masters; standalone help retains its audio switches.
+- **Panels:** H or F1 help. The capsule provides Restart and Who's who. Hosted audio uses the suite masters; standalone help retains its audio switches.
 
 Saves go to `~/Library/Application Support/Rainstar/Games/maze-v1.txt`
-(`GAMES_STATE_DIR` overrides the folder). The save holds the maze you're on (each is rebuilt from its seed), the shelf, and tallies.
+(`GAMES_STATE_DIR` overrides the folder). The save holds the maze you're on (each is rebuilt from its seed) and tallies; its old trophy record is kept but no longer shown.
 
 With `--dev` (a separate save), `MZ_SCRIPT="0.3:lvl12,0.8:ok,1:auto"` replays inputs:
 
@@ -82,7 +82,7 @@ With `--dev` (a separate save), `MZ_SCRIPT="0.3:lvl12,0.8:ok,1:auto"` replays in
 - `ok` dismisses a dialog
 - `lvl<n>` starts maze n
 - `auto` walks the best route, re-planned each step around the marble and visitors; `auto<k>` walks only k steps of it
-- `shelf`, `help` and `credits` open those panels
+- `help` and `credits` open those panels; `take` hands the maze to you and `watch` back to the passive player; `next` starts the next maze
 
 The shared native runner also supports keyboard, pointer, resize and full-window
 frame capture. Its finite scripts are described in `new-games/AGENTS.md`.
@@ -110,6 +110,7 @@ is its registration; no shell or release-version edits are required.
 | The renderer: perspective-correct textures, near-plane clipping, z-buffer, roll, fog, the blackout lamp, glitch, sprites. Triangles are scanned by the shared render engine's camera-space scan (`shared/render`, `r3d_scan.hpp`); the texel, light and blend are this game's pixel policy | `soft3d.*` |
 | Rules, generation and the solver (state search over floor, square, flip and pads), the route for the dev walker | `maze.*` |
 | Drawing the maze and what lives in it | `world.*` |
+| The passive player | `wanderer.*` |
 | A level in motion: steps, turns, doors, elevator ride, flip roll, portal blink, the ball, the snail, visitors and residents | `session.*` |
 | The snail: crawling every surface, its painted path and slime, hiding | `snail.*` |
 | The snail's animated paints | `paints.*` |
@@ -118,7 +119,7 @@ is its registration; no shell or release-version edits are required.
 | Painted surfaces (brick, carpets, ceilings, doors, pads, posters, the snail's paints) | `textures.*` |
 | The rewards | `rewards.*` |
 | The band: its instruments, the three styles' arrangements and themes, the tunes it makes up, the wall and playing backwards | `band.*` |
-| Window, chrome, briefing, speech, win, trophy shelf, help, credits, autosave; the frame enlarged into the window's buffers by the render engine's `PixelSurface`, repairing only what changed | `maze_view.*`, `save.*` |
+| Window, chrome, speech, the passive player's turns and the hand-over, help, credits, autosave; the frame enlarged into the window's buffers by the render engine's `PixelSurface`, repairing only what changed | `maze_view.*`, `save.*` |
 | Portable raster, GUI.Forms text masks and scene audio, namespace `mz` | `platform/` |
 
 All audio is synthesized (`audio_src/`):

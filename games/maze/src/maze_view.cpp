@@ -45,8 +45,8 @@ MazeView::MazeView(gf::StableId id, Options opt) : Control(std::move(id)), opt_(
         none.fills = {gf::MaterialFillLayer::solid(gf::Color::rgba(0, 0, 0))};
         set_authored_surface_material(none);
     }
-    set_accessible_name("Maze 95. A first-person maze: find the reward named in the briefing. Arrow keys or WASD: up walks forward, down steps back, left and right turn. "
-                        "Pads open doors of their colour. F1 help, T trophy shelf, M music.");
+    set_accessible_name("Maze 95. A first-person maze: find the reward each maze names as it begins, one maze after another. Arrow keys or WASD: up walks forward, down steps back, left and right turn. "
+                        "Pads open doors of their colour. Left alone, the maze walks itself. F1 help, M music.");
     load_save(save_path(opt_.dev), save_);
     if (!save_.run_seed) { save_.run_seed = seed_now() | 1; dirty_ = true; }
     start_level(level_reached());
@@ -70,8 +70,22 @@ void MazeView::on_attached_to_window() {
     subs_.push_back(visible_changed().subscribe(*this, gf::Delegate<bool>::bind<MazeView, &MazeView::on_visible_changed>(*this)));
     timer_ = std::make_unique<gf::Timer>(*attached_window(), std::chrono::milliseconds(33));
     subs_.push_back((*timer_).tick().subscribe(*this, gf::Delegate<>::bind<MazeView, &MazeView::tick>(*this)));
+    // the passive player walks only while the window is in use: coming back to it wakes the maze
+    subs_.push_back((*attached_window()).active_changed().subscribe(*this, gf::Delegate<bool>::bind<MazeView, &MazeView::on_window_active>(*this)));
     last_ = std::chrono::steady_clock::now();
     request_frame();
+}
+
+void MazeView::on_window_active(bool) {
+    request_frame();
+}
+
+// The passive player walks while it has the maze, the window is in use and motion is not
+// reduced: deliberate ambient motion, which stops for any of the three (HANDOFF.md).
+bool MazeView::walking_passively() const {
+    const gf::Window* window = attached_window();
+    const bool result = passive_ && autowalk_ == 0 && panel_ == Panel::none && !cab_reduced_ && window != nullptr && (*window).active();
+    return result;
 }
 
 void MazeView::on_detaching_from_window(gf::Window&) noexcept {
@@ -127,6 +141,9 @@ int surprise(int count, bool (*calm)(int), bool want_calm, std::uint64_t h) {
         if (calm(i) == want_calm) pool.push_back(i);
     return pool.empty() ? 0 : pool[static_cast<size_t>(h % pool.size())];
 }
+constexpr double kIdleSeconds = 20;       // left alone this long, the maze walks itself again
+constexpr double kEncounterSeconds = 2;   // the passive player stands this long for anyone who speaks
+constexpr double kAdmireSeconds = 5;      // in the reward room, before the next maze
 std::uint64_t stir(std::uint64_t h) {
     h ^= h >> 31; h *= 0x7FB5D329728EA185ULL; h ^= h >> 27;
     return h;
@@ -201,6 +218,25 @@ void MazeView::set_difficulty(int d) {
     start_level(level_reached());
 }
 
+// What a maze holds: the cheese first (on Easy), then every other reward in an order shuffled
+// for the run, so none comes round again until all have.
+int MazeView::reward_for(int level) const {
+    const Difficulty difficulty = static_cast<Difficulty>(save_.difficulty);
+    if (level == 1 && difficulty == Difficulty::easy) return 0;
+    const int others = reward_count() - 1;
+    if (others <= 0) return 0;
+    std::vector<int> order(static_cast<std::size_t>(others));
+    for (int i = 0; i < others; ++i) order[static_cast<std::size_t>(i)] = i + 1;
+    std::uint64_t h = stir(save_.run_seed ^ 0xC0FFEEULL ^ static_cast<std::uint64_t>(save_.difficulty) << 40);
+    for (int i = others - 1; i > 0; --i) {
+        h = stir(h + 0x9E3779B97F4A7C15ULL);
+        const int j = static_cast<int>(h % static_cast<std::uint64_t>(i + 1));
+        std::swap(order[static_cast<std::size_t>(i)], order[static_cast<std::size_t>(j)]);
+    }
+    const int round = (level - 1) % others;
+    return order[static_cast<std::size_t>(round)];
+}
+
 void MazeView::start_level(int n) {
     awarded_ = false;
     level_ = std::max(1, n);
@@ -212,16 +248,7 @@ void MazeView::start_level(int n) {
     Level lv = generate(params_for(difficulty, level_, seed));
     level_seed_ = seed;
     dress(lv);
-    // what to seek: the cheese first, then something not yet on the shelf
-    if (level_ == 1 && difficulty == Difficulty::easy) reward_ = 0;
-    else {
-        std::uint64_t h = seed ^ 0xC0FFEEULL;
-        std::vector<int> fresh;
-        for (int i = 1; i < reward_count(); ++i)
-            if (!(save_.collected >> i & 1)) fresh.push_back(i);
-        h ^= h >> 31; h *= 0x7FB5D329728EA185ULL; h ^= h >> 27;
-        reward_ = fresh.empty() ? 1 + static_cast<int>(h % static_cast<std::uint64_t>(reward_count() - 1)) : fresh[static_cast<size_t>(h % fresh.size())];
-    }
+    reward_ = reward_for(level_);
     sess_.reward_tex = &reward_tex(reward_);
     sess_.reward_name = reward_name(reward_);
     sess_.cast.clear();
@@ -238,9 +265,12 @@ void MazeView::start_level(int n) {
     }
     sess_.start(lv, seed ^ 0xABCDEFULL);
     autowalk_ = 0;
-    // The briefing mentions whatever this maze has that the last did not (Easy, the course),
-    // or, at Medium and Hard, whatever is met here for the first time.
-    news_.clear();
+    wanderer_.reset(seed ^ 0x57A11ULL);
+    pause_t_ = 1.2;   // a moment to take in the maze before setting off
+    heard_ = sess_.speech_revision;
+    // No briefing: the maze says what it holds as it begins, and whatever it has that the last
+    // did not (Easy, the course), or, at Medium and Hard, whatever is met here for the first time.
+    sess_.announce(maze_name() + ". Somewhere in here: " + reward_a(reward_) + ".");
     const LevelParams& p = lv.params;
     const LevelParams prev = difficulty == Difficulty::easy ? params_for(level_ - 1, seed) : LevelParams{};
     const bool has[] = {p.doors > 0, p.portals > 0 || p.sealed_portal, p.marble, p.bulbs > 0, p.snail,
@@ -256,24 +286,60 @@ void MazeView::start_level(int n) {
                           "A flip stone, and a pad on the ceiling. Touch the stone and walk upside down."};
     for (int t = 0; t < 7; ++t) {
         const bool fresh = difficulty == Difficulty::easy ? !had[t] : !(save_.met >> t & 1);
-        if (has[t] && fresh) news_.push_back(tell[t]);
+        if (has[t] && fresh) sess_.announce(tell[t]);
         if (has[t]) save_.met |= 1ULL << t;
     }
-    open(Panel::briefing);
+    heard_ = sess_.speech_revision;   // its own announcements are not encounters
     play("mz_start", .8f);
     dirty_ = true;
     persist();
 }
 
-void MazeView::finish_level() {
+// The reward room admired: the tallies kept, and on to the next maze. There is no end.
+void MazeView::advance() {
     if (awarded_) return;
     awarded_ = true;
-    save_.collected |= 1ULL << reward_;
+    if (reward_ < 64) save_.collected |= 1ULL << reward_;
     ++save_.cleared;
     save_.steps += sess_.play.steps;
     if (sess_.play.steps <= sess_.lv.optimal_steps) ++save_.perfect;
-    persist();
-    open(Panel::won);
+    start_level(level_ + 1);
+}
+
+// You play: the passive player stands aside until you have left the maze alone a while.
+void MazeView::take_over() {
+    passive_ = false;
+    idle_t_ = 0;
+}
+
+// The passive player's turn: it stands for anyone who speaks (a fixed beat), dawdles as it
+// likes, waits for whoever is in its way, and otherwise turns and walks as the wanderer says.
+void MazeView::walk_passively(double dt) {
+    if (sess_.speech_revision != heard_) {
+        heard_ = sess_.speech_revision;
+        pause_t_ = std::max(pause_t_, kEncounterSeconds);
+    }
+    if (pause_t_ > 0) {
+        pause_t_ -= dt;
+        return;
+    }
+    if (sess_.busy() || sess_.won_t >= 0) return;
+    const Wanderer::Move m = wanderer_.next(sess_.lv, sess_.play);
+    if (m.pause > 0) {
+        pause_t_ = m.pause;
+        return;
+    }
+    if (m.dir < 0) return;
+    const int me = sess_.play.dir;
+    if (m.dir != me) {
+        sess_.command(m.dir == (me + 3) % 4 ? Cmd::left : Cmd::right);
+        return;
+    }
+    if (!m.walk) return;
+    const Pos next{sess_.play.at.f, sess_.play.at.x + kDX[m.dir], sess_.play.at.y + kDY[m.dir]};
+    const bool in_way = (sess_.world.marble.alive && (sess_.world.marble.at == next || sess_.world.marble.to == next)) ||
+                        (sess_.world.visitor.alive && sess_.world.visitor.at == next);
+    if (!in_way) sess_.command(Cmd::forward);
 }
 
 void MazeView::persist() {
@@ -292,10 +358,12 @@ bool MazeView::scripted_action(std::string_view code_view) {
     else if (code == "b") sess_.command(Cmd::back);
     else if (code == "l") sess_.command(Cmd::left);
     else if (code == "r") sess_.command(Cmd::right);
-    else if (code == "ok") { if (panel_ == Panel::won) action("next"); else open(Panel::none); }
-    else if (code == "shelf") open(Panel::shelf);
+    else if (code == "ok") open(Panel::none);
+    else if (code == "take") take_over();
+    else if (code == "watch") passive_ = true;
     else if (code == "help") open(Panel::help);
-    else if (code == "credits" || code == "more" || code == "next") action(code);
+    else if (code == "credits" || code == "more") action(code);
+    else if (code == "next") start_level(level_ + 1);
     else if (code == "auto") autowalk_ = 100000;
     else if (code.rfind("auto",0) == 0) autowalk_ = std::clamp(std::atoi(code.c_str()+4),0,100000);
     else if (code.rfind("lvl",0) == 0) start_level(std::clamp(std::atoi(code.c_str()+3),1,100000));
@@ -342,13 +410,12 @@ std::vector<games::GameCommand> MazeView::commands() const {
             {"medium","Medium",true,save_.difficulty == 1,false,true},
             {"hard","Hard",true,save_.difficulty == 2,false,true},
             {"help","Help",true,panel_ == Panel::help},
-            {"trophies","Trophy shelf",true,panel_ == Panel::shelf},
             {"credits","Who's who",true,panel_ == Panel::credits}};
 }
 void MazeView::run_command(std::string_view id) {
     if (id == "help" && games::route_help(*this)) return;
     if (id == "help" && panel_ == Panel::help) open(Panel::none);
-    else action(id == "trophies" ? "shelf" : std::string(id));
+    else action(std::string(id));
     request_frame();
 }
 bool MazeView::controls_fit() const {
@@ -368,9 +435,14 @@ void MazeView::tick() {
     last_ = now;
     const bool was_animating = sess_.camera_animating() || visible_world_animation(r_,sess_.lv,sess_.world);
     const std::uint64_t old_speech = sess_.speech_revision;
-    const bool was_live = panel_ == Panel::none || (panel_ == Panel::won && sess_.won_t<4);
+    const bool was_live = panel_ == Panel::none;
     t_ += dt;
     run_script();
+    if (panel_ == Panel::none && autowalk_ == 0 && !passive_) {
+        idle_t_ += dt;
+        if (idle_t_ > kIdleSeconds) { passive_ = true; pause_t_ = .8; heard_ = sess_.speech_revision; }
+    }
+    if (walking_passively()) walk_passively(dt);
     // dev: walk a best route, re-planned from wherever we are (the marble or a visitor may be in the way)
     if (autowalk_ > 0 && !sess_.busy() && panel_ == Panel::none && sess_.won_t < 0) {
         const std::vector<int> rt = solve_route(sess_.lv, sess_.play);
@@ -384,14 +456,14 @@ void MazeView::tick() {
             else if (!in_way) { sess_.command(Cmd::forward); --autowalk_; }
         }
     }
-    const bool simulation_live = panel_ == Panel::none || (panel_ == Panel::won && sess_.won_t<4);
+    const bool simulation_live = panel_ == Panel::none;
     if (simulation_live) sess_.update(was_live ? dt : 0);
     for (const Event& ev : sess_.events) {
         if (ev.kind == Event::sound) play(ev.text, ev.gain, ev.rate);
-        else if (ev.kind == Event::won) { /* the dialog opens once the room has been admired */ }
+        else if (ev.kind == Event::won) { /* the next maze begins once the room has been admired */ }
     }
     sess_.events.clear();
-    if (sess_.won_t > 1.6 && panel_ == Panel::none) finish_level();
+    if (sess_.won_t > kAdmireSeconds && panel_ == Panel::none) advance();
     {
         const bool on = (opt_.hosted || save_.music) && cab_music_ && cab_front_;
         // the band plays one of its three styles for each level, chosen by the level's seed
@@ -437,8 +509,9 @@ void MazeView::tick() {
     double delay=std::numeric_limits<double>::infinity();
     if (panel_==Panel::none) {
         delay=sess_.next_update_delay();
-        if (visible_world_animation(r_,sess_.lv,sess_.world) || autowalk_>0) delay=.033;
-    } else if (panel_==Panel::won && sess_.won_t<4) delay=.033;
+        if (visible_world_animation(r_,sess_.lv,sess_.world) || autowalk_>0 || walking_passively() || sess_.won_t>=0) delay=.033;
+        else if (!passive_) delay=std::min(delay,std::max(1.0,kIdleSeconds-idle_t_));   // one wake, to hand the maze back when you leave it
+    }
     if (!script_.empty()) delay=std::min(delay,std::max(.001,script_.front().first-t_));
     if (audio_needs_tick()) delay=std::min(delay,.033);
     if (dirty_) delay=std::min(delay,std::max(.001,2-save_t_));
@@ -486,6 +559,7 @@ void MazeView::on_pointer(gf::PointerEvent& e) {
         const std::string h = hit;
         if (!h.empty()) { pressed_ = h; e.handled = true; return; }
         if (panel_ == Panel::none) {
+            take_over();
             // the view itself: left third turns left, right third turns right, the middle walks on
             if (mouse_x_ < pw_ / 3.0) sess_.command(Cmd::left);
             else if (mouse_x_ > pw_ * 2 / 3.0) sess_.command(Cmd::right);
@@ -509,21 +583,18 @@ void MazeView::on_key(gf::KeyEvent& e) {
     const std::uint32_t k = e.physical_key;
     if (k == K::f1 || k == K::h) { open(panel_ == Panel::help ? Panel::none : Panel::help); e.handled = true; return; }
     if (panel_ != Panel::none) {
-        if (k == K::enter || k == K::space || k == K::escape) {
-            if (panel_ == Panel::won && k != K::escape) action("next");
-            else if (panel_ == Panel::won) open(Panel::shelf);
-            else open(Panel::none);
-        } else if (k == K::t && panel_ == Panel::shelf) open(Panel::none);
+        if (k == K::enter || k == K::space || k == K::escape) open(Panel::none);
         else if (k == K::f1 && panel_ == Panel::help) open(Panel::none);
         e.handled = true;
         return;
     }
+    const bool walking = k == K::up || k == K::w || k == K::down || k == K::s || k == K::left || k == K::a || k == K::right || k == K::d;
+    if (walking) take_over();
     if (k == K::up || k == K::w) sess_.command(Cmd::forward);
     else if (k == K::down || k == K::s) sess_.command(Cmd::back);
     else if (k == K::left || k == K::a) sess_.command(Cmd::left);
     else if (k == K::right || k == K::d) sess_.command(Cmd::right);
     else if (k == K::f1 || k == K::h) open(Panel::help);
-    else if (k == K::t) open(Panel::shelf);
     else if (k == K::m && !opt_.hosted) action("music");
     else return;
     e.handled = true;
@@ -532,13 +603,6 @@ void MazeView::on_key(gf::KeyEvent& e) {
 void MazeView::action(const std::string& id) {
     play("mz_click", .4f);
     if (id == "ok" || id == "close") open(Panel::none);
-    else if (id == "next") start_level(level_ + 1);
-    else if (id == "shelf") { trophy_page_ = 0; open(Panel::shelf); }
-    else if (id == "trophy_more") {
-        const int cols = std::max(4,(pw_-36)/30), cell=(pw_-36)/cols;
-        const int per_page=cols*std::max(1,(ph_-82)/cell);
-        trophy_page_=(trophy_page_+1)%((reward_count()+per_page-1)/per_page);
-    }
     else if (id == "help") { if (!games::route_help(*this)) open(Panel::help); }
     else if (id == "music") { save_.music = !save_.music; dirty_ = true; layout_buttons(); }
     else if (id == "sound") { save_.sound = !save_.sound; dirty_ = true; layout_buttons(); }
@@ -617,15 +681,6 @@ void MazeView::layout_buttons() {
     if (pw_ <= 0) return;
     const int bw = 52, bh = 14;
     switch (panel_) {
-        case Panel::briefing: buttons_.push_back({"ok", "OK", pw_ / 2 - bw / 2, ph_ / 2 + 52, bw, bh}); break;
-        case Panel::won:
-            buttons_.push_back({"next", "Next maze", pw_ / 2 - bw - 4, ph_ / 2 + 50, bw + 6, bh});
-            buttons_.push_back({"shelf", "Trophies", pw_ / 2 + 6, ph_ / 2 + 50, bw, bh});
-            break;
-        case Panel::shelf:
-            buttons_.push_back({"trophy_more", "More...", pw_/2-bw-4,ph_-34,bw,bh});
-            buttons_.push_back({"close", "Close", pw_/2+4,ph_-34,bw,bh});
-            break;
         case Panel::help:
             buttons_.push_back({"close", "OK", pw_ / 2 + 70, ph_ / 2 + 62, bw, bh});
             if (!opt_.hosted) buttons_.push_back({"music", save_.music ? "Music: on" : "Music: off", pw_ / 2 - 120, ph_ / 2 + 62, 58, bh});
@@ -689,66 +744,13 @@ void MazeView::draw_panel() {
     if (panel_ == Panel::none) return;
     frame_.fill_rect(0, 0, pw_, ph_, hex(0x000000, .35f));
     switch (panel_) {
-        case Panel::briefing: {
-            const int w = std::min(pw_ - 20, 280), h = 132 + 11 * static_cast<int>(news_.size()), x = (pw_ - w) / 2, y = ph_ / 2 + 70 - h;
-            window(x, y, w, h, maze_name() + " - Briefing");
-            bevel(x + 10, y + 20, 52, 52, true);
-            frame_.fill_rect(x + 11, y + 21, 50, 50, hex(0xFFFFFF));
-            blit(reward_tex(reward_), x + 12, y + 22, 48, 48);
-            text("Today you seek:", x + 70, y + 22, kInk, 13.1, 0);
-            const std::string what = reward_a(reward_);
-            text(what, x + 70, y + 34, hex(0x800060), 16.2, 1, w - 80);
-            int ly = y + 78;
-            if (!news_.empty()) {
-                text("New in this maze:", x + 10, ly, kInk, 12.5, 1);
-                ly += 11;
-                for (const std::string& n : news_) { text("- " + n, x + 12, ly, kInk, 11.9, 0, w - 24); ly += text_h("- " + n, 11.9, 0, w - 24) + 1; }
-            } else {
-                text("Find it. Mind the marble, if there is one.", x + 10, ly, kInk, 12.5, 0, w - 20);
-            }
-            break;
-        }
-        case Panel::won: {
-            const int w = std::min(pw_ - 20, 250), h = 112, x = (pw_ - w) / 2, y = ph_ / 2 + 68 - h;
-            window(x, y, w, h, "Found it!");
-            bevel(x + 10, y + 20, 52, 52, true);
-            frame_.fill_rect(x + 11, y + 21, 50, 50, hex(0xFFF8E0));
-            blit(reward_tex(reward_), x + 12, y + 22, 48, 48);
-            const std::string head = "You found " + reward_the(reward_) + "!";
-            text(head, x + 70, y + 22, hex(0x800060), 15.0, 1, w - 80);
-            std::string sub = "In " + std::to_string(sess_.play.steps) + " steps (the shortest way is " + std::to_string(sess_.lv.optimal_steps) + ").";
-            if (sess_.play.steps <= sess_.lv.optimal_steps) sub = "In " + std::to_string(sess_.play.steps) + " steps: the shortest way there is!";
-            text(sub, x + 70, y + 22 + text_h(head, 15.0, 1, w - 80) + 3, kInk, 12.5, 0, w - 80);
-            break;
-        }
-        case Panel::shelf: {
-            const int w = pw_ - 20, h = ph_ - 20, x = 10, y = 6;
-            window(x, y, w, h, "Trophy Shelf");
-            int got = 0;
-            for (int i = 0; i < reward_count(); ++i) got += save_.collected >> i & 1;
-            text(std::to_string(got) + " of " + std::to_string(reward_count()) + " found.  Mazes cleared: " + std::to_string(save_.cleared) +
-                     ".  Shortest-way finishes: " + std::to_string(save_.perfect) + ".",
-                 x + 8, y + 16, kInk, 12.5, 0);
-            const int cols = std::max(4, (w - 16) / 30), cell = (w - 16) / cols;
-            const int per_page=cols*std::max(1,(ph_-82)/cell);
-            const int first=trophy_page_*per_page;
-            for (int i = first; i < std::min(reward_count(),first+per_page); ++i) {
-                const int cx = x + 8 + ((i-first) % cols) * cell, cy = y + 30 + ((i-first) / cols) * cell;
-                if (cy + cell > y + h - 22) break;
-                bevel(cx, cy, cell - 2, cell - 2, true);
-                frame_.fill_rect(cx + 1, cy + 1, cell - 4, cell - 4, (save_.collected >> i & 1) ? hex(0xFFFFFF) : hex(0x9A9A9A));
-                blit(reward_tex(i), cx + 2, cy + 2, cell - 6, cell - 6, (save_.collected >> i & 1) ? 1.f : .0f);
-            }
-            break;
-        }
         case Panel::help: {
             const int w = std::min(pw_ - 20, 290), h = 150, x = (pw_ - w) / 2, y = ph_ / 2 + 80 - h;
             window(x, y, w, h, "Help");
             const std::string s =
-                "Find the thing named in the briefing. It waits in a room at the far end, along with plenty more of it.\n"
-                "Up / W walks forward, Down / S steps back, Left and Right turn. Or click: the left and right of the view turn, the middle walks.\n"
-                "Pads open doors of their colour. Pads on the ceiling need you upside down: find the spinning stone.\n"
-                "T: trophy shelf.  M: music.  F1: this help.";
+                "Each maze holds something, named as it begins, in a room at the far end along with plenty more of it. Then the next maze; there is no end.\n"
+                "Left alone, the maze walks itself. Up / W walks forward, Down / S steps back, Left and Right turn, or click: the sides of the view turn, the middle walks. Leave it a while and it walks on.\n"
+                "Pads open doors of their colour. Pads on the ceiling need you upside down: find the spinning stone.  M: music.  F1: this help.";
             text(s, x + 8, y + 17, kInk, 13.5, 0, w - 16);
             break;
         }

@@ -3,8 +3,9 @@
 #include <iostream>
 int main(int argc,char** argv) {
     kit::ContractOptions options;
-    // The briefing is static; it must settle even though live maze actors move.
-    options.settles_when_untouched=true;
+    // Left alone, the maze walks itself (the passive player): deliberate ambient motion, which
+    // stops when hidden, when the window is not in use and under reduced motion (checked below).
+    options.settles_when_untouched=false;
     options.settle_seconds=1;
     if(argc>1) options.preview_directory=argv[1];
     const int result=kit::run_view_contract<mz::MazeView,mz::Options>(
@@ -23,9 +24,9 @@ int main(int argc,char** argv) {
         std::shared_ptr<gui_forms::LiveSurface> surface;
         gui_forms::LiveSurfaceFrame frame=kit::contract_next_frame(window,surface,0,"minimum-size maze");
         frame={};
-        kit::contract_require((*view).controls_fit(),"briefing fits minimum surface");
-        kit::contract_require(kit::contract_settle(window,.2),"static briefing stops its timer");
-        (*view).scripted_action("ok");
+        kit::contract_require((*view).controls_fit(),"controls fit minimum surface");
+        // under reduced motion the passive player stands still, and the opening maze settles
+        kit::contract_require(kit::contract_settle(window,1),"reduced motion: the untouched maze stops its timer");
         (*view).scripted_action("r");
         (*view).scripted_action("r");
         frame=kit::contract_next_frame(window,surface,(*view).published_frames(),"turn toward quiet wall");
@@ -43,8 +44,8 @@ int main(int argc,char** argv) {
         (*view).scripted_action("l");
         frame=kit::contract_next_frame(window,surface,quiet_frames,"input wakes sleeping maze");
         frame={};
-        (*view).run_command("trophies");
-        kit::contract_require((*view).controls_fit(),"all trophy-page controls fit");
+        (*view).run_command("help");
+        kit::contract_require((*view).controls_fit(),"help controls fit");
         (*view).run_command("credits");
         kit::contract_require((*view).controls_fit(),"credits controls fit");
         kit::contract_require((*view).scripted_action("lvl14"),"test selects flip/elevator maze");
@@ -56,15 +57,41 @@ int main(int argc,char** argv) {
             (*view).scripted_action("ok");
             frame=kit::contract_next_frame(window,surface,(*view).published_frames(),"level fourteen");
             kit::contract_write_frame(frame,options.preview_directory,"maze-level14-600x320.ppm"); frame={};
-            (*view).run_command("trophies");
-            frame=kit::contract_next_frame(window,surface,(*view).published_frames(),"trophy page");
-            kit::contract_write_frame(frame,options.preview_directory,"maze-trophies-600x320.ppm"); frame={};
         }
         (*view).set_cabinet(false,false,false,true);
         kit::contract_require(!(*view).scripted_action("lvl2"),"hidden game refuses scripted mutation");
         const std::uint64_t callbacks=(*view).timer_callbacks();
         static_cast<void>(window.poll_frame_schedule(gui_forms::FrameClock::now()+std::chrono::seconds(2)));
         kit::contract_require((*view).timer_callbacks()==callbacks,"hidden maze has no callbacks");
+        {
+            // left alone in an active window, the maze walks itself; an inactive window stops it
+            kit::contract_isolate_saves("maze-passive");
+            std::shared_ptr<mz::MazeView> walker=gui_forms::make_control<mz::MazeView>(
+                gui_forms::StableId("maze.passive"),mz::Options{.hosted=true,.dev=true});
+            (*walker).set_cabinet(true,false,false,false);
+            gui_forms::Window walking(walker,{640,400});
+            walking.set_active(true); walking.perform_layout();
+            const gui_forms::FrameTime until=gui_forms::FrameClock::now()+std::chrono::seconds(6);
+            while (gui_forms::FrameClock::now()<until && (*walker).steps_walked()==0) {
+                static_cast<void>(walking.poll_frame_schedule(gui_forms::FrameClock::now()));
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            }
+            kit::contract_require((*walker).steps_walked()>0,"the passive player walks the untouched maze");
+            // an inactive window stops it (the maze's own inhabitants go on as they always have)
+            walking.set_active(false);
+            gui_forms::FrameTime until_still=gui_forms::FrameClock::now()+std::chrono::milliseconds(800);
+            while (gui_forms::FrameClock::now()<until_still) {   // the step under way finishes
+                static_cast<void>(walking.poll_frame_schedule(gui_forms::FrameClock::now()));
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            }
+            const int stood=(*walker).steps_walked();
+            until_still=gui_forms::FrameClock::now()+std::chrono::seconds(2);
+            while (gui_forms::FrameClock::now()<until_still) {
+                static_cast<void>(walking.poll_frame_schedule(gui_forms::FrameClock::now()));
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            }
+            kit::contract_require((*walker).steps_walked()==stood,"an inactive window stops the passive player");
+        }
         std::shared_ptr<mz::MazeView> production=gui_forms::make_control<mz::MazeView>(
             gui_forms::StableId("maze.production"),mz::Options{});
         kit::contract_require(!(*production).scripted_action("lvl14"),"production view refuses test scripts");

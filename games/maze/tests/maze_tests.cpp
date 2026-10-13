@@ -5,7 +5,8 @@
 // the route wins without the marble ever sharing a square with the player;
 // the snail repaints; the save file round-trips and refuses tampering; the band
 // plays each style through its first tune into the next, the same seed the same
-// music however it is asked for, quieter and duller through the wall, and backwards.
+// music however it is asked for, quieter and duller through the wall, and backwards;
+// the passive player finds every reward, the long way round.
 #include "art.hpp"
 #include "band.hpp"
 #include "maze.hpp"
@@ -13,6 +14,7 @@
 #include "save.hpp"
 #include "session.hpp"
 #include "textures.hpp"
+#include "wanderer.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -227,6 +229,37 @@ int main() {
         SaveData bad;
         CHECK(!load_save(p, bad));
         std::filesystem::remove(p);
+    }
+    // the passive player: every reward found, never by a way that is not open, and the long way round
+    {
+        int mazes = 0;
+        long walked = 0, best = 0;
+        for (int level = 1; level <= 40; ++level)
+            for (int d = 0; d < 3; ++d) {
+                const Level lv = generate(params_for(static_cast<Difficulty>(d), level, 4242 + static_cast<std::uint64_t>(level * 3 + d)));
+                Play play;
+                play.at = lv.start;
+                Wanderer w;
+                w.reset(static_cast<std::uint64_t>(level * 7 + d));
+                int asked = 0;
+                bool stuck = false;
+                while (!play.won && asked < 40000 && !stuck) {
+                    const Wanderer::Move m = w.next(lv, play);
+                    ++asked;
+                    if (m.dir < 0) continue;  // standing a moment
+                    if (play.dir != m.dir) { play.dir = m.dir; continue; }  // turned to face it
+                    if (!m.walk) continue;  // only glancing
+                    Arrival a;
+                    stuck = step(lv, play, m.dir, a) != StepResult::moved;
+                }
+                CHECK(!stuck);
+                CHECK(play.won);
+                ++mazes;
+                walked += play.steps;
+                best += lv.optimal_steps;
+            }
+        CHECK(walked > best * 13 / 10);   // it wanders
+        std::printf("passive player: %d mazes found, %.1fx the shortest way on average\n", mazes, static_cast<double>(walked) / static_cast<double>(best));
     }
     // the band
     {
