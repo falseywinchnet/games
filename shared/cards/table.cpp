@@ -169,8 +169,8 @@ void Table::initialize_control_tree() {
                            "Undo",      "Hint",     "How to play", "Options",    "Close",
                            "Card back", "Motion",   "Sound",       "Music",      "Deal options",
                            "Rules",     "Controls", "About",       "Pass cards", "Top scores",
-                           "Save name", "New game"};
-    for (int i = 0; i < 22; ++i) {
+                           "Save name", "New game",  "Solve?"};
+    for (int i = 0; i < 23; ++i) {
         if (i == 18)
             buttons_[i] = gf::make_control<HeartsButton>(gf::StableId("action18"), names[i]);
         else {
@@ -266,6 +266,7 @@ void Table::arrange(gf::Rect bounds) {
     set_child_layout(buttons_[19], {w - 134, bounds.height - 64, 110, 28});
     set_child_layout(score_name_, {popup_.x + 30, popup_.y + 125, 245, 35});
     set_child_layout(buttons_[20], {popup_.x + 289, popup_.y + 125, 119, 35});
+    set_child_layout(buttons_[22], {w * .5 - 60, bounds.height - 58, 120, 36});
     set_child_layout(buttons_[21],
                      {popup_.x + popup_.width - 140, popup_.y + popup_.height - 48, 110, 30});
     layout_cards(false);
@@ -535,6 +536,7 @@ void Table::layout_cards(bool animate) {
         s.moving = false;
         s.delay = 0;
         s.duration = .38;
+        s.arc = .45;
         s.flip_progress = 1;
         s.visible = false;
     }
@@ -627,6 +629,13 @@ void Table::layout_cards(bool animate) {
                        (std::abs(s.start.x - s.target.x) + std::abs(s.start.y - s.target.y) > .1 ||
                         s.flipping);
             s.flip_progress = s.flipping ? 0 : 1;
+            // A move takes as long as its distance asks: a card let go beside its place
+            // snaps in, one sent across the table still flies.
+            if (s.moving && !s.flipping && s.duration == .38) {
+                const double distance = std::hypot(s.target.x - s.start.x, s.target.y - s.start.y);
+                s.duration = std::clamp(.1 + distance / 2400, .1, .38);
+                s.arc = .45 * std::min(1.0, distance / 300);
+            }
             if (!animate || reduced_)
                 s.rect = s.target;
             // A card out of sight (under the stock's top card, beneath a foundation's) is
@@ -745,7 +754,7 @@ void Table::tick() {
                 // A card turns over in the air: it rises, turns about its upright middle and
                 // settles face up as it lands.
                 s.flip_progress = std::clamp((t - .08) / .8, 0.0, 1.0);
-                s.lift = std::sin(t * 3.141592653589793) * (s.flipping ? 1 : .45);
+                s.lift = std::sin(t * 3.141592653589793) * (s.flipping ? 1 : s.arc);
                 bool complete = t >= 1 && (!s.flipping || s.flip_progress >= 1);
                 pending = pending || !complete;
                 s.moving = !complete;
@@ -772,6 +781,17 @@ void Table::tick() {
         layout_cards(true);
         sound_play("place", sound_);
     }
+    if (autoplay_next_ < autoplay_.size() && now >= autoplay_due_) {
+        const SolverStep step = autoplay_[autoplay_next_++];
+        const bool done = step.draw ? game.draw() : game.move(step.move);
+        if (done) {
+            changed(step.draw ? "flip" : "place");
+        } else {
+            autoplay_.clear();
+            autoplay_next_ = 0;
+        }
+        autoplay_due_ = now + std::chrono::milliseconds(100);
+    }
     if (cascading_)
         step_cascade();
     if (!animating_ && !cascading_) {
@@ -791,6 +811,9 @@ void Table::tick() {
         if (sizing && !dragging_) {
             waiting_ai_ = true;
             (*timer_).start_at(playing ? std::min(ai_due_, settled) : settled);
+        } else if (autoplay_next_ < autoplay_.size()) {
+            waiting_ai_ = true;
+            (*timer_).start_at(autoplay_due_);
         } else if (!playing && !dealer_.busy())
             (*timer_).stop();
         else {
@@ -1427,6 +1450,9 @@ void Table::new_game(Kind kind) {
     sound_play("deal", sound_);
     persist();
     want_deals();
+    autoplay_.clear();
+    autoplay_next_ = 0;
+    update_solvable();
 }
 bool Table::pending_score() const {
     return !cabinet_.result_recorded[static_cast<int>(game.state.kind)] &&
@@ -1622,6 +1648,21 @@ void Table::action(gf::ButtonBase& button) {
     }
     if (a == 4)
         new_game(game.state.kind);
+    if (a == 22 && solvable_ && autoplay_next_ >= autoplay_.size()) {
+        std::vector<SolverStep> line;
+        if (solve_state(game.state, 20000, &line).solved && !line.empty()) {
+            autoplay_ = std::move(line);
+            autoplay_next_ = 0;
+            autoplay_due_ = gf::FrameClock::now();
+            show_solve();
+            request_tick();
+        }
+        return;
+    }
+    if (a == 4 || a == 5) {
+        autoplay_.clear();
+        autoplay_next_ = 0;
+    }
     if (a == 5 && game.undo()) {
         pass_cards_.clear();
         changed("undo");
@@ -1709,6 +1750,7 @@ void Table::action(gf::ButtonBase& button) {
         new_game(game.state.kind);
         open_panel(0);
     }
+    show_solve();
     if (panel_ == 0 && attached_window())
         static_cast<void>((*attached_window()).request_focus(shared_from_this()));
     persist();
@@ -1733,6 +1775,29 @@ void Table::changed(const char* effect) {
         ai_due_ = gf::FrameClock::now() + std::chrono::milliseconds(650);
         request_tick();
     }
+    update_solvable();
+}
+void Table::update_solvable() {
+    const bool playing = autoplay_next_ < autoplay_.size();
+    if (!playing) {
+        bool certain = game.state.kind != Kind::hearts && !game.state.over && !cascading_ &&
+                       game.state.piles[14].empty();
+        for (int pile = 0; certain && pile < 20; ++pile)
+            for (const Card& c : game.state.piles[pile])
+                certain = certain && c.up;
+        if (certain && game.state.kind == Kind::freecell)
+            for (int pile = 0; certain && pile < 8; ++pile) {
+                const Pile& cards = game.state.piles[pile];
+                for (std::size_t i = 1; certain && i < cards.size(); ++i)
+                    certain = cards[i].rank == cards[i - 1].rank - 1 && red(cards[i]) != red(cards[i - 1]);
+            }
+        solvable_ = certain && solve_state(game.state, 20000).solved;
+    }
+    show_solve();
+}
+void Table::show_solve() {
+    if (buttons_[22])
+        (*buttons_[22]).set_visible(panel_ == 0 && solvable_ && !game.state.over && autoplay_next_ >= autoplay_.size());
 }
 int Table::hit_card(gf::Point point) const {
     int found = -1;
@@ -1778,6 +1843,48 @@ void Table::track_hover(gf::Point point) {
     glint_card_ = glint;
     if (glint_)
         request_tick();
+}
+int Table::drop_target() const {
+    if (selection_ < 0 || selected_index_ < 0 || game.state.kind == Kind::hearts)
+        return hit_slot(pointer_);
+    const Pile& from = game.state.piles[static_cast<std::size_t>(selection_)];
+    if (selected_index_ >= static_cast<int>(from.size()))
+        return -1;
+    gf::Rect held = sprites_[from[static_cast<std::size_t>(selected_index_)].id].rect;
+    held.x += pointer_.x - press_.x;
+    held.y += pointer_.y - press_.y;
+    // The overlap with each legal pile: its top card and the place the run would land.
+    int best = -1, second = -1;
+    double best_area = 0, second_area = 0;
+    for (int pile = 0; pile < 20; ++pile) {
+        if (pile == selection_ || slots_[pile].width <= 0 || !game.legal({selection_, selected_index_, pile}))
+            continue;
+        gf::Rect zone = landing(pile);
+        const Pile& cards = game.state.piles[static_cast<std::size_t>(pile)];
+        if (!cards.empty())
+            zone = gf::Rect::united(zone, sprites_[cards.back().id].rect);
+        const double area = gf::Rect::intersection(held, zone).area();
+        if (area <= 0)
+            continue;
+        if (area > best_area) {
+            second = best;
+            second_area = best_area;
+            best = pile;
+            best_area = area;
+        } else if (area > second_area) {
+            second = pile;
+            second_area = area;
+        }
+    }
+    // Held about evenly between two: the one further from where the run came from.
+    if (second >= 0 && second_area >= best_area * .9) {
+        const gf::Rect origin = slots_[selection_];
+        const double to_best = std::hypot(slots_[best].x - origin.x, slots_[best].y - origin.y);
+        const double to_second = std::hypot(slots_[second].x - origin.x, slots_[second].y - origin.y);
+        if (to_second > to_best)
+            best = second;
+    }
+    return best;
 }
 int Table::hit_slot(gf::Point point) const {
     int card = hit_card(point);
@@ -1890,7 +1997,7 @@ void Table::on_pointer(gf::PointerEvent& e) {
             invalidate(enlarged(slots_[hover_], 12));
             invalidate(enlarged(landing(hover_), 12));
         }
-        hover_ = hit_slot(pointer_);
+        hover_ = dragging_ ? drop_target() : hit_slot(pointer_);
         if (hover_ >= 0) {
             invalidate(enlarged(slots_[hover_], 12));
             invalidate(enlarged(landing(hover_), 12));
@@ -1915,7 +2022,8 @@ void Table::on_pointer(gf::PointerEvent& e) {
         pointer_down_ = false;
         set_pointer_capture(false);
         if (dragging_) {
-            int to = hit_slot(local_position);
+            pointer_ = local_position;
+            const int to = drop_target();
             for (Sprite& sprite : sprites_)
                 if (sprite.pile == selection_ && sprite.index >= selected_index_) {
                     sprite.rect.x += pointer_.x - press_.x;

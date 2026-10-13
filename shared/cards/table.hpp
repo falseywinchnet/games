@@ -19,6 +19,7 @@ struct Sprite {
     bool visible = false, prior_up = false, flipping = false, moving = false;
     double delay = 0, duration = .38, flip_progress = 1;
     double lift = 0;  // 0 on the table .. 1 at the top of its arc, as it moves
+    double arc = .45; // how high a move that does not turn the card rises (a short one barely)
 };
 class Table final : public gf::Control, public CommandSource {
   public:
@@ -59,7 +60,7 @@ class Table final : public gf::Control, public CommandSource {
     // card in the air.
     void save_soon();
     void switch_game(Kind kind);
-    std::array<std::shared_ptr<gf::Button>, 22> buttons_{};
+    std::array<std::shared_ptr<gf::Button>, 23> buttons_{};
     std::vector<gf::SubscriptionToken> subscriptions_;
     std::array<gf::ImageId, 52> faces_{};      // the classic faces (authoring/cards1902)
     std::array<gf::ImageId, card_back_count> backs_{};
@@ -163,6 +164,8 @@ class Table final : public gf::Control, public CommandSource {
     [[nodiscard]] bool movable(int pile, int index) const;
     void track_hover(gf::Point point);
     int hit_slot(gf::Point point) const;
+    // Where the run in the hand would go if let go now: the legal pile it overlaps most.
+    [[nodiscard]] int drop_target() const;
     [[nodiscard]] gf::Rect landing(int pile) const;
     // How far apart Spider's waiting deals lie, each a small stack of backs.
     [[nodiscard]] double deal_step() const {
@@ -180,6 +183,15 @@ class Table final : public gf::Control, public CommandSource {
     bool cascading_ = false;
     double launch_timer_ = 0;
     std::chrono::steady_clock::time_point cascade_last_{};
+    // A game whose win is certain: nothing face down, nothing left in the stock (and in
+    // FreeCell every column already in order), and the solver finds the line at once.
+    // "Solve?" then plays that line out, a move every tenth of a second.
+    bool solvable_ = false;
+    std::vector<SolverStep> autoplay_;
+    std::size_t autoplay_next_ = 0;
+    gf::FrameTime autoplay_due_{};
+    void update_solvable();
+    void show_solve();
     void start_cascade();
     void step_cascade();
     void finish_cascade();
