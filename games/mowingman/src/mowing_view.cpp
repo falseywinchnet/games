@@ -243,7 +243,12 @@ bool MowingScenery::poll(ambient::SceneContext& context) {
     // later sizes wait for a resize to settle.
     if (dirty_all_ && wanted_.width > 0 && (!yard_.built() || settled_ || art_.empty()))
         rebuild();
-    return art_loading_.valid();
+    // The props' pictures: the view keeps looking while they are made (paused, too), and
+    // draws once they are ready.
+    const bool warming = warming_.valid() && !finished(warming_);
+    if (warming_.valid() && !warming)
+        context.redraw = true;
+    return art_loading_.valid() || warming;
 }
 
 void MowingScenery::next_garden() {
@@ -336,9 +341,18 @@ const std::vector<std::uint32_t>& MowingScenery::draw(ambient::SceneContext& con
     const bool models = !warming_.valid() || finished(warming_);
     if (models && warming_.valid())
         warming_.get();
+    // After a resize (or a change of detail) the last whole frame stays, enlarged to the
+    // new size, until they are ready: drawn without them, the bare soil they stand on shows.
+    if (!models && !picture_.empty() && fade_ <= 0) {
+        width = picture_width_;
+        height = picture_height_;
+        return picture_;
+    }
     const std::vector<std::uint8_t>& bytes = yard_.compose(mowing, drawn, context.time, models);
     width = yard_.width();
     height = yard_.height();
+    picture_width_ = width;
+    picture_height_ = height;
     picture_.resize(static_cast<std::size_t>(width) * static_cast<std::size_t>(height));
     // Canvas pixels are BGRA bytes: on little-endian machines, 0xAARRGGBB words.
     std::memcpy(picture_.data(), bytes.data(), picture_.size() * sizeof(std::uint32_t));

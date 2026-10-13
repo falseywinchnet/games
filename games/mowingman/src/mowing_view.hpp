@@ -71,6 +71,7 @@ class MowingScenery final : public ambient::Scenery {
     bool keys_[4]{};      // up, left, down, right held
     bool keyboard_{};     // the keys have the controls
     std::vector<std::uint32_t> picture_{};
+    int picture_width_{}, picture_height_{};  // picture_'s size, which may be the size before a resize
     std::vector<std::uint32_t> previous_{};  // the last garden's final picture, faded out
     double fade_{};
     double eggy_look_{};
