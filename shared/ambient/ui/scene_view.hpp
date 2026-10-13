@@ -100,11 +100,6 @@ class SceneView : public gf::Control, public games::CommandSource {
     int device_height_{};
     SceneSize wanted_{};
     bool render_dirty_{true};
-    // Frames still to come after a new picture (another scene, a command from the capsule)
-    // over which the overlays are repainted on every host (render::repaint_overlays).
-    int fresh_frames_{};
-    int shown_width_{};
-    int shown_height_{};
     bool front_{true};
     bool music_{true};
     bool sound_on_{true};

@@ -10,7 +10,6 @@
 #include "gui_forms/window.hpp"
 
 #include <memory>
-#include <vector>
 
 namespace render {
 namespace gf = gui_forms;
@@ -55,41 +54,20 @@ inline void refresh_overlays_in(const gf::Control& control, const gf::Rect& dama
         refresh_overlays_in(*child, damage);
     }
 }
-inline void collect_overlays_in(const gf::Control& control, const gf::Rect& area, std::vector<gf::Rect>& out) {
-    for (const gf::Control::Ptr& child : control.children()) {
-        if (!child || !(*child).visible())
-            continue;
-        if ((*child).paint_plane() == gf::PaintPlane::overlay) {
-            const gf::Rect placed = (*child).committed_arranged_bounds();
-            const gf::Rect bounds = committed_in_window(*child, {0, 0, placed.width, placed.height});
-            if (!gf::Rect::intersection(bounds, area).empty())
-                out.push_back(bounds);
-            continue;
-        }
-        collect_overlays_in(*child, area, out);
-    }
-}
 } // namespace detail
 
-// Where the overlays over `owner` lie, in the window, by the layout last committed. A live
-// view compares them from frame to frame: see Surface::publish.
-inline std::vector<gf::Rect> overlays_over(const gf::Control& owner) {
-    std::vector<gf::Rect> found;
-    gf::Window* window = owner.attached_window();
-    if (window == nullptr || !(*window).root())
-        return found;
-    const gf::Rect all = owner.client_rectangle();
-    detail::collect_overlays_in(*(*window).root(), detail::committed_in_window(owner, {0, 0, all.width, all.height}), found);
-    return found;
-}
-
-// Every overlay over `local_damage` of `owner` (its own points; empty for all of it)
-// paints again, on every host. For a new picture: another scene, or the first frames
-// after a command from the capsule. On macOS the host recomposites overlays inside a
-// frame's damage itself, but an overlay painted while the old picture was still showing
-// (a capsule button pressed to change the scene) can keep that picture beneath it until
-// it is invalidated: Stillwater's capsule showed the last tank's plants over the reef.
-inline void repaint_overlays(const gf::Control& owner, gf::Rect local_damage = {}) {
+// A frame was published for `owner`, changing `local_damage` (the owner's own points;
+// empty for all of it): every overlay over that paints again.
+inline void refresh_overlays(const gf::Control& owner, gf::Rect local_damage = {}) {
+#if defined(__APPLE__)
+    // GUI.Forms repaints an overlay's share of each new live frame itself (3e4812b, #69:
+    // the core marks the overlap, and the macOS host redraws it in the same update).
+    // Asking again only added far-apart invalidations whose union repainted the window.
+    // The other hosts are not yet checked against #69, so they still ask.
+    static_cast<void>(owner);
+    static_cast<void>(local_damage);
+    return;
+#endif
     gf::Window* window = owner.attached_window();
     if (window == nullptr || !(*window).root())
         return;
@@ -97,20 +75,6 @@ inline void repaint_overlays(const gf::Control& owner, gf::Rect local_damage = {
     const gf::Rect damage =
         detail::committed_in_window(owner, local_damage.empty() ? gf::Rect{0, 0, all.width, all.height} : local_damage);
     detail::refresh_overlays_in(*(*window).root(), damage);
-}
-
-// A frame was published for `owner`, changing `local_damage` (the owner's own points;
-// empty for all of it): every overlay over that paints again.
-inline void refresh_overlays(const gf::Control& owner, gf::Rect local_damage = {}) {
-#if defined(__APPLE__)
-    // The macOS host redraws a publication's damage itself, the overlays in it included
-    // (GUI.Forms 6e9a817). Asking again only added far-apart invalidations (the capsule in
-    // one corner, help in another) whose union repainted the whole window every frame.
-    static_cast<void>(owner);
-    static_cast<void>(local_damage);
-    return;
-#endif
-    repaint_overlays(owner, local_damage);
 }
 
 } // namespace render

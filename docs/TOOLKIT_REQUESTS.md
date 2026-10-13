@@ -248,6 +248,16 @@ enlarging copy.
    overlay-plane controls over the damage. Doing it in the toolkit, for generations whose
    damage meets an overlay rectangle, would serve translucent overlays in other
    applications too; opaque ones would pay a repaint they do not need.
+   *Answered by GUI.Forms #69 (3e4812b, pinned): when a new frame's changed area reaches
+   an overlay, the core marks that overlap for repaint, a first or skipped frame the whole
+   area under it, and the macOS host redraws it in the same screen update. Checked on a
+   Retina screen with the capsule open (Stillwater's Next tank, Catching Thieves' New garden
+   and first opening, the capsule folding over a settled game): no stale pixels.
+   PlaySuite's own workarounds are gone (the scene view's 30-frame repaint, the first-frame
+   repaint, the whole-frame publish when overlays change, and presenting live views again
+   after the capsule moves). `render::refresh_overlays` still asks on Windows and Linux,
+   which are not yet checked against #69; on macOS it does nothing.*
+
 ## Text over paper (found with the paper engine, 2026-10-11)
 
 The help document and the Settings screen are now printed on a generated paper tile

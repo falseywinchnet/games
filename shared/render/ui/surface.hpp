@@ -17,7 +17,6 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include <vector>
 
 namespace render {
 namespace gf = gui_forms;
@@ -25,8 +24,7 @@ namespace gf = gui_forms;
 class Surface {
 public:
     Surface() = default;
-    ~Surface();
-    // Kept in a list while attached (present_live_again), so it stays where it is.
+    // One owner presents through it: not copied (reset() starts it afresh).
     Surface(const Surface&) = delete;
     Surface& operator=(const Surface&) = delete;
     // Sizes the surface in device pixels, creating it on first use. A new size makes
@@ -53,10 +51,6 @@ public:
     void abandon();
     // Everything is redrawn next frame (lost contents, a new picture).
     void invalidate_all();
-    // Publishes the last frame again, all of it changed, without drawing: the window
-    // copies the whole picture once (see present_live_again). False when there is none
-    // to give, or a frame is being drawn now (its publish will do).
-    bool present_again();
 
     [[nodiscard]] std::shared_ptr<gf::Control> owner() const {
         return owner_.lock();
@@ -94,19 +88,10 @@ private:
     std::array<Rect, history> damage_{};      // damage_[n % history]: what frame n changed
     std::array<Kept, gf::maximum_live_surface_buffer_count> kept_{};
     Rect pending_;                            // damage of frames not yet published
-    std::vector<gf::Rect> overlays_;          // the overlays over the owner at the last publish
-    bool overlays_seen_ = false;              // false until a frame at this size is published
     const void* writing_ = nullptr;
 
     [[nodiscard]] std::uint64_t held_by(const void* address) const;
     void remember(const void* address, std::uint64_t frame);
 };
-
-// Every live surface attached in `window` presents its last frame again, whole. For whoever
-// moves a floating control over live views: where an overlay was, the macOS host neither
-// repaints (the live surface covers it) nor copies again (it takes the window to hold the
-// picture already), so a folded capsule leaves what lay beneath it, in a game that draws no
-// new frame to correct it. Call it once the move has been laid out.
-void present_live_again(gf::Window& window);
 
 }  // namespace render
