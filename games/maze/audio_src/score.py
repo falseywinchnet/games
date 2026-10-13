@@ -1,30 +1,24 @@
-"""Maze 95 score: three upbeat loops, one chosen at random for each level.
+"""Maze 95 score: the reference recordings of the band's three styles.
+
+The game plays its music live (src/band.cpp): a band that makes up tunes as it
+plays, in one of three styles chosen for each level. This script made the
+recordings the owner chose those styles from, and the band was matched to them
+(the same arrangements and themes, each part's level, the room and the master).
+Re-render them to compare by ear after changing the band.
 
 After the action-game music of the late 90s (3D Maze Man's was the owner's
 reference): major keys, a punchy bass that does most of the work, busy
 hi-hats, a lead that runs in sixteenths and slides into its long notes, loud
 and bright.
 
-  mz_music        "Maze Run": synth rock. A major, 98 BPM: driving octave bass,
-                  chugging power chords, a sliding square lead, brass stabs; a
-                  D-C-G middle and an F-G-A climb back to the top.
-  mz_music_bonus  "Bonus Round": a bouncy romp. C major, 124 BPM: oom-pah
-                  pizzicato and marimba, celesta, clarinet and flute passing a
-                  tune around, brass hits, woodblocks over a real beat.
-  mz_music_turbo  "Turbo": a funky groove. B-flat, 112 BPM: slap-ish synth bass,
-                  Rhodes stabs, a brass section, vibraphone and lead trading
-                  phrases, claps and a breakbeat.
+  mz_music        "Maze Run": synth rock. A major, 98 BPM.
+  mz_music_bonus  "Bonus Round": a bouncy romp. C major, 124 BPM.
+  mz_music_turbo  "Turbo": a funky groove. B-flat, 112 BPM.
 
-Each loop runs about two minutes in sections, so it wears for an hour. Each
-has two companions: _dark, for a blackout (heard through a wall), and _flip,
-for walking on the ceiling (backwards). Everything is synthesized
-(engine/synth.py and the instruments below); no samples. Writes 48 kHz 16-bit
-WAV masters into masters/ (not tracked: run this to remake them) and the music entries of the manifest (exact loop
-lengths) into ../assets/audio; the start chime and win jingle stay as
-mall_music.py made them. The game ships AAC encodings (afconvert -f m4af -d
-aac -b 160000; the muffled _dark versions at 64000).
+Each also comes _dark (through a wall) and _flip (backwards). Writes 48 kHz
+16-bit WAV masters into masters/ (not tracked). Everything is synthesized
+(engine/synth.py and the instruments below); no samples.
 """
-import json
 import os
 import sys
 
@@ -35,7 +29,6 @@ from synth import (SR, INSTR, DRUMS, mtof, tarr, gate, noise, fft_filter, render
                    pingpong, LoopMix, wt)
 from mall_music import bus_rms_db, finish, write  # noqa: E402
 
-OUT = os.path.join(os.path.dirname(__file__), '..', 'assets', 'audio')
 MASTERS = os.path.join(os.path.dirname(__file__), 'masters')
 
 
@@ -499,10 +492,6 @@ def companions(x):
 def main():
     only = sys.argv[1:]
     os.makedirs(MASTERS, exist_ok=True)
-    path = os.path.join(OUT, 'maze_audio_manifest.json')
-    manifest = json.load(open(path))
-    keep = {n + s for n, _ in PIECES for s in ('', '_dark', '_flip')}
-    entries = {e['id']: e for e in manifest['music'] if e['id'] in keep}
     for name, make in PIECES:
         if only and name not in only:
             continue
@@ -511,11 +500,7 @@ def main():
         dark, flip = companions(x)
         for n, y in ((name, x), (name + '_dark', dark), (name + '_flip', flip)):
             write(os.path.join(MASTERS, n + '.wav'), y)
-            entries[n] = {'id': n, 'bpm': p.bpm, 'bars': p.bars, 'bar_samples': 4 * p.spb, 'loop_end_sample_exclusive': p.L,
-                          'seconds': round(p.L / SR, 3)}
             print(n, round(p.L / SR, 1), 's')
-    manifest['music'] = [entries[n + s] for n, _ in PIECES for s in ('', '_dark', '_flip') if n + s in entries]
-    json.dump(manifest, open(path, 'w'), indent=1)
 
 
 if __name__ == '__main__':

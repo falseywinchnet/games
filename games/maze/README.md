@@ -117,19 +117,19 @@ is its registration; no shell or release-version edits are required.
 | Hanging the pictures; PNG decoding for the painted assets | `art.*`, `png.*` |
 | Painted surfaces (brick, carpets, ceilings, doors, pads, posters, the snail's paints) | `textures.*` |
 | The rewards | `rewards.*` |
+| The band: its instruments, the three styles' arrangements and themes, the tunes it makes up, the wall and playing backwards | `band.*` |
 | Window, chrome, briefing, speech, win, trophy shelf, help, credits, autosave; the frame enlarged into the window's buffers by the render engine's `PixelSurface`, repairing only what changed | `maze_view.*`, `save.*` |
 | Portable raster, GUI.Forms text masks and scene audio, namespace `mz` | `platform/` |
 
 All audio is synthesized (`audio_src/`):
 
-- Three upbeat loops of about two minutes, one chosen at random for each level (`score.py`):
+- The music is played live by a band that makes up its tunes as it plays (`band.*`), in one of three styles chosen for each level:
   - "Maze Run": synth rock in A major at 98 BPM
   - "Bonus Round": a bouncy romp in C major at 124 BPM
   - "Turbo": a funky groove in B-flat at 112 BPM
-- Each loop comes in three versions:
-  - as it is
-  - through a wall, for the blackout
-  - backwards, for the ceiling
+- A level's first tune plays the style's own themes; later ones make new melodies over the same chords, in the themes' rhythms, and change key.
+- In a blackout the band is heard through a wall; on the ceiling it plays backwards, a bar at a time.
+- The styles were chosen from recordings that `score.py` still renders, and the band is matched to them; `maze_preview band STYLE SECONDS out.wav` renders the band itself, and `maze_preview band-levels` re-measures its mix.
 - A start-up chime and a win jingle (`mall_music.py`).
 - The residents' sounds: the meow, the honk, the bell, the burp, Keyboard Cat's keys, Monke's ooh, the Thinking Face's tune, and the snail's squelch, hide and peek.
 - Effects: steps on carpet, turns, bumps, locks, pads, grinding doors, the flip, bulbs, the elevator and its ding, portals, the marble's rumble, knock and thud, appearances and poofs.
@@ -146,7 +146,6 @@ and inspected native captures are recorded in `HANDOFF.md`.
   - 36 sessions walked to the reward with the marble rolling and the snail painting; the marble never shared a square with the player.
 - A fuzz run generated all 3,000 mazes from levels 1–60 across 50 runs; the slowest took 50 ms.
 - Rendering takes about 1–3 ms a frame at the game's 366×253.
-- The music's AAC decodes to exactly its loop length.
 
 ## Current validation boundaries
 

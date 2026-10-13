@@ -3,8 +3,11 @@
 // portal is the only way across; ceiling pads need the flip; the elevator
 // joins two floors; the same seed builds the same maze; a session walked by
 // the route wins without the marble ever sharing a square with the player;
-// the snail repaints; the save file round-trips and refuses tampering.
+// the snail repaints; the save file round-trips and refuses tampering; the band
+// plays each style through its first tune into the next, the same seed the same
+// music however it is asked for, quieter and duller through the wall, and backwards.
 #include "art.hpp"
+#include "band.hpp"
 #include "maze.hpp"
 #include "png.hpp"
 #include "save.hpp"
@@ -12,6 +15,7 @@
 #include "textures.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -173,11 +177,16 @@ int main() {
             CHECK(t.w == 256 && t.h == 256);
         }
         CHECK(pieces >= 50);
+        // (the folder is found from this file's path, which the build may record relative to
+        // the build folder: run the tests from there, as CTest does)
         std::ifstream in(dir / "poster_00.png", std::ios::binary);
         std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-        bytes[bytes.size() / 2] ^= 0x5A;
-        Tex32 broken;
-        CHECK(!decode_png(bytes, broken));
+        CHECK(!bytes.empty());
+        if (!bytes.empty()) {
+            bytes[bytes.size() / 2] ^= 0x5A;
+            Tex32 broken;
+            CHECK(!decode_png(bytes, broken));
+        }
         use_poster_art(dir.string());
         CHECK(poster_count() == posters && art_count() == pieces);
         // every maze hangs one or two posters and three or four pieces of art, the same each time
@@ -218,6 +227,77 @@ int main() {
         SaveData bad;
         CHECK(!load_save(p, bad));
         std::filesystem::remove(p);
+    }
+    // the band
+    {
+        const int rate = MazeBand::sample_rate;
+        for (int style = 0; style < 3; ++style) {
+            // past the end of the first tune (the longest is 127 s), in game-sized blocks and in one go
+            const std::size_t frames = static_cast<std::size_t>(rate) * 135;
+            std::vector<float> blocks(frames * 2, 0.0F), whole(frames * 2, 0.0F);
+            MazeBand a(7, static_cast<Style>(style)), b(7, static_cast<Style>(style));
+            const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
+            for (std::size_t at = 0; at < blocks.size(); at += 1024)
+                a.render_add(std::span<float>(blocks.data() + at, std::min<std::size_t>(1024, blocks.size() - at)), 1.0);
+            const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+            b.render_add(whole, 1.0);
+            CHECK(blocks == whole);
+            CHECK(a.tunes_played() >= 1);
+            double peak = 0, sum = 0, quietest = 0;
+            bool finite = true;
+            for (std::size_t window = 0; window + static_cast<std::size_t>(rate) * 10 <= frames; window += static_cast<std::size_t>(rate) * 10) {
+                double part = 0;
+                for (std::size_t i = window; i < window + static_cast<std::size_t>(rate) * 10; ++i) {
+                    const double l = blocks[i * 2], r = blocks[i * 2 + 1];
+                    finite = finite && std::isfinite(l) && std::isfinite(r);
+                    peak = std::max({peak, std::abs(l), std::abs(r)});
+                    part += .25 * (l + r) * (l + r);
+                }
+                sum += part;
+                const double level = 10 * std::log10(part / (rate * 10.0) + 1e-20);
+                quietest = window == 0 ? level : std::min(quietest, level);
+            }
+            const double level = 10 * std::log10(sum / static_cast<double>(frames) + 1e-20);
+            CHECK(finite);
+            CHECK(peak <= .85);
+            CHECK(level > -17 && level < -13);
+            CHECK(quietest > -30);   // no gaps: every ten seconds has music in it
+            std::printf("band style %d: %.1f dB RMS, quietest 10 s %.1f dB, peak %.2f, %d bars, %.0fx real time\n", style, level, quietest, peak,
+                        a.bars_played(), 135.0 / took);
+        }
+        // through the wall: quieter and dull; backwards: as loud as forwards
+        const std::size_t frames = static_cast<std::size_t>(rate) * 20;
+        std::vector<float> plain(frames * 2, 0.0F), dull(frames * 2, 0.0F), back(frames * 2, 0.0F);
+        MazeBand p(3, Style::maze_run), d(3, Style::maze_run), k(3, Style::maze_run);
+        d.muffle(true);
+        k.backwards(true);
+        p.render_add(plain, 1.0);
+        d.render_add(dull, 1.0);
+        k.render_add(back, 1.0);
+        double e_plain = 0, e_dull = 0, e_back = 0, edge_plain = 0, edge_dull = 0;
+        for (std::size_t i = static_cast<std::size_t>(rate) * 4; i < frames * 2; ++i) {   // after the wall has closed in (2 s)
+            e_plain += plain[i] * plain[i];
+            e_dull += dull[i] * dull[i];
+            e_back += back[i] * back[i];
+            edge_plain += (plain[i] - plain[i - 2]) * (plain[i] - plain[i - 2]);
+            edge_dull += (dull[i] - dull[i - 2]) * (dull[i] - dull[i - 2]);
+        }
+        CHECK(10 * std::log10(e_plain / e_dull) > 4);
+        std::printf("band through the wall: %.1f dB quieter, top end %.3f of the plain band's\n", 10 * std::log10(e_plain / e_dull), (edge_dull / e_dull) / (edge_plain / e_plain));
+        CHECK(edge_dull / e_dull < .1 * edge_plain / e_plain);   // the top end is gone
+        CHECK(std::abs(10 * std::log10(e_back / e_plain)) < 3);
+        // a new level's style and tunes take over at the next bar, with no gap
+        MazeBand change(5, Style::bonus_round);
+        std::vector<float> before(static_cast<std::size_t>(rate) * 4 * 2, 0.0F), after(before.size(), 0.0F);
+        change.render_add(before, 1.0);
+        change.play(Style::turbo, 11);
+        const int bars = change.bars_played();
+        change.render_add(after, 1.0);
+        CHECK(change.bars_played() > bars);
+        CHECK(change.tunes_played() == 0);
+        double e_after = 0;
+        for (float v : after) e_after += static_cast<double>(v) * v;
+        CHECK(e_after > 0);
     }
     if (failures) { std::printf("%d failure(s)\n", failures); return 1; }
     std::printf("all tests passed\n");

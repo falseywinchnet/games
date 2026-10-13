@@ -1,4 +1,5 @@
 #include "maze_view.hpp"
+#include "band.hpp"
 #include "art.hpp"
 #include "overlays.hpp"
 
@@ -131,6 +132,23 @@ std::uint64_t stir(std::uint64_t h) {
     return h;
 }
 }  // namespace
+
+#ifdef GUI_FORMS_AUDIO_GENERATOR
+// The band (band.hpp), synthesized on the audio thread as it plays; the view tells it the
+// level's style, the blackout and the ceiling.
+class LiveBand final : public gui_forms::AudioGenerator {
+  public:
+    LiveBand(int style, std::uint32_t seed) : band_(seed, static_cast<Style>(style)) {}
+    void render(std::span<float> stereo) noexcept override {
+        std::fill(stereo.begin(), stereo.end(), 0.0F);
+        band_.render_add(stereo, 1.0);
+    }
+    MazeBand& band() { return band_; }
+
+  private:
+    MazeBand band_;
+};
+#endif
 void MazeView::dress(Level& lv) const {
     const std::uint64_t h = stir(level_seed_ ^ 0xA27ULL);
     const bool calm = h % 3 == 0;
@@ -376,11 +394,29 @@ void MazeView::tick() {
     if (sess_.won_t > 1.6 && panel_ == Panel::none) finish_level();
     {
         const bool on = (opt_.hosted || save_.music) && cab_music_ && cab_front_;
-        // one of three loops for each level, chosen by its seed; a blackout and the ceiling have their own versions of it
-        static const char* const kScore[] = {"mz_music", "mz_music_bonus", "mz_music_turbo"};
-        const std::string track = std::string(kScore[stir(level_seed_ ^ 0x5C0BEULL) % 3]) +
-                                  (sess_.play.blackout ? "_dark" : sess_.play.flipped ? "_flip" : "");
-        audio_music(visible() && cab_front_ ? track : "", on);
+        // the band plays one of its three styles for each level, chosen by the level's seed
+        const std::uint64_t pick = stir(level_seed_ ^ 0x5C0BEULL);
+        const int style = static_cast<int>(pick % static_cast<std::uint64_t>(Style::count));
+        const std::uint32_t tunes = static_cast<std::uint32_t>(pick >> 32);
+#ifdef GUI_FORMS_AUDIO_GENERATOR
+        if (!band_) {
+            band_ = std::make_shared<LiveBand>(style, tunes);
+            band_style_ = style;
+            band_tunes_ = tunes;
+        }
+        if (style != band_style_ || tunes != band_tunes_) {
+            band_style_ = style;
+            band_tunes_ = tunes;
+            (*band_).band().play(static_cast<Style>(style), tunes);
+        }
+        (*band_).band().muffle(sess_.play.blackout);
+        (*band_).band().backwards(sess_.play.flipped);
+        audio_live_music(band_, on && visible());
+#else
+        static_cast<void>(on);
+        static_cast<void>(style);
+        static_cast<void>(tunes);
+#endif
     }
     audio_tick(dt);
     save_t_ += dt;

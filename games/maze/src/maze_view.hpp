@@ -23,6 +23,8 @@
 #include <vector>
 
 namespace mz {
+
+class LiveBand;  // maze_view.cpp: the band as the audio thread plays it
 namespace gf = gui_forms;
 
 struct Options {
@@ -79,6 +81,9 @@ private:
     void set_difficulty(int difficulty);
     void dress(Level& level) const;
     std::uint64_t level_seed_ = 0;
+    std::shared_ptr<LiveBand> band_{};   // the music, made up as it plays (band.hpp)
+    int band_style_ = -1;
+    std::uint32_t band_tunes_ = 0;
     std::vector<std::string> news_;   // what's new in this maze (for the briefing)
     int autowalk_ = 0;                // dev: steps still to walk along a best route (re-planned each step)
     Panel panel_ = Panel::none;

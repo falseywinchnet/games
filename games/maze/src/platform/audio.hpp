@@ -1,12 +1,18 @@
 #pragma once
-// Native audio: crossfading looped music (sample-accurate PCM buffers) and
-// pitch-varied sound effects. Missing files stay silent.
+// Native audio: the live band (band.hpp) and pitch-varied sound effects. Missing
+// files stay silent.
+#include "gui_forms/audio/audio.hpp"
+#include <memory>
 #include <string>
 
 namespace mz {
 
 void audio_start(const std::string& asset_dir);
-void audio_music(const std::string& track, bool enabled);   // crossfades to track ("" = none)
+#ifdef GUI_FORMS_AUDIO_GENERATOR
+// Music the game synthesizes as it plays (the band), under the Music master; it fades out
+// when not enabled and is paused once silent.
+void audio_live_music(const std::shared_ptr<gui_forms::AudioGenerator>& source, bool enabled);
+#endif
 void audio_sfx(const std::string& name, float gain = 1.f, float rate = 1.f, bool enabled = true);
 void audio_duck_music(float amount);                         // 0..1 temporary music dip (stingers)
 void audio_tick(double dt);
