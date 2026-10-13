@@ -10,8 +10,7 @@ must never change (GUI.Forms' DP gate). Pure Python and the platform's own tools
 
 - X11: `xwd -root` grabs and `xdotool` moves the pointer (Xvfb is started if no display
   answers); for the bare Lima guest.
-- macOS: the window keeps its own size (a scripted resize does not reach the window on
-  screen there); `screencapture` grabs (the process needs Screen Recording permission; over ssh,
+- macOS: `screencapture` grabs (the process needs Screen Recording permission; over ssh,
   /usr/libexec/sshd-keygen-wrapper), `sips` turns them into BMP, the window list (a small
   Swift script) gives the window's place, and the pointer move is the app's own scripted
   hover, timed between the first and second grab. The display must be awake.
@@ -78,6 +77,7 @@ def mac_window_origin(work: Path, content_height: int) -> tuple[int, int]:
         parts = line.rsplit(" ", 4)
         if len(parts) == 5 and parts[0] in ("games", "PlaySuite"):
             x, y, w, h = (int(float(v)) for v in parts[1:])
+            print(f"window frame {w} x {h} at {x},{y}; content {content_height} high")
             return x, y + max(0, h - content_height)
     return 0, 0
 
@@ -163,9 +163,8 @@ def main() -> int:
     total = options.settle + options.grabs * options.interval + 5
     with tempfile.TemporaryDirectory() as directory:
         work = Path(directory)
-        # On macOS a scripted resize changes the window's model but not the window on screen
-        # (GUI.Forms, 2026-10-13), so there the window keeps its own size.
-        lines = ([] if mac else [f"300 resize {width} {height}"]) + [f"1000 open {options.scene}"]
+        # the script waits for the native window to take the size (GUI.Forms #81)
+        lines = [f"300 resize {width} {height}", f"1000 open {options.scene}"]
         if mac:
             # the window's own capture, for the content's size (the title bar is the rest)
             lines.append(f"{int((options.settle - .5) * 1000)} capture {work / 'content.ppm'}")
@@ -185,6 +184,7 @@ def main() -> int:
         if mac:
             content = (work / "content.ppm").read_bytes()[:32].split()
             height = int(content[2]) if len(content) > 2 else height
+            print(f"frame capture {content[1].decode() if len(content) > 2 else '?'} x {height}")
         left, top = mac_window_origin(work, height) if mac else window_origin(options.display)
         grabs = []
         for k in range(options.grabs):

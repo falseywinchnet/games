@@ -14,8 +14,9 @@ struct RunState final {
     std::vector<games::dogfood::Action> actions;
     std::size_t next = 0;
     gf::FrameRequestToken timer{};
-    gf::FrameTime started{}, sample_start{};
-    bool completed = false, sampling = false;
+    gf::FrameTime started{}, sample_start{}, resize_until{};
+    bool completed = false, sampling = false, resizing = false;
+    gf::Size resize_from{};
     std::weak_ptr<gf::Control> root;
     std::weak_ptr<games::Collection> collection;
     std::shared_ptr<games::GameInstance> standalone;
@@ -123,8 +124,15 @@ struct RunTick final {
         } else if (action.verb == "capture") {
             capture_frame(*window,action.argument);
         } else if (action.verb == "resize") {
-            (*window).resize({action.x,action.y});
-            (*window).perform_layout();
+            // A request to the native window: the model follows on the host's resize event,
+            // and the window manager may choose another size, so the script waits for a change.
+            const gf::HostServiceStatus status = handle.request_client_size({action.x,action.y});
+            if (!status.accepted())
+                throw std::runtime_error(std::string("Native window refused resize: ") +
+                                         gf::host_service_error_name(status.error));
+            live.resize_from = (*window).client_size();
+            live.resizing = live.resize_from != gf::Size{action.x,action.y};
+            live.resize_until = gf::FrameClock::now() + std::chrono::seconds(2);
         }
     }
     void operator()(gf::FrameTime now) const {
@@ -149,10 +157,16 @@ struct RunTick final {
             (*live).completed = true;
             static_cast<void>(handle.request_close());
         }
+        if ((*live).resizing) {
+            const bool unchanged = (*window).client_size() == (*live).resize_from;
+            if (unchanged && now < (*live).resize_until) return;
+            if (unchanged) std::cerr << "Script resize: the native window kept its size\n";
+            (*live).resizing = false;
+        }
         while ((*live).next < (*live).actions.size() &&
                (*live).actions[(*live).next].milliseconds <= seconds * 1000) {
             perform(*live,(*live).actions[(*live).next++]);
-            if ((*live).completed) break;
+            if ((*live).completed || (*live).resizing) break;
         }
     }
 };
