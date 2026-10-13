@@ -37,8 +37,8 @@ const char* audio_name(Kind kind) {
 //   - the lamp's falloff across the card and the rolled edge catching the light;
 //   - exposure: the paper's average set at kPaperLevel in sRGB, the highlights above a knee
 //     rolled off toward white rather than clipped, and only then encoded and rounded.
-// Over the stock the layer is black where the paper is darker and white where it is lighter,
-// so a face shows exactly that paper, and its ink takes the same shading. The artwork's card
+// Over the stock the layer is black, as deep as the paper is darker than the stock, so a face
+// shows that paper and its ink takes the same shading (a multiply; it never lightens). The artwork's card
 // is a 360 x 504 image whose rounded rectangle starts 2 px in with an 18 px corner radius.
 constexpr double kPaperLevel = 238;   // the paper's average, sRGB 0..255
 constexpr double kKeepDepth = 6;      // the emboss's depth: its standard deviation, sRGB levels
@@ -178,19 +178,15 @@ std::vector<std::byte> card_finish(int w, int h, double pixels_per_point) {
         for (int c = 0; c < 3; ++c)
             paper_mean += to_srgb(roll_off(sheet_linear[i * 3 + static_cast<std::size_t>(c)] * shade[i] * exposure));
         paper_mean /= 3;
-        double colour = 0, a = 0;
-        if (paper_mean <= stock_mean) {
-            a = 1 - paper_mean / stock_mean;  // black, darkening the stock to the paper
-        } else {
-            colour = 1;
-            a = (paper_mean - stock_mean) / (1 - stock_mean);  // white, lightening it
-        }
-        a = std::clamp(a, 0.0, 1.0) * cover[i];
-        const double premultiplied = 255 * colour * a;
+        // Black only: a black layer multiplies what is under it, ink and paper alike, so the
+        // ink takes the paper's shading and stays ink. (A white layer for paper brighter than
+        // the stock lifted the ink with it, pitting it with pale specks.) Paper meant to be
+        // brighter than the stock stays at the stock: the lamp's brightest few percent.
+        const double a = std::clamp(1 - paper_mean / stock_mean, 0.0, 1.0) * cover[i];
         const std::size_t n = i * 4;
-        out[n] = static_cast<std::byte>(std::lround(premultiplied));
-        out[n + 1] = static_cast<std::byte>(std::lround(premultiplied));
-        out[n + 2] = static_cast<std::byte>(std::lround(premultiplied));
+        out[n] = std::byte{0};
+        out[n + 1] = std::byte{0};
+        out[n + 2] = std::byte{0};
         out[n + 3] = static_cast<std::byte>(std::lround(a * 255));
     }
     return out;
