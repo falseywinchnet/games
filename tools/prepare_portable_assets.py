@@ -12,6 +12,10 @@ import zlib
 from pathlib import Path
 
 
+# Shared assets that feed a prepared file and are not copied themselves.
+NOT_COPIED = ("nature-lake-environment.png",)
+
+
 def prepare_image(source: Path, destination: Path) -> None:
     from PIL import Image
     # The reduced picture made offline with CONV (tools/make_lake_environment.py), used as it is;
@@ -310,7 +314,7 @@ def main() -> None:
     output.mkdir(parents=True, exist_ok=True)
     prepare_fonts(source / "fonts", output / "fonts")
     for path in source.iterdir():
-        if path.name in ("audio", "cards", "fonts", "nature-lake-environment.png"):
+        if path.name in ("audio", "cards", "fonts") or path.name in NOT_COPIED:
             continue
         target = output / path.name
         if path.is_dir():
@@ -377,6 +381,25 @@ def main() -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(entry["path"], target)
         resources.append({key: entry[key] for key in ("file", "source_sha256")})
+    # What the last run copied from the shared assets folder that no source provides now (a
+    # removed file) is stale as well: a runtime restored from a cache keeps everything it held.
+    produced = {"audio", "cards", "fonts", "nature-lake.gpix"} | {Path(entry["file"]).parts[0] for entry in inventory["resources"]}
+    for path in list(output.iterdir()):
+        if path.name in produced:
+            continue
+        origin = source / path.name
+        if path.name in NOT_COPIED or not origin.exists() or origin.is_dir() != path.is_dir():
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+        elif path.is_dir():
+            for inner in sorted(path.rglob("*"), reverse=True):
+                relative = inner.relative_to(output)
+                if inner.is_file() and not (source / relative).is_file():
+                    inner.unlink()
+                elif inner.is_dir() and not any(inner.iterdir()):
+                    inner.rmdir()
     manifest = {"schema_version": 2, "sample_rate": 48000, "channels": 2, "format": audio_format,
                 "files": records, "module_resources": resources,
                 "producer_manifests": inventory["producer_manifests"],
