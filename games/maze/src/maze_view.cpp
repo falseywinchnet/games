@@ -732,8 +732,9 @@ void MazeView::draw_speech() {
     const Speech& sp = sess_.speech.front();
     // A resident speaks from where it stands: a bubble at it, while it shows in the view.
     if (sp.at.f >= 0 && sp.at.f == sess_.play.at.f) {
+        const V3 at = cell_center(sp.at, sp.z);
         double sx = 0, sy = 0, depth = 0;
-        if (r_.project(cell_center(sp.at, sp.z), sx, sy, depth)) {
+        if (r_.project(at, sx, sy, depth)) {
             sx /= kSamples;
             sy /= kSamples;
             if (sx >= 0 && sx < pw_ && sy >= 0 && sy < ph_ - 15) {
@@ -741,6 +742,10 @@ void MazeView::draw_speech() {
                 return;
             }
         }
+        // out of the picture: at the edge on its side, pointing that way
+        const bool right = dot(at - r_.eye, r_.right()) > 0;
+        draw_bubble(sp, right ? pw_ - 4.0 : 4.0, ph_ * .55);
+        return;
     }
     const int w = std::min(pw_ - 20, 300), x = (pw_ - w) / 2;
     const int wrap = w - (sp.who.empty() ? 14 : 52);

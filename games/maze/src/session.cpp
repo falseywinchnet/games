@@ -320,7 +320,7 @@ void Session::execute(Cmd c) {
     if (blocked_by_movers(ahead)) {
         bump_ = 1;
         ++bumps;
-        if (world.visitor.alive && world.visitor.at == ahead) { sfx("mz_bump", .5f); say(world.visitor.alive && visit_who_ >= 0 ? cast[static_cast<size_t>(visit_who_)].name : "", "Excuse me!"); }
+        if (world.visitor.alive && world.visitor.at == ahead) { sfx("mz_bump", .5f); say_at(world.visitor.alive && visit_who_ >= 0 ? cast[static_cast<size_t>(visit_who_)].name : "", "Excuse me!", ahead, .7); }
         else if (world.ball == Ball::frog) {
             sfx("mz_bell", .8f);
             const std::vector<std::string>& lines = frog_lines();
@@ -643,7 +643,7 @@ void Session::visitor_update(double dt) {
     v.appear = 0;
     visit_t_ = 0;
     sfx("mz_appear", .6f);
-    if (!def.lines.empty()) say(def.name, def.lines[static_cast<size_t>(rand_int(static_cast<int>(def.lines.size())))]);
+    if (!def.lines.empty()) say_at(def.name, def.lines[static_cast<size_t>(rand_int(static_cast<int>(def.lines.size())))], world.visitor.at, .7);
     // and sometimes, a good turn
     const double roll = rand01();
     int locked = -1;
@@ -653,7 +653,7 @@ void Session::visitor_update(double dt) {
         play.pressed |= 1u << locked;
         door_target_[static_cast<size_t>(locked)] = 1;
         sfx("mz_door", .6f);
-        say(def.name, std::string("Here, a ") + kColorName[locked % kColors] + " key turned up in my pocket. Your door is open.");
+        say_at(def.name, std::string("Here, a ") + kColorName[locked % kColors] + " key turned up in my pocket. Your door is open.", world.visitor.at, .7);
     } else if (roll < .45) {
         // a hint: which way the reward lies, as the crow flies
         const V3 g = cell_center(lv.goal), me = cell_center(play.at);
@@ -662,7 +662,7 @@ void Session::visitor_update(double dt) {
         if (std::fabs(dy) > std::fabs(dx) * .4) dir += dy > 0 ? "north" : "south";
         if (std::fabs(dx) > std::fabs(dy) * .4) dir += dx > 0 ? "east" : "west";
         std::string where = lv.goal.f != play.at.f ? (lv.goal.f > play.at.f ? " And up, I think. Upstairs." : " And down below.") : "";
-        say(def.name, "The " + reward_name + "? Off to the " + dir + ", as the crow flies." + where);
+        say_at(def.name, "The " + reward_name + "? Off to the " + dir + ", as the crow flies." + where, world.visitor.at, .7);
     } else if (roll < .55 && world.marble.alive) {
         marble_wait_ = 0;
         world.marble.dir = (world.marble.dir + 2) % 4;
