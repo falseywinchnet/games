@@ -95,6 +95,7 @@ private:
     std::array<Kept, gf::maximum_live_surface_buffer_count> kept_{};
     Rect pending_;                            // damage of frames not yet published
     std::vector<gf::Rect> overlays_;          // the overlays over the owner at the last publish
+    bool overlays_seen_ = false;              // false until a frame at this size is published
     const void* writing_ = nullptr;
 
     [[nodiscard]] std::uint64_t held_by(const void* address) const;

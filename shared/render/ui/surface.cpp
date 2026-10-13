@@ -37,6 +37,7 @@ bool Surface::configure(int width, int height) {
     height_ = height;
     order_ = description.pixel_format == gf::LiveSurfacePixelFormat::rgba32_premultiplied_srgb ? Order::rgba : Order::bgra;
     invalidate_all();
+    overlays_seen_ = false;  // the first frame at this size repaints the overlays over it
     return true;
 }
 
@@ -85,6 +86,7 @@ void Surface::reset() {
     kept_ = {};
     pending_ = Rect{};
     overlays_.clear();
+    overlays_seen_ = false;
     writing_ = nullptr;
 }
 
@@ -207,17 +209,29 @@ void Surface::publish() {
     // live surface covers them) nor copies again (outside this frame's damage, it takes the
     // window to hold the picture already): they keep whatever lay under the overlay, an old
     // scene behind a folded capsule. When the overlays change, the whole frame is presented.
+    // The overlays themselves were painted over whatever lay beneath them then: before a
+    // view's first frame, its plain fill (Catching Thieves opened with a green box behind
+    // the capsule until the window was next exposed). On a first frame, after a resize, and
+    // when they change, they paint again over this one.
+    bool repaint = false;
     if (const std::shared_ptr<gf::Control> owner = owner_.lock()) {
         std::vector<gf::Rect> overlays = render::overlays_over(*owner);
-        if (overlays != overlays_) {
+        if (overlays != overlays_ || !overlays_seen_) {
             overlays_ = std::move(overlays);
+            overlays_seen_ = true;
             changed = gf::Rect{0, 0, static_cast<double>(width_), static_cast<double>(height_)};
+            repaint = true;
         }
     }
     static_cast<void>(lease_.publish(changed));
     remember(writing_, frame_);
     writing_ = nullptr;
     pending_ = Rect{};
+    if (repaint) {
+        if (const std::shared_ptr<gf::Control> owner = owner_.lock()) {
+            render::repaint_overlays(*owner);
+        }
+    }
     // The overlays over what changed paint again over the new frame (overlays.hpp).
     if (const std::shared_ptr<gf::Control> owner = owner_.lock()) {
         const gf::Rect area = (*owner).client_rectangle();
