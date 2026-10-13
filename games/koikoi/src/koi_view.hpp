@@ -78,9 +78,12 @@ private:
 
     // art
     std::array<Canvas, 48> art_;
-    Canvas art_back_;
+    std::array<Canvas, 2> art_back_;  // the pair of decks, black and red, used in turn (deck())
     std::array<Canvas, 48> big_, small_;
-    Canvas big_back_, small_back_, felt_, carpet_;
+    std::array<Canvas, 2> big_back_, small_back_;
+    Canvas felt_, carpet_;
+    // The deck of this deal: the black on even rounds, the red on odd.
+    [[nodiscard]] std::size_t deck() const { return static_cast<std::size_t>(s_.round % 2); }
     Canvas art_shadow_, shadow_big_, shadow_small_, finish_big_, finish_small_;
     int built_w_ = 0;
 

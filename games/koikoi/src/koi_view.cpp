@@ -51,7 +51,7 @@ KoiView::KoiView(gf::StableId id, Options opt) : Control(std::move(id)), opt_(op
     set_accessible_name("Koi-Koi, the hanafuda game. Match cards by month, collect sets, and decide when to stop.");
     slots_.fill(-1);
     {
-        // the deck ships as compressed PNG; the fifty cards decode side by side on worker threads
+        // the deck ships as compressed PNG; its cards and both backs decode side by side on worker threads
         std::vector<std::string> paths;
         std::vector<Canvas*> art;
         for (int c = 0; c < 48; ++c) {
@@ -59,7 +59,9 @@ KoiView::KoiView(gf::StableId id, Options opt) : Control(std::move(id)), opt_(op
             art.push_back(&art_[static_cast<size_t>(c)]);
         }
         paths.push_back(asset_dir() + "/cards/hana_back.png");
-        art.push_back(&art_back_);
+        art.push_back(&art_back_[0]);
+        paths.push_back(asset_dir() + "/cards/hana_back_red.png");
+        art.push_back(&art_back_[1]);
         paths.push_back(asset_dir() + "/cards/card_shadow.png");
         art.push_back(&art_shadow_);
         static_cast<void>(load_pngs(paths, art));
@@ -148,7 +150,8 @@ void KoiView::build_art() {
         reduce(art_[static_cast<size_t>(c)], bw, bh, big_[static_cast<size_t>(c)]);
         reduce(art_[static_cast<size_t>(c)], sw, shh, small_[static_cast<size_t>(c)]);
     }
-    if (art_back_.w) { reduce(art_back_, bw, bh, big_back_); reduce(art_back_, sw, shh, small_back_); }
+    for (std::size_t d = 0; d < art_back_.size(); ++d)
+        if (art_back_[d].w) { reduce(art_back_[d], bw, bh, big_back_[d]); reduce(art_back_[d], sw, shh, small_back_[d]); }
     // the card table's finish (texture, rolled edge, lamp) and its card shadow, at both sizes
     auto finish = [](int w, int h, Canvas& out) {
         const std::vector<std::byte> px = games::card_finish(w, h);
@@ -816,7 +819,7 @@ void KoiView::rrect(double x, double y, double w, double h, double r, Col fill, 
 void KoiView::draw_card(int id, const Sprite& p, bool lift, bool glow, bool dim) {
     const bool small = p.s < .8;
     const Canvas& face = small ? small_[static_cast<size_t>(id)] : big_[static_cast<size_t>(id)];
-    const Canvas& back = small ? small_back_ : big_back_;
+    const Canvas& back = small ? small_back_[deck()] : big_back_[deck()];
     const double y = p.y - (lift ? ch_ * .12 : 0);
     const double w = cw_ * p.s, h = ch_ * p.s;
     // the card table's soft shadow, falling further when the card is lifted
@@ -844,7 +847,7 @@ void KoiView::draw_card(int id, const Sprite& p, bool lift, bool glow, bool dim)
     Canvas sized;
     const int want_w = static_cast<int>(std::lround(w * bs_)), want_h = static_cast<int>(std::lround(h * bs_));
     const bool exact = std::abs(want_w - stock.w) <= 1;
-    if (!exact) reduce(show_face ? art_[static_cast<size_t>(id)] : art_back_, want_w, want_h, sized);
+    if (!exact) reduce(show_face ? art_[static_cast<size_t>(id)] : art_back_[deck()], want_w, want_h, sized);
     const Canvas& img = exact ? stock : sized;
     if (squeeze > .98) {
         frame_.draw_canvas(img, static_cast<int>(std::lround(p.x * bs_)), static_cast<int>(std::lround(y * bs_)), dim ? .55f : 1.f);

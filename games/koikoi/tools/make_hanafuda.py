@@ -1,11 +1,11 @@
 """Original deterministic hanafuda artwork for PlaySuite's Koi-Koi.
 
-48 faces (hana_00.png .. hana_47.png, ids as in src/koikoi.hpp: month * 4, special cards first)
-and a back (hana_back.png), 360 x 504 like the collection's other cards: a cream card with the
+48 faces (hana_00.png .. hana_47.png, ids as in src/koikoi.hpp: month * 4, special cards first),
+360 x 504 like the collection's other cards: a cream card with the
 house border, and on it a hanafuda painting in the traditional flat colours (vermilion skies,
 black hills, deep greens) drawn here from simple shapes, plus a small label (the month's
 number and flower, and the card's kind) to help newcomers learn the deck. No borrowed or
-generated images. Drawn at double size and reduced for clean edges, with Plan Paint's CONV
+generated images. (The two backs are tools/make_backs.py's.) Drawn at double size and reduced for clean edges, with Plan Paint's CONV
 (authoring/conv) in linear light.
 
   python3 tools/make_hanafuda.py <output-directory>
@@ -507,39 +507,12 @@ def face(cid):
     return conv.resize_srgb_image(img, W, H)
 
 
-def back():
-    img = Image.new('RGBA', (W * S, H * S), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    d.rounded_rectangle((2 * S, 2 * S, (W - 3) * S, (H - 3) * S), radius=20 * S, fill=CREAM, outline='#c5c0ab', width=3 * S)
-    d.rounded_rectangle((18 * S, 18 * S, (W - 19) * S, (H - 19) * S), radius=12 * S, fill='#7a1e1e', outline=GOLD, width=4 * S)
-    # a lattice of small gold plum crests, and a koi in a gold ring at the centre
-    pen = Pen(img)
-    for yy in range(0, 440, 40):
-        for xx in range(0, 300, 40):
-            x, y = xx + (20 if (yy // 40) % 2 else 0) + 4, yy + 14
-            if 0 < x < 300 and 0 < y < 420:
-                pen.circle(x, y, 3, '#a8463a')
-    pen.circle(154, 210, 74, '#7a1e1e', outline=GOLD, width=3)
-    pen.circle(154, 210, 62, '#9a2a24', outline=GOLD, width=1.5)
-    # the koi: a curved body, a fan tail, fins
-    body = curve((110, 250), (130, 150), (200, 175), 30)
-    for i, (x, y) in enumerate(body):
-        r = 14 * math.sin(math.pi * min(1, i / 26)) + 3
-        pen.circle(x, y, r, GOLD)
-    pen.poly([(110, 250), (88, 270), (100, 236), (82, 222), (112, 242)], GOLD)
-    pen.circle(196, 172, 2.5, '#7a1e1e')
-    for x, y in ((150, 160), (165, 205)):
-        pen.ellipse(x, y, 10, 5, '#e8c870')
-    return conv.resize_srgb_image(img, W, H)
-
-
 def main():
     out = Path(sys.argv[1] if len(sys.argv) > 1 else 'assets/cards')
     out.mkdir(parents=True, exist_ok=True)
     for c in range(48):
         face(c).save(out / ('hana_%02d.png' % c))
-    back().save(out / 'hana_back.png')
-    print('wrote 49 cards to', out)
+    print('wrote 48 faces to', out)
 
 
 if __name__ == '__main__':
