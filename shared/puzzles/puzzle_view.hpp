@@ -66,6 +66,26 @@ class PuzzleView final : public gf::Control, public CommandSource {
     std::vector<std::uint32_t> gem_pixels_;  // premultiplied BGRA, gem_scale_ x the board
     render::r3d::Buffers gem_depth_;
     int gem_scale_ = 1;
+    // A resting board copies each gem from its picture instead of drawing it again: one
+    // picture for each kind of gem at each of eight sizes of its breath, drawn without its
+    // sparkle (which is drawn over the copy), in the layer's pixels and byte order. Made as
+    // they are wanted; forgotten when the gems change size.
+    struct GemPicture {
+        int key = -1;  // value * 16 + breath step
+        int side = 0;
+        std::vector<std::uint32_t> pixels;
+        // Per row, what to copy: runs of (first, end, opaque) after rows[row] in `runs`;
+        // transparent pixels are skipped and opaque ones copied whole.
+        std::vector<int> rows;
+        std::vector<int> runs;
+    };
+    std::vector<GemPicture> gem_pictures_;
+    double gem_picture_radius_ = 0;
+    render::Order gem_picture_order_ = render::Order::bgra;
+    render::r3d::Buffers gem_picture_depth_;
+    // `radius` is the step's, `base` the gems' unbreathing radius (a new one forgets them all).
+    const GemPicture& gem_picture(int value, int step, double radius, double base);
+    void copy_gem(const GemPicture& picture, double x, double y);
     render::Order gem_order_ = render::Order::bgra;  // the window's, or BGRA for an image
     bool gem_image_stale_ = true;
     bool gems_direct_ = false;  // the last gems frame was laid without the painter

@@ -13,6 +13,10 @@ namespace games {
 // its sparkle, and `lift` (negative) brings a lifted gem in front of its neighbours.
 void draw_gem(render::r3d::Pass& pass, double x, double y, double radius, int value, double angle,
               double glisten, float lift);
+// Its sparkle alone, a cross of light growing as `glisten` passes .7 (nothing below): for a
+// gem copied from a picture drawn without it (PuzzleView's resting board).
+void draw_gem_sparkle(render::r3d::Pass& pass, double x, double y, double radius, double glisten,
+                      float lift);
 
 // Lays `layer` (premultiplied, in the target's byte order, `scale` (1 or 2) layer pixels to
 // one target pixel, its origin at the target's (left, top)) over the target inside `area`,

@@ -97,6 +97,18 @@ std::uint32_t average(const std::uint32_t* top, const std::uint32_t* bottom) {
 
 } // namespace
 
+void draw_gem_sparkle(r3d::Pass& pass, double x, double y, double radius, double glisten, float lift) {
+    if (glisten <= .7)
+        return;
+    const Brush brush{pass, lift};
+    const double stroke = std::max(1.0, radius / 30);
+    const double r = radius * (glisten - .7) * 1.7;
+    brush.line({x - radius * .3 - r, y - radius * .35}, {x - radius * .3 + r, y - radius * .35},
+               1.3 * stroke, {255, 255, 255}, -1);
+    brush.line({x - radius * .3, y - radius * .35 - r}, {x - radius * .3, y - radius * .35 + r},
+               1.3 * stroke, {255, 255, 255}, -1);
+}
+
 void draw_gem(r3d::Pass& pass, double x, double y, double radius, int value, double angle,
               double glisten, float lift) {
     const Brush brush{pass, lift};
@@ -150,13 +162,7 @@ void draw_gem(r3d::Pass& pass, double x, double y, double radius, int value, dou
     }
     // Strokes keep their width on screen whatever the layer's density: it is at least 1.5.
     const double stroke = std::max(1.0, radius / 30);
-    if (glisten > .7) {
-        const double r = radius * (glisten - .7) * 1.7;
-        brush.line({x - radius * .3 - r, y - radius * .35}, {x - radius * .3 + r, y - radius * .35},
-                   1.3 * stroke, {255, 255, 255}, -1);
-        brush.line({x - radius * .3, y - radius * .35 - r}, {x - radius * .3, y - radius * .35 + r},
-                   1.3 * stroke, {255, 255, 255}, -1);
-    }
+    draw_gem_sparkle(pass, x, y, radius, glisten, lift);
     if (value >= 16 && value < 32) {
         brush.disc(center, radius * .24, {32, 27, 52}, -2);
         brush.line({x + radius * .09, y - radius * .12}, {x + radius * .25, y - radius * .38},

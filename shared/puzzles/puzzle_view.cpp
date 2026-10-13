@@ -601,6 +601,78 @@ void PuzzleView::text(gf::Painter& p, double x, double y, const std::string& s, 
         {gf::FontRole::content, size, static_cast<std::uint16_t>(size >= 18 ? 600 : 400), false},
         c);
 }
+const PuzzleView::GemPicture& PuzzleView::gem_picture(int value, int step, double radius, double base) {
+    const int key = value * 16 + step;
+    if (base != gem_picture_radius_ || gem_order_ != gem_picture_order_) {
+        gem_pictures_.clear();
+        gem_picture_radius_ = base;
+        gem_picture_order_ = gem_order_;
+    }
+    for (const GemPicture& picture : gem_pictures_)
+        if (picture.key == key)
+            return picture;
+    GemPicture made;
+    made.key = key;
+    made.side = static_cast<int>(std::ceil(radius * 2.7)) + 6;
+    made.pixels.assign(static_cast<std::size_t>(made.side) * static_cast<std::size_t>(made.side), 0U);
+    gem_picture_depth_.resize(made.side, made.side, false);
+    gem_picture_depth_.clear({0, 0, made.side, made.side});
+    render::r3d::Pass pass{render::Target{made.pixels.data(), made.side, made.side, made.side, gem_order_},
+                           &gem_picture_depth_, render::Rect{0, 0, made.side, made.side}};
+    draw_gem(pass, made.side * .5, made.side * .5, radius, value, 0, 0, 0.F);
+    made.rows.assign(static_cast<std::size_t>(made.side) + 1, 0);
+    for (int row = 0; row < made.side; ++row) {
+        made.rows[static_cast<std::size_t>(row)] = static_cast<int>(made.runs.size());
+        const std::uint32_t* line = made.pixels.data() + static_cast<std::size_t>(row) * made.side;
+        int col = 0;
+        while (col < made.side) {
+            const std::uint32_t a = line[col] >> 24;
+            if (a == 0) {
+                ++col;
+                continue;
+            }
+            const bool opaque = a == 255;
+            const int first = col;
+            while (col < made.side && (line[col] >> 24) != 0 && ((line[col] >> 24) == 255) == opaque)
+                ++col;
+            made.runs.push_back(first);
+            made.runs.push_back(col);
+            made.runs.push_back(opaque ? 1 : 0);
+        }
+    }
+    made.rows[static_cast<std::size_t>(made.side)] = static_cast<int>(made.runs.size());
+    gem_pictures_.push_back(std::move(made));
+    return gem_pictures_.back();
+}
+void PuzzleView::copy_gem(const GemPicture& picture, double x, double y) {
+    // premultiplied over the layer, at the nearest whole layer pixel: opaque runs copied,
+    // the soft edge blended, the clear corners skipped
+    const int left = static_cast<int>(std::lround(x - picture.side * .5)),
+              top = static_cast<int>(std::lround(y - picture.side * .5));
+    const int w = raster_.width, h = raster_.height;
+    for (int row = std::max(0, -top); row < picture.side && top + row < h; ++row) {
+        const std::uint32_t* from = picture.pixels.data() + static_cast<std::size_t>(row) * picture.side;
+        std::uint32_t* to = gem_pixels_.data() + static_cast<std::size_t>(top + row) * w;
+        for (int k = picture.rows[static_cast<std::size_t>(row)]; k < picture.rows[static_cast<std::size_t>(row) + 1]; k += 3) {
+            const int first = std::max(picture.runs[static_cast<std::size_t>(k)], -left);
+            const int end = std::min(picture.runs[static_cast<std::size_t>(k) + 1], w - left);
+            if (first >= end)
+                continue;
+            if (picture.runs[static_cast<std::size_t>(k) + 2] != 0) {
+                std::memcpy(to + left + first, from + first, static_cast<std::size_t>(end - first) * 4);
+                continue;
+            }
+            for (int col = first; col < end; ++col) {
+                const std::uint32_t s = from[col];
+                const std::uint32_t keep = 255 - (s >> 24);
+                std::uint32_t& d = to[left + col];
+                const std::uint32_t rb = ((d & 0x00FF00FFU) * keep + 0x00800080U) >> 8 & 0x00FF00FFU;
+                const std::uint32_t ga = ((d >> 8 & 0x00FF00FFU) * keep + 0x00800080U) & 0xFF00FF00U;
+                d = s + (rb | ga);
+            }
+        }
+    }
+}
 double PuzzleView::elapsed() const {
     return std::chrono::duration<double>(gf::FrameClock::now() - animation_start_).count();
 }
@@ -750,6 +822,17 @@ void PuzzleView::render() {
                 const bool turning = hover_ == i || i == gem_pick_ || i == lifted;
                 double spin = turning && !reduced_ ? time * 2.1 : 0,
                        glisten = reduced_ ? 0 : .5 + .5 * std::sin(time * 1.25 + i * 2.7);
+                // At rest a plain gem is a copy of its picture at the nearest of eight
+                // breaths (a third of a pixel apart), its sparkle drawn over it.
+                if (!moving && intro_t >= 1.4 && !turning && i != partner && i != gem_pick_) {
+                    const double base = cell * .38;
+                    const double breath = reduced_ ? 0 : std::sin(time * 2.3 + i * 1.7);
+                    const int step = reduced_ ? 8 : static_cast<int>(std::lround((breath + 1) * 3.5));
+                    const double size = reduced_ ? base : base * (1 + .022 * (step / 3.5 - 1));
+                    copy_gem(gem_picture(value, step, size, base), x + origin_x, y + origin_y);
+                    draw_gem_sparkle(layer, x + origin_x, y + origin_y, size, glisten, 0.F);
+                    continue;
+                }
                 draw_gem(layer, x + origin_x, y + origin_y, radius, value, spin, glisten,
                          i == lifted ? -20.F : 0.F);
             }
@@ -2961,6 +3044,13 @@ void PuzzleView::tick() {
             invalidate_scene();
         else
             invalidate_animation(board_);
+    }
+    if (game.kind == PuzzleKind::gems && timer_) {
+        // Only breathing and the slow sparkle: thirty frames a second are plenty.
+        const bool breathing_only = animation_duration_ <= 0 && effects_.empty() && !intro_ &&
+                                    gem_spring_ < 0 && gem_pick_ < 0 && drag_ < 0 && shake_ <= 0 &&
+                                    callout_life_ <= 0 && hover_ < 0;
+        (*timer_).set_interval(std::chrono::milliseconds(breathing_only ? 33 : 16));
     }
     if (!moving && timer_)
         (*timer_).stop();
