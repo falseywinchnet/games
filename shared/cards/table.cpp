@@ -311,9 +311,10 @@ void Table::initialize_control_tree() {
 }
 void Table::on_attached_to_window() {
     gf::Window& window = *attached_window();
+    // The faces: a reprint of Goodall's 1902 pack (authoring/cards1902), the only style now.
     for (int i = 0; i < 52; ++i) {
         std::string number = i < 10 ? "0" + std::to_string(i) : std::to_string(i);
-        faces_[i] = load_image(window, "card_" + number + ".png");
+        faces_[i] = load_image(window, "classic_" + number + ".png");
     }
     for (int i = 0; i < painted_back_count; ++i)
         backs_[i] = load_image(window, "back_" + std::to_string(i) + ".png");
@@ -340,20 +341,16 @@ void Table::on_detaching_from_window(gf::Window& window) noexcept {
     if (timer_)
         (*timer_).stop();
     timer_.reset();
-    for (gf::ImageId id : faces_)
-        if (id.value)
+    for (gf::ImageId& id : faces_)
+        if (id.value) {
             static_cast<void>(window.remove_image(id));
+            id = {};
+        }
     for (gf::ImageId& id : backs_)
         if (id.value) {
             static_cast<void>(window.remove_image(id));
             id = {};
         }
-    for (gf::ImageId& id : classic_)
-        if (id.value) {
-            static_cast<void>(window.remove_image(id));
-            id = {};
-        }
-    face_style_ = 0;  // attached again, the classic faces are loaded again if wanted
     if (felt_.value)
         static_cast<void>(window.remove_image(felt_));
     if (shadow_.value)
@@ -611,19 +608,6 @@ void Table::reload_preferences() {
         load_back();
         invalidate(gf::Dirty::paint);
     }
-    if (face_style_ != masters.card_face) {
-        face_style_ = masters.card_face;
-        invalidate(gf::Dirty::paint);
-    }
-    // The classic faces (a reprint of Goodall's 1902 pack, authoring/cards1902) are loaded
-    // the first time they are wanted with a window to load them in.
-    if (face_style_ == 1 && !classic_[0].value && attached_window() != nullptr) {
-        for (int i = 0; i < 52; ++i) {
-            std::string number = i < 10 ? "0" + std::to_string(i) : std::to_string(i);
-            classic_[i] = load_image(*attached_window(), "classic_" + number + ".png");
-        }
-        invalidate(gf::Dirty::paint);
-    }
 }
 void Table::load_back() {
     gf::Window* window = attached_window();
@@ -865,7 +849,7 @@ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
     if (hovered)
         p.draw_box_shadow(r, 7, {0, 0}, 14, 3, gf::Color::rgba(255, 244, 196, 215));
     const std::size_t which = static_cast<std::size_t>(s.card.suit * 13 + s.card.rank - 1);
-    const gf::ImageId face = face_style_ == 1 && classic_[which].value ? classic_[which] : faces_[which];
+    const gf::ImageId face = faces_[which];
     p.draw_image(face_up ? face : backs_[back_], r);
     if (finish_.value)
         p.draw_image(finish_, r);
@@ -1123,8 +1107,9 @@ void Table::draw_panel(gf::Painter& p) {
                "cog) changes the card back, the deal rules and level, motion, and the music and "
                "sound volumes. New game deals fresh cards. All sound has visible feedback.";
     else if (topic_ == 2)
-        text = "Games is a native C++ card cabinet built with GUI.Forms. Card faces and backs are "
-               "original, reproducible artwork. The felt comes from Plan Paint's fiber and light "
+        text = "Games is a native C++ card cabinet built with GUI.Forms. The card faces are a "
+               "reprint of Goodall & Son's 1902 pack from the WCMPC Collection's scans, printed on "
+               "paper made here; the backs are original or reprinted. The felt comes from Plan Paint's fiber and light "
                "renderer.\n\nThe rules are independent of drawing and sound. Deals use a recorded "
                "seed and a specified shuffle. Animation follows committed moves and stops "
                "requesting frames when idle.\n\nMusic and effects are being made in the dedicated "
@@ -1402,8 +1387,6 @@ std::vector<GameSetting> Table::settings() const {
                         : game.state.spider_suits == 2 ? 1.0
                                                        : 0.0,
                         {"One", "Two", "Four"}, 0, 2, 1, "Changing it deals again."});
-    list.push_back({"faces", "Card faces", GameSetting::Kind::choice, static_cast<double>(face_style_),
-                    {"Painted", "Classic"}, 0, 1, 1, "For every card game."});
     if (game.state.kind != Kind::hearts)
         list.push_back({"level", "Deals", GameSetting::Kind::choice,
                         static_cast<double>(levels_[static_cast<int>(game.state.kind)]),
@@ -1414,13 +1397,6 @@ std::vector<GameSetting> Table::settings() const {
 }
 void Table::change_setting(std::string_view id, double value) {
     const int choice = static_cast<int>(std::lround(value));
-    if (id == "faces") {
-        SuiteSettings next = SettingsStore::shared().values();
-        next.card_face = std::clamp(choice, 0, card_face_count - 1);
-        SettingsStore::shared().set(next);
-        reload_preferences();
-        return;
-    }
     if (id == "draw" && game.state.kind == Kind::solitaire)
         set_deal_option(choice == 1 ? 3 : 1);
     else if (id == "suits" && game.state.kind == Kind::spider)

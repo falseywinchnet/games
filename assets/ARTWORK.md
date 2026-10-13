@@ -20,7 +20,9 @@ coronation of Edward VII in 1902 (Worshipful Company of Makers of Playing Cards 
 acquisition 206): the English pattern that later standard packs follow, long out of
 copyright. `authoring/cards1902/make_faces.py` makes them from the collection's scans,
 which are not kept here: it separates the four inks from the old board, cleans them and
-lays them again on a soft off-white card at the painted faces' size and corner.
+lays them again on a soft off-white card, 360 x 504 with an 18 px corner. Every reduction is
+Plan Paint's CONV and the inks are mixed in linear light. They are the only faces: the
+painted faces they once sat beside are retired, and the app icon shows their four aces.
 Scans: WCMPC Collection (Worshipful Company of Makers of Playing Cards), whose site allows
 its images to be used for non-profit purposes with this acknowledgement.
 

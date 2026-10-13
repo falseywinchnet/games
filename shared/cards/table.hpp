@@ -60,9 +60,7 @@ class Table final : public gf::Control, public CommandSource {
     void switch_game(Kind kind);
     std::array<std::shared_ptr<gf::Button>, 22> buttons_{};
     std::vector<gf::SubscriptionToken> subscriptions_;
-    std::array<gf::ImageId, 52> faces_{};
-    std::array<gf::ImageId, 52> classic_{};   // the classic faces, loaded the first time they are wanted
-    int face_style_ = 0;                      // SuiteSettings::card_face
+    std::array<gf::ImageId, 52> faces_{};      // the classic faces (authoring/cards1902)
     std::array<gf::ImageId, card_back_count> backs_{};
     gf::ImageId felt_{};
     gf::ImageId shadow_{};

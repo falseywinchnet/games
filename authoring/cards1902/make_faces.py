@@ -8,7 +8,8 @@ follow. It was chromolithographed in four flat inks on cream board, so it can be
 reprinted rather than redrawn: each scan is straightened and cropped, the stains
 and yellowing of the old board are divided out, every pixel is given to one of
 the five colours (paper, red, blue, black, yellow), specks are voted away, and
-the inks are laid again, antialiased, on fresh paper at the game's card size.
+the inks are laid again, antialiased, on fresh paper at the game's card size. Every
+reduction is Plan Paint's CONV (authoring/conv), and the inks are mixed in linear light.
 
 The scans are not part of the repository. Fetch them (W0206_Card1.jpg ...
 W0206_Card52.jpg) from https://card-collection.makersofplayingcards.org/ into a
@@ -17,7 +18,7 @@ folder, then:
     python3 authoring/cards1902/make_faces.py <scan-folder> assets
 
 which writes assets/classic_00.png ... classic_51.png (suit * 13 + rank - 1,
-suits clubs, diamonds, hearts, spades), 360 x 504 like the painted faces, each design
+suits clubs, diamonds, hearts, spades), 360 x 504 like the collection's backs, each design
 on cardstock of #FBFCFC, centred on its card and cleared of the flecks listed in SPECKS.
 Faces reprinted on the earlier, creamier board are laid on the present one by
 
@@ -37,8 +38,11 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-W, H = 360, 504            # the card art, as the painted faces
-INSET, RADIUS = 2.4, 18.0  # the card within it, as the painted faces
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "conv"))
+import conv  # noqa: E402  Plan Paint's CONV: every reduction here, in linear light, never ringing
+
+W, H = 360, 504            # the card art, as every card image in the collection
+INSET, RADIUS = 2.4, 18.0  # the card within it, as every card image in the collection
 SS = 4                     # the inks are sorted and cleaned at four times the size
 
 # The scans run aces, kings, queens, jacks, then ten down to two; each in hearts,
@@ -273,7 +277,7 @@ def reprint(scan: Path, allowed: list, inks: np.ndarray = INKS, on_board: bool =
     rgb = straighten(np.asarray(Image.open(scan).convert("RGB")))
     # The card's own area in the art, worked at SS times.
     cw, ch = round((W - 2 * INSET) * SS), round((H - 2 * INSET) * SS)
-    rgb = np.asarray(Image.fromarray(rgb).resize((cw, ch), Image.Resampling.LANCZOS))
+    rgb = np.asarray(conv.resize_srgb_image(Image.fromarray(rgb), cw, ch))
     flat = np.clip(rgb.astype(np.float64) / np.maximum(paper_field(rgb), 1), 0, 1.2)
     labels = vote(vote(sort_inks(flat, allowed), 1), 1)
     # The old card's own rounded corners, and the dark beyond them, are paper here: the
@@ -282,15 +286,18 @@ def reprint(scan: Path, allowed: list, inks: np.ndarray = INKS, on_board: bool =
         labels[~board_of(rgb)] = PAPER
     if rank:
         labels = centre(labels, rank)
-    # Coverage of each colour at the art's size: the mean of the SS x SS cell.
+    # Coverage of each colour at the art's size, reduced from SS times with CONV, and the
+    # paper and inks laid by it in linear light (as light mixes where they share a pixel).
     oh, ow = ch // SS, cw // SS
     ox, oy = int(round(INSET)), int(round(INSET))
     one = np.stack([(labels == k) for k in range(5)], axis=2).astype(np.float64)[:oh * SS, :ow * SS]
-    cover = one.reshape(oh, SS, ow, SS, 5).mean(axis=(1, 3))
-    out = paper(H, W)[oy:oy + oh, ox:ox + ow]
+    cover = np.stack([conv.resize_area(one[..., k], ow, oh) for k in range(5)], axis=2)
+    cover = np.clip(cover, 0, None)
+    cover /= np.maximum(cover.sum(axis=2, keepdims=True), 1e-12)
+    light = conv.to_linear(paper(H, W)[oy:oy + oh, ox:ox + ow] / 255.0) * cover[..., PAPER][..., None]
     for k in (RED, BLUE, BLACK, YELLOW):
-        c = cover[..., k][..., None]
-        out = out * (1 - c) + inks[k][None, None, :] * c
+        light = light + conv.to_linear(np.asarray(inks[k], float) / 255.0)[None, None, :] * cover[..., k][..., None]
+    out = conv.to_srgb(light) * 255.0
     art = np.zeros((H, W, 4))
     art[oy:oy + oh, ox:ox + ow, :3] = out
     # The rim the inset leaves is paper too, under the cut.
