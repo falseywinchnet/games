@@ -255,8 +255,9 @@ enlarging copy.
    and first opening, the capsule folding over a settled game): no stale pixels.
    PlaySuite's own workarounds are gone (the scene view's 30-frame repaint, the first-frame
    repaint, the whole-frame publish when overlays change, and presenting live views again
-   after the capsule moves). `render::refresh_overlays` still asks on Windows and Linux,
-   which are not yet checked against #69; on macOS it does nothing.*
+   after the capsule moves). `render::refresh_overlays` went too: on Windows a trace
+   showed it repainting the capsule and help button ahead of Stillwater's water, which
+   looked like the overlays catching up; without it the lag is gone.*
 
 ## Text over paper (found with the paper engine, 2026-10-11)
 

@@ -1,5 +1,4 @@
 #pragma once
-#include "overlays.hpp"
 #include "gui_forms/controls/button_base/link_label/link_label.hpp"
 #include "gui_forms/controls/scrollable_control/scrollable_control.hpp"
 #include "paper_sheet.hpp"
@@ -45,7 +44,7 @@ class HelpPages final : public gf::ScrollableControl {
     void toggle(int index);
     void visit_website();
 };
-class HelpBook final : public gf::Control, public render::StillOverlay {
+class HelpBook final : public gf::Control {
   public:
     explicit HelpBook(gf::StableId id);
     static constexpr bool initialize_tree_after_construction = true;

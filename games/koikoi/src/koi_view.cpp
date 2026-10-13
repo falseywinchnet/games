@@ -1,5 +1,4 @@
 #include "help_route.hpp"
-#include "overlays.hpp"
 #include "runtime_paths.hpp"
 #include "koi_view.hpp"
 
@@ -655,10 +654,8 @@ void KoiView::publish() {
         std::span<std::byte> dst = lease.pixels();
         const size_t rb = lease.row_bytes();
         for (int y = 0; y < phys_h_; ++y) std::memcpy(dst.data() + static_cast<size_t>(y) * rb, frame_.px.data() + static_cast<size_t>(y) * phys_w_ * 4, static_cast<size_t>(phys_w_) * 4);
-        if (lease.publish()) {
+        if (lease.publish())
             render_dirty_ = false;
-            render::refresh_overlays(*this);
-        }
     }
     if (!direct_) invalidate(gf::Dirty::paint);
     text_cache_trim();

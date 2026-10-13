@@ -1,5 +1,4 @@
 #include "scene_view.hpp"
-#include "overlays.hpp"
 
 #include "help_route.hpp"
 #include "portable_mask_cache.hpp"
@@ -418,7 +417,6 @@ void SceneView::publish(const std::vector<std::uint32_t>* picture, int width, in
         return;
     }
     pixels_.publish();
-    render::refresh_overlays(*this);
     if (!pixels_.direct())
         invalidate(gf::Dirty::paint);
 }

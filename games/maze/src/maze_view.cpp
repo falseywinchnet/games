@@ -1,7 +1,6 @@
 #include "maze_view.hpp"
 #include "band.hpp"
 #include "art.hpp"
-#include "overlays.hpp"
 
 #include "idle.hpp"
 #include "help_route.hpp"

@@ -1,5 +1,4 @@
 #include "help_route.hpp"
-#include "overlays.hpp"
 #include "zen_view.hpp"
 #include "runtime_paths.hpp"
 
@@ -746,7 +745,6 @@ void ZenView::publish() {
                         static_cast<size_t>(phys_w_) * 4);
         }
         static_cast<void>(lease.publish());
-        render::refresh_overlays(*this);
     }
     if (!direct_) {
         invalidate(gf::Dirty::paint);

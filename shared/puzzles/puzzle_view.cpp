@@ -1,5 +1,4 @@
 #include "puzzle_view.hpp"
-#include "overlays.hpp"
 #include "audio.hpp"
 #include "gui_forms/window.hpp"
 #include "help_route.hpp"
@@ -288,7 +287,6 @@ void PuzzleView::present_framebuffer_areas(std::vector<gf::Rect> areas) {
     const gf::Rect published{all.x0 / framebuffer_scale_, all.y0 / framebuffer_scale_,
                              (all.x1 - all.x0) / framebuffer_scale_,
                              (all.y1 - all.y0) / framebuffer_scale_};
-    render::refresh_overlays(*scene_parts_[0], published);
     if (!direct_)
         (*scene_parts_[0]).invalidate(published);
     framebuffer_painting_ = false;
@@ -324,7 +322,6 @@ void PuzzleView::present_gems(render::Rect area) {
     const gf::Rect published{area.x0 / framebuffer_scale_, area.y0 / framebuffer_scale_,
                              (area.x1 - area.x0) / framebuffer_scale_,
                              (area.y1 - area.y0) / framebuffer_scale_};
-    render::refresh_overlays(*scene_parts_[0], published);
     if (!direct_)
         (*scene_parts_[0]).invalidate(published);
 }

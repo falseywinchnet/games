@@ -1,5 +1,4 @@
 #include "help_route.hpp"
-#include "overlays.hpp"
 #include "eggy_view.hpp"
 
 #include "audio.hpp"
@@ -534,7 +533,6 @@ void EggyView::tick() {
             if (const char* td = std::getenv("EGGY_TEST_DAMAGE")) published = lease.publish(gf::Rect{0, 0, std::atof(td), std::atof(td)});
             else published = lease.publish();
             if (published) {
-                render::refresh_overlays(*this);
                 buttons_ = (*rendering_).buttons_;
                 rendering_pending_ = false;
             }
