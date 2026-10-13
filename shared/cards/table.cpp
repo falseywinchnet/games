@@ -3,6 +3,7 @@
 #include "card_backs.hpp"
 #include "table_art.hpp"
 #include "table_light.hpp"
+#include "paper.hpp"
 #include "gui_forms/window.hpp"
 #include "help_route.hpp"
 #include "presentation.hpp"
@@ -26,15 +27,69 @@ const char* audio_name(Kind kind) {
     const char* names[] = {"solitaire", "spider", "freecell", "hearts"};
     return names[static_cast<int>(kind)];
 }
-// The finish of a real playing card, as a translucent layer for the printed artwork: a fine
-// air-cushion dimple texture lit from the upper left, the cloudy formation and fibres of
-// the board, specks where the ink took thinly, a rolled edge that catches the light, the
-// falloff of a lamp over the table, and the board's faint tint (blue-green toward one
-// corner, warmer toward the other: soft off-white tires the eye less than bright white).
-// The artwork is only the printed design; all of this is laid over every style here. The
-// artwork's card is a 360 x 504 image whose rounded rectangle starts 2 px in with an 18 px
-// corner radius.
-std::vector<std::byte> card_finish(int w, int h) {
+// The card's paper, as one layer laid over the printed artwork. Every face was printed on a
+// flat stock of #FBFCFC; this layer turns that stock into paper, worked out in linear light:
+//   - the sheet: the paper engine's copy stock (shared/paper) in the artwork's own cool white,
+//     its fibres laid at random and never warmed, a flat mat as paper is;
+//   - the air-cushion finish: dimples pressed into the stock, baked once offline on a grid four
+//     times finer than the screen and brought to device pixels with Plan Paint's CONV
+//     (authoring/card_paper, assets/card_emboss.r16), here kKeepDepth sRGB levels deep;
+//   - the lamp's falloff across the card and the rolled edge catching the light;
+//   - exposure: the paper's average set at kPaperLevel in sRGB, the highlights above a knee
+//     rolled off toward white rather than clipped, and only then encoded and rounded.
+// Over the stock the layer is black where the paper is darker and white where it is lighter,
+// so a face shows exactly that paper, and its ink takes the same shading. The artwork's card
+// is a 360 x 504 image whose rounded rectangle starts 2 px in with an 18 px corner radius.
+constexpr double kPaperLevel = 238;   // the paper's average, sRGB 0..255
+constexpr double kKeepDepth = 6;      // the emboss's depth: its standard deviation, sRGB levels
+constexpr double kKnee = .92;         // linear light above which highlights roll off
+
+double to_linear(double c) {
+    const double v = c <= .04045 ? c / 12.92 : std::pow((c + .055) / 1.055, 2.4);
+    return v;
+}
+double to_srgb(double x) {
+    const double v = x <= .0031308 ? x * 12.92 : 1.055 * std::pow(x, 1 / 2.4) - .055;
+    return std::clamp(v, 0.0, 1.0);
+}
+// Linear below the knee; above it, a smooth approach to 1.
+double roll_off(double x) {
+    if (x < kKnee)
+        return x;
+    const double result = kKnee + (1 - kKnee) * std::tanh((x - kKnee) / (1 - kKnee));
+    return result;
+}
+
+// The baked emboss: the light's deviation, in standard deviations, device pixel by pixel.
+struct Emboss {
+    int width = 0, height = 0;
+    std::vector<double> deviation;  // width * height, row-major
+};
+Emboss load_emboss() {
+    Emboss out;
+    std::ifstream file(asset_directory() + "/card_emboss.r16", std::ios::binary);
+    char magic[4] = {};
+    std::uint32_t size[2] = {};
+    if (!file.read(magic, 4) || std::string(magic, 4) != "CEMB" || !file.read(reinterpret_cast<char*>(size), 8))
+        return out;   // without it the paper is smooth
+    if (size[0] == 0 || size[1] == 0 || size[0] > 4096 || size[1] > 4096)
+        return out;
+    std::vector<std::uint16_t> codes(static_cast<std::size_t>(size[0]) * size[1]);
+    if (!file.read(reinterpret_cast<char*>(codes.data()), static_cast<std::streamsize>(codes.size() * 2)))
+        return out;
+    out.width = static_cast<int>(size[0]);
+    out.height = static_cast<int>(size[1]);
+    out.deviation.resize(codes.size());
+    for (std::size_t i = 0; i < codes.size(); ++i)
+        out.deviation[i] = (static_cast<double>(codes[i]) - 32768.0) / 4096.0;
+    return out;
+}
+const Emboss& card_emboss() {
+    static const Emboss loaded = load_emboss();
+    return loaded;
+}
+
+std::vector<std::byte> card_finish(int w, int h, double pixels_per_point) {
     std::vector<std::byte> out(static_cast<std::size_t>(w) * h * 4);
     const double s = w / 360.0;
     const double inset = 2.4 * s, radius = 18 * s;
@@ -50,141 +105,94 @@ std::vector<std::byte> card_finish(int w, int h) {
         }
     };
     const Outline outline{half_w, half_h, radius, w * .5, h * .5};
-    // Dimples on a hexagonal lattice, a few device pixels apart, each a little different.
-    const double pitch = std::clamp(w / 128.0, 1.5, 2.1), row_h = pitch * .866;
-    struct Dimples {
-        double pitch, row_h;
-        double operator()(double x, double y) const {
-            const int row = static_cast<int>(std::floor(y / row_h));
-            double depth = 0;
-            for (int r = row - 1; r <= row + 1; ++r) {
-                const double shift = (r & 1) ? pitch * .5 : 0;
-                const int col = static_cast<int>(std::floor((x - shift) / pitch));
-                for (int c = col - 1; c <= col + 1; ++c) {
-                    std::uint32_t k = static_cast<std::uint32_t>(r * 73856093) ^
-                                      static_cast<std::uint32_t>(c * 19349663);
-                    k = (k ^ (k >> 13)) * 0x5bd1e995U;
-                    const double jitter = ((k >> 8) & 255) / 255.0;
-                    const double cx = c * pitch + shift + pitch * .5 + (jitter - .5) * pitch * .2,
-                                 cy = r * row_h + row_h * .5;
-                    const double d2 =
-                        ((x - cx) * (x - cx) + (y - cy) * (y - cy)) / (pitch * pitch * .2);
-                    if (d2 < 1)
-                        depth -= (1 - d2) * (1 - d2) * (.75 + .5 * jitter);
-                }
+    // The sheet, in linear light, its brightest channel averaging 1.
+    paper::Parameters sheet_parameters = paper::preset(paper::Preset::copy);
+    sheet_parameters.colour = {0.991, 1.0, 0.997};
+    sheet_parameters.machine_grain = 1.0;
+    sheet_parameters.warmth = 0.0;
+    sheet_parameters.pixels_per_point = pixels_per_point;
+    paper::Image sheet;
+    const bool have_sheet = paper::generate_tile(sheet_parameters, w, h, sheet);
+    const std::size_t pixels = static_cast<std::size_t>(w) * h;
+    std::vector<double> sheet_linear(pixels * 3, 1.0);
+    if (have_sheet) {
+        double sums[3] = {};
+        for (std::size_t i = 0; i < pixels; ++i)
+            for (int c = 0; c < 3; ++c) {
+                const double v = to_linear(sheet.rgba[i * 4 + static_cast<std::size_t>(c)] / 255.0);
+                sheet_linear[i * 3 + static_cast<std::size_t>(c)] = v;
+                sums[c] += v;
             }
-            return depth;
-        }
-    };
-    const Dimples dimples{pitch, row_h};
-    // Paper: short, faint fibres laid mostly one way, and a fine grain.
-    struct Fibres {
-        double scale;
-        static double lattice(int i, int j) {
-            std::uint32_t k = static_cast<std::uint32_t>(i) * 73856093U ^ static_cast<std::uint32_t>(j) * 19349663U;
-            k = (k ^ (k >> 13)) * 0x5bd1e995U;
-            return ((k ^ (k >> 15)) & 0xffffU) / 65535.0;
-        }
-        static double noise(double u, double v) {
-            const int i = static_cast<int>(std::floor(u)), j = static_cast<int>(std::floor(v));
-            double fu = u - i, fv = v - j;
-            fu = fu * fu * (3 - 2 * fu);
-            fv = fv * fv * (3 - 2 * fv);
-            const double a = lattice(i, j), b = lattice(i + 1, j), c = lattice(i, j + 1), d = lattice(i + 1, j + 1);
-            return a + (b - a) * fu + (c - a) * fv + (a - b - c + d) * fu * fv;
-        }
-        double operator()(double x, double y) const {
-            // A little longer along the grain than across it, and turned off the card's axes,
-            // so they read as fibre and not as rules.
-            const double u = x * .94 + y * .34, v = y * .94 - x * .34;
-            return noise(u / (1.6 * scale), v / (.9 * scale)) * .6 + noise(u / (.65 * scale) + 17.1, v / (.45 * scale)) * .4;
-        }
-    };
-    const Fibres fibres{std::max(.6, s)};
-    const double lx = -.5, ly = -.7; // toward the lamp, in the card plane
+        const double brightest = std::max({sums[0], sums[1], sums[2]}) / static_cast<double>(pixels);
+        for (double& v : sheet_linear)
+            v /= brightest;
+    }
+    // The shading: emboss, lamp and rolled edge; then exposure.
+    const Emboss& emboss = card_emboss();
+    const double target = to_linear(kPaperLevel / 255.0);
+    const double level = to_linear((kPaperLevel + .5) / 255.0) - to_linear((kPaperLevel - .5) / 255.0);
+    const double depth = kKeepDepth * level / target;
+    const double lx = -.5, ly = -.7;  // toward the lamp, in the card plane
     const double rim = std::max(1.6, 3.2 * s);
+    std::vector<double> shade(pixels, 0.0);
+    std::vector<double> cover(pixels, 0.0);
+    double sum = 0;
+    long long counted = 0;
     for (int y = 0; y < h; ++y)
         for (int x = 0; x < w; ++x) {
+            const std::size_t i = static_cast<std::size_t>(y) * w + x;
             const double px = x + .5, py = y + .5;
             const double d = outline(px, py);
-            const double cover = std::clamp(.5 - d, 0.0, 1.0);
-            if (cover <= 0)
+            cover[i] = std::clamp(.5 - d, 0.0, 1.0);
+            if (cover[i] <= 0)
                 continue;
-            double light = 0, dark = 0;
-            // Texture: slope of the dimpled surface toward the lamp.
-            const double gx = dimples(px + .5, py) - dimples(px - .5, py),
-                         gy = dimples(px, py + .5) - dimples(px, py - .5);
-            const double facing = -(gx * lx + gy * ly) * 2.2;
-            if (facing > 0)
-                light += std::min(.07, facing * .07);
-            else
-                dark += std::min(.045, -facing * .045);
-            // The board's formation: soft clouds where the pulp lay a little thicker or thinner,
-            // turned off the card's axes so no lattice shows.
-            {
-                const double cu = (px * .82 + py * .57) / (4 * fibres.scale), cv = (py * .82 - px * .57) / (4 * fibres.scale);
-                const double cloud = Fibres::noise(cu + 31.7, cv + 5.2) - .5;
-                if (cloud > 0)
-                    light += cloud * .035;
-                else
-                    dark += -cloud * .035;
+            double relief = 1;
+            if (emboss.width > 0) {
+                const double e = emboss.deviation[static_cast<std::size_t>(y % emboss.height) * emboss.width + x % emboss.width];
+                relief = 1 + e * depth;
             }
-            // Ink grain: pale single-pixel flecks where the ink took thinly, scattered with
-            // no pattern. On the board they are lost in its own light; on ink they show as the
-            // fine mottle of a lithographed print.
-            {
-                const double fleck = Fibres::lattice(x * 7 + 11, y * 13 + 3);
-                light += std::clamp((fleck - .84) / .16, 0.0, 1.0) * .11;
-            }
-            // Paper fibres and grain: a little lighter and darker, finer than the dimples.
-            {
-                const double f = fibres(px, py) - .5;
-                std::uint32_t k = static_cast<std::uint32_t>(x) * 2654435761U ^ static_cast<std::uint32_t>(y) * 2246822519U;
-                k = (k ^ (k >> 15)) * 0x2c1b3c6dU;
-                const double grain = ((k >> 8) & 255) / 255.0 - .5;
-                const double tone = f * .045 + grain * .025;
-                if (tone > 0)
-                    light += tone;
-                else
-                    dark += -tone;
-            }
-            // Rolled edge: the outline's outward normal, lit or shaded.
+            const double u = px / w, v = py / h, diagonal = u * .45 + v * .55;
+            const double falloff = 1 + .10 * (1 - diagonal) * (1 - diagonal) - .10 * diagonal * diagonal * diagonal;
+            double edge = 1;
             const double depth_in = -d;
             if (depth_in < rim) {
                 const double nx = outline(px + .5, py) - outline(px - .5, py),
                              ny = outline(px, py + .5) - outline(px, py - .5);
-                const double toward = nx * lx + ny * ly;
                 const double band = 1 - depth_in / rim;
-                if (toward > 0)
-                    light += .42 * toward * band * band;
-                else
-                    dark += .3 * -toward * band * band;
+                edge = 1 + (nx * lx + ny * ly) * band * band * .6;
             }
-            // Lamp: brighter toward the upper left, a soft gloss band, a little shade below.
-            const double u = px / w, v = py / h, diagonal = u * .45 + v * .55;
-            light += .08 * (1 - diagonal) * (1 - diagonal) +
-                     .05 * std::exp(-std::pow((u + v - .62) / .16, 2));
-            dark += .045 * diagonal * diagonal * diagonal;
-            light = std::min(light, .6);
-            dark = std::min(dark, .5);
-            // The tint, under the shade, under the light; premultiplied.
-            const double tint = .08, along = u * .5 + v * .5;
-            const double tr = 200 + 55 * along, tg = 235 + 5 * along, tb = 228 - 38 * along;
-            double r = tr * tint, g = tg * tint, b = tb * tint, a = tint;
-            r *= 1 - dark;
-            g *= 1 - dark;
-            b *= 1 - dark;
-            a = dark + a * (1 - dark);
-            r = 255 * light + r * (1 - light);
-            g = 255 * light + g * (1 - light);
-            b = 255 * light + b * (1 - light);
-            a = light + a * (1 - light);
-            const std::size_t n = (static_cast<std::size_t>(y) * w + x) * 4;
-            out[n] = static_cast<std::byte>(std::lround(b * cover));
-            out[n + 1] = static_cast<std::byte>(std::lround(g * cover));
-            out[n + 2] = static_cast<std::byte>(std::lround(r * cover));
-            out[n + 3] = static_cast<std::byte>(std::lround(a * cover * 255));
+            shade[i] = relief * falloff * edge;
+            if (cover[i] > .99) {
+                sum += shade[i];
+                ++counted;
+            }
         }
+    const double exposure = counted > 0 ? target / (sum / static_cast<double>(counted)) : 1.0;
+    // The paper in sRGB, and the layer that turns the stock into it.
+    const double stock[3] = {251 / 255.0, 252 / 255.0, 252 / 255.0};
+    const double stock_mean = (stock[0] + stock[1] + stock[2]) / 3;
+    for (std::size_t i = 0; i < pixels; ++i) {
+        if (cover[i] <= 0)
+            continue;
+        double paper_mean = 0;
+        for (int c = 0; c < 3; ++c)
+            paper_mean += to_srgb(roll_off(sheet_linear[i * 3 + static_cast<std::size_t>(c)] * shade[i] * exposure));
+        paper_mean /= 3;
+        double colour = 0, a = 0;
+        if (paper_mean <= stock_mean) {
+            a = 1 - paper_mean / stock_mean;  // black, darkening the stock to the paper
+        } else {
+            colour = 1;
+            a = (paper_mean - stock_mean) / (1 - stock_mean);  // white, lightening it
+        }
+        a = std::clamp(a, 0.0, 1.0) * cover[i];
+        const double premultiplied = 255 * colour * a;
+        const std::size_t n = i * 4;
+        out[n] = static_cast<std::byte>(std::lround(premultiplied));
+        out[n + 1] = static_cast<std::byte>(std::lround(premultiplied));
+        out[n + 2] = static_cast<std::byte>(std::lround(premultiplied));
+        out[n + 3] = static_cast<std::byte>(std::lround(a * 255));
+    }
     return out;
 }
 // The Hearts table's own button (Pass cards / Next hand): a glossy crimson pill
@@ -410,7 +418,7 @@ void Table::refresh_finish() {
     const int h = std::max(8, static_cast<int>(std::lround(card_w_ * 1.4 * scale)));
     if (finish_.value && w == finish_width_ && h == finish_height_)
         return;
-    const std::vector<std::byte> pixels = card_finish(w, h);
+    const std::vector<std::byte> pixels = card_finish(w, h, scale);
     gf::ImageLoadResult result =
         finish_.value ? (*window).replace_bgra32_premultiplied(finish_, w, h, w * 4, pixels, *this)
                       : (*window).load_bgra32_premultiplied(w, h, w * 4, pixels);
