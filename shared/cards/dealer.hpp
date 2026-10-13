@@ -31,6 +31,9 @@ class Dealer {
     // became ready.
     bool collect();
     [[nodiscard]] bool busy() const;
+    // On the UI thread, when nothing on the table moves: writes the ready deals if they
+    // changed (a deal taken or made). Writing at once could hold up a card in flight.
+    void save_if_due();
     void pause();
     void resume();
     // A deal made here and now (for the first deal, when nothing is ready yet).
@@ -57,6 +60,7 @@ class Dealer {
 
     std::filesystem::path file_;
     std::map<Key, std::uint32_t> ready_;
+    bool save_due_ = false;
     std::vector<Key> wanted_;
     std::uint64_t luck_ = 0;
     bool paused_ = false;

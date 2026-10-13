@@ -323,7 +323,9 @@ void Table::on_attached_to_window() {
 }
 void Table::on_detaching_from_window(gf::Window& window) noexcept {
     try {
+        save_due_ = false;
         persist();
+        dealer_.save_if_due();
         dealer_.pause();
     } catch (...) {
     }
@@ -638,7 +640,12 @@ void Table::activate() {
 void Table::tick() {
     waiting_ai_ = false;
     if (!effectively_visible()) {
-        // Hidden: no work goes on behind the shelf.
+        // Hidden: no work goes on behind the shelf; what is due is kept first.
+        if (save_due_) {
+            save_due_ = false;
+            persist();
+        }
+        dealer_.save_if_due();
         dealer_.pause();
         if (timer_)
             (*timer_).stop();
@@ -684,7 +691,7 @@ void Table::tick() {
                 game.play(index);
         }
         ai_due_ = now + std::chrono::milliseconds(game.state.piles[10].size() == 4 ? 1100 : 650);
-        persist();
+        save_soon();
         show_result();
         layout_cards(true);
         sound_play("place", sound_);
@@ -692,6 +699,11 @@ void Table::tick() {
     if (cascading_)
         step_cascade();
     if (!animating_ && !cascading_) {
+        if (save_due_) {
+            save_due_ = false;
+            persist();
+        }
+        dealer_.save_if_due();
         // At rest, the timer wakes only for the next computer play, and to see whether the
         // dealer has finished a deal (a few times a second, only while it works).
         const bool playing = ai && panel_ == 0;
@@ -1322,6 +1334,10 @@ void Table::persist() {
     if (!save_cabinet(cabinet_path(), cabinet_))
         game.message = "Your move is safe in memory, but the local save could not be written.";
 }
+void Table::save_soon() {
+    save_due_ = true;
+    request_tick();
+}
 void Table::switch_game(Kind kind) {
     persist();
     waiting_deal_ = -1; // a deal still being made for the table left is given up
@@ -1551,7 +1567,7 @@ void Table::action(gf::ButtonBase& button) {
 }
 void Table::changed(const char* effect) {
     lift_pile_ = lift_index_ = -1;
-    persist();
+    save_soon();
     if (game.state.over && game.state.kind != Kind::hearts && !reduced_ && !cascading_ &&
         !cabinet_.result_recorded[static_cast<int>(game.state.kind)])
         start_cascade();

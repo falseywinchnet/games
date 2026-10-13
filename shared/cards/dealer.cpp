@@ -35,6 +35,7 @@ Dealer::Dealer(std::filesystem::path file) : file_(std::move(file)), luck_(fresh
 
 Dealer::~Dealer() {
     stop_job();
+    save_if_due();
 }
 
 Dealer::Key Dealer::key_of(Kind kind, int option, Difficulty level) {
@@ -47,7 +48,7 @@ std::uint32_t Dealer::take(Kind kind, int option, Difficulty level) {
         return 0;
     const std::uint32_t seed = (*found).second;
     ready_.erase(found);
-    save();
+    save_due_ = true;
     return seed;
 }
 
@@ -84,7 +85,7 @@ bool Dealer::collect() {
     job_.reset();
     if (pick.found) {
         ready_[key] = pick.seed;
-        save();
+        save_due_ = true;
     } else
         wanted_.insert(wanted_.begin(), key); // cancelled: made again later
     start_next();
@@ -153,6 +154,13 @@ void Dealer::load() {
         if (kind >= 0 && kind <= 2 && level >= 0 && level <= 2 && seed != 0)
             ready_[key_of(static_cast<Kind>(kind), option, static_cast<Difficulty>(level))] =
                 seed;
+}
+
+void Dealer::save_if_due() {
+    if (!save_due_)
+        return;
+    save_due_ = false;
+    save();
 }
 
 void Dealer::save() const {

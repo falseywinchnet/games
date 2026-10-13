@@ -53,6 +53,10 @@ class Table final : public gf::Control, public CommandSource {
     bool pending_score() const;
     void show_result();
     void persist();
+    // A change to keep: written once the cards are at rest (or the table is put away), so
+    // a slow first write (a cold Windows disk, a virus scan of the new file) never holds a
+    // card in the air.
+    void save_soon();
     void switch_game(Kind kind);
     std::array<std::shared_ptr<gf::Button>, 22> buttons_{};
     std::vector<gf::SubscriptionToken> subscriptions_;
@@ -80,6 +84,7 @@ class Table final : public gf::Control, public CommandSource {
     int keyboard_card_ = 0;
     int pending_from_ = -1, pending_index_ = -1, pending_to_ = -1;
     bool animating_ = false, dragging_ = false, reduced_ = false, sound_ = true, music_ = true;
+    bool save_due_ = false;  // a change not yet written (save_soon)
     int selection_ = -1, selected_index_ = -1, hover_ = -1, back_ = 0, panel_ = 0, topic_ = 0,
         keyboard_slot_ = 0;
     double card_w_ = 105, card_h_ = 147, spread_ = 29;
