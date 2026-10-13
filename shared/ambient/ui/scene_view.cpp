@@ -30,6 +30,8 @@ struct TextMask {
     std::vector<std::uint8_t> a{};
 };
 games::PortableMaskCache<TextMask> text_masks{};
+// Frames after a new picture over which the overlays are repainted (about half a second).
+constexpr int kFreshFrames = 30;
 constexpr int font_body = 0;   // Libre Baskerville
 constexpr int font_title = 4;  // Libre Baskerville Bold
 
@@ -304,6 +306,8 @@ void SceneView::tick() {
     const bool pending = (*scenery_).poll(work);
     if (scene_ready() != was_ready || work.redraw)
         render_dirty_ = true;
+    if (scene_ready() != was_ready)
+        fresh_frames_ = kFreshFrames;
     // Expensive rebuilds wait until a resize has stopped for a moment.
     if (seconds_since(last_arrange_) > 0.15)
         (*scenery_).resize(wanted_, true);
@@ -418,7 +422,17 @@ void SceneView::publish(const std::vector<std::uint32_t>* picture, int width, in
         return;
     }
     pixels_.publish();
-    render::refresh_overlays(*this);
+    if (drawable && (width != shown_width_ || height != shown_height_)) {
+        shown_width_ = width;
+        shown_height_ = height;
+        fresh_frames_ = kFreshFrames;
+    }
+    if (fresh_frames_ > 0) {
+        --fresh_frames_;
+        render::repaint_overlays(*this);
+    } else {
+        render::refresh_overlays(*this);
+    }
     if (!pixels_.direct())
         invalidate(gf::Dirty::paint);
 }
@@ -703,8 +717,11 @@ void SceneView::run_command(std::string_view id) {
         sound_.cabinet(front_, music_ && !music_muted_, sound_on_ && !sound_muted_);
     } else {
         SceneContext work = context();
-        if ((*scenery_).run_command(id, work))
+        if ((*scenery_).run_command(id, work)) {
+            // the capsule button that asked has just painted over the old picture
+            fresh_frames_ = kFreshFrames;
             request_frame();
+        }
         finish(work);
     }
 }

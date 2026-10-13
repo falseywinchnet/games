@@ -56,6 +56,22 @@ inline void refresh_overlays_in(const gf::Control& control, const gf::Rect& dama
 }
 } // namespace detail
 
+// Every overlay over `local_damage` of `owner` (its own points; empty for all of it)
+// paints again, on every host. For a new picture: another scene, or the first frames
+// after a command from the capsule. On macOS the host recomposites overlays inside a
+// frame's damage itself, but an overlay painted while the old picture was still showing
+// (a capsule button pressed to change the scene) can keep that picture beneath it until
+// it is invalidated: Stillwater's capsule showed the last tank's plants over the reef.
+inline void repaint_overlays(const gf::Control& owner, gf::Rect local_damage = {}) {
+    gf::Window* window = owner.attached_window();
+    if (window == nullptr || !(*window).root())
+        return;
+    const gf::Rect all = owner.client_rectangle();
+    const gf::Rect damage =
+        detail::committed_in_window(owner, local_damage.empty() ? gf::Rect{0, 0, all.width, all.height} : local_damage);
+    detail::refresh_overlays_in(*(*window).root(), damage);
+}
+
 // A frame was published for `owner`, changing `local_damage` (the owner's own points;
 // empty for all of it): every overlay over that paints again.
 inline void refresh_overlays(const gf::Control& owner, gf::Rect local_damage = {}) {
@@ -67,13 +83,7 @@ inline void refresh_overlays(const gf::Control& owner, gf::Rect local_damage = {
     static_cast<void>(local_damage);
     return;
 #endif
-    gf::Window* window = owner.attached_window();
-    if (window == nullptr || !(*window).root())
-        return;
-    const gf::Rect all = owner.client_rectangle();
-    const gf::Rect damage =
-        detail::committed_in_window(owner, local_damage.empty() ? gf::Rect{0, 0, all.width, all.height} : local_damage);
-    detail::refresh_overlays_in(*(*window).root(), damage);
+    repaint_overlays(owner, local_damage);
 }
 
 } // namespace render
