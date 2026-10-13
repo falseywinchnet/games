@@ -120,6 +120,10 @@ def summary(scene: str, steady: dict) -> str:
                  f"{get('window.live_rectangles_presented')} rects/s, {get('window.live_present_duration_nanoseconds', 1e-6)} ms/s; "
                  f"retained {get('window.retained_pixels_presented', 1e-6)} Mpx/s in "
                  f"{get('window.retained_rectangles_presented')} rects/s")
+    # The copy to the screen alone, without the paint and compose (GUI.Forms #77).
+    copy = next((key for key in steady if key.endswith("screen_copy_nanoseconds")), None)
+    if copy is not None:
+        line += f"; copy alone {get(copy, 1e-6)} ms/s"
     return line
 
 
