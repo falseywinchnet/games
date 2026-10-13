@@ -11,11 +11,14 @@ target_include_directories(game_text_frames PUBLIC src)
 target_link_libraries(game_text_frames PUBLIC GUIForms::TextMasks)
 add_library(game_felt STATIC shared/felt/carpet.cpp shared/felt/image.cpp)
 # The felt and drawn card backs every card table shares, made once per run (Koi-Koi too).
-# Also the room's light on a card's face, baked offline (shared/cards/table_light.hpp).
+# Also the room's light on a card's face, baked offline (shared/cards/table_light.hpp), and
+# the cards printed in it (card_print.hpp, card_press.hpp): their PNGs read with the ambient
+# engine's inflater, on the paper engine's stock.
 add_library(game_table_art STATIC shared/cards/table_art.cpp shared/cards/card_backs.cpp
-            shared/cards/table_light.cpp shared/cards/table_light_bake.cpp)
+            shared/cards/table_light.cpp shared/cards/table_light_bake.cpp
+            shared/cards/card_print.cpp shared/cards/card_press.cpp)
 target_include_directories(game_table_art PUBLIC shared PRIVATE shared/cards shared/felt)
-target_link_libraries(game_table_art PUBLIC game_felt game_paths GUIForms::Application)
+target_link_libraries(game_table_art PUBLIC game_felt game_paths GUIForms::Application PRIVATE paper_core ambient_core)
 if(GAMES_MODULE_UI)
     add_library(vendor_game_ui STATIC ${GAMES_MODULE_UI})
     set(module_link_scope PUBLIC)
@@ -26,12 +29,12 @@ endif()
 target_link_libraries(vendor_game_ui ${module_link_scope} ${GAMES_MODULE_LIBRARIES}
     game_audio_adapters game_text_frames game_felt game_table_art GUIForms::Application)
 target_compile_definitions(vendor_game_ui INTERFACE _USE_MATH_DEFINES)
-add_library(game_ui ${GAMES_MODULE_SOURCES} "${GAMES_CATALOG_DIR}/game_registry.cpp" shared/cards/table.cpp shared/cards/card_print.cpp shared/cards/dealer.cpp src/presentation.cpp shared/puzzles/puzzle_view.cpp src/collection.cpp src/open_link.cpp
+add_library(game_ui ${GAMES_MODULE_SOURCES} "${GAMES_CATALOG_DIR}/game_registry.cpp" shared/cards/table.cpp shared/cards/dealer.cpp src/presentation.cpp shared/puzzles/puzzle_view.cpp src/collection.cpp src/open_link.cpp
     games/sudoku/src/sudoku_view.cpp src/suite.cpp src/text_sprites.cpp src/shelf.cpp src/wood.cpp src/capsule.cpp shared/puzzles/kitten.cpp
     src/help_book.cpp src/help_content.cpp src/settings_sheet.cpp src/suite_model.cpp src/paper_sheet.cpp)
 target_include_directories(game_ui PUBLIC src PRIVATE shared/felt)
 target_link_libraries(game_ui PUBLIC game_rules game_solver game_raster sudoku_generator vendor_game_ui paper_core
-    ambient_core)  # the card table's pictures read their PNGs with its inflater (card_print.cpp)
+    ambient_core)
 if(WIN32)
     target_link_libraries(game_ui PRIVATE shell32)
 endif()

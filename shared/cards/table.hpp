@@ -1,5 +1,5 @@
 #pragma once
-#include "card_print.hpp"
+#include "card_press.hpp"
 #include "dealer.hpp"
 #include "game.hpp"
 #include "gui_forms/basic_controls.hpp"
@@ -66,16 +66,18 @@ class Table final : public gf::Control, public CommandSource {
     std::array<gf::ImageId, card_back_count> backs_{};
     gf::ImageId felt_{};
     gf::ImageId shadow_{};
-    // The paper (card_print.hpp) at the cards' device size, and laid over a face drawn the old
-    // way while its picture is not made yet.
-    CardPaper paper_;
+    // The cards printed (card_press.hpp): the paper at the cards' device size, the room's
+    // light, the artwork and the pictures. The paper is also laid over a face drawn the old
+    // way while its picture is not made yet (finish_).
+    CardPress printer_;
+    [[nodiscard]] CardFinish finish_settings() const {
+        return {emboss_, emboss_size_, sparkle_, grain_, glare_};
+    }
     gf::ImageId finish_{};
     double scale_ = 1;  // device pixels to a point
     // The room's light on a card's face, by where it lies (table_light.hpp); made again only
     // when the table or its cards change size.
     gf::ImageId light_{};
-    TableLight light_grid_;
-    double light_width_ = 0, light_height_ = 0, light_card_ = 0;
     void refresh_light();
     int finish_width_ = 0, finish_height_ = 0;
     void refresh_finish();
@@ -89,16 +91,10 @@ class Table final : public gf::Control, public CommandSource {
         int card = -1;              // the card's id
         bool up = false;
         int design = -1;            // the back it shows, face down
-        int generation = -1;        // print_generation_ when printed
+        int generation = -1;        // printer_.generation() when printed
     };
     std::array<Printed, 104> printed_{};
     Printed glinted_{};           // the card under the pointer, glinting
-    int print_generation_ = 0;    // counts changes of the paper and the light
-    std::array<CardArt, 52> face_art_{};  // at the paper's size, made as wanted
-    std::array<bool, 52> face_failed_{};
-    CardArt back_art_, shadow_art_;
-    int back_art_design_ = -1;
-    bool back_failed_ = false;
     // The shadow at the cards' device size, at rest and in the hand.
     gf::ImageId rest_shadow_{}, lifted_shadow_{};
     gf::FrameTime resized_at_{};  // when the cards last changed size (printed once it settles)

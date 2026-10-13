@@ -27,60 +27,6 @@ const char* audio_name(Kind kind) {
     const char* names[] = {"solitaire", "spider", "freecell", "hearts"};
     return names[static_cast<int>(kind)];
 }
-// A card's artwork brought to the paper's size, on any core: a face or back from its PNG, or
-// a drawn back (an empty path).
-struct ArtWork {
-    std::string path;
-    int design = -1;
-    CardArt* out = nullptr;
-    bool made = false;
-    int face = -1;  // which face, or -1 for the back
-};
-struct ArtRound {
-    int width = 0, height = 0;
-    std::vector<ArtWork> works;
-};
-void make_art(void* context, int index) noexcept {
-    ArtRound& round = *static_cast<ArtRound*>(context);
-    ArtWork& work = round.works[static_cast<std::size_t>(index)];
-    try {
-        CardArt full;
-        if (work.path.empty())
-            full = card_art_from_bgra(card_art_width, card_art_height, drawn_card_back(work.design));
-        else if (!load_card_png(work.path, full))
-            return;
-        if (full.width == 0)
-            return;
-        reduce_card_art(full, round.width, round.height, *work.out);
-        work.made = (*work.out).width == round.width;
-    } catch (...) {
-        work.made = false;  // drawn the old way
-    }
-}
-// One card's picture, on any core.
-struct Sheet {
-    const CardArt* art = nullptr;
-    int x = 0, y = 0;
-    CardGlint glint;
-    std::vector<std::byte> pixels;
-};
-struct PrintRound {
-    const CardPaper* paper = nullptr;
-    LightAt light;
-    std::vector<Sheet> sheets;
-};
-void print_sheet(void* context, int index) noexcept {
-    PrintRound& round = *static_cast<PrintRound*>(context);
-    Sheet& sheet = round.sheets[static_cast<std::size_t>(index)];
-    LightAt at = round.light;
-    at.x = sheet.x;
-    at.y = sheet.y;
-    try {
-        print_card(*sheet.art, *round.paper, at, sheet.glint, sheet.pixels);
-    } catch (...) {
-        sheet.pixels.clear();
-    }
-}
 // The Hearts table's own button (Pass cards / Next hand): a glossy crimson pill
 // with a white heart, rimmed in gold.
 class HeartsButton final : public gf::Button {
@@ -152,6 +98,18 @@ Table::Table(gf::StableId id) : Control(std::move(id)) {
     next_seed_ =
         static_cast<std::uint32_t>(std::chrono::system_clock::now().time_since_epoch().count());
     load_levels();
+    {
+        // The deck the press prints: the classic faces, and every back design (a PNG, or
+        // drawn by card_backs.hpp where the path is empty).
+        std::vector<std::string> faces, backs;
+        for (int k = 0; k < 52; ++k)
+            faces.push_back(asset_directory() + "/classic_" + (k < 10 ? "0" : "") + std::to_string(k) + ".png");
+        for (int design = 0; design < card_back_count; ++design)
+            backs.push_back(design < painted_back_count ? asset_directory() + "/back_" + std::to_string(design) + ".png"
+                            : design == classic_back    ? asset_directory() + "/" + classic_back_file
+                                                        : std::string());
+        printer_.set_deck(std::move(faces), std::move(backs));
+    }
     if (load_cabinet(cabinet_path(), cabinet_))
         game = cabinet_.games[cabinet_.active];
     else {
@@ -249,7 +207,6 @@ void Table::on_detaching_from_window(gf::Window& window) noexcept {
     if (light_.value)
         static_cast<void>(window.remove_image(light_));
     light_ = {};
-    light_width_ = light_height_ = light_card_ = 0;
     music_play("", false);
 }
 void Table::arrange(gf::Rect bounds) {
@@ -277,25 +234,19 @@ void Table::arrange(gf::Rect bounds) {
 void Table::refresh_light() {
     gf::Window* window = attached_window();
     const gf::Rect b = client_rectangle();
-    if (!window || b.width <= 0 || b.height <= 0 ||
-        (light_.value && b.width == light_width_ && b.height == light_height_ &&
-         card_w_ == light_card_))
+    if (!window || b.width <= 0 || b.height <= 0)
         return;
-    const TableLight light = light_table(b.width, b.height, card_w_);
+    if (!printer_.light(b.width, b.height, card_w_) && light_.value)
+        return;
+    const TableLight& light = printer_.light_grid();
     const std::uint32_t w = static_cast<std::uint32_t>(light.width),
                         h = static_cast<std::uint32_t>(light.height);
     gf::ImageLoadResult result =
         light_.value
             ? (*window).replace_bgra32_premultiplied(light_, w, h, w * 4, light.face, *this)
             : (*window).load_bgra32_premultiplied(w, h, w * 4, light.face);
-    if (result) {
+    if (result)
         light_ = result.image;
-        light_width_ = b.width;
-        light_height_ = b.height;
-        light_card_ = card_w_;
-        light_grid_ = light;
-        ++print_generation_;
-    }
 }
 void Table::refresh_finish() {
     gf::Window* window = attached_window();
@@ -305,13 +256,12 @@ void Table::refresh_finish() {
     scale_ = scale;
     const int w = std::max(8, static_cast<int>(std::lround(card_w_ * scale)));
     const int h = std::max(8, static_cast<int>(std::lround(card_w_ * 1.4 * scale)));
-    if (finish_.value && w == finish_width_ && h == finish_height_)
+    const bool made = printer_.prepare(w, h, scale, finish_settings());
+    if (!made && finish_.value && w == finish_width_ && h == finish_height_)
         return;
     if (finish_width_ > 0)
         resized_at_ = gf::FrameClock::now();  // a resize: printed when it settles
-    paper_ = make_card_paper(w, h, scale, 12 * emboss_, .8 + 5.2 * emboss_size_);
-    ++print_generation_;
-    const std::vector<std::byte> pixels = paper_overlay(paper_);
+    const std::vector<std::byte> pixels = paper_overlay(printer_.paper());
     gf::ImageLoadResult result =
         finish_.value ? (*window).replace_bgra32_premultiplied(finish_, w, h, w * 4, pixels, *this)
                       : (*window).load_bgra32_premultiplied(w, h, w * 4, pixels);
@@ -320,18 +270,13 @@ void Table::refresh_finish() {
         finish_width_ = w;
         finish_height_ = h;
     }
-    // The shadow at whole device pixels: the artwork's is 440 x 584 about a 360 x 504 card,
-    // 40 px of it all round; in the hand a card rides higher and its shadow is larger.
-    if (shadow_art_.width == 0 && !load_card_png(asset_directory() + "/card_shadow.png", shadow_art_))
-        return;
-    const double margin = 40.0 * w / 360;
+    // The shadow at whole device pixels, at rest and in the hand.
     for (int lifted = 0; lifted < 2; ++lifted) {
-        const double grow = lifted ? 1.06 : 1;
-        CardArt shadow;
-        reduce_card_art(shadow_art_, static_cast<int>(std::lround((w + 2 * margin) * grow)),
-                        static_cast<int>(std::lround((w * 1.4 + 2 * margin) * grow)), shadow);
-        const std::vector<std::byte> bgra = premultiplied_bgra(shadow);
-        const std::uint32_t sw = static_cast<std::uint32_t>(shadow.width), sh = static_cast<std::uint32_t>(shadow.height);
+        int shadow_width = 0, shadow_height = 0;
+        const std::vector<std::byte> bgra = printer_.shadow(lifted != 0, shadow_width, shadow_height);
+        if (bgra.empty())
+            return;
+        const std::uint32_t sw = static_cast<std::uint32_t>(shadow_width), sh = static_cast<std::uint32_t>(shadow_height);
         gf::ImageId& image = lifted ? lifted_shadow_ : rest_shadow_;
         gf::ImageLoadResult made = image.value
                                        ? (*window).replace_bgra32_premultiplied(image, sw, sh, sw * 4, bgra, *this)
@@ -340,13 +285,13 @@ void Table::refresh_finish() {
     }
 }
 bool Table::picture_shows(const Printed& printed, const Card& card, bool up) const {
-    const bool shows = printed.image.value && printed.card == card.id && printed.generation == print_generation_ &&
-                       printed.width == paper_.width && printed.up == up && (up || printed.design == back_);
+    const bool shows = printed.image.value && printed.card == card.id && printed.generation == printer_.generation() &&
+                       printed.width == printer_.paper().width && printed.up == up && (up || printed.design == back_);
     return shows;
 }
 void Table::print_stale() {
     gf::Window* window = attached_window();
-    if (!window || paper_.width <= 0 || light_grid_.width <= 0)
+    if (!window || !printer_.ready())
         return;
     // What is out of date: the card under the pointer glinting, then every card in sight.
     std::vector<Printed*> targets;
@@ -376,80 +321,35 @@ void Table::print_stale() {
         }
     if (targets.empty())
         return;
-    // The artwork they want, brought to the paper's size where it is not yet.
-    if (back_art_design_ != back_ || back_art_.width != paper_.width || back_art_.height != paper_.height) {
-        if (back_art_design_ != back_)
-            back_failed_ = false;
-        back_art_design_ = back_;
-        back_art_ = {};
-    }
-    ArtRound arts{paper_.width, paper_.height, {}};
-    std::array<bool, 52> wanted{};
-    bool back_wanted = false;
-    for (int card : cards) {
-        const Card& c = sprites_[static_cast<std::size_t>(card)].card;
-        if (c.up) {
-            const std::size_t k = static_cast<std::size_t>(std::clamp(c.suit * 13 + c.rank - 1, 0, 51));
-            if (wanted[k] || face_failed_[k] || (face_art_[k].width == paper_.width && face_art_[k].height == paper_.height))
-                continue;
-            wanted[k] = true;
-            const std::string number = k < 10 ? "0" + std::to_string(k) : std::to_string(k);
-            arts.works.push_back({asset_directory() + "/classic_" + number + ".png", -1, &face_art_[k], false, static_cast<int>(k)});
-        } else if (!back_wanted && !back_failed_ && back_art_.width == 0) {
-            back_wanted = true;
-            const std::string path = back_ < painted_back_count ? asset_directory() + "/back_" + std::to_string(back_) + ".png"
-                                     : back_ == classic_back   ? asset_directory() + "/" + classic_back_file
-                                                               : std::string();
-            arts.works.push_back({path, back_, &back_art_, false, -1});
-        }
-    }
-    if (!arts.works.empty())
-        run_on_every_core(static_cast<int>(arts.works.size()), make_art, &arts);
-    for (const ArtWork& work : arts.works)
-        if (!work.made) {
-            if (work.face >= 0)
-                face_failed_[static_cast<std::size_t>(work.face)] = true;
-            else
-                back_failed_ = true;
-        }
-    // The pictures, each on its own.
-    const gf::Rect b = client_rectangle();
-    PrintRound round{&paper_, {&light_grid_, b.width * scale_, b.height * scale_, 0, 0}, {}};
-    std::vector<std::size_t> printing;
+    // The pictures, every core lending a hand (the artwork brought to the paper's size first,
+    // where it is not yet).
+    std::vector<PressSheet> sheets;
     for (std::size_t i = 0; i < targets.size(); ++i) {
         const Sprite& s = sprites_[static_cast<std::size_t>(cards[i])];
-        const CardArt* art = nullptr;
-        if (s.card.up) {
-            const std::size_t k = static_cast<std::size_t>(std::clamp(s.card.suit * 13 + s.card.rank - 1, 0, 51));
-            if (face_art_[k].width == paper_.width && face_art_[k].height == paper_.height)
-                art = &face_art_[k];
-        } else if (back_art_.width == paper_.width && back_art_.height == paper_.height) {
-            art = &back_art_;
-        }
-        if (!art)
-            continue;  // drawn the old way
-        round.sheets.push_back({art, static_cast<int>(std::lround(s.rect.x * scale_)),
-                                static_cast<int>(std::lround(s.rect.y * scale_)),
-                                glints[i] ? CardGlint{sparkle_, glare_, 1.5 + 6.5 * grain_,
-                                                      static_cast<std::uint32_t>(cards[i]) * 2654435761U}
-                                          : CardGlint{},
-                                {}});
-        printing.push_back(i);
+        PressSheet sheet;
+        if (s.card.up)
+            sheet.face = std::clamp(s.card.suit * 13 + s.card.rank - 1, 0, 51);
+        else
+            sheet.design = back_;
+        sheet.x = static_cast<int>(std::lround(s.rect.x * scale_));
+        sheet.y = static_cast<int>(std::lround(s.rect.y * scale_));
+        sheet.glint = glints[i];
+        sheet.seed = static_cast<std::uint32_t>(cards[i]) * 2654435761U;
+        sheets.push_back(sheet);
     }
-    if (round.sheets.empty())
-        return;
-    run_on_every_core(static_cast<int>(round.sheets.size()), print_sheet, &round);
-    for (std::size_t n = 0; n < printing.size(); ++n)
-        if (!round.sheets[n].pixels.empty())
-            keep_print(*targets[printing[n]], sprites_[static_cast<std::size_t>(cards[printing[n]])], round.sheets[n].pixels);
+    const std::vector<std::vector<std::byte>> pictures = printer_.print(sheets);
+    for (std::size_t i = 0; i < targets.size(); ++i)
+        if (!pictures[i].empty())  // otherwise drawn the old way
+            keep_print(*targets[i], sprites_[static_cast<std::size_t>(cards[i])], pictures[i]);
 }
 void Table::keep_print(Printed& printed, const Sprite& sprite, std::span<const std::byte> pixels) {
     gf::Window& window = *attached_window();
     const int x = static_cast<int>(std::lround(sprite.rect.x * scale_)), y = static_cast<int>(std::lround(sprite.rect.y * scale_));
-    const std::uint32_t w = static_cast<std::uint32_t>(paper_.width), h = static_cast<std::uint32_t>(paper_.height);
+    const CardPaper& paper = printer_.paper();
+    const std::uint32_t w = static_cast<std::uint32_t>(paper.width), h = static_cast<std::uint32_t>(paper.height);
     const gf::Rect place{x / scale_, y / scale_, w / scale_, h / scale_};
     gf::ImageLoadResult result;
-    if (printed.image.value && printed.width == paper_.width && printed.height == paper_.height)
+    if (printed.image.value && printed.width == paper.width && printed.height == paper.height)
         // the same size: only where the card lies is painted again
         result = window.patch_bgra32_premultiplied(printed.image, 0, 0, w, h, w * 4, pixels, *this, place);
     else if (printed.image.value)
@@ -461,14 +361,14 @@ void Table::keep_print(Printed& printed, const Sprite& sprite, std::span<const s
     if (!result)
         return;
     printed.image = result.image;
-    printed.width = paper_.width;
-    printed.height = paper_.height;
+    printed.width = paper.width;
+    printed.height = paper.height;
     printed.x = x;
     printed.y = y;
     printed.card = sprite.card.id;
     printed.up = sprite.card.up;
     printed.design = sprite.card.up ? -1 : back_;
-    printed.generation = print_generation_;
+    printed.generation = printer_.generation();
 }
 void Table::forget_pictures(gf::Window& window) {
     for (Printed& printed : printed_) {
@@ -484,11 +384,7 @@ void Table::forget_pictures(gf::Window& window) {
             static_cast<void>(window.remove_image(*image));
         *image = {};
     }
-    face_art_ = {};
-    face_failed_ = {};
-    back_art_ = {};
-    back_art_design_ = -1;
-    paper_ = {};
+    printer_.forget();
 }
 void Table::layout_cards(bool animate) {
     gf::Rect bounds = client_rectangle();
@@ -683,6 +579,7 @@ void Table::reload_preferences() {
         sparkle_ = masters.card_sparkle;
         glare_ = masters.card_glare;
         grain_ = masters.card_grain;
+        printer_.set_glint(finish_settings());
         glinted_.generation = -1;  // printed again as it now glints
         invalidate(gf::Dirty::paint);
         request_tick();
@@ -956,10 +853,10 @@ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
     // Flat on the table or in the hand, at the cards' own size: its picture, copied whole at
     // whole device pixels (where it was printed, or, moved, until it is printed again).
     const bool whole = pictured && rise <= 0 && !turning && rest_shadow_.value && lifted_shadow_.value &&
-                       std::abs(r.width * scale_ - paper_.width) < .5;
+                       std::abs(r.width * scale_ - printer_.paper().width) < .5;
     if (whole) {
         const int x = static_cast<int>(std::lround(r.x * scale_)), y = static_cast<int>(std::lround(r.y * scale_));
-        const double w = paper_.width, margin = 40.0 * w / 360;
+        const double w = printer_.paper().width, margin = printer_.margin();
         // as the artwork's shadow is drawn below: risen by a full height in the hand
         const double grow = lifted ? 1.06 : 1, drop = lifted ? w * .07 : 0;
         const double shadow_x = static_cast<double>(std::lround(x - margin * grow + drop * .6)),
@@ -968,7 +865,7 @@ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
                      shadow_h = static_cast<double>(std::lround((w * 1.4 + 2 * margin) * grow));
         p.draw_image(lifted ? lifted_shadow_ : rest_shadow_,
                      {shadow_x / scale_, shadow_y / scale_, shadow_w / scale_, shadow_h / scale_});
-        const gf::Rect at{x / scale_, y / scale_, paper_.width / scale_, paper_.height / scale_};
+        const gf::Rect at{x / scale_, y / scale_, printer_.paper().width / scale_, printer_.paper().height / scale_};
         if (selected) {
             p.fill_rounded_rect(enlarged(at, 4), 9, gf::Color::rgba(248, 220, 119));
             p.draw_box_shadow(at, 7, {0, 0}, 9, 3, gf::Color::rgba(255, 220, 103, 100));
