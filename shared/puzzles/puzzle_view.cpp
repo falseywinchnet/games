@@ -1203,16 +1203,6 @@ void PuzzleView::paint_untangle(gf::Painter& p, int part) {
                 }
             }
     }
-    if ((part < 0 || part == 1) && untangle_hint_ > 0 && in_paint_area(untangle_hint_rect())) {
-        const double fade = std::clamp(std::min(untangle_hint_ * 2, (6.0 - untangle_hint_) * 4), 0.0, 1.0);
-        const gf::Rect r = untangle_hint_rect();
-        p.fill_rounded_rect(r, 15, gf::Color::rgba(20, 26, 28, static_cast<unsigned char>(200 * fade)));
-        const gf::FontSpec f{gf::FontRole::content, 13, 700, false};
-        const char* words = "Only threads of the same color tangle.";
-        const gf::Size m = p.measure_text_utf8(words, f);
-        p.draw_text_utf8({r.x + (r.width - m.width) * .5, r.y + r.height * .5 + f.size * .36}, words, f,
-                         gf::Color::rgba(240, 232, 214, static_cast<unsigned char>(255 * fade)));
-    }
     if (part < 0 || part == 1) {
         if (celebrate >= 0) {
             const double r = board_.width * (.1 + celebrate * .8);
@@ -1328,6 +1318,18 @@ void PuzzleView::paint_untangle(gf::Painter& p, int part) {
         p.draw_text_utf8(
             {board_.x + (board_.width - sm.width) * .5, cushion.y + cushion.height + 24}, line, sf,
             game.state.won ? gf::Color::rgba(255, 224, 150) : gf::Color::rgba(255, 236, 214));
+    }
+    // The hint for a board of several colors stands in the status line's place for a few
+    // seconds, over it, so it covers no peg or thread; then the status shows through again.
+    if ((part < 0 || part == 2) && untangle_hint_ > 0 && in_paint_area(untangle_hint_rect())) {
+        const double fade = std::clamp(std::min(untangle_hint_ * 2, (6.0 - untangle_hint_) * 4), 0.0, 1.0);
+        const gf::Rect r = untangle_hint_rect();
+        p.fill_rounded_rect(r, 15, gf::Color::rgba(20, 26, 28, static_cast<unsigned char>(240 * fade)));
+        const gf::FontSpec f{gf::FontRole::content, 13, 700, false};
+        const char* words = "Only threads of the same color tangle.";
+        const gf::Size m = p.measure_text_utf8(words, f);
+        p.draw_text_utf8({r.x + (r.width - m.width) * .5, r.y + r.height * .5 + f.size * .36}, words, f,
+                         gf::Color::rgba(240, 232, 214, static_cast<unsigned char>(255 * fade)));
     }
 }
 static void draw_peg(gf::Painter& p, gf::Rect r, int value, bool selected = false) {
@@ -2832,8 +2834,9 @@ gf::Rect PuzzleView::untangle_board_damage() const {
             board_.height + margin * 2};
 }
 gf::Rect PuzzleView::untangle_hint_rect() const {
-    const double w = std::min(board_.width - 20, 360.0);
-    return {board_.x + (board_.width - w) * .5, board_.y + 10, w, 30};
+    // where the status line lies, under the cushion (paint_untangle)
+    const double w = std::min(board_.width - 20, 360.0), pad = std::max(14.0, board_.width * .045);
+    return {board_.x + (board_.width - w) * .5, board_.y + board_.height + pad + 4, w, 30};
 }
 gf::Rect PuzzleView::untangle_animation_bounds() const {
     gf::Rect damage = kitten_.paint_bounds(board_);

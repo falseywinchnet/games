@@ -1080,15 +1080,15 @@ void DiceView::draw_bid_plaque() {
     if (phase_ == Phase::reveal && counted_ > 0) {
         const std::string c = std::to_string(counted_);
         const Col cc = counted_ >= rv_.bid.qty ? hex(0x80F0A0) : hex(0xFFE8A0);
-        text(c, (pw_ - text_w(c, 30, 2)) / 2, 8, cc, 30, 2);
+        text(c, (pw_ - text_w(c, 30, 2)) / 2, y + 2, cc, 30, 2);
     }
     if (phase_ == Phase::reveal && !result_line_.empty()) {
         const int tw = text_w(result_line_, 13, 1) + 20;
-        frame_.fill_rect((pw_ - tw) / 2, 52, tw, 20, rv_.stood ? hex(0x1E4A2A, .9f) : hex(0x5A1A1A, .9f));
-        text(result_line_, (pw_ - tw) / 2 + 10, 54, hex(0xFFF4E0), 13, 1);
+        frame_.fill_rect((pw_ - tw) / 2, y + 40, tw, 20, rv_.stood ? hex(0x1E4A2A, .9f) : hex(0x5A1A1A, .9f));
+        text(result_line_, (pw_ - tw) / 2 + 10, y + 42, hex(0xFFF4E0), 13, 1);
     }
-    // this round's bids so far, small, under the plaque
-    int hy = 46;
+    // this round's bids so far, small, under the plaque (wherever the plaque sits)
+    int hy = y + 34 + 6;
     const auto& hist = m().history;
     if (phase_ == Phase::turn || phase_ == Phase::act) {
         const size_t fit = static_cast<size_t>(std::clamp((ph_ - panel_h_ - hy - 8) / 12, 0, 6));
