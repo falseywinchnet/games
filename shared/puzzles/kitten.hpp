@@ -50,6 +50,12 @@ class Kitten {
     [[nodiscard]] bool asleep() const {
         return mode_ == Mode::nap && settled_;
     }
+    // Moving slowly or not at all (watching, sitting, napping, grooming): thirty frames a
+    // second show it as well as sixty.
+    [[nodiscard]] bool calm() const {
+        return speed_ < .05 && mode_ != Mode::swat && mode_ != Mode::chase && mode_ != Mode::flee &&
+               mode_ != Mode::held;
+    }
 
   private:
     enum class Mode { watch, wander, chase, perch, stalk, swat, nap, groom, flee, held };

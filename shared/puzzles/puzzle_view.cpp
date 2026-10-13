@@ -99,6 +99,14 @@ void PuzzleView::invalidate_animation(gf::Rect damage) {
         invalidate(damage);
     }
 }
+void PuzzleView::invalidate_animation_areas(const std::vector<gf::Rect>& areas) {
+    if (!panel_ && prepare_framebuffer()) {
+        present_framebuffer_areas(areas);
+        return;
+    }
+    for (const gf::Rect& area : areas)
+        invalidate_animation(area);
+}
 bool PuzzleView::prepare_framebuffer() {
     if (!scene_parts_[0] || !attached_window())
         return false;
@@ -148,110 +156,138 @@ bool PuzzleView::prepare_framebuffer() {
     return true;
 }
 void PuzzleView::present_framebuffer(gf::Rect damage) {
-    if (framebuffer_painting_ || panel_ || !prepare_framebuffer())
+    present_framebuffer_areas({damage});
+}
+void PuzzleView::present_framebuffer_areas(std::vector<gf::Rect> areas) {
+    if (framebuffer_painting_ || panel_ || !prepare_framebuffer() || areas.empty())
         return;
     gf::PaintFramebuffer& target = *framebuffer_;
     const gf::Rect bounds = client_rectangle();
     const bool rebuild = static_pixels_dirty_ || static_pixels_.empty();
     if (rebuild)
-        damage = bounds;
-    damage = gf::Rect::intersection(damage, bounds);
-    if (damage.empty())
-        return;
-    // Restore and paint exactly the same physical pixels at fractional DPI.
+        areas = {bounds};
+    // Whole device pixels, inside the view; areas that touch become one.
     const int width = static_cast<int>(target.width()), height = static_cast<int>(target.height());
-    const int left = std::max(0, static_cast<int>(std::floor(damage.x * framebuffer_scale_)));
-    const int top = std::max(0, static_cast<int>(std::floor(damage.y * framebuffer_scale_)));
-    const int right =
-        std::min(width,
-                 static_cast<int>(std::ceil((damage.x + damage.width) * framebuffer_scale_)));
-    const int bottom =
-        std::min(height,
-                 static_cast<int>(std::ceil((damage.y + damage.height) * framebuffer_scale_)));
-    damage = {left / framebuffer_scale_, top / framebuffer_scale_,
-              (right - left) / framebuffer_scale_, (bottom - top) / framebuffer_scale_};
+    std::vector<render::Rect> pixels_areas;
+    for (const gf::Rect& area : areas) {
+        const gf::Rect clipped = gf::Rect::intersection(area, bounds);
+        if (clipped.empty())
+            continue;
+        render::Rect r{std::max(0, static_cast<int>(std::floor(clipped.x * framebuffer_scale_))),
+                       std::max(0, static_cast<int>(std::floor(clipped.y * framebuffer_scale_))),
+                       std::min(width, static_cast<int>(std::ceil((clipped.x + clipped.width) * framebuffer_scale_))),
+                       std::min(height, static_cast<int>(std::ceil((clipped.y + clipped.height) * framebuffer_scale_)))};
+        if (r.x1 <= r.x0 || r.y1 <= r.y0)
+            continue;
+        bool merged = true;
+        while (merged) {
+            merged = false;
+            for (std::size_t k = 0; k < pixels_areas.size(); ++k)
+                if (r.x0 <= pixels_areas[k].x1 && pixels_areas[k].x0 <= r.x1 && r.y0 <= pixels_areas[k].y1 &&
+                    pixels_areas[k].y0 <= r.y1) {
+                    r = r.united(pixels_areas[k]);
+                    pixels_areas.erase(pixels_areas.begin() + static_cast<std::ptrdiff_t>(k));
+                    merged = true;
+                    break;
+                }
+        }
+        pixels_areas.push_back(r);
+    }
+    if (pixels_areas.empty())
+        return;
+    render::Rect all = pixels_areas.front();
+    for (const render::Rect& r : pixels_areas)
+        all = all.united(r);
     // Gems with nothing over them go straight into the window's buffer: the still board put
     // back, the gems laid over it. Frames with effects take the painter.
     if (game.kind == PuzzleKind::gems && !rebuild && surface_whole_ && effects_.empty() &&
         callout_life_ <= 0 && shake_ <= 0) {
-        present_gems({left, top, right, bottom});
+        present_gems(all);
         return;
     }
-    if (!target.begin(frame_images_, damage))
-        return;
     gems_direct_ = false;
     framebuffer_painting_ = true;
-    gf::Painter& painter = target.painter();
     std::span<std::byte> pixels = target.pixels();
-    if (rebuild) {
-        painter.fill_rect(bounds, gf::Color::rgba(112, 126, 133));
-        if (game.kind == PuzzleKind::gems)
-            paint_gems(painter, 0);
-        else
-            paint_untangle(painter, 0);
-        target.end();
-        static_pixels_.assign(pixels.begin(), pixels.end());
-        static_pixels_dirty_ = false;
+    for (const render::Rect& r : pixels_areas) {
+        const gf::Rect damage{r.x0 / framebuffer_scale_, r.y0 / framebuffer_scale_, (r.x1 - r.x0) / framebuffer_scale_,
+                              (r.y1 - r.y0) / framebuffer_scale_};
         if (!target.begin(frame_images_, damage)) {
             framebuffer_painting_ = false;
             return;
         }
-    } else {
-        for (int y = top; y < bottom; ++y) {
-            const std::size_t offset = static_cast<std::size_t>(y) * target.row_bytes() + left * 4U;
-            std::memcpy(pixels.data() + offset, static_pixels_.data() + offset,
-                        static_cast<std::size_t>(right - left) * 4U);
+        gf::Painter& painter = target.painter();
+        if (rebuild) {
+            painter.fill_rect(bounds, gf::Color::rgba(112, 126, 133));
+            if (game.kind == PuzzleKind::gems)
+                paint_gems(painter, 0);
+            else
+                paint_untangle(painter, 0);
+            target.end();
+            static_pixels_.assign(pixels.begin(), pixels.end());
+            static_pixels_dirty_ = false;
+            if (!target.begin(frame_images_, damage)) {
+                framebuffer_painting_ = false;
+                return;
+            }
+        } else {
+            for (int y = r.y0; y < r.y1; ++y) {
+                const std::size_t offset = static_cast<std::size_t>(y) * target.row_bytes() + r.x0 * 4U;
+                std::memcpy(pixels.data() + offset, static_pixels_.data() + offset,
+                            static_cast<std::size_t>(r.x1 - r.x0) * 4U);
+            }
         }
+        paint_area_ = damage;
+        gf::Painter& over = target.painter();
+        if (game.kind == PuzzleKind::gems) {
+            paint_gems(over, 1);
+            paint_gems(over, 2);
+        } else {
+            paint_untangle(over, 1);
+            paint_untangle(over, 2);
+        }
+        paint_area_ = {};
+        target.end();
     }
-    paint_area_ = damage;
-    if (game.kind == PuzzleKind::gems) {
-        paint_gems(painter, 1);
-        paint_gems(painter, 2);
-    } else {
-        paint_untangle(painter, 1);
-        paint_untangle(painter, 2);
-    }
-    paint_area_ = {};
-    target.end();
     // A lease that keeps the last published frame needs only what changed copied into it
     // (and whatever an earlier refused lease left out); a new or resized surface takes the
     // whole frame. The surface shares the framebuffer's byte order; alpha is forced opaque
     // as promised.
     gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write(surface_whole_);
-    int copy[4] = {left, top, right, bottom};
     if (!surface_whole_) {
-        copy[0] = copy[1] = 0;
-        copy[2] = width;
-        copy[3] = height;
+        pixels_areas = {render::Rect{0, 0, width, height}};
     } else if (unpublished_[2] > unpublished_[0]) {
-        copy[0] = std::min(copy[0], unpublished_[0]);
-        copy[1] = std::min(copy[1], unpublished_[1]);
-        copy[2] = std::max(copy[2], unpublished_[2]);
-        copy[3] = std::max(copy[3], unpublished_[3]);
+        pixels_areas.push_back(render::Rect{unpublished_[0], unpublished_[1], unpublished_[2], unpublished_[3]});
     }
+    all = pixels_areas.front();
+    for (const render::Rect& r : pixels_areas)
+        all = all.united(r);
     if (!lease) {
-        std::copy(std::begin(copy), std::end(copy), std::begin(unpublished_));
+        unpublished_[0] = all.x0;
+        unpublished_[1] = all.y0;
+        unpublished_[2] = all.x1;
+        unpublished_[3] = all.y1;
         framebuffer_painting_ = false;
         return;
     }
     const std::size_t source_row = target.row_bytes(), destination_row = lease.row_bytes();
-    for (int y = copy[1]; y < copy[3]; ++y) {
-        const std::uint32_t* source = reinterpret_cast<const std::uint32_t*>(
-            pixels.data() + static_cast<std::size_t>(y) * source_row);
-        std::uint32_t* destination = reinterpret_cast<std::uint32_t*>(
-            lease.pixels().data() + static_cast<std::size_t>(y) * destination_row);
-        for (int x = copy[0]; x < copy[2]; ++x)
-            destination[x] = 0xff000000U | source[x];
-    }
+    for (const render::Rect& r : pixels_areas)
+        for (int y = r.y0; y < r.y1; ++y) {
+            const std::uint32_t* source = reinterpret_cast<const std::uint32_t*>(
+                pixels.data() + static_cast<std::size_t>(y) * source_row);
+            std::uint32_t* destination = reinterpret_cast<std::uint32_t*>(
+                lease.pixels().data() + static_cast<std::size_t>(y) * destination_row);
+            for (int x = r.x0; x < r.x1; ++x)
+                destination[x] = 0xff000000U | source[x];
+        }
     // The surface's own pixels: the presenter copies only this much of the frame.
-    static_cast<void>(lease.publish({static_cast<double>(copy[0]), static_cast<double>(copy[1]),
-                                     static_cast<double>(copy[2] - copy[0]),
-                                     static_cast<double>(copy[3] - copy[1])}));
+    static_cast<void>(lease.publish({static_cast<double>(all.x0), static_cast<double>(all.y0),
+                                     static_cast<double>(all.x1 - all.x0),
+                                     static_cast<double>(all.y1 - all.y0)}));
     surface_whole_ = true;
     unpublished_[0] = unpublished_[1] = unpublished_[2] = unpublished_[3] = 0;
-    const gf::Rect published{copy[0] / framebuffer_scale_, copy[1] / framebuffer_scale_,
-                             (copy[2] - copy[0]) / framebuffer_scale_,
-                             (copy[3] - copy[1]) / framebuffer_scale_};
+    const gf::Rect published{all.x0 / framebuffer_scale_, all.y0 / framebuffer_scale_,
+                             (all.x1 - all.x0) / framebuffer_scale_,
+                             (all.y1 - all.y0) / framebuffer_scale_};
     render::refresh_overlays(*scene_parts_[0], published);
     if (!direct_)
         (*scene_parts_[0]).invalidate(published);
@@ -2921,6 +2957,25 @@ gf::Rect PuzzleView::untangle_hint_rect() const {
     const double w = std::min(board_.width - 20, 360.0), pad = std::max(14.0, board_.width * .045);
     return {board_.x + (board_.width - w) * .5, board_.y + board_.height + pad + 4, w, 30};
 }
+std::vector<gf::Rect> PuzzleView::untangle_animation_areas() const {
+    std::vector<gf::Rect> areas{kitten_.paint_bounds(board_)};
+    if (untangle_hint_ > 0)
+        areas.push_back(untangle_hint_rect());
+    const double peg = untangle_radius() + 28;
+    for (std::size_t i = 0; i < untangle_positions_.size(); ++i)
+        if (game.untangle_frozen(static_cast<int>(i)) ||
+            (static_cast<int>(i) == frozen_nudge_ && frozen_nudge_t_ < .45)) {
+            const Point2 at = untangle_positions_[i];
+            const gf::Point point{board_.x + at.x * board_.width, board_.y + at.y * board_.height};
+            areas.push_back({point.x - peg, point.y - peg, peg * 2, peg * 2});
+        }
+    const double puff_radius = untangle_radius() * 3.4 + 4;
+    for (const ThawPuff& puff : puffs_) {
+        const gf::Point point{board_.x + puff.at.x * board_.width, board_.y + puff.at.y * board_.height};
+        areas.push_back({point.x - puff_radius, point.y - puff_radius, puff_radius * 2, puff_radius * 2});
+    }
+    return areas;
+}
 gf::Rect PuzzleView::untangle_animation_bounds() const {
     gf::Rect damage = kitten_.paint_bounds(board_);
     if (untangle_hint_ > 0)
@@ -2949,8 +3004,8 @@ void PuzzleView::tick() {
         return;
     }
     bool moving = false;
-    const gf::Rect old_untangle_damage =
-        game.kind == PuzzleKind::untangle ? untangle_animation_bounds() : gf::Rect{};
+    std::vector<gf::Rect> untangle_areas =
+        game.kind == PuzzleKind::untangle ? untangle_animation_areas() : std::vector<gf::Rect>{};
     const bool was_celebrating =
         game.kind == PuzzleKind::untangle && game.state.won && animation_duration_ > 0;
     const bool was_shaking = shake_ > 0;
@@ -3027,7 +3082,10 @@ void PuzzleView::tick() {
             invalidate_static_scene();
             invalidate_animation(was_celebrating ? client_rectangle() : untangle_board_damage());
         }
-        invalidate_animation(gf::Rect::united(old_untangle_damage, untangle_animation_bounds()));
+        // where things were and where they are now, each apart
+        for (const gf::Rect& area : untangle_animation_areas())
+            untangle_areas.push_back(area);
+        invalidate_animation_areas(untangle_areas);
     }
     if (game.kind != PuzzleKind::cube || raster_dirty_)
         render();
@@ -3051,6 +3109,11 @@ void PuzzleView::tick() {
                                     gem_spring_ < 0 && gem_pick_ < 0 && drag_ < 0 && shake_ <= 0 &&
                                     callout_life_ <= 0 && hover_ < 0;
         (*timer_).set_interval(std::chrono::milliseconds(breathing_only ? 33 : 16));
+    }
+    if (game.kind == PuzzleKind::untangle && timer_) {
+        // A calm cat and frost glinting slowly: thirty frames a second.
+        const bool calm = kitten_.calm() && drag_ < 0 && animation_duration_ <= 0 && puffs_.empty();
+        (*timer_).set_interval(std::chrono::milliseconds(calm ? 33 : 16));
     }
     if (!moving && timer_)
         (*timer_).stop();

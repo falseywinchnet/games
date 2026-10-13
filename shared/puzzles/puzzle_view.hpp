@@ -54,6 +54,9 @@ class PuzzleView final : public gf::Control, public CommandSource {
     void refresh_scene();
     void invalidate_static_scene();
     void present_framebuffer(gf::Rect damage);
+    // The same for several separate areas, each restored and painted on its own and published
+    // as one frame: a cat and a few frosted pegs far apart are not one box over the board.
+    void present_framebuffer_areas(std::vector<gf::Rect> areas);
     // Gems: the still board and the gem layer laid straight into the live surface's buffer
     // over `area` (device pixels), with no painter.
     void present_gems(render::Rect area);
@@ -112,8 +115,11 @@ class PuzzleView final : public gf::Control, public CommandSource {
     bool framebuffer_painting_ = false;
     void invalidate_scene();
     void invalidate_animation(gf::Rect damage);
+    void invalidate_animation_areas(const std::vector<gf::Rect>& areas);
     bool update_untangle_geometry();
     [[nodiscard]] gf::Rect untangle_animation_bounds() const;
+    // What moves on a resting board, each part apart: the cat, the hint, each frosted peg, each puff.
+    [[nodiscard]] std::vector<gf::Rect> untangle_animation_areas() const;
     [[nodiscard]] gf::Rect untangle_board_damage() const;
     std::vector<Point2> untangle_positions_;
     bool untangle_geometry_dirty_ = true;
