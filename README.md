@@ -133,7 +133,7 @@ PlaySuite has **22 games**: Solitaire, Spider, FreeCell, Hearts, Sudoku, Gems, N
 <td width="50%" valign="top">
 <a href="games/maze"><img src="games/maze/screens/readme.jpg" alt="Maze 95" width="100%"></a>
 <br><b><a href="games/maze">Maze 95</a></b> · First-person maze
-<br>A first-person maze in the style of an old screensaver: brick corridors, ceiling flips, portals, a rolling marble and corridor visitors. Find the reward and fill your trophy shelf.
+<br>A first-person maze in the style of an old screensaver: brick corridors, ceiling flips, portals, a rolling marble and corridor visitors. Find the reward, maze after maze, or leave it be and watch it find its own way.
 </td>
 </tr>
 <tr>
