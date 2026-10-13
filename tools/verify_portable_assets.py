@@ -9,6 +9,9 @@ from pathlib import Path
 from prepare_portable_assets import asset_inventory, audio_verification, card_verification, png_layout
 
 
+ENVIRONMENT = "nature-lake-environment.png"
+
+
 def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -100,16 +103,27 @@ def verify(source: Path, runtime: Path, extra_dirs=()) -> dict:
         raise ValueError("Invalid prepared environment pixels")
     if any(alpha != 255 for alpha in pixels[19::4]):
         raise ValueError("Environment pixels must be opaque")
+    # The lake reduced offline with CONV (tools/make_lake_environment.py) is the prepared
+    # pixels' source; it is not copied into the runtime, so check it here instead.
+    environment = source / ENVIRONMENT
+    if environment.is_file():
+        from PIL import Image
+        with Image.open(environment) as made:
+            if made.convert("RGBA").tobytes() != pixels[16:]:
+                raise ValueError("Prepared environment pixels differ from " + ENVIRONMENT)
     for path in source.rglob("*"):
         if path.is_file() and path.relative_to(source).parts[0] != "audio":
             relative = path.relative_to(source)
             if relative.parts[0] == "cards" and path.suffix.lower() == ".png":
                 continue  # Source and prepared fingerprints were verified above.
+            if relative.as_posix() == ENVIRONMENT:
+                continue  # Its pixels were verified above, as the prepared environment's.
             if digest(path) != digest(runtime / relative):
                 raise ValueError("Missing or altered runtime resource: " + str(relative))
     expected_paths = {path.relative_to(source).as_posix() for path in source.rglob("*")
                       if path.is_file() and path.relative_to(source).parts[0] != "audio"
-                      and not (path.relative_to(source).parts[0] == "cards" and path.suffix.lower() == ".png")}
+                      and not (path.relative_to(source).parts[0] == "cards" and path.suffix.lower() == ".png")
+                      and path.relative_to(source).as_posix() != ENVIRONMENT}
     expected_paths.update("cards/" + name for name in expected_cards)
     expected_paths.update({"cards/manifest.json", "cards/verification.tsv", "nature-lake.gpix", "audio/portable_manifest.json", "audio/verification.tsv"})
     expected_paths.update("audio/" + name for name in seen_outputs)
