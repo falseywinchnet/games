@@ -107,11 +107,19 @@ def summary(scene: str, steady: dict) -> str:
     rectangles = steady.get("window.damage_rectangles_painted", 0.0)
     painted = steady.get("window.painted_damage_area", 0.0)
     bounding = steady.get("window.paint_bounding_area", 0.0)
-    return (f"{scene:11} cpu {get('process.cpu_seconds', 100)} %  frames/s {get('window.frames_presented')}  "
+    line = (f"{scene:11} cpu {get('process.cpu_seconds', 100)} %  frames/s {get('window.frames_presented')}  "
             f"painted {painted / 1e6:,.2f} Mpt/s of {bounding / 1e6:,.2f} bounding  "
             f"rects/frame {f'{rectangles / frames:.2f}' if frames >= 1 else '-'}  "
             f"retained ms/s {get('host.paint_retained_nanoseconds', 1e-6)}  "
             f"present ms/s {get('window.present_duration_nanoseconds', 1e-6)}")
+    # What reaches the screen, in device pixels (GUI.Forms #71); absent before it.
+    if "window.live_frames_presented" in steady:
+        line += (f"\n{'':11} to screen: live {get('window.live_frames_presented')} frames/s, "
+                 f"{get('window.live_pixels_presented', 1e-6)} Mpx/s in "
+                 f"{get('window.live_rectangles_presented')} rects/s, {get('window.live_present_duration_nanoseconds', 1e-6)} ms/s; "
+                 f"retained {get('window.retained_pixels_presented', 1e-6)} Mpx/s in "
+                 f"{get('window.retained_rectangles_presented')} rects/s")
+    return line
 
 
 def main() -> int:
