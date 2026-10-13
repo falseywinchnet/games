@@ -558,6 +558,13 @@ void MazeView::on_pointer(gf::PointerEvent& e) {
         activate();
         const std::string h = hit;
         if (!h.empty()) { pressed_ = h; e.handled = true; return; }
+        // a click on the line showing puts it away
+        if (panel_ == Panel::none && speech_w_ > 0 && mouse_x_ >= speech_x_ && mouse_x_ < speech_x_ + speech_w_ &&
+            mouse_y_ >= speech_y_ && mouse_y_ < speech_y_ + speech_h_) {
+            sess_.dismiss_speech();
+            e.handled = true;
+            return;
+        }
         if (panel_ == Panel::none) {
             take_over();
             // the view itself: left third turns left, right third turns right, the middle walks on
@@ -720,13 +727,30 @@ void MazeView::draw_status() {
 }
 
 void MazeView::draw_speech() {
+    speech_w_ = speech_h_ = 0;
     if (sess_.speech.empty() || panel_ != Panel::none) return;
     const Speech& sp = sess_.speech.front();
+    // A resident speaks from where it stands: a bubble at it, while it shows in the view.
+    if (sp.at.f >= 0 && sp.at.f == sess_.play.at.f) {
+        double sx = 0, sy = 0, depth = 0;
+        if (r_.project(cell_center(sp.at, sp.z), sx, sy, depth)) {
+            sx /= kSamples;
+            sy /= kSamples;
+            if (sx >= 0 && sx < pw_ && sy >= 0 && sy < ph_ - 15) {
+                draw_bubble(sp, sx, sy);
+                return;
+            }
+        }
+    }
     const int w = std::min(pw_ - 20, 300), x = (pw_ - w) / 2;
     const int wrap = w - (sp.who.empty() ? 14 : 52);
     const int th = text_h(sp.text, 13.1, 0, wrap);
     const int h = std::max(sp.who.empty() ? 24 : 54, th + 22), y = ph_ - 16 - h;
     window(x, y, w, h, sp.who.empty() ? "Maze" : sp.who);
+    speech_x_ = x;
+    speech_y_ = y;
+    speech_w_ = w;
+    speech_h_ = h;
     int tx = x + 7;
     if (!sp.who.empty()) {
         // the speaker's portrait, framed
@@ -738,6 +762,43 @@ void MazeView::draw_speech() {
         tx = x + 47;
     }
     text(sp.text, tx, y + 16, kInk, 13.1, 0, wrap);
+}
+
+void MazeView::draw_bubble(const Speech& sp, double sx, double sy) {
+    const int w = std::min(pw_ - 12, 176), wrap = w - 12;
+    const int th = text_h(sp.text, 12.5, 0, wrap), nh = sp.who.empty() ? 0 : 13;
+    const int h = th + nh + 9;
+    const int x = std::clamp(static_cast<int>(sx) - w / 2, 4, std::max(4, pw_ - w - 4));
+    // above its speaker, or below when there is no room above
+    const bool above = sy - h - 10 >= 4;
+    const int y = above ? static_cast<int>(sy) - h - 10 : std::min(static_cast<int>(sy) + 10, ph_ - 15 - h - 2);
+    const double tail_x = std::clamp(sx, x + 10.0, x + w - 10.0);
+    const double base_y = above ? y + h - .5 : y + .5;
+    const double tip_y = above ? std::min(sy - 2, base_y + 9.0) : std::max(sy + 2, base_y - 9.0);
+    frame_.begin();
+    frame_.rrect(x + 2, y + 2, w, h, 6);
+    frame_.fill(hex(0x000000, .3f));
+    frame_.begin();
+    frame_.rrect(x, y, w, h, 6);
+    frame_.fill(hex(0xFFFDF2));
+    frame_.begin();
+    frame_.rrect(x + .5, y + .5, w - 1, h - 1, 6);
+    frame_.stroke(kInk, 1);
+    // the tail, pointing at whoever speaks
+    frame_.begin();
+    frame_.move(tail_x - 5, base_y);
+    frame_.line(sx, tip_y);
+    frame_.line(tail_x + 5, base_y);
+    frame_.close();
+    frame_.fill(hex(0xFFFDF2));
+    frame_.stroke_line(tail_x - 5, base_y, sx, tip_y, kInk, 1);
+    frame_.stroke_line(sx, tip_y, tail_x + 5, base_y, kInk, 1);
+    if (!sp.who.empty()) text(sp.who, x + 6, y + 3, hex(0x9A2A7A), 11.5, 1);
+    text(sp.text, x + 6, y + 3 + nh, kInk, 12.5, 0, wrap);
+    speech_x_ = x;
+    speech_y_ = y;
+    speech_w_ = w;
+    speech_h_ = h;
 }
 
 void MazeView::draw_panel() {

@@ -31,6 +31,10 @@ struct Event {                 // for the view: a sound to play, or words to sho
 struct Speech {
     std::string who, text;
     double age = 0;
+    // A resident speaks from where it is: the view draws a bubble at it. `at.f` < 0 for the
+    // maze's own words, shown in the box at the foot of the view.
+    Pos at{-1, 0, 0};
+    double z = .8;  // the height its bubble points to
 };
 
 struct VisitorDef {            // supplied by the view: who might drop by
@@ -102,13 +106,27 @@ private:
     void place_residents();
     double thinker_t_ = 0;           // when the Thinking Face's loop next starts
     double ball_grumble_ = 0;        // the ball's next bell or burp
+    double thinker_says_ = 0;        // the Thinking Face's next thought aloud
     void say(const std::string& who, const std::string& text);
+    void say_at(const std::string& who, const std::string& text, Pos at, double z);
+    // A resident is heard and seen only along an open line from you: no wall or shut door
+    // between, within `reach` squares. In front: within 55 degrees of the way you face.
+    [[nodiscard]] bool in_sight(Pos p, double reach) const;
+    [[nodiscard]] bool in_front(Pos p) const;
+    [[nodiscard]] double squares_to(Pos p) const;  // on the same floor (far otherwise)
     bool blocked_by_movers(Pos p) const;
     void sfx(const std::string& name, float gain = 1, float rate = 1) { events.push_back({Event::sound, name, {}, gain, rate}); }
 
 public:
     // The maze itself says something in the speech box (no speaker): what it holds, what is new.
     void announce(const std::string& text) { say("", text); }
+    // The line showing is put away (a click on it).
+    void dismiss_speech() {
+        if (!speech.empty()) {
+            speech.pop_front();
+            ++speech_revision;
+        }
+    }
     double flash() const { return reduced_ ? 0 : flash_; }
 };
 

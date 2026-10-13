@@ -133,6 +133,10 @@ private:
     void resolve_frame();
     void draw_status();
     void draw_speech();
+    // A resident's line in a bubble pointing at it (`sx`, `sy`: where it shows, frame pixels).
+    void draw_bubble(const Speech& sp, double sx, double sy);
+    // Where the line showing was drawn, frame pixels: a click there puts it away.
+    int speech_x_ = 0, speech_y_ = 0, speech_w_ = 0, speech_h_ = 0;
     void draw_panel();
     void window(int x, int y, int w, int h, const std::string& title);
     void bevel(int x, int y, int w, int h, bool sunken);

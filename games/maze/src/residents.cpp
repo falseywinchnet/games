@@ -30,7 +30,7 @@ const Tex32* resident_tex(Resident r) {
     if (i < 0 || i >= kCount || art_dir().empty()) return nullptr;
     if (!tried[static_cast<size_t>(i)]) {
         tried[static_cast<size_t>(i)] = true;
-        auto t = std::make_unique<Tex32>();
+        std::unique_ptr<Tex32> t = std::make_unique<Tex32>();
         if (load_png(art_dir() + "/" + kFiles[i] + ".png", *t)) loaded[static_cast<size_t>(i)] = std::move(t);
     }
     return loaded[static_cast<size_t>(i)].get();
@@ -65,6 +65,32 @@ const std::vector<Talker>& visitors() {
 const std::vector<std::string>& keyboard_cat_lines() {
     static const std::vector<std::string> v = {"Come closer.", "Closer...", "A little closer.", "Step through. I'll play you off.", "Come on. I don't bite. I play.",
                                                "Closer. I have a song for you.", "You're almost here.", "Just one more step."};
+    return v;
+}
+
+const std::vector<std::string>& thinker_lines() {
+    static const std::vector<std::string> v = {
+        "Hmm.",
+        "If I roll all the way round, have I been anywhere?",
+        "Which wall did they build first? Hmm.",
+        "Am I rolling, or is the maze going by?",
+        "A dead end is just a beginning facing the other way.",
+        "Hmm. Hmm. ...Hmm.",
+        "I had a thought. It rolled off.",
+        "Every corridor here is the same length, if you don't measure them.",
+        "Do the bricks know they're a maze?",
+        "If you follow me, and I follow the walls, who leads?",
+        "I'm not round. I'm thinking very hard in every direction.",
+        "What if the exit is the entrance, and we are just early?",
+        "Somebody painted that snail. Who taught the snail?",
+        "I could stop. But then I'd only be a face.",
+        "Left is right, from the other side. Hmm.",
+        "You look like someone who has thought about mazes.",
+        "The trophy room is always the last place you look. Why is that?",
+        "Hmm. Let me think about that while I roll.",
+        "If the lights go out, is the maze still there?",
+        "Excuse me. I'm in the middle of a thought.",
+    };
     return v;
 }
 

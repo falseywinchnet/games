@@ -24,11 +24,40 @@ double Session::rand01() {
 int Session::rand_int(int n) { return n <= 1 ? 0 : std::min(n - 1, static_cast<int>(rand01() * n)); }
 
 void Session::say(const std::string& who, const std::string& text) {
+    say_at(who, text, Pos{-1, 0, 0}, .8);
+}
+
+void Session::say_at(const std::string& who, const std::string& text, Pos at, double z) {
     if (!speech.empty() && speech.back().text == text) return;
     if (speech.size() > 3) speech.pop_front();
-    speech.push_back({who, text, 0});
+    speech.push_back({who, text, 0, at, z});
     ++speech_revision;
     events.push_back({Event::say, text, who});
+}
+
+bool Session::in_sight(Pos p, double reach) const {
+    if (p.f != play.at.f) return false;
+    const double dx = p.x - play.at.x, dy = p.y - play.at.y, d = std::hypot(dx, dy);
+    if (d > reach) return false;
+    if (d < .5) return true;
+    // along the line between the two squares' middles, every square passed must be open
+    const Floor& fl = lv.floors[static_cast<size_t>(p.f)];
+    const int steps = static_cast<int>(std::ceil(d * 8));
+    for (int i = 1; i < steps; ++i) {
+        const double t = static_cast<double>(i) / steps;
+        const int x = static_cast<int>(std::floor(play.at.x + .5 + dx * t)), y = static_cast<int>(std::floor(play.at.y + .5 + dy * t));
+        if (!fl.in(x, y)) return false;
+        const Cell& c = fl.at(x, y);
+        if (c.block == Block::wall || (c.block == Block::door && !play.door_open(c.door))) return false;
+    }
+    return true;
+}
+
+bool Session::in_front(Pos p) const {
+    const double dx = p.x - play.at.x, dy = p.y - play.at.y, d = std::hypot(dx, dy);
+    if (d < .5) return true;
+    const double facing = (kDX[play.dir] * dx + kDY[play.dir] * dy) / d;
+    return facing > .57;
 }
 
 void Session::start(const Level& level, std::uint64_t seed) {
@@ -173,75 +202,93 @@ void Session::place_residents() {
     world.keyboard_cat.wait = 1;
     world.raptor.wait = 0;
     thinker_t_ = 0;
+    thinker_says_ = 4;
     ball_grumble_ = 3;
 }
 
+namespace {
+// A sound `loud` at its source, fading to nothing `reach` squares away.
+float gain_at(double d, double loud, double reach) {
+    return static_cast<float>(std::clamp(loud * (1 - d / reach), 0.0, 1.0));
+}
+}  // namespace
+
+double Session::squares_to(Pos p) const {
+    const double d = p.f == play.at.f ? std::hypot(p.x - play.at.x, p.y - play.at.y) : 99.0;
+    return d;
+}
+
 void Session::residents_update(double dt) {
-    const auto dist_to = [this](Pos p) {  // squares away, on the same floor (far otherwise)
-        return p.f == play.at.f ? std::hypot(p.x - play.at.x, p.y - play.at.y) : 99.0;
-    };
-    const auto gain_at = [](double d, double loud, double reach) { return static_cast<float>(std::clamp(loud * (1 - d / reach), 0.0, 1.0)); };
     if (won_t >= 0) return;
-    // Ceiling Cat only meows
+    constexpr double kHanging = .62;  // where a bubble points for the ceiling's residents
+    // Ceiling Cat only meows, when you can see him
     if (Dweller& c = world.ceiling_cat; c.alive) {
         c.wait -= dt;
-        const double d = dist_to(c.at);
-        if (c.wait <= 0 && d < 5) {
-            sfx("mz_meow", gain_at(d, .8, 6), static_cast<float>(.95 + .1 * rand01()));
-            if (d < 2.5) say("Ceiling Cat", "Meow.");
-            c.wait = 4 + rand01() * 4;
+        const double d = squares_to(c.at);
+        if (c.wait <= 0 && in_sight(c.at, 6)) {
+            sfx("mz_meow", gain_at(d, .8, 7), static_cast<float>(.95 + .1 * rand01()));
+            if (d < 3 && in_front(c.at)) say_at("Ceiling Cat", "Meow.", c.at, kHanging);
+            c.wait = 7 + rand01() * 6;
         }
     }
-    // the Goose honks, and you hear it from a way off
+    // the Goose honks at you when you are in sight of it, not every few seconds through walls
     if (Dweller& g = world.goose; g.alive) {
         g.wait -= dt;
-        const double d = dist_to(g.at);
-        if (g.wait <= 0 && d < 10) {
-            sfx("mz_honk", gain_at(d, .95, 11), static_cast<float>(.95 + .1 * rand01()));
-            if (d < 2.5) say("The Goose", "HONK.");
-            g.wait = 2.5 + rand01() * 4;
+        const double d = squares_to(g.at);
+        if (g.wait <= 0 && in_sight(g.at, 8)) {
+            sfx("mz_honk", gain_at(d, .85, 9), static_cast<float>(.95 + .1 * rand01()));
+            if (d < 3 && in_front(g.at)) say_at("The Goose", "HONK.", g.at, kHanging);
+            g.wait = 10 + rand01() * 8;
         }
     }
-    // Keyboard Cat taunts you to come closer, and plays you off when you do
+    // Keyboard Cat taunts you to come closer once you can see him, and plays you off when you do
     if (Dweller& k = world.keyboard_cat; k.alive) {
         k.wait -= dt;
-        const double d = dist_to(k.at);
-        if (k.wait <= 0 && d < 4.5) {
+        const double d = squares_to(k.at);
+        if (k.wait <= 0 && in_sight(k.at, 4.5) && in_front(k.at)) {
             if (d < 1.5) {
                 sfx("mz_keys", .8f);
-                say("Keyboard Cat", "(plays you off)");
+                say_at("Keyboard Cat", "(plays you off)", k.at, .55);
                 k.wait = 9;
             } else {
                 const std::vector<std::string>& lines = keyboard_cat_lines();
-                say("Keyboard Cat", lines[static_cast<size_t>(rand_int(static_cast<int>(lines.size())))]);
-                k.wait = 5 + rand01() * 3;
+                say_at("Keyboard Cat", lines[static_cast<size_t>(rand_int(static_cast<int>(lines.size())))], k.at, .55);
+                k.wait = 6 + rand01() * 4;
             }
         }
     }
     // Philosoraptor, in the reward room, wonders aloud as you come near
     if (Dweller& r = world.raptor; r.alive) {
         r.wait -= dt;
-        if (r.wait <= 0 && dist_to(r.at) < 3.2) {
+        if (r.wait <= 0 && squares_to(r.at) < 3.2 && in_sight(r.at, 3.2) && in_front(r.at)) {
             const std::vector<std::string>& lines = raptor_lines();
-            say("Philosoraptor", lines[static_cast<size_t>(rand_int(static_cast<int>(lines.size())))]);
+            say_at("Philosoraptor", lines[static_cast<size_t>(rand_int(static_cast<int>(lines.size())))], r.at, .85);
             r.pose = 1 - r.pose;
             r.wait = 7 + rand01() * 4;
         }
     }
-    // the ball: the frog rings his bell as he comes, Mazeball burps, and the Thinking Face has his own music
+    // the ball: the frog rings his bell as he comes, Mazeball burps, and the Thinking Face has
+    // his own music and his own thoughts; each only where you can see it
     if (world.marble.alive) {
-        const double d = dist_to(world.marble.at);
+        const double d = squares_to(world.marble.at);
+        const bool seen = in_sight(world.marble.at, 8);
         if (world.ball == Ball::thinker) {
             thinker_t_ -= dt;
             if (thinker_t_ <= 0) {  // a four-second loop, started again each time at the volume of where he is
-                if (d < 8) sfx("mz_thinker", gain_at(d, .75, 8));
+                if (seen) sfx("mz_thinker", gain_at(d, .75, 8));
                 thinker_t_ += 4.0;
+            }
+            thinker_says_ -= dt;
+            if (thinker_says_ <= 0 && seen && d < 3.5 && in_front(world.marble.at)) {
+                const std::vector<std::string>& lines = thinker_lines();
+                say_at("The Thinking Face", lines[static_cast<size_t>(rand_int(static_cast<int>(lines.size())))], world.marble.at, .75);
+                thinker_says_ = 9 + rand01() * 6;
             }
         } else if (world.ball == Ball::frog || world.ball == Ball::mazeball) {
             ball_grumble_ -= dt;
             if (ball_grumble_ <= 0) {
-                if (d < 6) sfx(world.ball == Ball::frog ? "mz_bell" : "mz_burp", gain_at(d, .7, 7), static_cast<float>(.9 + .2 * rand01()));
-                ball_grumble_ = 3 + rand01() * 4;
+                if (seen && d < 6) sfx(world.ball == Ball::frog ? "mz_bell" : "mz_burp", gain_at(d, .7, 7), static_cast<float>(.9 + .2 * rand01()));
+                ball_grumble_ = 4 + rand01() * 5;
             }
         }
     }
@@ -277,9 +324,13 @@ void Session::execute(Cmd c) {
         else if (world.ball == Ball::frog) {
             sfx("mz_bell", .8f);
             const std::vector<std::string>& lines = frog_lines();
-            say("The frog", lines[static_cast<size_t>(rand_int(static_cast<int>(lines.size())))]);
+            say_at("The frog", lines[static_cast<size_t>(rand_int(static_cast<int>(lines.size())))], ahead, .6);
         } else if (world.ball == Ball::mazeball) { sfx("mz_burp", .8f); say("Mazeball", "*burp*"); }
-        else if (world.ball == Ball::thinker) { sfx("mz_marble_bump", .5f, 1.4f); say("The Thinking Face", "Hmm."); }
+        else if (world.ball == Ball::thinker) {
+            sfx("mz_marble_bump", .5f, 1.4f);
+            const std::vector<std::string>& lines = thinker_lines();
+            say_at("The Thinking Face", lines[static_cast<size_t>(rand_int(static_cast<int>(lines.size())))], ahead, .75);
+        }
         else { sfx("mz_marble_bump", .8f); say("", "The giant marble blocks the way. It will roll on."); }
         return;
     }
@@ -517,7 +568,7 @@ void Session::marble_update(double dt) {
         if (world.ball == Ball::frog) {  // irritated, and he lets you know
             sfx("mz_bell", .7f);
             const std::vector<std::string>& lines = frog_lines();
-            say("The frog", lines[static_cast<size_t>(rand_int(static_cast<int>(lines.size())))]);
+            say_at("The frog", lines[static_cast<size_t>(rand_int(static_cast<int>(lines.size())))], m.at, .6);
         } else if (world.ball == Ball::mazeball) {
             sfx("mz_burp", .6f);
         } else if (world.ball == Ball::rock) {

@@ -34,6 +34,7 @@ const std::vector<Talker>& visitors();  // the ones who come by: the Shiba, Apu,
 const std::vector<std::string>& keyboard_cat_lines();
 const std::vector<std::string>& raptor_lines();
 const std::vector<std::string>& frog_lines();     // when you stand in his way
+const std::vector<std::string>& thinker_lines();  // the Thinking Face, rolling by or stopped
 const std::vector<std::string>& monke_lines();
 
 // The giant ball: what it is this level.
