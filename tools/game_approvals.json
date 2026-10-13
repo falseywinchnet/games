@@ -68,6 +68,7 @@
     },
     "maze": {
       "first_party": true,
+      "prepared_mb": 26,
       "capabilities": [
         "environment",
         "files"
