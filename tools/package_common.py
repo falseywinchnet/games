@@ -8,7 +8,7 @@ import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-TOOLKIT_REVISION = "2ffe7487c27e80ea12906b525f7f8ee2e2bda203"
+TOOLKIT_REVISION = "3e4812b46a7e771d0557e5d8e9ce482619d9747e"
 
 
 def missing_prepared_files(assets):
