@@ -16,7 +16,9 @@
 // This is the ambient engine's rasteriser, the core the renderer study chose, with the
 // maze's perspective correction as the policy option; the first-person games draw
 // through it. Each row's covered run is solved exactly from the edges, so the pixel
-// loop does no inside test.
+// loop does no inside test; a triangle much taller than it is wide (a blade of grass)
+// is walked down its columns instead, each column's run solved once, which covers the
+// same pixels with the same weights in another order.
 #include "target.hpp"
 
 #include <algorithm>
@@ -78,6 +80,84 @@ struct ClipVertex {
     float weight1 = 0;
     float weight2 = 0;
 };
+
+// The covered run along one line of pixels (a row, or a column), solved exactly from
+// the three edge functions: `values` are the biased edge functions at the line's first
+// pixel and `steps` their change per pixel along it. An edge rising along the line
+// bounds the run at its start, a falling one at its end; every pixel of the run passes
+// all three. Returns false when the line holds none.
+inline bool solve_run(const std::int64_t* values, const std::int64_t* steps, std::int64_t span_limit,
+                      std::int64_t& first, std::int64_t& last) {
+    first = 0;
+    last = span_limit - 1;
+    for (int k = 0; k < 3; ++k) {
+        const std::int64_t w = values[k];
+        const std::int64_t s_k = steps[k];
+        if (s_k > 0) {
+            if (w < 0) {
+                first = std::max(first, std::min(span_limit, (-w + s_k - 1) / s_k));
+            }
+        } else if (s_k < 0) {
+            if (w < 0) {
+                last = -1;
+            } else {
+                last = std::min(last, w / (-s_k));
+            }
+        } else if (w < 0) {
+            last = -1;
+        }
+    }
+    const bool result = first <= last;
+    return result;
+}
+
+// What every covered pixel of one triangle is shaded from, fixed for the sweep.
+struct SweepShading {
+    std::int64_t bias0 = 0;
+    std::int64_t bias1 = 0;
+    std::int64_t bias2 = 0;
+    float inverse_area = 0;
+    float iz0 = 0;
+    float iz1 = 0;
+    float iz2 = 0;
+    const ClipVertex* c0 = nullptr;
+    const ClipVertex* c1 = nullptr;
+    const ClipVertex* c2 = nullptr;
+    bool swapped = false;
+    bool front = false;
+};
+
+// One covered pixel to the policy: its weights from the edge functions, corrected for
+// perspective where the policy asks, mapped to the original corners unless `Identity`.
+template <typename Policy, bool Identity>
+inline void deliver(Policy& policy, int x, int y, float inverse_depth, std::int64_t w0, std::int64_t w1,
+                    std::int64_t w2, const SweepShading& k) {
+    const float l0 = static_cast<float>(w0 - k.bias0) * k.inverse_area;
+    const float l1 = static_cast<float>(w1 - k.bias1) * k.inverse_area;
+    const float l2 = static_cast<float>(w2 - k.bias2) * k.inverse_area;
+    float p0 = l0;
+    float p1 = l1;
+    float p2 = l2;
+    if constexpr (Policy::perspective) {
+        const float inverse = 1.0F / inverse_depth;
+        p0 = l0 * k.iz0 * inverse;
+        p1 = l1 * k.iz1 * inverse;
+        p2 = l2 * k.iz2 * inverse;
+    }
+    if constexpr (Identity) {
+        // Screen order is the original order, or with the last two swapped.
+        const Coverage coverage{x, y, inverse_depth, p0, k.swapped ? p2 : p1, k.swapped ? p1 : p2};
+        policy.cover(coverage, k.front);
+    } else {
+        const Coverage coverage{x,
+                                y,
+                                inverse_depth,
+                                p0 * (*k.c0).weight0 + p1 * (*k.c1).weight0 + p2 * (*k.c2).weight0,
+                                p0 * (*k.c0).weight1 + p1 * (*k.c1).weight1 + p2 * (*k.c2).weight1,
+                                p0 * (*k.c0).weight2 + p1 * (*k.c1).weight2 + p2 * (*k.c2).weight2};
+        policy.cover(coverage, k.front);
+    }
+}
 
 // Scans one projected triangle. `weights` maps each screen vertex back to the original
 // triangle's corners. `Identity` promises they are the unit weights (an unclipped
@@ -175,39 +255,64 @@ void sweep(Policy& policy, int width, int height, const ScreenPoint* s, const Cl
                             static_cast<float>(step_x2) * iz2) * inverse_area;
     const float z_step_y = (static_cast<float>(step_y0) * iz0 + static_cast<float>(step_y1) * iz1 +
                             static_cast<float>(step_y2) * iz2) * inverse_area;
-    const ClipVertex& c0 = weights[order[0]];
-    const ClipVertex& c1 = weights[order[1]];
-    const ClipVertex& c2 = weights[order[2]];
+    const SweepShading shading{bias0,
+                               bias1,
+                               bias2,
+                               inverse_area,
+                               iz0,
+                               iz1,
+                               iz2,
+                               &weights[order[0]],
+                               &weights[order[1]],
+                               &weights[order[2]],
+                               swapped,
+                               front};
     const std::int64_t row_steps[3] = {step_x0, step_x1, step_x2};
-    const std::int64_t span_limit = static_cast<std::int64_t>(end_x - start_x) + 1;
-    // Every row is solved, the narrow ones too: testing a narrow row's centres instead
-    // (to save its divisions) was measured to cost the ambient engine's grass a tenth
-    // more, so the three divisions are the cheaper way.
+    const std::int64_t column_steps[3] = {step_y0, step_y1, step_y2};
+    const int rows = end_y - start_y + 1;
+    const int columns = end_x - start_x + 1;
+    // A triangle much taller than it is wide is walked down its columns: one run solved
+    // per column instead of one per row, most of which would hold no pixel centre. A
+    // solve costs about as much as ten pixel steps, and a column's pixel step does one
+    // more multiply-add for its depth, which decides the shape where the two meet.
+    if (static_cast<std::int64_t>(rows - columns) * 22 > static_cast<std::int64_t>(rows) * columns) {
+        const std::int64_t span_limit = rows;
+        for (int x = start_x; x <= end_x; ++x) {
+            const std::int64_t column_values[3] = {row0, row1, row2};
+            std::int64_t first = 0;
+            std::int64_t last = 0;
+            if (solve_run(column_values, column_steps, span_limit, first, last)) {
+                std::int64_t w0 = row0 + step_y0 * first;
+                std::int64_t w1 = row1 + step_y1 * first;
+                std::int64_t w2 = row2 + step_y2 * first;
+                // The depth as the row walk forms it: the row's start, then the column's step.
+                const float z_column = z_step_x * static_cast<float>(x - start_x);
+                const int y_end = start_y + static_cast<int>(last);
+                for (int y = start_y + static_cast<int>(first); y <= y_end; ++y) {
+                    const float z_row = z_at_start + z_step_y * static_cast<float>(y - start_y);
+                    const float inverse_depth = z_row + z_column;
+                    if (policy.test(x, y, inverse_depth)) {
+                        deliver<Policy, Identity>(policy, x, y, inverse_depth, w0, w1, w2, shading);
+                    }
+                    w0 += step_y0;
+                    w1 += step_y1;
+                    w2 += step_y2;
+                }
+            }
+            row0 += step_x0;
+            row1 += step_x1;
+            row2 += step_x2;
+        }
+        return;
+    }
+    const std::int64_t span_limit = columns;
     for (int y = start_y; y <= end_y; ++y) {
-        // The row's covered run, solved exactly from the three edge functions: an edge
-        // rising along x bounds it on the left, a falling one on the right. Every pixel
-        // of the run passes all three, so the loop tests none.
+        // The row's covered run; every pixel of it passes all three edges, so the loop
+        // tests none.
         const std::int64_t row_values[3] = {row0, row1, row2};
         std::int64_t first = 0;
-        std::int64_t last = span_limit - 1;
-        for (int k = 0; k < 3; ++k) {
-            const std::int64_t w = row_values[k];
-            const std::int64_t s_k = row_steps[k];
-            if (s_k > 0) {
-                if (w < 0) {
-                    first = std::max(first, std::min(span_limit, (-w + s_k - 1) / s_k));
-                }
-            } else if (s_k < 0) {
-                if (w < 0) {
-                    last = -1;
-                } else {
-                    last = std::min(last, w / (-s_k));
-                }
-            } else if (w < 0) {
-                last = -1;
-            }
-        }
-        if (first <= last) {
+        std::int64_t last = 0;
+        if (solve_run(row_values, row_steps, span_limit, first, last)) {
             std::int64_t w0 = row0 + step_x0 * first;
             std::int64_t w1 = row1 + step_x1 * first;
             std::int64_t w2 = row2 + step_x2 * first;
@@ -216,32 +321,7 @@ void sweep(Policy& policy, int width, int height, const ScreenPoint* s, const Cl
             for (int x = start_x + static_cast<int>(first); x <= x_end; ++x) {
                 const float inverse_depth = z_row + z_step_x * static_cast<float>(x - start_x);
                 if (policy.test(x, y, inverse_depth)) {
-                    // Screen-space weights, perspective-corrected where the policy asks.
-                    const float l0 = static_cast<float>(w0 - bias0) * inverse_area;
-                    const float l1 = static_cast<float>(w1 - bias1) * inverse_area;
-                    const float l2 = static_cast<float>(w2 - bias2) * inverse_area;
-                    float p0 = l0;
-                    float p1 = l1;
-                    float p2 = l2;
-                    if constexpr (Policy::perspective) {
-                        const float inverse = 1.0F / inverse_depth;
-                        p0 = l0 * iz0 * inverse;
-                        p1 = l1 * iz1 * inverse;
-                        p2 = l2 * iz2 * inverse;
-                    }
-                    if constexpr (Identity) {
-                        // Screen order is the original order, or with the last two swapped.
-                        const Coverage coverage{x, y, inverse_depth, p0, swapped ? p2 : p1, swapped ? p1 : p2};
-                        policy.cover(coverage, front);
-                    } else {
-                        const Coverage coverage{x,
-                                                y,
-                                                inverse_depth,
-                                                p0 * c0.weight0 + p1 * c1.weight0 + p2 * c2.weight0,
-                                                p0 * c0.weight1 + p1 * c1.weight1 + p2 * c2.weight1,
-                                                p0 * c0.weight2 + p1 * c1.weight2 + p2 * c2.weight2};
-                        policy.cover(coverage, front);
-                    }
+                    deliver<Policy, Identity>(policy, x, y, inverse_depth, w0, w1, w2, shading);
                 }
                 w0 += step_x0;
                 w1 += step_x1;

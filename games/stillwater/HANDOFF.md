@@ -414,3 +414,55 @@ ms, so the sampled rows above carry about 0.7 ms less than they show. In the win
 3 sway updates a second); Balanced's sampling stays inside the budget there, and Fine
 draws fewer frames a second in the planted tank, as Fine already did. The fish cost the
 same at every detail, being drawn per frame.
+
+## 2026-10-14: the grass a quarter cheaper, pixel for pixel
+
+Profiled on the M4 (`sw_preview`, planted tank, 530 x 309, t = 12, 240 frames, eighty
+sway updates; a sibling session was profiling another game on the host, so every number
+is from interleaved runs against a build of the unchanged tree). Where the update went
+before, per update at Light: the moving vertices 0.7 ms, the triangle scan 7.1 ms of
+which the per-triangle setup 1.1, the covers 3.0 and the rest the rows; the lit list
+0.2. The planted tank's 99,500 moving triangles are tall and thin (a plant is a tuft of
+blades 130 px tall in 8-32 segments, 1-4 px across): the scan solved 797,000 rows for
+them, 60% holding no pixel centre, where their shorter axis would need 228,000 solves.
+
+Three changes, every one proven pixel-identical by `sw_preview`'s frame checksums
+(three tanks, 1 x 1, 2 x 1 and 2 x 2, 530 x 309 and 590 x 380, with and without
+caustics) and byte for byte on seven Maze views:
+
+- `r3d_scan.hpp` walks a triangle much taller than wide down its columns, one run
+  solved per column, the depth formed as the row walk forms it. The threshold (22 x the
+  excess of rows over columns against the bounding box's area) was swept 8-44 and
+  "always": within a percent of each other, 8 clearly worse.
+- `GouraudPolicy` (`stage.cpp`) is given each corner's lit side once per projected
+  triangle (the facing computed as the scan computes it) instead of choosing per pixel;
+  the shade is four floats a side (red, green, blue, alpha) blended together; the caustic
+  boost is written only where the pixel is lit by the leaf. A triangle crossing the
+  near plane keeps the per-pixel choice.
+- The resolve of a multisampled layer sums its samples' channels packed (red with blue,
+  green alone) and writes the lit list as it goes; the single-sample lit list reads
+  eight marks at a time.
+
+| Sway update, ms | Before | After |
+|---|---|---|
+| Planted, Light (1 x 1) | 8.2 | 5.9 |
+| Planted, Balanced (2 x 1) | 11.3 | 8.9 |
+| Planted, Fine (2 x 2) | 17.5 | 12.7 |
+| Pool, Light | 1.6 | 1.3 |
+| Reef, Light | 0.39 | 0.33 |
+
+Compose is unchanged (1.26-1.3 ms per frame). At the app's Balanced size the planted
+tank now sits at the 10% budget with both rates at their preferred values (8.9 x 8 + 1.3 x
+24 = 102 ms per second of scene); Fine still asks the governor for about six sway updates
+a second rather than eight.
+
+Tried and measured slower, all exact, none kept: a 32-bit walk for small triangles (no
+change: the integer width is not where the solve goes); a branch-free run solve (6%
+slower); each blade segment's two triangles walked as one convex quad with one run
+solved per line (8% slower at Light, 18% at Fine: the per-pixel work dominates, and the
+refactor into a setup struct cost Maze 8% by itself). What remains per update at Light is
+spread: setup 1.1, solves and pixel steps about 2.5, covers 1.9 (8.7 ns each; the
+caustic tap is 0.3 of that at Light and 1.1 at Fine, the alpha blend 0.2 and 0.5), the
+vertices 0.7. The next real step is the model, not the scan: the fish (1,200 triangles
+each for a 30 x 13 px sprite, 0.9 ms of every compose) and, at small sizes, the blades'
+segment count; both change pixels and are the owner's call, shown as candidates first.

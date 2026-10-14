@@ -62,11 +62,11 @@ struct SwayShade {
     Rgb light_boost{};  // display colour added at full caustic light (zero when none)
 };
 // A swaying vertex's shade this update, in display levels 0..255 (the sway layer's
-// Gouraud units), front and back.
+// Gouraud units), front and back: red, green, blue and the coverage (alpha, 0..1) as
+// four floats each, so a pixel's blend is one four-wide multiply-add per corner.
 struct FoliageShade {
-    Rgb front{};
-    Rgb back{};
-    float alpha{1};
+    float front[4]{0, 0, 0, 1};
+    float back[4]{0, 0, 0, 1};
 };
 
 struct ActorSample {

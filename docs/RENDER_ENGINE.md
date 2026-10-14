@@ -47,7 +47,8 @@ shared/render/
                      shaders chosen at compile time (flat, Gouraud, mirror, over, ...)
   src/r3d_scan.hpp   the same scan for triangles in camera space: near-plane clipping,
                      a policy per pixel with perspective-correct weights (first-person
-                     views; the ambient engine's triangles, Maze's correction)
+                     views; the ambient engine's triangles, Maze's correction); a tall
+                     thin triangle is walked down its columns, one run solved per column
   src/mesh.*         one mesh library (later): indexed, bounded, Mowing's Builder plus
                      the r3d primitives
   ui/surface.*       GUI.Forms side: a LiveSurface in the native byte order, opaque, with

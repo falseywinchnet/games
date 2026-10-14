@@ -220,8 +220,8 @@ void reference_coverage(const r3d::ScreenPoint* s, int width, int height, std::v
     }
 }
 
-void scan_rows_match_edge_functions() {
-    // Random triangles, sharp and fat, partly off screen: the solved rows cover exactly
+void scan_runs_match_edge_functions() {
+    // Random triangles, sharp and fat, partly off screen: the solved runs cover exactly
     // the pixels the three edge functions admit, so the pixel loop may skip the test.
     std::mt19937 random(5);
     std::uniform_real_distribution<float> at(-20, 84);
@@ -230,6 +230,35 @@ void scan_rows_match_edge_functions() {
         std::vector<int> scanned(64 * 64, 0);
         std::vector<int> expected(64 * 64, 0);
         const r3d::ScreenPoint s[3] = {{at(random), at(random), 1}, {at(random), at(random), 1}, {at(random), at(random), 1}};
+        Counting policy{64, &scanned, 0, 0};
+        r3d::rasterize_projected(policy, lens, s[0], s[1], s[2], r3d::Cull::none);
+        reference_coverage(s, 64, 64, expected);
+        assert(scanned == expected);
+    }
+    // Blades: triangles much taller than wide (walked down their columns) and much wider
+    // than tall, down to a fraction of a pixel across, leaning either way, partly off screen.
+    std::uniform_real_distribution<float> thickness(.05F, 3.0F);
+    std::uniform_real_distribution<float> length(4.0F, 70.0F);
+    std::uniform_real_distribution<float> lean(-.6F, .6F);
+    std::uniform_real_distribution<float> along(0.0F, 1.0F);
+    for (int trial = 0; trial < 600; ++trial) {
+        std::vector<int> scanned(64 * 64, 0);
+        std::vector<int> expected(64 * 64, 0);
+        const float x = at(random);
+        const float y = at(random);
+        const float thick = thickness(random);
+        const float tall = length(random);
+        const float slope = lean(random);
+        const float tip = along(random);  // where along the base the apex sits
+        r3d::ScreenPoint s[3] = {{x, y, 1}, {x + thick, y, 1}, {x + thick * tip + slope * tall, y + tall, 1}};
+        if (trial % 2 == 1) {
+            for (r3d::ScreenPoint& point : s) {
+                std::swap(point.x, point.y);
+            }
+        }
+        if (trial % 3 == 0) {
+            std::swap(s[1], s[2]);
+        }
         Counting policy{64, &scanned, 0, 0};
         r3d::rasterize_projected(policy, lens, s[0], s[1], s[2], r3d::Cull::none);
         reference_coverage(s, 64, 64, expected);
@@ -346,6 +375,16 @@ void scan_corrects_for_perspective() {
     r3d::rasterize(policy, lens, a, b, c, r3d::Cull::none);
     assert(policy.covered > 200);
     assert(policy.worst < 2e-3F);
+    // A tall thin sliver of it, walked down its columns: the same accord.
+    const r3d::ViewPoint d{-.05F, -.5F, 1};
+    const r3d::ViewPoint e{.05F, -.5F, 1};
+    Depths sliver;
+    sliver.depth[0] = d.depth;
+    sliver.depth[1] = e.depth;
+    sliver.depth[2] = c.depth;
+    r3d::rasterize(sliver, lens, d, e, c, r3d::Cull::none);
+    assert(sliver.covered > 20);
+    assert(sliver.worst < 2e-3F);
 }
 
 void scan_reports_and_culls_facing() {
@@ -402,7 +441,7 @@ int main() {
     blends_stay_in_bytes();
     mirror_mixes();
     layer_over_and_restore();
-    scan_rows_match_edge_functions();
+    scan_runs_match_edge_functions();
     scan_clips_at_the_near_plane();
     scan_corrects_for_perspective();
     scan_reports_and_culls_facing();

@@ -93,18 +93,24 @@ struct VisibilityPolicy {
 // at most, so screen-linear weights are indistinguishable from perspective-correct
 // ones. Blending is integer arithmetic on packed channels (red with blue, green
 // alone); each field's product stays below 2^16, so fields never carry into each other.
-struct GouraudPolicy {
+// A projected triangle's facing is known before it is scanned, so its three corners'
+// sides are chosen once (`FixedCorners`); a triangle clipped at the near plane learns
+// its facing from the scan and chooses per pixel.
+template <bool FixedCorners> struct GouraudPolicy {
     static constexpr bool perspective = false;
     int width{};
     float* depth{};
     std::uint32_t* color{};
     std::uint8_t* lit{};
-    const FoliageShade* s0{};
+    const float* corner0{};  // the side of each corner facing the camera (FixedCorners)
+    const float* corner1{};
+    const float* corner2{};
+    const FoliageShade* s0{};  // both sides of each corner (otherwise)
     const FoliageShade* s1{};
     const FoliageShade* s2{};
-    std::uint64_t pixels{};
-    // Caustic light on the leaves, when the look has a field: the per-vertex
-    // texel positions are interpolated, and each pixel keeps its tap and boost.
+    // Caustic light on the leaves, when the look has a field and the leaf takes it
+    // (`triangle_boost`): the per-vertex texel positions are interpolated, and each
+    // pixel keeps its tap and boost.
     const CausticField* field{};
     std::uint32_t* tap{};
     std::uint32_t* boost{};
@@ -122,27 +128,31 @@ struct GouraudPolicy {
     void cover(const Coverage& c, bool is_front) {
         const std::size_t index =
             static_cast<std::size_t>(c.y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(c.x);
-        const Rgb& a = is_front ? (*s0).front : (*s0).back;
-        const Rgb& b = is_front ? (*s1).front : (*s1).back;
-        const Rgb& d = is_front ? (*s2).front : (*s2).back;
-        const std::uint32_t r =
-            static_cast<std::uint32_t>(a.x * c.weight0 + b.x * c.weight1 + d.x * c.weight2 + 0.5F);
-        const std::uint32_t g =
-            static_cast<std::uint32_t>(a.y * c.weight0 + b.y * c.weight1 + d.y * c.weight2 + 0.5F);
-        const std::uint32_t bl =
-            static_cast<std::uint32_t>(a.z * c.weight0 + b.z * c.weight1 + d.z * c.weight2 + 0.5F);
-        const float alpha = (*s0).alpha * c.weight0 + (*s1).alpha * c.weight1 + (*s2).alpha * c.weight2;
+        const float* a = corner0;
+        const float* b = corner1;
+        const float* d = corner2;
+        if constexpr (!FixedCorners) {
+            a = is_front ? (*s0).front : (*s0).back;
+            b = is_front ? (*s1).front : (*s1).back;
+            d = is_front ? (*s2).front : (*s2).back;
+        }
+        // Red, green, blue and alpha at once (the compiler's four-wide multiply and add).
+        float shade[4];
+        for (int k = 0; k < 4; ++k)
+            shade[k] = a[k] * c.weight0 + b[k] * c.weight1 + d[k] * c.weight2;
+        const std::uint32_t r = static_cast<std::uint32_t>(shade[0] + 0.5F);
+        const std::uint32_t g = static_cast<std::uint32_t>(shade[1] + 0.5F);
+        const std::uint32_t bl = static_cast<std::uint32_t>(shade[2] + 0.5F);
+        const float alpha = shade[3];
         depth[index] = c.inverse_depth;
         lit[index] = 0;
-        ++pixels;
-        if (field != nullptr) {
+        if (triangle_boost != 0) {
+            // Lit by the leaf's own tap and boost (read only where lit says so).
+            lit[index] = 2;
             boost[index] = triangle_boost;
-            if (triangle_boost != 0) {
-                lit[index] = 2;  // lit by the leaf's own tap and boost
-                const float u = (*l0).u * c.weight0 + (*l1).u * c.weight1 + (*l2).u * c.weight2;
-                const float v = (*l0).v * c.weight0 + (*l1).v * c.weight1 + (*l2).v * c.weight2;
-                tap[index] = (*field).texel_index(u, v) | tap_bits;
-            }
+            const float u = (*l0).u * c.weight0 + (*l1).u * c.weight1 + (*l2).u * c.weight2;
+            const float v = (*l0).v * c.weight0 + (*l1).v * c.weight1 + (*l2).v * c.weight2;
+            tap[index] = (*field).texel_index(u, v) | tap_bits;
         }
         const std::uint32_t source = (std::min(r, 255U) << 16U) | (std::min(g, 255U) << 8U) | std::min(bl, 255U);
         if (alpha >= 0.999F) {
@@ -1131,55 +1141,103 @@ void Stage::build_sway(double time) {
         if (in_front)
             sway_screen_[index] = to_screen(projection, view);
         FoliageShade& shade = sway_shade_[index];
-        shade.front = display_levels(add(v.rest_front, scale(v.gradient_front, sway.slope)));
-        shade.back = display_levels(add(v.rest_back, scale(v.gradient_back, sway.slope)));
-        shade.alpha = v.alpha;
+        const Rgb front = display_levels(add(v.rest_front, scale(v.gradient_front, sway.slope)));
+        const Rgb back = display_levels(add(v.rest_back, scale(v.gradient_back, sway.slope)));
+        shade.front[0] = front.x;
+        shade.front[1] = front.y;
+        shade.front[2] = front.z;
+        shade.front[3] = v.alpha;
+        shade.back[0] = back.x;
+        shade.back[1] = back.y;
+        shade.back[2] = back.z;
+        shade.back[3] = v.alpha;
         if (caustic && v.boost != 0) {
             CausticPoint& light = sway_light_[index];
             (*field).texel_of(world, light.u, light.v);
             light.height = world.y;
         }
     }
-    GouraudPolicy policy{};
+    GouraudPolicy<true> policy{};
     policy.width = draw_width;
     policy.depth = draw_depth;
     policy.color = draw_color;
     policy.lit = draw_lit;
+    GouraudPolicy<false> clipped{};  // for the rare triangle crossing the near plane
+    clipped.width = draw_width;
+    clipped.depth = draw_depth;
+    clipped.color = draw_color;
+    clipped.lit = draw_lit;
     if (caustic) {
         policy.field = field;
         policy.tap = draw_tap;
         policy.boost = draw_boost;
+        clipped.field = field;
+        clipped.tap = draw_tap;
+        clipped.boost = draw_boost;
     }
     for (const MovingTriangle& triangle : moving_triangles_) {
         const std::uint32_t i0 = triangle.vertex[0];
         const std::uint32_t i1 = triangle.vertex[1];
         const std::uint32_t i2 = triangle.vertex[2];
-        policy.s0 = &sway_shade_[i0];
-        policy.s1 = &sway_shade_[i1];
-        policy.s2 = &sway_shade_[i2];
-        if (caustic) {
-            policy.triangle_boost = triangle.boost;
-            // Leaves take the soft light only: thin blades seen edge-on would turn
-            // the sharp lines into dashes.
-            if (triangle.boost != 0)
-                policy.tap_bits = (*field).tap_bits(sway_light_[i0].height, 0.0F);
-            policy.l0 = &sway_light_[i0];
-            policy.l1 = &sway_light_[i1];
-            policy.l2 = &sway_light_[i2];
+        if ((sway_in_front_[i0] & sway_in_front_[i1] & sway_in_front_[i2]) != 0) {
+            const ScreenPoint& a = sway_screen_[i0];
+            const ScreenPoint& b = sway_screen_[i1];
+            const ScreenPoint& c = sway_screen_[i2];
+            // The facing as the scan decides it, so each corner's side is chosen once.
+            const float signed_area = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+            const bool front = signed_area < 0;
+            policy.corner0 = front ? sway_shade_[i0].front : sway_shade_[i0].back;
+            policy.corner1 = front ? sway_shade_[i1].front : sway_shade_[i1].back;
+            policy.corner2 = front ? sway_shade_[i2].front : sway_shade_[i2].back;
+            if (caustic) {
+                policy.triangle_boost = triangle.boost;
+                // Leaves take the soft light only: thin blades seen edge-on would turn
+                // the sharp lines into dashes.
+                if (triangle.boost != 0)
+                    policy.tap_bits = (*field).tap_bits(sway_light_[i0].height, 0.0F);
+                policy.l0 = &sway_light_[i0];
+                policy.l1 = &sway_light_[i1];
+                policy.l2 = &sway_light_[i2];
+            }
+            rasterize_projected(policy, projection, a, b, c, Cull::none);
+            continue;
         }
-        if ((sway_in_front_[i0] & sway_in_front_[i1] & sway_in_front_[i2]) != 0)
-            rasterize_projected(policy, projection, sway_screen_[i0], sway_screen_[i1], sway_screen_[i2], Cull::none);
-        else
-            rasterize(policy, projection, sway_view_[i0], sway_view_[i1], sway_view_[i2], Cull::none);
+        clipped.s0 = &sway_shade_[i0];
+        clipped.s1 = &sway_shade_[i1];
+        clipped.s2 = &sway_shade_[i2];
+        if (caustic) {
+            clipped.triangle_boost = triangle.boost;
+            if (triangle.boost != 0)
+                clipped.tap_bits = (*field).tap_bits(sway_light_[i0].height, 0.0F);
+            clipped.l0 = &sway_light_[i0];
+            clipped.l1 = &sway_light_[i1];
+            clipped.l2 = &sway_light_[i2];
+        }
+        rasterize(clipped, projection, sway_view_[i0], sway_view_[i1], sway_view_[i2], Cull::none);
     }
-    if (multisampled)
-        resolve_samples(target);
     lit_pixels.clear();
-    for (std::size_t index = 0; index < pixels; ++index) {
+    if (multisampled) {
+        resolve_samples(target);
+    } else {
         // Leaf pixels are marked (top bit): their tap and boost are in this sway
-        // buffer; the others read the fixed layer's.
-        if (lit[index] != 0)
-            lit_pixels.push_back(static_cast<std::uint32_t>(index) | (lit[index] == 2 ? leaf_bit : 0U));
+        // buffer; the others read the fixed layer's. Eight marks are read at a time,
+        // so the stretches of unlit pixels cost a word each.
+        const std::uint8_t* marks = lit.data();
+        std::size_t index = 0;
+        for (; index + 8 <= pixels; index += 8) {
+            std::uint64_t word = 0;
+            std::memcpy(&word, marks + index, 8);
+            if (word == 0)
+                continue;
+            for (std::size_t k = index; k < index + 8; ++k) {
+                if (marks[k] != 0)
+                    lit_pixels.push_back(static_cast<std::uint32_t>(k) | (marks[k] == 2 ? leaf_bit : 0U));
+            }
+        }
+        for (; index < pixels; ++index) {
+            if (marks[index] != 0)
+                lit_pixels.push_back(static_cast<std::uint32_t>(index) | (marks[index] == 2 ? leaf_bit : 0U));
+        }
     }
     counters_.sway_triangles += moving_triangles_.size();
     ++counters_.sway_updates;
@@ -1190,7 +1248,9 @@ void Stage::build_sway(double time) {
 // sample, the leaf's tap and its boost in proportion to the samples it covers; where
 // none does, the fixed surface's tap and its boost in proportion to the samples still
 // showing it. Both are kept in this buffer's own tap and boost, so every lit pixel
-// reads as a leaf pixel to the frame.
+// reads as a leaf pixel to the frame, and the buffer's lit list is written here.
+// The samples' channels are summed packed, red with blue and green alone: two or four
+// of them never carry into the next field.
 void Stage::resolve_samples(int target) {
     const int width = fixed_.width;
     const int height = fixed_.height;
@@ -1199,12 +1259,16 @@ void Stage::resolve_samples(int target) {
     const int sample_width = width * samples_x;
     const std::uint32_t count = static_cast<std::uint32_t>(samples_x * samples_y);
     const std::uint32_t half = count / 2;
+    const std::uint32_t shift = count == 4 ? 2 : 1;  // the mean of 2 or 4 samples
+    const std::uint32_t round_red_blue = (half << 16U) | half;
+    const std::uint32_t round_green = half << 8U;
     const bool caustic = !sample_tap_.empty();
     std::uint32_t* out_color = sway_color_[target].data();
     float* out_depth = sway_depth_[target].data();
     std::uint32_t* out_tap = caustic ? sway_tap_[target].data() : nullptr;
     std::uint32_t* out_boost = caustic ? sway_boost_[target].data() : nullptr;
     std::uint8_t* out_lit = lit_mask_.data();
+    std::vector<std::uint32_t>& lit_pixels = lit_pixels_[target];
     const std::uint32_t* colors = sample_color_.data();
     const float* depths = sample_depth_.data();
     const std::uint8_t* lits = sample_lit_.data();
@@ -1213,61 +1277,71 @@ void Stage::resolve_samples(int target) {
     const std::uint32_t* fixed_taps = fixed_tap_.data();
     const std::uint32_t* fixed_boosts = fixed_.boost.data();
     for (int y = 0; y < height; ++y) {
+        const std::size_t row = static_cast<std::size_t>(y) * static_cast<std::size_t>(samples_y) *
+                                static_cast<std::size_t>(sample_width);
         for (int x = 0; x < width; ++x) {
-            std::uint32_t red = 0;
+            std::uint32_t red_blue = 0;
             std::uint32_t green = 0;
-            std::uint32_t blue = 0;
             float nearest = 0;
+            std::uint32_t lit_any = 0;  // the samples' marks or-ed: 0 none, 1 fixed only, 2 or 3 a leaf
             std::uint32_t leaf_lit = 0;
             std::uint32_t fixed_lit = 0;
             std::uint32_t leaf_tap = 0;
-            std::uint32_t boost_red = 0;
+            std::uint32_t boost_red_blue = 0;
             std::uint32_t boost_green = 0;
-            std::uint32_t boost_blue = 0;
             for (int sy = 0; sy < samples_y; ++sy) {
-                const std::size_t row = static_cast<std::size_t>(y * samples_y + sy) * static_cast<std::size_t>(sample_width);
+                const std::size_t index = row + static_cast<std::size_t>(sy) * static_cast<std::size_t>(sample_width) +
+                                          static_cast<std::size_t>(x * samples_x);
                 for (int sx = 0; sx < samples_x; ++sx) {
-                    const std::size_t index = row + static_cast<std::size_t>(x * samples_x + sx);
-                    const std::uint32_t c = colors[index];
-                    red += (c >> 16U) & 255U;
-                    green += (c >> 8U) & 255U;
-                    blue += c & 255U;
-                    nearest = std::max(nearest, depths[index]);
-                    const std::uint8_t lit = lits[index];
+                    const std::uint32_t c = colors[index + static_cast<std::size_t>(sx)];
+                    red_blue += c & 0xFF00FFU;
+                    green += c & 0x00FF00U;
+                    nearest = std::max(nearest, depths[index + static_cast<std::size_t>(sx)]);
+                    lit_any |= lits[index + static_cast<std::size_t>(sx)];
+                }
+            }
+            const std::size_t pixel = static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x);
+            out_color[pixel] = (((red_blue + round_red_blue) >> shift) & 0xFF00FFU) | (((green + round_green) >> shift) & 0x00FF00U);
+            out_depth[pixel] = nearest;
+            if (lit_any == 0) {
+                out_lit[pixel] = 0;
+                continue;
+            }
+            if (!caustic) {
+                out_lit[pixel] = 1;
+                lit_pixels.push_back(static_cast<std::uint32_t>(pixel));
+                continue;
+            }
+            // A lit pixel: its samples read again for the light, the rarer path.
+            for (int sy = 0; sy < samples_y; ++sy) {
+                const std::size_t index = row + static_cast<std::size_t>(sy) * static_cast<std::size_t>(sample_width) +
+                                          static_cast<std::size_t>(x * samples_x);
+                for (int sx = 0; sx < samples_x; ++sx) {
+                    const std::uint8_t lit = lits[index + static_cast<std::size_t>(sx)];
                     if (lit == 2) {
                         if (leaf_lit == 0)
-                            leaf_tap = taps[index];
+                            leaf_tap = taps[index + static_cast<std::size_t>(sx)];
                         ++leaf_lit;
-                        const std::uint32_t b = boosts[index];
-                        boost_red += (b >> 16U) & 255U;
-                        boost_green += (b >> 8U) & 255U;
-                        boost_blue += b & 255U;
+                        const std::uint32_t b = boosts[index + static_cast<std::size_t>(sx)];
+                        boost_red_blue += b & 0xFF00FFU;
+                        boost_green += b & 0x00FF00U;
                     } else if (lit == 1) {
                         ++fixed_lit;
                     }
                 }
             }
-            const std::size_t pixel = static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x);
-            out_color[pixel] = (((red + half) / count) << 16U) | (((green + half) / count) << 8U) | ((blue + half) / count);
-            out_depth[pixel] = nearest;
-            if (!caustic) {
-                out_lit[pixel] = fixed_lit > 0 ? 1 : 0;
-                continue;
-            }
+            out_lit[pixel] = 2;
+            lit_pixels.push_back(static_cast<std::uint32_t>(pixel) | leaf_bit);
             if (leaf_lit > 0) {
-                out_lit[pixel] = 2;
                 out_tap[pixel] = leaf_tap;
-                out_boost[pixel] = (((boost_red + half) / count) << 16U) | (((boost_green + half) / count) << 8U) |
-                                   ((boost_blue + half) / count);
-            } else if (fixed_lit > 0) {
-                out_lit[pixel] = 2;
+                out_boost[pixel] = (((boost_red_blue + round_red_blue) >> shift) & 0xFF00FFU) |
+                                   (((boost_green + round_green) >> shift) & 0x00FF00U);
+            } else {
                 out_tap[pixel] = fixed_taps[pixel];
                 const std::uint32_t b = fixed_boosts[pixel];
                 out_boost[pixel] = (((((b >> 16U) & 255U) * fixed_lit + half) / count) << 16U) |
                                    (((((b >> 8U) & 255U) * fixed_lit + half) / count) << 8U) |
                                    (((b & 255U) * fixed_lit + half) / count);
-            } else {
-                out_lit[pixel] = 0;
             }
         }
     }

@@ -17,7 +17,7 @@ processor redoes only what moved:
 | Layer | Contents | Redrawn |
 |---|---|---|
 | fixed | Everything that does not move: sand, rock, wood, pebbles, ferns, and foliage that cannot move half a pixel at this size. Shaded once per pixel with material maps, normal maps, shadows and 2 × 2 supersampling. Keeps colour, depth, and for surfaces that take animated light, their world position and brightening. | When the view's size or detail changes (on a worker) |
-| sway | The fixed layer plus moving foliage, bent by the current, Gouraud-shaded; at Balanced and Fine detail drawn with two samples per pixel across (and down, at Fine) and resolved, so thin blades cover a pixel in proportion rather than by whether its centre falls inside them. Two buffers: one is shown while the other is rebuilt on a worker | On the sway cadence (8 per second preferred), beside the frames |
+| sway | The fixed layer plus moving foliage, bent by the current, Gouraud-shaded (each corner's lit side chosen once per triangle, the four channels blended together per pixel); at Balanced and Fine detail drawn with two samples per pixel across (and down, at Fine) and resolved, so thin blades cover a pixel in proportion rather than by whether its centre falls inside them. Two buffers: one is shown while the other is rebuilt on a worker | On the sway cadence (8 per second preferred), beside the frames |
 | frame | The sway layer, the caustics (or simpler animated light) on the lit pixels, then creatures (shaded per pixel, caustics included) and particles | Every animation tick (24 per second preferred) |
 
 The frame is enlarged into the window's own live buffers by the renderer's
