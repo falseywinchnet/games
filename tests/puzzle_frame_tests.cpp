@@ -3,9 +3,11 @@
 #include "storage.hpp"
 #include "table.hpp"
 #include "test_paths.hpp"
+#include <chrono>
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
+#include <thread>
 
 namespace {
 namespace gf = gui_forms;
@@ -229,8 +231,11 @@ void check_scene_retention(games::PuzzleKind kind) {
     (*view).run_command("help");
     flush(window, painter);
     window.reset_activity_metrics();
+    // A resting board draws only what changed (Gems: fifteen frames a second, its gems
+    // breathing): let a little real time pass so there is something to draw, then a tick.
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
     static_cast<void>(
-        window.poll_frame_schedule(gf::FrameClock::now() + std::chrono::milliseconds(60)));
+        window.poll_frame_schedule(gf::FrameClock::now() + std::chrono::milliseconds(100)));
     flush(window, painter);
     require(window.metrics().snapshot().display_chunks_rebuilt == 1,
             "Closing Help restores independently retained animation");

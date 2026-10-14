@@ -325,6 +325,53 @@ void PuzzleView::present_gems(render::Rect area) {
     if (!direct_)
         (*scene_parts_[0]).invalidate(published);
 }
+void PuzzleView::present_gem_changes() {
+    if (gem_changed_.empty())
+        return;  // nothing looks different: no frame at all
+    std::vector<render::Rect> areas;
+    areas.swap(gem_changed_);
+    render::Rect all{};
+    for (const render::Rect& area : areas)
+        all = all.united(area);
+    // In points at the window's scale, as gem_box() measures the board.
+    const double device = attached_window() ? (*attached_window()).scale() : 1.0;
+    const gf::Rect damage{all.x0 / device, all.y0 / device, (all.x1 - all.x0) / device, (all.y1 - all.y0) / device};
+    // Only straight into the window's buffer, over the frame before it; otherwise (an effect,
+    // a frame still owed, the painter's last) the whole changed box as before.
+    if (framebuffer_painting_ || panel_ || !prepare_framebuffer() || static_pixels_dirty_ || static_pixels_.empty() ||
+        !surface_whole_ || !gems_direct_ || !effects_.empty() || callout_life_ > 0 || shake_ > 0 ||
+        unpublished_[2] > unpublished_[0]) {
+        invalidate_animation(damage);
+        return;
+    }
+    gf::PaintFramebuffer& target = *framebuffer_;
+    const int width = static_cast<int>(target.width()), height = static_cast<int>(target.height());
+    gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write(true);
+    if (!lease) {
+        invalidate_animation(damage);
+        return;
+    }
+    const render::Order order = target.channel_order() == gf::FramebufferChannelOrder::rgba
+                                    ? render::Order::rgba
+                                    : render::Order::bgra;
+    const render::Target out{reinterpret_cast<std::uint32_t*>(lease.pixels().data()),
+                             static_cast<int>(lease.row_bytes() / 4), width, height, order};
+    const render::Target still{reinterpret_cast<std::uint32_t*>(static_pixels_.data()),
+                               static_cast<int>(target.row_bytes() / 4), width, height, order};
+    // Each changed area on its own: the still board put back, the gem layer laid over it.
+    for (const render::Rect& area : areas) {
+        const render::Rect clipped = area.intersected({0, 0, width, height});
+        if (clipped.empty())
+            continue;
+        render::r2d::restore(out, still, clipped);
+        compose_gems(out, clipped);
+    }
+    all = all.intersected({0, 0, width, height});
+    static_cast<void>(lease.publish({static_cast<double>(all.x0), static_cast<double>(all.y0),
+                                     static_cast<double>(all.x1 - all.x0), static_cast<double>(all.y1 - all.y0)}));
+    if (!direct_)
+        (*scene_parts_[0]).invalidate(damage);
+}
 static const gf::Color ink = gf::Color::rgba(231, 238, 247), muted = gf::Color::rgba(154, 177, 198),
                        accent = gf::Color::rgba(119, 216, 229);
 static gf::Color peg_color(int n) {
@@ -529,6 +576,7 @@ void PuzzleView::fit_raster() {
             raster_.height = h;
             gem_pixels_.assign(static_cast<std::size_t>(w) * static_cast<std::size_t>(h), 0);
             gem_depth_.resize(w, h, false);
+            gem_layer_whole_ = false;
         }
         return;
     }
@@ -677,18 +725,19 @@ const PuzzleView::GemPicture& PuzzleView::gem_picture(int value, int step, doubl
     gem_pictures_.push_back(std::move(made));
     return gem_pictures_.back();
 }
-void PuzzleView::copy_gem(const GemPicture& picture, double x, double y) {
+void PuzzleView::copy_gem(const GemPicture& picture, double x, double y, render::Rect clip) {
     // premultiplied over the layer, at the nearest whole layer pixel: opaque runs copied,
     // the soft edge blended, the clear corners skipped
     const int left = static_cast<int>(std::lround(x - picture.side * .5)),
               top = static_cast<int>(std::lround(y - picture.side * .5));
-    const int w = raster_.width, h = raster_.height;
-    for (int row = std::max(0, -top); row < picture.side && top + row < h; ++row) {
+    const int w = raster_.width;
+    clip = clip.intersected({0, 0, raster_.width, raster_.height});
+    for (int row = std::max(0, clip.y0 - top); row < picture.side && top + row < clip.y1; ++row) {
         const std::uint32_t* from = picture.pixels.data() + static_cast<std::size_t>(row) * picture.side;
         std::uint32_t* to = gem_pixels_.data() + static_cast<std::size_t>(top + row) * w;
         for (int k = picture.rows[static_cast<std::size_t>(row)]; k < picture.rows[static_cast<std::size_t>(row) + 1]; k += 3) {
-            const int first = std::max(picture.runs[static_cast<std::size_t>(k)], -left);
-            const int end = std::min(picture.runs[static_cast<std::size_t>(k) + 1], w - left);
+            const int first = std::max(picture.runs[static_cast<std::size_t>(k)], clip.x0 - left);
+            const int end = std::min(picture.runs[static_cast<std::size_t>(k) + 1], clip.x1 - left);
             if (first >= end)
                 continue;
             if (picture.runs[static_cast<std::size_t>(k) + 2] != 0) {
@@ -721,12 +770,13 @@ void PuzzleView::render() {
     if (game.kind == PuzzleKind::cube)
         raster_.cube(game, yaw_, pitch_, hover_);
     else if (game.kind == PuzzleKind::gems) {
-        std::fill(gem_pixels_.begin(), gem_pixels_.end(), 0U);
-        gem_depth_.clear({0, 0, raster_.width, raster_.height});
         // Drawn in the order the window's buffer takes, so laying it is a straight blend.
         const bool rgba = framebuffer_ &&
                           (*framebuffer_).channel_order() == gf::FramebufferChannelOrder::rgba;
-        gem_order_ = rgba ? render::Order::rgba : render::Order::bgra;
+        const render::Order order = rgba ? render::Order::rgba : render::Order::bgra;
+        if (order != gem_order_)
+            gem_layer_whole_ = false;
+        gem_order_ = order;
         render::r3d::Pass layer{render::Target{gem_pixels_.data(), raster_.width, raster_.width,
                                               raster_.height, gem_order_},
                                 &gem_depth_, render::Rect{0, 0, raster_.width, raster_.height}};
@@ -787,88 +837,184 @@ void PuzzleView::render() {
                    : 9;
         if (intro_ && intro_t > 1.4)
             intro_ = false;
-        for (int pass = 0; pass < 2; ++pass)
+        // A resting board: every gem a copy of its picture at one of eight breaths, its
+        // sparkle over it. Only the gems that look different from the last render are drawn
+        // again, with whatever overlaps where they were and are.
+        if (!moving && intro_t >= 1.4 && lifted < 0 && partner < 0 && gem_pick_ < 0 && hover_ < 0) {
+            struct Resting {
+                int value = 0, step = 0;
+                double x = 0, y = 0, size = 0, glisten = 0;
+                std::uint64_t key = 0;
+                render::Rect box{};
+            };
+            std::array<Resting, 64> gems{};
+            const double base = cell * .38;
             for (int i = 0; i < 64; ++i) {
-                // The lifted gem draws last, above everything it passes over.
-                if ((pass == 1) != (i == lifted))
+                Resting& gem = gems[static_cast<std::size_t>(i)];
+                gem.value = (*grid)[i];
+                if (!gem.value)
                     continue;
-                int value = (*grid)[i];
-                double radius = cell * .38;
-                double x = (i % 8 + .5) * cell, y = (i / 8 + .5) * cell;
-                if (!moving && !reduced_)
-                    radius *= 1 + .022 * std::sin(time * 2.3 + i * 1.7); // the stones breathe
-                if (i == lifted) {
-                    x += gem_offset_.x * cell;
-                    y += gem_offset_.y * cell;
-                    radius *= 1.12;
-                } else if (i == partner) {
-                    x -= gem_offset_.x * cell;
-                    y -= gem_offset_.y * cell;
-                }
-                if (!moving && i == gem_pick_)
-                    radius *= 1.08 + .04 * std::sin(time * 7);
-                if (!moving && gem_hint_ >= 0 && (i == gem_hint_ || i == gem_hint_to_) &&
-                    !reduced_) {
+                gem.x = (i % 8 + .5) * cell + origin_x;
+                gem.y = (i / 8 + .5) * cell + origin_y;
+                if (gem_hint_ >= 0 && (i == gem_hint_ || i == gem_hint_to_) && !reduced_) {
                     // After a long pause, one pair that would match nudges toward each other.
                     const int other = i == gem_hint_ ? gem_hint_to_ : gem_hint_;
                     const double nudge =
                         std::fmod(time, 1.6) < .7 ? std::max(0.0, std::sin(time * 9)) * .09 : 0;
-                    x += (other % 8 - i % 8) * cell * nudge;
-                    y += (other / 8 - i / 8) * cell * nudge;
+                    gem.x += (other % 8 - i % 8) * cell * nudge;
+                    gem.y += (other / 8 - i / 8) * cell * nudge;
                 }
-                if (intro_t < 1.4) {
-                    // A fresh board pours in from above, bottom rows first, with a small bounce.
-                    const double delay = (7 - i / 8) * .07 + (i % 8) * .012;
-                    const double u = std::clamp((intro_t - delay) / .42, 0.0, 1.0);
-                    const double c1 = 1.5, c3 = c1 + 1, w = u - 1;
-                    const double settle = 1 + c3 * w * w * w + c1 * w * w;
-                    y -= (1 - settle) * (i / 8 + 1.6) * cell;
-                }
-                if (source && !falling && (*source)[i] != value) {
-                    if (progress < .5) {
-                        value = (*source)[i];
-                        radius *= 1 - progress * 1.7;
-                    } else
-                        radius *= .15 + (progress - .5) * 1.7;
-                }
-                if (!value || radius < .5)
-                    continue;
-                if (falling) {
-                    // Ease out with a little overshoot, so gems settle like they have weight.
-                    const double c1 = 1.4, c3 = c1 + 1, u = progress - 1;
-                    double ease = 1 + c3 * u * u * u + c1 * u * u;
-                    y = (origin[i] + (i / 8 - origin[i]) * ease + .5) * cell;
-                }
-                if (moving && (i == swap_a_ || i == swap_b_) && (t < .23 || invalid_swap_)) {
-                    double u = std::clamp(t / .23, 0.0, 1.0);
-                    u = u * u * (3 - 2 * u);
-                    // A swap released from a drag starts where the gems already are.
-                    u = swap_from_ + (1 - swap_from_) * u;
-                    if (invalid_swap_ && t > .23) {
-                        u = 1 - std::clamp((t - .23) / .23, 0.0, 1.0);
-                        u = u * u * (3 - 2 * u);
-                    }
-                    int other = i == swap_a_ ? swap_b_ : swap_a_;
-                    x += (other % 8 - i % 8) * cell * u;
-                    y += (other / 8 - i / 8) * cell * u;
-                }
-                const bool turning = hover_ == i || i == gem_pick_ || i == lifted;
-                double spin = turning && !reduced_ ? time * 2.1 : 0,
-                       glisten = reduced_ ? 0 : .5 + .5 * std::sin(time * 1.25 + i * 2.7);
-                // At rest a plain gem is a copy of its picture at the nearest of eight
-                // breaths (a third of a pixel apart), its sparkle drawn over it.
-                if (!moving && intro_t >= 1.4 && !turning && i != partner && i != gem_pick_) {
-                    const double base = cell * .38;
-                    const double breath = reduced_ ? 0 : std::sin(time * 2.3 + i * 1.7);
-                    const int step = reduced_ ? 8 : static_cast<int>(std::lround((breath + 1) * 3.5));
-                    const double size = reduced_ ? base : base * (1 + .022 * (step / 3.5 - 1));
-                    copy_gem(gem_picture(value, step, size, base), x + origin_x, y + origin_y);
-                    draw_gem_sparkle(layer, x + origin_x, y + origin_y, size, glisten, 0.F);
-                    continue;
-                }
-                draw_gem(layer, x + origin_x, y + origin_y, radius, value, spin, glisten,
-                         i == lifted ? -20.F : 0.F);
+                const double breath = reduced_ ? 0 : std::sin(time * 2.3 + i * 1.7);
+                gem.step = reduced_ ? 8 : static_cast<int>(std::lround((breath + 1) * 3.5));
+                gem.size = reduced_ ? base : base * (1 + .022 * (gem.step / 3.5 - 1));
+                // Its place and its sparkle's reach to a quarter of a layer pixel: what the key
+                // holds is exactly what is drawn, so a gem whose key stays the same is unchanged.
+                const long long quarter_x = std::lround(gem.x * 4), quarter_y = std::lround(gem.y * 4);
+                gem.x = quarter_x / 4.0;
+                gem.y = quarter_y / 4.0;
+                const double glisten = reduced_ ? 0 : .5 + .5 * std::sin(time * 1.25 + i * 2.7);
+                const long long reach = glisten > .7 ? std::lround(gem.size * (glisten - .7) * 6.8) : -1;
+                gem.glisten = reach < 0 ? 0 : .7 + std::max(reach / 4.0, 1e-6) / (gem.size * 1.7);
+                gem.key = static_cast<std::uint64_t>(gem.value) | static_cast<std::uint64_t>(gem.step) << 8 |
+                          (static_cast<std::uint64_t>(reach + 1) & 0xFFFU) << 12 |
+                          (static_cast<std::uint64_t>(quarter_x) & 0xFFFFU) << 24 |
+                          (static_cast<std::uint64_t>(quarter_y) & 0xFFFFU) << 40;
+                const int side = static_cast<int>(std::ceil(gem.size * 2.7)) + 6;
+                const int left = static_cast<int>(std::lround(gem.x - side * .5)),
+                          top = static_cast<int>(std::lround(gem.y - side * .5));
+                gem.box = render::Rect{left - 1, top - 1, left + side + 1, top + side + 1};
             }
+            const render::Rect whole{0, 0, raster_.width, raster_.height};
+            std::vector<render::Rect> regions;
+            if (!gem_layer_whole_)
+                regions.push_back(whole);
+            else
+                for (int i = 0; i < 64; ++i)
+                    if (gems[static_cast<std::size_t>(i)].key != gem_shown_[static_cast<std::size_t>(i)])
+                        regions.push_back(gem_covered_[static_cast<std::size_t>(i)]
+                                              .united(gems[static_cast<std::size_t>(i)].box)
+                                              .intersected(whole));
+            for (const render::Rect& region : regions) {
+                if (region.empty())
+                    continue;
+                for (int y = region.y0; y < region.y1; ++y)
+                    std::fill_n(gem_pixels_.data() + static_cast<std::size_t>(y) * raster_.width + region.x0,
+                                region.x1 - region.x0, 0U);
+                gem_depth_.clear(region);
+                render::r3d::Pass clipped{render::Target{gem_pixels_.data(), raster_.width, raster_.width,
+                                                         raster_.height, gem_order_},
+                                          &gem_depth_, region};
+                for (const Resting& gem : gems) {
+                    if (!gem.value || gem.box.intersected(region).empty())
+                        continue;
+                    copy_gem(gem_picture(gem.value, gem.step, gem.size, base), gem.x, gem.y, region);
+                    draw_gem_sparkle(clipped, gem.x, gem.y, gem.size, gem.glisten, 0.F);
+                }
+            }
+            gem_changed_.clear();
+            for (const render::Rect& region : regions) {
+                if (region.empty())
+                    continue;
+                const render::Rect device_box = gem_box();
+                gem_changed_.push_back({device_box.x0 + region.x0 / gem_scale_, device_box.y0 + region.y0 / gem_scale_,
+                                        device_box.x0 + (region.x1 + gem_scale_ - 1) / gem_scale_,
+                                        device_box.y0 + (region.y1 + gem_scale_ - 1) / gem_scale_});
+            }
+            for (int i = 0; i < 64; ++i) {
+                gem_shown_[static_cast<std::size_t>(i)] = gems[static_cast<std::size_t>(i)].key;
+                gem_covered_[static_cast<std::size_t>(i)] = gems[static_cast<std::size_t>(i)].box;
+            }
+            gem_layer_whole_ = true;
+            gem_partial_ = true;
+        } else {
+            gem_partial_ = false;
+            gem_layer_whole_ = false;  // a resting board after this is drawn whole once
+            std::fill(gem_pixels_.begin(), gem_pixels_.end(), 0U);
+            gem_depth_.clear({0, 0, raster_.width, raster_.height});
+            for (int pass = 0; pass < 2; ++pass)
+                for (int i = 0; i < 64; ++i) {
+                    // The lifted gem draws last, above everything it passes over.
+                    if ((pass == 1) != (i == lifted))
+                        continue;
+                    int value = (*grid)[i];
+                    double radius = cell * .38;
+                    double x = (i % 8 + .5) * cell, y = (i / 8 + .5) * cell;
+                    if (!moving && !reduced_)
+                        radius *= 1 + .022 * std::sin(time * 2.3 + i * 1.7); // the stones breathe
+                    if (i == lifted) {
+                        x += gem_offset_.x * cell;
+                        y += gem_offset_.y * cell;
+                        radius *= 1.12;
+                    } else if (i == partner) {
+                        x -= gem_offset_.x * cell;
+                        y -= gem_offset_.y * cell;
+                    }
+                    if (!moving && i == gem_pick_)
+                        radius *= 1.08 + .04 * std::sin(time * 7);
+                    if (!moving && gem_hint_ >= 0 && (i == gem_hint_ || i == gem_hint_to_) &&
+                        !reduced_) {
+                        // After a long pause, one pair that would match nudges toward each other.
+                        const int other = i == gem_hint_ ? gem_hint_to_ : gem_hint_;
+                        const double nudge =
+                            std::fmod(time, 1.6) < .7 ? std::max(0.0, std::sin(time * 9)) * .09 : 0;
+                        x += (other % 8 - i % 8) * cell * nudge;
+                        y += (other / 8 - i / 8) * cell * nudge;
+                    }
+                    if (intro_t < 1.4) {
+                        // A fresh board pours in from above, bottom rows first, with a small bounce.
+                        const double delay = (7 - i / 8) * .07 + (i % 8) * .012;
+                        const double u = std::clamp((intro_t - delay) / .42, 0.0, 1.0);
+                        const double c1 = 1.5, c3 = c1 + 1, w = u - 1;
+                        const double settle = 1 + c3 * w * w * w + c1 * w * w;
+                        y -= (1 - settle) * (i / 8 + 1.6) * cell;
+                    }
+                    if (source && !falling && (*source)[i] != value) {
+                        if (progress < .5) {
+                            value = (*source)[i];
+                            radius *= 1 - progress * 1.7;
+                        } else
+                            radius *= .15 + (progress - .5) * 1.7;
+                    }
+                    if (!value || radius < .5)
+                        continue;
+                    if (falling) {
+                        // Ease out with a little overshoot, so gems settle like they have weight.
+                        const double c1 = 1.4, c3 = c1 + 1, u = progress - 1;
+                        double ease = 1 + c3 * u * u * u + c1 * u * u;
+                        y = (origin[i] + (i / 8 - origin[i]) * ease + .5) * cell;
+                    }
+                    if (moving && (i == swap_a_ || i == swap_b_) && (t < .23 || invalid_swap_)) {
+                        double u = std::clamp(t / .23, 0.0, 1.0);
+                        u = u * u * (3 - 2 * u);
+                        // A swap released from a drag starts where the gems already are.
+                        u = swap_from_ + (1 - swap_from_) * u;
+                        if (invalid_swap_ && t > .23) {
+                            u = 1 - std::clamp((t - .23) / .23, 0.0, 1.0);
+                            u = u * u * (3 - 2 * u);
+                        }
+                        int other = i == swap_a_ ? swap_b_ : swap_a_;
+                        x += (other % 8 - i % 8) * cell * u;
+                        y += (other / 8 - i / 8) * cell * u;
+                    }
+                    const bool turning = hover_ == i || i == gem_pick_ || i == lifted;
+                    double spin = turning && !reduced_ ? time * 2.1 : 0,
+                           glisten = reduced_ ? 0 : .5 + .5 * std::sin(time * 1.25 + i * 2.7);
+                    // At rest a plain gem is a copy of its picture at the nearest of eight
+                    // breaths (a third of a pixel apart), its sparkle drawn over it.
+                    if (!moving && intro_t >= 1.4 && !turning && i != partner && i != gem_pick_) {
+                        const double base = cell * .38;
+                        const double breath = reduced_ ? 0 : std::sin(time * 2.3 + i * 1.7);
+                        const int step = reduced_ ? 8 : static_cast<int>(std::lround((breath + 1) * 3.5));
+                        const double size = reduced_ ? base : base * (1 + .022 * (step / 3.5 - 1));
+                        copy_gem(gem_picture(value, step, size, base), x + origin_x, y + origin_y,
+                                 {0, 0, raster_.width, raster_.height});
+                        draw_gem_sparkle(layer, x + origin_x, y + origin_y, size, glisten, 0.F);
+                        continue;
+                    }
+                    draw_gem(layer, x + origin_x, y + origin_y, radius, value, spin, glisten,
+                             i == lifted ? -20.F : 0.F);
+                }
+        }
     } else
         return;
     // On the live surface the gems are laid straight into the window's buffer; they become
@@ -2585,6 +2731,7 @@ void PuzzleView::panel(int kind) {
     if (kind == 1 && games::route_help(*this))
         return;
     panel_ = kind;
+    gem_layer_whole_ = false;  // the board, covered or uncovered, is drawn whole once
     refresh_scene();
     for (int i = 0; i < 6; ++i)
         (*buttons_[i]).set_enabled(!kind);
@@ -3090,10 +3237,12 @@ void PuzzleView::tick() {
     if (game.kind == PuzzleKind::gems) {
         if (was_shaking || shake_ > 0)
             invalidate_static_scene();
-        invalidate_animation(had_outer_effects || !effects_.empty() || shake_ > 0 ||
-                                     callout_life_ > 0
-                                 ? client_rectangle()
-                                 : board_);
+        const bool outer = had_outer_effects || !effects_.empty() || shake_ > 0 || callout_life_ > 0;
+        // A resting board shows only the gems that changed (none: no frame).
+        if (gem_partial_ && !outer)
+            present_gem_changes();
+        else
+            invalidate_animation(outer ? client_rectangle() : board_);
     } else if (game.kind != PuzzleKind::untangle) {
         if (animation_duration_ > 0)
             invalidate_scene();
@@ -3101,11 +3250,14 @@ void PuzzleView::tick() {
             invalidate_animation(board_);
     }
     if (game.kind == PuzzleKind::gems && timer_) {
-        // Only breathing and the slow sparkle: thirty frames a second are plenty.
+        // Only breathing and the slow sparkle: fifteen frames a second while you watch (as
+        // Eggy is drawn), five with the window behind another.
         const bool breathing_only = animation_duration_ <= 0 && effects_.empty() && !intro_ &&
                                     gem_spring_ < 0 && gem_pick_ < 0 && drag_ < 0 && shake_ <= 0 &&
                                     callout_life_ <= 0 && hover_ < 0;
-        (*timer_).set_interval(std::chrono::milliseconds(breathing_only ? 33 : 16));
+        const gf::Window* window = attached_window();
+        const bool front = window == nullptr || (*window).active();
+        (*timer_).set_interval(std::chrono::milliseconds(breathing_only ? (front ? 66 : 200) : 16));
     }
     if (game.kind == PuzzleKind::untangle && timer_) {
         // A calm cat and frost glinting slowly: thirty frames a second.

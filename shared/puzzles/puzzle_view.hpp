@@ -10,7 +10,9 @@
 #include "puzzle_render.hpp"
 #include "r2d.hpp"
 #include "suite.hpp"
+#include <array>
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
@@ -88,7 +90,19 @@ class PuzzleView final : public gf::Control, public CommandSource {
     render::r3d::Buffers gem_picture_depth_;
     // `radius` is the step's, `base` the gems' unbreathing radius (a new one forgets them all).
     const GemPicture& gem_picture(int value, int step, double radius, double base);
-    void copy_gem(const GemPicture& picture, double x, double y);
+    // Laid over the layer inside `clip` (layer pixels).
+    void copy_gem(const GemPicture& picture, double x, double y, render::Rect clip);
+    // A resting board is drawn again only where a gem changed: what each square last showed
+    // (its gem, breath, sparkle and place, in quarter layer pixels) and the layer pixels it
+    // covered. gem_changed_ holds the device pixels the last render changed; a frame with
+    // none is not drawn at all.
+    std::array<std::uint64_t, 64> gem_shown_{};
+    std::array<render::Rect, 64> gem_covered_{};
+    bool gem_partial_ = false;      // the last render drew only what changed
+    bool gem_layer_whole_ = false;  // the layer holds every gem as gem_shown_ says
+    std::vector<render::Rect> gem_changed_;
+    // Lays the changed areas into the live surface's buffer, which holds the frame before.
+    void present_gem_changes();
     render::Order gem_order_ = render::Order::bgra;  // the window's, or BGRA for an image
     bool gem_image_stale_ = true;
     bool gems_direct_ = false;  // the last gems frame was laid without the painter
