@@ -73,6 +73,11 @@ template<class View> class HostedGameInstance : public GameInstance {
             return (*view_).uses_card_backs();
         return false;
     }
+    std::string key_command(std::uint32_t key) const override {
+        if constexpr (std::is_base_of_v<CommandSource, View>)
+            return (*view_).key_command(key);
+        return {};
+    }
   protected:
     std::shared_ptr<View> view_;
 };

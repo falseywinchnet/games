@@ -96,7 +96,7 @@ frame with Metal; this port keeps the picture by doing less, not by drawing less
   size, supersampled, with shadows and material maps;
 - foliage ribbons are thinned along their length offline (502,000 → 126,000
   triangles); foliage that cannot move half a pixel at the current size is drawn
-  once with the fixed scenery; the rest is redrawn about eight times a second, with
+  once with the fixed scenery; the rest is redrawn with each picture, up to 24 a second, with
   two samples per pixel at Balanced (two by two at Fine) resolved into the frame;
 - fish are decimated (11,916 → 1,500 body triangles) and shaded per pixel;
 - the caustics are traced once as a tank opens (about 20 ms on a worker) into a

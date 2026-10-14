@@ -132,7 +132,7 @@ class Diorama final : public Scenery {
     void start_loading(std::size_t scene);
     void start_build();
     void finish_sway(SceneContext* context);
-    static double sway_job(Stage* stage, double time);
+    static double picture_job(Stage* stage, double time, double light_time, std::vector<Creature> creatures);
     void tap(double x, double y, SceneContext& context);
     void choose(std::size_t scene, SceneContext& context);
     void swap_in();
@@ -166,12 +166,13 @@ class Diorama final : public Scenery {
     Detail detail_{Detail::balanced};
     [[nodiscard]] int sway_samples_x() const;
     [[nodiscard]] int sway_samples_y() const;
-    // The foliage is redrawn on a worker into the stage's hidden sway layer while
-    // frames keep composing over the shown one; the result is the worker's seconds.
+    // The picture (the foliage, then the frame over it) is built on a worker while the
+    // one in hand is shown; the result is the worker's processor seconds.
     std::future<double> swaying_{};
     double light_time_{};   // the animated light's clock; held under reduced motion
     double last_sway_{-1};  // scene time of the last foliage update
     std::vector<std::uint32_t> empty_{};
+    const std::vector<std::uint32_t>* picture_{&empty_};  // the frame shown: read only between jobs
 #ifdef GUI_FORMS_AUDIO_GENERATOR
     std::shared_ptr<SceneVoice> ambience_voice_{};
     std::shared_ptr<gui_forms::AudioGenerator> music_voice_{};

@@ -259,6 +259,12 @@ void Collection::on_key_preview(gf::KeyEvent& e) {
             return;
         }
     }
+    // A game's key still works while help is open or a capsule button has the keyboard.
+    const bool capsule_focus = focus && (*capsule_).contains(*focus);
+    if (!shelf_open_ && !entering_text && !settings_open() && (help_open() || capsule_focus) && forward_game_key(e)) {
+        e.handled = true;
+        return;
+    }
     if (help_open() || settings_open())
         return;
     if (!shelf_open_ && e.action == gf::KeyAction::down && e.physical_key == gf::PhysicalKey::f2 &&
@@ -311,6 +317,24 @@ void Collection::run_command(const std::string& id) {
     // Return keyboard focus to the game after a capsule click.
     if (attached_window() && view(active_))
         static_cast<void>((*attached_window()).request_focus(view(active_)));
+}
+// A plain key the active game names a command for (CommandSource::key_command): run
+// as its view would run it, keyboard focus left where it is. True when the key was
+// the game's.
+bool Collection::forward_game_key(const gf::KeyEvent& event) {
+    if (event.action != gf::KeyAction::down || event.modifiers != gf::Modifier::none)
+        return false;
+    CommandSource* s = source(active_);
+    if (s == nullptr)
+        return false;
+    const std::string id = (*s).key_command(event.physical_key);
+    if (id.empty())
+        return false;
+    if (!event.repeat) {
+        (*s).run_command(id);
+        refresh_commands();
+    }
+    return true;
 }
 bool Collection::overlay(const std::shared_ptr<gf::Control>& child) const {
     return child == shelf_ || child == capsule_ || child == help_ || child == help_link_ ||

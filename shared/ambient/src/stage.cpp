@@ -98,6 +98,21 @@ struct VisibilityPolicy {
 // its facing from the scan and chooses per pixel.
 template <bool FixedCorners> struct GouraudPolicy {
     static constexpr bool perspective = false;
+    // An unclipped triangle (fixed corners) is shaded by planes: its colour, alpha and
+    // caustic texel position formed once from the corners, then one multiply-add each
+    // per pixel. A clipped one takes its weights per pixel (`cover`).
+    static constexpr bool planes = FixedCorners;
+    // Its corners already in the scan's fixed point, rounded once per vertex.
+    static constexpr bool cache_quantized = FixedCorners;
+    const render::r3d::QuantizedPoint* quantized[3] = {};
+    static constexpr int attributes = 6;  // red, green, blue, alpha, u, v
+    float plane_at[attributes]{};
+    float plane_across[attributes]{};
+    float plane_down[attributes]{};
+    int plane_x{};
+    int plane_y{};
+    float run_at[attributes]{};
+    float run_step[attributes]{};
     int width{};
     float* depth{};
     std::uint32_t* color{};
@@ -125,6 +140,43 @@ template <bool FixedCorners> struct GouraudPolicy {
         const bool result = inverse_depth > depth[index];
         return result;
     }
+    void triangle(const render::r3d::WeightPlanes& weights) {
+        const float* a = corner0;
+        const float* b = corner1;
+        const float* d = corner2;
+        for (int k = 0; k < 4; ++k) {
+            plane_at[k] = a[k] * weights.at[0] + b[k] * weights.at[1] + d[k] * weights.at[2];
+            plane_across[k] = a[k] * weights.across[0] + b[k] * weights.across[1] + d[k] * weights.across[2];
+            plane_down[k] = a[k] * weights.down[0] + b[k] * weights.down[1] + d[k] * weights.down[2];
+        }
+        if (triangle_boost != 0) {
+            const float u[3] = {(*l0).u, (*l1).u, (*l2).u};
+            const float v[3] = {(*l0).v, (*l1).v, (*l2).v};
+            plane_at[4] = u[0] * weights.at[0] + u[1] * weights.at[1] + u[2] * weights.at[2];
+            plane_across[4] = u[0] * weights.across[0] + u[1] * weights.across[1] + u[2] * weights.across[2];
+            plane_down[4] = u[0] * weights.down[0] + u[1] * weights.down[1] + u[2] * weights.down[2];
+            plane_at[5] = v[0] * weights.at[0] + v[1] * weights.at[1] + v[2] * weights.at[2];
+            plane_across[5] = v[0] * weights.across[0] + v[1] * weights.across[1] + v[2] * weights.across[2];
+            plane_down[5] = v[0] * weights.down[0] + v[1] * weights.down[1] + v[2] * weights.down[2];
+        }
+        plane_x = weights.x;
+        plane_y = weights.y;
+    }
+    void run(int x, int y, bool down) {
+        const float dx = static_cast<float>(x - plane_x);
+        const float dy = static_cast<float>(y - plane_y);
+        for (int k = 0; k < attributes; ++k) {
+            run_at[k] = plane_at[k] + plane_across[k] * dx + plane_down[k] * dy;
+            run_step[k] = down ? plane_down[k] : plane_across[k];
+        }
+    }
+    void cover_at(int x, int y, float inverse_depth, float offset) {
+        float shade[attributes];
+        for (int k = 0; k < attributes; ++k)
+            shade[k] = run_at[k] + run_step[k] * offset;
+        write(static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x),
+              inverse_depth, shade);
+    }
     void cover(const Coverage& c, bool is_front) {
         const std::size_t index =
             static_cast<std::size_t>(c.y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(c.x);
@@ -137,22 +189,28 @@ template <bool FixedCorners> struct GouraudPolicy {
             d = is_front ? (*s2).front : (*s2).back;
         }
         // Red, green, blue and alpha at once (the compiler's four-wide multiply and add).
-        float shade[4];
+        float shade[attributes]{};
         for (int k = 0; k < 4; ++k)
             shade[k] = a[k] * c.weight0 + b[k] * c.weight1 + d[k] * c.weight2;
+        if (triangle_boost != 0) {
+            shade[4] = (*l0).u * c.weight0 + (*l1).u * c.weight1 + (*l2).u * c.weight2;
+            shade[5] = (*l0).v * c.weight0 + (*l1).v * c.weight1 + (*l2).v * c.weight2;
+        }
+        write(index, c.inverse_depth, shade);
+    }
+    // One pixel from its shade: red, green, blue, alpha and the texel position.
+    void write(std::size_t index, float inverse_depth, const float* shade) {
         const std::uint32_t r = static_cast<std::uint32_t>(shade[0] + 0.5F);
         const std::uint32_t g = static_cast<std::uint32_t>(shade[1] + 0.5F);
         const std::uint32_t bl = static_cast<std::uint32_t>(shade[2] + 0.5F);
         const float alpha = shade[3];
-        depth[index] = c.inverse_depth;
+        depth[index] = inverse_depth;
         lit[index] = 0;
         if (triangle_boost != 0) {
             // Lit by the leaf's own tap and boost (read only where lit says so).
             lit[index] = 2;
             boost[index] = triangle_boost;
-            const float u = (*l0).u * c.weight0 + (*l1).u * c.weight1 + (*l2).u * c.weight2;
-            const float v = (*l0).v * c.weight0 + (*l1).v * c.weight1 + (*l2).v * c.weight2;
-            tap[index] = (*field).texel_index(u, v) | tap_bits;
+            tap[index] = (*field).texel_index(shade[4], shade[5]) | tap_bits;
         }
         const std::uint32_t source = (std::min(r, 255U) << 16U) | (std::min(g, 255U) << 8U) | std::min(bl, 255U);
         if (alpha >= 0.999F) {
@@ -275,12 +333,6 @@ ScreenPoint light_texel(const LightFrame& frame, int size, Vec3 world) {
 }
 
 // Display colour 0..1 to clamped display levels 0..255, the Gouraud policy's units.
-Rgb display_levels(Rgb c) {
-    const Rgb result{std::clamp(c.x, 0.0F, 1.0F) * 255.0F, std::clamp(c.y, 0.0F, 1.0F) * 255.0F,
-                     std::clamp(c.z, 0.0F, 1.0F) * 255.0F};
-    return result;
-}
-
 bool sort_key_less(const SortKey& a, const SortKey& b) {
     if (a.depth != b.depth)
         return a.depth < b.depth;
@@ -993,8 +1045,11 @@ void Stage::adopt(FixedLayer layer) {
         lit_pixels_[k].reserve(pixels);
     }
     shown_ = 0;
-    frame_color_.assign(pixels, 0);
-    frame_depth_.assign(pixels, 0.0F);
+    shown_frame_ = 0;
+    for (int k = 0; k < 2; ++k) {
+        frame_color_[k].assign(pixels, 0);
+        frame_depth_[k].assign(pixels, 0.0F);
+    }
     lit_mask_.assign(pixels, 0);
     fixed_lit_.resize(pixels);
     for (std::size_t index = 0; index < pixels; ++index)
@@ -1063,6 +1118,120 @@ void Stage::adopt(FixedLayer layer) {
         out.boost = corner_boost[0] != 0 && corner_boost[1] != 0 && corner_boost[2] != 0 ? corner_boost[0] : 0;
         moving_triangles_.push_back(out);
     }
+    // The moving vertices renumbered root by root (in first use within a root), the
+    // triangles' corners with them; the triangles keep their draw order.
+    const std::size_t count = moving_.size();
+    std::vector<std::uint64_t> keys(count);
+    for (std::size_t index = 0; index < count; ++index)
+        keys[index] = (static_cast<std::uint64_t>(moving_[index].root) << 32U) | static_cast<std::uint64_t>(index);
+    std::sort(keys.begin(), keys.end());
+    std::vector<std::uint32_t> renumber(count);
+    std::vector<MovingVertex> grouped(count);
+    for (std::size_t index = 0; index < count; ++index) {
+        const std::size_t old = static_cast<std::size_t>(keys[index] & 0xFFFFFFFFU);
+        renumber[old] = static_cast<std::uint32_t>(index);
+        grouped[index] = moving_[old];
+    }
+    moving_.swap(grouped);
+    for (MovingTriangle& triangle : moving_triangles_) {
+        for (std::uint32_t& corner : triangle.vertex)
+            corner = renumber[corner];
+    }
+    root_runs_.clear();
+    for (std::size_t index = 0; index < count; ++index) {
+        if (index == 0 || moving_[index].root != moving_[index - 1].root)
+            root_runs_.push_back(RootRun{moving_[index].root, static_cast<std::uint32_t>(index), 0});
+        root_runs_.back().last = static_cast<std::uint32_t>(index + 1);
+    }
+    root_terms_.assign(roots_.size() * root_terms, 0.0F);
+    // Each vertex's coefficients, from its current constants. With the root's angle A,
+    // the vertex's offset B and the strength s:
+    //   shape  = sin(A - B) + 0.3 sin(R - C)
+    //   amount = s drag a + c g e shape
+    //   slope  = s drag b + c g (p shape - e (1.05 cos(A - B) + 0.51 cos(R - C)))
+    // with the gain g = 0.012 + 0.02 s; sin(A - B), cos(A - B) are linear in sin A and
+    // cos A, so the root's terms are s and g sin A, g cos A, g sin R, g cos R.
+    sway_coefficients_.assign(count * root_terms * 2U, 0.0F);
+    for (std::size_t index = 0; index < count; ++index) {
+        const CurrentVertex& v = moving_[index].current;
+        const float shape[4] = {v.cos_wave, -v.sin_wave, 0.3F * v.cos_ripple, -0.3F * v.sin_ripple};
+        const float turn[4] = {1.05F * v.sin_wave, 1.05F * v.cos_wave, 0.51F * v.sin_ripple, 0.51F * v.cos_ripple};
+        float amount[root_terms];
+        float slope[root_terms];
+        amount[0] = v.drag * v.amount_scale;
+        slope[0] = v.drag * v.slope_scale;
+        for (std::size_t k = 0; k < 4; ++k) {
+            amount[1 + k] = v.compliance * v.envelope_scale * shape[k];
+            slope[1 + k] = v.compliance * (v.slope_power * shape[k] - v.envelope_scale * turn[k]);
+        }
+        for (std::size_t k = 0; k < root_terms; ++k) {
+            sway_coefficients_[k * count + index] = amount[k];
+            sway_coefficients_[(root_terms + k) * count + index] = slope[k];
+        }
+    }
+    // Rest position and bend in view space: the view transform is linear, so a bent
+    // vertex is its rest view plus its bend view times the amount.
+    const bool sampled = fixed_.samples_x > 1 || fixed_.samples_y > 1;
+    const Projection& lens = sampled ? sample_projection_ : projection_;
+    const float stretch = sampled ? sample_stretch_ : 1.0F;
+    rest_view_.assign(count * 3U, 0.0F);
+    bend_view_.assign(count * 3U, 0.0F);
+    for (std::size_t index = 0; index < count; ++index) {
+        const MovingVertex& v = moving_[index];
+        const ViewPoint rest = to_view(lens, v.position);
+        rest_view_[index] = rest.x * stretch;
+        rest_view_[count + index] = rest.y;
+        rest_view_[count * 2U + index] = rest.depth;
+        bend_view_[index] = dot(v.bend, lens.right) * stretch;
+        bend_view_[count + index] = dot(v.bend, lens.up);
+        bend_view_[count * 2U + index] = dot(v.bend, lens.forward);
+    }
+    sway_amount_.resize(count);
+    sway_slope_.resize(count);
+    sway_quantized_.resize(count);
+    // The shade, scaled to display levels before the clamp: rest plus rate times slope.
+    shade_rest_.assign(count * 6U, 0.0F);
+    shade_rate_.assign(count * 6U, 0.0F);
+    alpha_.assign(count, 1.0F);
+    for (std::size_t index = 0; index < count; ++index) {
+        const MovingVertex& v = moving_[index];
+        const float rest[6] = {v.rest_front.x, v.rest_front.y, v.rest_front.z, v.rest_back.x, v.rest_back.y, v.rest_back.z};
+        const float rate[6] = {v.gradient_front.x, v.gradient_front.y, v.gradient_front.z,
+                               v.gradient_back.x,  v.gradient_back.y,  v.gradient_back.z};
+        for (std::size_t k = 0; k < 6; ++k) {
+            shade_rest_[k * count + index] = rest[k];
+            shade_rate_[k * count + index] = rate[k];
+        }
+        alpha_[index] = v.alpha;
+    }
+    lit_vertices_.clear();
+    light_rest_.clear();
+    light_rate_.clear();
+    const CausticField* light_field = look_.caustics();
+    if (light_field != nullptr && !(*light_field).empty()) {
+        for (std::size_t index = 0; index < count; ++index) {
+            if (moving_[index].boost != 0)
+                lit_vertices_.push_back(static_cast<std::uint32_t>(index));
+        }
+        const std::size_t lit_count = lit_vertices_.size();
+        light_rest_.assign(lit_count * 3U, 0.0F);
+        light_rate_.assign(lit_count * 3U, 0.0F);
+        for (std::size_t n = 0; n < lit_count; ++n) {
+            const MovingVertex& v = moving_[lit_vertices_[n]];
+            float u0 = 0;
+            float v0 = 0;
+            float u1 = 0;
+            float v1 = 0;
+            (*light_field).texel_of(v.position, u0, v0);
+            (*light_field).texel_of(add(v.position, v.bend), u1, v1);
+            light_rest_[n] = u0;
+            light_rest_[lit_count + n] = v0;
+            light_rest_[lit_count * 2U + n] = v.position.y;
+            light_rate_[n] = u1 - u0;
+            light_rate_[lit_count + n] = v1 - v0;
+            light_rate_[lit_count * 2U + n] = v.bend.y;
+        }
+    }
     sway_view_.resize(moving_.size());
     sway_screen_.resize(moving_.size());
     sway_in_front_.resize(moving_.size());
@@ -1102,7 +1271,6 @@ void Stage::build_sway(double time) {
     std::uint32_t* draw_boost = caustic ? sway_boost_[target].data() : nullptr;
     int draw_width = fixed_.width;
     Projection projection = projection_;
-    float stretch = 1;
     if (multisampled) {
         const std::size_t samples = fixed_.sample_color.size();
         std::memcpy(sample_color_.data(), fixed_.sample_color.data(), samples * sizeof(std::uint32_t));
@@ -1115,7 +1283,6 @@ void Stage::build_sway(double time) {
         draw_boost = caustic ? sample_boost_.data() : nullptr;
         draw_width = fixed_.width * fixed_.samples_x;
         projection = sample_projection_;
-        stretch = sample_stretch_;
     } else {
         std::memcpy(sway_color.data(), fixed_.color.data(), pixels * sizeof(std::uint32_t));
         std::memcpy(sway_depth.data(), fixed_.depth.data(), pixels * sizeof(float));
@@ -1124,37 +1291,103 @@ void Stage::build_sway(double time) {
     }
 
     update_current_roots(scene_.sway_roots, time, roots_);
-    // Every moving vertex, in the packed order: bent by the current, projected, and
-    // shaded by its rest shade and the gradient along the bend's slope.
     const std::size_t moving_count = moving_.size();
-    const CurrentRoot* roots = roots_.data();
-    for (std::size_t index = 0; index < moving_count; ++index) {
-        const MovingVertex& v = moving_[index];
-        const Sway sway = current_sway(roots[v.root], v.current);
-        const Vec3 world = add(v.position, scale(v.bend, sway.amount));
-        ViewPoint view = to_view(projection, world);
-        if (multisampled)
-            view.x *= stretch;
-        sway_view_[index] = view;
-        const bool in_front = view.depth >= projection.near_plane;
-        sway_in_front_[index] = in_front ? 1 : 0;
-        if (in_front)
-            sway_screen_[index] = to_screen(projection, view);
-        FoliageShade& shade = sway_shade_[index];
-        const Rgb front = display_levels(add(v.rest_front, scale(v.gradient_front, sway.slope)));
-        const Rgb back = display_levels(add(v.rest_back, scale(v.gradient_back, sway.slope)));
-        shade.front[0] = front.x;
-        shade.front[1] = front.y;
-        shade.front[2] = front.z;
-        shade.front[3] = v.alpha;
-        shade.back[0] = back.x;
-        shade.back[1] = back.y;
-        shade.back[2] = back.z;
-        shade.back[3] = v.alpha;
-        if (caustic && v.boost != 0) {
-            CausticPoint& light = sway_light_[index];
-            (*field).texel_of(world, light.u, light.v);
-            light.height = world.y;
+    // Per root: its five terms.
+    for (std::size_t r = 0; r < roots_.size(); ++r) {
+        const CurrentRoot& root = roots_[r];
+        float* terms = root_terms_.data() + r * root_terms;
+        const float gain = 0.012F + 0.02F * root.strength;
+        terms[0] = root.strength;
+        terms[1] = gain * root.sin_theta;
+        terms[2] = gain * root.cos_theta;
+        terms[3] = gain * root.sin_ripple;
+        terms[4] = gain * root.cos_ripple;
+    }
+    // Per run of a root's vertices: amount and slope, two dot products with the
+    // root's terms held in registers, streamed over the coefficient rows.
+    {
+        const float* c = sway_coefficients_.data();
+        const std::size_t n = moving_count;
+        float* amount = sway_amount_.data();
+        float* slope = sway_slope_.data();
+        for (const RootRun& run : root_runs_) {
+            const float* t = root_terms_.data() + static_cast<std::size_t>(run.root) * root_terms;
+            const float t0 = t[0];
+            const float t1 = t[1];
+            const float t2 = t[2];
+            const float t3 = t[3];
+            const float t4 = t[4];
+            for (std::size_t v = run.first; v < run.last; ++v) {
+                amount[v] = c[v] * t0 + c[n + v] * t1 + c[n * 2U + v] * t2 + c[n * 3U + v] * t3 + c[n * 4U + v] * t4;
+                slope[v] = c[n * 5U + v] * t0 + c[n * 6U + v] * t1 + c[n * 7U + v] * t2 + c[n * 8U + v] * t3 +
+                           c[n * 9U + v] * t4;
+            }
+        }
+    }
+    // Per vertex: placed in view space, rest plus bend times amount, and projected.
+    // Every vertex is projected; one behind the near plane is marked and its screen
+    // point never read.
+    {
+        const std::size_t n = moving_count;
+        const float* rest = rest_view_.data();
+        const float* bend = bend_view_.data();
+        const float* amount = sway_amount_.data();
+        ViewPoint* views = sway_view_.data();
+        ScreenPoint* screens = sway_screen_.data();
+        std::uint8_t* in_front = sway_in_front_.data();
+        render::r3d::QuantizedPoint* quantized = sway_quantized_.data();
+        const float near = projection.near_plane;
+        const float focal = projection.focal;
+        const float centre_x = static_cast<float>(projection.width) * 0.5F;
+        const float centre_y = static_cast<float>(projection.height) * 0.5F;
+        for (std::size_t v = 0; v < n; ++v) {
+            const float a = amount[v];
+            const float x = rest[v] + bend[v] * a;
+            const float y = rest[n + v] + bend[n + v] * a;
+            const float depth = rest[n * 2U + v] + bend[n * 2U + v] * a;
+            views[v] = ViewPoint{x, y, depth};
+            const bool front = depth >= near;
+            const float inverse = 1.0F / (front ? depth : 1.0F);
+            const ScreenPoint screen{centre_x + x * focal * inverse, centre_y - y * focal * inverse, inverse};
+            screens[v] = screen;
+            in_front[v] = front ? 1 : 0;
+            quantized[v] = render::r3d::QuantizedPoint{render::r3d::quantize(screen.x), render::r3d::quantize(screen.y)};
+        }
+    }
+    // Per vertex: shaded, rest plus rate times slope, clamped to display levels.
+    {
+        const std::size_t n = moving_count;
+        const float* rest = shade_rest_.data();
+        const float* rate = shade_rate_.data();
+        const float* slope = sway_slope_.data();
+        const float* alpha = alpha_.data();
+        FoliageShade* shades = sway_shade_.data();
+        for (std::size_t v = 0; v < n; ++v) {
+            const float bent = slope[v];
+            FoliageShade& shade = shades[v];
+            for (std::size_t k = 0; k < 3; ++k) {
+                shade.front[k] = std::clamp(rest[k * n + v] + rate[k * n + v] * bent, 0.0F, 1.0F) * 255.0F;
+                shade.back[k] = std::clamp(rest[(k + 3U) * n + v] + rate[(k + 3U) * n + v] * bent, 0.0F, 1.0F) * 255.0F;
+            }
+            shade.front[3] = alpha[v];
+            shade.back[3] = alpha[v];
+        }
+    }
+    // Per lit vertex: where the caustic light falls on it, rest plus rate times amount.
+    if (caustic) {
+        const std::size_t n = lit_vertices_.size();
+        const std::uint32_t* lit_index = lit_vertices_.data();
+        const float* rest = light_rest_.data();
+        const float* rate = light_rate_.data();
+        const float* amount = sway_amount_.data();
+        CausticPoint* lights = sway_light_.data();
+        for (std::size_t k = 0; k < n; ++k) {
+            const std::uint32_t v = lit_index[k];
+            const float a = amount[v];
+            CausticPoint& light = lights[v];
+            light.u = rest[k] + rate[k] * a;
+            light.v = rest[n + k] + rate[n + k] * a;
+            light.height = rest[n * 2U + k] + rate[n * 2U + k] * a;
         }
     }
     GouraudPolicy<true> policy{};
@@ -1186,6 +1419,9 @@ void Stage::build_sway(double time) {
             // The facing as the scan decides it, so each corner's side is chosen once.
             const float signed_area = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
             const bool front = signed_area < 0;
+            policy.quantized[0] = &sway_quantized_[i0];
+            policy.quantized[1] = &sway_quantized_[i1];
+            policy.quantized[2] = &sway_quantized_[i2];
             policy.corner0 = front ? sway_shade_[i0].front : sway_shade_[i0].back;
             policy.corner1 = front ? sway_shade_[i1].front : sway_shade_[i1].back;
             policy.corner2 = front ? sway_shade_[i2].front : sway_shade_[i2].back;
@@ -1352,8 +1588,9 @@ void Stage::compose(double time, double light_time, const std::vector<Creature>&
         return;
     const std::vector<std::uint32_t>& sway_color = sway_color_[shown_];
     const std::size_t pixels = sway_color.size();
-    std::memcpy(frame_color_.data(), sway_color.data(), pixels * sizeof(std::uint32_t));
-    std::memcpy(frame_depth_.data(), sway_depth_[shown_].data(), pixels * sizeof(float));
+    std::vector<std::uint32_t>& frame_color = frame_color_[1 - shown_frame_];
+    std::memcpy(frame_color.data(), sway_color.data(), pixels * sizeof(std::uint32_t));
+    std::memcpy(frame_depth_[1 - shown_frame_].data(), sway_depth_[shown_].data(), pixels * sizeof(float));
     const float t = static_cast<float>(light_time);
     const CausticField* field = look_.caustics();
     const bool caustic = field != nullptr && !(*field).empty() && !sway_tap_[shown_].empty();
@@ -1372,14 +1609,14 @@ void Stage::compose(double time, double light_time, const std::vector<Creature>&
             if (level == 0)
                 continue;
             const std::uint32_t add_light = leaf ? leaf_boosts[index] : fixed_boosts[index];
-            const std::uint32_t base = frame_color_[index];
+            const std::uint32_t base = frame_color[index];
             std::uint32_t red_blue = (base & 0xFF00FFU) + ((((add_light & 0xFF00FFU) * level) >> 8U) & 0xFF00FFU);
             std::uint32_t green = (base & 0x00FF00U) + ((((add_light & 0x00FF00U) * level) >> 8U) & 0x00FF00U);
             const std::uint32_t red_blue_over = red_blue & 0x01000100U;
             const std::uint32_t green_over = green & 0x00010000U;
             red_blue = (red_blue | (red_blue_over - (red_blue_over >> 8U))) & 0xFF00FFU;
             green = (green | (green_over - (green_over >> 8U))) & 0x00FF00U;
-            frame_color_[index] = red_blue | green;
+            frame_color[index] = red_blue | green;
         }
     } else {
         for (const std::uint32_t entry : lit_pixels_[shown_]) {
@@ -1388,7 +1625,7 @@ void Stage::compose(double time, double light_time, const std::vector<Creature>&
                                                         fixed_.light_position[index * 3U + 2U], t);
             if (strength <= 0.002F)
                 continue;
-            const std::uint32_t base = frame_color_[index];
+            const std::uint32_t base = frame_color[index];
             const std::uint32_t add_light = fixed_.boost[index];
             std::uint32_t out = 0;
             for (std::uint32_t shift = 0; shift <= 16; shift += 8) {
@@ -1397,18 +1634,20 @@ void Stage::compose(double time, double light_time, const std::vector<Creature>&
                 const std::uint32_t c = static_cast<std::uint32_t>(std::min(255.0F, channel_value + 0.5F));
                 out |= c << shift;
             }
-            frame_color_[index] = out;
+            frame_color[index] = out;
         }
     }
     draw_actors(time, t, creatures);
     draw_risers(time);
-    for (std::uint32_t& pixel : frame_color_)
+    for (std::uint32_t& pixel : frame_color)
         pixel |= 0xFF000000U;
+    shown_frame_ = 1 - shown_frame_;
     ++counters_.frames;
 }
 
 void Stage::draw_actors(double time, float light_time, const std::vector<Creature>& creatures) {
     const float t = static_cast<float>(time);
+    std::vector<std::uint32_t>& frame_color = frame_color_[1 - shown_frame_];
     const CausticField* field = look_.caustics();
     const bool caustic = field != nullptr && !(*field).empty();
     const CausticField::Phase phase = caustic ? (*field).phase(light_time) : CausticField::Phase{};
@@ -1478,7 +1717,7 @@ void Stage::draw_actors(double time, float light_time, const std::vector<Creatur
     fragments_.clear();
     FragmentPolicy<Fragment> policy{};
     policy.width = projection_.width;
-    policy.depth = frame_depth_.data();
+    policy.depth = frame_depth_[1 - shown_frame_].data();
     policy.fragments = &fragments_;
     for (std::size_t p = 0; p < scene_.parts.size(); ++p) {
         const ActorPartRecord& part = scene_.parts[p];
@@ -1541,16 +1780,18 @@ void Stage::draw_actors(double time, float light_time, const std::vector<Creatur
         float alpha = 1;
         const Rgb shade = look_.shade_actor(sample, alpha);
         if (alpha >= 0.999F) {
-            frame_color_[fragment.pixel] = pack_rgb(shade);
+            frame_color[fragment.pixel] = pack_rgb(shade);
         } else {
-            const Rgb under = unpack_rgb(frame_color_[fragment.pixel]);
-            frame_color_[fragment.pixel] = pack_rgb(mix(under, shade, alpha));
+            const Rgb under = unpack_rgb(frame_color[fragment.pixel]);
+            frame_color[fragment.pixel] = pack_rgb(mix(under, shade, alpha));
         }
     }
     counters_.actor_fragments += fragments_.size();
 }
 
 void Stage::draw_risers(double time) {
+    std::vector<std::uint32_t>& frame_color = frame_color_[1 - shown_frame_];
+    const std::vector<float>& frame_depth = frame_depth_[1 - shown_frame_];
     const int width = projection_.width;
     const int height = projection_.height;
     for (const RiserRecord& riser : scene_.risers) {
@@ -1578,7 +1819,7 @@ void Stage::draw_risers(double time) {
                     continue;
                 const std::size_t index =
                     static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x);
-                if (center.inverse_depth <= frame_depth_[index])
+                if (center.inverse_depth <= frame_depth[index])
                     continue;
                 const float dz = std::sqrt(1 - r2);
                 const Vec3 normal = normalize(add(add(scale(projection_.right, dx), scale(projection_.up, -dy)),
@@ -1586,8 +1827,8 @@ void Stage::draw_risers(double time) {
                 const Rgb shade = look_.shade_riser(world, normal, static_cast<float>(y) / static_cast<float>(height));
                 // A soft rim keeps one- and two-pixel bubbles from flickering.
                 const float alpha = std::clamp((1 - r2) * 2.5F, 0.0F, 1.0F);
-                const Rgb under = unpack_rgb(frame_color_[index]);
-                frame_color_[index] = pack_rgb(mix(under, shade, alpha));
+                const Rgb under = unpack_rgb(frame_color[index]);
+                frame_color[index] = pack_rgb(mix(under, shade, alpha));
             }
         }
     }

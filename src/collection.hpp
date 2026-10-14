@@ -87,6 +87,7 @@ class Collection final : public gf::Control, public HelpHost {
     void persist() const;
     void refresh_commands();
     void run_command(const std::string& id);
+    bool forward_game_key(const gf::KeyEvent& event);
     void toggle(int which);
     void clicked_help();
     // A hosted game draws its own live surface below the rail and plays its own music.

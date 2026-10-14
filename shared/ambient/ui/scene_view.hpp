@@ -68,6 +68,7 @@ class SceneView : public gf::Control, public games::CommandSource {
     void set_cabinet(bool foreground, bool music, bool sound, bool reduced = false);
     [[nodiscard]] std::vector<games::GameCommand> commands() const override;
     void run_command(std::string_view id) override;
+    [[nodiscard]] std::string key_command(std::uint32_t key) const override;
     // Detail, then the scenery's own settings, for the PlaySuite Settings screen.
     [[nodiscard]] std::vector<games::GameSetting> settings() const override;
     void change_setting(std::string_view id, double value) override;

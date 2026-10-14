@@ -122,13 +122,16 @@ ambient::SceneSetup stillwater_setup() {
     setup.make_look = &planted_look;
     setup.dress = &dress_planted;
     setup.bounds = ambient::Bounds{};
-    // Tetras cruise about twenty pixels a second at Balanced: twenty frames move
-    // them a pixel at a time. The current is slower still.
-    setup.limits = ambient::CadenceLimits{.frames_preferred = 20,
+    // The picture (grass, then fish and light over it) is built in one burst on a
+    // worker, twenty-four times a second when the budget allows: two fifths of a core
+    // (Fine doubles it). The governor lowers the picture rate first, to eight a
+    // second; the fish then move over the grass in hand between pictures, down to
+    // twelve frames a second.
+    setup.limits = ambient::CadenceLimits{.frames_preferred = 24,
                                           .frames_lowest = 12,
-                                          .sway_preferred = 6,
-                                          .sway_lowest = 3,
-                                          .budget = 0.10};
+                                          .sway_preferred = 24,
+                                          .sway_lowest = 8,
+                                          .budget = 0.75};
     setup.backdrop = 0x1C362D;
     return setup;
 }

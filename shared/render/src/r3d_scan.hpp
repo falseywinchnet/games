@@ -71,7 +71,56 @@ struct Coverage {
     float weight2 = 0;
 };
 
+// What a policy that shades by planes receives once per unclipped triangle: each
+// original corner's weight at the first pixel centre of the triangle's bounds and its
+// change per pixel across and down. The weights are affine in screen space, so any
+// attribute interpolated from the corners is a plane too; the policy forms its planes
+// here, then at the start of each covered run (`run`) and per pixel (`cover_at`, the
+// pixel's offset along the run) it pays one multiply-add per attribute instead of
+// re-forming them from three weights. A policy opts in with `planes = true`.
+struct WeightPlanes {
+    int x = 0;  // the pixel the planes are given at
+    int y = 0;
+    float at[3] = {};
+    float across[3] = {};
+    float down[3] = {};
+    bool front = false;
+};
+
+// A projected corner in the scan's fixed point (1/256 pixel), as the scan rounds it.
+// A policy that sets `cache_quantized = true` hands the scan its unclipped triangle's
+// corners already rounded (`quantized[3]`, in the triangle's order), so a corner shared
+// by several triangles is rounded once.
+struct QuantizedPoint {
+    std::int32_t x = 0;
+    std::int32_t y = 0;
+};
+
+// The scan's rounding of a projected coordinate to fixed point.
+[[nodiscard]] inline std::int32_t quantize(float value) {
+    constexpr float subpixel = 256.0F;
+    constexpr float limit = 4.0e6F;  // keeps 8-bit subpixel products inside 64 bits
+    const std::int32_t result = static_cast<std::int32_t>(std::lrint(std::clamp(value, -limit, limit) * subpixel));
+    return result;
+}
+
 namespace detail {
+
+template <typename Policy> constexpr bool cached_quantized() {
+    if constexpr (requires { Policy::cache_quantized; }) {
+        return Policy::cache_quantized;
+    } else {
+        return false;
+    }
+}
+
+template <typename Policy> constexpr bool shades_by_planes() {
+    if constexpr (requires { Policy::planes; }) {
+        return Policy::planes;
+    } else {
+        return false;
+    }
+}
 
 // A vertex of the clipped polygon, and where it sits in the original triangle.
 struct ClipVertex {
@@ -183,9 +232,16 @@ void sweep(Policy& policy, int width, int height, const ScreenPoint* s, const Cl
     }
     std::int64_t fx[3] = {};
     std::int64_t fy[3] = {};
-    for (int k = 0; k < 3; ++k) {
-        fx[k] = static_cast<std::int64_t>(std::lrint(std::clamp(s[k].x, -limit, limit) * subpixel));
-        fy[k] = static_cast<std::int64_t>(std::lrint(std::clamp(s[k].y, -limit, limit) * subpixel));
+    if constexpr (Identity && cached_quantized<Policy>()) {
+        for (int k = 0; k < 3; ++k) {
+            fx[k] = (*policy.quantized[k]).x;
+            fy[k] = (*policy.quantized[k]).y;
+        }
+    } else {
+        for (int k = 0; k < 3; ++k) {
+            fx[k] = static_cast<std::int64_t>(std::lrint(std::clamp(s[k].x, -limit, limit) * subpixel));
+            fy[k] = static_cast<std::int64_t>(std::lrint(std::clamp(s[k].y, -limit, limit) * subpixel));
+        }
     }
     // Orient counter-clockwise on screen (y down) so every edge function is non-negative
     // inside; the original orientation is `front`.
@@ -271,6 +327,21 @@ void sweep(Policy& policy, int width, int height, const ScreenPoint* s, const Cl
     const std::int64_t column_steps[3] = {step_y0, step_y1, step_y2};
     const int rows = end_y - start_y + 1;
     const int columns = end_x - start_x + 1;
+    constexpr bool planar = Identity && !Policy::perspective && shades_by_planes<Policy>();
+    if constexpr (planar) {
+        // The weights' planes, in the original corner order.
+        WeightPlanes planes{};
+        planes.x = start_x;
+        planes.y = start_y;
+        planes.front = front;
+        const std::int64_t at[3] = {row0 - bias0, row1 - bias1, row2 - bias2};
+        for (int k = 0; k < 3; ++k) {
+            planes.at[order[k]] = static_cast<float>(at[k]) * inverse_area;
+            planes.across[order[k]] = static_cast<float>(row_steps[k]) * inverse_area;
+            planes.down[order[k]] = static_cast<float>(column_steps[k]) * inverse_area;
+        }
+        policy.triangle(planes);
+    }
     // A triangle much taller than it is wide is walked down its columns: one run solved
     // per column instead of one per row, most of which would hold no pixel centre. A
     // solve costs about as much as ten pixel steps, and a column's pixel step does one
@@ -287,12 +358,20 @@ void sweep(Policy& policy, int width, int height, const ScreenPoint* s, const Cl
                 std::int64_t w2 = row2 + step_y2 * first;
                 // The depth as the row walk forms it: the row's start, then the column's step.
                 const float z_column = z_step_x * static_cast<float>(x - start_x);
+                const int y_first = start_y + static_cast<int>(first);
                 const int y_end = start_y + static_cast<int>(last);
-                for (int y = start_y + static_cast<int>(first); y <= y_end; ++y) {
+                if constexpr (planar) {
+                    policy.run(x, y_first, true);
+                }
+                for (int y = y_first; y <= y_end; ++y) {
                     const float z_row = z_at_start + z_step_y * static_cast<float>(y - start_y);
                     const float inverse_depth = z_row + z_column;
                     if (policy.test(x, y, inverse_depth)) {
-                        deliver<Policy, Identity>(policy, x, y, inverse_depth, w0, w1, w2, shading);
+                        if constexpr (planar) {
+                            policy.cover_at(x, y, inverse_depth, static_cast<float>(y - y_first));
+                        } else {
+                            deliver<Policy, Identity>(policy, x, y, inverse_depth, w0, w1, w2, shading);
+                        }
                     }
                     w0 += step_y0;
                     w1 += step_y1;
@@ -317,11 +396,19 @@ void sweep(Policy& policy, int width, int height, const ScreenPoint* s, const Cl
             std::int64_t w1 = row1 + step_x1 * first;
             std::int64_t w2 = row2 + step_x2 * first;
             const float z_row = z_at_start + z_step_y * static_cast<float>(y - start_y);
+            const int x_first = start_x + static_cast<int>(first);
             const int x_end = start_x + static_cast<int>(last);
-            for (int x = start_x + static_cast<int>(first); x <= x_end; ++x) {
+            if constexpr (planar) {
+                policy.run(x_first, y, false);
+            }
+            for (int x = x_first; x <= x_end; ++x) {
                 const float inverse_depth = z_row + z_step_x * static_cast<float>(x - start_x);
                 if (policy.test(x, y, inverse_depth)) {
-                    deliver<Policy, Identity>(policy, x, y, inverse_depth, w0, w1, w2, shading);
+                    if constexpr (planar) {
+                        policy.cover_at(x, y, inverse_depth, static_cast<float>(x - x_first));
+                    } else {
+                        deliver<Policy, Identity>(policy, x, y, inverse_depth, w0, w1, w2, shading);
+                    }
                 }
                 w0 += step_x0;
                 w1 += step_x1;

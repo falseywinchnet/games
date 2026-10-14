@@ -210,8 +210,9 @@ void SceneView::on_window_active(bool active) {
 // another window is in front, so a scene left open beside other work stays cheap.
 void SceneView::update_limits() {
     CadenceLimits limits = setup_.limits;
-    if (settings_.detail == Detail::light)
-        limits.budget *= 0.5;
+    // Fine doubles the budget; Light keeps it: its smaller cost already shows, and a
+    // core that rests between short bursts runs them slowly, so at half the budget
+    // Light moved less often than Balanced.
     if (settings_.detail == Detail::fine)
         limits.budget *= 2.0;
     if (!window_active_) {
@@ -682,6 +683,15 @@ void SceneView::change_setting(std::string_view id, double value) {
     if ((*scenery_).change_setting(id, value, work))
         request_frame();
     finish(work);
+}
+
+// The view's keys that are commands, for the shell to run while the view does not
+// have the keyboard: Q for the detail, and the scenery's own (S, T).
+std::string SceneView::key_command(std::uint32_t key) const {
+    if (key == gf::PhysicalKey::q)
+        return "detail";
+    std::string result = (*scenery_).key_command(key);
+    return result;
 }
 
 void SceneView::run_command(std::string_view id) {

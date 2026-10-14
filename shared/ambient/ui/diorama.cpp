@@ -5,7 +5,19 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdio>
+#include <cstdlib>
 #include <sstream>
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
+#include <time.h>
+#endif
+#ifdef __APPLE__
+#include <pthread.h>
+#include <sys/qos.h>
+#endif
 
 namespace ambient {
 namespace {
@@ -19,6 +31,37 @@ constexpr double fade_in_seconds = 0.6;
 template <typename Result> bool finished(const std::future<Result>& future) {
     const bool result = future.valid() && future.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
     return result;
+}
+
+// The processor time this thread has used, in seconds: what the work costs whatever
+// core it lands on, which is what the governor budgets.
+double thread_seconds() {
+#ifdef _WIN32
+    FILETIME creation{};
+    FILETIME exit{};
+    FILETIME kernel{};
+    FILETIME user{};
+    if (GetThreadTimes(GetCurrentThread(), &creation, &exit, &kernel, &user) == 0)
+        return 0;
+    const unsigned long long ticks = (static_cast<unsigned long long>(user.dwHighDateTime) << 32U) | user.dwLowDateTime;
+    const unsigned long long kernel_ticks =
+        (static_cast<unsigned long long>(kernel.dwHighDateTime) << 32U) | kernel.dwLowDateTime;
+    return static_cast<double>(ticks + kernel_ticks) * 1e-7;
+#else
+    timespec now{};
+    if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &now) != 0)
+        return 0;
+    return static_cast<double>(now.tv_sec) + static_cast<double>(now.tv_nsec) * 1e-9;
+#endif
+}
+
+// A worker building the picture the player is looking at: on Apple silicon, asked for
+// the performance cores, or the system parks it on an efficiency core where the same
+// work takes three times the processor seconds.
+void prefer_performance_core() {
+#ifdef __APPLE__
+    pthread_set_qos_class_self_np(QOS_CLASS_USER_INITIATED, 0);
+#endif
 }
 
 template <typename Result> void abandon(std::future<Result>& future) {
@@ -207,6 +250,7 @@ void Diorama::swap_in() {
     shown_.bundle.reset();
     shown_ = std::move(next_);
     next_ = Showing{};
+    picture_ = &empty_;
     last_sway_ = -1;
 }
 
@@ -278,29 +322,39 @@ const std::vector<std::uint32_t>& Diorama::draw(SceneContext& context, int& widt
     const bool first = last_sway_ < 0;
     const double time = context.time;
     const bool due = time - last_sway_ >= 1.0 / std::max(current.sway, 0.5) || time < last_sway_;
-    // A finished foliage update is shown with this frame.
-    if (finished(swaying_))
+    // A finished picture is shown with this frame.
+    const bool fresh = finished(swaying_);
+    if (fresh)
         finish_sway(&context);
     if (first) {
         // The first picture waits for its foliage.
         finish_sway(nullptr);
         const Clock::time_point start = Clock::now();
         stage.update_sway(time);
+        stage.compose(time, light_time_, shown_.creatures);
+        picture_ = &stage.frame();
         context.charged += std::chrono::duration<double>(Clock::now() - start).count();
         last_sway_ = time;
     } else if (!context.reduced && !context.paused && due && !swaying_.valid()) {
-        // Later updates run beside the frames, so a frame never waits for the grass.
-        swaying_ = std::async(std::launch::async, &Diorama::sway_job, &stage, time);
+        // The picture is built in one burst on a worker: the foliage, then the frame
+        // over it. A core that has rested runs the first milliseconds of a burst
+        // several times slower, so one burst a period costs less than the frame here
+        // and the foliage there. The picture is shown when found finished, a period on.
+        swaying_ = std::async(std::launch::async, &Diorama::picture_job, &stage, time, light_time_, shown_.creatures);
         last_sway_ = time;
+    } else if (!swaying_.valid() && !fresh) {
+        // No picture under way or just shown (reduced motion, or the picture rate
+        // below the frame rate): the creatures move over the foliage in hand.
+        stage.compose(time, light_time_, shown_.creatures);
+        picture_ = &stage.frame();
     }
-    stage.compose(time, light_time_, shown_.creatures);
     width = stage.width();
     height = stage.height();
     const double level = fade_level();
     if (level >= 1.0)
-        return stage.frame();
+        return *picture_;
     // Dimmed toward dark for a change of scene: each channel scaled by the level.
-    const std::vector<std::uint32_t>& frame = stage.frame();
+    const std::vector<std::uint32_t>& frame = *picture_;
     faded_.resize(frame.size());
     const std::uint32_t k = static_cast<std::uint32_t>(std::clamp(level, 0.0, 1.0) * 256.0);
     for (std::size_t index = 0; index < frame.size(); ++index) {
@@ -312,22 +366,34 @@ const std::vector<std::uint32_t>& Diorama::draw(SceneContext& context, int& widt
     return faded_;
 }
 
-double Diorama::sway_job(Stage* stage, double time) {
-    const Clock::time_point start = Clock::now();
+// A picture: the foliage swayed to `time` and shown, then the frame composed over it,
+// in one burst on one worker. The result is its processor time, which is what the
+// governor budgets. GAMES_SWAY_TRACE=1 prints each one.
+double Diorama::picture_job(Stage* stage, double time, double light_time, std::vector<Creature> creatures) {
+    prefer_performance_core();
+    const Clock::time_point began = Clock::now();
+    const double start = thread_seconds();
     (*stage).build_sway(time);
-    const double seconds = std::chrono::duration<double>(Clock::now() - start).count();
-    return seconds;
+    (*stage).show_sway();
+    const double swayed = thread_seconds();
+    (*stage).compose(time, light_time, creatures);
+    const double end = thread_seconds();
+    if (std::getenv("GAMES_SWAY_TRACE") != nullptr)
+        std::fprintf(stderr, "SWAY_TRACE picture cpu %.2f ms (sway %.2f, frame %.2f) wall %.2f ms\n", (end - start) * 1000,
+                     (swayed - start) * 1000, (end - swayed) * 1000,
+                     std::chrono::duration<double>(Clock::now() - began).count() * 1000);
+    return end - start;
 }
 
-// Collects a foliage update: shown and charged to the governor when a context is
-// given, waited for and dropped otherwise.
+// Collects a picture: shown and charged to the governor when a context is given,
+// waited for and dropped otherwise.
 void Diorama::finish_sway(SceneContext* context) {
     if (!swaying_.valid())
         return;
     const double seconds = swaying_.get();
     if (context == nullptr || !shown_.stage)
         return;
-    (*shown_.stage).show_sway();
+    picture_ = &(*shown_.stage).frame();
     (*context).governor.record_sway(seconds);
 }
 

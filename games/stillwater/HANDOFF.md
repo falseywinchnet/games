@@ -466,3 +466,47 @@ caustic tap is 0.3 of that at Light and 1.1 at Fine, the alpha blend 0.2 and 0.5
 vertices 0.7. The next real step is the model, not the scan: the fish (1,200 triangles
 each for a 30 x 13 px sprite, 0.9 ms of every compose) and, at small sizes, the blades'
 segment count; both change pixels and are the owner's call, shown as candidates first.
+
+## 2026-10-14: the grass's arithmetic rearranged, one burst a picture, 24 a second
+
+The day's additive-sheet renderer was reverted at the owner's request (it was faster
+but coarser, and blades articulated in segments). This round keeps the Gouraud path
+and its pixels and rearranges its arithmetic, combined with the best of a parallel
+ChatGPT exploration (`codex/stillwater-visibility`, `docs/evidence/foliage-cpu`).
+
+- **Vertices as linear passes.** The current is linear in five per-root terms
+  (strength, and gain times the sines and cosines of wave and ripple), so each moving
+  vertex's amount and slope are two five-term dot products with coefficients fixed
+  per scene; the view position, caustic texel and shade are each rest plus rate times
+  amount or slope. Vertices are grouped by root and stored as flat rows. 0.80 ms to
+  0.38 ms per update. The five-term basis is ChatGPT's folding of my nine.
+- **Planes in the scan.** `r3d_scan.hpp` gives a policy that opts in (`planes`) its
+  triangle's weight planes once; the grass policy forms its colour, alpha and texel
+  planes and pays one multiply-add each per pixel. Maze and every other policy run as
+  before.
+- **Cached quantization** (ChatGPT's): each projected vertex is rounded to the scan's
+  fixed point once in the vertex pass (`cache_quantized`), not once per triangle corner.
+- **One burst a picture.** `Diorama::picture_job` sways the foliage and composes the
+  frame over it on one worker asking for the performance cores; `Stage::compose`
+  draws a hidden frame and shows it as it returns. A core that rests between bursts
+  runs the first ten or so milliseconds several times slower; three bursts a period
+  each paid that. `GAMES_SWAY_TRACE=1` prints each picture.
+- **Cadence.** 24 frames (floor 12) and 24 pictures (floor 8), budget 0.75 of a core
+  (Fine doubles it; Light no longer halves it). In the app most of that is time at a
+  low clock: the compute-bound scan costs 18-26 ms a picture against 7.6 hot.
+- **Keys.** S (and Q, T) now also work while help is open or a capsule button has
+  the keyboard (`CommandSource::key_command`, run by the shell).
+
+| Grass update, planted 530 x 309, M4, interleaved | Before | After |
+|---|---|---|
+| Light | 5.9 ms | 5.05 ms |
+| Balanced | 8.77 ms | 7.6 ms |
+| Fine | 12.33 ms | 10.64 ms |
+
+In the app at 1100 x 760: 24 frames and 24 pictures a second at every detail and at
+600 x 420 (was 20 and 6); behind the shelf it idles as before. Pixels: reef equal,
+pool within one level, planted 47 of 164,000 differ (rounding moves a few blade
+edges). Measured and dropped (both sessions): reciprocal or stepped-quotient run
+solves, a convex-quad scan of archive pairs (fewer setups and lines, slower), deferred
+shading, depth-tile certificates, column storage, lattice division, span bit masks.
+Both conclude a larger gain needs fewer triangles or cheaper ordered pixel writes.

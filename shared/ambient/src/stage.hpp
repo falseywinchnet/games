@@ -228,10 +228,14 @@ class Stage final {
     // Composes a frame: creatures and particles at `time`, the animated light at
     // `light_time` (held still under reduced motion). The sway layer must have been
     // updated at least once.
+    // The frame is drawn into a hidden buffer and becomes frame() as the call returns,
+    // so a worker may compose while the shown frame is being published; the caller
+    // keeps them apart (one compose at a time, frame() read after the compose that
+    // made it has been joined).
     void compose(double time, double light_time, const std::vector<Creature>& creatures);
     // The last composed frame: width * height pixels, 0xFFRRGGBB.
     [[nodiscard]] const std::vector<std::uint32_t>& frame() const {
-        return frame_color_;
+        return frame_color_[shown_frame_];
     }
     [[nodiscard]] const Projection& projection() const {
         return projection_;
@@ -296,14 +300,48 @@ class Stage final {
     };
     std::vector<MovingVertex> moving_{};
     std::vector<MovingTriangle> moving_triangles_{};
+    // The current, rearranged as a product: per update each root forms five terms
+    // (its strength, and the sines and cosines of its wave and ripple times its gain),
+    // and every moving vertex's amount and slope are two dot products of those terms
+    // with five coefficients of its own, fixed per scene. The vertices are
+    // numbered root by root, so a run of them shares one root's terms.
+    struct RootRun {
+        std::uint32_t root{};
+        std::uint32_t first{};
+        std::uint32_t last{};  // exclusive
+    };
+    static constexpr std::size_t root_terms = 5;
+    std::vector<RootRun> root_runs_{};
+    std::vector<float> root_terms_{};        // root_terms per root, this update
+    std::vector<float> sway_coefficients_{}; // 2 * root_terms rows of one per moving vertex: amount, then slope
+    // Per moving vertex, in view space for this size (the sample grid's when
+    // multisampled): its rest position and its bend direction, x, y and z rows.
+    std::vector<float> rest_view_{};
+    std::vector<float> bend_view_{};
+    std::vector<render::r3d::QuantizedPoint> sway_quantized_{};  // this update, the scan's fixed point
+    std::vector<float> sway_amount_{};  // this update
+    std::vector<float> sway_slope_{};
+    // Per moving vertex, its display shade at rest and per unit of slope: rows of
+    // front red, green, blue, back red, green, blue.
+    std::vector<float> shade_rest_{};
+    std::vector<float> shade_rate_{};
+    std::vector<float> alpha_{};
+    // The vertices the caustic light falls on, and where it falls at rest and per unit
+    // of amount (the light's projection is linear in the position): rows of u, v and
+    // height.
+    std::vector<std::uint32_t> lit_vertices_{};
+    std::vector<float> light_rest_{};
+    std::vector<float> light_rate_{};
     // Per moving vertex, this update.
     std::vector<ViewPoint> sway_view_{};
     std::vector<ScreenPoint> sway_screen_{};
     std::vector<std::uint8_t> sway_in_front_{};
     std::vector<FoliageShade> sway_shade_{};
     // Frame.
-    std::vector<std::uint32_t> frame_color_{};
-    std::vector<float> frame_depth_{};
+    // The composed frames: the shown one and the one being composed.
+    std::vector<std::uint32_t> frame_color_[2]{};
+    std::vector<float> frame_depth_[2]{};
+    int shown_frame_{};
     // Creature workspace, reused every frame.
     struct ActorVertexOut {
         ViewPoint view{};

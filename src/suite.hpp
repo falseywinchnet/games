@@ -2,6 +2,7 @@
 #include "gui_forms/basic_controls.hpp"
 #include "game_entries.hpp"
 #include <array>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -57,6 +58,12 @@ class CommandSource {
     // True for games that draw the shared card backs (SuiteSettings::card_back).
     [[nodiscard]] virtual bool uses_card_backs() const {
         return false;
+    }
+    // The command a plain key runs (empty for none), for a key the shell hears while
+    // the game's own view does not have the keyboard: a capsule button focused, or help
+    // open. The shell then runs it, as the view would have.
+    [[nodiscard]] virtual std::string key_command(std::uint32_t) const {
+        return {};
     }
 };
 

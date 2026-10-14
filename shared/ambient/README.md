@@ -17,8 +17,8 @@ processor redoes only what moved:
 | Layer | Contents | Redrawn |
 |---|---|---|
 | fixed | Everything that does not move: sand, rock, wood, pebbles, ferns, and foliage that cannot move half a pixel at this size. Shaded once per pixel with material maps, normal maps, shadows and 2 × 2 supersampling. Keeps colour, depth, and for surfaces that take animated light, their world position and brightening. | When the view's size or detail changes (on a worker) |
-| sway | The fixed layer plus moving foliage, bent by the current, Gouraud-shaded (each corner's lit side chosen once per triangle, the four channels blended together per pixel); at Balanced and Fine detail drawn with two samples per pixel across (and down, at Fine) and resolved, so thin blades cover a pixel in proportion rather than by whether its centre falls inside them. Two buffers: one is shown while the other is rebuilt on a worker | On the sway cadence (8 per second preferred), beside the frames |
-| frame | The sway layer, the caustics (or simpler animated light) on the lit pixels, then creatures (shaded per pixel, caustics included) and particles | Every animation tick (24 per second preferred) |
+| sway | The fixed layer plus moving foliage, bent by the current, Gouraud-shaded (each corner's lit side chosen once per triangle, the four channels blended together per pixel); at Balanced and Fine detail drawn with two samples per pixel across (and down, at Fine) and resolved, so thin blades cover a pixel in proportion rather than by whether its centre falls inside them. Two buffers: one is shown while the other is rebuilt on a worker | With each picture (24 per second preferred), the frame composed over it in the same burst on a worker |
+| frame | The sway layer, the caustics (or simpler animated light) on the lit pixels, then creatures (shaded per pixel, caustics included) and particles | With each picture; on the UI thread between pictures only while the foliage rests (reduced motion) or the picture rate is below the frame rate |
 
 The frame is enlarged into the window's own live buffers by the renderer's
 `PixelSurface` (`shared/render`), nearest pixel, in the window's byte order: only the
@@ -72,18 +72,26 @@ again during a change redirects it. Dev scripts can say `action scene <id>`.
 - **Paused, hidden or occluded means stopped.** Pause stops the timer; the last
   frame stays on screen. Behind the shelf there are no timer callbacks, frames or
   sound.
-- **A governor holds the budget.** `Governor` measures the time each frame and each
-  sway update takes and lowers the rates, foliage first, so the total stays within
-  the scene's budget (Stillwater: 12 % of one core; Light detail halves it, Fine
-  doubles it). Floors keep motion fluid: 12 frames and 3 sway updates a second.
+- **A governor holds the budget.** `Governor` measures the processor time each
+  picture (the foliage and the frame over it) and each frame takes and lowers the
+  rates, pictures first, so the total stays within the scene's budget (Stillwater:
+  75 % of one core; Fine doubles it). Floors keep motion fluid: 12 frames and 8
+  pictures a second. The seconds are counted as the machine gives them: a core that
+  rests between bursts runs the first ten or so milliseconds of each several times
+  slower (on an M4, a 2.4 ms loop takes 9 ms after a 40 ms rest, whatever the QoS),
+  and compute-bound work such as the scan pays it in full, so most of the budget is
+  time at a low clock.
+- **One burst a picture.** After the first, each picture is built in one burst on a
+  worker (`Diorama::picture_job`, asking for the performance cores): the foliage into
+  the hidden sway buffer, then the frame over it into the hidden frame buffer
+  (`Stage::compose` draws a hidden frame and shows it as it returns). The UI thread
+  shows a finished picture with its next tick and publishes it; a picture is one
+  period old when shown. `GAMES_SWAY_TRACE=1` prints each picture's cost.
 - **An inactive window halves the budget** and the preferred rates.
 - **Reduced motion** holds the foliage and the light still; creatures keep swimming.
 - **Hidden foliage is dropped per size.** With each fixed layer, foliage that the
   fixed scenery hides wherever the current can carry it (or that stays off the
   picture) is left out of the sway updates; the picture is identical.
-- **Frames never wait for the grass.** Sway updates after the first run on a worker
-  into the hidden sway buffer and are shown with the next frame, so a frame costs
-  the same whether or not the foliage moved.
 - **An update streams through the moving foliage.** With each fixed layer the stage
   packs the foliage left moving, in draw order and each vertex once: its rest
   position, bend, current constants, rest shade and gradient side by side, and per

@@ -158,6 +158,9 @@ text with `draw_text_utf8` at a baseline it measures with `measure_text_utf8`.
    `gf::Dirty::layout | gf::Dirty::paint` after a size change.
 5. Keys bubble: a sheet forwards `on_key_bubble` to its page; a control sets
    `event.handled = true` only for keys it used.
+6. A game's single-key commands also work while its view lacks the keyboard (help
+   open, or a capsule button focused): `CommandSource::key_command(key)` names the
+   command, and the shell runs it through `run_command`.
 
 ## Why it is written this way
 
