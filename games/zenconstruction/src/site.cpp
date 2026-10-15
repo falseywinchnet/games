@@ -2,6 +2,7 @@
 
 #include "platform/render.hpp"
 #include "shapes.hpp"
+#include "soil.hpp"
 #include "terrain.hpp"
 
 #include <algorithm>
@@ -16,6 +17,9 @@ namespace {
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kFov = 0.70;   // radians, vertical
 constexpr double kRiffleX = 1.05;  // where the brook runs shallow and broken over stones
+constexpr double kValley = 20.0;
+constexpr double kGroundRepeat = 0.5;   // the ground's textures repeat every two metres
+constexpr int kGroundTexels = 512;      // across one repeat   // the ground and the brook run on to here either way along the valley
 
 // ---------------------------------------------------------------- small helpers
 
@@ -52,42 +56,72 @@ Col terrain_colour(Terrain kind, double x, double y) {
         const float k = static_cast<float>(0.92 + 0.14 * value_noise(x * 2.2, y * 2.2, 23u));
         // wet and darker within a hand's width of the water
         const float wet = static_cast<float>(smoothstep(brook_near_at(x) - 0.16, brook_near_at(x) - 0.01, y));
-        const Col dry{0.86f * k, 0.82f * k, 0.76f * k, 1};
-        const Col damp{0.52f * k, 0.50f * k, 0.46f * k, 1};
+        // the gravel's colour is its texture's (soil.hpp): here its light and shade, and the wet
+        const Col dry{0.94f * k, 0.93f * k, 0.91f * k, 1};
+        const Col damp{0.62f * k, 0.61f * k, 0.59f * k, 1};
         return mix(dry, damp, wet);
     }
     if (kind == Terrain::brook_bed) {
         return Col{0.46f, 0.44f, 0.36f, 1};
     }
-    const float k = static_cast<float>(0.8 + 0.3 * value_noise(x * 1.1, y * 1.1, 29u));
-    return Col{0.42f * k, 0.50f * k, 0.30f * k, 1};
+    // the grass's colour is its texture's; here only its light and shade across the slope,
+    // and broad patches where it has dried in the sun
+    const float k = static_cast<float>(0.84 + 0.26 * value_noise(x * 1.1, y * 1.1, 29u));
+    const float dry = static_cast<float>(smoothstep(0.45, 0.8, value_noise(x * 0.42, y * 0.42, 31u)));
+    return Col{(0.96f + 0.16f * dry) * k, (0.95f + 0.04f * dry) * k, (0.90f - 0.14f * dry) * k, 1};
 }
 
-// A grid of terrain over [x0, x1] x [y0, y1], skipping cells whose centre
-// lies inside the hole. Each vertex carries a splat weight (`w`): where the
-// cobbles show through the fine gravel.
-void build_terrain(std::vector<Vtx>& out, Terrain kind, double x0, double x1, double y0, double y1, double step, double tex_scale,
-                   double hole_x0, double hole_x1, double hole_y0, double hole_y1) {
-    const int nx = std::max(1, static_cast<int>(std::ceil((x1 - x0) / step)));
-    const int ny = std::max(1, static_cast<int>(std::ceil((y1 - y0) / step)));
-    const double sx = (x1 - x0) / nx;
-    const double sy = (y1 - y0) / ny;
-    for (int j = 0; j < ny; j += 1) {
-        for (int i = 0; i < nx; i += 1) {
-            const double xa = x0 + i * sx;
-            const double ya = y0 + j * sy;
-            const double xb = xa + sx;
-            const double yb = ya + sy;
+// The meadow round the gravel bar: grass, and the bar's gravel where it runs out into it.
+Col meadow_colour(double x, double y, double gravel) {
+    return mix(terrain_colour(Terrain::far_bank, x, y), terrain_colour(Terrain::bank, x, y), static_cast<float>(gravel));
+}
+
+// Grid lines over [a, b] in equal steps of at most `step` (as the work's own ground is cut,
+// vertex for vertex), then on outward past each end to `low` and `high`, each step a
+// tenth longer than the last, out where the ground is only seen from afar.
+std::vector<double> grid_lines(double a, double b, double step, double low, double high) {
+    const int n = std::max(1, static_cast<int>(std::ceil((b - a) / step)));
+    const double even = (b - a) / n;
+    std::vector<double> before;
+    double reach = even;
+    for (double x = a - reach; x > low - 1e-9; x -= reach) {
+        before.push_back(x);
+        reach *= 1.1;
+    }
+    std::vector<double> lines(before.rbegin(), before.rend());
+    for (int i = 0; i <= n; i += 1) {
+        lines.push_back(a + i * even);
+    }
+    reach = even;
+    for (double x = b + reach; x < high + 1e-9; x += reach) {
+        lines.push_back(x);
+        reach *= 1.1;
+    }
+    return lines;
+}
+
+// A grid of terrain on the lines `xs` by `ys`, skipping cells whose centre lies inside
+// the hole. Beyond the worksite the grid swings with the brook's bend (y is measured
+// from it), so the banks keep to the water. Each vertex carries a splat weight (`w`):
+// where the cobbles show through the fine gravel.
+void build_terrain_grid(std::vector<Vtx>& out, Terrain kind, const std::vector<double>& xs, const std::vector<double>& ys, double tex_scale,
+                        double hole_x0, double hole_x1, double hole_y0, double hole_y1) {
+    for (size_t j = 0; j + 1 < ys.size(); j += 1) {
+        for (size_t i = 0; i + 1 < xs.size(); i += 1) {
+            const double xa = xs[i];
+            const double ya = ys[j];
+            const double xb = xs[i + 1];
+            const double yb = ys[j + 1];
             const double cx = 0.5 * (xa + xb);
             const double cy = 0.5 * (ya + yb);
             if (cx > hole_x0 && cx < hole_x1 && cy > hole_y0 && cy < hole_y1) {
                 continue;
             }
-            const double xs[4] = {xa, xb, xb, xa};
-            const double ys[4] = {ya, ya, yb, yb};
+            const double xv[4] = {xa, xb, xb, xa};
+            const double yv[4] = {ya + brook_bend(xa), ya + brook_bend(xb), yb + brook_bend(xb), yb + brook_bend(xa)};
             V3 p[4];
             for (int k = 0; k < 4; k += 1) {
-                p[k] = V3{xs[k], ys[k], terrain_height(kind, xs[k], ys[k])};
+                p[k] = V3{xv[k], yv[k], terrain_height(kind, xv[k], yv[k])};
             }
             const int order[6] = {0, 1, 2, 0, 2, 3};
             const V3 n0 = norm(cross(p[1] - p[0], p[2] - p[0]));
@@ -97,17 +131,23 @@ void build_terrain(std::vector<Vtx>& out, Terrain kind, double x0, double x1, do
                 Vtx v;
                 v.p = p[c];
                 v.n = k < 3 ? n0 : n1;
-                v.c = terrain_colour(kind, xs[c], ys[c]);
-                v.s = xs[c] * tex_scale;
-                v.t = ys[c] * tex_scale;
+                v.c = terrain_colour(kind, xv[c], yv[c]);
+                v.s = xv[c] * tex_scale;
+                v.t = yv[c] * tex_scale;
                 // cobble patches: soft noise, more of them down by the water
-                const double patch = value_noise(xs[c] * 2.6, ys[c] * 2.6, 211u);
-                const double near_water = smoothstep(0.2, 0.8, ys[c]);
+                const double patch = value_noise(xv[c] * 2.6, yv[c] * 2.6, 211u);
+                const double near_water = smoothstep(0.2, 0.8, yv[c]);
                 v.w = static_cast<float>(std::min(0.85, std::max(0.0, (patch - 0.55) * 2.0 + 0.3 * near_water)));
                 out.push_back(v);
             }
         }
     }
+}
+
+// A grid of terrain over [x0, x1] x [y0, y1] in steps of at most `step`, skipping the hole.
+void build_terrain(std::vector<Vtx>& out, Terrain kind, double x0, double x1, double y0, double y1, double step, double tex_scale,
+                   double hole_x0, double hole_x1, double hole_y0, double hole_y1) {
+    build_terrain_grid(out, kind, grid_lines(x0, x1, step, x0, x1), grid_lines(y0, y1, step, y0, y1), tex_scale, hole_x0, hole_x1, hole_y0, hole_y1);
 }
 
 // ---------------------------------------------------------------- textures
@@ -209,6 +249,34 @@ void make_pebbles(Tex& t, int size, int cells, std::uint32_t seed, double grit) 
     t.build_mips();
 }
 
+// River gravel from the soil engine: water-worn stones of every size packed in damp grey
+// sand, `stone` metres the middling stone's radius, its relief lit by this site's sun so
+// the stones stand up from the ground and shadow the gaps between them. One repeat is
+// two metres. Old-style pebbles if the engine refuses.
+void make_river_gravel(Tex& t, double stone, double moisture, std::uint32_t seed) {
+    soil::Parameters p = soil::preset(soil::Preset::river_gravel);
+    p.texels_per_metre = kGroundTexels * kGroundRepeat;
+    p.gravel_size = stone;
+    p.moisture = moisture;
+    p.seed = seed;
+    // the sun comes from the south-west: in the texture, from the low s and t (the upper left)
+    p.light_azimuth = std::atan2(-0.52, -0.38) + 2 * kPi;
+    p.light_elevation = std::asin(0.76 / std::sqrt(0.38 * 0.38 + 0.52 * 0.52 + 0.76 * 0.76));
+    soil::Image image;
+    if (!soil::generate_surface(p, kGroundTexels, kGroundTexels, image)) {
+        make_pebbles(t, 128, 30, seed, 0.6);
+        return;
+    }
+    t.make(kGroundTexels, kGroundTexels);
+    for (int y = 0; y < kGroundTexels; y += 1) {
+        for (int x = 0; x < kGroundTexels; x += 1) {
+            const std::uint8_t* px = &image.rgba[(static_cast<size_t>(y) * kGroundTexels + static_cast<size_t>(x)) * 4];
+            t.at(x, y) = pack(px[0] / 255.0, px[1] / 255.0, px[2] / 255.0, 1);
+        }
+    }
+    t.build_mips();
+}
+
 // Bedrock: grey layered stone with a few dark cracks and pale lichen.
 void make_bedrock(Tex& t) {
     t.make(128, 128);
@@ -252,15 +320,60 @@ void make_bedrock(Tex& t) {
     t.build_mips();
 }
 
+// Grass seen from above: a dark mat under short blades in many greens, some sun-bleached,
+// clover in patches and a few daisies and buttercups; seamless both ways.
 void make_grass(Tex& t) {
-    t.make(64, 64);
-    for (int y = 0; y < 64; y += 1) {
-        for (int x = 0; x < 64; x += 1) {
-            const double blade = hash_unit(x, y / 3, 107u);
-            const double soft = value_noise(x / 5.0, y / 5.0, 109u);
-            const double v = 0.75 + 0.3 * blade * soft + 0.1 * soft;
-            t.at(x, y) = pack(v * 0.95, v, v * 0.85, 1);
+    t.make(kGroundTexels, kGroundTexels);
+    for (int y = 0; y < kGroundTexels; y += 1) {
+        for (int x = 0; x < kGroundTexels; x += 1) {
+            const double v = 0.85 + 0.3 * hash_unit(x, y, 101u);
+            t.at(x, y) = pack(0.16 * v, 0.22 * v, 0.09 * v, 1);
         }
+    }
+    const double greens[5][3] = {{0.30, 0.40, 0.16}, {0.36, 0.46, 0.19}, {0.42, 0.50, 0.22}, {0.26, 0.36, 0.15}, {0.54, 0.52, 0.28}};
+    for (int i = 0; i < 3400 * 16; i += 1) {
+        const double x0 = kGroundTexels * hash_unit(i, 1, 103u);
+        const double y0 = kGroundTexels * hash_unit(i, 2, 103u);
+        const double angle = 2 * kPi * hash_unit(i, 3, 103u);
+        const double length = 3 + 6 * hash_unit(i, 4, 103u);
+        const double* g = greens[hash2(i, 5, 103u) % 5u];
+        const double tone = 0.85 + 0.3 * hash_unit(i, 6, 103u);
+        for (int k = 0; k <= static_cast<int>(length * 1.5); k += 1) {
+            const double u = k / (length * 1.5);
+            const double lit = tone * (0.8 + 0.3 * u);   // the tip in the light
+            const int px = static_cast<int>(std::floor(x0 + std::cos(angle) * length * u));
+            const int py = static_cast<int>(std::floor(y0 + std::sin(angle) * length * u));
+            t.at(px, py) = pack(g[0] * lit, g[1] * lit, g[2] * lit, 1);
+        }
+    }
+    // clover: little round leaves in threes
+    for (int i = 0; i < 70 * 16; i += 1) {
+        const double cx = kGroundTexels * hash_unit(i, 1, 107u);
+        const double cy = kGroundTexels * hash_unit(i, 2, 107u);
+        for (int leaf = 0; leaf < 3; leaf += 1) {
+            const double a = 2 * kPi * (leaf / 3.0 + hash_unit(i, 3, 107u));
+            const double lx = cx + 1.6 * std::cos(a);
+            const double ly = cy + 1.6 * std::sin(a);
+            for (int dy = -2; dy <= 2; dy += 1) {
+                for (int dx = -2; dx <= 2; dx += 1) {
+                    if (dx * dx + dy * dy <= 3) {
+                        const double lit = 0.9 + 0.08 * (dx - dy);
+                        t.at(static_cast<int>(lx) + dx, static_cast<int>(ly) + dy) = pack(0.26 * lit, 0.42 * lit, 0.18 * lit, 1);
+                    }
+                }
+            }
+        }
+    }
+    // daisies and buttercups, sparse
+    for (int i = 0; i < 26 * 16; i += 1) {
+        const int fx = static_cast<int>(kGroundTexels * hash_unit(i, 1, 109u));
+        const int fy = static_cast<int>(kGroundTexels * hash_unit(i, 2, 109u));
+        const bool daisy = hash_unit(i, 3, 109u) < 0.6;
+        const double petal[3] = {daisy ? 0.96 : 0.98, daisy ? 0.95 : 0.82, daisy ? 0.90 : 0.18};
+        t.at(fx, fy) = pack(petal[0], petal[1], petal[2], 1);
+        t.at(fx + 1, fy) = pack(petal[0], petal[1], petal[2], 1);
+        t.at(fx, fy + 1) = pack(petal[0], petal[1], petal[2], 1);
+        t.at(fx + 1, fy + 1) = daisy ? pack(0.95, 0.78, 0.18, 1) : pack(petal[0] * 0.9, petal[1] * 0.9, petal[2], 1);
     }
     t.build_mips();
 }
@@ -448,23 +561,25 @@ M34 pose_matrix(const phys::Pose& pose) {
 Site::Site() {
     // The worksite fills its large draws and its shadow pass in bands across the cores.
     r.threads = true;
-    build_textures();
-    build_scenery();
-    place_crane();
     r.light.sun = norm(V3{-0.38, -0.52, 0.76});
     r.light.sun_col = Col{0.88f, 0.82f, 0.70f, 1};
     r.light.amb_col = Col{0.50f, 0.56f, 0.66f, 1};
     r.light.amb_ground = Col{0.50f, 0.47f, 0.42f, 1};
     r.light.hemisphere = true;
+    // the haze the valley fades into, out to the hills
     r.light.fog_col = Col{0.80f, 0.86f, 0.90f, 1};
-    r.light.fog_near = 3.5;
-    r.light.fog_far = 9.0;
+    r.light.fog_near = 6.0;
+    r.light.fog_far = 30.0;
     r.shadow_darkness = 0.52f;
+    build_textures();
+    build_scenery();
+    country_.build(r.light.fog_col, r.light.sun);
+    place_crane();
 }
 
 void Site::build_textures() {
-    make_pebbles(gravel_tex_, 128, 30, 701u, 0.62);
-    make_pebbles(cobble_tex_, 128, 14, 709u, 0.58);
+    make_river_gravel(gravel_tex_, 0.011, 0.5, 701u);
+    make_river_gravel(cobble_tex_, 0.026, 0.62, 709u);
     make_splat(splat_tex_);
     make_bedrock(bedrock_tex_);
     make_grass(grass_tex_);
@@ -486,10 +601,20 @@ void Site::build_scenery() {
     const double fx1 = 1.5;
     const double fy0 = -1.1;
     const double fy1 = layout.brook_near + 0.26;
-    build_terrain(bank_, Terrain::bank, fx0, fx1, fy0, fy1, 0.05, 5.0, 1e9, -1e9, 1e9, -1e9);
-    build_terrain(bank_, Terrain::bank, -4.5, 4.5, -3.4, fy1, 0.2, 5.0, fx0, fx1, fy0, fy1);
-    build_terrain(brook_bed_, Terrain::brook_bed, -4.5, 4.5, layout.brook_near - 0.12, layout.brook_far + 0.18, 0.1, 2.6, 1e9, -1e9, 1e9, -1e9);
-    build_terrain(far_bank_, Terrain::far_bank, -4.5, 4.5, layout.brook_far - 0.3, 4.8, 0.12, 2.0, 1e9, -1e9, 1e9, -1e9);
+    build_terrain(bank_, Terrain::bank, fx0, fx1, fy0, fy1, 0.05, kGroundRepeat, 1e9, -1e9, 1e9, -1e9);
+    // round it the bank runs out into meadow, and on along the valley both ways
+    build_terrain_grid(meadow_, Terrain::bank, grid_lines(-4.5, 4.5, 0.2, -kValley, kValley), grid_lines(-3.4, fy1, 0.2, -14.0, fy1), kGroundRepeat, fx0, fx1,
+                       fy0, fy1);
+    for (size_t k = 0; k < meadow_.size(); k += 1) {
+        const double gravel = gravel_bar(meadow_[k].p.x, meadow_[k].p.y);
+        meadow_[k].w = static_cast<float>(gravel);
+        meadow_[k].c = meadow_colour(meadow_[k].p.x, meadow_[k].p.y, gravel);
+    }
+    build_terrain_grid(brook_bed_, Terrain::brook_bed, grid_lines(-4.5, 4.5, 0.1, -kValley, kValley),
+                       grid_lines(layout.brook_near - 0.12, layout.brook_far + 0.18, 0.1, layout.brook_near - 0.12, layout.brook_far + 0.18), kGroundRepeat, 1e9,
+                       -1e9, 1e9, -1e9);
+    build_terrain_grid(far_bank_, Terrain::far_bank, grid_lines(-4.5, 4.5, 0.12, -kValley, kValley), grid_lines(layout.brook_far - 0.3, 4.8, 0.12,
+                       layout.brook_far - 0.3, 14.0), kGroundRepeat, 1e9, -1e9, 1e9, -1e9);
     for (size_t k = 0; k < brook_bed_.size(); k += 1) {
         brook_bed_[k].w = 0.8f;   // the brook's bed is cobbles
     }
@@ -594,9 +719,10 @@ void Site::build_scenery() {
     // greener out in the stream (the banks hide its edges)
     {
         const int rows = 10;
-        for (int i = 0; i < 90; i += 1) {
-            const double xa = -4.5 + i * 0.1;
-            const double xb = xa + 0.1;
+        const std::vector<double> columns = grid_lines(-4.5, 4.5, 0.1, -kValley, kValley);
+        for (size_t i = 0; i + 1 < columns.size(); i += 1) {
+            const double xa = columns[i];
+            const double xb = columns[i + 1];
             for (int j = 0; j < rows; j += 1) {
                 // each column runs from just under the near bank to just under the far one
                 const double fa = static_cast<double>(j) / rows;
@@ -625,10 +751,11 @@ void Site::build_scenery() {
         }
     }
     // the lapping line along each bank: a ribbon of broken light at the water's edge
+    const std::vector<double> lap_columns = grid_lines(-4.5, 4.5, 0.05, -kValley, kValley);
     for (int side = 0; side < 2; side += 1) {
-        for (int i = 0; i < 180; i += 1) {
-            const double xa = -4.5 + i * 0.05;
-            const double xb = xa + 0.05;
+        for (size_t i = 0; i + 1 < lap_columns.size(); i += 1) {
+            const double xa = lap_columns[i];
+            const double xb = lap_columns[i + 1];
             const double ea = side == 0 ? brook_near_at(xa) : brook_far_at(xa);
             const double eb = side == 0 ? brook_near_at(xb) : brook_far_at(xb);
             const double out = side == 0 ? 0.035 : -0.035;
@@ -646,42 +773,6 @@ void Site::build_scenery() {
                 v.w = static_cast<float>(side);
                 lap_.push_back(v);
             }
-        }
-    }
-    // reeds along the far edge and in the shallows; shrubs and trees beyond
-    for (int i = 0; i < 90; i += 1) {
-        const double x = -4.2 + 8.4 * hash_unit(i, 1, 163u);
-        const bool far_side = hash_unit(i, 2, 163u) < 0.7;
-        const double y = far_side ? brook_far_at(x) - 0.02 + 0.14 * hash_unit(i, 3, 163u) : brook_near_at(x) - 0.02 + 0.05 * hash_unit(i, 3, 163u);
-        if (!far_side && std::abs(x - 0.0) < 1.2) {
-            continue;   // keep the near bank by the work clear
-        }
-        const double height = 0.16 + 0.26 * hash_unit(i, 4, 163u);
-        const double lean = 0.05 * (hash_unit(i, 5, 163u) - 0.5);
-        const double base = far_side ? terrain_height(Terrain::far_bank, x, y) : terrain_height(Terrain::bank, x, y);
-        const Col reed{0.48f + 0.16f * static_cast<float>(hash_unit(i, 6, 163u)), 0.58f, 0.30f, 1};
-        add_triangle(reeds_, V3{x - 0.006, y, base}, V3{x + lean, y, base + height}, V3{x + 0.006, y, base}, reed, 1);
-        add_triangle(reeds_, V3{x, y - 0.006, base}, V3{x + lean, y + 0.01, base + height}, V3{x, y + 0.006, base}, reed, 1);
-    }
-    for (int i = 0; i < 34; i += 1) {
-        const double x = -4.0 + 8.0 * hash_unit(i, 1, 177u);
-        const double y = brook_far_at(x) + 0.5 + 2.4 * hash_unit(i, 2, 177u);
-        const double base = terrain_height(Terrain::far_bank, x, y);
-        const bool tree = hash_unit(i, 3, 177u) < 0.5;
-        if (tree) {
-            const double height = 0.9 + 0.8 * hash_unit(i, 4, 177u);
-            add_mesh(trees_, cylinder_mesh(7), M34::translate(x, y, base) * M34::scale(0.035, 0.035, height * 0.6), Col{0.42f, 0.32f, 0.24f, 1});
-            for (int k = 0; k < 4; k += 1) {
-                const double ox = 0.18 * (hash_unit(i, 10 + k, 177u) - 0.5);
-                const double oy = 0.18 * (hash_unit(i, 20 + k, 177u) - 0.5);
-                const double rr = 0.22 + 0.12 * hash_unit(i, 30 + k, 177u);
-                const float g = static_cast<float>(0.8 + 0.3 * hash_unit(i, 40 + k, 177u));
-                add_mesh(trees_, sphere_mesh(9, 6), M34::translate(x + ox, y + oy, base + height * (0.55 + 0.12 * k)) * M34::scale(rr, rr, rr * 0.85),
-                         Col{0.30f * g, 0.46f * g, 0.22f * g, 1});
-            }
-        } else {
-            const double rr = 0.12 + 0.1 * hash_unit(i, 5, 177u);
-            add_mesh(trees_, sphere_mesh(8, 5), M34::translate(x, y, base + rr * 0.4) * M34::scale(rr * 1.3, rr, rr * 0.8), Col{0.36f, 0.50f, 0.24f, 1});
         }
     }
     // the bowl: a turned wooden bowl, lathed from a profile (radius, height)
@@ -824,35 +915,20 @@ bool Site::project(phys::Vec3 p, double& sx, double& sy) const {
 
 // ---------------------------------------------------------------- drawing
 
-void Site::draw_sky() {
-    // a soft gradient: pale at the horizon, bluer above
-    for (int y = 0; y < r.H; y += 1) {
-        const double t = static_cast<double>(y) / std::max(1, r.H - 1);
-        const float k = static_cast<float>(t);
-        const Col top{0.56f, 0.72f, 0.88f, 1};
-        const Col low{0.86f, 0.89f, 0.88f, 1};
-        const Col c = mix(top, low, std::min(1.f, k * 1.6f));
-        float* row = r.rgb.data() + static_cast<size_t>(y) * static_cast<size_t>(r.W) * 3;
-        for (int x = 0; x < r.W; x += 1) {
-            row[x * 3] = c.r;
-            row[x * 3 + 1] = c.g;
-            row[x * 3 + 2] = c.b;
-        }
-    }
-}
-
 void Site::draw_scenery() {
     r.draw(far_bank_.data(), far_bank_.size(), &grass_tex_, opaque, nullptr, &gravel_tex_, &splat_tex_);
-    r.draw(trees_.data(), trees_.size(), &stone_grain(), opaque);
     r.draw(brook_bed_.data(), brook_bed_.size(), &gravel_tex_, opaque, nullptr, &cobble_tex_, &splat_tex_);
+    r.draw(meadow_.data(), meadow_.size(), &grass_tex_, opaque, nullptr, &gravel_tex_, &splat_tex_);
     r.draw(bank_.data(), bank_.size(), &gravel_tex_, opaque, nullptr, &cobble_tex_, &splat_tex_);
     r.draw(ledge_.data(), ledge_.size(), &bedrock_tex_, opaque);
     r.draw(cobbles_.data(), cobbles_.size(), &stone_grain(), opaque);
     r.draw(stream_stones_.data(), stream_stones_.size(), &stone_grain(), opaque);
-    r.draw(reeds_.data(), reeds_.size(), nullptr, static_cast<std::uint16_t>(double_sided));
+    country_.draw(r);
     r.light.gloss_power = 24;
     r.light.gloss_strength = 0.35;
     r.draw(props_.data(), props_.size(), nullptr, gloss);
+    // the sky last, wherever nothing stands in front of it
+    country_.draw_sky(r);
 }
 
 void Site::draw_brook(double time) {
@@ -1542,7 +1618,6 @@ void Site::render(const SceneState& state, bool still) {
     if (!camera_same) {
         r.shadow_use(false);
         r.clear_depth();
-        draw_sky();
         draw_scenery();
         cache_rgb_ = r.rgb;
         cache_depth_ = r.depth;

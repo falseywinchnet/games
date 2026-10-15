@@ -6,7 +6,7 @@ ridged rows, trodden paths, a sun-baked crust, soil darkened by rain, autumn lea
 litter, frost and snow, and the fan of fresh spoil thrown out round a hole.
 
 Catching Thieves (`games/catchingthieves`) paints its beds and the raccoons' burrows
-with it. Any game that shows bare earth can declare `"engines": ["soil"]` and link
+with it; Rock Stack (`games/zenconstruction`) its gravel bar and the brook's bed. Any game that shows bare earth can declare `"engines": ["soil"]` and link
 `soil_core`.
 
 ## What makes it read as soil
@@ -25,13 +25,15 @@ Studied from tilled, raked, trodden, dry, wet and frozen garden soil:
 | A dry crust | Two levels of Voronoi plates: wide cracks round large plates, finer ones that split them and run out; crack width swells and narrows, plate rims curl up. The lattice is shifted by the seed so no line of the picture favours a crack. |
 | Frost | Crystals on what faces the sky, thickest on convex edges; the soil shows through and the hollows stay dark; a few sparkle. |
 | Snow | Fills hollows first, then caps what faces up; steep clod sides stay bare. Its shading uses a smoothed relief and blue shadows. |
+| River gravel | Water-worn stones in three sizes (cobbles, pebbles, small gravel) packed shoulder to shoulder, laid largest first and each sunk into the ground as it was before any of them, so the small fill the gaps instead of riding on the large. Rounder and glossier than a garden's pebbles, muted under silt, the smallest nearly the sand's colour. |
+| Sand | No aggregate at all (`clods` 0): drifts a metre across, patches a hand across and a grain-by-grain speckle (`mottling`), damp drifts, the faintest wind ripple, rare grit. |
 
 ## Interface (`src/soil.hpp`)
 
 | Piece | Role |
 |---|---|
-| `Parameters` | Scale (`texels_per_metre`: every size is in metres, so one set of parameters makes the same ground at any resolution), `colour`, `moisture`, `moisture_patches`, `tilth` (clod size), `looseness` (worked to trodden), `relief`, `subsoil`; furrow and rake angle, spacing and depth; `pebbles`, `grit`, `straw`, `twigs`, `leaves`, `leaf_colour`; `cracks`, `frost`, `snow`; the baked light and the viewer's direction; `seed`. Out-of-range values are clamped and non-numbers replaced. |
-| `preset(Preset)` | Ten starting points: tilled loam, raked bed, furrowed rows, compacted path, dry crust, damp and dark, leaf litter, frosted, snow dusted, fresh spoil. |
+| `Parameters` | Scale (`texels_per_metre`: every size is in metres, so one set of parameters makes the same ground at any resolution), `colour`, `moisture`, `moisture_patches`, `tilth` (clod size), `looseness` (worked to trodden), `relief`, `subsoil`, `clods` (none for sand), `mottling` (sand's drifts and grain); furrow and rake angle, spacing and depth; `pebbles`, `grit`, `straw`, `twigs`, `leaves`, `leaf_colour`; `gravel` and `gravel_size` (a river's bed of stones); `cracks`, `frost`, `snow`; the baked light and the viewer's direction; `seed`. Out-of-range values are clamped and non-numbers replaced. |
+| `preset(Preset)` | Twelve starting points: tilled loam, raked bed, furrowed rows, compacted path, dry crust, damp and dark, leaf litter, frosted, snow dusted, fresh spoil, river gravel, sand. |
 | `apply_season(Parameters&, Season)` | Moves a ground toward spring, summer, autumn or winter, keeping its colour, scale and rows. |
 | `generate_surface(parameters, width, height, out)` | A picture that repeats seamlessly in both directions, any size from 4 to 4096 texels a side. |
 | `generate_spoil(parameters, Spoil, width, height, out)` | A heap round a hole, centred in the picture, with alpha: a raised ring at the lip, a fan thrown to one side that thins to scattered crumbs, a trodden threshold where the fan leaves the hole, and the heap's soft shadow on the ground as partly transparent dark pixels. The hole itself is left clear for the caller to draw. |
@@ -56,6 +58,7 @@ it; never per frame. Measured on the M4 Mini (Release; `soil_tests` prints these
 | 256 × 256, about 50 texels a metre | 14 ms |
 | 512 × 512, about 100 texels a metre | 68 ms |
 | A dry crust adds two Voronoi layers | about 30 ms at 512 × 512 |
+| River gravel, 256 × 256 | 20 ms |
 
 Catching Thieves paints its bed, four spoil fans and a pit wall in 8–20 ms at the
 smallest window and 30–60 ms at 1100 × 760, once per season and size of cell;

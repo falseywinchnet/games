@@ -61,15 +61,24 @@ bool on_ledge(double x, double y, double margin) {
 // the brook, rising into stony slopes away from the work.
 // The brook's banks wander. The near edge keeps its distance by the work
 // (it may only swing out a little there); both wander freely beyond.
+double brook_bend(double x) {
+    // downstream it turns north round the woods; upstream it comes in from the south-west
+    if (x > 0) {
+        return 1.8 * smoothstep(5.0, 18.0, x);
+    }
+    return -1.3 * smoothstep(5.0, 18.0, -x);
+}
+
 double brook_near_at(double x) {
     const SiteLayout& layout = site_layout();
     const double free = smoothstep(0.9, 2.0, std::abs(x));
-    return layout.brook_near + 0.025 * std::sin(x * 2.1 + 0.4) + 0.07 * free * std::sin(x * 0.85 + 1.3) + 0.03 * free * std::sin(x * 2.9 + 2.2);
+    return layout.brook_near + 0.025 * std::sin(x * 2.1 + 0.4) + 0.07 * free * std::sin(x * 0.85 + 1.3) + 0.03 * free * std::sin(x * 2.9 + 2.2) +
+           brook_bend(x);
 }
 
 double brook_far_at(double x) {
     const SiteLayout& layout = site_layout();
-    return layout.brook_far + 0.08 * std::sin(x * 0.9 + 1.7) + 0.04 * std::sin(x * 2.3 + 0.5) + 0.015 * std::sin(x * 6.1);
+    return layout.brook_far + 0.08 * std::sin(x * 0.9 + 1.7) + 0.04 * std::sin(x * 2.3 + 0.5) + 0.015 * std::sin(x * 6.1) + brook_bend(x);
 }
 
 double terrain_height(Terrain kind, double x, double y) {
@@ -101,6 +110,25 @@ double terrain_height(Terrain kind, double x, double y) {
     return layout.water_level - 0.025 + lip + rise + under + 0.06 * (value_noise(x * 0.9, y * 0.9, 13u) - 0.5) * smoothstep(edge + 0.1, edge + 0.6, y);
 }
 
+double ground_height(double x, double y) {
+    if (y >= brook_far_at(x) - 0.05) {
+        return terrain_height(Terrain::far_bank, x, y);
+    }
+    if (y <= brook_near_at(x) + 0.05) {
+        return terrain_height(Terrain::bank, x, y);
+    }
+    return terrain_height(Terrain::brook_bed, x, y);
+}
+
+double gravel_bar(double x, double y) {
+    const double wander = 0.34 * (value_noise(x * 1.3, y * 1.3, 61u) - 0.5) + 0.16 * (value_noise(x * 3.7, y * 3.7, 63u) - 0.5);
+    const double across = x / 2.3;
+    const double along = (y - 0.1) / 1.9;
+    const double bar = 1 - smoothstep(0.95, 1.55, std::sqrt(across * across + along * along) + wander);
+    const double edge = brook_near_at(x);
+    const double shore = smoothstep(edge - 0.42 + wander, edge - 0.18 + wander, y);
+    return std::max(bar, shore);
+}
 
 phys::Vec3 ledge_rim(int index) {
     const double a = 6.28318530717958647692 * index / 48;

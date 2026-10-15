@@ -588,10 +588,12 @@ void scatter_clods(Field& field, const Parameters& p, const Palette& palette, Ra
         {0.0045, 0.01, 0.75 * (0.25 + 0.75 * loose)},
         {0.002, 0.0045, 0.9 * (0.4 + 0.6 * loose)},
     };
+    const double clods = clamp01(p.clods);
     // A lump under a texel and a half is a single bump: the mottling stands for it.
     const double min_radius_texels = 1.0;
     for (int band_index = 0; band_index < 4; ++band_index) {
-        const Band band = bands[band_index];
+        Band band = bands[band_index];
+        band.coverage *= clods;
         if (band.coverage <= 0.0) continue;
         double small = band.small;
         const double large = band.large;
@@ -680,6 +682,69 @@ void scatter_pebbles(Field& field, const Parameters& p, const Palette& palette, 
         lump.shine = random.range(0.25, 0.55);
         lump.marks_presence = envelope != nullptr;
         stamp(field, lump);
+    }
+}
+
+// A river's gravel bed. Stones are laid largest first, each sunk into the ground as it
+// was before any of them, so the small ones fill the gaps between the large instead
+// of riding on them. Water-worn: rounder, smoother and glossier than a garden's
+// pebbles, in a river's mixed colours. It draws on its own sequence of numbers, so
+// ground without gravel comes out exactly as it always has.
+void lay_gravel(Field& field, const Parameters& p, const Palette& palette) {
+    if (p.gravel <= 0.0) return;
+    Random random(static_cast<std::uint64_t>(p.seed) * 0xD1B54A32D192ED03ull + 0x3Bu);
+    const double tpm = 1.0 / field.metres_per_texel;
+    const double area_m2 = field.width * field.metres_per_texel * field.height * field.metres_per_texel;
+    const double sink = lerp(0.6, 0.36, clamp01(p.looseness));
+    const std::vector<float> bed = field.relief;
+    const Linear colours[8] = {palette.stones[0], palette.stones[1], palette.stones[2], palette.stones[3], palette.stones[4],
+                               linear_of(Colour{0.30, 0.30, 0.31}),   // dark basalt
+                               linear_of(Colour{0.58, 0.42, 0.33}),   // rusty sandstone
+                               linear_of(Colour{0.44, 0.47, 0.44})};  // greenish greywacke
+    // cobbles, pebbles and small gravel: radius against the middling stone, and the share
+    // of the ground each band would cover laid alone
+    const double band_scale[3] = {2.1, 1.0, 0.45};
+    const double band_cover[3] = {0.3, 0.8, 1.0};
+    for (int band = 0; band < 3; ++band) {
+        const double mean_radius = p.gravel_size * band_scale[band];
+        const double one = kPi * mean_radius * mean_radius * 0.8;
+        const int count = static_cast<int>(std::min(80000.0, p.gravel * band_cover[band] * area_m2 / one));
+        for (int index = 0; index < count; ++index) {
+            Lump lump;
+            lump.x = random.range(0.0, field.width);
+            lump.y = random.range(0.0, field.height);
+            const double radius_m = mean_radius * random.range(0.6, 1.4);
+            const double true_radius = radius_m * tpm;
+            const double keep = std::min(1.0, (true_radius / 0.6) * (true_radius / 0.6));
+            const double aspect = random.range(0.6, 0.95);
+            const double angle = random.range(0.0, kPi);
+            const double rise = radius_m * random.range(0.6, 0.95);
+            const double roundness = random.range(0.55, 0.85);
+            const double wobble = random.range(0.0, 0.06);
+            const int stone = static_cast<int>(random.unit() * 7.999);
+            const double tone = random.range(0.62, 1.04);
+            const double shine = random.range(0.35, 0.7);
+            if (random.unit() >= keep) continue;
+            lump.radius = std::max(0.6, true_radius);
+            lump.aspect = aspect;
+            lump.angle = angle;
+            lump.rise = rise;
+            const std::ptrdiff_t centre = field.index(static_cast<int>(lump.x), static_cast<int>(lump.y));
+            const double ground = centre < 0 ? 0.0 : static_cast<double>(bed[static_cast<std::size_t>(centre)]);
+            lump.base = ground - lump.rise * sink;
+            lump.roundness = roundness;
+            lump.wobble[0] = wobble;
+            lump.wobble[1] = wobble * 0.6;
+            // a river's stones are muted under their film of silt; the smallest are
+            // nearly the colour of the sand they lie in
+            Linear colour = scaled(saturated(colours[stone], 0.68), tone);
+            if (band == 2) colour = mixed(colour, palette.soil, 0.4);
+            lump.colour = colour;
+            lump.what = kPebble;
+            lump.wet = 0.0;
+            lump.shine = shine;
+            stamp(field, lump);
+        }
     }
 }
 
@@ -853,13 +918,21 @@ void mottle(Field& field, const Parameters& p, const Palette& palette, std::uint
     const Noise mid = make_noise(field.width, field.height, std::max(2.5, 0.03 * tpm), seed + 53u);
     const Fractal broad = make_fractal(field.width, field.height, std::max(6.0, 0.5 * tpm), seed + 57u);
     const double amplitude = (0.0015 + 0.002 * clamp01(p.looseness)) * std::max(0.0, p.relief);
+    // Sand's own variation: drifts a metre across, patches a hand across, and each grain.
+    const double mottling = clamp01(p.mottling);
+    const Fractal drifts = make_fractal(field.width, field.height, std::max(8.0, 1.0 * tpm), seed + 131u);
+    const Fractal patches = make_fractal(field.width, field.height, std::max(4.0, 0.2 * tpm), seed + 137u);
     for (int y = 0; y < field.height; ++y) {
         for (int x = 0; x < field.width; ++x) {
             const std::size_t at = static_cast<std::size_t>(y) * field.width + x;
             const double f = sample(fine, x, y) - 0.5;
             const double m = sample(mid, x, y) - 0.5;
             // Broad patches where the soil is a little paler or darker (worn, turned, washed).
-            const double tone = 1.0 + sample(broad, x, y) * 0.22;
+            double tone = 1.0 + sample(broad, x, y) * 0.22;
+            if (mottling > 0.0) {
+                const double grain = static_cast<double>(mix32(static_cast<std::uint32_t>(at) * 7u ^ seed) & 0xFFFFu) / 65535.0 - 0.5;
+                tone *= 1.0 + mottling * (sample(drifts, x, y) * 0.42 + sample(patches, x, y) * 0.26 + grain * 0.3);
+            }
             if (field.kind[at] == kSoil || field.kind[at] == kCrack) {
                 field.relief[at] += static_cast<float>(f * amplitude);
                 if (field.red[at] <= 0.0f && field.green[at] <= 0.0f) {
@@ -1105,6 +1178,10 @@ Parameters sanitized(const Parameters& p) {
     q.straw = unit_or(p.straw, 0.0);
     q.twigs = unit_or(p.twigs, 0.0);
     q.leaves = unit_or(p.leaves, 0.0);
+    q.clods = unit_or(p.clods, d.clods);
+    q.mottling = unit_or(p.mottling, 0.0);
+    q.gravel = unit_or(p.gravel, 0.0);
+    q.gravel_size = std::clamp(finite_or(p.gravel_size, d.gravel_size), 0.002, 0.2);
     q.cracks = unit_or(p.cracks, 0.0);
     q.frost = unit_or(p.frost, 0.0);
     q.snow = unit_or(p.snow, 0.0);
@@ -1145,6 +1222,8 @@ const char* preset_name(Preset preset) {
         case Preset::frosted: return "Frosted";
         case Preset::snow_dusted: return "Snow dusted";
         case Preset::fresh_spoil: return "Fresh spoil";
+        case Preset::river_gravel: return "River gravel";
+        case Preset::sand: return "Sand";
     }
     return "Soil";
 }
@@ -1229,6 +1308,32 @@ Parameters preset(Preset preset) {
             p.grit = 0.3;
             p.twigs = 0.15;
             break;
+        case Preset::river_gravel:
+            p.colour = Colour{0.42, 0.39, 0.35};
+            p.tilth = 0.05;
+            p.looseness = 0.3;
+            p.moisture = 0.55;
+            p.moisture_patches = 0.45;
+            p.pebbles = 0.0;
+            p.grit = 0.45;
+            p.gravel = 0.9;
+            p.gravel_size = 0.011;
+            break;
+        case Preset::sand:
+            p.colour = Colour{0.85, 0.78, 0.62};
+            p.clods = 0.0;
+            p.mottling = 1.0;
+            p.tilth = 0.0;
+            p.looseness = 0.2;
+            p.relief = 0.5;
+            p.moisture = 0.04;
+            p.moisture_patches = 0.85;
+            p.pebbles = 0.0;
+            p.grit = 0.15;
+            p.rake_spacing = 0.06;    // the faintest wind ripple
+            p.rake_depth = 0.0008;
+            p.rake_angle = 0.35;
+            break;
     }
     return p;
 }
@@ -1282,6 +1387,7 @@ bool generate_surface(const Parameters& parameters, int width, int height, Image
     scatter_clods(field, p, palette, random, 1.0, nullptr);
     mottle(field, p, palette, seed);
     scatter_pebbles(field, p, palette, random, 1.0, nullptr);
+    lay_gravel(field, p, palette);
     scatter_litter(field, p, palette, random, 1.0);
     rake(field, p, seed);
     scatter_grit(field, p, palette, random);

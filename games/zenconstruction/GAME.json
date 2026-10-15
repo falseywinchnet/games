@@ -42,6 +42,7 @@
   ],
   "hosted": true,
   "engines": [
-    "render"
+    "render",
+    "soil"
   ]
 }

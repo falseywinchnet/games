@@ -67,7 +67,7 @@ int main(int argc, char** argv) {
     const int columns = 5;
     // Rows: the ten presets; one ground through the four seasons and a darker
     // loam; spoil heaps.
-    const int rows = 4;
+    const int rows = 5;
     Sheet sheet;
     sheet.width = columns * cell + gap;
     sheet.height = rows * cell + gap;
@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
         total += spent;
         ++made;
         std::printf("rows, %-10s %4dx%-4d %7.1f ms\n", index < 4 ? season_names[index] : "dark loam", side, side, spent);
-        place(sheet, image, gap + index * cell, gap + 2 * cell, zoom, lawn);
+        place(sheet, image, gap + index * cell, gap + 3 * cell, zoom, lawn);
     }
     for (int index = 0; index < 5; ++index) {
         soil::Parameters parameters = soil::preset(soil::Preset::fresh_spoil);
@@ -123,7 +123,7 @@ int main(int argc, char** argv) {
         total += spent;
         ++made;
         std::printf("spoil %d          %4dx%-4d %7.1f ms\n", index, side, side, spent);
-        place(sheet, image, gap + index * cell, gap + 3 * cell, zoom, lawn);
+        place(sheet, image, gap + index * cell, gap + 4 * cell, zoom, lawn);
     }
     std::printf("%d pictures, %.1f ms in all, %.1f ms each\n", made, total, total / made);
     return write_ppm(argv[1], sheet) ? 0 : 3;

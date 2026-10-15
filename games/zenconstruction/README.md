@@ -15,7 +15,10 @@ its company's name on a sign, and you can flip between them.
       rocks.*        rock generation: five classes, superquadric bases, noise
       stones.*       eight procedural stone textures
       run.*          the run: the bowl, the crane, the stack's rules, saves
-      site.*         the worksite drawn (software 3D, sun shadows)
+      site.*         the worksite drawn (software 3D, sun shadows); its gravel from
+                     the shared soil engine
+      country.*      the country round it: woods, meadow, hedgerow, reeds and
+                     flowers, boulders, logs, the plank, hills and the sky
       terrain.*      shared rendered ground geometry and indexed collision surface
       crane_model.*  the crane and the duck
       shapes.*       mesh builders

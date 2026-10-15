@@ -1,10 +1,11 @@
 #pragma once
-// The worksite drawn: a shallow sand bed in timber edging, a gravel bank
-// behind it and a babbling brook beyond carrying leaves and the odd twig; the
-// bowl of rocks; the little yellow crane with its operator; the stack; the
-// sign with the company's name. Software 3D at low resolution with sun
+// The worksite drawn: a gravel bar running into meadow, and a babbling brook
+// beyond carrying leaves and the odd twig, winding away both ways between the
+// woods and the hills (country.hpp); the bowl of rocks; the little yellow
+// crane with its operator; the stack; the sign with the company's name. Software 3D at low resolution with sun
 // shadows. Unmoving scenery is kept while the camera stays put. Quiet frames
 // still draw the brook and the crane's idle details and their changing shadows.
+#include "country.hpp"
 #include "crane_model.hpp"
 #include "platform/render.hpp"
 #include "run.hpp"
@@ -56,7 +57,7 @@ public:
 private:
     OrbitCamera camera_;
     // static scenery, in world space
-    std::vector<Vtx> bank_, ledge_, cobbles_, brook_bed_, far_bank_, water_, bowl_, sign_post_, boulder_, reeds_, trees_, stream_stones_, props_, lap_;
+    std::vector<Vtx> bank_, meadow_, ledge_, cobbles_, brook_bed_, far_bank_, water_, bowl_, sign_post_, boulder_, stream_stones_, props_, lap_;
     std::vector<V3> stream_stone_spots_;   // where foam rings go (x, y, radius)
     Tex gravel_tex_, cobble_tex_, splat_tex_, bedrock_tex_, grass_tex_, wood_tex_, bowl_tex_, water_tex_, glint_tex_, foam_tex_, sign_tex_, glow_tex_, streak_tex_;
     // the still picture
@@ -67,6 +68,7 @@ private:
     // working storage reused each frame
     std::vector<Vtx> scratch_;
     CraneModel crane_;
+    Country country_;
     // the kept shadow of everything that isn't moving
     bool shadow_kept_ = false;
     std::uint64_t shadow_key_ = 0;
@@ -74,7 +76,6 @@ private:
 
     void build_textures();
     void build_scenery();
-    void draw_sky();
     void draw_scenery();
     void draw_brook(double time);
     void draw_bowl();

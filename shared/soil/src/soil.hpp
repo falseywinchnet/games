@@ -37,6 +37,8 @@ struct Parameters {
     double looseness = 1.0;          // 1 freshly worked .. 0 trodden hard, as on a path
     double relief = 1.0;             // multiplies every height: 0.5 gentler, 2 rougher
     double subsoil = 0.0;            // 0..1 lumps of paler, yellower subsoil turned up with it
+    double clods = 1.0;              // 0 no aggregate at all (sand, silt) .. 1 a worked soil's clods and crumbs
+    double mottling = 0.0;           // 0..1 sand's drifts (a metre), patches (a hand) and grain-by-grain speckle
 
     // Rows. Furrows are the ridges and troughs of a dug bed; rake lines the fine
     // tine marks of a raked one. An angle of 0 runs them along +x.
@@ -54,6 +56,11 @@ struct Parameters {
     double twigs = 0.0;
     double leaves = 0.0;
     Colour leaf_colour{0.62, 0.34, 0.12};  // the season's fallen leaves; varied per leaf
+
+    // A river's gravel: rounded, water-worn stones packed shoulder to shoulder in the
+    // soil (best a damp sand), cobbles standing proud and small gravel filling between.
+    double gravel = 0.0;             // 0 none .. 1 the ground is stones
+    double gravel_size = 0.012;      // metres: the middling stone's radius; cobbles are about twice it
 
     // Weather, each 0 .. 1.
     double cracks = 0.0;             // a dry crust split into curling plates
@@ -82,9 +89,11 @@ enum class Preset {
     leaf_litter,     // an autumn bed under fallen leaves and twigs
     frosted,         // a hard morning frost on dug soil
     snow_dusted,     // a light snow that has not yet covered the clods
-    fresh_spoil      // newly thrown out of a hole: dark, moist, loose and crumbly
+    fresh_spoil,     // newly thrown out of a hole: dark, moist, loose and crumbly
+    river_gravel,    // a gravel bar by water: rounded stones of every size in damp grey sand
+    sand             // pale, soft sand: drifts and damp patches, a grain-by-grain speckle, no clods
 };
-inline constexpr int preset_count = 10;
+inline constexpr int preset_count = 12;
 const char* preset_name(Preset preset);
 Parameters preset(Preset preset);
 

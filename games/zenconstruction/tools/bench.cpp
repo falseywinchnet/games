@@ -180,7 +180,9 @@ int main(int argc, char** argv) {
             zc::ensure_near_mesh(run.rocks[i].rock);
         }
     }
+    t0 = now_ms();
     zc::Site site;
+    std::printf("%-34s %6.1f ms\n", "worksite built", now_ms() - t0);
     site.resize(W, H);
     zc::SceneState state;
     state.run = &run;
@@ -201,7 +203,22 @@ int main(int argc, char** argv) {
         site.render(state, true);
         still.push_back(now_ms() - a);
     }
+    // looking low across the valley, where the most of the country is in view
+    std::vector<double> low;
+    for (int f = 0; f < 60; f += 1) {
+        zc::OrbitCamera camera;
+        camera.yaw = 0.1 * f;
+        camera.pitch = 0.2;
+        camera.distance = 4.2;
+        site.set_camera(camera);
+        state.time = 2 + f / 60.0;
+        const double a = now_ms();
+        site.render(state, false);
+        low.push_back(now_ms() - a);
+    }
     char label[80];
+    std::snprintf(label, sizeof label, "render %dx%d, camera low, turning", W, H);
+    report(label, low);
     std::snprintf(label, sizeof label, "render %dx%d, camera moving", W, H);
     report(label, moving);
     std::snprintf(label, sizeof label, "render %dx%d, camera still", W, H);
