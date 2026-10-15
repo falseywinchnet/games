@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "id": "canopyfalls",
+  "entry_id": 25,
+  "entry_name": "canopyfalls",
+  "namespace": "cf",
+  "title": "Canopy Falls",
+  "kind": "Living waterfall",
+  "blurb": "A jungle waterfall from a high walkway: sunlit spray, a lily pool, harp on the breeze.",
+  "colors": [
+    [
+      46,
+      96,
+      62
+    ],
+    [
+      14,
+      36,
+      26
+    ],
+    [
+      236,
+      228,
+      196
+    ]
+  ],
+  "engines": [
+    "ambient",
+    "particles",
+    "render"
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [
+    "src/falls_view.cpp"
+  ],
+  "audio_sources": [],
+  "libraries": [
+    "cf_core"
+  ],
+  "hosted": true,
+  "audio_prefix": "cf_",
+  "audio_manifest": "",
+  "settles_when_untouched": false,
+  "view_header": "falls_view.hpp",
+  "view_class": "FallsView",
+  "save_file": "canopy_falls-v1.txt",
+  "core_sources": [
+    "src/sky.cpp",
+    "src/still.cpp",
+    "src/falls_voice.cpp"
+  ],
+  "core_tests": [
+    "tests/falls_tests.cpp"
+  ],
+  "contract_test": "tests/view_contract_tests.cpp",
+  "borrowed": [],
+  "rules_target": "canopyfalls_tests"
+}

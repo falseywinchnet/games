@@ -1,14 +1,14 @@
-#include "falls_music.hpp"
+#include "heavenly_harp.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <vector>
 
-namespace cf {
-namespace {
+namespace games::music {
+namespace heavenly {
 
-constexpr double rate = FallsMusic::sample_rate;
+constexpr double rate = 48000;
 constexpr double tau = 6.283185307179586;
 constexpr double pi = 3.141592653589793;
 constexpr double tempo = 66;                 // beats a minute
@@ -109,6 +109,7 @@ struct Struck {
     float swing_depth = 0;
     float left = 0, right = 0;
     int remaining = 0;
+    int prune = 0;                          // samples until the dead partials are dropped
 };
 
 void begin(Struck& s, int voice, double pan, double attack_seconds) {
@@ -149,7 +150,7 @@ void add_tick(Struck& s, double level, double seconds, double brightness_hz) {
 // planes a hair apart (the second fades sooner), so the tone blooms and wavers; a touch
 // sharp as it is plucked, settling in a few hundredths of a second.
 void pluck_harp(Struck& s, double hz, double velocity, double pan, Random& r) {
-    begin(s, FallsMusic::harp, pan, .0018);
+    begin(s, HeavenlyHarp::harp, pan, .0018);
     const double point = r.between(.42, .52);
     const double finger = 1150 + 1300 * velocity;
     const double ring = std::clamp(13 * std::pow(hz / 65, -.62), 1.1, 16.0);
@@ -169,7 +170,7 @@ void pluck_harp(Struck& s, double hz, double velocity, double pan, Random& r) {
 }
 
 void strike_celesta(Struck& s, double hz, double velocity, double pan) {
-    begin(s, FallsMusic::celesta, pan, .001);
+    begin(s, HeavenlyHarp::celesta, pan, .001);
     const double scale = std::pow(hz / 1046.5, -.3);
     add_partial(s, hz, velocity, 2.2 * scale);
     add_partial(s, hz * 1.0007, velocity * .25, 1.6 * scale);
@@ -183,7 +184,7 @@ void strike_celesta(Struck& s, double hz, double velocity, double pan) {
 // higher ones brighter for a harder strike and shorter-lived; the clapper's tick; the
 // tube swaying on its cord.
 void strike_chime(Struck& s, double hz, double strength, double pan, Random& r) {
-    begin(s, FallsMusic::chimes, pan, .0006);
+    begin(s, HeavenlyHarp::chimes, pan, .0006);
     const double ratios[4] = {1, 2.756, 5.404, 8.933};
     const double levels[4] = {1, .6, .38, .2};
     const double ring = 14 * std::pow(hz / 880, -.8);
@@ -225,6 +226,22 @@ float run_struck(Struck& s, const SineTable& sine, Random& r) {
     if (s.swing_depth > 0) {
         s.swing_phase += s.swing_step;
         v *= 1 - s.swing_depth * (.5f + .5f * sine.at(s.swing_phase));
+    }
+    // Partials that have died away below hearing are dropped; with none left, the note is.
+    if (--s.prune <= 0) {
+        s.prune = 512;
+        int k = 0;
+        while (k < s.count) {
+            Partial& p = s.partials[static_cast<std::size_t>(k)];
+            if (std::fabs(p.amp) < 2e-5f) {
+                p = s.partials[static_cast<std::size_t>(s.count - 1)];
+                --s.count;
+                continue;
+            }
+            ++k;
+        }
+        if (s.count == 0 && s.tick < 1e-5f)
+            s.on = false;
     }
     if (--s.remaining <= 0)
         s.on = false;
@@ -382,9 +399,7 @@ struct Chord {
 // The chime's six tubes: A5, B5, D6, E6, F#6, A6.
 constexpr double tubes[6] = {81, 83, 86, 88, 90, 93};
 
-} // namespace
-
-struct FallsMusic::State {
+struct Score {
     Random random{};
     SineTable sine{};
     int solo = -1;
@@ -394,7 +409,7 @@ struct FallsMusic::State {
     int tonic = 62;              // D
     int home = 62;
     double last_tune = 79;
-    std::vector<Event> events;
+    std::vector<Event> events;  // reserved once: planning a phrase allocates nothing
     std::size_t next_event = 0;
     std::array<Struck, 128> struck{};
     std::size_t struck_next = 0;
@@ -410,9 +425,7 @@ struct FallsMusic::State {
     int last_tube = 2;
 };
 
-namespace {
 
-using State = FallsMusic::State;
 
 double step_midi(int tonic, int step) {
     const int octave = static_cast<int>(std::floor(step / 7.0));
@@ -429,7 +442,7 @@ double chord_tone(int tonic, const Chord& chord, int which, int octave_shift) {
     return midi;
 }
 
-void add(State& s, double beat, int voice, double midi, double velocity, double pan) {
+void add(Score& s, double beat, int voice, double midi, double velocity, double pan) {
     Event e;
     e.at = s.phrase_end + static_cast<long>(beat * beat_seconds * rate);
     e.voice = voice;
@@ -472,7 +485,7 @@ double scale_move(int tonic, double midi, int steps) {
     return step_midi(tonic, index + steps);
 }
 
-void plan_phrase(State& s) {
+void plan_phrase(Score& s) {
     Random& r = s.random;
     s.events.clear();
     s.next_event = 0;
@@ -487,7 +500,7 @@ void plan_phrase(State& s) {
         chords[static_cast<std::size_t>(b)].degree = progressions[which][b];
         chords[static_cast<std::size_t>(b)].lydian = progressions[which][b] == 3 && r.unit() < .45;
     }
-    const int harp = FallsMusic::harp;
+    const int harp = HeavenlyHarp::harp;
     // The harp is stroked, softly: the pedals set so every string sounds the chord (its
     // root, third, fifth and ninth), the fingers drawn across a span of strings, up or
     // down, the stroke swelling in its middle and falling away at its ends. One or two
@@ -501,24 +514,26 @@ void plan_phrase(State& s) {
         const int strokes = (b == 3 || r.unit() < .35) ? 1 : 2;
         for (int k = 0; k < strokes; ++k) {
             // The chord's strings from a low one to a high one.
-            std::vector<double> strings;
+            std::array<double, 48> strings{};
+            std::size_t n = 0;
             const int from_octave = -1 + r.pick(2);
             const int span = 1 + r.pick(3);  // octaves
             for (int octave = from_octave; octave < from_octave + span + 1; ++octave)
                 for (int which = 0; which < 4; ++which) {
                     const double m = chord_tone(tonic, c, which == 3 ? 3 : which, octave - (which == 3 ? 1 : 0));
-                    if (m >= 48 && m <= 96)
-                        strings.push_back(m);
+                    if (m >= 48 && m <= 96 && n < strings.size()) {
+                        strings[n] = m;
+                        ++n;
+                    }
                 }
-            std::sort(strings.begin(), strings.end());
-            strings.erase(std::unique(strings.begin(), strings.end()), strings.end());
-            if (strings.size() < 3)
+            std::sort(strings.begin(), strings.begin() + static_cast<std::ptrdiff_t>(n));
+            n = static_cast<std::size_t>(std::unique(strings.begin(), strings.begin() + static_cast<std::ptrdiff_t>(n)) - strings.begin());
+            if (n < 3)
                 continue;
             const bool upward = r.unit() < .65;
             const double length = r.between(.6, 1.8) / beat_seconds;  // in beats
             const double start_at = bar + (k == 0 ? r.between(.05, .6) : r.between(1.5, 2.2));
             const double peak = r.between(.11, .19);
-            const std::size_t n = strings.size();
             for (std::size_t i = 0; i < n; ++i) {
                 const double t = static_cast<double>(i) / static_cast<double>(n - 1);
                 // An unhurried start and finish, quicker through the middle.
@@ -541,7 +556,7 @@ void plan_phrase(State& s) {
                 m -= 12;
             Event e;
             e.at = s.phrase_end + static_cast<long>((b * beats_per_bar - .4) * beat_seconds * rate);
-            e.voice = FallsMusic::pad;
+            e.voice = HeavenlyHarp::pad;
             e.midi = m;
             e.slot = v;
             s.events.push_back(e);
@@ -566,14 +581,14 @@ void plan_phrase(State& s) {
     {
         const Chord& c = chords[3];
         for (int q = 0; q < 6; ++q)
-            add(s, 9.6 + q * .25, FallsMusic::celesta, chord_tone(tonic, c, (3 - q % 4 + 4) % 4, 2 - q / 4), .28 - .03 * q, .35);
+            add(s, 9.6 + q * .25, HeavenlyHarp::celesta, chord_tone(tonic, c, (3 - q % 4 + 4) % 4, 2 - q / 4), .28 - .03 * q, .35);
     }
     std::stable_sort(s.events.begin(), s.events.end(), EarlierFirst{});
     s.phrase_end += static_cast<long>(bars_per_phrase * beats_per_bar * beat_seconds * rate);
     ++s.phrases;
 }
 
-Struck& free_struck(State& s) {
+Struck& free_struck(Score& s) {
     for (std::size_t i = 0; i < s.struck.size(); ++i) {
         Struck& candidate = s.struck[(s.struck_next + i) % s.struck.size()];
         if (!candidate.on) {
@@ -594,9 +609,9 @@ Struck& free_struck(State& s) {
     return s.struck[quietest];
 }
 
-void start(State& s, const Event& e) {
+void start(Score& s, const Event& e) {
     const double hz = midi_hz(e.midi);
-    if (e.voice == FallsMusic::pad) {
+    if (e.voice == HeavenlyHarp::pad) {
         // A new chord: the old set lets go as the other swells in.
         if (e.slot == 0) {
             for (int i = 0; i < 4; ++i)
@@ -606,7 +621,7 @@ void start(State& s, const Event& e) {
         pad_start(s.pad[static_cast<std::size_t>(s.pad_set * 4 + e.slot)], hz, s.random);
         return;
     }
-    if (e.voice == FallsMusic::harp)
+    if (e.voice == HeavenlyHarp::harp)
         pluck_harp(free_struck(s), hz, e.velocity, e.pan, s.random);
     else
         strike_celesta(free_struck(s), hz, e.velocity, e.pan);
@@ -614,7 +629,7 @@ void start(State& s, const Event& e) {
 
 // The breeze swings the clapper: now and then it strikes a tube, and in a gust it bounces
 // among neighbouring tubes in a little run before the swing dies.
-void run_chimes(State& s) {
+void run_chimes(Score& s) {
     Random& r = s.random;
     s.gust_wait -= 1 / rate;
     if (s.gust_wait <= 0) {
@@ -643,10 +658,8 @@ void run_chimes(State& s) {
     s.run_gap = r.between(.07, .26);
 }
 
-} // namespace
-
-FallsMusic::FallsMusic(std::uint32_t seed) : state_(std::make_unique<State>()) {
-    State& s = *state_;
+void prepare(Score& s, std::uint32_t seed) {
+    s.events.reserve(1024);
     s.random.s = seed * 747796405U + 2891336453U;
     if (s.random.s == 0)
         s.random.s = 1;
@@ -661,18 +674,10 @@ FallsMusic::FallsMusic(std::uint32_t seed) : state_(std::make_unique<State>()) {
     s.phrase_end = static_cast<long>(1.6 * rate);  // a breath before the first phrase
 }
 
-FallsMusic::~FallsMusic() = default;
-
-void FallsMusic::solo(int voice) {
-    (*state_).solo = voice;
-}
-
-long FallsMusic::phrases() const {
-    return (*state_).phrases;
-}
-
-void FallsMusic::render_add(std::span<float> stereo, double gain) {
-    State& s = *state_;
+void render(Score& s, std::span<float> stereo, double gain, Fade& fade) {
+    constexpr int voices = HeavenlyHarp::voices;
+    constexpr int harp = HeavenlyHarp::harp;
+    constexpr int pad = HeavenlyHarp::pad;
     const std::size_t frames = stereo.size() / 2;
     const float levels[voices] = {.2f, .38f, .12f, .04f};
     const float sends[voices] = {.42f, .5f, .38f, .45f};
@@ -717,8 +722,9 @@ void FallsMusic::render_add(std::span<float> stereo, double gain) {
         }
         float wet_l = 0, wet_r = 0;
         s.hall.run(send_l, send_r, wet_l, wet_r);
-        float out_l = (dry_l + wet_l * .6f) * static_cast<float>(gain);
-        float out_r = (dry_r + wet_r * .6f) * static_cast<float>(gain);
+        const float level = static_cast<float>(gain * fade.next());
+        float out_l = (dry_l + wet_l * .6f) * level;
+        float out_r = (dry_r + wet_r * .6f) * level;
         out_l = out_l / (1 + std::fabs(out_l) * .3f);
         out_r = out_r / (1 + std::fabs(out_r) * .3f);
         stereo[f * 2] += out_l;
@@ -726,4 +732,24 @@ void FallsMusic::render_add(std::span<float> stereo, double gain) {
     }
 }
 
-} // namespace cf
+} // namespace heavenly
+
+HeavenlyHarp::HeavenlyHarp(std::uint32_t seed) : score_(std::make_unique<heavenly::Score>()) {
+    heavenly::prepare(*score_, seed);
+}
+
+HeavenlyHarp::~HeavenlyHarp() = default;
+
+void HeavenlyHarp::solo(int voice) noexcept {
+    (*score_).solo = voice;
+}
+
+long HeavenlyHarp::phrases() const noexcept {
+    return (*score_).phrases;
+}
+
+void HeavenlyHarp::render_add(std::span<float> stereo, double gain) noexcept {
+    heavenly::render(*score_, stereo, gain, fade_);
+}
+
+} // namespace games::music

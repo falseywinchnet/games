@@ -3,6 +3,7 @@
 #include "particles.hpp"
 
 #include <array>
+#include <chrono>
 #include <span>
 
 namespace cf {
@@ -1004,12 +1005,20 @@ Rgb plunge_mist(const Context& c, Vec3 direction, double x, double y) {
 }
 
 // Mist in the air between the eye and the wall, thicker low down.
-Rgb air_between(const Context& c, Vec3 direction, Rgb seen, double distance, double y) {
+// How much of what lies `distance` away passes the air, and the light the air adds.
+void air_parts(const Context& c, Vec3 direction, double distance, double y, double& through, Rgb& added) {
     const double density = .0006 + .0035 * std::exp(-std::max(0.0, y) / 4);
-    const double through = std::exp(-density * distance);
+    through = std::exp(-density * distance);
     const double mu = dot(direction, c.sun);
     const Rgb light = c.fill_front * .6 + c.sunlight * (phase_hg(mu, .7) * .08);
-    return seen * through + light * (1 - through);
+    added = light * (1 - through);
+}
+
+Rgb air_between(const Context& c, Vec3 direction, Rgb seen, double distance, double y) {
+    double through = 1;
+    Rgb added{};
+    air_parts(c, direction, distance, y, through, added);
+    return seen * through + added;
 }
 
 Cover near_canopy(const Context& c, Vec3 direction, Rgb behind, double limit) {
@@ -1122,10 +1131,42 @@ Cover near_canopy(const Context& c, Vec3 direction, Rgb behind, double limit) {
     return out;
 }
 
+// For the live scene: where a ray meets the falling sheet, what lies behind it, and what
+// lies between it and the eye, so the sheet can be drawn anew each frame and the rest
+// kept: what the eye sees is through * (sheet over rock + haze) + fog, then the jungle.
+struct SheetCapture {
+    bool hit = false;
+    double x = 0, y = 0;        // on the wall
+    Rgb rock{};
+    Rgb haze{};
+    double through = 1;
+    Rgb fog{};
+    double jungle = 0;          // the jungle's cover in front of it
+    Rgb jungle_colour{};
+    // The pool, where the ray meets it: its point, and how its sun glitter reaches the eye.
+    bool pool = false;
+    Vec3 pool_point{};
+    double pool_reach = 0;      // the air's and the jungle's passing, times the Fresnel term
+};
+
+// Whether the falling sheet (or its brink) lies at (x, y) on the wall.
+bool on_sheet(double x, double y) {
+    const Brink here = brink_at(x);
+    const double approx_drop = std::max(0.0, here.level - y);
+    double centre = x;
+    for (int i = 0; i < channel_count; ++i)
+        if (x > channels[i].left - 3 && x < channels[i].right + 3)
+            centre = (channels[i].left + channels[i].right) / 2;
+    const double x0 = centre + (x - centre) / (1 + .009 * approx_drop);
+    const Brink brink = brink_at(x0);
+    const double depth = std::max(0.0, brink.level - brink.rock);
+    return depth > 0 && brink.level - y >= -.07;
+}
+
 // What lies beyond the walkway along a ray from `origin`: the sky, the forest over
 // the rim, the rock wall and the falls in front of it, the spray, the air. `sky_seen`
 // is how much of the sky shows through (for the sun's visibility).
-Rgb far_scene(const Context& c, Vec3 origin, Vec3 direction, double& sky_seen) {
+Rgb far_scene(const Context& c, Vec3 origin, Vec3 direction, double& sky_seen, bool live, SheetCapture& capture) {
     sky_seen = 0;
     if (direction.z <= .01)
         return sky_at(c, direction) * .2;
@@ -1160,14 +1201,30 @@ Rgb far_scene(const Context& c, Vec3 origin, Vec3 direction, double& sky_seen) {
         const double edge = smoothstep(-.25, 0, y - rim);
         base = base + c.sunlight * (.02 * edge);
     }
+    const Rgb haze = crest_haze(c, direction, x, y) + plunge_mist(c, direction, x, y);
+    if (live && on_sheet(x, y)) {
+        // The live scene draws the sheet itself, each frame.
+        capture.hit = true;
+        capture.x = x;
+        capture.y = y;
+        capture.rock = base;
+        capture.haze = haze;
+        air_parts(c, direction, t, y, capture.through, capture.fog);
+        sky_seen = open * .5;
+        return (base + haze) * capture.through + capture.fog;
+    }
     const Cover falls = falls_layer(c, direction, x, y, base);
     Rgb seen = mix(base, falls.color, falls.alpha);
     open *= 1 - falls.alpha;
-    seen = seen + crest_haze(c, direction, x, y);
-    seen = seen + plunge_mist(c, direction, x, y);
+    seen = seen + haze;
     seen = air_between(c, direction, seen, t, y);
     sky_seen = open;
     return seen;
+}
+
+Rgb far_scene(const Context& c, Vec3 origin, Vec3 direction, double& sky_seen) {
+    SheetCapture unused;
+    return far_scene(c, origin, direction, sky_seen, false, unused);
 }
 
 // ---- The walkway ---------------------------------------------------------------------
@@ -1438,7 +1495,7 @@ double pool_height(const Context& c, double x, double z) {
     return rings + chop;
 }
 
-Rgb pool(const Context& c, Vec3 point, Vec3 direction, const std::vector<Box>& boxes) {
+Rgb pool(const Context& c, Vec3 point, Vec3 direction, const std::vector<Box>& boxes, bool glitter_too) {
     const double e = .03;
     const double h = pool_height(c, point.x, point.z);
     const double hx = (pool_height(c, point.x + e, point.z) - h) / e;
@@ -1494,7 +1551,8 @@ Rgb pool(const Context& c, Vec3 point, Vec3 direction, const std::vector<Box>& b
     const Vec3 half_way = normalized(c.sun - direction);
     const double facing = std::max(0.0, dot(n, half_way));
     const double glitter = std::pow(facing, 900) * 60 + std::pow(facing, 60) * .5;
-    color = color + c.sunlight * (glitter * (.3 + fresnel));
+    if (glitter_too)
+        color = color + c.sunlight * (glitter * (.3 + fresnel));
     // Foam drifting out from the plunges.
     const double from_wall = wall_z - point.z;
     const double plunge = std::exp(-from_channel(point.x) / 2) * std::exp(-from_wall / 6);
@@ -1547,7 +1605,7 @@ struct Sample {
     double far_open = 0;    // how much of the sky shows through the behind part
 };
 
-Sample trace(const Context& c, const std::vector<Box>& boxes, Vec3 direction) {
+Sample trace(const Context& c, const std::vector<Box>& boxes, Vec3 direction, bool live, SheetCapture& capture) {
     const Vec3 eye{0, (*c.camera).eye_height, 0};
     // Depths as the particles measure them: along the view for a pinhole lens, along
     // the ray for a stereographic one.
@@ -1576,12 +1634,21 @@ Sample trace(const Context& c, const std::vector<Box>& boxes, Vec3 direction) {
         limit = ground_t;
     } else if (on_pool) {
         limit = pool_t;
-        Rgb seen = pool(c, pool_point, direction, boxes);
+        Rgb seen = pool(c, pool_point, direction, boxes, !live);
         seen = seen + plunge_mist(c, direction, pool_point.x, 1.5) * std::min(1.0, pool_t / wall_z);
         out.behind = air_between(c, direction, seen, pool_t, 0);
         out.depth = pool_t * along;
+        if (live) {
+            double through = 1;
+            Rgb unused{};
+            air_parts(c, direction, pool_t, 0, through, unused);
+            const double cos_in = std::max(.02, -direction.y);
+            capture.pool = true;
+            capture.pool_point = pool_point;
+            capture.pool_reach = through * (.3 + .02 + .98 * std::pow(1 - cos_in, 5));
+        }
     } else {
-        out.behind = far_scene(c, eye, direction, out.far_open);
+        out.behind = far_scene(c, eye, direction, out.far_open, live, capture);
         out.depth = direction.z > .01 ? (wall_z / direction.z) * along : 1e9;
         limit = direction.z > .01 ? wall_z / direction.z : 1e9;
         if (out.far_open > .5)
@@ -1592,7 +1659,9 @@ Sample trace(const Context& c, const std::vector<Box>& boxes, Vec3 direction) {
         double jungle_at = 1e9;
         const Cover trees = jungle_layer(c, direction, out.behind, limit, jungle_at);
         if (trees.alpha > 0) {
-            out.behind = mix(out.behind, air_between(c, direction, trees.color, jungle_at, 10), trees.alpha);
+            capture.jungle = trees.alpha;
+            capture.jungle_colour = air_between(c, direction, trees.color, jungle_at, 10);
+            out.behind = mix(out.behind, capture.jungle_colour, trees.alpha);
             out.far_open *= 1 - trees.alpha;
             if (trees.alpha > .5) {
                 out.depth = jungle_at * along;
@@ -1607,6 +1676,11 @@ Sample trace(const Context& c, const std::vector<Box>& boxes, Vec3 direction) {
     return out;
 }
 
+Sample trace(const Context& c, const std::vector<Box>& boxes, Vec3 direction) {
+    SheetCapture unused;
+    return trace(c, boxes, direction, false, unused);
+}
+
 // ---- The falling water's particles ---------------------------------------------------
 
 struct FallsParticles {
@@ -1618,6 +1692,7 @@ struct FallsParticles {
     std::vector<double> clump_x;          // each clump emitter's place across the wall
     std::vector<float> clump_rate;        // and its steady rate
     std::vector<bool> wide;               // and whether it makes broad faint sheets
+    std::vector<float> base_rates;        // every emitter's rate as planted
 };
 
 particles::Vec vec(double x, double y, double z) {
@@ -1760,9 +1835,9 @@ particles::Lens lens_for(const Camera& camera, int width, int height) {
 
 // Each particle lit as the scene lights it: white water by the sky and by the sun
 // through it, drops brighter, glints the sun itself twinkling, mist glowing.
-std::vector<particles::Shade> shade_falls(const Context& c, const FallsParticles& f, const particles::Lens& lens) {
+void shade_particles(const Context& c, const FallsParticles& f, const particles::Lens& lens, std::vector<particles::Shade>& shades) {
     const particles::System& system = f.system;
-    std::vector<particles::Shade> shades(system.count());
+    shades.assign(system.count(), particles::Shade{});
     const Vec3 eye{0, (*c.camera).eye_height, 0};
     const double level = channels[0].level;
     for (std::size_t i = 0; i < system.count(); ++i) {
@@ -1815,6 +1890,11 @@ std::vector<particles::Shade> shade_falls(const Context& c, const FallsParticles
         shade.alpha = static_cast<float>(alpha);
         shades[i] = shade;
     }
+}
+
+std::vector<particles::Shade> shade_falls(const Context& c, const FallsParticles& f, const particles::Lens& lens) {
+    std::vector<particles::Shade> shades;
+    shade_particles(c, f, lens, shades);
     return shades;
 }
 
@@ -2003,6 +2083,632 @@ void tone_map(const LinearImage& image, double exposure, std::vector<std::uint8_
             bgra[i * 4 + static_cast<std::size_t>(k)] = static_cast<std::uint8_t>(std::lround(encoded * 255));
         }
     }
+}
+
+
+// ---- The live scene --------------------------------------------------------------------
+
+namespace {
+
+// The noise the falling sheet is drawn from, made once: for each column of water across
+// the brink and each moment of a loop of the water's own time, the values the sheet's
+// look is made of, so a frame reads them instead of computing noise. The loop is joined
+// by crossfading its two ends.
+constexpr int noise_channels = 9;  // streak, fine, clump, pulse, fray, rope, swell, texture, fingers
+constexpr double loop_seconds = 8;
+constexpr int loop_rows = 384;     // 48 a second
+
+struct SheetNoise {
+    int columns = 0;
+    double x_from = 0, dx = .12;
+    std::vector<float> values;     // columns * loop_rows * noise_channels
+};
+
+void sheet_noise_at(double xs, double s, float out[noise_channels]) {
+    const double streak = fbm(xs * 1.7, s * 2.6, 81, 4);
+    const double fine = noise2(xs * 7.5, s * 9, 82);
+    const double clump = fbm(xs * 1.1, s * 2.2, 83, 3);
+    const double pulse = fbm(xs * .09, s * .9, 84, 3);
+    const double fray = noise2(s * 1.6, xs * .7, 95);
+    const double ridge_a = 1 - std::fabs(noise2(xs * 3.2, s * .9, 89));
+    const double ridge_b = 1 - std::fabs(noise2(xs * 9, s * 1.6, 90));
+    const double swell = .5 + .5 * noise2(xs * .8, s * .6, 94);
+    const double rope = std::pow(ridge_a, 12) * (.4 + swell) + .3 * std::pow(ridge_b, 16);
+    const double torn = fbm(xs * 3.2, s * 5.5, 91, 5);
+    const double strands = 1 - std::fabs(noise2(xs * 11, s * 3.5, 92));
+    const double texture = std::clamp(.45 + .6 * torn + .35 * std::pow(strands, 4) + .2 * pulse, 0.0, 1.4);
+    const double fingers = 1 - std::fabs(noise2(xs * 2.4, s * 1.1, 93));
+    out[0] = static_cast<float>(streak);
+    out[1] = static_cast<float>(fine);
+    out[2] = static_cast<float>(clump);
+    out[3] = static_cast<float>(pulse);
+    out[4] = static_cast<float>(fray);
+    out[5] = static_cast<float>(rope);
+    out[6] = static_cast<float>(swell);
+    out[7] = static_cast<float>(texture);
+    out[8] = static_cast<float>(fingers);
+}
+
+void make_sheet_noise(SheetNoise& n) {
+    const Channel& ch = channels[0];
+    n.x_from = ch.left - 3;
+    n.columns = static_cast<int>((ch.right - ch.left + 6) / n.dx) + 1;
+    n.values.assign(static_cast<std::size_t>(n.columns) * loop_rows * noise_channels, 0.0f);
+    for (int col = 0; col < n.columns; ++col) {
+        const double xs = n.x_from + col * n.dx;
+        for (int row = 0; row < loop_rows; ++row) {
+            const double s = loop_seconds * row / loop_rows;
+            const double w = static_cast<double>(row) / loop_rows;
+            float a[noise_channels] = {}, b[noise_channels] = {};
+            sheet_noise_at(xs, s, a);
+            sheet_noise_at(xs, s - loop_seconds, b);
+            float* out = &n.values[(static_cast<std::size_t>(col) * loop_rows + static_cast<std::size_t>(row)) * noise_channels];
+            for (int k = 0; k < noise_channels; ++k)
+                out[k] = static_cast<float>(a[k] * (1 - w) + b[k] * w);
+        }
+    }
+}
+
+// What a frame needs of one pixel of the sheet, worked out once per size: everything
+// that does not move.
+struct SheetPixel {
+    std::uint32_t index = 0;
+    std::uint32_t column = 0;
+    float tau = 0;              // the water's flight time to here
+    bool rim = false;           // the brink itself
+    float x0 = 0;
+    float coherent = 0, aerated = 0, gaps = 0, onset = 0, veil = 0, end = 0, low = 0, depth_edge = 0;
+    float glass0[3]{}, glass1[3]{}, froth0[3]{}, froth1[3]{};
+    float rock[3]{};
+    float a = 1, b[3]{};        // what the eye sees: a * (the sheet over the rock) + b
+};
+
+// One pixel of the pool where the sun's glitter can reach the eye.
+struct GlitterPixel {
+    std::uint32_t index = 0;
+    float x = 0, z = 0;
+    float half[3]{};            // between the sun and the eye
+    float reach = 0;
+};
+
+// Everything that does not move, for one picture size.
+struct Baked {
+    int width = 0, height = 0;
+    std::vector<float> behind;   // 3 per pixel, linear light
+    std::vector<float> over;     // 3 per pixel: the walkway, the near leaves and the sun's glare
+    std::vector<float> cover;    // per pixel: how much the walkway and leaves hide
+    std::vector<float> depth;    // per pixel: the distance particles must be nearer than
+    std::vector<SheetPixel> sheet;
+    std::vector<GlitterPixel> glitter;
+    Context context;
+    std::vector<Box> boxes;
+    int samples = 2;
+    int band_rows = 16;
+    // Each band's sheet and glitter pixels, joined in order when the size is finished;
+    // a band writes only its own, so bands can be baked at once.
+    std::vector<std::vector<SheetPixel>> band_sheet;
+    std::vector<std::vector<GlitterPixel>> band_glitter;
+};
+
+SheetPixel sheet_pixel(const Context& c, Vec3 direction, const SheetCapture& cap, const SheetNoise& noise) {
+    SheetPixel p;
+    const double x = cap.x, y = cap.y;
+    const Brink here = brink_at(x);
+    const double approx_drop = std::max(0.0, here.level - y);
+    double centre = x;
+    for (int i = 0; i < channel_count; ++i)
+        if (x > channels[i].left - 3 && x < channels[i].right + 3)
+            centre = (channels[i].left + channels[i].right) / 2;
+    const double x0 = centre + (x - centre) / (1 + .009 * approx_drop);
+    const Brink brink = brink_at(x0);
+    const double depth = std::max(0.0, brink.level - brink.rock);
+    const double drop = brink.level - y;
+    const double mu = dot(direction, c.sun);
+    p.x0 = static_cast<float>(x0);
+    p.column = static_cast<std::uint32_t>(std::clamp(static_cast<int>(std::lround((x0 - noise.x_from) / noise.dx)), 0, noise.columns - 1));
+    p.rock[0] = static_cast<float>(cap.rock.r);
+    p.rock[1] = static_cast<float>(cap.rock.g);
+    p.rock[2] = static_cast<float>(cap.rock.b);
+    // What lies in front: the haze added, the air, then the jungle.
+    const double keep = cap.through * (1 - cap.jungle);
+    const Rgb added = (cap.haze * cap.through + cap.fog) * (1 - cap.jungle) + cap.jungle_colour * cap.jungle;
+    p.a = static_cast<float>(keep);
+    p.b[0] = static_cast<float>(added.r);
+    p.b[1] = static_cast<float>(added.g);
+    p.b[2] = static_cast<float>(added.b);
+    if (drop < 0) {
+        // The brink's thin bright rim.
+        p.rim = true;
+        const double glow = phase_hg(mu, .9) * 4 * pi;
+        const Rgb rim = c.sunlight * water_tint(c, .15) * glow;
+        p.glass0[0] = static_cast<float>(rim.r);
+        p.glass0[1] = static_cast<float>(rim.g);
+        p.glass0[2] = static_cast<float>(rim.b);
+        p.gaps = static_cast<float>(smoothstep(-.07, -.07 * .3, drop) * smoothstep(0, .08, depth));
+        return p;
+    }
+    p.tau = static_cast<float>(flight_time(drop));
+    const double breakup = 4 + 22 * depth;
+    p.coherent = static_cast<float>(std::exp(-drop / breakup));
+    p.aerated = static_cast<float>(1 - std::exp(-std::max(0.0, drop - .5) / (2.2 + 8 * depth)));
+    p.gaps = static_cast<float>(smoothstep(.1, .9, drop / breakup));
+    p.onset = static_cast<float>(smoothstep(.3, 3.5 + 6 * depth, drop));
+    p.veil = static_cast<float>(smoothstep(3, 12, drop));
+    const Channel& own = channels[std::max(0, brink.channel)];
+    p.end = static_cast<float>(std::min(x - own.left, own.right - x) + .035 * drop);
+    p.low = static_cast<float>(smoothstep(-1, 5, y));
+    p.depth_edge = static_cast<float>(depth);
+    const double glass_glow = phase_hg(mu, .9) * 4 * pi;
+    const double brink_line = std::exp(-drop / .25);
+    const Rgb through_glass = c.sunlight * water_tint(c, depth * (.8 - .5 * brink_line)) * glass_glow;
+    const Rgb glass0 = cap.rock * water_tint(c, depth * .5) * .3 + through_glass * (.0025 + .045 * brink_line) + c.fill_up * .008;
+    const double sunlit = 1 - .55 * smoothstep(8, 26, drop + 2);
+    const double froth_glow = phase_hg(mu, .6) * 4 * pi;
+    const Rgb froth0 = c.fill_front * .75 + c.fill_up * .15;
+    const Rgb froth1 = c.sunlight * (.02 * froth_glow * sunlit);
+    const Rgb parts[4] = {glass0, through_glass, froth0, froth1};
+    float* targets[4] = {p.glass0, p.glass1, p.froth0, p.froth1};
+    for (int k = 0; k < 4; ++k) {
+        targets[k][0] = static_cast<float>(parts[k].r);
+        targets[k][1] = static_cast<float>(parts[k].g);
+        targets[k][2] = static_cast<float>(parts[k].b);
+    }
+    return p;
+}
+
+float smooth_f(float edge0, float edge1, float x) {
+    const float t = std::clamp((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+    return t * t * (3 - 2 * t);
+}
+
+// The sheet at one pixel now: its colour over the rock, as the eye sees it.
+void shade_sheet(const SheetPixel& p, const SheetNoise& noise, double time, float out[3]) {
+    if (p.rim) {
+        const double ripple = noise2(p.x0 * 5.5, time * 1.7, 87) + .5 * noise2(p.x0 * 17, time * 3.1, 88);
+        const double sparkle = std::pow(std::clamp(.5 + .6 * ripple, 0.0, 1.0), 6);
+        const float glow = static_cast<float>(.06 + .5 * sparkle);
+        const float alpha = p.gaps;
+        for (int k = 0; k < 3; ++k)
+            out[k] = p.a * (p.rock[k] + (p.glass0[k] * glow - p.rock[k]) * alpha) + p.b[k];
+        return;
+    }
+    // Where this water is in the loop of its own time.
+    double s = (p.tau - time) / loop_seconds;
+    s -= std::floor(s);
+    const double row_f = s * loop_rows;
+    const int row = static_cast<int>(row_f);
+    const float w = static_cast<float>(row_f - row);
+    const int next = (row + 1) % loop_rows;
+    const float* r0 = &noise.values[(static_cast<std::size_t>(p.column) * loop_rows + static_cast<std::size_t>(row)) * noise_channels];
+    const float* r1 = &noise.values[(static_cast<std::size_t>(p.column) * loop_rows + static_cast<std::size_t>(next)) * noise_channels];
+    float n[noise_channels];
+    for (int k = 0; k < noise_channels; ++k)
+        n[k] = r0[k] + (r1[k] - r0[k]) * w;
+    const float streak = n[0], fine = n[1], clump = n[2], pulse = n[3], fray = n[4];
+    const float rope = n[5], swell = n[6], texture = n[7], fingers = n[8];
+    const float white = std::clamp(p.aerated * (.45f + .7f * streak + .25f * fine + .7f * pulse), 0.0f, 1.0f);
+    const float hold = .35f + .5f * p.coherent + .45f * clump + .2f * streak + .5f * pulse;
+    float alpha = std::clamp(1 + (smooth_f(.05f, .45f, hold) - 1) * p.gaps, 0.0f, 1.0f);
+    alpha *= smooth_f(0, .08f, p.depth_edge + .04f * fine);
+    alpha *= smooth_f(-.5f, 2.5f, p.end + 1.6f * fray + .8f * streak);
+    alpha *= p.low;
+    const float whiten = std::clamp(smooth_f(.85f - p.onset, 1.05f - p.onset * .8f, fingers * .6f + white * .6f), 0.0f, 1.0f);
+    const float white_now = std::max(whiten, white * smooth_f(.4f, 1, p.onset)) * (1 - .25f * p.veil);
+    alpha *= 1 - .15f * p.veil * (1 - clump);
+    const float shine = .004f * swell + .05f * rope;
+    const float froth_a = .45f + .55f * texture;
+    const float froth_b = texture * texture;
+    for (int k = 0; k < 3; ++k) {
+        const float glass = p.glass0[k] + p.glass1[k] * shine;
+        const float froth = p.froth0[k] * froth_a + p.froth1[k] * froth_b;
+        const float sheet = glass + (froth - glass) * white_now;
+        out[k] = p.a * (p.rock[k] + (sheet - p.rock[k]) * alpha) + p.b[k];
+    }
+}
+
+// A height field for the pool's ripples that tiles: a few travelling waves with whole
+// numbers of cycles across its 8 m square, so two layers can drift over each other.
+double ripple_height(double x, double z, double t) {
+    const double k = 2 * pi / 8;
+    double h = 0;
+    const int waves[6][2] = {{3, 1}, {-2, 3}, {5, -2}, {1, -6}, {-7, 2}, {4, 5}};
+    const double speeds[6] = {.9, -.7, 1.3, .6, -1.1, .8};
+    for (int i = 0; i < 6; ++i) {
+        const double phase = k * (waves[i][0] * x + waves[i][1] * z) - speeds[i] * t * 2;
+        h += std::sin(phase) / (1 + .25 * i);
+    }
+    return h * .0045;
+}
+
+} // namespace
+
+struct LiveFalls::State {
+    Look look{};
+    Camera camera{};
+    Context base{};
+    SheetNoise noise{};
+    bool noise_made = false;
+    std::unique_ptr<Baked> shown;
+    std::unique_ptr<Baked> pending;
+    FallsParticles particles{};
+    bool warmed = false;
+    double density = 1;          // what the water was planted at
+    double wanted_density = 1;   // and what it should be: applied on the window's thread
+    double time = 0;
+    std::vector<particles::Shade> shades;
+    particles::Layer layer{};
+    std::vector<float> picture;
+    std::array<std::uint8_t, 4096> curve{};   // the tone curve, by the square root of light
+    std::array<double, 6> spent{};             // seconds in each stage of drawing, summed
+    long frames = 0;
+};
+
+namespace {
+
+// The tone curve as a table: exposure, the fitted ACES curve, sRGB, by sqrt(light / 16).
+void make_curve(std::array<std::uint8_t, 4096>& curve, double exposure) {
+    for (std::size_t i = 0; i < curve.size(); ++i) {
+        const double root = static_cast<double>(i) / (curve.size() - 1);
+        const double x = root * root * 16 * exposure;
+        const double mapped = std::clamp(x * (2.51 * x + .03) / (x * (2.43 * x + .59) + .14), 0.0, 1.0);
+        const double encoded = mapped <= .0031308 ? mapped * 12.92 : 1.055 * std::pow(mapped, 1 / 2.4) - .055;
+        curve[i] = static_cast<std::uint8_t>(std::lround(std::clamp(encoded, 0.0, 1.0) * 255));
+    }
+}
+
+std::uint8_t tone(const std::array<std::uint8_t, 4096>& curve, float linear) {
+    const float v = std::max(0.0f, linear) * (1.0f / 16);
+    const float root = std::sqrt(std::min(1.0f, v));
+    return curve[static_cast<std::size_t>(root * 4095 + .5f)];
+}
+
+void scale_rates(FallsParticles& f, double density) {
+    for (int e = 0; e < f.system.emitter_count(); ++e) {
+        if (e >= f.clumps_from && e < f.clumps_to)
+            continue;  // the clumps follow the surges, scaled where they are set
+        f.system.set_rate(e, static_cast<float>(f.base_rates[static_cast<std::size_t>(e)] * density));
+    }
+}
+
+void step_falls(FallsParticles& f, double time, double seconds, double density) {
+    for (int e = f.clumps_from; e < f.clumps_to; ++e) {
+        const std::size_t k = static_cast<std::size_t>(e - f.clumps_from);
+        f.system.set_rate(e, static_cast<float>(f.clump_rate[k] * surge(f.clump_x[k], time) * density));
+    }
+    f.system.advance(seconds);
+}
+
+} // namespace
+
+LiveFalls::LiveFalls(const Look& look, const Camera& camera) : state_(std::make_unique<State>()) {
+    State& s = *state_;
+    s.look = look;
+    s.camera = camera;
+    make_curve(s.curve, look.exposure);
+}
+
+LiveFalls::~LiveFalls() = default;
+
+void LiveFalls::begin_size(int width, int height, int samples) {
+    State& s = *state_;
+    s.pending = std::make_unique<Baked>();
+    Baked& b = *s.pending;
+    b.width = std::max(8, width);
+    b.height = std::max(8, height);
+    b.samples = std::clamp(samples, 1, 3);
+    const std::size_t pixels = static_cast<std::size_t>(b.width) * static_cast<std::size_t>(b.height);
+    b.behind.assign(pixels * 3, 0.0f);
+    b.over.assign(pixels * 3, 0.0f);
+    b.cover.assign(pixels, 0.0f);
+    b.depth.assign(pixels, 1e9f);
+    b.boxes = walkway_boxes();
+    const std::size_t bands = static_cast<std::size_t>((b.height + b.band_rows - 1) / b.band_rows);
+    b.band_sheet.assign(bands, std::vector<SheetPixel>{});
+    b.band_glitter.assign(bands, std::vector<GlitterPixel>{});
+}
+
+int LiveFalls::bands() const {
+    const State& s = *state_;
+    if (!s.pending)
+        return 0;
+    return ((*s.pending).height + (*s.pending).band_rows - 1) / (*s.pending).band_rows;
+}
+
+void LiveFalls::prepare_once() {
+    State& s = *state_;
+    // The context every size shares: the sky, the light, the planting.
+    prepare(s.base, s.look, s.camera, 1100, 760, 0);
+    if (!s.noise_made) {
+        make_sheet_noise(s.noise);
+        s.noise_made = true;
+    }
+    if (!s.warmed) {
+        plant_falls(s.particles, s.look.seed);
+        s.particles.base_rates.clear();
+        for (int e = 0; e < s.particles.system.emitter_count(); ++e)
+            s.particles.base_rates.push_back(s.particles.system.emitter(e).rate);
+        scale_rates(s.particles, s.density);
+        // Run the water until it has reached the pool and the spray has risen.
+        for (int n = 0; n < 300; ++n)
+            step_falls(s.particles, n / 30.0 - 10, 1.0 / 30, s.density);
+        s.warmed = true;
+    }
+}
+
+namespace {
+// One ray's worth of a pixel for the bake: what lies behind, what is in front, how
+// much it covers.
+void bake_sample(const Context& c, const std::vector<Box>& boxes, Vec3 d, Rgb& behind, Rgb& front, double& cover,
+                 SheetCapture& capture, double& depth) {
+    Sample sample = trace(c, boxes, d, true, capture);
+    const double angle = std::acos(std::clamp(dot(d, c.sun), -1.0, 1.0));
+    if (sample.far_open > 0 && angle < Sky::disc_radius())
+        sample.behind = sample.behind + c.sky.disc(angle) * sample.far_open;
+    behind = sample.behind;
+    front = sample.front;
+    cover = sample.cover;
+    depth = sample.depth;
+}
+} // namespace
+
+void LiveFalls::bake_band(int band) {
+    State& s = *state_;
+    Baked& b = *s.pending;
+    Context c = s.base;
+    c.width = b.width;
+    c.height = b.height;
+    const int first = band * b.band_rows;
+    const int last = std::min(b.height, first + b.band_rows);
+    const Vec3 sun = c.sun;
+    std::vector<SheetPixel> sheet;
+    std::vector<GlitterPixel> glitter;
+    // First a ray through each pixel's centre.
+    for (int row = first; row < last; ++row)
+        for (int column = 0; column < b.width; ++column) {
+            const std::size_t i = static_cast<std::size_t>(row) * static_cast<std::size_t>(b.width) + static_cast<std::size_t>(column);
+            const Vec3 d = view_direction(c, column + .5, row + .5);
+            Rgb behind{}, front{};
+            double cover = 0, depth = 1e9;
+            SheetCapture centre;
+            bake_sample(c, b.boxes, d, behind, front, cover, centre, depth);
+            b.depth[i] = static_cast<float>(depth);
+            b.behind[i * 3] = static_cast<float>(behind.r);
+            b.behind[i * 3 + 1] = static_cast<float>(behind.g);
+            b.behind[i * 3 + 2] = static_cast<float>(behind.b);
+            b.over[i * 3] = static_cast<float>(front.r);
+            b.over[i * 3 + 1] = static_cast<float>(front.g);
+            b.over[i * 3 + 2] = static_cast<float>(front.b);
+            b.cover[i] = static_cast<float>(cover);
+            if (cover > .995)
+                continue;
+            if (centre.hit) {
+                SheetPixel p = sheet_pixel(c, d, centre, s.noise);
+                p.index = static_cast<std::uint32_t>(i);
+                sheet.push_back(p);
+            } else if (centre.pool) {
+                const Vec3 half = normalized(sun - d);
+                if (half.y > .96) {
+                    GlitterPixel g;
+                    g.index = static_cast<std::uint32_t>(i);
+                    g.x = static_cast<float>(centre.pool_point.x);
+                    g.z = static_cast<float>(centre.pool_point.z);
+                    g.half[0] = static_cast<float>(half.x);
+                    g.half[1] = static_cast<float>(half.y);
+                    g.half[2] = static_cast<float>(half.z);
+                    g.reach = static_cast<float>(centre.pool_reach * (1 - centre.jungle));
+                    glitter.push_back(g);
+                }
+            }
+        }
+    // Then, where a pixel differs from its neighbours (an edge: a leaf, the rail, the
+    // brink), four more rays across it, and their average.
+    if (b.samples > 1) {
+        std::vector<float> seen(static_cast<std::size_t>(last - first) * static_cast<std::size_t>(b.width));
+        for (int row = first; row < last; ++row)
+            for (int column = 0; column < b.width; ++column) {
+                const std::size_t i = static_cast<std::size_t>(row) * static_cast<std::size_t>(b.width) + static_cast<std::size_t>(column);
+                const float keep = 1 - b.cover[i];
+                seen[static_cast<std::size_t>(row - first) * static_cast<std::size_t>(b.width) + static_cast<std::size_t>(column)] =
+                    std::sqrt(std::max(0.0f, (b.behind[i * 3 + 1] * keep + b.over[i * 3 + 1]) * .7f +
+                                                 (b.behind[i * 3] * keep + b.over[i * 3]) * .2f +
+                                                 (b.behind[i * 3 + 2] * keep + b.over[i * 3 + 2]) * .1f));
+            }
+        for (int row = first; row < last; ++row)
+            for (int column = 0; column < b.width; ++column) {
+                const std::size_t local = static_cast<std::size_t>(row - first) * static_cast<std::size_t>(b.width) + static_cast<std::size_t>(column);
+                const float here = seen[local];
+                float most = 0;
+                if (column > 0)
+                    most = std::max(most, std::fabs(seen[local - 1] - here));
+                if (column + 1 < b.width)
+                    most = std::max(most, std::fabs(seen[local + 1] - here));
+                if (row > first)
+                    most = std::max(most, std::fabs(seen[local - static_cast<std::size_t>(b.width)] - here));
+                if (row + 1 < last)
+                    most = std::max(most, std::fabs(seen[local + static_cast<std::size_t>(b.width)] - here));
+                if (most < .025f)
+                    continue;
+                const std::size_t i = static_cast<std::size_t>(row) * static_cast<std::size_t>(b.width) + static_cast<std::size_t>(column);
+                Rgb behind_sum{}, front_sum{};
+                double cover_sum = 0;
+                for (int sy = 0; sy < 2; ++sy)
+                    for (int sx = 0; sx < 2; ++sx) {
+                        const Vec3 d = view_direction(c, column + .25 + .5 * sx, row + .25 + .5 * sy);
+                        Rgb behind{}, front{};
+                        double cover = 0, depth = 0;
+                        SheetCapture unused;
+                        bake_sample(c, b.boxes, d, behind, front, cover, unused, depth);
+                        behind_sum = behind_sum + behind * .25;
+                        front_sum = front_sum + front * .25;
+                        cover_sum += cover * .25;
+                    }
+                b.behind[i * 3] = static_cast<float>(behind_sum.r);
+                b.behind[i * 3 + 1] = static_cast<float>(behind_sum.g);
+                b.behind[i * 3 + 2] = static_cast<float>(behind_sum.b);
+                b.over[i * 3] = static_cast<float>(front_sum.r);
+                b.over[i * 3 + 1] = static_cast<float>(front_sum.g);
+                b.over[i * 3 + 2] = static_cast<float>(front_sum.b);
+                b.cover[i] = static_cast<float>(cover_sum);
+            }
+    }
+    b.band_sheet[static_cast<std::size_t>(band)] = std::move(sheet);
+    b.band_glitter[static_cast<std::size_t>(band)] = std::move(glitter);
+}
+
+void LiveFalls::finish_size() {
+    State& s = *state_;
+    Baked& b = *s.pending;
+    b.context = s.base;
+    b.context.width = b.width;
+    b.context.height = b.height;
+    // The bands' sheet and glitter pixels, in order.
+    for (const std::vector<SheetPixel>& part : b.band_sheet)
+        b.sheet.insert(b.sheet.end(), part.begin(), part.end());
+    for (const std::vector<GlitterPixel>& part : b.band_glitter)
+        b.glitter.insert(b.glitter.end(), part.begin(), part.end());
+    b.band_sheet.clear();
+    b.band_glitter.clear();
+    // The sun's glare in the eye, over everything, by how much of its disc shows.
+    const Context& c = b.context;
+    SheetCapture unused;
+    const Sample toward = trace(c, b.boxes, c.sun, true, unused);
+    const double visible = toward.far_open * (1 - toward.cover);
+    if (visible > 0)
+        for (int row = 0; row < b.height; ++row)
+            for (int column = 0; column < b.width; ++column) {
+                const std::size_t i = static_cast<std::size_t>(row) * static_cast<std::size_t>(b.width) + static_cast<std::size_t>(column);
+                const Vec3 d = view_direction(c, column + .5, row + .5);
+                const Rgb g = c.sky.glare(std::acos(std::clamp(dot(d, c.sun), -1.0, 1.0))) * visible;
+                b.over[i * 3] += static_cast<float>(g.r);
+                b.over[i * 3 + 1] += static_cast<float>(g.g);
+                b.over[i * 3 + 2] += static_cast<float>(g.b);
+            }
+}
+
+void LiveFalls::adopt() {
+    State& s = *state_;
+    if (s.pending)
+        s.shown = std::move(s.pending);
+}
+
+bool LiveFalls::ready() const {
+    return (*state_).shown != nullptr;
+}
+
+void LiveFalls::size(int& width, int& height) const {
+    const State& s = *state_;
+    width = s.shown ? (*s.shown).width : 0;
+    height = s.shown ? (*s.shown).height : 0;
+}
+
+void LiveFalls::set_density(double density) {
+    State& s = *state_;
+    s.wanted_density = std::clamp(density, .2, 2.0);
+    // Before the water is first planted, it is planted at this density.
+    if (!s.shown && !s.warmed)
+        s.density = s.wanted_density;
+}
+
+void LiveFalls::advance(double seconds) {
+    State& s = *state_;
+    // Nothing moves until the first size has been adopted: until then the water may
+    // still be being planted on another thread.
+    if (!s.shown || seconds <= 0)
+        return;
+    if (s.wanted_density != s.density) {
+        s.density = s.wanted_density;
+        scale_rates(s.particles, s.density);
+    }
+    seconds = std::min(seconds, .25);
+    step_falls(s.particles, s.time, seconds, s.density);
+    s.time += seconds;
+}
+
+std::size_t LiveFalls::particle_count() const {
+    return (*state_).particles.system.count();
+}
+
+double LiveFalls::time() const {
+    return (*state_).time;
+}
+
+// Seconds since `start`, added to `sum`, and the clock restarted.
+void lap(std::chrono::steady_clock::time_point& start, double& sum) {
+    const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+    sum += std::chrono::duration<double>(now - start).count();
+    start = now;
+}
+
+void LiveFalls::stage_costs(double out[6]) const {
+    const State& s = *state_;
+    for (std::size_t k = 0; k < 6; ++k)
+        out[k] = s.frames > 0 ? s.spent[k] / static_cast<double>(s.frames) : 0.0;
+}
+
+void LiveFalls::draw(std::vector<std::uint32_t>& out) {
+    State& s = *state_;
+    if (!s.shown)
+        return;
+    ++s.frames;
+    std::chrono::steady_clock::time_point clock = std::chrono::steady_clock::now();
+    const Baked& b = *s.shown;
+    const std::size_t pixels = static_cast<std::size_t>(b.width) * static_cast<std::size_t>(b.height);
+    s.picture.assign(b.behind.begin(), b.behind.end());
+    lap(clock, s.spent[0]);
+    // The falling sheet, now.
+    for (const SheetPixel& p : b.sheet) {
+        float colour[3];
+        shade_sheet(p, s.noise, s.time, colour);
+        float* at = &s.picture[static_cast<std::size_t>(p.index) * 3];
+        at[0] = colour[0];
+        at[1] = colour[1];
+        at[2] = colour[2];
+    }
+    lap(clock, s.spent[1]);
+    // The sun glittering on the pool's ripples.
+    const Context& c = b.context;
+    const float sun_r = static_cast<float>(c.sunlight.r), sun_g = static_cast<float>(c.sunlight.g), sun_b = static_cast<float>(c.sunlight.b);
+    for (const GlitterPixel& g : b.glitter) {
+        const double e = .03;
+        const double h = ripple_height(g.x, g.z, s.time);
+        const double hx = (ripple_height(g.x + e, g.z, s.time) - h) / e;
+        const double hz = (ripple_height(g.x, g.z + e, s.time) - h) / e;
+        const double fine = .006 * noise2(g.x / .5 + s.time * .3, g.z / .5, 302);
+        const Vec3 n = normalized({-hx - fine, 1, -hz + fine});
+        const double facing = std::max(0.0, n.x * g.half[0] + n.y * g.half[1] + n.z * g.half[2]);
+        const double f60 = std::pow(facing, 60);
+        const double glitter = std::pow(f60, 15) * 60 + f60 * .5;
+        const float add = static_cast<float>(glitter * g.reach);
+        float* at = &s.picture[static_cast<std::size_t>(g.index) * 3];
+        at[0] += sun_r * add;
+        at[1] += sun_g * add;
+        at[2] += sun_b * add;
+    }
+    lap(clock, s.spent[2]);
+    // The particles, between what lies behind and what is in front.
+    const particles::Lens lens = lens_for(s.camera, b.width, b.height);
+    shade_particles(c, s.particles, lens, s.shades);
+    s.layer.reset(b.width, b.height);
+    lap(clock, s.spent[3]);
+    particles::Splat splat;
+    splat.softness = .85f;
+    splat.taper = .3f;
+    splat.fray = .6f;
+    splat.fray_length = .4f;
+    particles::Splatter::draw(s.particles.system, s.shades, lens, b.depth, splat, s.layer);
+    particles::Splatter::compose(s.layer, s.picture);
+    lap(clock, s.spent[4]);
+    // What is in front, then the tone curve.
+    out.resize(pixels);
+    for (std::size_t i = 0; i < pixels; ++i) {
+        const float keep = 1 - b.cover[i];
+        const float r = s.picture[i * 3] * keep + b.over[i * 3];
+        const float g = s.picture[i * 3 + 1] * keep + b.over[i * 3 + 1];
+        const float bl = s.picture[i * 3 + 2] * keep + b.over[i * 3 + 2];
+        out[i] = 0xFF000000U | (static_cast<std::uint32_t>(tone(s.curve, r)) << 16) |
+                 (static_cast<std::uint32_t>(tone(s.curve, g)) << 8) | tone(s.curve, bl);
+    }
+    lap(clock, s.spent[5]);
 }
 
 } // namespace cf

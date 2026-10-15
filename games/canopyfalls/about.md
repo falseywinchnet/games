@@ -1,0 +1,1 @@
+A jungle waterfall to leave running: one great curtain of water pouring over a basalt cliff into a clear lily pool, seen from a walkway high in the rainforest, every drop and glint of it made as it falls, the sun high over the brink. The roar, the forest's birds and frogs, and a softly stroked harp are all made as they play.

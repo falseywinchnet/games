@@ -1,5 +1,5 @@
 #pragma once
-// Canopy Falls' music: something heavenly over the falls, composed as it plays and never
+// Canopy Falls' music (the style "heavenly_harp"): something heavenly over the falls, composed as it plays and never
 // the same twice. Slow and bright, in three, in a major key with the ninth and now and
 // then the raised fourth for light; four-bar phrases on simple progressions, each ending
 // in a bar that breathes, and every few phrases a step to a neighbouring key and back.
@@ -27,34 +27,39 @@
 //             every key the music visits.
 //
 // All go through one hall. Deterministic from its seed; far faster than real time.
+#include "music_core.hpp"
+
 #include <cstdint>
 #include <memory>
 #include <span>
 
-namespace cf {
+namespace games::music {
 
-class FallsMusic final {
+namespace heavenly {
+struct Score;
+}
+
+class HeavenlyHarp final : public Composer {
   public:
-    static constexpr int sample_rate = 48000;
     enum Voice : int { harp = 0, celesta = 1, chimes = 2, pad = 3, voices = 4 };
 
-    explicit FallsMusic(std::uint32_t seed = 1);
-    ~FallsMusic();
-    FallsMusic(const FallsMusic&) = delete;
-    FallsMusic& operator=(const FallsMusic&) = delete;
+    explicit HeavenlyHarp(std::uint32_t seed);
+    ~HeavenlyHarp() override;
+    HeavenlyHarp(const HeavenlyHarp&) = delete;
+    HeavenlyHarp& operator=(const HeavenlyHarp&) = delete;
 
-    // Adds the music to interleaved stereo frames at `gain`.
-    void render_add(std::span<float> stereo, double gain);
+    void render_add(std::span<float> stereo, double gain) noexcept override;
+    void fade_in(double seconds) noexcept override {
+        fade_.start(seconds);
+    }
     // For tools: hear one voice alone (a Voice), or -1 for all.
-    void solo(int voice);
+    void solo(int voice) noexcept;
     // Phrases played so far (for tools and tests).
-    [[nodiscard]] long phrases() const;
-
-    // The music's workings, defined with it (named here so its planning code can take it).
-    struct State;
+    [[nodiscard]] long phrases() const noexcept;
 
   private:
-    std::unique_ptr<State> state_;
+    std::unique_ptr<heavenly::Score> score_;
+    Fade fade_{};
 };
 
-} // namespace cf
+} // namespace games::music

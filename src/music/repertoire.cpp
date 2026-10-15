@@ -2,6 +2,7 @@
 
 #include "styles/banjo_band.hpp"
 #include "styles/glasshouse.hpp"
+#include "styles/heavenly_harp.hpp"
 #include "styles/island_band.hpp"
 #include "styles/koto_garden.hpp"
 #include "styles/lounge_band.hpp"
@@ -31,6 +32,7 @@ std::unique_ptr<Composer> make_cha_cha(std::uint32_t seed) { return std::make_un
 std::unique_ptr<Composer> make_velvet_prize(std::uint32_t seed) { return std::make_unique<SongBand>(seed, velvet_prize()); }
 std::unique_ptr<Composer> make_walk_on(std::uint32_t seed) { return std::make_unique<SongBand>(seed, walk_on()); }
 std::unique_ptr<Composer> make_glasshouse(std::uint32_t seed) { return std::make_unique<Glasshouse>(seed); }
+std::unique_ptr<Composer> make_heavenly_harp(std::uint32_t seed) { return std::make_unique<HeavenlyHarp>(seed); }
 std::unique_ptr<Composer> make_island_band(std::uint32_t seed) { return std::make_unique<IslandBand>(seed); }
 std::unique_ptr<Composer> make_koto_day(std::uint32_t seed) { return std::make_unique<KotoGarden>(seed, false); }
 std::unique_ptr<Composer> make_koto_night(std::uint32_t seed) { return std::make_unique<KotoGarden>(seed, true); }
@@ -44,6 +46,7 @@ constexpr Entry entries[] = {
     {"koto_garden", make_koto_day, 1.0},           // Sudoku by day
     {"koto_garden_night", make_koto_night, 1.0},   // and by night
     {"glasshouse", make_glasshouse, 1.0},          // Nature Cube
+    {"heavenly_harp", make_heavenly_harp, 1.0},    // Canopy Falls: a stroked harp, celesta, wind chimes and a pad
     {"island_band", make_island_band, .25},        // Stillwater
     {"bluegrass", make_scruggs, 1.0},              // Mowing: Scruggs banjo, the lead passed to a fiddle
     {"clawhammer", make_clawhammer, 1.0},          // an open-back banjo frailing old-time tunes

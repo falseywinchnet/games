@@ -79,6 +79,7 @@ add_library(music_core STATIC
   src/music/repertoire.cpp
   src/music/styles/banjo_band.cpp
   src/music/styles/glasshouse.cpp
+  src/music/styles/heavenly_harp.cpp
   src/music/styles/island_band.cpp
   src/music/styles/koto_garden.cpp
   src/music/styles/lounge_band.cpp

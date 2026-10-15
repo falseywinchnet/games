@@ -158,9 +158,13 @@ void glows_keep_their_light() {
     std::vector<particles::Shade> shades(system.count(), particles::Shade{1, 1, 1, 1});
     particles::Layer layer;
     particles::Splatter::draw(system, shades, lens, {}, particles::Splat{}, layer);
+    // However it was drawn (a large glow goes on the half-resolution grid), composed
+    // over black its light is all there, once.
+    std::vector<float> picture(static_cast<std::size_t>(200 * 200 * 3), 0.0f);
+    particles::Splatter::compose(layer, picture);
     double total = 0;
-    for (std::size_t i = 0; i < layer.added.size(); i += 3)
-        total += layer.added[i];
+    for (std::size_t i = 0; i < picture.size(); i += 3)
+        total += picture[i];
     check(std::fabs(total - 1) < .03, "a glow adds its light once, spread but not lost");
 }
 
