@@ -323,7 +323,7 @@ void TableView::cycle_mark(int bird) {
 }
 
 void TableView::fire(int bird) {
-    // the paintball leaves the JE ACCUSE! and flies at the bird
+    // the paintball leaves the BAD POLLY! and flies at the bird
     if (phase_ != Phase::aim || bird < 0 || bird >= puz_.birds) return;
     phase_ = Phase::shot;
     shot_t_ = 0;
@@ -638,7 +638,7 @@ void TableView::tick() {
     st_.confetti = phase_ == Phase::verdict && won_ && !cab_reduced_ ? std::min(1.0, phase_t_ / .5) : 0;
     {
         const bool on = (opt_.hosted || music_) && cab_music_ && cab_front_;
-        audio_music(visible() && cab_front_ ? "pt_music" : "", on);
+        audio_live_music(visible() && cab_front_ && on);
     }
     audio_tick(dt);
     save_t_ += dt;
@@ -868,7 +868,7 @@ void TableView::layout_game_buttons() {
     else {
         int jx, jy, jw, jh;
         jaccuse_box(jx, jy, jw, jh);
-        buttons_.push_back({"jaccuse", "JE ACCUSE!", jx, jy, jw, jh, phase_ == Phase::play || phase_ == Phase::aim});
+        buttons_.push_back({"jaccuse", "BAD POLLY!", jx, jy, jw, jh, phase_ == Phase::play || phase_ == Phase::aim});
     }
     if (!opt_.hosted) {
         buttons_.push_back({"help", "Help", 8, y, 44, bh});
@@ -907,7 +907,7 @@ std::vector<std::string> TableView::panel_lines() const {
                 "Click a bird to hear what it has to say. Ask again and it may say something else. The birds who are playing come back to the same few facts, in new words; the chatterers talk about the weather, the day, their perches and their jokes. Finding out who is playing is part of the case.",
                 "Some claims you can check by looking: who sits on rope or brass, in the shade or the sun, high or low, beside whom. A liar caught out by eye is a liar for certain.",
                 "On later tables one of the playing birds won't volunteer anything. Ask it one question: only one of the questions on offer settles the case.",
-                "Right-click a bird to mark it truthful (green), then liar (red), then unmarked. When you're sure, press JE ACCUSE!, aim the crosshair at the culprit and click: the paintball tells. Ten points for the culprit, and five more for each liar you marked red.",
+                "Right-click a bird to mark it truthful (green), then liar (red), then unmarked. When you're sure, press BAD POLLY!, aim the crosshair at the culprit and click: the paintball tells. Ten points for the culprit, and five more for each liar you marked red.",
                 "Keys: Esc closes a popup or lowers the crosshair.  Enter continues.  F1 help."};
     if (panel_ == Panel::records)
         return {"Cases solved: " + std::to_string(solved_) + " of " + std::to_string(played_), "Points: " + std::to_string(points_) + "   Best table: " + std::to_string(best_points_),
@@ -1049,7 +1049,7 @@ void TableView::draw_panel() {
     }
 }
 
-// The JE ACCUSE! word: big comic letters along an arch on a jagged white burst, bottom right.
+// The BAD POLLY! word: big comic letters along an arch on a jagged white burst, bottom right.
 void TableView::jaccuse_box(int& x, int& y, int& w, int& h) const {
     w = std::min(compact_ ? 150 : 190, pw_ / 2);
     h = w * 32 / 100;
@@ -1084,7 +1084,7 @@ void TableView::draw_jaccuse() {
     burst(0, 0, 1);
     frame_.fill(armed ? hex(0xFFF2A0) : over ? hex(0xFFFDF0) : hex(0xF4F0E4));
     // the letters, along an arch, each outlined in black
-    const std::string word = "JE ACCUSE!";
+    const std::string word = "BAD POLLY!";
     const double size = h * .62;
     std::vector<int> widths;
     int total = 0;

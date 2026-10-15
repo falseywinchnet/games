@@ -79,8 +79,8 @@ is a dull fingertip, placed where the glass was touched and a little different e
 time. All of it is faint, under the Sound master; it stops while paused or hidden.
 
 Music is an island band on an old library record, making up lazy Hawaiian tunes as
-it plays (`src/island_voice.cpp`): a lap steel sliding into the melody (sometimes in
-sixths), a ukulele strumming the island rhythm, an upright bass, vibraphone and
+it plays (the suite's `src/music/styles/island_band.cpp`): a lap steel sliding into
+the melody (sometimes in sixths), a ukulele strumming the island rhythm, an upright bass, vibraphone and
 marimba answers, a shaker and a few bubbles, in a swung 4/4 on sixth and seventh
 chords joined by the II7-V7 vamp, through a spring reverb and a worn tape. It follows the
 Music master and M. Where the toolkit cannot play live voices, the same recipes are

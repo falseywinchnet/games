@@ -1,11 +1,12 @@
 #include "mowing_view.hpp"
 
 #include "ambience_voice.hpp"
-#include "banjo_voice.hpp"
 #include "chipper_voice.hpp"
 #include "granny_voice.hpp"
 #include "grill_voice.hpp"
+#include "live_composer.hpp"
 #include "mower_voice.hpp"
+#include "repertoire.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -81,24 +82,6 @@ class LiveMower final : public gui_forms::AudioGenerator {
     std::uint64_t running_frames_{};
 };
 
-// The music: a bluegrass band improvising as it plays, never the same twice. The
-// porch band: Scruggs banjo rolling at an easy pace over a quiet bass and guitar.
-class LiveBand final : public gui_forms::AudioGenerator {
-  public:
-    void render(std::span<float> stereo) noexcept override {
-        std::fill(stereo.begin(), stereo.end(), 0.0F);
-        band_.set_hurry(hurry_.load(std::memory_order_relaxed));
-        band_.render_add(stereo, 1.0);
-    }
-    // From the window thread: the band breaks into a fast tune while the mower hurries.
-    void set_hurry(float factor) {
-        hurry_.store(factor, std::memory_order_relaxed);
-    }
-
-  private:
-    std::atomic<float> hurry_{1};
-    BanjoVoice band_{static_cast<std::uint32_t>(std::random_device{}()), BanjoStyle::scruggs};
-};
 #endif
 
 namespace {
@@ -513,13 +496,15 @@ void MowingScenery::sound(bool running, ambient::SceneContext& context) {
     }
     const Mowing& mowing = *mowing_;
 #ifdef GUI_FORMS_AUDIO_GENERATOR
-    // The music is a banjo band improvising live (banjo_voice.hpp), under the Music control.
+    // The music is a bluegrass band improvising live, never the same twice (the suite's
+    // src/music/styles/banjo_band.hpp), under the Music control.
     if (!band_)
-        band_ = std::make_shared<LiveBand>();
+        band_ = std::make_shared<games::LiveComposer>(games::music::make_score("bluegrass", static_cast<std::uint32_t>(std::random_device{}())),
+                                                      games::music::score_level("bluegrass"));
     // About 5 dB under where it was first accepted: background music, never in front.
     // For the half minute after the gnome is broken the band plays fast and comes forward.
     const bool hurry = mowing.hurry() > 0;
-    (*band_).set_hurry(hurry ? 1.45F : 1.0F);
+    (*band_).set_hurry(hurry ? 1.45 : 1.0);
     context.sound.live_music(band_, hurry ? 0.62 : 0.45);
     // The mower's voice is synthesized live: the key and the grass under the deck go
     // straight to it, and it starts, labours, clears and spins down on its own.

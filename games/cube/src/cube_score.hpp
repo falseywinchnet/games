@@ -1,6 +1,7 @@
 #pragma once
-// Nature Cube's live score: the improvising music (glass_music.hpp) and the synthesized
-// effects (glass_effects.hpp), offered to the shell's audio path as a games::LiveScore.
+// Nature Cube's live score: the improvising music (the suite's glasshouse,
+// src/music/styles/glasshouse.hpp) and the synthesized effects (glass_effects.hpp),
+// offered to the shell's audio path as a games::LiveScore.
 // The puzzle view keeps calling sound_play() with the cube's event names; the score
 // answers them, so the game needs no audio code of its own.
 #include "audio.hpp"

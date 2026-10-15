@@ -70,6 +70,29 @@ target_include_directories(felt_tests PRIVATE shared/felt)
 target_compile_features(felt_tests PRIVATE cxx_std_20)
 target_link_libraries(felt_tests PRIVATE Threads::Threads)
 add_test(NAME felt COMMAND felt_tests)
+# The music engine (src/music): the instruments, the band, and every game's live score.
+# Portable: the games' cores, the renderer and the tests use it as the application does.
+add_library(music_core STATIC
+  src/music/band.cpp
+  src/music/instruments.cpp
+  src/music/repertoire.cpp
+  src/music/styles/banjo_band.cpp
+  src/music/styles/glasshouse.cpp
+  src/music/styles/island_band.cpp
+  src/music/styles/koto_garden.cpp
+  src/music/styles/marimba_band.cpp
+  src/music/styles/maze_band.cpp)
+target_include_directories(music_core PUBLIC src/music)
+target_compile_features(music_core PUBLIC cxx_std_20)
+if(NOT MSVC)
+  target_compile_options(music_core PRIVATE -Wall -Wextra)
+endif()
+add_executable(music_render tools/music_render.cpp)
+target_link_libraries(music_render PRIVATE music_core)
+add_executable(music_tests tests/music_tests.cpp)
+target_link_libraries(music_tests PRIVATE music_core)
+add_test(NAME music COMMAND music_tests)
+set_tests_properties(music PROPERTIES TIMEOUT 120)
 add_library(sudoku_generator games/sudoku/src/sudoku_bridge.cpp)
 target_link_libraries(sudoku_generator PUBLIC game_rules PRIVATE qjs)
 find_package(Threads REQUIRED)

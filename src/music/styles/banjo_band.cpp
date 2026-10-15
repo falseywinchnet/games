@@ -1,16 +1,15 @@
-#include "banjo_voice.hpp"
+#include "banjo_band.hpp"
 
 #include <algorithm>
 #include <cmath>
 
-namespace mm {
+namespace games::music {
 namespace {
 
-constexpr double pi = 3.14159265358979323846;
 constexpr int line_size = 4096;
 constexpr int line_mask = line_size - 1;
 constexpr int room_size = 2048;
-constexpr double dt = 1.0 / BanjoVoice::sample_rate;
+constexpr double dt = 1.0 / sample_rate;
 
 // What a slot does with its string.
 constexpr int how_pick = 0;
@@ -24,10 +23,6 @@ constexpr int banjo_open[5] = {62, 59, 55, 50, 67};
 // The guitar's, low to high: E2 A2 D3 G3 B3 E4; the mandolin's G3 D4 A4 E5.
 constexpr int guitar_open[6] = {40, 45, 50, 55, 59, 64};
 constexpr int mandolin_open[4] = {55, 62, 69, 76};
-
-double hz_of(double midi) {
-    return 440.0 * std::pow(2.0, (midi - 69.0) / 12.0);
-}
 
 // How each band sounds and plays (BanjoStyle order: scruggs, clawhammer, porch).
 struct Flavour {
@@ -98,7 +93,7 @@ constexpr int a_rolls[4] = {0, 1, 3, 5};
 constexpr int b_rolls[4] = {2, 4, 0, 6};
 
 // Progressions, eight 2/4 bars a part: {root above the key, kind}.
-typedef BanjoVoice::Chord C;
+typedef BanjoBand::Chord C;
 constexpr C I{0, 0};
 constexpr C IV{5, 0};
 constexpr C V{7, 0};
@@ -148,7 +143,7 @@ constexpr double fiddle_peak[4] = {0.8, 1.0, 0.6, 0.85};
 
 } // namespace
 
-BanjoVoice::BanjoVoice(std::uint32_t seed, BanjoStyle style) : state_(seed * 2654435761U + 1U), style_(style) {
+BanjoBand::BanjoBand(std::uint32_t seed, BanjoStyle style) : random_(seed * 2654435761U + 1U, Random::Bits::low), style_(style) {
     for (String& s : banjo_)
         s.line.assign(line_size, 0.0F);
     bass_.line.assign(line_size, 0.0F);
@@ -190,25 +185,14 @@ BanjoVoice::BanjoVoice(std::uint32_t seed, BanjoStyle style) : state_(seed * 265
     loud_ = tune_loud_;
 }
 
-double BanjoVoice::uniform() {
-    state_ ^= state_ << 13;
-    state_ ^= state_ >> 17;
-    state_ ^= state_ << 5;
-    return (state_ & 0xFFFFFF) / 16777216.0;
-}
-
-int BanjoVoice::pick(int n) {
-    return std::min(n - 1, static_cast<int>(uniform() * n));
-}
-
 // ---- the strings ----
 
 // A pluck. The line is filled with the string's slope just after the pick lets go: a
 // step at the point struck, rounded by how hard the pick is. Near the bridge (a
 // fingerpick) that is rich in upper partials; further up (the nail over the neck)
 // it is rounder. `keep` is how much of the old vibration survives the pick.
-void BanjoVoice::pluck(String& s, double midi, double strength, double hardness, double where, double keep) {
-    const int n = std::clamp(static_cast<int>(sample_rate / hz_of(midi)), 8, line_size - 8);
+void BanjoBand::pluck(String& s, double midi, double strength, double hardness, double where, double keep) {
+    const int n = std::clamp(static_cast<int>(sample_rate / mtof(midi)), 8, line_size - 8);
     const double at = std::clamp(where * (0.85 + 0.3 * uniform()), 0.03, 0.5);
     const double norm = 0.3 / std::sqrt(at * (1 - at));
     const int corner = std::max(1, static_cast<int>(at * n));
@@ -231,9 +215,9 @@ void BanjoVoice::pluck(String& s, double midi, double strength, double hardness,
 
 // Tunes the loop to `midi`, at once or as a slide over `seconds`. The read delay
 // leaves room for the delay of the loop filter and the stiffness allpass.
-void BanjoVoice::set_pitch(String& s, double midi, double seconds) {
+void BanjoBand::set_pitch(String& s, double midi, double seconds) {
     const double comp = (1 - s.bright) + (1 - s.stiff) / (1 + s.stiff);
-    s.delay_to = std::clamp(sample_rate / hz_of(midi) - comp, 4.0, line_size - 8.0);
+    s.delay_to = std::clamp(sample_rate / mtof(midi) - comp, 4.0, line_size - 8.0);
     if (seconds <= 0) {
         s.delay = s.delay_to;
         s.glide = 0;
@@ -244,7 +228,7 @@ void BanjoVoice::set_pitch(String& s, double midi, double seconds) {
     s.quiet = 0;
 }
 
-float BanjoVoice::run(String& s) {
+float BanjoBand::run(String& s) {
     // a string that has died away costs nothing until it is picked again
     if (s.quiet > 9600)
         return 0;
@@ -293,10 +277,10 @@ float BanjoVoice::run(String& s) {
 
 // A banjo string picked, with everything that makes it a banjo: the bright steel, the
 // zing, the quick loud start and fall, the pick on the string.
-void BanjoVoice::pluck_banjo(int string, int midi, double strength, double hardness_scale) {
+void BanjoBand::pluck_banjo(int string, int midi, double strength, double hardness_scale) {
     const Flavour& f = flavours[static_cast<int>(style_)];
     String& s = banjo_[string - 1];
-    const double hz = hz_of(midi);
+    const double hz = mtof(midi);
     // higher notes fall away sooner; the short drone string a little sooner again
     const double t60 = f.sustain * std::pow(293.7 / hz, 0.45) * (string == 5 ? 0.85 : 1.0);
     s.loss = static_cast<float>(std::pow(10.0, -3.0 / (t60 * hz)));
@@ -314,7 +298,7 @@ void BanjoVoice::pluck_banjo(int string, int midi, double strength, double hardn
 
 // ---- the score ----
 
-bool BanjoVoice::tone_in(int midi, const Chord& chord) const {
+bool BanjoBand::tone_in(int midi, const Chord& chord) const {
     const int root = (key_ + chord.root) % 12;
     const int rel = ((midi - 55 - root) % 12 + 12) % 12;
     if (rel == 0 || rel == 7)
@@ -324,14 +308,14 @@ bool BanjoVoice::tone_in(int midi, const Chord& chord) const {
     return chord.kind == 2 && rel == 10;
 }
 
-bool BanjoVoice::in_scale(int midi) const {
+bool BanjoBand::in_scale(int midi) const {
     const int rel = ((midi - 55 - key_) % 12 + 12) % 12;
     // the old-time tunes (with a flat-seven chord) take the flat seventh throughout
     const bool flat_seven = progression_[0][2].root == 10 || chord_.root == 10;
     return rel == 0 || rel == 2 || rel == 4 || rel == 5 || rel == 7 || rel == 9 || (rel == 11 && !flat_seven) || (rel == 10 && flat_seven);
 }
 
-int BanjoVoice::nearest_chord_tone(int midi, const Chord& chord) const {
+int BanjoBand::nearest_chord_tone(int midi, const Chord& chord) const {
     for (int d = 0; d < 7; ++d) {
         if (tone_in(midi - d, chord))
             return midi - d;
@@ -342,7 +326,7 @@ int BanjoVoice::nearest_chord_tone(int midi, const Chord& chord) const {
 }
 
 // `steps` notes of the scale above (or below) `midi`.
-int BanjoVoice::step_scale(int midi, int steps) const {
+int BanjoBand::step_scale(int midi, int steps) const {
     int note = midi;
     const int dir = steps > 0 ? 1 : -1;
     for (int k = 0; k != steps; k += dir) {
@@ -353,7 +337,7 @@ int BanjoVoice::step_scale(int midi, int steps) const {
     return note;
 }
 
-int BanjoVoice::drone() const {
+int BanjoBand::drone() const {
     // retuned up a tone for tunes in D, where g would clash
     return banjo_open[4] + (key_ == 7 ? 2 : 0);
 }
@@ -362,7 +346,7 @@ int BanjoVoice::drone() const {
 // the chord and the hand is low, otherwise the first chord tone under the hand.
 // The first string never doubles the second: in a D shape it takes the F#, not the
 // open D.
-int BanjoVoice::fret_note(int string, const Chord& chord) const {
+int BanjoBand::fret_note(int string, const Chord& chord) const {
     const int open = banjo_open[string - 1];
     if (string == 5)
         return drone();
@@ -376,7 +360,7 @@ int BanjoVoice::fret_note(int string, const Chord& chord) const {
 }
 
 // A new tune: its key, its two parts' chords and melodies, its pace.
-void BanjoVoice::plan_tune() {
+void BanjoBand::plan_tune() {
     const Flavour& f = flavours[static_cast<int>(style_)];
     const double roll = uniform();
     key_ = tunes_ < 1 ? 0 : roll < 0.6 ? 0 : roll < 0.8 ? 5 : 7;
@@ -450,7 +434,7 @@ void BanjoVoice::plan_tune() {
 }
 
 // Fills bar_plan_ for the bar about to start.
-void BanjoVoice::plan_bar() {
+void BanjoBand::plan_bar() {
     const Flavour& f = flavours[static_cast<int>(style_)];
     for (Slot& s : bar_plan_)
         s = Slot{};
@@ -507,7 +491,7 @@ void BanjoVoice::plan_bar() {
     plan_scruggs_bar(false);
 }
 
-void BanjoVoice::plan_lick(int half) {
+void BanjoBand::plan_lick(int half) {
     for (int k = 0; k < 8; ++k) {
         const int* step = g_lick[half * 8 + k];
         const int string = step[0];
@@ -522,7 +506,7 @@ void BanjoVoice::plan_lick(int half) {
 }
 
 // The three-finger roll for this bar, with the melody placed on its accents.
-void BanjoVoice::plan_scruggs_bar(bool gentle) {
+void BanjoBand::plan_scruggs_bar(bool gentle) {
     const int* melody = melody_[part_][bar_];
     if (gentle) {
         // backup: a pinch, the index, the thumb on the drone, room between
@@ -578,7 +562,7 @@ void BanjoVoice::plan_scruggs_bar(bool gentle) {
 
 // Puts a melody note on the string that frets it best near the roll's own string,
 // and sometimes decorates it with the fretting hand.
-void BanjoVoice::place_melody(int slot, int midi, double strength, bool ornament) {
+void BanjoBand::place_melody(int slot, int midi, double strength, bool ornament) {
     const Flavour& f = flavours[static_cast<int>(style_)];
     Slot& s = bar_plan_[slot];
     const int before = slot > 0 ? bar_plan_[slot - 1].string : 0;
@@ -632,7 +616,7 @@ void BanjoVoice::place_melody(int slot, int midi, double strength, bool ornament
 // Clawhammer: "bum-ditty". The nail strikes the melody down on the beat, brushes
 // across the top strings, and the thumb catches the drone; now and then a hammer,
 // a pull-off or the thumb dropped to an inner string puts another note in.
-void BanjoVoice::plan_clawhammer_bar() {
+void BanjoBand::plan_clawhammer_bar() {
     const int* melody = melody_[part_][bar_];
     bar_plan_[0] = Slot{3, melody[0], 0, 0, how_pick, 0.9};
     place_melody(0, melody[0], 0.95, false);
@@ -663,7 +647,7 @@ void BanjoVoice::plan_clawhammer_bar() {
 
 // Backup behind the fiddle: the same rolls, quietly, on the chord's own notes, and
 // out of the way when the guitar runs at the end of the verse.
-void BanjoVoice::plan_backup_bar() {
+void BanjoBand::plan_backup_bar() {
     if (bar_ == 7) {
         bar_plan_[0] = Slot{3, fret_note(3, chord_), 1, fret_note(1, chord_), how_pick, 0.4};
         return;
@@ -679,7 +663,7 @@ void BanjoVoice::plan_backup_bar() {
 // The fiddle's bar. When it has the tune it bows the melody an octave up, in long
 // notes that hold at the ends of phrases, often with a double stop under them; when
 // the banjo has it, the fiddle holds soft double stops under the chords.
-void BanjoVoice::plan_fiddle_bar() {
+void BanjoBand::plan_fiddle_bar() {
     const Flavour& f = flavours[static_cast<int>(style_)];
     for (BowPlan& p : fiddle_plan_)
         p = BowPlan{};
@@ -740,10 +724,10 @@ void BanjoVoice::plan_fiddle_bar() {
 
 // The bow drawn across the string: the note scoops up from below when it starts
 // fresh, or the finger moves under a slur.
-void BanjoVoice::bow(Bow& b, int midi, double seconds, double level, double attack_seconds, bool scoop) {
-    b.target_hz = hz_of(midi);
+void BanjoBand::bow(Bow& b, int midi, double seconds, double level, double attack_seconds, bool scoop) {
+    b.target_hz = mtof(midi);
     if (scoop || b.env < 0.02) {
-        b.hz = hz_of(midi - 1);
+        b.hz = mtof(midi - 1);
         b.glide = 1 - std::exp(-1.0 / (0.035 * sample_rate));
     } else {
         b.glide = 1 - std::exp(-1.0 / (0.008 * sample_rate));
@@ -757,7 +741,7 @@ void BanjoVoice::bow(Bow& b, int midi, double seconds, double level, double atta
     ++picked_[part_fiddle];
 }
 
-float BanjoVoice::run_bow(Bow& b) {
+float BanjoBand::run_bow(Bow& b) {
     const bool bowing = b.hold > 0;
     if (!bowing && b.env < 1e-5)
         return 0;
@@ -787,10 +771,10 @@ float BanjoVoice::run_bow(Bow& b) {
 }
 
 // One guitar note picked, or hammered on to from the note below.
-void BanjoVoice::guitar_note(int string, int midi, double strength, bool hammer) {
+void BanjoBand::guitar_note(int string, int midi, double strength, bool hammer) {
     String& s = guitar_[string];
     s.pending = -1;
-    s.loss = static_cast<float>(std::pow(10.0, -3.0 / (1.3 * hz_of(midi))));
+    s.loss = static_cast<float>(std::pow(10.0, -3.0 / (1.3 * mtof(midi))));
     s.bright = 0.55F;
     s.stiff = -0.05F;
     s.mute_in = -1;
@@ -804,7 +788,7 @@ void BanjoVoice::guitar_note(int string, int midi, double strength, bool hammer)
     ++picked_[part_guitar];
 }
 
-void BanjoVoice::play_slot(const Slot& slot) {
+void BanjoBand::play_slot(const Slot& slot) {
     const Flavour& f = flavours[static_cast<int>(style_)];
     if (slot.string == 0)
         return;
@@ -815,7 +799,7 @@ void BanjoVoice::play_slot(const Slot& slot) {
         for (int string = 3; string >= 1; --string) {
             String& s = banjo_[string - 1];
             const int note = fret_note(string, chord_);
-            const double hz = hz_of(note);
+            const double hz = mtof(note);
             s.loss = static_cast<float>(std::pow(10.0, -3.0 / (f.sustain * 0.8 * std::pow(293.7 / hz, 0.45) * hz)));
             s.bright = static_cast<float>(f.bright);
             s.stiff = static_cast<float>(f.stiff);
@@ -863,7 +847,7 @@ void BanjoVoice::play_slot(const Slot& slot) {
 }
 
 // The band behind the banjo, on this sixteenth.
-void BanjoVoice::play_band(int slot) {
+void BanjoBand::play_band(int slot) {
     const Flavour& f = flavours[static_cast<int>(style_)];
     const bool tag = section_ == 2 && rest_bars_ == 2;
     if (section_ == 2 && !(tag && slot == 0))
@@ -891,7 +875,7 @@ void BanjoVoice::play_band(int slot) {
         if (tag)
             note = root;
         String& s = bass_;
-        const double hz = hz_of(note);
+        const double hz = mtof(note);
         s.loss = static_cast<float>(std::pow(10.0, -3.0 / (1.8 * hz)));
         s.bright = 0.2F;
         s.stiff = 0;
@@ -929,7 +913,7 @@ void BanjoVoice::play_band(int slot) {
                 if (note - guitar_open[k] >= 0 && note - guitar_open[k] <= 4)
                     string = k;
             String& s = guitar_[string];
-            s.loss = static_cast<float>(std::pow(10.0, -3.0 / (1.4 * hz_of(note))));
+            s.loss = static_cast<float>(std::pow(10.0, -3.0 / (1.4 * mtof(note))));
             s.bright = 0.5F;
             s.stiff = -0.05F;
             set_pitch(s, note, 0);
@@ -951,7 +935,7 @@ void BanjoVoice::play_band(int slot) {
                     }
                 }
                 String& s = guitar_[k];
-                s.loss = static_cast<float>(std::pow(10.0, -3.0 / (1.0 * hz_of(note))));
+                s.loss = static_cast<float>(std::pow(10.0, -3.0 / (1.0 * mtof(note))));
                 s.bright = 0.5F;
                 s.stiff = -0.05F;
                 set_pitch(s, note, 0);
@@ -993,7 +977,7 @@ void BanjoVoice::play_band(int slot) {
     }
 }
 
-void BanjoVoice::step_slot() {
+void BanjoBand::step_slot() {
     const Flavour& f = flavours[static_cast<int>(style_)];
     if (slot_ == 0) {
         plan_bar();
@@ -1058,7 +1042,7 @@ void BanjoVoice::step_slot() {
     rest_bars_ = 2;
 }
 
-void BanjoVoice::render_add(std::span<float> stereo, double gain) {
+void BanjoBand::render_add(std::span<float> stereo, double gain) noexcept {
     const Flavour& f = flavours[static_cast<int>(style_)];
     const double banjo_part = part_gain(part_banjo);
     const double bass_part = part_gain(part_bass) * f.bass;
@@ -1212,10 +1196,10 @@ void BanjoVoice::render_add(std::span<float> stereo, double gain) {
         // no DC, and a soft limit
         hp_left_ += (left - hp_left_) * 0.0026;
         hp_right_ += (right - hp_right_) * 0.0026;
-        const double scale = 0.5 * loud_ * gain_;
+        const double scale = 0.5 * loud_ * gain_ * fade_.next();
         stereo[frame] += static_cast<float>(std::tanh((left - hp_left_) * scale * 1.4) / 1.4);
         stereo[frame + 1] += static_cast<float>(std::tanh((right - hp_right_) * scale * 1.4) / 1.4);
     }
 }
 
-} // namespace mm
+}  // namespace games::music

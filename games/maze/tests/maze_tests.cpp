@@ -8,7 +8,7 @@
 // music however it is asked for, quieter and duller through the wall, and backwards;
 // the passive player finds every reward, the long way round.
 #include "art.hpp"
-#include "band.hpp"
+#include "styles/maze_band.hpp"
 #include "maze.hpp"
 #include "png.hpp"
 #include "save.hpp"
@@ -263,12 +263,12 @@ int main() {
     }
     // the band
     {
-        const int rate = MazeBand::sample_rate;
+        const int rate = games::music::sample_rate;
         for (int style = 0; style < 3; ++style) {
             // past the end of the first tune (the longest is 127 s), in game-sized blocks and in one go
             const std::size_t frames = static_cast<std::size_t>(rate) * 135;
             std::vector<float> blocks(frames * 2, 0.0F), whole(frames * 2, 0.0F);
-            MazeBand a(7, static_cast<Style>(style)), b(7, static_cast<Style>(style));
+            games::music::MazeBand a(7, static_cast<games::music::MazeStyle>(style)), b(7, static_cast<games::music::MazeStyle>(style));
             const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
             for (std::size_t at = 0; at < blocks.size(); at += 1024)
                 a.render_add(std::span<float>(blocks.data() + at, std::min<std::size_t>(1024, blocks.size() - at)), 1.0);
@@ -301,7 +301,7 @@ int main() {
         // through the wall: quieter and dull; backwards: as loud as forwards
         const std::size_t frames = static_cast<std::size_t>(rate) * 20;
         std::vector<float> plain(frames * 2, 0.0F), dull(frames * 2, 0.0F), back(frames * 2, 0.0F);
-        MazeBand p(3, Style::maze_run), d(3, Style::maze_run), k(3, Style::maze_run);
+        games::music::MazeBand p(3, games::music::MazeStyle::maze_run), d(3, games::music::MazeStyle::maze_run), k(3, games::music::MazeStyle::maze_run);
         d.muffle(true);
         k.backwards(true);
         p.render_add(plain, 1.0);
@@ -320,10 +320,10 @@ int main() {
         CHECK(edge_dull / e_dull < .1 * edge_plain / e_plain);   // the top end is gone
         CHECK(std::abs(10 * std::log10(e_back / e_plain)) < 3);
         // a new level's style and tunes take over at the next bar, with no gap
-        MazeBand change(5, Style::bonus_round);
+        games::music::MazeBand change(5, games::music::MazeStyle::bonus_round);
         std::vector<float> before(static_cast<std::size_t>(rate) * 4 * 2, 0.0F), after(before.size(), 0.0F);
         change.render_add(before, 1.0);
-        change.play(Style::turbo, 11);
+        change.play(games::music::MazeStyle::turbo, 11);
         const int bars = change.bars_played();
         change.render_add(after, 1.0);
         CHECK(change.bars_played() > bars);

@@ -1,10 +1,16 @@
-#include "glass_music.hpp"
+#include "glasshouse.hpp"
 
 #include <algorithm>
 #include <cmath>
 
-namespace ps_cube {
+namespace games::music {
 namespace {
+
+// Pitch classes of a mode, as semitones above the tonic.
+struct Mode {
+    const char* name;
+    int steps[7];
+};
 
 // The modes it plays in, all calm: two bright, one folk, one gently minor.
 constexpr Mode modes[4] = {{"lydian", {0, 2, 4, 6, 7, 9, 11}},
@@ -51,7 +57,7 @@ int floor_div(int a, int b) {
 
 } // namespace
 
-GlassMusic::GlassMusic(std::uint32_t seed, Harmony* harmony) : dice_(seed), harmony_(harmony) {
+Glasshouse::Glasshouse(std::uint32_t seed, Harmony* harmony) : dice_(seed * 2654435761U + 0x6D2B79F5U), harmony_(harmony) {
     // Home keys sit where the bass and pads speak best: C most often, then F, G or D.
     const int homes[4] = {0, 5, 7, 2};
     tonic_ = homes[dice_.weighted(std::array<double, 4>{4, 2, 2, 1})];
@@ -74,28 +80,23 @@ GlassMusic::GlassMusic(std::uint32_t seed, Harmony* harmony) : dice_(seed), harm
     bar_ = -1;
 }
 
-void GlassMusic::fade_in(double seconds) noexcept {
-    fade_ = 0;
-    fade_rate_ = 1.0 / (seconds * sample_rate);
-}
-
-int GlassMusic::scale_pc(int degree) const {
+int Glasshouse::scale_pc(int degree) const {
     const int octave = floor_div(degree, 7);
     return modes[mode_].steps[degree - 7 * octave] + 12 * octave;
 }
 
-int GlassMusic::degree_midi(int degree) const {
+int Glasshouse::degree_midi(int degree) const {
     const int base = tonic_ <= 4 ? 72 + tonic_ : 60 + tonic_;
     return base + scale_pc(degree);
 }
 
-bool GlassMusic::usable(int degree) const {
+bool Glasshouse::usable(int degree) const {
     const int third = scale_pc(degree + 2) - scale_pc(degree);
     const int fifth = scale_pc(degree + 4) - scale_pc(degree);
     return (third == 3 || third == 4) && fifth == 7;
 }
 
-GlassMusic::Chord GlassMusic::diatonic(int degree, int shape) const {
+Glasshouse::Chord Glasshouse::diatonic(int degree, int shape) const {
     Chord chord{};
     chord.root = ((scale_pc(degree) % 12) + 12) % 12;
     chord.count = 0;
@@ -107,7 +108,7 @@ GlassMusic::Chord GlassMusic::diatonic(int degree, int shape) const {
     return chord;
 }
 
-GlassMusic::Chord GlassMusic::planed(int root, int shape) const {
+Glasshouse::Chord Glasshouse::planed(int root, int shape) const {
     Chord chord{};
     chord.root = ((root % 12) + 12) % 12;
     chord.count = 3;
@@ -116,21 +117,21 @@ GlassMusic::Chord GlassMusic::planed(int root, int shape) const {
     return chord;
 }
 
-bool GlassMusic::chord_has(int pc) const {
+bool Glasshouse::chord_has(int pc) const {
     for (int k = 0; k < current_.count; ++k)
         if ((current_.root + current_.tones[k]) % 12 == ((pc % 12) + 12) % 12)
             return true;
     return false;
 }
 
-int GlassMusic::chord_mask() const noexcept {
+int Glasshouse::chord_mask() const noexcept {
     int mask = 0;
     for (int k = 0; k < current_.count; ++k)
         mask |= 1 << ((tonic_ + current_.root + current_.tones[k]) % 12);
     return mask;
 }
 
-void GlassMusic::publish() {
+void Glasshouse::publish() {
     if (!harmony_)
         return;
     int scale = 0;
@@ -141,7 +142,7 @@ void GlassMusic::publish() {
     (*harmony_).chord.store(chord_mask(), std::memory_order_relaxed);
 }
 
-void GlassMusic::change_key() {
+void Glasshouse::change_key() {
     const int moves[7] = {5, -5, 7, -7, 2, -2, 0};
     const int move = moves[dice_.weighted(std::array<double, 7>{3, 3, 2, 2, 1.5, 1.5, 2})];
     const int old_mode = mode_;
@@ -151,7 +152,7 @@ void GlassMusic::change_key() {
         mode_ = (mode_ + 1 + dice_.pick(3)) % 4;
 }
 
-void GlassMusic::plan_section() {
+void Glasshouse::plan_section() {
     ++sections_;
     ++key_sections_;
     int next = kind_;
@@ -188,7 +189,7 @@ void GlassMusic::plan_section() {
     plan_lead();
 }
 
-void GlassMusic::plan_pedal() {
+void Glasshouse::plan_pedal() {
     length_ = 8;
     const int bass_low = 36 + tonic_;
     const bool major = mode_ <= 2;
@@ -224,7 +225,7 @@ void GlassMusic::plan_pedal() {
     beat_style_ = energy_ > .55 && dice_.uniform() < .5 ? 2 : -1;
 }
 
-void GlassMusic::plan_pulse() {
+void Glasshouse::plan_pulse() {
     length_ = 8;
     const int openings[4] = {4, 3, 5, 1};
     int degree = openings[dice_.weighted(std::array<double, 4>{3, 3, 2, usable(1) ? 2.0 : 0.0})];
@@ -271,7 +272,7 @@ void GlassMusic::plan_pulse() {
     beat_style_ = energy_ > .4 ? dice_.pick(4) : -1;
 }
 
-void GlassMusic::plan_breath() {
+void Glasshouse::plan_breath() {
     length_ = dice_.uniform() < .5 ? 4 : 8;
     const int choice = dice_.pick(3);
     Chord chord = diatonic(0, add9);
@@ -290,7 +291,7 @@ void GlassMusic::plan_breath() {
     beat_style_ = -1;
 }
 
-void GlassMusic::plan_glow() {
+void Glasshouse::plan_glow() {
     kind_ = glow;
     length_ = 8;
     const Chord home = diatonic(0, mode_ <= 2 ? add9 : sus2);
@@ -305,7 +306,7 @@ void GlassMusic::plan_glow() {
     energy_ = .25;
 }
 
-void GlassMusic::new_motif(Motif& motif) {
+void Glasshouse::new_motif(Motif& motif) {
     const int rhythm = dice_.pick(8);
     const int contour = dice_.pick(4);  // rise, fall, arch, hover
     const int starts[5] = {2, 4, 7, 4, 0};
@@ -327,7 +328,7 @@ void GlassMusic::new_motif(Motif& motif) {
     }
 }
 
-void GlassMusic::plan_lead() {
+void Glasshouse::plan_lead() {
     for (int &slot : lead_plan_)
         slot = -1;
     const double chance = kind_ == pedal ? .85 : kind_ == pulse ? .75 : .5;
@@ -348,7 +349,7 @@ void GlassMusic::plan_lead() {
         lead_plan_[1] = 0;
 }
 
-void GlassMusic::play_chord(const Chord& chord, double attack) {
+void Glasshouse::play_chord(const Chord& chord, double attack) {
     current_ = chord;
     // The root sits where it moves least; the other tones stack above it.
     int root = 48 + (tonic_ + chord.root) % 12;
@@ -384,7 +385,7 @@ void GlassMusic::play_chord(const Chord& chord, double attack) {
                 chosen = &voice;
         PadVoice& voice = *chosen;
         voice.midi = notes[k];
-        const double hz = hz_of(notes[k]);
+        const double hz = mtof(notes[k]);
         const double cents = dice_.range(5, 9);
         voice.inc[0] = hz * std::pow(2.0, cents / 1200) / sample_rate;
         voice.inc[1] = hz * std::pow(2.0, -cents / 1200) / sample_rate;
@@ -398,8 +399,8 @@ void GlassMusic::play_chord(const Chord& chord, double attack) {
     publish();
 }
 
-void GlassMusic::bass_note(int midi, int sixteenths) {
-    const double hz = hz_of(midi);
+void Glasshouse::bass_note(int midi, int sixteenths) {
+    const double hz = mtof(midi);
     const double samples = sixteenths * 15.0 / tempo_ * sample_rate;
     // A sounding bass dips briefly before the next note rather than cutting off.
     bass_next_inc_ = hz / sample_rate;
@@ -412,7 +413,7 @@ void GlassMusic::bass_note(int midi, int sixteenths) {
     bass_filter_.set(hz * 3.2, .75);
 }
 
-void GlassMusic::lead_note(const Note& note, int variation) {
+void Glasshouse::lead_note(const Note& note, int variation) {
     int degree = note.degree;
     if (variation == 1)
         degree += 1;
@@ -434,7 +435,7 @@ void GlassMusic::lead_note(const Note& note, int variation) {
         midi += 12;
     LeadVoice& voice = lead_[next_lead_];
     next_lead_ = (next_lead_ + 1) % 2;
-    voice.inc = hz_of(midi) / sample_rate;
+    voice.inc = mtof(midi) / sample_rate;
     voice.target = 1;
     voice.attack = rate_for(dice_.range(.12, .28));
     voice.release = rate_for(.7);
@@ -444,10 +445,10 @@ void GlassMusic::lead_note(const Note& note, int variation) {
     voice.tremolo = dice_.uniform();
 }
 
-void GlassMusic::bell(int midi, double level, int delay) {
+void Glasshouse::bell(int midi, double level, int delay) {
     BellVoice& voice = bell_[next_bell_];
     next_bell_ = (next_bell_ + 1) % static_cast<int>(bell_.size());
-    const double hz = hz_of(midi);
+    const double hz = mtof(midi);
     const double ratios[3] = {1.0, 2.76, 5.40};
     const double amps[3] = {1.0, .2, .07};
     const double decays[3] = {1.6, .55, .22};
@@ -462,7 +463,7 @@ void GlassMusic::bell(int midi, double level, int delay) {
     voice.on = true;
 }
 
-void GlassMusic::beat(double level) {
+void Glasshouse::beat(double level) {
     BeatVoice& voice = beat_[next_beat_];
     next_beat_ = (next_beat_ + 1) % 2;
     voice.on = true;
@@ -472,7 +473,7 @@ void GlassMusic::beat(double level) {
     voice.click = level * .25;
 }
 
-void GlassMusic::bird_phrase() {
+void Glasshouse::bird_phrase() {
     const int kind = dice_.pick(3);
     const double pan = dice_.range(-.7, .7);
     const double base = dice_.range(3000, 4200);
@@ -511,11 +512,11 @@ void GlassMusic::bird_phrase() {
         chirps_[k].length = 0;
 }
 
-void GlassMusic::cue(Cue cue) noexcept {
-    if (cue == Cue::connect) {
+void Glasshouse::cue(int cue) noexcept {
+    if (cue == cue_join) {
         bright_ = std::min(1.0, bright_ + .5);
         sparkle_ = 3 + dice_.pick(2);
-    } else if (cue == Cue::win) {
+    } else if (cue == cue_win) {
         // Resolve now: the tonic in the pads and the bass, the line stops, the beat rests.
         plan_glow();
         bar_ = -1;
@@ -525,12 +526,12 @@ void GlassMusic::cue(Cue cue) noexcept {
         bass_note(36 + tonic_, 32);
         for (LeadVoice& voice : lead_)
             voice.gate = 0;
-    } else if (cue == Cue::level) {
+    } else if (cue == cue_level) {
         restart_ = true;
     }
 }
 
-void GlassMusic::step_sixteenth() {
+void Glasshouse::step_sixteenth() {
     ++sixteenth_;
     if (sixteenth_ >= 16) {
         sixteenth_ = 0;
@@ -638,11 +639,11 @@ void GlassMusic::step_sixteenth() {
     }
 }
 
-double GlassMusic::part(int which) const noexcept {
+double Glasshouse::part(int which) const noexcept {
     return solo_ < 0 || solo_ == which ? 1.0 : 0.0;
 }
 
-void GlassMusic::render_add(std::span<float> stereo, double gain) noexcept {
+void Glasshouse::render_add(std::span<float> stereo, double gain) noexcept {
     const std::size_t frames = stereo.size() / 2;
     const double pad_gain = .085 * part(pads), bass_gain = .24 * part(bass), lead_gain = .09 * part(lead),
                  bell_gain = .06 * part(bells), beat_gain = .2 * part(heartbeat),
@@ -650,14 +651,19 @@ void GlassMusic::render_add(std::span<float> stereo, double gain) noexcept {
     const double lead_vib = 2 * pi * 4.7 / sample_rate, lead_trem = 1.1 / sample_rate;
     std::size_t frame = 0;
     while (frame < frames) {
-        // Block-rate controls.
-        const std::size_t block = std::min<std::size_t>(64, frames - frame);
-        bright_ *= std::pow(decay_for(9.0), static_cast<double>(block));
-        const double cutoff = 1700 + 1100 * energy_ + 2200 * bright_;
-        for (int c = 0; c < 2; ++c) {
-            pad_low_[c].set(cutoff, .62);
-            breeze_[c].set(3000 + 1400 * sine_.at(wrap(breeze_phase_ + c * .37)), 1.6);
+        // Controls every 64 samples, counted across calls so that the music is the same
+        // whatever blocks the device asks for.
+        if (control_left_ == 0) {
+            control_left_ = control_period;
+            bright_ *= std::pow(decay_for(9.0), static_cast<double>(control_period));
+            const double cutoff = 1700 + 1100 * energy_ + 2200 * bright_;
+            for (int c = 0; c < 2; ++c) {
+                pad_low_[c].set(cutoff, .62);
+                breeze_[c].set(3000 + 1400 * sine_.at(wrap(breeze_phase_ + c * .37)), 1.6);
+            }
         }
+        const std::size_t block = std::min<std::size_t>(control_left_, frames - frame);
+        control_left_ -= static_cast<int>(block);
         for (std::size_t i = 0; i < block; ++i, ++frame) {
             clock_ -= 1;
             if (clock_ <= 0) {
@@ -814,8 +820,8 @@ void GlassMusic::render_add(std::span<float> stereo, double gain) noexcept {
             room_.process(send * .5, left, right);
             // fade, a narrower image (the ensemble sits close, as on the original), DC and
             // a gentle top
-            fade_ = std::min(1.0, fade_ + fade_rate_);
-            const double master = .72 * gain * fade_ * fade_;
+            const double fade = fade_.next();
+            const double master = .72 * gain * fade * fade;
             const double mid = (left + right) * .5, side = (left - right) * .5 * .55;
             double out[2] = {mid + side, mid - side};
             for (int c = 0; c < 2; ++c) {
@@ -827,4 +833,4 @@ void GlassMusic::render_add(std::span<float> stereo, double gain) noexcept {
     }
 }
 
-} // namespace ps_cube
+}  // namespace games::music

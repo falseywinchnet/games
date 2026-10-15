@@ -23,9 +23,15 @@
 #include <string>
 #include <vector>
 
+namespace games {
+class LiveComposer;
+namespace music {
+class MazeBand;
+}
+}  // namespace games
+
 namespace mz {
 
-class LiveBand;  // maze_view.cpp: the band as the audio thread plays it
 namespace gf = gui_forms;
 
 struct Options {
@@ -90,7 +96,8 @@ private:
     double idle_t_ = 0;        // seconds since you last did anything
     double pause_t_ = 0;       // the passive player standing still (a dawdle, someone talking)
     std::uint64_t heard_ = 0;  // the speech it last stopped for
-    std::shared_ptr<LiveBand> band_{};   // the music, made up as it plays (band.hpp)
+    std::shared_ptr<games::LiveComposer> band_{};  // the music, made up as it plays (the suite's maze band)
+    games::music::MazeBand* maze_band_ = nullptr;   // that band, owned by band_: its style, blackout and ceiling
     int band_style_ = -1;
     std::uint32_t band_tunes_ = 0;
     int autowalk_ = 0;                // dev: steps still to walk along a best route (re-planned each step)

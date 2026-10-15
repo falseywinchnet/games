@@ -30,7 +30,10 @@ collection. Read it first; then the document for the work in hand:
   to it. Games declare persistent choices through `CommandSource::settings()`, shown
   on the shared Settings screen (`settings_sheet.*`). The help book and the Settings
   screen are printed on the paper engine's tile (`paper_sheet.*`). Volumes are applied
-  to every voice by `PcmPlayer` buses. Controls are written as
+  to every voice by `PcmPlayer` buses. Live music is one engine, `src/music`: every
+  game's score is a style there (`repertoire.hpp` names them, `live_composer.hpp` plays
+  one on the device, `music_render <style>` renders one to a file), and a new score
+  forks a style rather than starting a generator in its game. Controls are written as
   [new-games/guide/04-controls.md](new-games/guide/04-controls.md) says.
 - `new-games/`: the kit. A model starting a game reads `new-games/AGENTS.md` first.
   Kit games are portable from the start, live only in `games/<id>/`, declare their

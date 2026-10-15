@@ -52,7 +52,6 @@
     "src/snail.cpp",
     "src/png.cpp",
     "src/residents.cpp",
-    "src/band.cpp",
     "src/wanderer.cpp",
     "src/art.cpp",
     "src/maze.cpp",

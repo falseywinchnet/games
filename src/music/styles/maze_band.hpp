@@ -19,6 +19,8 @@
 // Everything is synthesized here, sample by sample, far faster than real time.
 // render_add() runs on the audio thread; play(), muffle() and backwards() may be called
 // from any thread and take effect at the next bar (the style) or at once (the rest).
+#include "music_core.hpp"
+
 #include <array>
 #include <atomic>
 #include <cstdint>
@@ -26,21 +28,21 @@
 #include <span>
 #include <vector>
 
-namespace mz {
+namespace games::music {
 
-enum class Style { maze_run, bonus_round, turbo, count };
+enum class MazeStyle { maze_run, bonus_round, turbo, count };
 
-class MazeBand final {
+class MazeBand final : public Composer {
   public:
-    static constexpr int sample_rate = 48000;
+    using Style = MazeStyle;
     MazeBand(std::uint32_t seed, Style style);
 
     // The style and a seed for the next level's tunes; the band moves to them at the next bar.
     void play(Style style, std::uint32_t seed);
     void muffle(bool on);      // the blackout
     void backwards(bool on);   // the ceiling
-    // Adds the band to interleaved stereo frames at `gain`.
-    void render_add(std::span<float> stereo, double gain);
+    void render_add(std::span<float> stereo, double gain) noexcept override;
+    void fade_in(double seconds) noexcept override { fade_.start(seconds); }
 
     enum class Bus { bass, drums, hats, cymbals, guitar, guitar2, arp, brass, lead, lead2, keys, mallets, mallets2, count };
     static constexpr int bus_count = static_cast<int>(Bus::count);
@@ -119,7 +121,7 @@ class MazeBand final {
     };
 
   private:
-    double uniform();
+    double uniform() { return random_.uniform(); }
     double jitter(double spread);
     void start_tune();
     void plan_bar();
@@ -137,7 +139,8 @@ class MazeBand final {
     void reverb_setup();
 
     // the score
-    std::uint32_t state_;
+    Random random_;
+    Fade fade_{};
     Style style_;
     std::atomic<int> wanted_style_;
     std::atomic<std::uint32_t> wanted_seed_;
@@ -198,4 +201,4 @@ class MazeBand final {
     int fade_left_{};
 };
 
-}  // namespace mz
+}  // namespace games::music

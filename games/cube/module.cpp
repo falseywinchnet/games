@@ -3,7 +3,7 @@
 #include "game_module.hpp"
 namespace games::modules {
 std::unique_ptr<GameInstance> cube_create(ModuleContext& context) {
-    // Nature Cube's music and effects are synthesized live (src/glass_music.hpp).
+    // Nature Cube's music and effects are synthesized live: the suite's glasshouse score (src/music) and its own glass effects.
     if (std::shared_ptr<LiveScore> score = ps_cube::make_score()) {
         live_score("nature_cube", std::move(score));
     }

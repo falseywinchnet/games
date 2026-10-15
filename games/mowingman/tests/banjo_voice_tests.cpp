@@ -3,7 +3,7 @@
 // tune after tune, passing the lead between banjo and fiddle in the full bluegrass
 // style, hearing one part alone, silent at no gain and fading to silence when the gain
 // is taken away, and far cheaper than real time.
-#include "banjo_voice.hpp"
+#include "styles/banjo_band.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -22,11 +22,11 @@ void require(bool condition, const char* what) {
     }
 }
 
-constexpr int rate = mm::BanjoVoice::sample_rate;
-constexpr mm::BanjoStyle styles[3] = {mm::BanjoStyle::scruggs, mm::BanjoStyle::clawhammer, mm::BanjoStyle::porch};
+constexpr int rate = games::music::sample_rate;
+constexpr games::music::BanjoStyle styles[3] = {games::music::BanjoStyle::scruggs, games::music::BanjoStyle::clawhammer, games::music::BanjoStyle::porch};
 
 // Plays the band in 10 ms blocks, as the device asks for them.
-std::vector<float> play(mm::BanjoVoice& band, double seconds, double gain) {
+std::vector<float> play(games::music::BanjoBand& band, double seconds, double gain) {
     std::vector<float> sound;
     std::vector<float> block(static_cast<std::size_t>(rate / 100) * 2);
     for (int k = 0; k < static_cast<int>(seconds * 100); ++k) {
@@ -45,8 +45,8 @@ double decibels(const std::vector<float>& sound, std::size_t from, std::size_t t
 }
 
 void test_styles() {
-    for (mm::BanjoStyle style : styles) {
-        mm::BanjoVoice band(5, style);
+    for (games::music::BanjoStyle style : styles) {
+        games::music::BanjoBand band(5, style);
         const std::vector<float> sound = play(band, 40, 1.0);
         bool finite = true;
         float peak = 0;
@@ -59,37 +59,37 @@ void test_styles() {
         // Background music: about where the band was accepted, never loud.
         const double level = decibels(sound, 0, sound.size());
         require(level > -30 && level < -20, "the band plays at its calibrated level");
-        const double per_second = static_cast<double>(band.notes_picked(mm::BanjoVoice::part_banjo)) / 40;
-        if (style == mm::BanjoStyle::clawhammer)
+        const double per_second = static_cast<double>(band.notes_picked(games::music::BanjoBand::part_banjo)) / 40;
+        if (style == games::music::BanjoStyle::clawhammer)
             require(per_second > 3 && per_second < 7, "the clawhammer frails bum-ditty: a note, a brush, the thumb");
         else
             require(per_second > 6 && per_second < 9.5, "the Scruggs roll picks steady sixteenths");
         require(band.tempo() > 100 && band.tempo() < 130, "the tempo stays relaxed bluegrass");
-        require(band.notes_picked(mm::BanjoVoice::part_bass) > 30, "the upright bass plays under the banjo");
+        require(band.notes_picked(games::music::BanjoBand::part_bass) > 30, "the upright bass plays under the banjo");
     }
 }
 
 void test_deterministic() {
-    mm::BanjoVoice first(9, mm::BanjoStyle::porch);
-    mm::BanjoVoice second(9, mm::BanjoStyle::porch);
+    games::music::BanjoBand first(9, games::music::BanjoStyle::porch);
+    games::music::BanjoBand second(9, games::music::BanjoStyle::porch);
     require(play(first, 12, 1.0) == play(second, 12, 1.0), "one seed plays one performance");
-    mm::BanjoVoice other(10, mm::BanjoStyle::porch);
-    mm::BanjoVoice again(9, mm::BanjoStyle::porch);
+    games::music::BanjoBand other(10, games::music::BanjoStyle::porch);
+    games::music::BanjoBand again(9, games::music::BanjoStyle::porch);
     require(play(other, 12, 1.0) != play(again, 12, 1.0), "another seed plays another");
 }
 
 void test_tunes() {
-    mm::BanjoVoice band(3, mm::BanjoStyle::porch);
+    games::music::BanjoBand band(3, games::music::BanjoStyle::porch);
     play(band, 150, 1.0);
     require(band.tunes_played() >= 3, "the band moves on from tune to tune");
 }
 
 void test_solo() {
-    mm::BanjoVoice whole(4, mm::BanjoStyle::scruggs);
-    mm::BanjoVoice banjo(4, mm::BanjoStyle::scruggs);
-    mm::BanjoVoice bass(4, mm::BanjoStyle::scruggs);
-    banjo.solo(mm::BanjoVoice::part_banjo);
-    bass.solo(mm::BanjoVoice::part_bass);
+    games::music::BanjoBand whole(4, games::music::BanjoStyle::scruggs);
+    games::music::BanjoBand banjo(4, games::music::BanjoStyle::scruggs);
+    games::music::BanjoBand bass(4, games::music::BanjoStyle::scruggs);
+    banjo.solo(games::music::BanjoBand::part_banjo);
+    bass.solo(games::music::BanjoBand::part_bass);
     const std::vector<float> all = play(whole, 20, 1.0);
     const std::vector<float> lead = play(banjo, 20, 1.0);
     const std::vector<float> low = play(bass, 20, 1.0);
@@ -99,9 +99,9 @@ void test_solo() {
     require(banjo_level < whole_level && banjo_level > whole_level - 4, "the banjo carries the band");
     require(bass_level < banjo_level - 5, "the bass stays under the banjo");
     // A solo is the same performance as the whole band, only quieter.
-    require(banjo.notes_picked(mm::BanjoVoice::part_banjo) == whole.notes_picked(mm::BanjoVoice::part_banjo), "a solo plays the band's own performance");
-    mm::BanjoVoice porch(4, mm::BanjoStyle::porch);
-    porch.solo(mm::BanjoVoice::part_mandolin);
+    require(banjo.notes_picked(games::music::BanjoBand::part_banjo) == whole.notes_picked(games::music::BanjoBand::part_banjo), "a solo plays the band's own performance");
+    games::music::BanjoBand porch(4, games::music::BanjoStyle::porch);
+    porch.solo(games::music::BanjoBand::part_mandolin);
     const std::vector<float> none = play(porch, 10, 1.0);
     require(decibels(none, 0, none.size()) < -200, "the porch band has no mandolin");
 }
@@ -110,13 +110,13 @@ void test_solo() {
 // and the chorus with the banjo backing it quietly, and the fiddle's backup under a
 // banjo break stays well down.
 void test_lead() {
-    mm::BanjoVoice fiddle(8, mm::BanjoStyle::scruggs);
-    mm::BanjoVoice banjo(8, mm::BanjoStyle::scruggs);
-    fiddle.solo(mm::BanjoVoice::part_fiddle);
-    banjo.solo(mm::BanjoVoice::part_banjo);
+    games::music::BanjoBand fiddle(8, games::music::BanjoStyle::scruggs);
+    games::music::BanjoBand banjo(8, games::music::BanjoStyle::scruggs);
+    fiddle.solo(games::music::BanjoBand::part_fiddle);
+    banjo.solo(games::music::BanjoBand::part_banjo);
     const std::vector<float> bowed = play(fiddle, 60, 1.0);
     const std::vector<float> picked = play(banjo, 60, 1.0);
-    require(fiddle.notes_picked(mm::BanjoVoice::part_fiddle) > 40, "the fiddle plays in the full bluegrass style");
+    require(fiddle.notes_picked(games::music::BanjoBand::part_fiddle) > 40, "the fiddle plays in the full bluegrass style");
     // In each 4 s window, whichever has the tune is clearly louder than the other.
     int fiddle_leads = 0;
     int banjo_leads = 0;
@@ -130,14 +130,14 @@ void test_lead() {
             ++banjo_leads;
     }
     require(fiddle_leads >= 4 && banjo_leads >= 4, "the lead passes between the banjo and the fiddle");
-    mm::BanjoVoice porch(8, mm::BanjoStyle::porch);
-    porch.solo(mm::BanjoVoice::part_fiddle);
+    games::music::BanjoBand porch(8, games::music::BanjoStyle::porch);
+    porch.solo(games::music::BanjoBand::part_fiddle);
     const std::vector<float> none = play(porch, 10, 1.0);
     require(decibels(none, 0, none.size()) < -200, "the porch band has no fiddle");
 }
 
 void test_gain() {
-    mm::BanjoVoice band(6, mm::BanjoStyle::porch);
+    games::music::BanjoBand band(6, games::music::BanjoStyle::porch);
     const std::vector<float> silent = play(band, 3, 0.0);
     require(decibels(silent, 0, silent.size()) < -200, "no gain, no sound");
     std::vector<float> sound = play(band, 6, 1.0);
@@ -149,7 +149,7 @@ void test_gain() {
 }
 
 void test_cost() {
-    mm::BanjoVoice band(7, mm::BanjoStyle::scruggs);
+    games::music::BanjoBand band(7, games::music::BanjoStyle::scruggs);
     const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     play(band, 60, 1.0);
     const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();

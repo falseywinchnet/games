@@ -2,7 +2,7 @@
 """Stillwater's fallback sound clips, rendered by the game's own live voices.
 
 The game synthesizes the tank's water and taps (src/tank_voice.cpp) and its island
-band (src/island_voice.cpp) as they play, where the toolkit plays generators. Where it
+band (src/music/styles/island_band.cpp) as they play, where the toolkit plays generators. Where it
 cannot, these clips stand in, rendered by the same code through sw_music_render:
 
   sw_ambience  a 64-second seamless loop of the planted tank (motor, return water and

@@ -1,7 +1,7 @@
 // Stillwater's live voices rendered to 48 kHz 16-bit WAV, with the time they took.
 //
 //   sw_music_render band out.wav [seconds [seed]]   the band, as the game plays it
-//   sw_music_render band out.wav seconds seed part  one part alone (see IslandVoice::solo)
+//   sw_music_render band out.wav seconds seed part  one part alone (see IslandBand::solo)
 //   sw_music_render loop out.wav [seconds [seed]]     a seamless loop of the band (the fallback
 //                                                     where the toolkit has no live voices)
 //   sw_music_render tank out.wav [seconds [seed [tank]]]  the tank's water at the suite's level
@@ -14,7 +14,7 @@
 //                                                     at the centre, to hear them vary
 //   sw_music_render tap out.wav                        one centred tap (the fallback clip)
 //   sw_music_render tapped out.wav [seconds [seed [tank]]]  the tank with a tap every few seconds
-#include "island_voice.hpp"
+#include "styles/island_band.hpp"
 #include "tank_voice.hpp"
 
 #include <algorithm>
@@ -169,7 +169,7 @@ int main(int argc, char** argv) {
         std::printf(", %u taps\n", water.knocks_played());
         return 0;
     }
-    sw::IslandVoice band(seed);
+    games::music::IslandBand band(seed);
     // A sixth argument hears one part alone: 0 steel, 1 mallets, 2 ukulele, 3 bass, 4 shaker and bubbles.
     if (argc > 5)
         band.solo(std::atoi(argv[5]));

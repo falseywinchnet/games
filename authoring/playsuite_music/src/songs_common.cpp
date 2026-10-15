@@ -349,6 +349,9 @@ std::vector<SongFactory> allSongs() {
         {"music_nature_cube_loop", songNatureCube},
         {"music_untangle_loop", songUntangle},
         {"music_puzzle_solve_loop", songPuzzleSolve},
+        {"music_parrots_loop", songParrots},
+        {"stinger_win_parrots", stingerParrotsWin},
+        {"stinger_lose_parrots", stingerParrotsLose},
     };
     for (const SongFactory& f : stingers())
         s.push_back(f);

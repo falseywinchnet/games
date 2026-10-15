@@ -14,22 +14,20 @@
 //
 // By day the koto is tuned to the bright yo scale; at night to the in scale (hira-joshi),
 // slower and with the flute more often.
+#include "music_core.hpp"
+
 #include <array>
 #include <cstdint>
 #include <span>
 #include <vector>
 
-namespace ps_sudoku {
+namespace games::music {
 
-class GardenMusic final {
+class KotoGarden final : public Composer {
   public:
-    static constexpr int sample_rate = 48000;
-
-    GardenMusic(std::uint32_t seed, bool night);
-    // Adds the music to interleaved stereo frames at the given gain.
-    void render_add(std::span<float> stereo, double gain) noexcept;
-    // Comes up from silence over `seconds` (when the game is opened again).
-    void fade_in(double seconds) noexcept;
+    KotoGarden(std::uint32_t seed, bool night);
+    void render_add(std::span<float> stereo, double gain) noexcept override;
+    void fade_in(double seconds) noexcept override { fade_.start(seconds); }
 
     // For tools and tests.
     [[nodiscard]] long notes_plucked() const {
@@ -78,16 +76,16 @@ class GardenMusic final {
         double press = 0;        // semitones of oshide, 0 none
     };
 
-    double uniform() noexcept;
-    int pick(int n) noexcept;
+    static bool earlier(const Event& a, const Event& b);
+    double uniform() noexcept { return random_.uniform(); }
+    int pick(int n) noexcept { return random_.pick(n); }
     void pluck(int string, double strength, double press) noexcept;
     float run(String& s) noexcept;
     void plan_phrase() noexcept;
     void breathe() noexcept;
     [[nodiscard]] double flute_sample() noexcept;
-    void room(double in, double& left, double& right) noexcept;
 
-    std::uint32_t state_;
+    Random random_;
     bool night_;
     std::array<int, 13> tuning_{};    // MIDI notes of the thirteen strings
     std::array<int, 5> scale_{};      // pitch classes, semitones above the tonic
@@ -101,17 +99,12 @@ class GardenMusic final {
     int phrases_ = 0;
     long plucked_ = 0;
     long breaths_ = 0;
-    double fade_ = 1, fade_rate_ = 0;
+    Fade fade_{};
     double gain_ = 0;
     // the body's two soft resonances
     double body_a1_[2]{}, body_a2_[2]{}, body_g_[2]{};
     double body_y1_[2]{}, body_y2_[2]{};
-    // the room: four damped delay lines mixed by a Hadamard matrix
-    std::array<std::vector<float>, 4> lines_{};
-    std::array<int, 4> lengths_{};
-    std::array<double, 4> feedback_{};
-    std::array<double, 4> low_{};
-    int room_write_ = 0;
+    Room room_{2.4, 4200};
 };
 
-}  // namespace ps_sudoku
+}  // namespace games::music

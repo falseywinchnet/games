@@ -36,7 +36,7 @@ is joined; squares may stay empty. Every board is cut from lines laid over the o
 **Look, sound and words.** The house's polished 3D: a software-rendered block of dark glass
 with mirrored tiles reflecting a painted mountain lake, mossy stone blocks that join into
 walls, stone-ringed portal wells with a swirl and studs that match partners. Music and
-effects are synthesized live (glass_music, glass_effects). No characters.
+effects are synthesized live (the suite's glasshouse score in src/music, and glass_effects). No characters.
 
 **Controls.** Press a coloured square and trace; trace back to shorten; press a cell of a
 line to cut it back there and carry on. Move the pointer to tilt the cube. N new board; H or F1 help;

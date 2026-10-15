@@ -10,18 +10,20 @@
 // moves. The whole band goes through a spring reverb and a worn tape: a narrow,
 // warm, wobbling, nearly mono sound. Everything is synthesized here, far faster
 // than real time; the tunes are its own.
+#include "music_core.hpp"
+
+#include <array>
 #include <cstdint>
 #include <span>
 #include <vector>
 
-namespace sw {
+namespace games::music {
 
-class IslandVoice final {
+class IslandBand final : public Composer {
   public:
-    static constexpr int sample_rate = 48000;
-    explicit IslandVoice(std::uint32_t seed = 1720);
-    // Adds the band to interleaved stereo frames at `gain`.
-    void render_add(std::span<float> stereo, double gain);
+    explicit IslandBand(std::uint32_t seed = 1720);
+    void render_add(std::span<float> stereo, double gain) noexcept override;
+    void fade_in(double seconds) noexcept override { fade_.start(seconds); }
     // Sections played so far (for tools and tests).
     [[nodiscard]] int verses_played() const {
         return verses_;
@@ -86,11 +88,11 @@ class IslandVoice final {
     };
 
   private:
-    double uniform();
+    double uniform() { return random_.uniform(); }
     [[nodiscard]] double part_gain(int part) const {
         return solo_ < 0 || solo_ == part ? 1.0 : 0.0;
     }
-    int pick(int n);
+    int pick(int n) { return random_.pick(n); }
     void plan_section();
     void step_eighth();
     bool chord_tone(int midi, const Chord& chord) const;
@@ -105,13 +107,14 @@ class IslandVoice final {
     void upright(int midi, double seconds);
     void bubble();
 
-    std::uint32_t state_;
+    Random random_;
+    Fade fade_{};
     Tone steel_[2]{};      // the melody and its harmony a sixth below
     Tone mallets_[6]{};    // vibraphone and marimba notes, round robin
     int mallet_next_{};
     Pluck uke_[4]{};
     int uke_pos_{};            // the fretting hand's position this section
-    double uke_body_[2][2]{};  // the body's two resonances
+    std::array<std::array<double, 2>, 2> uke_body_{};  // the body's two resonances
     double uke_tone_{};
     double brush_env_{};       // the fingers brushing the strings
     double brush_hz_{2600};
@@ -168,4 +171,4 @@ class IslandVoice final {
     int lead_len_[8]{};    // this bar's melody: eighths each note lasts, 0 for none
 };
 
-} // namespace sw
+}  // namespace games::music

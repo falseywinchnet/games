@@ -1,5 +1,5 @@
 #pragma once
-// Sudoku's music as a live score: the koto garden (sudoku_music.hpp), by day or by night.
+// Sudoku's music as a live score: the suite's koto garden (src/music/styles/koto_garden.hpp), by day or by night.
 // Its sound effects stay the recorded ones.
 #include "audio.hpp"
 

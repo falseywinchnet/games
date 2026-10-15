@@ -1,13 +1,14 @@
-#include "band.hpp"
+#include "maze_band.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 
-namespace mz {
+namespace games::music {
 namespace {
 
-constexpr double kRate = MazeBand::sample_rate;
+constexpr double kRate = sample_rate;
+using Style = MazeStyle;
 constexpr double kPi = 3.14159265358979323846;
 constexpr int kStyles = static_cast<int>(Style::count);
 constexpr int kBuses = MazeBand::bus_count;
@@ -166,7 +167,7 @@ struct EarlierEvent {
 };
 
 // ------------------------------------------------------------------ the sound
-double mtof(double midi) {
+double hz_of(double midi) {
     const double hz = 440.0 * std::exp2((midi - 69.0) / 12.0);
     return hz;
 }
@@ -183,7 +184,7 @@ double blep(double t, double dt) {
     return 0.0;
 }
 
-double saw(double& phase, double hz) {
+double saw_wave(double& phase, double hz) {
     const double dt = hz / kRate;
     const double value = 2.0 * phase - 1.0 - blep(phase, dt);
     phase += dt;
@@ -313,7 +314,7 @@ int life_of(Kind kind, int length, double hz) {
 }
 
 // A feedback-delay room: four lines through a Householder mix, each damped in the loop.
-struct Room {
+struct RoomLines {
     std::array<std::vector<double>, 4>& lines;
     std::array<int, 4>& at;
     std::array<double, 4>& low;
@@ -321,7 +322,7 @@ struct Room {
     double damp;
 };
 
-void room_step(Room& room, double in, double& out_l, double& out_r) {
+void room_step(RoomLines& room, double in, double& out_l, double& out_r) {
     double outs[4] = {};
     double sum = 0;
     for (int i = 0; i < 4; ++i) {
@@ -355,7 +356,7 @@ double room_energy(const int* lengths, double decay, double damp) {
     double feedback[4] = {};
     for (int i = 0; i < 4; ++i) lines[static_cast<std::size_t>(i)].assign(static_cast<std::size_t>(lengths[i]), 0.0);
     room_feedback(lengths, decay, feedback);
-    Room room{lines, at, low, feedback, damp};
+    RoomLines room{lines, at, low, feedback, damp};
     double energy = 0;
     const int frames = seconds(decay * 2.5);
     for (int n = 0; n < frames; ++n) {
@@ -375,7 +376,7 @@ double db(double value) {
 
 // ------------------------------------------------------------------ the band
 MazeBand::MazeBand(std::uint32_t seed, Style style)
-    : state_(seed | 1u), style_(style), wanted_style_(static_cast<int>(style)), wanted_seed_(seed) {
+    : random_(seed | 1u, Random::Bits::whole), style_(style), wanted_style_(static_cast<int>(style)), wanted_seed_(seed) {
     for (int i = 0; i < 4; ++i) {
         room_[static_cast<std::size_t>(i)].assign(static_cast<std::size_t>(kRoomLength[i]), 0.0);
         wall_[static_cast<std::size_t>(i)].assign(static_cast<std::size_t>(kWallLength[i]), 0.0);
@@ -404,14 +405,6 @@ double MazeBand::bus_power(Bus bus) const {
     const int b = static_cast<int>(bus);
     const double power = measured_ > 0 ? bus_power_[static_cast<std::size_t>(b)] / static_cast<double>(measured_) : 0.0;
     return power;
-}
-
-double MazeBand::uniform() {
-    state_ ^= state_ << 13;
-    state_ ^= state_ >> 17;
-    state_ ^= state_ << 5;
-    const double value = static_cast<double>(state_) / 4294967296.0;
-    return value;
 }
 
 double MazeBand::jitter(double spread) {
@@ -872,7 +865,7 @@ void MazeBand::plan_bar() {
     if (change != change_seen_) {
         change_seen_ = change;
         style_ = static_cast<Style>(std::clamp(wanted_style_.load(), 0, kStyles - 1));
-        state_ = wanted_seed_.load() | 1u;
+        random_.reseed(wanted_seed_.load() | 1u);
         tunes_ = 0;
         start_tune();
     } else if (section_ >= static_cast<int>(form_.size())) {
@@ -909,7 +902,7 @@ void MazeBand::start_voice(const Event& e) {
     v.on = true;
     v.kind = e.kind;
     v.bus = e.bus;
-    v.hz = mtof(e.midi);
+    v.hz = hz_of(e.midi);
     v.vel = e.vel;
     const double angle = (std::clamp(e.pan, -1.0, 1.0) + 1.0) * kPi / 4.0;
     v.gain_l = std::cos(angle);
@@ -940,7 +933,7 @@ double MazeBand::run_voice(Voice& v) {
     switch (v.kind) {
         case Kind::sqbass: {
             const double cut = f * 2.2 + vel * (f * 12.0 - f * 2.2) * std::exp(-t / .045);
-            y = saw(v.phase[0], f) + .6 * square(v.phase[1], f * 1.002);
+            y = saw_wave(v.phase[0], f) + .6 * square(v.phase[1], f * 1.002);
             y = low_pass(y, cut, v.s1, v.s2);
             y += 1.1 * sine(v.phase[2], f);
             y = std::tanh(1.4 * y) * gate(v.age, v.length, .002, .04) * (.4 + .6 * vel) * .6;
@@ -950,7 +943,7 @@ double MazeBand::run_voice(Voice& v) {
             const double vib = .006 * std::clamp((t - .18) / .2, 0.0, 1.0) * std::sin(2.0 * kPi * 5.6 * t);
             const double glide = v.slide > 0 ? std::exp2(-v.slide / 12.0 * std::exp(-t / .035)) : 1.0;
             const double hz = f * glide * (1.0 + vib);
-            y = .55 * saw(v.phase[0], hz) + .7 * square(v.phase[1], hz * 1.003);
+            y = .55 * saw_wave(v.phase[0], hz) + .7 * square(v.phase[1], hz * 1.003);
             const double c0 = std::min(f * 5.0, 5000.0);
             y = low_pass(y, c0 + .5 * (7000.0 - c0) * std::exp(-t / .08), v.s1, v.s2);
             y = high_pass(y, kPole120, v.s3);
@@ -958,7 +951,7 @@ double MazeBand::run_voice(Voice& v) {
             break;
         }
         case Kind::gtr: {
-            for (int j = 0; j < 6; ++j) y += saw(v.phase[j], v.partial_hz[j]);
+            for (int j = 0; j < 6; ++j) y += saw_wave(v.phase[j], v.partial_hz[j]);
             y = std::tanh(3.5 * y);
             y = high_pass(y, kPole90, v.s3);
             y = low_pass(y, 3400, v.s1, v.s2);
@@ -966,7 +959,7 @@ double MazeBand::run_voice(Voice& v) {
             break;
         }
         case Kind::brass: {
-            for (int j = 0; j < 3; ++j) y += saw(v.phase[j], v.partial_hz[j]);
+            for (int j = 0; j < 3; ++j) y += saw_wave(v.phase[j], v.partial_hz[j]);
             const double swell = std::min(t / .025, 1.0) * (.55 + .45 * std::exp(-t / .12));
             const double c0 = f * 2.5, c1 = std::min(f * 9.0, 6000.0);
             y = low_pass(y, c0 + (c1 - c0) * swell * vel, v.s1, v.s2);
@@ -975,7 +968,7 @@ double MazeBand::run_voice(Voice& v) {
             break;
         }
         case Kind::bpluck: {
-            y = saw(v.phase[0], f) + saw(v.phase[1], f * 1.006);
+            y = saw_wave(v.phase[0], f) + saw_wave(v.phase[1], f * 1.006);
             y = low_pass(y, f * 1.5 + (8000.0 - f * 1.5) * std::exp(-t / .06), v.s1, v.s2);
             y = high_pass(y, kPole150, v.s3);
             y *= std::exp(-t / .16) * (.4 + .6 * vel) * .35;
@@ -1039,7 +1032,7 @@ double MazeBand::run_voice(Voice& v) {
         case Kind::clarinet: {
             const double vib = .003 * std::clamp((t - .18) / .35, 0.0, 1.0) * std::sin(2.0 * kPi * 4.6 * t);
             const double hz = f * (1.0 + vib - .006 * std::exp(-t / .04));
-            y = .8 * square(v.phase[0], hz) + .1 * saw(v.phase[1], hz);
+            y = .8 * square(v.phase[0], hz) + .1 * saw_wave(v.phase[1], hz);
             y = low_pass(y, std::min(3200.0, f * 8.0), v.s1, v.s2);
             y *= gate(v.age, v.length, .03, .09) * (.35 + .65 * vel) * .4;
             break;
@@ -1126,14 +1119,14 @@ double MazeBand::run_voice(Voice& v) {
     return y;
 }
 
-void MazeBand::render_add(std::span<float> stereo, double gain) {
+void MazeBand::render_add(std::span<float> stereo, double gain) noexcept {
     const std::size_t frames = stereo.size() / 2;
     if (frames == 0) return;
     const double muffle_to = wanted_muffle_.load() ? 1.0 : 0.0;
     const double back_to = wanted_backwards_.load() ? 1.0 : 0.0;
     const double glide = 1.0 / (.3 * kRate);
-    Room room{room_, room_at_, room_low_, room_feedback_, kRoomDamp};
-    Room wall{wall_, wall_at_, wall_low_, wall_feedback_, kWallDamp};
+    RoomLines room{room_, room_at_, room_low_, room_feedback_, kRoomDamp};
+    RoomLines wall{wall_, wall_at_, wall_low_, wall_feedback_, kWallDamp};
     for (std::size_t frame = 0; frame < frames; ++frame) {
         if (bar_at_ >= bar_samples_) {
             bar_at_ = 0;
@@ -1244,9 +1237,10 @@ void MazeBand::render_add(std::span<float> stereo, double gain) {
             l = ceiling * std::tanh(l / ceiling);
             r = ceiling * std::tanh(r / ceiling);
         }
-        stereo[frame * 2] += static_cast<float>(l * gain);
-        stereo[frame * 2 + 1] += static_cast<float>(r * gain);
+        const double level = gain * fade_.next();
+        stereo[frame * 2] += static_cast<float>(l * level);
+        stereo[frame * 2 + 1] += static_cast<float>(r * level);
     }
 }
 
-}  // namespace mz
+}  // namespace games::music

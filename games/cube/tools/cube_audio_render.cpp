@@ -5,7 +5,7 @@
 //   cube_audio_render effects out.wav                          every effect, one after another
 //   cube_audio_render bench [seconds]                          CPU time per second of audio
 #include "glass_effects.hpp"
-#include "glass_music.hpp"
+#include "glass_dsp.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -88,7 +88,7 @@ int main(int argc, char** argv) {
         const double seconds = argc > 3 ? std::atof(argv[3]) : 75;
         const std::uint32_t seed = argc > 4 ? static_cast<std::uint32_t>(std::strtoul(argv[4], nullptr, 10)) : 1;
         ps_cube::Harmony harmony;
-        ps_cube::GlassMusic music(seed, &harmony);
+        games::music::Glasshouse music(seed, &harmony);
         ps_cube::GlassEffects effects(seed + 7, &harmony);
         const bool solo = argc > 5;
         if (solo)
@@ -130,7 +130,7 @@ int main(int argc, char** argv) {
         for (std::size_t frame = 0; frame * 2 < out.size(); frame += block) {
             const double now = static_cast<double>(frame) / sample_rate;
             while (next < script.size() && script[next].at <= now) {
-                music.cue(script[next].cue);
+                music.cue(ps_cube::music_cue(script[next].cue));
                 effects.cue(script[next].cue);
                 ++next;
             }
@@ -149,7 +149,7 @@ int main(int argc, char** argv) {
         if (argc < 3)
             return 2;
         ps_cube::Harmony harmony;
-        ps_cube::GlassMusic music(3, &harmony);  // only to set a key
+        games::music::Glasshouse music(3, &harmony);  // only to set a key
         std::vector<float> scratch(2 * block, 0.0F);
         music.render_add(scratch, 1.0);
         ps_cube::GlassEffects effects(5, &harmony);
@@ -199,7 +199,7 @@ int main(int argc, char** argv) {
     if (mode == "bench") {
         const double seconds = argc > 2 ? std::atof(argv[2]) : 600;
         ps_cube::Harmony harmony;
-        ps_cube::GlassMusic music(11, &harmony);
+        games::music::Glasshouse music(11, &harmony);
         ps_cube::GlassEffects effects(12, &harmony);
         std::vector<float> buffer(2 * block, 0.0F);
         const std::size_t blocks = static_cast<std::size_t>(seconds * sample_rate / block);
@@ -207,7 +207,7 @@ int main(int argc, char** argv) {
         for (std::size_t b = 0; b < blocks; ++b) {
             std::fill(buffer.begin(), buffer.end(), 0.0F);
             if (b % 400 == 0)
-                music.cue(Cue::connect);
+                music.cue(ps_cube::music_cue(Cue::connect));
             const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
             music.render_add(buffer, 1.0);
             const std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();

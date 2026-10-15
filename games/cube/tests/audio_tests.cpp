@@ -1,7 +1,7 @@
 // Nature Cube's live music and effects: bounded, varied, deterministic per seed, tuned
 // to each other, and quiet when there is nothing to play.
 #include "glass_effects.hpp"
-#include "glass_music.hpp"
+#include "glass_dsp.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -71,7 +71,7 @@ void cue_names() {
 
 void music_is_bounded_and_varied() {
     ps_cube::Harmony harmony;
-    ps_cube::GlassMusic music(17, &harmony);
+    games::music::Glasshouse music(17, &harmony);
     const int block = 480;
     std::vector<float> window(static_cast<std::size_t>(30 * ps_cube::sample_rate) * 2);
     std::set<int> tonics, modes;
@@ -84,11 +84,11 @@ void music_is_bounded_and_varied() {
             const std::size_t second = (w * 30 * ps_cube::sample_rate + frame) / ps_cube::sample_rate;
             if (frame % (ps_cube::sample_rate) < static_cast<std::size_t>(block)) {
                 if (second % 40 == 39)
-                    music.cue(ps_cube::Cue::connect);
+                    music.cue(ps_cube::music_cue(ps_cube::Cue::connect));
                 if (second % 300 == 299)
-                    music.cue(ps_cube::Cue::win);
+                    music.cue(ps_cube::music_cue(ps_cube::Cue::win));
                 if (second % 300 == 10)
-                    music.cue(ps_cube::Cue::level);
+                    music.cue(ps_cube::music_cue(ps_cube::Cue::level));
             }
             music.render_add(std::span<float>(window.data() + frame * 2, block * 2), 1.0);
             if (harmony.chord.load() != music.chord_mask() || harmony.tonic.load() != music.tonic())
@@ -117,7 +117,7 @@ void music_is_bounded_and_varied() {
 
 void music_fades_in_and_resolves() {
     ps_cube::Harmony harmony;
-    ps_cube::GlassMusic first(5, &harmony), second(5, nullptr);
+    games::music::Glasshouse first(5, &harmony), second(5, nullptr);
     std::vector<float> a(ps_cube::sample_rate / 20 * 2, 0.0F), b(a.size(), 0.0F);
     first.render_add(a, 1.0);
     second.render_add(b, 1.0);
@@ -126,21 +126,21 @@ void music_fades_in_and_resolves() {
     first.render_add(c, 1.0);
     second.render_add(d, 1.0);
     check(c == d, "a seed always plays the same music");
-    first.cue(ps_cube::Cue::win);
+    first.cue(ps_cube::music_cue(ps_cube::Cue::win));
     std::vector<float> e(ps_cube::sample_rate * 2, 0.0F);
     first.render_add(e, 1.0);
-    check(first.kind() == ps_cube::GlassMusic::glow, "a win settles into the glow");
+    check(first.kind() == games::music::Glasshouse::glow, "a win settles into the glow");
     check((first.chord_mask() & (1 << first.tonic())) != 0, "a win resolves to the tonic");
     check(first.brightness() > .5, "a win brightens the music");
-    ps_cube::GlassMusic third(9, nullptr);
+    games::music::Glasshouse third(9, nullptr);
     const double before = third.brightness();
-    third.cue(ps_cube::Cue::connect);
+    third.cue(ps_cube::music_cue(ps_cube::Cue::connect));
     check(third.brightness() > before + .3, "a joined pair brightens the music");
 }
 
 void effects_sound_and_settle() {
     ps_cube::Harmony harmony;
-    ps_cube::GlassMusic music(3, &harmony);
+    games::music::Glasshouse music(3, &harmony);
     std::vector<float> scratch(960, 0.0F);
     music.render_add(scratch, 1.0);
     ps_cube::GlassEffects effects(4, &harmony);

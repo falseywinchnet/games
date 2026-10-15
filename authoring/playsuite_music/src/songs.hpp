@@ -54,6 +54,9 @@ Song songGems();
 Song songNatureCube();
 Song songUntangle();
 Song songPuzzleSolve();
+Song songParrots();
+Song stingerParrotsWin();
+Song stingerParrotsLose();
 std::vector<SongFactory> stingers();
 Song songInstrumentTest();
 

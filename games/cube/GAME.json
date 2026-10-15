@@ -32,7 +32,6 @@
     "src/cube_view.cpp"
   ],
   "audio_sources": [
-    "src/glass_music.cpp",
     "src/glass_effects.cpp",
     "src/cube_score.cpp"
   ],

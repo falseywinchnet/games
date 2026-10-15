@@ -9,31 +9,32 @@
 // tonic when the puzzle is solved.
 //
 // Everything is generated from a seed: progressions, motifs, rhythms, keys and tempo.
-// render_add() runs on the audio thread; cue() is called there too, by whoever owns
-// the cue ring.
-#include "glass_dsp.hpp"
+// render_add() runs on the audio thread; cue() is called there too (LiveComposer passes
+// the game's moments over).
+#include "music_core.hpp"
 
 #include <array>
 #include <cstdint>
 #include <span>
 
-namespace ps_cube {
+namespace games::music {
 
-class GlassMusic final {
+class Glasshouse final : public Composer {
   public:
     enum Part { pads, bass, lead, bells, heartbeat, birds, breeze, part_count };
     enum Kind { pedal, pulse, breath, glow };
+    // The moments it answers (cue()): a pair joined, a new level, the puzzle solved.
+    static constexpr int cue_join = 1, cue_level = 2, cue_win = 3;
 
-    explicit GlassMusic(std::uint32_t seed, Harmony* harmony = nullptr);
-    // Adds the music to interleaved stereo frames.
-    void render_add(std::span<float> stereo, double gain) noexcept;
-    void cue(Cue cue) noexcept;
+    // `harmony`, when given, is where it publishes its key and chord as it plays.
+    explicit Glasshouse(std::uint32_t seed, Harmony* harmony = nullptr);
+    void render_add(std::span<float> stereo, double gain) noexcept override;
+    void cue(int cue) noexcept override;
     // Plays one part alone (or every part with -1), for listening to stems.
     void solo(int part) noexcept {
         solo_ = part;
     }
-    // Restarts the fade-in, as when the game is shown again.
-    void fade_in(double seconds) noexcept;
+    void fade_in(double seconds) noexcept override { fade_.start(seconds); }
 
     // For tests and tools.
     [[nodiscard]] int tonic() const noexcept {
@@ -125,10 +126,13 @@ class GlassMusic final {
     [[nodiscard]] bool usable(int degree) const;
     [[nodiscard]] double part(int which) const noexcept;
 
-    Dice dice_;
+    Random dice_;
     Harmony* harmony_;
     SineTable sine_{};
     Room room_{2.6, 4200};
+    static constexpr int control_period = 64;  // samples between control updates
+    int control_left_ = 0;                     // samples until the next
+    Fade fade_{};
 
     // voices
     std::array<PadVoice, 10> pad_{};
@@ -178,7 +182,6 @@ class GlassMusic final {
     double clock_ = 0;       // samples until the next sixteenth
     double energy_ = 0.5;
     double bright_ = 0;      // after a pair is joined; decays
-    double fade_ = 0, fade_rate_ = 0;
     double bird_wait_ = 20;  // seconds until a bird may call
     bool restart_ = false;   // a level: begin a fresh section on the next bar
     int sparkle_ = 0;        // bell notes left to play after a join
@@ -186,4 +189,4 @@ class GlassMusic final {
     Chord current_{};
 };
 
-} // namespace ps_cube
+}  // namespace games::music

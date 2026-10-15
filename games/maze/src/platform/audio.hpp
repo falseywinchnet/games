@@ -1,6 +1,6 @@
 #pragma once
-// Native audio: the live band (band.hpp) and pitch-varied sound effects. Missing
-// files stay silent.
+// Native audio: the live band (src/music/styles/maze_band.hpp) and pitch-varied sound
+// effects. Missing files stay silent.
 #include "gui_forms/audio/audio.hpp"
 #include <memory>
 #include <string>

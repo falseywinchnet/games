@@ -1,27 +1,17 @@
-#include "island_voice.hpp"
+#include "island_band.hpp"
 
 #include <algorithm>
 #include <cmath>
 
-namespace sw {
+namespace games::music {
 namespace {
 
-constexpr double pi = 3.14159265358979323846;
-constexpr double sr = IslandVoice::sample_rate;
+constexpr double sr = sample_rate;
 constexpr int pluck_line = 2048;
 
-double hz_of(double midi) {
-    return 440.0 * std::pow(2.0, (midi - 69.0) / 12.0);
-}
-
 // Per-sample multiplier for a fall of 60 dB in `seconds`.
-double decay_for(double seconds) {
+double fall_60db(double seconds) {
     return std::pow(10.0, -3.0 / (seconds * sr));
-}
-
-// Per-sample approach coefficient with time constant `seconds`.
-double approach(double seconds) {
-    return 1.0 - std::exp(-1.0 / (seconds * sr));
 }
 
 // The four notes of each kind of chord, in semitones above its root.
@@ -32,10 +22,9 @@ constexpr int chord_tones[5][4] = {
     {0, 3, 7, 10},  // minor seventh
     {0, 3, 7, 9},   // minor sixth
 };
-constexpr int major_scale[7] = {0, 2, 4, 5, 7, 9, 11};
 
 // The sections. Roots are numbered from the key: 0 I, 2 II, 4 III, 5 IV, 7 V, 9 VI.
-const IslandVoice::Section sections[] = {
+const IslandBand::Section sections[] = {
     {"aloha", {{0, 0}, {0, 0}, {5, 0}, {5, 4}, {0, 0}, {9, 2}, {2, 2}, {7, 2}}, 0, 90, 0.95},
     {"lagoon", {{0, 1}, {0, 1}, {2, 2}, {2, 2}, {7, 2}, {7, 2}, {0, 0}, {7, 2}}, 1, 96, 0.9},
     {"tiki", {{5, 0}, {5, 0}, {0, 0}, {0, 0}, {2, 2}, {7, 2}, {0, 0}, {0, 0}}, 2, 88, 0.9},
@@ -67,7 +56,7 @@ constexpr int strums[3][8] = {
 
 } // namespace
 
-IslandVoice::IslandVoice(std::uint32_t seed) : state_(seed * 2654435761U + 0x9E3779B9U) {
+IslandBand::IslandBand(std::uint32_t seed) : random_(seed * 2654435761U + 0x9E3779B9U, Random::Bits::low) {
     for (int k = 0; k < 4; ++k) {
         uke_[k].line.assign(pluck_line, 0.0F);
         uke_[k].pan = 0.18F + 0.04F * static_cast<float>(k);
@@ -87,22 +76,11 @@ IslandVoice::IslandVoice(std::uint32_t seed) : state_(seed * 2654435761U + 0x9E3
     plan_section();
 }
 
-double IslandVoice::uniform() {
-    state_ ^= state_ << 13;
-    state_ ^= state_ >> 17;
-    state_ ^= state_ << 5;
-    return (state_ & 0xFFFFFF) / 16777216.0;
-}
-
-int IslandVoice::pick(int n) {
-    return std::min(n - 1, static_cast<int>(uniform() * n));
-}
-
-int IslandVoice::chord_pc(const Chord& chord, int index) const {
+int IslandBand::chord_pc(const Chord& chord, int index) const {
     return (key_ + chord.root + chord_tones[chord.kind][index]) % 12;
 }
 
-bool IslandVoice::chord_tone(int midi, const Chord& chord) const {
+bool IslandBand::chord_tone(int midi, const Chord& chord) const {
     const int pc = ((midi % 12) + 12) % 12;
     for (int k = 0; k < 4; ++k)
         if (chord_pc(chord, k) == pc)
@@ -113,7 +91,7 @@ bool IslandVoice::chord_tone(int midi, const Chord& chord) const {
 // Next melody note: a chord tone on the strong beats, any note of the key (or of
 // the chord) between; near the last one, rarely the same, kept in the steel's
 // sweet range.
-int IslandVoice::lead_note(int previous, const Chord& chord, bool strong) {
+int IslandBand::lead_note(int previous, const Chord& chord, bool strong) {
     int best = previous;
     double best_score = -1e9;
     for (int cand = 65; cand <= 84; ++cand) {
@@ -141,31 +119,31 @@ int IslandVoice::lead_note(int previous, const Chord& chord, bool strong) {
 // its few overtones gone within moments of the pick, slid into its note with the
 // bar, with a slow wide vibrato once it rings. A swell is the volume knob rolled up
 // after the pick.
-void IslandVoice::steel(Tone& tone, int midi, double seconds, double strength, double slide, bool swell) {
+void IslandBand::steel(Tone& tone, int midi, double seconds, double strength, double slide, bool swell) {
     const double amps[6] = {1.0, 0.38, 0.16, 0.06, 0.025, 0.01};
     tone.partials = 6;
     for (int k = 0; k < 6; ++k) {
         tone.ratio[k] = k + 1;
         tone.amp[k] = amps[k] * strength * (0.9 + 0.2 * uniform());
-        tone.decay[k] = decay_for(k == 0 ? 4.5 : 1.6 / std::pow(k + 1.0, 1.2));
+        tone.decay[k] = fall_60db(k == 0 ? 4.5 : 1.6 / std::pow(k + 1.0, 1.2));
     }
-    tone.target_hz = hz_of(midi);
+    tone.target_hz = mtof(midi);
     tone.hz = tone.target_hz * std::pow(2.0, -slide / 12.0);
-    tone.glide = slide > 0 ? approach(0.035 + 0.03 * slide) : 1.0;
-    tone.attack = approach(swell ? 0.22 : 0.012);
+    tone.glide = slide > 0 ? rate_for(0.035 + 0.03 * slide) : 1.0;
+    tone.attack = rate_for(swell ? 0.22 : 0.012);
     tone.env = 0;
     tone.age = 0;
     tone.vibrato_depth = 0.006 + 0.003 * uniform();
     tone.vibrato_delay = std::min(0.35, seconds * 0.3);
     tone.tremolo_depth = 0;
     tone.release_in = seconds;
-    tone.damp = decay_for(0.35);
+    tone.damp = fall_60db(0.35);
     tone.level = 1;
 }
 
 // A vibraphone bar (the motor turning) or a marimba bar: a sine with its tuned
 // overtones, quick to strike, the marimba's short and woody.
-void IslandVoice::vibes(Tone& tone, int midi, double strength, bool marimba) {
+void IslandBand::vibes(Tone& tone, int midi, double strength, bool marimba) {
     tone.partials = 3;
     tone.ratio[0] = 1;
     tone.ratio[1] = marimba ? 3.93 : 4.0;
@@ -173,15 +151,15 @@ void IslandVoice::vibes(Tone& tone, int midi, double strength, bool marimba) {
     tone.amp[0] = strength;
     tone.amp[1] = strength * (marimba ? 0.22 : 0.28);
     tone.amp[2] = strength * 0.05;
-    tone.decay[0] = decay_for(marimba ? 0.65 : 2.6);
-    tone.decay[1] = decay_for(marimba ? 0.22 : 0.8);
-    tone.decay[2] = decay_for(marimba ? 0.08 : 0.25);
+    tone.decay[0] = fall_60db(marimba ? 0.65 : 2.6);
+    tone.decay[1] = fall_60db(marimba ? 0.22 : 0.8);
+    tone.decay[2] = fall_60db(marimba ? 0.08 : 0.25);
     for (int k = 0; k < 3; ++k)
         tone.phase[k] = 0;
-    tone.hz = hz_of(midi);
+    tone.hz = mtof(midi);
     tone.target_hz = tone.hz;
     tone.glide = 1;
-    tone.attack = approach(0.0015);
+    tone.attack = rate_for(0.0015);
     tone.env = 0;
     tone.age = 0;
     tone.vibrato_depth = 0;
@@ -190,7 +168,7 @@ void IslandVoice::vibes(Tone& tone, int midi, double strength, bool marimba) {
     tone.level = 1;
 }
 
-float IslandVoice::run_tone(Tone& tone) {
+float IslandBand::run_tone(Tone& tone) {
     if (tone.level < 1e-5 || tone.partials == 0)
         return 0.0F;
     const double dt = 1.0 / sr;
@@ -230,8 +208,8 @@ float IslandVoice::run_tone(Tone& tone) {
     return static_cast<float>(sum * tone.env * tone.level);
 }
 
-void IslandVoice::pluck_now(Pluck& string, double midi, double strength) {
-    const double period = sr / hz_of(midi);
+void IslandBand::pluck_now(Pluck& string, double midi, double strength) {
+    const double period = sr / mtof(midi);
     string.delay = std::clamp(period - 0.5, 4.0, pluck_line - 8.0);
     if (string.pending != 0)
         string.mute_in = -1;  // a strummed string keeps the mute its strum asked for
@@ -256,7 +234,7 @@ void IslandVoice::pluck_now(Pluck& string, double midi, double strength) {
     }
 }
 
-float IslandVoice::run_pluck(Pluck& string) {
+float IslandBand::run_pluck(Pluck& string) {
     if (string.pending >= 0) {
         if (string.pending == 0)
             pluck_now(string, string.pending_midi, string.pending_strength);
@@ -281,7 +259,7 @@ float IslandVoice::run_pluck(Pluck& string) {
 
 // A strum across the ukulele: each string takes the lowest fret under the hand that
 // rings in the chord, the strings sounding a few milliseconds apart.
-void IslandVoice::strum(const Chord& chord, bool down, double strength) {
+void IslandBand::strum(const Chord& chord, bool down, double strength) {
     const double spread = (down ? 0.009 : 0.006) * (0.75 + 0.6 * uniform());
     brush_env_ = strength * (down ? 0.5 : 0.35);
     brush_hz_ = down ? 2600 : 3400;
@@ -301,7 +279,7 @@ void IslandVoice::strum(const Chord& chord, bool down, double strength) {
         string.pending = static_cast<int>(order * spread * sr);
         string.pending_midi = note;
         string.pending_strength = strength * (0.85 + 0.3 * uniform());
-        string.loss = static_cast<float>(std::pow(10.0, -3.0 / (0.75 * hz_of(note))));
+        string.loss = static_cast<float>(std::pow(10.0, -3.0 / (0.75 * mtof(note))));
         string.bright = 0.38F;
         string.mute_in = -1;
     }
@@ -310,19 +288,19 @@ void IslandVoice::strum(const Chord& chord, bool down, double strength) {
 // The upright bass: a round fundamental with a little of its octave and twelfth,
 // both gone in a moment, plucked with the side of the finger and stopped by the
 // hand when its time is up.
-void IslandVoice::upright(int midi, double seconds) {
+void IslandBand::upright(int midi, double seconds) {
     const double amps[4] = {1.0, 0.42, 0.16, 0.05};
     const double rings[4] = {1.8, 0.5, 0.22, 0.12};
     bass_.partials = 4;
     for (int k = 0; k < 4; ++k) {
         bass_.ratio[k] = k + 1;
         bass_.amp[k] = amps[k] * (0.9 + 0.15 * uniform());
-        bass_.decay[k] = decay_for(rings[k]);
+        bass_.decay[k] = fall_60db(rings[k]);
     }
-    bass_.hz = hz_of(midi);
+    bass_.hz = mtof(midi);
     bass_.target_hz = bass_.hz;
     bass_.glide = 1;
-    bass_.attack = approach(0.006);
+    bass_.attack = rate_for(0.006);
     // the phases run on from the last note, so a new one never clicks; from silence it
     // rises over a few milliseconds like a finger leaving the string
     if (bass_.level * bass_.amp[0] < 0.05)
@@ -331,12 +309,12 @@ void IslandVoice::upright(int midi, double seconds) {
     bass_.vibrato_depth = 0;
     bass_.tremolo_depth = 0;
     bass_.release_in = seconds;
-    bass_.damp = decay_for(0.12);
+    bass_.damp = fall_60db(0.12);
     bass_.level = 1;
     thump_env_ = 0.5;
 }
 
-void IslandVoice::bubble() {
+void IslandBand::bubble() {
     bubble_hz_ = 280 + 520 * uniform();
     bubble_rise_ = std::pow(2.2 + uniform(), 1.0 / (0.07 * sr));
     bubble_env_ = 0.6 + 0.4 * uniform();
@@ -344,7 +322,7 @@ void IslandVoice::bubble() {
     bubble_pan_ = uniform() * 1.4 - 0.7;
 }
 
-void IslandVoice::plan_section() {
+void IslandBand::plan_section() {
     int next = last_section_;
     for (int tries = 0; tries < 10 && next == last_section_; ++tries)
         next = pick(section_count);
@@ -363,7 +341,7 @@ void IslandVoice::plan_section() {
     ++verses_;
 }
 
-void IslandVoice::step_eighth() {
+void IslandBand::step_eighth() {
     const int e = eighth_;
     Chord chord{};
     if (vamp_) {
@@ -494,9 +472,9 @@ void IslandVoice::step_eighth() {
     }
 }
 
-void IslandVoice::render_add(std::span<float> stereo, double gain) {
+void IslandBand::render_add(std::span<float> stereo, double gain) noexcept {
     const double dt = 1.0 / sr;
-    const double hp = approach(1.0 / (2 * pi * 110));
+    const double hp = rate_for(1.0 / (2 * pi * 110));
     const double lp = 1.0 - std::exp(-2 * pi * 6200 / sr);
     for (std::size_t frame = 0; frame + 1 < stereo.size(); frame += 2) {
         clock_ -= dt;
@@ -650,9 +628,10 @@ void IslandVoice::render_add(std::span<float> stereo, double gain) {
         const double scale = 2.4 * loud_;
         const double out_left = std::tanh((mid + wide) * scale * 0.45) / 0.45 + hiss_low_ * 0.0015;
         const double out_right = std::tanh((mid - wide) * scale * 0.45) / 0.45 + hiss_low_ * 0.0015;
-        stereo[frame] += static_cast<float>(out_left * gain);
-        stereo[frame + 1] += static_cast<float>(out_right * gain);
+        const double level = gain * fade_.next();
+        stereo[frame] += static_cast<float>(out_left * level);
+        stereo[frame + 1] += static_cast<float>(out_right * level);
     }
 }
 
-} // namespace sw
+}  // namespace games::music

@@ -6,7 +6,7 @@
 #include "archive.hpp"
 #include "motion.hpp"
 #include "riverscape_look.hpp"
-#include "island_voice.hpp"
+#include "styles/island_band.hpp"
 #include "stage.hpp"
 #include "tank_voice.hpp"
 #include "tanks.hpp"
@@ -82,7 +82,7 @@ void test_tank_voice();
 // through verses. Each is far faster than real time.
 void test_voices() {
     std::vector<float> block(48000 * 2 * 40, 0.0F);
-    sw::IslandVoice band(7);
+    games::music::IslandBand band(7);
     for (std::size_t at = 0; at < block.size(); at += 512)
         band.render_add(std::span<float>(block.data() + at, std::min<std::size_t>(512, block.size() - at)), 0.25);
     double square = 0;
@@ -99,7 +99,7 @@ void test_voices() {
     // An island section is eight slow bars and a vamp, about twenty seconds.
     require(band.verses_played() >= 2, "the band moves from section to section");
     std::vector<float> again(block.size(), 0.0F);
-    sw::IslandVoice twin(7);
+    games::music::IslandBand twin(7);
     for (std::size_t at = 0; at < again.size(); at += 512)
         twin.render_add(std::span<float>(again.data() + at, std::min<std::size_t>(512, again.size() - at)), 0.25);
     require(again == block, "a seed plays the same tunes");

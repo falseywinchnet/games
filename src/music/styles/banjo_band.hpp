@@ -20,11 +20,13 @@
 // They drive the head: a bank of resonators for the drum's modes, which gives the
 // nasal honk, with a click of the pick or nail at each note. A resonator banjo is
 // brighter and punchier; an open-back one is plunkier and darker.
+#include "music_core.hpp"
+
 #include <cstdint>
 #include <span>
 #include <vector>
 
-namespace mm {
+namespace games::music {
 
 // Which band plays. Scruggs (the game's) is full bluegrass on a resonator banjo, the
 // lead passing between banjo and fiddle; clawhammer is a mellower open-back banjo
@@ -32,9 +34,8 @@ namespace mm {
 // band and gentler passages between tunes.
 enum class BanjoStyle { scruggs = 0, clawhammer = 1, porch = 2 };
 
-class BanjoVoice final {
+class BanjoBand final : public Composer {
   public:
-    static constexpr int sample_rate = 48000;
     // Parts, for solo(): the banjo, the upright bass, the guitar, the mandolin, the fiddle.
     static constexpr int part_banjo = 0;
     static constexpr int part_bass = 1;
@@ -43,9 +44,10 @@ class BanjoVoice final {
 
     static constexpr int part_fiddle = 4;
 
-    explicit BanjoVoice(std::uint32_t seed = 21, BanjoStyle style = BanjoStyle::scruggs);
+    explicit BanjoBand(std::uint32_t seed = 21, BanjoStyle style = BanjoStyle::scruggs);
     // Adds the band to interleaved stereo frames at the given gain (glided).
-    void render_add(std::span<float> stereo, double gain);
+    void render_add(std::span<float> stereo, double gain) noexcept override;
+    void fade_in(double seconds) noexcept override { fade_.start(seconds); }
     // For tools: hear one part alone, or -1 for the whole band.
     void solo(int part) {
         solo_ = part;
@@ -61,7 +63,7 @@ class BanjoVoice final {
         return tempo_;
     }
     // Plays everything this much faster, easing into it over a few bars (1: as written).
-    void set_hurry(double factor) {
+    void set_hurry(double factor) noexcept override {
         hurry_ = factor;
     }
 
@@ -131,8 +133,8 @@ class BanjoVoice final {
     };
 
   private:
-    double uniform();
-    int pick(int n);
+    double uniform() { return random_.uniform(); }
+    int pick(int n) { return random_.pick(n); }
     [[nodiscard]] double part_gain(int part) const {
         return solo_ < 0 || solo_ == part ? 1.0 : 0.0;
     }
@@ -161,7 +163,8 @@ class BanjoVoice final {
     float run_bow(Bow& b);
     void guitar_note(int string, int midi, double strength, bool hammer);
 
-    std::uint32_t state_;
+    Random random_;
+    Fade fade_{};
     BanjoStyle style_;
     int solo_{-1};
     String banjo_[5]{};
@@ -234,4 +237,4 @@ class BanjoVoice final {
     double swing_{};             // the on-beat sixteenth's share of each pair
 };
 
-} // namespace mm
+}  // namespace games::music

@@ -19,6 +19,25 @@ void SceneAudio::music(const std::string& name, bool enabled) {
         front_started_ = true;
     } else if (music_on_ && !was_on) { player_.resume(front_); }
 }
+#ifdef GUI_FORMS_AUDIO_GENERATOR
+void SceneAudio::live_music(const std::shared_ptr<gui_forms::AudioGenerator>& source, bool enabled) {
+    const bool was_on = music_on_;
+    music_on_ = enabled && source && master_music_ && foreground_;
+    if (!foreground_) { return; }
+    static const std::string live = "<live>";
+    if (wanted_ != live) {
+        wanted_ = live;
+        front_ = 1 - front_;
+        player_.clear(front_);
+        music_gain_[front_] = 0;
+        front_started_ = false;
+    }
+    if (music_on_ && !front_started_) {
+        player_.generate(front_, source, 0);
+        front_started_ = true;
+    } else if (music_on_ && !was_on) { player_.resume(front_); }
+}
+#endif
 void SceneAudio::effects(const std::string& name, double gain, double rate, bool enabled, double pan) {
     if (!enabled || !foreground_ || !master_sound_) { return; }
     std::size_t chosen = next_effect_;

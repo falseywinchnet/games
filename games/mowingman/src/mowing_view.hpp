@@ -11,10 +11,13 @@
 #include <memory>
 #include <string>
 
+namespace games {
+class LiveComposer;
+}
+
 namespace mm {
 
 class LiveMower;
-class LiveBand;
 
 class MowingScenery final : public ambient::Scenery {
   public:
@@ -76,7 +79,7 @@ class MowingScenery final : public ambient::Scenery {
     double fade_{};
     double eggy_look_{};
     std::shared_ptr<LiveMower> live_{};  // the synthesized mower, where the toolkit can play one
-    std::shared_ptr<LiveBand> band_{};   // the improvising banjo band, likewise
+    std::shared_ptr<games::LiveComposer> band_{};  // the improvising banjo band, likewise
 };
 
 class MowingView final : public ambient::SceneView {

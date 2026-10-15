@@ -50,7 +50,6 @@
     "src/riverscape_look.cpp",
     "src/treasure.cpp",
     "src/tanks.cpp",
-    "src/island_voice.cpp",
     "src/tank_voice.cpp"
   ],
   "core_tests": [

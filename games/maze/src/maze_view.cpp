@@ -1,5 +1,7 @@
 #include "maze_view.hpp"
-#include "band.hpp"
+#include "live_composer.hpp"
+#include "repertoire.hpp"
+#include "styles/maze_band.hpp"
 #include "art.hpp"
 
 #include "idle.hpp"
@@ -149,22 +151,6 @@ std::uint64_t stir(std::uint64_t h) {
 }
 }  // namespace
 
-#ifdef GUI_FORMS_AUDIO_GENERATOR
-// The band (band.hpp), synthesized on the audio thread as it plays; the view tells it the
-// level's style, the blackout and the ceiling.
-class LiveBand final : public gui_forms::AudioGenerator {
-  public:
-    LiveBand(int style, std::uint32_t seed) : band_(seed, static_cast<Style>(style)) {}
-    void render(std::span<float> stereo) noexcept override {
-        std::fill(stereo.begin(), stereo.end(), 0.0F);
-        band_.render_add(stereo, 1.0);
-    }
-    MazeBand& band() { return band_; }
-
-  private:
-    MazeBand band_;
-};
-#endif
 void MazeView::dress(Level& lv) const {
     const std::uint64_t h = stir(level_seed_ ^ 0xA27ULL);
     const bool calm = h % 3 == 0;
@@ -467,21 +453,26 @@ void MazeView::tick() {
         const bool on = (opt_.hosted || save_.music) && cab_music_ && cab_front_;
         // the band plays one of its three styles for each level, chosen by the level's seed
         const std::uint64_t pick = stir(level_seed_ ^ 0x5C0BEULL);
-        const int style = static_cast<int>(pick % static_cast<std::uint64_t>(Style::count));
+        const int style = static_cast<int>(pick % static_cast<std::uint64_t>(games::music::MazeStyle::count));
         const std::uint32_t tunes = static_cast<std::uint32_t>(pick >> 32);
 #ifdef GUI_FORMS_AUDIO_GENERATOR
         if (!band_) {
-            band_ = std::make_shared<LiveBand>(style, tunes);
+            // the suite's maze band (src/music/styles/maze_band.hpp): the view keeps a handle
+            // to tell it the level's style, the blackout and the ceiling
+            std::unique_ptr<games::music::MazeBand> made =
+                std::make_unique<games::music::MazeBand>(tunes, static_cast<games::music::MazeStyle>(style));
+            maze_band_ = made.get();
+            band_ = std::make_shared<games::LiveComposer>(std::move(made), games::music::score_level("maze_run"));
             band_style_ = style;
             band_tunes_ = tunes;
         }
         if (style != band_style_ || tunes != band_tunes_) {
             band_style_ = style;
             band_tunes_ = tunes;
-            (*band_).band().play(static_cast<Style>(style), tunes);
+            (*maze_band_).play(static_cast<games::music::MazeStyle>(style), tunes);
         }
-        (*band_).band().muffle(sess_.play.blackout);
-        (*band_).band().backwards(sess_.play.flipped);
+        (*maze_band_).muffle(sess_.play.blackout);
+        (*maze_band_).backwards(sess_.play.flipped);
         audio_live_music(band_, on && visible());
 #else
         static_cast<void>(on);

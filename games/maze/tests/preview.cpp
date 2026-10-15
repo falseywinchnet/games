@@ -5,7 +5,7 @@
 #include "textures.hpp"
 #include "world.hpp"
 #include "rewards.hpp"
-#include "band.hpp"
+#include "styles/maze_band.hpp"
 #include "cast.hpp"
 
 #include <algorithm>
@@ -51,7 +51,7 @@ void write_wav(const char* path, const std::vector<float>& stereo) {
     if (!f) return;
     const std::uint32_t frames = static_cast<std::uint32_t>(stereo.size() / 2);
     const std::uint32_t bytes = frames * 4;
-    const std::uint32_t riff = 36 + bytes, fmt = 16, rate = MazeBand::sample_rate, byte_rate = rate * 4;
+    const std::uint32_t riff = 36 + bytes, fmt = 16, rate = games::music::sample_rate, byte_rate = rate * 4;
     const std::uint16_t pcm = 1, channels = 2, align = 4, bits = 16;
     std::fwrite("RIFF", 1, 4, f); std::fwrite(&riff, 4, 1, f); std::fwrite("WAVEfmt ", 1, 8, f);
     std::fwrite(&fmt, 4, 1, f); std::fwrite(&pcm, 2, 1, f); std::fwrite(&channels, 2, 1, f); std::fwrite(&rate, 4, 1, f);
@@ -76,24 +76,24 @@ double rms_db(const std::vector<float>& stereo) {
 
 int band(int argc, char** argv) {
     if (argc >= 2 && !std::strcmp(argv[1], "band-levels")) {
-        // each style's first tune: every bus at unity (paste into band.cpp's kRaw), then the
+        // each style's first tune: every bus at unity (paste into src/music/styles/maze_band.cpp's kRaw), then the
         // master's level and the wall's, with the tables as they are
         static const double kSeconds[3] = {127.3, 123.9, 120.0};
         for (int s = 0; s < 3; ++s) {
-            MazeBand raw(1, static_cast<Style>(s));
+            games::music::MazeBand raw(1, static_cast<games::music::MazeStyle>(s));
             raw.measure_raw(true);
-            std::vector<float> out(static_cast<std::size_t>(kSeconds[s] * MazeBand::sample_rate) * 2, 0.0F);
+            std::vector<float> out(static_cast<std::size_t>(kSeconds[s] * games::music::sample_rate) * 2, 0.0F);
             raw.render_add(out, 1.0);
             std::printf("    {");
-            for (int b = 0; b < MazeBand::bus_count; ++b) {
-                const double p = raw.bus_power(static_cast<MazeBand::Bus>(b));
+            for (int b = 0; b < games::music::MazeBand::bus_count; ++b) {
+                const double p = raw.bus_power(static_cast<games::music::MazeBand::Bus>(b));
                 std::printf("%s%.1f", b ? ", " : "", p > 1e-12 ? 10.0 * std::log10(p) : -200.0);
             }
             std::printf("},\n");
-            MazeBand mixed(1, static_cast<Style>(s));
+            games::music::MazeBand mixed(1, static_cast<games::music::MazeStyle>(s));
             std::fill(out.begin(), out.end(), 0.0F);
             mixed.render_add(out, 1.0);
-            MazeBand dark(1, static_cast<Style>(s));
+            games::music::MazeBand dark(1, static_cast<games::music::MazeStyle>(s));
             dark.muffle(true);
             std::vector<float> dull(out.size(), 0.0F);
             dark.render_add(dull, 1.0);
@@ -105,10 +105,10 @@ int band(int argc, char** argv) {
     const int style = std::clamp(std::atoi(argv[2]), 0, 2);
     const double secs = std::atof(argv[3]);
     const std::uint32_t seed = argc > 5 ? static_cast<std::uint32_t>(std::strtoul(argv[5], nullptr, 10)) : 1u;
-    MazeBand b(seed, static_cast<Style>(style));
+    games::music::MazeBand b(seed, static_cast<games::music::MazeStyle>(style));
     if (argc > 6 && !std::strcmp(argv[6], "dark")) b.muffle(true);
     if (argc > 6 && !std::strcmp(argv[6], "back")) b.backwards(true);
-    std::vector<float> out(static_cast<std::size_t>(secs * MazeBand::sample_rate) * 2, 0.0F);
+    std::vector<float> out(static_cast<std::size_t>(secs * games::music::sample_rate) * 2, 0.0F);
     const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
     const std::size_t block = 512 * 2;
     for (std::size_t at = 0; at < out.size(); at += block) {

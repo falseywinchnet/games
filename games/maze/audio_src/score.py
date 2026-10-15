@@ -1,7 +1,7 @@
 """Maze 95 score: the reference recordings of the band's three styles.
 
-The game plays its music live (src/band.cpp): a band that makes up tunes as it
-plays, in one of three styles chosen for each level. This script made the
+The game plays its music live (the suite's src/music/styles/maze_band.cpp): a band
+that makes up tunes as it plays, in one of three styles chosen for each level. This script made the
 recordings the owner chose those styles from, and the band was matched to them
 (the same arrangements and themes, each part's level, the room and the master).
 Re-render them to compare by ear after changing the band.

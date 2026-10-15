@@ -1,21 +1,12 @@
-#include "sudoku_music.hpp"
+#include "koto_garden.hpp"
 
 #include <algorithm>
 #include <cmath>
 
-namespace ps_sudoku {
+namespace games::music {
 namespace {
 
-constexpr double pi = 3.14159265358979323846;
 constexpr int line_size = 2048;   // the lowest string's period fits many times over
-constexpr int room_size = 4096;
-
-double mtof(double midi) {
-    return 440.0 * std::pow(2.0, (midi - 69) / 12.0);
-}
-double rate_for(double seconds) {
-    return 1.0 - std::exp(-1.0 / (seconds * GardenMusic::sample_rate));
-}
 
 // The thirteen strings, as semitones above the tonic (D), and the scale's pitch classes.
 // Hira-joshi for the in scale; the same layout through the yo scale by day.
@@ -27,8 +18,8 @@ constexpr int tonic = 50;  // D3
 
 }  // namespace
 
-GardenMusic::GardenMusic(std::uint32_t seed, bool night)
-    : state_(seed * 2654435761U + 0x6D2B79F5U), night_(night) {
+KotoGarden::KotoGarden(std::uint32_t seed, bool night)
+    : random_(seed * 2654435761U + 0x6D2B79F5U), night_(night) {
     const std::array<int, 13>& layout = night ? night_strings : day_strings;
     scale_ = night ? night_scale : day_scale;
     for (std::size_t i = 0; i < strings_.size(); ++i) {
@@ -50,36 +41,15 @@ GardenMusic::GardenMusic(std::uint32_t seed, bool night)
         body_a2_[k] = -r * r;
         body_g_[k] = (1 - r) * 2 * std::sin(w);
     }
-    const int lengths[4] = {1693, 2111, 2593, 3001};
-    for (int k = 0; k < 4; ++k) {
-        lines_[static_cast<std::size_t>(k)].assign(room_size, 0.0F);
-        lengths_[static_cast<std::size_t>(k)] = lengths[k];
-        feedback_[static_cast<std::size_t>(k)] = std::pow(10.0, -3.0 * lengths[k] / (2.4 * sample_rate));
-    }
     // The first phrase after a breath of quiet.
     next_phrase_ = static_cast<long>(sample_rate * (1.2 + uniform()));
 }
 
-double GardenMusic::uniform() noexcept {
-    state_ ^= state_ << 13;
-    state_ ^= state_ >> 17;
-    state_ ^= state_ << 5;
-    return (state_ >> 8) * (1.0 / 16777216.0);
-}
-
-int GardenMusic::pick(int n) noexcept {
-    const int value = static_cast<int>(uniform() * n);
-    return value < n ? value : n - 1;
-}
-
-void GardenMusic::fade_in(double seconds) noexcept {
-    fade_ = 0;
-    fade_rate_ = 1.0 / (std::max(.05, seconds) * sample_rate);
-}
-
 // The pick strikes near the end of the string: a short, bright burst, softer for a
 // gentler stroke. A press behind the bridge comes a moment after the stroke.
-void GardenMusic::pluck(int index, double strength, double press) noexcept {
+bool KotoGarden::earlier(const Event& a, const Event& b) { return a.at < b.at; }
+
+void KotoGarden::pluck(int index, double strength, double press) noexcept {
     String& s = strings_[static_cast<std::size_t>(index)];
     const int period = std::clamp(static_cast<int>(s.delay), 8, line_size - 2);
     double low = 0;
@@ -113,7 +83,7 @@ void GardenMusic::pluck(int index, double strength, double press) noexcept {
     ++plucked_;
 }
 
-float GardenMusic::run(String& s) noexcept {
+float KotoGarden::run(String& s) noexcept {
     if (s.press_in >= 0 && s.press_in-- == 0) {
         s.bend_to = s.press_to;
         s.bend_rate = rate_for(.09);
@@ -143,7 +113,7 @@ float GardenMusic::run(String& s) noexcept {
 
 // A phrase: a handful of notes moving mostly to the next string, closing on the tonic or
 // the fifth, then room before the next.
-void GardenMusic::plan_phrase() noexcept {
+void KotoGarden::plan_phrase() noexcept {
     ++phrases_;
     const long spb = static_cast<long>(beat_ * sample_rate);
     long t = clock_ + spb / 8;
@@ -210,13 +180,13 @@ void GardenMusic::plan_phrase() noexcept {
     // Ma: the quiet between phrases, longer at night.
     const double rest = (night_ ? 2.0 : 1.2) + uniform() * (night_ ? 3.0 : 2.0);
     next_phrase_ = t + static_cast<long>(rest * spb);
-    std::sort(events_.begin(), events_.end(), [](const Event& a, const Event& b) { return a.at < b.at; });
+    std::sort(events_.begin(), events_.end(), earlier);
     // Now and then the flute breathes a long tone over it.
     if (!flute_.on && uniform() < (night_ ? .45 : .25))
         breathe();
 }
 
-void GardenMusic::breathe() noexcept {
+void KotoGarden::breathe() noexcept {
     // A tone of the scale in the flute's middle register.
     int midi = 0;
     for (int tries = 0; tries < 16; ++tries) {
@@ -236,7 +206,7 @@ void GardenMusic::breathe() noexcept {
     ++breaths_;
 }
 
-double GardenMusic::flute_sample() noexcept {
+double KotoGarden::flute_sample() noexcept {
     Flute& f = flute_;
     if (!f.on)
         return 0;
@@ -274,34 +244,11 @@ double GardenMusic::flute_sample() noexcept {
     return f.env * (tone * .8 + band * (.35 + chiff * 2.2));
 }
 
-void GardenMusic::room(double in, double& left, double& right) noexcept {
-    double out[4];
-    for (int i = 0; i < 4; ++i) {
-        int read = room_write_ - lengths_[static_cast<std::size_t>(i)];
-        if (read < 0)
-            read += room_size;
-        out[i] = lines_[static_cast<std::size_t>(i)][static_cast<std::size_t>(read)];
-    }
-    const double h0 = out[0] + out[1], h1 = out[0] - out[1];
-    const double h2 = out[2] + out[3], h3 = out[2] - out[3];
-    const double mixed[4] = {(h0 + h2) * .5, (h1 + h3) * .5, (h0 - h2) * .5, (h1 - h3) * .5};
-    const double damp = 1.0 - std::exp(-2.0 * pi * 4200 / sample_rate);
-    for (int i = 0; i < 4; ++i) {
-        low_[static_cast<std::size_t>(i)] += (mixed[i] * feedback_[static_cast<std::size_t>(i)] - low_[static_cast<std::size_t>(i)]) * damp;
-        lines_[static_cast<std::size_t>(i)][static_cast<std::size_t>(room_write_)] =
-            static_cast<float>(low_[static_cast<std::size_t>(i)] + in);
-    }
-    room_write_ = (room_write_ + 1) % room_size;
-    left += out[0] + out[2] * .6;
-    right += out[1] + out[3] * .6;
-}
-
-void GardenMusic::render_add(std::span<float> stereo, double gain) noexcept {
+void KotoGarden::render_add(std::span<float> stereo, double gain) noexcept {
     std::size_t next_event = 0;
     for (std::size_t frame = 0; frame + 1 < stereo.size(); frame += 2) {
         gain_ += (gain - gain_) * .0002;
-        if (fade_ < 1)
-            fade_ = std::min(1.0, fade_ + fade_rate_);
+        const double fade = fade_.next();
         if (events_.empty() && clock_ >= next_phrase_)
             plan_phrase();
         while (next_event < events_.size() && events_[next_event].at <= clock_) {
@@ -337,8 +284,8 @@ void GardenMusic::render_add(std::span<float> stereo, double gain) noexcept {
         left += flute * .85;
         right += flute * .95;
         double wet_l = 0, wet_r = 0;
-        room((left + right) * .5 * .32, wet_l, wet_r);
-        const double level = gain_ * fade_;
+        room_.process((left + right) * .5 * .32, wet_l, wet_r);
+        const double level = gain_ * fade;
         stereo[frame] += static_cast<float>((left + wet_l * .5) * level);
         stereo[frame + 1] += static_cast<float>((right + wet_r * .5) * level);
         ++clock_;
@@ -348,4 +295,4 @@ void GardenMusic::render_add(std::span<float> stereo, double gain) noexcept {
     }
 }
 
-}  // namespace ps_sudoku
+}  // namespace games::music

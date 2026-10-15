@@ -3,8 +3,8 @@
 //   mm_banjo_render out.wav [seconds [seed [style [part]]]]
 //
 // style: scruggs (the game's), porch or clawhammer. part: all, banjo, bass, guitar,
-// mandolin or fiddle, to hear one alone (BanjoVoice::solo).
-#include "banjo_voice.hpp"
+// mandolin or fiddle, to hear one alone (BanjoBand::solo).
+#include "styles/banjo_band.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -22,11 +22,11 @@ int main(int argc, char** argv) {
     }
     const double seconds = argc > 2 ? std::atof(argv[2]) : 60;
     const std::uint32_t seed = argc > 3 ? static_cast<std::uint32_t>(std::atoi(argv[3])) : 21;
-    mm::BanjoStyle style = mm::BanjoStyle::scruggs;
+    games::music::BanjoStyle style = games::music::BanjoStyle::scruggs;
     if (argc > 4 && std::strcmp(argv[4], "porch") == 0)
-        style = mm::BanjoStyle::porch;
+        style = games::music::BanjoStyle::porch;
     else if (argc > 4 && std::strcmp(argv[4], "clawhammer") == 0)
-        style = mm::BanjoStyle::clawhammer;
+        style = games::music::BanjoStyle::clawhammer;
     int part = -1;
     if (argc > 5) {
         const char* names[5] = {"banjo", "bass", "guitar", "mandolin", "fiddle"};
@@ -34,9 +34,9 @@ int main(int argc, char** argv) {
             if (std::strcmp(argv[5], names[k]) == 0)
                 part = k;
     }
-    mm::BanjoVoice band(seed, style);
+    games::music::BanjoBand band(seed, style);
     band.solo(part);
-    const int rate = mm::BanjoVoice::sample_rate;
+    const int rate = games::music::sample_rate;
     std::vector<float> all(static_cast<std::size_t>(seconds * rate) * 2, 0.0F);
     // blocks of 10 ms, as the device asks for them
     std::vector<float> block(2 * 480);

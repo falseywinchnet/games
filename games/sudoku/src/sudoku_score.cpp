@@ -1,7 +1,8 @@
 #include "sudoku_score.hpp"
 
-#include "sudoku_music.hpp"
 #include "gui_forms/audio/audio.hpp"
+#include "live_composer.hpp"
+#include "repertoire.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -11,24 +12,6 @@ namespace ps_sudoku {
 namespace {
 
 #ifdef GUI_FORMS_AUDIO_GENERATOR
-class LiveGarden final : public gui_forms::AudioGenerator {
-  public:
-    LiveGarden(std::uint32_t seed, bool night) : music_(seed, night) {}
-    void restart() noexcept {
-        restart_.store(true, std::memory_order_release);
-    }
-    void render(std::span<float> stereo) noexcept override {
-        std::fill(stereo.begin(), stereo.end(), 0.0F);
-        if (restart_.exchange(false, std::memory_order_acq_rel))
-            music_.fade_in(2.5);
-        music_.render_add(stereo, 1.0);
-    }
-
-  private:
-    GardenMusic music_;
-    std::atomic<bool> restart_{false};
-};
-
 // The effects slot is the score's to fill; Sudoku's effects are recorded, so it is quiet.
 class Quiet final : public gui_forms::AudioGenerator {
   public:
@@ -42,7 +25,10 @@ class Score final : public games::LiveScore {
     explicit Score(bool night) {
         const std::uint32_t seed = static_cast<std::uint32_t>(
             std::chrono::steady_clock::now().time_since_epoch().count() * 2654435761ULL >> 7);
-        music_ = std::make_shared<LiveGarden>(seed ^ (night ? 0x9E3779B9U : 0U), night);
+        // a koto in the garden (src/music/styles/koto_garden.hpp), tuned for the time of day
+        const char* style = night ? "koto_garden_night" : "koto_garden";
+        music_ = std::make_shared<games::LiveComposer>(games::music::make_score(style, seed ^ (night ? 0x9E3779B9U : 0U)),
+                                                       games::music::score_level(style), 2.5);
         quiet_ = std::make_shared<Quiet>();
     }
     std::shared_ptr<gui_forms::AudioGenerator> music() override {
@@ -57,7 +43,7 @@ class Score final : public games::LiveScore {
     }
 
   private:
-    std::shared_ptr<LiveGarden> music_;
+    std::shared_ptr<games::LiveComposer> music_;
     std::shared_ptr<Quiet> quiet_;
 };
 #endif

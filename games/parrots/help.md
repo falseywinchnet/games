@@ -4,4 +4,4 @@ Click a bird to hear it; click again and it may say something else. The birds wh
 
 Some claims can be checked by looking: who sits on rope, brass, iron, stone or wood, in shade or sun, high or low, beside whom. On later tables one playing bird will only answer a question, and only one of the questions on offer settles the case.
 
-Mark birds liar, truthful or no help from their popups. When sure, name the culprit. Every table is solvable by reasoning alone. Esc closes a popup; Enter continues. Records shows your results.
+Right-click a bird to mark it truthful (green), then liar (red), then unmarked. When sure, press BAD POLLY!, aim at the culprit and click: the paintball tells. Ten points for the culprit, five more for each liar marked red. Every table is solvable by reasoning alone. Esc closes a popup or lowers the crosshair; Enter continues.

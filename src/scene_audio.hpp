@@ -1,6 +1,7 @@
 #pragma once
 #include "pcm_player.hpp"
 #include <array>
+#include <memory>
 
 namespace games {
 // Shared game policy for the two animated controls: two music slots, five
@@ -13,6 +14,11 @@ public:
         player_.route(1, AudioBus::music);
     }
     void music(const std::string& name, bool enabled);
+#ifdef GUI_FORMS_AUDIO_GENERATOR
+    // Music the scene composes as it plays, in the music slots as a track would be: it
+    // crossfades in, follows the Music master, and pauses while it is not wanted.
+    void live_music(const std::shared_ptr<gui_forms::AudioGenerator>& source, bool enabled);
+#endif
     void effects(const std::string& name, double gain, double rate, bool enabled, double pan = 0);
     void ambience(const std::array<double, 5>& values, bool enabled);
     void cabinet(bool foreground, bool music, bool sound);

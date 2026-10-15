@@ -7,6 +7,9 @@ namespace pt {
 
 void audio_start(const std::string& asset_dir);
 void audio_music(const std::string& track, bool enabled);   // crossfades to track ("" = none)
+// The aviary's music, composed live as it plays (or, where live voices are not available,
+// the recorded track).
+void audio_live_music(bool enabled);
 // Cuts to `track` exactly on the next bar line of the music now playing (bar
 // lengths come from the manifest), so tempo and intensity shifts land on the beat.
 void audio_music_on_bar(const std::string& track, bool enabled);

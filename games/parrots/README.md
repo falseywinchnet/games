@@ -26,14 +26,18 @@ The player is told how many lie and that two know the truth, but not who is play
   ("I do love the shade") from a perch in full sun.
 - **Ask:** from table 3, one playing bird may refuse to volunteer anything. Its popup
   offers three or four questions; it answers one. Exactly one of them settles the case.
-- **Mark:** each popup has Liar, Truthful and No help, to keep track. Names under the
-  perches take the mark's colour.
-- **Accuse:** Name the culprit, click the bird, and confirm.
+- **Mark:** right-click a bird to mark it truthful (its name tag turns green), again
+  for liar (red), again to clear it. Popups have no buttons.
+- **BAD POLLY!:** a big comic burst in the bottom right. Click it: it presses in and
+  brightens, and a red crosshair takes the pointer. Click the culprit and a paintball
+  arcs over and splats on its chest; the bird flaps, and the verdict shows every bird's
+  part.
   - **Right:** the culprit confesses, the aviary cheers.
-  - **Wrong:** the wrongly accused protests, the culprit gloats and flies off into the
-    dome, and every bird's part is shown.
-- **Records:** cases solved, the current streak and the best streak, carried over from
-  The Parrot's Table.
+  - **Wrong:** the wrongly accused protests, and the culprit gloats and flies off into
+    the dome.
+- **Points:** ten for the culprit, and five more for each liar marked red.
+- **Records:** points, the best table, cases solved, the current streak and the best
+  streak, the last three carried over from The Parrot's Table.
 
 ## The aviary (`src/aviary.*`, `src/perching.*`)
 

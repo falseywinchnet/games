@@ -1,6 +1,7 @@
 #include "stillwater_view.hpp"
 
-#include "island_voice.hpp"
+#include "live_composer.hpp"
+#include "repertoire.hpp"
 #include "tank_voice.hpp"
 #include "tanks.hpp"
 
@@ -58,26 +59,17 @@ class LiveTank final : public ambient::SceneVoice {
     TankVoice tank_{static_cast<std::uint32_t>(std::random_device{}())};
 };
 
-// The island band on its old record, making up tunes as it plays (island_voice.hpp), under the
-// Music master.
-class LiveIsland final : public gui_forms::AudioGenerator {
-  public:
-    void render(std::span<float> stereo) noexcept override {
-        std::fill(stereo.begin(), stereo.end(), 0.0F);
-        band_.render_add(stereo, 0.25);
-    }
-
-  private:
-    IslandVoice band_{static_cast<std::uint32_t>(std::random_device{}())};
-};
-
 std::shared_ptr<ambient::SceneVoice> make_tank() {
     std::shared_ptr<ambient::SceneVoice> voice = std::make_shared<LiveTank>();
     return voice;
 }
 
+// The island band on its old record, making up tunes as it plays (the suite's
+// src/music/styles/island_band.hpp), under the Music master.
 std::shared_ptr<gui_forms::AudioGenerator> make_island() {
-    std::shared_ptr<gui_forms::AudioGenerator> voice = std::make_shared<LiveIsland>();
+    const std::uint32_t seed = static_cast<std::uint32_t>(std::random_device{}());
+    std::shared_ptr<gui_forms::AudioGenerator> voice =
+        std::make_shared<games::LiveComposer>(games::music::make_score("island_band", seed), games::music::score_level("island_band"));
     return voice;
 }
 #endif
