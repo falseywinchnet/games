@@ -454,7 +454,7 @@ struct Klondike {
         return s;
     }
     bool emit(Replay& r, const S& s, const SMove& m) const {
-        const std::array<Pile, 20>& piles = r.game.state.piles;
+        const std::array<Pile, pile_count>& piles = r.game.state.piles;
         switch (m.type) {
         case T2F: {
             Card c = piles[m.a].back();
@@ -680,7 +680,7 @@ struct FreeCellE {
         return -1;
     }
     bool emit(Replay& r, const S&, const SMove& m) const {
-        const std::array<Pile, 20>& piles = r.game.state.piles;
+        const std::array<Pile, pile_count>& piles = r.game.state.piles;
         switch (m.type) {
         case T2F: {
             Card c = piles[m.a].back();

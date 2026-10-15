@@ -18,7 +18,7 @@ void write_state(std::ostream& out, const State& s) {
     out << static_cast<int>(s.kind) << ' ' << s.seed << ' ' << s.moves << ' ' << s.score << ' '
         << s.completed << ' ' << s.draw_count << ' ' << s.spider_suits << ' ' << s.turn << ' '
         << s.leader << ' ' << s.trick_number << ' ' << s.round << ' ' << s.hearts_broken << ' '
-        << s.passing << ' ' << s.over << '\n';
+        << s.passing << ' ' << s.over << ' ' << s.run << '\n';
     for (int n : s.points)
         out << n << ' ';
     for (int n : s.totals)
@@ -31,11 +31,15 @@ void write_state(std::ostream& out, const State& s) {
         out << '\n';
     }
 }
-bool read_state(std::istream& in, State& s, int expected) {
+// Version 3 added TriPeaks: its run on each state's first line, and ten more piles.
+bool read_state(std::istream& in, State& s, int expected, int version) {
     int kind = 0;
     in >> kind >> s.seed >> s.moves >> s.score >> s.completed >> s.draw_count >> s.spider_suits >>
         s.turn >> s.leader >> s.trick_number >> s.round >> s.hearts_broken >> s.passing >> s.over;
-    if (!in || kind != expected || s.moves < 0 || s.completed < 0 || s.completed > 8 ||
+    if (version >= 3)
+        in >> s.run;
+    if (!in || kind != expected || s.moves < 0 || s.completed < 0 || s.completed > 8 || s.run < 0 ||
+        s.run > 52 ||
         s.turn < 0 || s.turn > 3 || s.leader < 0 || s.leader > 3 || s.trick_number < 0 ||
         s.trick_number > 13 || s.round < 0 || s.round > 100000 ||
         (s.draw_count != 1 && s.draw_count != 3) ||
@@ -53,7 +57,9 @@ bool read_state(std::istream& in, State& s, int expected) {
             return false;
     }
     int total = 0;
-    for (Pile& pile : s.piles) {
+    const int piles = version >= 3 ? pile_count : 20;
+    for (int p = 0; p < piles; ++p) {
+        Pile& pile = s.piles[static_cast<std::size_t>(p)];
         int count = 0;
         in >> count;
         if (!in || count < 0 || count > 104 || total + count > 104)
@@ -76,7 +82,7 @@ bool save_cabinet(const std::filesystem::path& path, const Cabinet& cabinet) {
     std::ostringstream payload;
     payload << cabinet.active << ' ' << cabinet.back << ' ' << cabinet.reduced << ' '
             << cabinet.sound << ' ' << cabinet.music << '\n';
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < kind_count; ++i) {
         payload << cabinet.started[i] << '\n';
         if (cabinet.started[i])
             write_state(payload, cabinet.games[i].state);
@@ -97,7 +103,7 @@ bool save_cabinet(const std::filesystem::path& path, const Cabinet& cabinet) {
     std::filesystem::path temporary = path;
     temporary += ".tmp";
     std::ofstream out(temporary, std::ios::binary | std::ios::trunc);
-    out << "RAINSTAR_GAMES 2 " << checksum(data) << '\n' << data;
+    out << "RAINSTAR_GAMES 3 " << checksum(data) << '\n' << data;
     out.close();
     if (!out)
         return false;
@@ -114,7 +120,7 @@ bool load_cabinet(const std::filesystem::path& path, Cabinet& destination) {
     int version = 0;
     std::uint64_t expected = 0;
     file >> magic >> version >> expected;
-    if (!file || magic != "RAINSTAR_GAMES" || (version != 1 && version != 2))
+    if (!file || magic != "RAINSTAR_GAMES" || version < 1 || version > 3)
         return false;
     file.get();
     std::ostringstream buffer;
@@ -126,15 +132,18 @@ bool load_cabinet(const std::filesystem::path& path, Cabinet& destination) {
     Cabinet candidate;
     in >> candidate.active >> candidate.back >> candidate.reduced >> candidate.sound >>
         candidate.music;
-    if (!in || candidate.active < 0 || candidate.active > 3 || candidate.back < 0 ||
+    // Versions 1 and 2 kept the first four games and seven score lists.
+    const int kinds = version >= 3 ? kind_count : 4;
+    const int profiles = version >= 3 ? static_cast<int>(candidate.top_scores.size()) : 7;
+    if (!in || candidate.active < 0 || candidate.active >= kinds || candidate.back < 0 ||
         candidate.back > 3)
         return false;
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < kinds; ++i) {
         in >> candidate.started[i];
         if (!in)
             return false;
         if (candidate.started[i]) {
-            if (!read_state(in, candidate.games[i].state, i))
+            if (!read_state(in, candidate.games[i].state, i, version))
                 return false;
             candidate.games[i].message = "Welcome back. Your table was saved.";
         }
@@ -142,12 +151,15 @@ bool load_cabinet(const std::filesystem::path& path, Cabinet& destination) {
     if (!candidate.started[candidate.active])
         return false;
     if (version >= 2) {
-        for (bool& recorded : candidate.result_recorded)
+        for (int i = 0; i < kinds; ++i) {
+            bool recorded = false;
             in >> recorded;
+            candidate.result_recorded[static_cast<std::size_t>(i)] = recorded;
+        }
         in >> std::quoted(candidate.player_name);
         if (!in || !valid_score_name(candidate.player_name))
             return false;
-        for (int profile = 0; profile < 7; ++profile) {
+        for (int profile = 0; profile < profiles; ++profile) {
             int count = 0;
             in >> count;
             if (!in || count < 0 || count > 10)

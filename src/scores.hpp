@@ -9,7 +9,7 @@ struct TopScore {
     int value = 0;
 };
 // One bounded list per rules profile; deliberately no game history or statistics.
-using TopScores = std::array<std::vector<TopScore>, 7>;
+using TopScores = std::array<std::vector<TopScore>, 8>;  // TriPeaks the eighth
 int score_profile(const State& state);
 int final_score(const State& state);
 bool score_is_better(int profile, int left, int right);

@@ -16,7 +16,10 @@ std::map<std::string, std::shared_ptr<LiveScore>> scores{};
 std::shared_ptr<LiveScore> live{};
 constexpr std::size_t live_effects_slot = PcmPlayer::slot_count - 1;
 std::size_t next_effect{};
-std::string track_name(const std::string& name) { return name == "solitaire" ? "klondike" : name; }
+// TriPeaks plays at the Klondike table's music until it has its own.
+std::string track_name(const std::string& name) {
+    return name == "solitaire" || name == "tripeaks" ? "klondike" : name;
+}
 std::string effect_name(const std::string& name) {
     if (name == "win") { return "stinger_win_" + track_name(current); }
     const std::map<std::string, std::pair<std::string, unsigned>> aliases{
@@ -69,7 +72,7 @@ void music_play(const std::string& game, bool enabled) {
         current = game;
     } else { player.resume(0); }
 }
-void sound_play(const std::string& name, bool enabled) {
+void sound_play(const std::string& name, bool enabled, double rate) {
     if (live && (*live).cue(name, enabled)) { return; }
     if (!enabled) { return; }
     const std::string mapped = effect_name(name);
@@ -86,7 +89,7 @@ void sound_play(const std::string& name, bool enabled) {
     }
     effects[slot] = mapped;
     next_effect = (slot + 1) % effects.size();
-    player.start(slot + 2, mapped, false, 1);
+    player.start(slot + 2, mapped, false, 1, rate);
 }
 void audio_poll() { player.tick(); }
 bool audio_pending() { return player.pending(); }

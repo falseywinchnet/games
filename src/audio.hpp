@@ -22,7 +22,8 @@ class LiveScore {
 };
 void live_score(const std::string& game, std::shared_ptr<LiveScore> score);
 void music_play(const std::string& game, bool enabled);
-void sound_play(const std::string& name, bool enabled);
+// `rate` above 1 plays the sound faster and higher (2: an octave up).
+void sound_play(const std::string& name, bool enabled, double rate = 1);
 void audio_poll();
 [[nodiscard]] bool audio_pending();
 } // namespace games

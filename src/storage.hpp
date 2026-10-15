@@ -4,9 +4,9 @@
 #include <filesystem>
 namespace games {
 struct Cabinet {
-    std::array<Game, 4> games{};
-    std::array<bool, 4> started{};
-    std::array<bool, 4> result_recorded{};
+    std::array<Game, kind_count> games{};
+    std::array<bool, kind_count> started{};
+    std::array<bool, kind_count> result_recorded{};
     TopScores top_scores{};
     std::string player_name = "Player";
     int active = 0, back = 0;

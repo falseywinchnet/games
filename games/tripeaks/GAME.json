@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "tripeaks",
+  "entry_id": 23,
+  "entry_name": "tripeaks",
+  "namespace": "ps_tripeaks",
+  "title": "TriPeaks",
+  "kind": "Patience",
+  "blurb": "Clear three peaks of cards in long runs up and down the ranks.",
+  "colors": [
+    [
+      58,
+      96,
+      150
+    ],
+    [
+      20,
+      38,
+      70
+    ],
+    [
+      246,
+      214,
+      140
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [],
+  "audio_sources": [],
+  "libraries": [],
+  "hosted": false
+}

@@ -24,8 +24,19 @@ gf::Rect enlarged(gf::Rect r, double n) {
     return {r.x - n, r.y - n, r.width + 2 * n, r.height + 2 * n};
 }
 const char* audio_name(Kind kind) {
-    const char* names[] = {"solitaire", "spider", "freecell", "hearts"};
+    const char* names[] = {"solitaire", "spider", "freecell", "hearts", "tripeaks"};
     return names[static_cast<int>(kind)];
+}
+// The games whose deals the dealer makes to a level (solitaire_solver.hpp).
+bool leveled(Kind kind) {
+    return kind == Kind::solitaire || kind == Kind::spider || kind == Kind::freecell;
+}
+// A TriPeaks run climbs a major scale, card by card, from the card's own pitch to an octave
+// and a fifth, and stays there.
+double run_rate(int run) {
+    static constexpr int steps[] = {0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19};
+    const int semitones = steps[std::clamp(run - 1, 0, static_cast<int>(std::size(steps)) - 1)];
+    return std::exp2(semitones / 12.0);
 }
 // The Hearts table's own button (Pass cards / Next hand): a glossy crimson pill
 // with a white heart, rimmed in gold.
@@ -388,7 +399,8 @@ void Table::forget_pictures(gf::Window& window) {
 }
 void Table::layout_cards(bool animate) {
     gf::Rect bounds = client_rectangle();
-    int columns = game.state.kind == Kind::spider ? 10 : game.state.kind == Kind::freecell ? 8 : 7;
+    const bool peaks = game.state.kind == Kind::tripeaks;
+    int columns = game.state.kind == Kind::spider ? 10 : game.state.kind == Kind::freecell ? 8 : peaks ? 0 : 7;
     // Cards scale with the window: columns share the width, and two rows plus a fan
     // must fit below the capsule.
     const double margin = std::clamp(bounds.width * .025, 10.0, 30.0);
@@ -425,6 +437,25 @@ void Table::layout_cards(bool animate) {
     if (game.state.kind == Kind::spider)
         for (int i = 10; i < 14; ++i)
             slots_[i] = {};
+    if (peaks) {
+        // Three peaks over ten cards, each row half a card below the last; under them the
+        // waste just right of the middle and the stock fanned out to its left.
+        const double across = (bounds.width - 2 * margin) / 10;
+        card_w_ = std::min(113.0, across * .94);
+        card_w_ = std::max(30.0, std::min(card_w_, (bounds.height - kTop - 46) / 3.8 / 1.4));
+        card_h_ = card_w_ * 1.4;
+        const double gap = std::min(across, card_w_ * 1.08);
+        const double x0 = (bounds.width - 9 * gap - card_w_) * .5, top = kTop + std::max(10.0, card_h_ * .08);
+        for (gf::Rect& r : slots_)
+            r = {};
+        for (int place = 0; place < tripeaks_places; ++place)
+            slots_[tripeaks_pile(place)] = {x0 + tripeaks_column(place) * gap, top + tripeaks_row(place) * card_h_ * .5,
+                                            card_w_, card_h_};
+        const double low = top + 2.5 * card_h_ + std::max(14.0, card_h_ * .3);
+        slots_[15] = {bounds.width * .5 + card_w_ * .15, low, card_w_, card_h_};
+        slots_[14] = {slots_[15].x - card_w_ * 1.35, low, card_w_, card_h_};
+        stock_fan_ = std::clamp((slots_[14].x - margin) / 22, 2.0, card_w_ * .16);
+    }
     for (Sprite& s : sprites_) {
         s.start = s.rect;
         s.prior_up = s.card.up;
@@ -436,7 +467,7 @@ void Table::layout_cards(bool animate) {
         s.flip_progress = 1;
         s.visible = false;
     }
-    for (int pile = 0; pile < 20; ++pile) {
+    for (int pile = 0; pile < pile_count; ++pile) {
         const Pile& cards = game.state.piles[pile];
         for (int i = 0; i < static_cast<int>(cards.size()); ++i) {
             Card c = cards[i];
@@ -467,6 +498,15 @@ void Table::layout_cards(bool animate) {
                                 bounds.height * .43 - card_h_ * .5 + dy[player], card_w_, card_h_};
                     s.visible = true;
                 }
+            } else if (peaks) {
+                s.visible = true;
+                if (pile == 14) {
+                    // The whole stock in sight, so what is left is plain; its top card nearest
+                    // the waste.
+                    s.card.up = false;
+                    s.target.x -= (static_cast<int>(cards.size()) - 1 - i) * stock_fan_;
+                } else if (pile == 15)
+                    s.visible = i >= static_cast<int>(cards.size()) - 2;
             } else {
                 if (pile < columns) {
                     double offset = 0;
@@ -514,7 +554,8 @@ void Table::layout_cards(bool animate) {
                 s.start = {bounds.width * .5 - card_w_ * .5, 86, card_w_, card_h_};
                 s.prior_up = false;
                 s.flipping = s.card.up;
-                s.delay = (pile < columns ? i * columns + pile : i) * .014;
+                s.delay = peaks ? (tripeaks_place(pile) >= 0 ? tripeaks_place(pile) * .022 : .62 + i * .006)
+                                : (pile < columns ? i * columns + pile : i) * .014;
                 s.duration = .44;
                 s.rect = s.start;
             }
@@ -733,6 +774,8 @@ void Table::start_cascade() {
             for (const Card& c : game.state.piles[f])
                 if (c.rank == rank)
                     launch_queue_.push_back(c);
+    if (game.state.kind == Kind::tripeaks)  // the waste, from its top
+        launch_queue_.assign(game.state.piles[15].rbegin(), game.state.piles[15].rend());
     if (launch_queue_.empty()) // Spider sends completed runs home; replay two decks of runs.
         for (int run = 0; run < 8; ++run)
             for (int rank = 13; rank >= 1; --rank)
@@ -755,7 +798,7 @@ void Table::step_cascade() {
         launch_queue_.erase(launch_queue_.begin());
         gf::Point start{b.width * .5 - card_w_ * .5, kTop + 10};
         if (c.id >= 0 && c.id < 104 && sprites_[c.id].visible && sprites_[c.id].pile >= 10 &&
-            sprites_[c.id].pile < 14)
+            sprites_[c.id].pile < 16)
             start = {sprites_[c.id].rect.x, sprites_[c.id].rect.y};
         if (c.id >= 0 && c.id < 104)
             launched_[c.id] = true;
@@ -917,11 +960,11 @@ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
 // as the layout squeezes a long column), or the pile's own place.
 gf::Rect Table::landing(int pile) const {
     const int columns = game.state.kind == Kind::spider ? 10 : game.state.kind == Kind::freecell ? 8 : 7;
-    if (pile < 0 || pile >= 20)
+    if (pile < 0 || pile >= pile_count)
         return {};
     const gf::Rect slot = slots_[pile];
     const Pile& cards = game.state.piles[pile];
-    if (game.state.kind == Kind::hearts || pile >= columns || cards.empty())
+    if (game.state.kind == Kind::hearts || game.state.kind == Kind::tripeaks || pile >= columns || cards.empty())
         return slot;
     const gf::Rect bounds = client_rectangle();
     const double available = std::max(40.0, bounds.height - 14 - slot.y - card_h_);
@@ -946,7 +989,22 @@ void Table::on_paint(gf::Painter& p, gf::Rect) {
                            light);
     gf::Color cream = gf::Color::rgba(223, 229, 204);
     gf::Color muted = gf::Color::rgba(156, 189, 160);
-    if (game.state.kind != Kind::hearts) {
+    if (game.state.kind == Kind::tripeaks) {
+        // Only the stock and the waste have places of their own; the peaks lie on the felt.
+        for (int i : {14, 15}) {
+            p.fill_rounded_rect(slots_[i], 7, gf::Color::rgba(0, 25, 18, 32));
+            p.stroke_rounded_rect(slots_[i], 7, gf::Color::rgba(185, 209, 170, 60), 1.5);
+        }
+        const int stock = static_cast<int>(game.state.piles[14].size());
+        if (stock == 0)
+            draw_text(p, slots_[14].x + card_w_ * .22, slots_[14].y + card_h_ * .52, "Empty", 15, muted);
+        const double x = slots_[15].x + card_w_ + std::max(16.0, card_w_ * .25), y = slots_[15].y + card_h_ * .3;
+        const std::string run = game.state.run > 1 ? "Run of " + std::to_string(game.state.run) : "";
+        draw_text(p, x, y, run, 22, cream);
+        draw_text(p, x, y + 26, std::to_string(game.state.score) + " points", 15, cream);
+        draw_text(p, x, y + 48, std::to_string(stock) + (stock == 1 ? " card" : " cards") + " in the stock", 13,
+                  muted);
+    } else if (game.state.kind != Kind::hearts) {
         int columns = game.state.kind == Kind::spider     ? 10
                       : game.state.kind == Kind::freecell ? 8
                                                           : 7;
@@ -1033,7 +1091,7 @@ void Table::on_paint(gf::Painter& p, gf::Rect) {
                                       : "Hand complete · click Next hand",
                       18, cream);
     }
-    for (int pile = 0; pile < 20; ++pile)
+    for (int pile = 0; pile < pile_count; ++pile)
         for (const Card& c : game.state.piles[pile]) {
             const Sprite& s = sprites_[c.id];
             if (!s.visible ||
@@ -1068,8 +1126,9 @@ void Table::on_paint(gf::Painter& p, gf::Rect) {
     if (hover_ >= 0 && selection_ >= 0 && game.legal({selection_, selected_index_, hover_}))
         p.stroke_rounded_rect(enlarged(landing(hover_), 5), 9, gf::Color::rgba(246, 228, 155), 3);
     if (cascading_)
-        // As each top card leaps away, the next one down shows on its foundation.
-        for (int f = 10; f < 14; ++f)
+        // As each top card leaps away, the next one down shows on its foundation (on
+        // TriPeaks' waste).
+        for (int f : {10, 11, 12, 13, 15})
             for (std::vector<Card>::const_reverse_iterator it = game.state.piles[f].rbegin();
                  it != game.state.piles[f].rend(); ++it)
                 if ((*it).id < 104 && !launched_[static_cast<std::size_t>((*it).id)]) {
@@ -1182,6 +1241,14 @@ void Table::draw_panel(gf::Painter& p) {
                "one card onto each column. Every column must contain a card before "
                "dealing.\n\nSettings selects one, two, or four suits and starts a new deal. One "
                "suit is a relaxed introduction; four suits needs much more planning.";
+    else if (game.state.kind == Kind::tripeaks)
+        text = "Clear the three peaks. Click an open card one rank higher or lower than the waste "
+               "card to play it there; a king and an ace are next to each other. A card turns over "
+               "when both cards resting on it are gone.\n\nClick the stock to turn its next card "
+               "onto the waste. The stock is turned only once.\n\nEach card of a run is worth one "
+               "more point than the last, and the card sounds a step higher. Turning the stock ends "
+               "the run. A peak's top is worth 15, and clearing all three earns 50 more and 10 for "
+               "each card left in the stock.";
     else if (game.state.kind == Kind::freecell)
         text = "Build the four foundations upward from ace to king in one suit. Build tableau "
                "columns downward in alternating colors. Any single card may occupy an empty free "
@@ -1285,12 +1352,18 @@ void Table::save_levels() const {
 std::uint32_t Table::deal_seed(Kind kind, int option) {
     if (kind == Kind::hearts)
         return ++next_seed_;
+    if (kind == Kind::tripeaks) {
+        // A deal that can be won, found here: most can, and each is checked in milliseconds.
+        next_seed_ = tripeaks_winnable_seed(next_seed_ + 1);
+        next_seed_ += next_seed_ == 0;  // 0 means no deal
+        return next_seed_;
+    }
     return dealer_.take(kind, option, static_cast<Difficulty>(levels_[static_cast<int>(kind)]));
 }
 // The dealer gets the open game's next deals ready: its level first, then the other two.
 void Table::want_deals() {
     const Kind kind = game.state.kind;
-    if (kind == Kind::hearts)
+    if (!leveled(kind))
         return;
     const int option = kind == Kind::spider ? game.state.spider_suits : game.state.draw_count;
     const int level = levels_[static_cast<int>(kind)];
@@ -1417,7 +1490,7 @@ std::vector<GameCommand> Table::commands() const {
                                   {"hint", "Hint", panel_ == 0 && !game.state.over}};
     // The deal level, one click away: the one in force lit. Choosing it deals again when
     // the deal is untouched, otherwise from the next deal (set_level).
-    if (game.state.kind != Kind::hearts) {
+    if (leveled(game.state.kind)) {
         const int level = levels_[static_cast<int>(game.state.kind)];
         const char* ids[] = {"easy", "medium", "hard"};
         for (int i = 0; i < 3; ++i)
@@ -1454,7 +1527,7 @@ std::vector<GameSetting> Table::settings() const {
                     "How deep the finish's dimples look on every card."});
     list.push_back({"emboss_size", "Emboss size", GameSetting::Kind::slider, emboss_size_, {}, 0, 1, .05,
                     "How large the finish's dimples are."});
-    if (game.state.kind != Kind::hearts)
+    if (leveled(game.state.kind))
         list.push_back({"level", "Deals", GameSetting::Kind::choice,
                         static_cast<double>(levels_[static_cast<int>(game.state.kind)]),
                         {"Easy", "Medium", "Hard"}, 0, 2, 1,
@@ -1489,7 +1562,7 @@ void Table::change_setting(std::string_view id, double value) {
         set_deal_option(choice == 1 ? 3 : 1);
     else if (id == "suits" && game.state.kind == Kind::spider)
         set_deal_option(choice == 2 ? 4 : choice == 1 ? 2 : 1);
-    else if (id == "level" && game.state.kind != Kind::hearts)
+    else if (id == "level" && leveled(game.state.kind))
         set_level(std::clamp(choice, 0, 2));
 }
 void Table::set_deal_option(int option) {
@@ -1525,11 +1598,10 @@ void Table::run_command(std::string_view id) {
     else if (id == "deal") {
         open_panel(0);
         action(*buttons_[14]);
-    } else if ((id == "easy" || id == "medium" || id == "hard") &&
-               game.state.kind != Kind::hearts) {
+    } else if ((id == "easy" || id == "medium" || id == "hard") && leveled(game.state.kind)) {
         open_panel(0);
         set_level(id == "easy" ? 0 : id == "medium" ? 1 : 2);
-    } else if (id == "level" && game.state.kind != Kind::hearts) {
+    } else if (id == "level" && leveled(game.state.kind)) {
         // Scripts may still cycle the level; the Settings screen chooses it directly.
         set_level((levels_[static_cast<int>(game.state.kind)] + 1) % 3);
     } else if (id == "help")
@@ -1547,7 +1619,10 @@ void Table::action(gf::ButtonBase& button) {
         new_game(game.state.kind);
     if (a == 22 && solvable_ && autoplay_next_ >= autoplay_.size()) {
         std::vector<SolverStep> line;
-        if (solve_state(game.state, 20000, &line).solved && !line.empty()) {
+        if (game.state.kind == Kind::tripeaks)
+            for (int step : tripeaks_solve(game.state, 20000).steps)
+                line.push_back({step < 0, {step, 0, 15}});
+        if (!line.empty() || (leveled(game.state.kind) && solve_state(game.state, 20000, &line).solved && !line.empty())) {
             autoplay_ = std::move(line);
             autoplay_next_ = 0;
             autoplay_due_ = gf::FrameClock::now();
@@ -1568,7 +1643,24 @@ void Table::action(gf::ButtonBase& button) {
         return; // no cards yet
     if (a == 6) {
         sound_play("hint", sound_);
-        if (game.state.kind == Kind::hearts) {
+        if (game.state.kind == Kind::tripeaks) {
+            // The winning line's next step when there is one; otherwise any card that plays.
+            const TriPeaksLine plan = tripeaks_solve(game.state, 200000);
+            const Move m = plan.solved && !plan.steps.empty() ? Move{plan.steps.front(), 0, 15} : game.hint();
+            selection_ = selected_index_ = -1;
+            if (m.from >= 0) {
+                // Marked for the keys too: Enter plays it.
+                selection_ = keyboard_slot_ = m.from;
+                selected_index_ = 0;
+                game.message = plan.solved ? "This card keeps a winning line open."
+                               : plan.exhausted ? "No winning line is left from here; undo may help. This card plays."
+                                                : "This card plays on the waste.";
+            } else if (!game.state.piles[14].empty()) {
+                hover_ = keyboard_slot_ = 14;
+                game.message = "Turn the stock.";
+            } else
+                game.message = "No card plays and the stock is empty. Try undo or a new deal.";
+        } else if (game.state.kind == Kind::hearts) {
             if (game.state.passing)
                 game.message = "Pass high spades and hearts, and try to shorten a suit.";
             else if (game.state.turn == 0) {
@@ -1667,7 +1759,13 @@ void Table::changed(const char* effect) {
     hover_ = -1;
     set_pointer_capture(false);
     layout_cards(true);
-    sound_play(game.state.over ? "win" : effect, sound_);
+    if (game.state.over)
+        sound_play("win", sound_);
+    else if (game.state.kind == Kind::tripeaks && std::string_view(effect) == "place" && game.state.run > 0)
+        // One recording, so the steps of the scale are heard and not its variations.
+        sound_play("card_place_01", sound_, run_rate(game.state.run));
+    else
+        sound_play(effect, sound_);
     if (game.state.kind == Kind::hearts) {
         ai_due_ = gf::FrameClock::now() + std::chrono::milliseconds(650);
         request_tick();
@@ -1677,7 +1775,7 @@ void Table::changed(const char* effect) {
 void Table::update_solvable() {
     const bool playing = autoplay_next_ < autoplay_.size();
     if (!playing) {
-        bool certain = game.state.kind != Kind::hearts && !game.state.over && !cascading_ &&
+        bool certain = leveled(game.state.kind) && !game.state.over && !cascading_ &&
                        game.state.piles[14].empty();
         for (int pile = 0; certain && pile < 20; ++pile)
             for (const Card& c : game.state.piles[pile])
@@ -1689,6 +1787,18 @@ void Table::update_solvable() {
                     certain = cards[i].rank == cards[i - 1].rank - 1 && red(cards[i]) != red(cards[i - 1]);
             }
         solvable_ = certain && solve_state(game.state, 20000).solved;
+        if (game.state.kind == Kind::tripeaks && !game.state.over && !cascading_) {
+            // TriPeaks: every card left in the peaks face up and a line that clears them
+            // without the stock's hidden cards.
+            bool open = true;
+            for (int place = 0; place < tripeaks_places; ++place)
+                for (const Card& c : game.state.piles[tripeaks_pile(place)])
+                    open = open && c.up;
+            if (open) {
+                const TriPeaksLine line = tripeaks_solve(game.state, 20000);
+                solvable_ = line.solved && std::find(line.steps.begin(), line.steps.end(), -1) == line.steps.end();
+            }
+        }
     }
     show_solve();
 }
@@ -1698,7 +1808,7 @@ void Table::show_solve() {
 }
 int Table::hit_card(gf::Point point) const {
     int found = -1;
-    for (int pile = 0; pile < 20; ++pile)
+    for (int pile = 0; pile < pile_count; ++pile)
         for (const Card& c : game.state.piles[pile]) {
             const Sprite& s = sprites_[c.id];
             if (s.visible && inside_rectangle(s.rect, point))
@@ -1713,7 +1823,7 @@ bool Table::movable(int pile, int index) const {
     if (game.state.kind == Kind::hearts)
         return pile == 0 && !game.state.over &&
                (game.state.passing || (game.state.turn == 0 && game.legal_heart(0, index)));
-    for (int to = 0; to < 20; ++to)
+    for (int to = 0; to < pile_count; ++to)
         if (to != pile && game.legal({pile, index, to}))
             return true;
     return false;
@@ -1753,7 +1863,7 @@ int Table::drop_target() const {
     // The overlap with each legal pile: its top card and the place the run would land.
     int best = -1, second = -1;
     double best_area = 0, second_area = 0;
-    for (int pile = 0; pile < 20; ++pile) {
+    for (int pile = 0; pile < pile_count; ++pile) {
         if (pile == selection_ || slots_[pile].width <= 0 || !game.legal({selection_, selected_index_, pile}))
             continue;
         gf::Rect zone = landing(pile);
@@ -1787,7 +1897,7 @@ int Table::hit_slot(gf::Point point) const {
     int card = hit_card(point);
     if (card >= 0)
         return sprites_[card].pile;
-    for (int i = 0; i < 20; ++i)
+    for (int i = 0; i < pile_count; ++i)
         if (slots_[i].width > 0 && inside_rectangle(slots_[i], point))
             return i;
     return -1;
@@ -1848,6 +1958,11 @@ void Table::on_pointer(gf::PointerEvent& e) {
         if (game.state.kind == Kind::hearts) {
             if (pile == 0 && index >= 0)
                 heart_card(index);
+            e.handled = true;
+            return;
+        }
+        if (game.state.kind == Kind::tripeaks) {
+            tripeaks_press(pile);
             e.handled = true;
             return;
         }
@@ -1948,6 +2063,27 @@ void Table::on_pointer(gf::PointerEvent& e) {
         e.handled = true;
     }
 }
+// TriPeaks plays at a click: an open card goes to the waste, the stock turns.
+void Table::tripeaks_press(int pile) {
+    selection_ = selected_index_ = -1;
+    if (pile == 14) {
+        if (game.draw())
+            changed("flip");
+        else
+            invalidate(gf::Dirty::paint);
+        return;
+    }
+    if (game.move({pile, 0, 15})) {
+        changed("place");
+        return;
+    }
+    if (tripeaks_place(pile) >= 0 && !game.state.piles[pile].empty() && game.state.piles[pile][0].up) {
+        game.message = game.liftable(pile, 0) ? "That card is not one higher or lower than the waste."
+                                              : "That card is still covered.";
+        sound_play("invalid", sound_);
+    }
+    invalidate(gf::Dirty::paint);
+}
 void Table::heart_card(int index) {
     if (game.state.passing) {
         std::vector<int>::iterator found = std::find(pass_cards_.begin(), pass_cards_.end(), index);
@@ -2046,9 +2182,11 @@ void Table::on_key(gf::KeyEvent& e) {
                e.physical_key == gf::PhysicalKey::right) {
         int step = e.physical_key == gf::PhysicalKey::left ? -1 : 1;
         do {
-            keyboard_slot_ = (keyboard_slot_ + step + 20) % 20;
+            keyboard_slot_ = (keyboard_slot_ + step + pile_count) % pile_count;
         } while (
             slots_[keyboard_slot_].width == 0 ||
+            (game.state.kind == Kind::tripeaks &&
+             (keyboard_slot_ == 15 || (keyboard_slot_ != 14 && !game.liftable(keyboard_slot_, 0)))) ||
             (game.state.kind == Kind::spider && keyboard_slot_ >= 10 && keyboard_slot_ != 14) ||
             (game.state.kind == Kind::solitaire && (keyboard_slot_ == 7 || keyboard_slot_ == 8 ||
                                                     keyboard_slot_ == 9 || keyboard_slot_ >= 16)) ||
@@ -2058,6 +2196,8 @@ void Table::on_key(gf::KeyEvent& e) {
         game.message =
             "Pile " + std::to_string(keyboard_slot_ + 1) + ". Press Enter to select or place.";
         invalidate(gf::Dirty::paint);
+    } else if (e.physical_key == gf::PhysicalKey::enter && game.state.kind == Kind::tripeaks) {
+        tripeaks_press(keyboard_slot_);
     } else if (e.physical_key == gf::PhysicalKey::enter) {
         select_or_move(keyboard_slot_,
                        static_cast<int>(game.state.piles[keyboard_slot_].size()) - 1);

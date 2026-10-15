@@ -6,15 +6,15 @@ int score_profile(const State& s) {
         return s.draw_count == 3 ? 1 : 0;
     if (s.kind == Kind::spider)
         return s.spider_suits == 4 ? 4 : s.spider_suits == 2 ? 3 : 2;
-    return s.kind == Kind::freecell ? 5 : 6;
+    return s.kind == Kind::freecell ? 5 : s.kind == Kind::tripeaks ? 7 : 6;
 }
 int final_score(const State& s) {
-    if (s.kind == Kind::solitaire)
+    if (s.kind == Kind::solitaire || s.kind == Kind::tripeaks)
         return s.score;
     return s.kind == Kind::hearts ? s.totals[0] : s.moves;
 }
 bool score_is_better(int profile, int left, int right) {
-    return profile < 2 ? left > right : left < right;
+    return profile < 2 || profile == 7 ? left > right : left < right;
 }
 std::string score_profile_name(const State& s) {
     std::string title = game_name(s.kind);
@@ -25,7 +25,7 @@ std::string score_profile_name(const State& s) {
     return title;
 }
 std::string score_unit(const State& s) {
-    return s.kind == Kind::solitaire ? "points · higher is better"
+    return s.kind == Kind::solitaire || s.kind == Kind::tripeaks ? "points · higher is better"
            : s.kind == Kind::hearts  ? "points · lower is better"
                                      : "moves · fewer is better";
 }

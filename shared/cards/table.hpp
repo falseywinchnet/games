@@ -37,7 +37,7 @@ class Table final : public gf::Control, public CommandSource {
     void activate();
     void reload_preferences();
     void load_back();
-    // Shows one of the four card games, resuming its saved deal.
+    // Shows one of the card games, resuming its saved deal.
     void show_kind(Kind kind);
     [[nodiscard]] std::vector<GameCommand> commands() const override;
     void run_command(std::string_view id) override;
@@ -105,7 +105,7 @@ class Table final : public gf::Control, public CommandSource {
     void keep_print(Printed& printed, const Sprite& sprite, std::span<const std::byte> pixels);
     void forget_pictures(gf::Window& window);
     std::array<Sprite, 104> sprites_{};
-    std::array<gf::Rect, 20> slots_{};
+    std::array<gf::Rect, pile_count> slots_{};
     std::vector<int> pass_cards_;
     std::unique_ptr<gf::Timer> timer_;
     gf::FrameTime animation_start_{}, ai_due_{};
@@ -138,6 +138,8 @@ class Table final : public gf::Control, public CommandSource {
     void action(gf::ButtonBase& button);
     void tick();
     void layout_cards(bool animate);
+    // After a play: the cards laid out again, the save, the result, and `sound` (a TriPeaks
+    // run's cards each a step higher up the scale).
     void changed(const char* sound);
     void new_game(Kind kind);
     void select_or_move(int pile, int index);
@@ -163,6 +165,9 @@ class Table final : public gf::Control, public CommandSource {
     // Where the run in the hand would go if let go now: the legal pile it overlaps most.
     [[nodiscard]] int drop_target() const;
     [[nodiscard]] gf::Rect landing(int pile) const;
+    // TriPeaks: how far apart the stock's cards lie, fanned to the left of the waste.
+    double stock_fan_ = 0;
+    void tripeaks_press(int pile);
     // How far apart Spider's waiting deals lie, each a small stack of backs.
     [[nodiscard]] double deal_step() const {
         return card_w_ * .14;

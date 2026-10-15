@@ -2,12 +2,13 @@
 #include <algorithm>
 #include <cmath>
 #include <random>
+#include <unordered_set>
 namespace games {
 bool red(Card card) {
     return card.suit == 1 || card.suit == 2;
 }
 const char* game_name(Kind kind) {
-    const char* names[] = {"Solitaire", "Spider Solitaire", "FreeCell", "Hearts"};
+    const char* names[] = {"Solitaire", "Spider Solitaire", "FreeCell", "Hearts", "TriPeaks"};
     return names[static_cast<int>(kind)];
 }
 std::string card_name(Card card) {
@@ -72,6 +73,19 @@ void Game::deal(Kind kind, std::uint32_t seed, int option) {
         for (int i = 0; i < 52; ++i)
             state.piles[i % 8].push_back(deck[i]);
     }
+    if (kind == Kind::tripeaks) {
+        // The peaks from their tops down, the bottom row face up; one card turned onto the
+        // waste and the rest in the stock.
+        for (int place = 0; place < tripeaks_places; ++place) {
+            Card card = deck.back();
+            deck.pop_back();
+            card.up = tripeaks_row(place) == 3;
+            state.piles[tripeaks_pile(place)].push_back(card);
+        }
+        state.piles[15].push_back(deck.back());
+        deck.pop_back();
+        state.piles[14] = deck;
+    }
     if (kind == Kind::hearts) {
         for (int i = 0; i < 52; ++i)
             state.piles[i % 4].push_back(deck[i]);
@@ -83,11 +97,24 @@ void Game::deal(Kind kind, std::uint32_t seed, int option) {
                         std::swap(state.piles[p][i], state.piles[p][j]);
         }
     }
-    message = kind == Kind::hearts ? "Choose three cards to pass left."
-                                   : "Your table is ready. Take your time.";
+    message = kind == Kind::hearts     ? "Choose three cards to pass left."
+              : kind == Kind::tripeaks ? "Play a card one higher or lower than the waste."
+                                       : "Your table is ready. Take your time.";
 }
 bool Game::liftable(int pile, int index) const {
-    if (state.kind == Kind::hearts || state.over || pile < 0 || pile >= 20)
+    if (state.kind == Kind::hearts || state.over || pile < 0 || pile >= pile_count)
+        return false;
+    if (state.kind == Kind::tripeaks) {
+        // An open card of the peaks: face up, nothing resting on it.
+        const int place = tripeaks_place(pile);
+        if (place < 0 || index != 0 || state.piles[pile].size() != 1 || !state.piles[pile][0].up)
+            return false;
+        for (int cover : tripeaks_covers(place))
+            if (cover >= 0 && !state.piles[tripeaks_pile(cover)].empty())
+                return false;
+        return true;
+    }
+    if (pile >= 20)
         return false;
     const Pile& from = state.piles[pile];
     if (index < 0 || index >= static_cast<int>(from.size()) || !from[index].up)
@@ -111,6 +138,9 @@ bool Game::liftable(int pile, int index) const {
     return true;
 }
 bool Game::legal(Move m) const {
+    if (state.kind == Kind::tripeaks)
+        return m.to == 15 && liftable(m.from, m.index) && !state.piles[15].empty() &&
+               tripeaks_next(state.piles[m.from][0], state.piles[15].back());
     if (m.to < 0 || m.to >= 20 || m.from == m.to || !liftable(m.from, m.index))
         return false;
     const Pile& from = state.piles[m.from];
@@ -151,6 +181,28 @@ bool Game::legal(Move m) const {
     return true;
 }
 void Game::settle() {
+    if (state.kind == Kind::tripeaks) {
+        // A card with nothing left resting on it turns over.
+        bool clear = true;
+        for (int place = 0; place < tripeaks_places; ++place) {
+            Pile& pile = state.piles[tripeaks_pile(place)];
+            if (pile.empty())
+                continue;
+            clear = false;
+            bool open = true;
+            for (int cover : tripeaks_covers(place))
+                open = open && (cover < 0 || state.piles[tripeaks_pile(cover)].empty());
+            if (open)
+                pile[0].up = true;
+        }
+        if (clear && !state.over) {
+            // The peaks cleared: a bonus, and more for every card left in the stock.
+            state.over = true;
+            state.score += 50 + 10 * static_cast<int>(state.piles[14].size());
+            message = "Beautifully played. All three peaks are cleared!";
+        }
+        return;
+    }
     int columns = state.kind == Kind::spider ? 10 : state.kind == Kind::freecell ? 8 : 7;
     for (int i = 0; i < columns; ++i) {
         Pile& pile = state.piles[i];
@@ -197,6 +249,14 @@ bool Game::move(Move m) {
     to.insert(to.end(), from.begin() + m.index, from.end());
     from.resize(m.index);
     ++state.moves;
+    if (state.kind == Kind::tripeaks) {
+        // Each card of a run is worth one more than the last; a peak's top is worth 15.
+        ++state.run;
+        state.score += state.run + (tripeaks_row(tripeaks_place(m.from)) == 0 ? 15 : 0);
+        message = state.run > 2 ? "A run of " + std::to_string(state.run) + "." : "Nicely played.";
+        settle();
+        return true;
+    }
     if (m.to >= 10 && m.to < 14)
         state.score += 10;
     if (m.from >= 10 && m.from < 14)
@@ -206,9 +266,26 @@ bool Game::move(Move m) {
     return true;
 }
 bool Game::draw() {
-    if (state.over || (state.kind != Kind::solitaire && state.kind != Kind::spider))
+    if (state.over || (state.kind != Kind::solitaire && state.kind != Kind::spider &&
+                       state.kind != Kind::tripeaks))
         return false;
     Pile& stock = state.piles[14];
+    if (state.kind == Kind::tripeaks) {
+        // One card onto the waste; the stock is not turned again, and the run starts over.
+        if (stock.empty()) {
+            message = "The stock is empty.";
+            return false;
+        }
+        remember();
+        Card c = stock.back();
+        stock.pop_back();
+        c.up = true;
+        state.piles[15].push_back(c);
+        state.run = 0;
+        ++state.moves;
+        message = "A fresh card on the waste.";
+        return true;
+    }
     if (state.kind == Kind::spider) {
         if (stock.empty())
             return false;
@@ -256,6 +333,14 @@ bool Game::undo() {
     return true;
 }
 Move Game::hint() const {
+    if (state.kind == Kind::tripeaks) {
+        for (int place = tripeaks_places; place-- > 0;) {
+            const Move m{tripeaks_pile(place), 0, 15};
+            if (legal(m))
+                return m;
+        }
+        return {};
+    }
     for (int to = 10; to < 14; ++to)
         for (int from = 0; from < 20; ++from) {
             Move m{from, static_cast<int>(state.piles[from].size()) - 1, to};
@@ -822,6 +907,129 @@ void Game::next_round() {
     } else
         message = round % 4 == 1 ? "Choose three cards to pass right."
                                  : "Choose three cards to pass across.";
+}
+int tripeaks_pile(int place) {
+    return place < 14 ? place : place + 2;
+}
+int tripeaks_place(int pile) {
+    return pile < 0 || pile >= pile_count || pile == 14 || pile == 15 ? -1 : pile < 14 ? pile : pile - 2;
+}
+int tripeaks_row(int place) {
+    return place < 3 ? 0 : place < 9 ? 1 : place < 18 ? 2 : 3;
+}
+double tripeaks_column(int place) {
+    switch (tripeaks_row(place)) {
+    case 0:
+        return place * 3 + 1.5;
+    case 1:
+        return (place - 3) / 2 * 3 + (place - 3) % 2 + 1;
+    case 2:
+        return place - 9 + .5;
+    default:
+        return place - 18;
+    }
+}
+std::array<int, 2> tripeaks_covers(int place) {
+    switch (tripeaks_row(place)) {
+    case 0:
+        return {3 + place * 2, 4 + place * 2};
+    case 1: {
+        const int peak = (place - 3) / 2, side = (place - 3) % 2;
+        return {9 + peak * 3 + side, 10 + peak * 3 + side};
+    }
+    case 2:
+        return {18 + place - 9, 19 + place - 9};
+    default:
+        return {-1, -1};
+    }
+}
+bool tripeaks_next(Card a, Card b) {
+    const int apart = std::abs(a.rank - b.rank);
+    return apart == 1 || apart == 12;
+}
+namespace {
+// The peaks as the search sees them: which places still hold a card, how many cards the
+// stock has left and the waste's rank. Face-down cards are known to it.
+struct PeakSearch {
+    std::array<int, tripeaks_places> rank{};
+    std::array<std::array<int, 2>, tripeaks_places> covers{};
+    std::vector<int> stock;  // ranks, the top last
+    std::unordered_set<std::uint64_t> seen;
+    std::vector<int> line;
+    int budget = 0;
+    bool out = false;  // the budget ran out
+    bool open(std::uint32_t present, int place) const {
+        for (int cover : covers[static_cast<std::size_t>(place)])
+            if (cover >= 0 && (present >> cover & 1U))
+                return false;
+        return true;
+    }
+    bool search(std::uint32_t present, int stock_left, int waste) {
+        if (present == 0)
+            return true;
+        if (--budget < 0) {
+            out = true;
+            return false;
+        }
+        const std::uint64_t key = present | static_cast<std::uint64_t>(stock_left) << 28 |
+                                  static_cast<std::uint64_t>(waste) << 34;
+        if (!seen.insert(key).second)
+            return false;
+        // The bottom-most cards first: they open the most.
+        for (int place = tripeaks_places; place-- > 0;) {
+            if (!(present >> place & 1U) || !open(present, place))
+                continue;
+            const int r = rank[static_cast<std::size_t>(place)], apart = std::abs(r - waste);
+            if (apart != 1 && apart != 12)
+                continue;
+            line.push_back(tripeaks_pile(place));
+            if (search(present & ~(1U << place), stock_left, r))
+                return true;
+            line.pop_back();
+            if (out)
+                return false;
+        }
+        if (stock_left > 0) {
+            line.push_back(-1);
+            if (search(present, stock_left - 1, stock[static_cast<std::size_t>(stock_left - 1)]))
+                return true;
+            line.pop_back();
+        }
+        return false;
+    }
+};
+} // namespace
+TriPeaksLine tripeaks_solve(const State& state, int budget) {
+    TriPeaksLine result;
+    if (state.kind != Kind::tripeaks || state.piles[15].empty())
+        return result;
+    PeakSearch search;
+    std::uint32_t present = 0;
+    for (int place = 0; place < tripeaks_places; ++place) {
+        const Pile& pile = state.piles[tripeaks_pile(place)];
+        search.covers[static_cast<std::size_t>(place)] = tripeaks_covers(place);
+        if (!pile.empty()) {
+            present |= 1U << place;
+            search.rank[static_cast<std::size_t>(place)] = pile[0].rank;
+        }
+    }
+    for (const Card& c : state.piles[14])
+        search.stock.push_back(c.rank);
+    search.budget = budget;
+    result.solved = search.search(present, static_cast<int>(search.stock.size()), state.piles[15].back().rank);
+    result.exhausted = !result.solved && !search.out;
+    if (result.solved)
+        result.steps = std::move(search.line);
+    return result;
+}
+std::uint32_t tripeaks_winnable_seed(std::uint32_t seed, int tries) {
+    for (int i = 0; i < tries; ++i) {
+        Game game;
+        game.deal(Kind::tripeaks, seed + static_cast<std::uint32_t>(i));
+        if (tripeaks_solve(game.state, 200000).solved)
+            return seed + static_cast<std::uint32_t>(i);
+    }
+    return seed;
 }
 bool Game::invariant() const {
     std::array<bool, 104> seen{};
