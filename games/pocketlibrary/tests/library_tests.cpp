@@ -123,10 +123,10 @@ void test_library_file() {
     check(library.shelf().size() == 2 && library.shelf()[0].title == "HOLY BIBLE", "the shelf, bound by the table");
     check(library.shelf()[1].title == "notes", "a book the table does not know is lettered with its id");
     const pl::Work* bible = library.work("bsb");
-    check(bible != nullptr && bible->divisions.size() == 2, "the Bible is read from the file");
+    check(bible != nullptr && (*bible).divisions.size() == 2, "the Bible is read from the file");
     check(library.work("bsb") == bible, "and read once");
     const pl::Versification* places = library.bible_places();
-    check(places != nullptr && places->places.size() == 4, "the Bible's verses for the concordance");
+    check(places != nullptr && (*places).places.size() == 4, "the Bible's verses for the concordance");
 
     // A damaged byte inside a code is caught by the code or by the text's SHA-256.
     pl::LibraryFile file;
