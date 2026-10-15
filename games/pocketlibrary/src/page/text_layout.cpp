@@ -118,24 +118,29 @@ struct Totals final {
 };
 
 constexpr std::int64_t badness_ceiling = 10'000;
+// How the breaker ranks lines: one looser than badness_ceiling still counts
+// by how loose it is, so where no line can be good the fullest is chosen, not
+// the first (three words spread over a line, then the rest at ease).
+constexpr std::int64_t loose_ceiling = 100LL * 64 * 64 * 64;
 // First pass: no space wider than twice its natural width (ratio 2).
 constexpr std::int64_t first_pass_tolerance = 800;
 constexpr std::int64_t line_penalty = 10;
 
 // 100 * (adjustment / flexibility)^3, the measure of how far a line's spaces
-// are from their natural width, capped at badness_ceiling.
-std::int64_t badness_of(std::int64_t adjustment, std::int64_t flexibility) noexcept {
+// are from their natural width, capped at `ceiling`.
+std::int64_t badness_of(std::int64_t adjustment, std::int64_t flexibility,
+                        std::int64_t ceiling = badness_ceiling) noexcept {
     if (adjustment == 0) {
         return 0;
     }
     if (flexibility <= 0) {
-        return badness_ceiling;
+        return ceiling;
     }
     const std::int64_t magnitude = adjustment < 0 ? -adjustment : adjustment;
-    // The ratio in 1/1024ths; beyond 8 the cube is over the ceiling anyway.
-    const std::int64_t ratio = std::min<std::int64_t>(magnitude * 1024 / flexibility, 8 * 1024);
+    // The ratio in 1/1024ths; beyond 64 the cube is over loose_ceiling anyway.
+    const std::int64_t ratio = std::min<std::int64_t>(magnitude * 1024 / flexibility, 64 * 1024);
     const std::int64_t badness = 100 * ratio * ratio * ratio / (1024LL * 1024LL * 1024LL);
-    return std::min(badness, badness_ceiling);
+    return std::min(badness, ceiling);
 }
 
 struct BreakNode final {
@@ -183,9 +188,10 @@ bool break_total_fit(const std::vector<Segment>& segments, const Totals& totals,
             still_active.push_back(node_index);
             std::int64_t badness = 0;
             if (natural > target) {
-                badness = single && natural - shrink > target ? badness_ceiling : badness_of(natural - target, shrink);
+                badness = single && natural - shrink > target ? badness_ceiling
+                                                              : badness_of(natural - target, shrink, loose_ceiling);
             } else if (!last) {
-                badness = badness_of(target - natural, totals.stretch_of(node.position, end));
+                badness = badness_of(target - natural, totals.stretch_of(node.position, end), loose_ceiling);
             }
             if (badness > tolerance && !(single && natural > target)) {
                 continue;
@@ -595,7 +601,7 @@ void Typesetter::set_paragraph(const ParagraphInput& input, const ParagraphFrame
             // Without hyphenation some paragraphs cannot keep every line
             // within the first tolerance; the second pass accepts any
             // stretch and still chooses the least bad whole.
-            if (!break_total_fit(segments, totals, measure, badness_ceiling, breaks)) {
+            if (!break_total_fit(segments, totals, measure, loose_ceiling, breaks)) {
                 break_first_fit(segments, totals, measure, breaks);
             }
         }

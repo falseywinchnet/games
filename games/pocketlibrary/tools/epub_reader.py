@@ -3,10 +3,11 @@
 The spine is followed in order. The publisher's own pages (title page, imprint,
 colophon, licence, table of contents, cover) are left out and listed as dropped. Each
 remaining spine document is a chapter, titled by its first heading. Endnotes are set as
-footnotes at the place that calls them. Text is carried exactly, with three exceptions,
+footnotes at the place that calls them. Text is carried exactly, with four exceptions,
 each counted in the book's head: runs of white space read as one space (as a browser
-reads them), word joiners and byte-order marks are removed (they carry no text), and
-soft hyphens are removed (the page does not hyphenate).
+reads them), word joiners and byte-order marks are removed (they carry no text), soft
+hyphens are removed (the page does not hyphenate), and a line break (<br/>) inside a
+footnote reads as one space (a footnote is one run of text, as its paragraphs are).
 
 Written first for Standard Ebooks' EPUBs, and their source repositories (a tarball
 whose src/ folder is the EPUB unzipped); Project Gutenberg's work through the same
@@ -67,13 +68,13 @@ class Writer:
             self.book.text(collapsed)
 
     def space_before_is_wanted(self) -> bool:
-        """False at the start of a paragraph or after a space already written; spans,
-        footnotes and their ends do not count."""
+        """False at the start of a paragraph or a footnote, or after a space already
+        written; spans and the ends of footnotes do not count."""
         for index in range(len(self.book.records) - 1, -1, -1):
             record = self.book.records[index]
             if record[0] == "T":
                 return not record[1].endswith(" ")
-            if record[0] in ("P", "C", "S", "B", "R", "M"):
+            if record[0] in ("P", "C", "S", "B", "R", "M", "N"):
                 return False
             if record[0] == "E":
                 # The text before the footnote is what the space follows.
@@ -197,6 +198,7 @@ class Walker:
         self.path = path
         self.notes = notes
         self.titled = False
+        self.in_note = False
 
     # ---- blocks ----------------------------------------------------------------------
 
@@ -348,6 +350,10 @@ class Walker:
             self.note(element)
         elif tag == "a" and ("backlink" in kinds or element.get("role") == "doc-backlink"):
             pass
+        elif tag == "br" and self.in_note:
+            # A footnote holds no paragraphs or lines of its own: the break is a space.
+            self.book.head_counts["line breaks inside a footnote read as a space"] += 1
+            self.writer.text(" ")
         elif tag == "br":
             self.writer.trim()
             self.writer.paragraph("flush")
@@ -375,6 +381,7 @@ class Walker:
             return
         label = heading_text(anchor) or "*"
         self.book.add("N", label)
+        self.in_note = True
         first = True
         for child in note:
             if local(child.tag) in ("p", "div", "blockquote"):
@@ -385,6 +392,7 @@ class Walker:
         if first:
             self.inlines(note)
         self.writer.trim()
+        self.in_note = False
         self.book.add("E")
 
 
