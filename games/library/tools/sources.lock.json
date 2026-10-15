@@ -1,0 +1,373 @@
+{
+ "note": "The pinned sources of the Pocket Library, copied from the private planning repository falseywinchnet/pocket-bible (sources/lock.json, 2026-10-15). tools/fetch_sources.py downloads them to .build/library/sources/<id>/ and refuses a file whose SHA-256 differs.",
+ "sources": [
+  {
+   "id": "berean",
+   "work": "Berean Standard Bible, Berean translation tables, Berean Literal Bible, Majority Standard Bible",
+   "upstream": "https://berean.bible/downloads.htm",
+   "licence": "Public domain by dedication, 2023-04-30",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "bsb_usfm.zip",
+     "url": "https://bereanbible.com/bsb_usfm.zip",
+     "retrieved": "2026-10-03",
+     "size": 1598038,
+     "sha256": "f0c56438eb89c98e8f62c5c00461e25cc35b098ad5b179bc350cede759ee5f87"
+    },
+    {
+     "name": "bsb.txt",
+     "url": "https://bereanbible.com/bsb.txt",
+     "retrieved": "2026-10-03",
+     "size": 4331393,
+     "sha256": "2ac3af1de52d4e68261cba91d85c320b7eadc6560e830d99e591767b8ff5ca96"
+    },
+    {
+     "name": "bsb_tables.tsv",
+     "url": "https://bereanbible.com/bsb_tables.tsv",
+     "retrieved": "2026-10-03",
+     "size": 85525373,
+     "sha256": "09bbee6f9fe4fa22b5df28e8a9ffa99bf9c33435f4eb8c47c2dc221d855d35cb"
+    }
+   ]
+  },
+  {
+   "id": "strongs",
+   "work": "Strong's Greek and Hebrew dictionaries (Open Scriptures XML)",
+   "upstream": "https://github.com/openscriptures/strongs",
+   "commit": "0acd2f251c2d35ff8db2dece4e0593979d3ac223",
+   "licence": "Public domain (stated inside each file)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "strongsgreek.xml",
+     "url": "https://raw.githubusercontent.com/openscriptures/strongs/0acd2f251c2d35ff8db2dece4e0593979d3ac223/greek/StrongsGreekDictionaryXML_1.4/strongsgreek.xml",
+     "retrieved": "2026-10-03",
+     "size": 2636209,
+     "sha256": "df928f01b37632f8af9f16289ce58d10b958014cb5dbd1e1ea715a8d311a0625"
+    },
+    {
+     "name": "StrongHebrewG.xml",
+     "url": "https://raw.githubusercontent.com/openscriptures/strongs/0acd2f251c2d35ff8db2dece4e0593979d3ac223/hebrew/StrongHebrewG.xml",
+     "retrieved": "2026-10-03",
+     "size": 6436400,
+     "sha256": "1f9659ea208f4c498843a0280dacb1448627c33ca77712642d8705793ab66061"
+    }
+   ]
+  },
+  {
+   "id": "jps1917",
+   "work": "The Holy Scriptures according to the Masoretic Text: A New Translation, Jewish Publication Society, 1917 (Sefaria export, 39 books)",
+   "upstream": "https://www.sefaria.org/texts/Tanakh",
+   "licence": "Public Domain (Sefaria version record and inside each file)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "jps1917-Deuteronomy.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Torah/Deuteronomy/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 164129,
+     "sha256": "89ddae811c76468bd2d78a3f4a006a046b3e2fe3c2b4142fb0735ab1974863c5"
+    },
+    {
+     "name": "jps1917-Exodus.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Torah/Exodus/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 191573,
+     "sha256": "06f24083680cc4395af49c85c51bac81d827d2016f53bb73b8b89c5c8484cdfe"
+    },
+    {
+     "name": "jps1917-Genesis.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Torah/Genesis/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 226429,
+     "sha256": "ad1d64986bb4dc2bce6c8f09fc90c83dcaee9b1eaf7545cdeca4051584456543"
+    },
+    {
+     "name": "jps1917-Leviticus.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Torah/Leviticus/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 141542,
+     "sha256": "057450f70b8c82c742d250ed64f714c35a8d315fa15c1bc19caec6f2bd7d9f5f"
+    },
+    {
+     "name": "jps1917-Numbers.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Torah/Numbers/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 198103,
+     "sha256": "95094e170cd2b6124824c8fb9b5a4d98a8254001a3b8f680bf48413d136166e5"
+    },
+    {
+     "name": "jps1917-Amos.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/Amos/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 25288,
+     "sha256": "f08bd5d576afc96b3b20bd44ce0a9337975b25f681638c5560f3953742430c6d"
+    },
+    {
+     "name": "jps1917-Ezekiel.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/Ezekiel/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 227832,
+     "sha256": "25dc9e2c283057482d3db2446b6d61f9ed415b7f0b5c4757f8ef70626d5106f7"
+    },
+    {
+     "name": "jps1917-Habakkuk.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/Habakkuk/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 9994,
+     "sha256": "34bacd34c0d092140348fb18f59605698e98f8b2e49610a0ce490fc4d4426dcf"
+    },
+    {
+     "name": "jps1917-Haggai.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/Haggai/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 7678,
+     "sha256": "1e53e41ad688c13b26447af232584584ad2710ce955ee86c33869ac853fe8827"
+    },
+    {
+     "name": "jps1917-Hosea.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/Hosea/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 31958,
+     "sha256": "c68878899af6ddf6388b0b88cfaf87f442b97fad2e716631f726b66b727bd9a8"
+    },
+    {
+     "name": "jps1917-I_Kings.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/I%20Kings/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 143002,
+     "sha256": "d0a39e12c340b1e0c95108e438238658007d625144f19a85e70d052f38ebd3e6"
+    },
+    {
+     "name": "jps1917-I_Samuel.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/I%20Samuel/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 146212,
+     "sha256": "e7c87db5a8c8936aeca19cdd24cb918e14a1899fa8b9b9f54fc8ec703872ea1e"
+    },
+    {
+     "name": "jps1917-II_Kings.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/II%20Kings/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 135544,
+     "sha256": "78f0736842a0a1a9909027aa668e26bc40e976387a3c15089fbe97bdffcc1d83"
+    },
+    {
+     "name": "jps1917-II_Samuel.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/II%20Samuel/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 120946,
+     "sha256": "ace8aad164af24409f3231406690a2af654319ae39fb6d6b1b71fbf1ff0d3606"
+    },
+    {
+     "name": "jps1917-Isaiah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/Isaiah/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 216312,
+     "sha256": "a01e25f1ae43c97749568ada9a5d0e69b613cd3c319610df282981912fea01df"
+    },
+    {
+     "name": "jps1917-Jeremiah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/Jeremiah/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 248012,
+     "sha256": "6bba9f351600c2a52dbfa168319a6383e56eeae85a131873c02a190df9af368f"
+    },
+    {
+     "name": "jps1917-Joel.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/Joel/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 13094,
+     "sha256": "5f861b18bdcc97886862184919bc22704b31f8170a944bf606b0a4f21fcf510a"
+    },
+    {
+     "name": "jps1917-Jonah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/Jonah/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 8868,
+     "sha256": "487df85889e368b695a2ed170e5452d69f6c03f75e555819da432470c87c3df1"
+    },
+    {
+     "name": "jps1917-Joshua.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/Joshua/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 113570,
+     "sha256": "01286c770a1165204f6a92cd18dd374cf9e3790b7da5adce9b4e9668cc98a154"
+    },
+    {
+     "name": "jps1917-Judges.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/Judges/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 111416,
+     "sha256": "a602a849ad72d544a2caee91c51c8df265a36119f39feac227e14383563aa38e"
+    },
+    {
+     "name": "jps1917-Malachi.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/Malachi/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 11531,
+     "sha256": "e955538b7867e34d5f113c7334ab4c6a33f84e57fba58afe88b6e21b91e58557"
+    },
+    {
+     "name": "jps1917-Micah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/Micah/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 19488,
+     "sha256": "30b4b656eccdffe33e2e13d06d4a57ce242c085e4f5604c18b717d52a4d75875"
+    },
+    {
+     "name": "jps1917-Nahum.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/Nahum/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 8770,
+     "sha256": "5fbe4383d469a8616c0fd226e639fa3ea5c4d00ee2b088f96db2ece712374b29"
+    },
+    {
+     "name": "jps1917-Obadiah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/Obadiah/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 5060,
+     "sha256": "1d25a940478487762fd4888f49a86e719026272af47dc886ddbb0c78686f1457"
+    },
+    {
+     "name": "jps1917-Zechariah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/Zechariah/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 38132,
+     "sha256": "568bf600189f73c6ddec2d976d5dc6dec8c93609f5650bb6510b4483b9ec893d"
+    },
+    {
+     "name": "jps1917-Zephaniah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Prophets/Zephaniah/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 10688,
+     "sha256": "fdfd294c2ae5299c188c1e03c3bea0c78e608ffd0b9059f20ddee4acff347a74"
+    },
+    {
+     "name": "jps1917-Daniel.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/Daniel/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 69939,
+     "sha256": "7fe9268b037680185cada115e884ad3aeb30c6bffb9ae85a699d422d4915288b"
+    },
+    {
+     "name": "jps1917-Ecclesiastes.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/Ecclesiastes/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 33565,
+     "sha256": "fabb90866c1f495fcf6e7500d6aa460c2c522bda470a9f6a8ebba2939c85858d"
+    },
+    {
+     "name": "jps1917-Esther.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/Esther/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 34836,
+     "sha256": "b9bd1dcb7f05aee267ba1ce95844119035772e254d28bda914e6ca3f55a122e2"
+    },
+    {
+     "name": "jps1917-Ezra.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/Ezra/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 46243,
+     "sha256": "373aac7b75f42cdbeb1ad97524f812076e37fc30cb11f9594715b6303f1f0634"
+    },
+    {
+     "name": "jps1917-I_Chronicles.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/I%20Chronicles/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 128036,
+     "sha256": "38aaa268470b0b1ce9be29b9afba650c96151c747d0b01267b795c916456b03b"
+    },
+    {
+     "name": "jps1917-II_Chronicles.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/II%20Chronicles/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 154995,
+     "sha256": "0501ad4e3ca89e80882970581e1abed749d7d24795c52c64eb17b51acc1b2a31"
+    },
+    {
+     "name": "jps1917-Job.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/Job/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 113894,
+     "sha256": "da27b81bf7bc2e6fa97a2858091dda111083f6015b6815ef40648dab0d617d42"
+    },
+    {
+     "name": "jps1917-Lamentations.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/Lamentations/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 22000,
+     "sha256": "b69d12bbbde947a9ec02db2cb17a02607258a0649e635c80ec0bbcf553ac9573"
+    },
+    {
+     "name": "jps1917-Nehemiah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/Nehemiah/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 65062,
+     "sha256": "dd881d059b058f60280e6e46972d6a69b487cd8bb1040a6136a8e9fffe4decdc"
+    },
+    {
+     "name": "jps1917-Proverbs.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/Proverbs/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 96628,
+     "sha256": "c94fce333695b21c5131c077a12812691f78552dbc34bfc410935d0c6ff817d9"
+    },
+    {
+     "name": "jps1917-Psalms.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/Psalms/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 271766,
+     "sha256": "23184c86b82318e65109a820705806a7fc316564f0a2292b4f596a0432928d5b"
+    },
+    {
+     "name": "jps1917-Ruth.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/Ruth/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 15956,
+     "sha256": "93f61e8272b161deb3bb1ba7de3063ac44493fb4e2c654245d6413d293606df1"
+    },
+    {
+     "name": "jps1917-Song_of_Songs.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Writings/Song%20of%20Songs/English/The%20Holy%20Scriptures%20A%20New%20Translation%20JPS%201917.json",
+     "retrieved": "2026-10-15",
+     "size": 16974,
+     "sha256": "cd7990ca8a139562e3e0ee1cf45e1b13a496bb2e3628e0f3dd9c11c19a51238c"
+    }
+   ]
+  },
+  {
+   "id": "gorfinkle-avot",
+   "work": "Joseph I. Gorfinkle, The Sayings of the Jewish Fathers (Pirke Abot), 1913, second edition; Project Gutenberg #8547 (introduction, translation and notes; the Hebrew omitted by the transcriber)",
+   "upstream": "https://www.gutenberg.org/ebooks/8547",
+   "licence": "Public domain in the United States (Project Gutenberg)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg8547.txt",
+     "url": "https://www.gutenberg.org/cache/epub/8547/pg8547.txt",
+     "retrieved": "2026-10-15",
+     "size": 188968,
+     "sha256": "bd49e7004d1f821795186699ff2f107c479a63ecdcc3bb7862d7eca81ddfa8df"
+    }
+   ]
+  },
+  {
+   "id": "cohen-berakot",
+   "work": "A. Cohen, The Babylonian Talmud: Tractate Berakot, Cambridge University Press, 1921 (Sefaria export)",
+   "upstream": "https://www.sefaria.org/Berakhot",
+   "licence": "Public Domain (Sefaria version record and inside the file)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "berakot-cohen-1921.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Zeraim/Berakhot/English/Tractate%20Berakot%20by%20A.%20Cohen%2C%20Cambridge%20University%20Press%2C%201921.json",
+     "retrieved": "2026-10-15",
+     "size": 848460,
+     "sha256": "9bb56f5815a55c2be2bc2e35d8a3a5702d5698b8c92e96ada632f9c4be541c56"
+    }
+   ]
+  }
+ ]
+}
