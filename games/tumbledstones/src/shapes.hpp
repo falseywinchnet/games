@@ -1,9 +1,9 @@
 #pragma once
 // The stones' shapes. A family is one solid with two faces: an outline in the tray's plane
 // and two reliefs over it, the face that lies up and the face that lies down, joined round
-// a rounded edge. Each comes in a style (a shell, a spiral, a chip of petrified wood, a
-// twist of pulled candy, a worry stone, a bean, a folded pillow, a faceted tumble, a
-// banded agate nodule) with
+// a rounded edge. Each comes in a style (a broken piece of shell, a chip of petrified
+// wood, a chunk of pulled candy, a faceted tumble, a banded agate nodule, a knapped flake)
+// with
 // its own measures drawn from the family's seed, so no two families are alike and every
 // stone of a family is the same solid.
 //
@@ -28,10 +28,12 @@ constexpr double reach = 1.36;
 // The least a family's orientations may differ (self_distance): nearly alike, never alike.
 constexpr double least_self_distance = .06;  // the farthest any outline reaches from the middle
 
-enum class Style { pebble, shell, spiral, wood, candy, bean, pillow, facet, nodule };
-constexpr int style_count = 9;
+enum class Style { shell, wood, candy, facet, nodule, flake };
+constexpr int style_count = 6;
 
 [[nodiscard]] const char* style_name(Style style);
+// Whether a style is grown and broken as a solid, not drawn from an outline.
+[[nodiscard]] bool grown_style(Style style);
 
 struct ShapeVertex {
     float x = 0, y = 0, z = 0;     // object space
@@ -43,12 +45,18 @@ struct ShapeVertex {
 struct Solid {
     virtual ~Solid() = default;
     [[nodiscard]] virtual double density(double x, double y, double z) const = 0;
+    // Relief too fine for the mesh at a point of its surface, outwards, in the solid's
+    // units: the fine lines pulling leaves in candy, the ripples of a glassy break.
+    [[nodiscard]] virtual double relief(double /*x*/, double /*y*/, double /*z*/) const {
+        return 0;
+    }
 };
 
 class Shape {
 public:
     static constexpr int sectors = 256;  // round the outline
     static constexpr int rings = 56;     // from the middle to the edge, closer near the edge
+    static constexpr int detail_side = 320;  // fine relief texels across [-reach, reach]
 
     // The family `seed` in `style`. `likeness` (0..1) and `parent` make it a near
     // relation of another family's measures: harder to tell apart, never identical.
@@ -112,7 +120,7 @@ public:
 
 private:
     std::uint32_t seed_ = 0;
-    Style style_ = Style::pebble;
+    Style style_ = Style::facet;
     Measures measures_;
     std::vector<float> outline_;     // sectors radii
     std::vector<float> ring_u_;      // rings + 1 fractions of the outline, 0 at the middle
@@ -130,12 +138,17 @@ private:
         std::vector<float> slope_x, slope_y, hollow;
     };
     Detail detail_[2];
+    // A grown solid's own fine relief on each face, sampled where bake_detail samples (with
+    // its two-texel margin), until it is baked.
+    std::vector<float> relief_[2];
 
     static Shape make_once(std::uint32_t seed, Style style, double likeness, const Shape* parent, int attempt);
     void build(std::uint64_t& random);
     void sample();
     void grow_wood();               // wood_volume.cpp: a piece of fossil log, grown then broken
     void grow_shell();              // shell_volume.cpp: a shell, a shard or a scalloped rock, broken
+    void grow_candy();              // candy_volume.cpp: pulled candy, cut or snapped
+    void grow_flake();              // flake_volume.cpp
     // A solid made into this shape: found in a box of half-side `box` round `middle`, laid
     // its thinnest way up, meshed, turned and scaled to the socket. `grain` and `pith` (the
     // solid's frame) place a grained material's grain.

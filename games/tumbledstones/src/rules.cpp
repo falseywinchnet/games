@@ -12,7 +12,7 @@
 namespace ts {
 namespace {
 
-constexpr int style_choices = 9;  // shapes.hpp's styles
+constexpr int style_choices = 6;  // shapes.hpp's styles
 
 bool valid_cell(int cell) {
     return cell >= 0 && cell < cell_count;

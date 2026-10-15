@@ -600,6 +600,36 @@ void Shape::grow_from(const Solid& solid, const double middle[3], double box_hal
     pith_[0] = (pith_lying[0] * turn_c - pith_lying[1] * turn_s) * scale;
     pith_[1] = (pith_lying[0] * turn_s + pith_lying[1] * turn_c) * scale;
     pith_[2] = (pith_lying[2] - level) * scale;
+
+    // The solid's own fine relief where each face is seen, at bake_detail's texels: the
+    // point on the face taken back through the turn, the scale and the lying frame.
+    constexpr int texels = detail_side + 4;
+    const double texel = 2 * ts::reach / detail_side;
+    for (int face = 0; face < 2; ++face) {
+        std::vector<float>& relief = relief_[face];
+        relief.assign(static_cast<std::size_t>(texels * texels), 0.0F);
+        bool any = false;
+        for (int row = 0; row < texels; ++row)
+            for (int column = 0; column < texels; ++column) {
+                const double x = (column - 2 + .5) * texel - ts::reach;
+                const double y = ts::reach - (row - 2 + .5) * texel;
+                double h = 0;
+                if (!height(face, x, y, h))
+                    continue;
+                const double z = face == 0 ? h : -h;
+                const double gx = (x * turn_c + y * turn_s) / scale;
+                const double gy = (-x * turn_s + y * turn_c) / scale;
+                const double gz = z / scale + level;
+                const double sx = lying.centre[0] + lying.axes[0][0] * gx + lying.axes[1][0] * gy + lying.axes[2][0] * gz;
+                const double sy = lying.centre[1] + lying.axes[0][1] * gx + lying.axes[1][1] * gy + lying.axes[2][1] * gz;
+                const double sz = lying.centre[2] + lying.axes[0][2] * gx + lying.axes[1][2] * gy + lying.axes[2][2] * gz;
+                const double r = solid.relief(sx, sy, sz) * scale;
+                relief[static_cast<std::size_t>(row * texels + column)] = static_cast<float>(r);
+                any = any || r != 0;
+            }
+        if (!any)
+            relief.clear();
+    }
 }
 
 }  // namespace ts

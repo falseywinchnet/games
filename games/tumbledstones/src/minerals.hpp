@@ -16,11 +16,11 @@
 namespace ts {
 
 enum class Mineral {
-    obsidian, walnut, ebony, petrified, bone, agate, amethyst, lapis, sodalite, malachite,
-    tigereye, quartz, smoky, rose, jade, labradorite, jasper, amber, blue_lace, onyx, chrysocolla,
-    candy, nacre, cone, seaglass
+    obsidian, walnut, petrified, bone, agate, amethyst, lapis, sodalite, malachite, quartz, smoky,
+    rose, jade, labradorite, jasper, amber, blue_lace, chrysocolla, candy, nacre, cone, seaglass,
+    lava, dripstone
 };
-constexpr int mineral_count = 25;
+constexpr int mineral_count = 24;
 
 [[nodiscard]] const char* mineral_name(Mineral mineral);
 
@@ -43,7 +43,8 @@ struct Finish {
     Linear absorb{};                  // per unit of thickness, for the clear ones
     double sheen = 0;                 // a colour that comes and goes with the angle
     Linear sheen_colour{};
-    double flecks = 0;                // metallic specks
+    double flecks = 0;                // glinting specks: pyrite, mica, crazed spangles
+    Linear glitter{.95F, .72F, .32F}; // what they glint, the room's light tinted
     double scatter = .08;             // light scattered inside a clear one: a frosted glow
     double shine = .045;              // the polish's reflection face on: low for chalky bone
     bool rainbow = false;             // the sheen runs through the rainbow with the angle: nacre

@@ -32,5 +32,5 @@
   match left almost never happens.
 - The worker crew in the view is the card table's (shared/cards/table_art.cpp),
   borrowed. The synth engine in audio_src/engine is Catching Thieves', borrowed.
-- Fibrous minerals (walnut, ebony, petrified wood, tiger's eye) lay their grain along
-  the stone's long axis, and agate in a nodule follows its bands: looks only.
+- Fibrous minerals (walnut, petrified wood) lay their grain along the stone's grain or
+  long axis, and agate in a nodule follows its bands: looks only.

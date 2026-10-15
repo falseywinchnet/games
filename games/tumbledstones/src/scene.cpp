@@ -358,7 +358,7 @@ void make_one_shape(void* context, int index) noexcept {
             *job.out = std::make_unique<Shape>(Shape::make(family.seed, style));
         }
     } catch (...) {
-        *job.out = std::make_unique<Shape>(Shape::make(1, Style::pebble));
+        *job.out = std::make_unique<Shape>(Shape::make(1, Style::facet));
     }
 }
 

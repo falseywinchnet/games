@@ -104,7 +104,7 @@ void test_generation() {
     pinned.board = ts::new_game(20261015, 9);
     const std::uint64_t digest = ts::checksum(ts::encode_session(pinned));
     std::cout << "seed 20261015 digest " << digest << "\n";
-    check(digest == 935245551307783743ULL, "the generator for a known seed has not drifted");
+    check(digest == 12016535622324131002ULL, "the generator for a known seed has not drifted");
 }
 
 void test_orientations() {

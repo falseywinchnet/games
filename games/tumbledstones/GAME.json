@@ -18,7 +18,9 @@
     "src/stone_render.cpp",
     "src/tray.cpp",
     "src/wood_volume.cpp",
-    "src/shell_volume.cpp"
+    "src/shell_volume.cpp",
+    "src/candy_volume.cpp",
+    "src/flake_volume.cpp"
   ],
   "ui_sources": [
     "src/tumbledstones_view.cpp",

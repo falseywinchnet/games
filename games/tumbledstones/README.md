@@ -27,9 +27,9 @@ as it was.
 
 ## Replayability
 
-Every game is a fresh tray from a new seed. Families are generated (nine styles: shell,
-ammonite, petrified wood, pulled candy, worry stone, bean, folded pillow, faceted
-tumble, agate nodule, each with its own measures), and each family's run is limited, so
+Every game is a fresh tray from a new seed. Families are generated (six styles: broken
+shell, petrified wood, a chunk of pulled candy, faceted tumble, agate nodule, knapped
+flake, each with its own measures; the grown ones are solids broken as real pieces are), and each family's run is limited, so
 new families keep arriving; later ones are more and more often near relations of
 families in the tray, so the shapes grow harder to tell apart. Difficulty is the size
 chosen, 2 to 20. Pulls under 7 keep no best.

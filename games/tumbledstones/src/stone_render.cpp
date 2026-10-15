@@ -1,5 +1,6 @@
 #include "stone_render.hpp"
 
+#include "noise.hpp"
 #include "room.hpp"
 
 #include <algorithm>
@@ -462,9 +463,19 @@ void draw_stone(const StoneLook& look, const Pose& pose, const DrawStone& how, S
             const bool in_bottom = shape.height(1, ox, oy, down_height);
             const double thickness = in_top && in_bottom ? std::max(0.0, up_height + down_height) : 0.0;
 
-            const double nv = std::max(nz, .02);
             const double clarity = std::clamp(static_cast<double>(tex.clarity), 0.0, 1.0);
             const bool metal = tex.fleck > .5F;
+            if (metal) {
+                // Each fleck lies at its own tilt: they glint one by one as the stone turns.
+                const std::uint32_t bits = hash_cell(static_cast<int>(std::floor(ox * 90)), static_cast<int>(std::floor(oy * 90)), face, 77U);
+                nx += (static_cast<double>(bits & 0xffU) / 255.0 - .5) * 1.2;
+                ny += (static_cast<double>((bits >> 8) & 0xffU) / 255.0 - .5) * 1.2;
+                const double tilted = std::sqrt(nx * nx + ny * ny + nz * nz);
+                nx /= tilted;
+                ny /= tilted;
+                nz /= tilted;
+            }
+            const double nv = std::max(nz, .02);
             const double rough = metal ? .12 : std::clamp(base_rough + .04 * (1 - nv), 0.0, 1.0);
             const double f0 = finish.shine;
             const double f = fresnel(nv, f0);
@@ -479,9 +490,9 @@ void draw_stone(const StoneLook& look, const Pose& pose, const DrawStone& how, S
             double spec_b = f * mirrored.b * mirror_seen;
             if (metal) {
                 const double gold = tex.fleck;
-                spec_r = mirrored.r * .95 * gold + spec_r * (1 - gold);
-                spec_g = mirrored.g * .72 * gold + spec_g * (1 - gold);
-                spec_b = mirrored.b * .32 * gold + spec_b * (1 - gold);
+                spec_r = mirrored.r * finish.glitter.r * gold + spec_r * (1 - gold);
+                spec_g = mirrored.g * finish.glitter.g * gold + spec_g * (1 - gold);
+                spec_b = mirrored.b * finish.glitter.b * gold + spec_b * (1 - gold);
             }
             // The sun's glint.
             double sun_dot = 0;
@@ -519,13 +530,15 @@ void draw_stone(const StoneLook& look, const Pose& pose, const DrawStone& how, S
             if (finish.rainbow && tex.sheen > 0) {
                 // Nacre: thin layers send back a colour that runs through the rainbow as the
                 // surface turns.
-                const double hue = 6 * (.35 + .9 * nz + .5 * nx - .35 * ny + .4 * tex.sheen);
+                const double hue = 6 * (.15 + .55 * nz + .35 * nx - .25 * ny + .5 * tex.sheen);
                 const double h = hue - 6 * std::floor(hue / 6);
-                const double r = std::clamp(std::abs(h - 3) - 1, 0.0, 1.0);
-                const double g = std::clamp(2 - std::abs(h - 2), 0.0, 1.0);
-                const double b = std::clamp(2 - std::abs(h - 4), 0.0, 1.0);
+                // Pearl's colours are pale, a silvery white; abalone's (a stronger sheen) run deep.
+                const double vivid = std::clamp((finish.sheen - 1) / .8, .55, 1.0);
+                const double r = 1 - vivid + vivid * std::clamp(std::abs(h - 3) - 1, 0.0, 1.0);
+                const double g = 1 - vivid + vivid * std::clamp(2 - std::abs(h - 2), 0.0, 1.0);
+                const double b = 1 - vivid + vivid * std::clamp(2 - std::abs(h - 4), 0.0, 1.0);
                 const double lit = (light_r + light_g + light_b) / 3;
-                const double flash = finish.sheen * tex.sheen * .22 * lit * (.5 + .5 * room_seen);
+                const double flash = finish.sheen * (.4 + .6 * tex.sheen) * .32 * lit * (.5 + .5 * room_seen);
                 out_r += flash * r;
                 out_g += flash * g;
                 out_b += flash * b;

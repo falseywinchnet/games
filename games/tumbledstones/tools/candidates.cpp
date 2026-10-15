@@ -282,14 +282,23 @@ int main(int argc, char** argv) {
         return 0;
     }
     if (argc > 3 && std::string(argv[3]) == "kinds") {
+        // Every material, a third of them a sheet: each on all six kinds of shape, every
+        // stone its own draw of the material, so its variants show.
+        const int group = argc > 4 ? std::clamp(std::atoi(argv[4]), 0, 2) : 0;
+        const ts::Mineral groups[3][8] = {
+            {ts::Mineral::obsidian, ts::Mineral::labradorite, ts::Mineral::lava, ts::Mineral::walnut, ts::Mineral::petrified,
+             ts::Mineral::bone, ts::Mineral::jasper, ts::Mineral::malachite},
+            {ts::Mineral::candy, ts::Mineral::nacre, ts::Mineral::cone, ts::Mineral::seaglass, ts::Mineral::quartz,
+             ts::Mineral::smoky, ts::Mineral::amber, ts::Mineral::dripstone},
+            {ts::Mineral::rose, ts::Mineral::amethyst, ts::Mineral::lapis, ts::Mineral::sodalite, ts::Mineral::blue_lace,
+             ts::Mineral::chrysocolla, ts::Mineral::jade, ts::Mineral::agate}};
+        const char* titles[3] = {"Materials 1 of 3: dark stone, wood, bone", "Materials 2 of 3: candy, shell, glass, clear stone",
+                                 "Materials 3 of 3: the pretty stones"};
         const double cell = 150;
-        const int left = 170;
+        const int left = 190;
         const int top = 56;
-        const ts::Mineral kinds[12] = {ts::Mineral::obsidian, ts::Mineral::walnut, ts::Mineral::petrified, ts::Mineral::bone,
-                                       ts::Mineral::candy, ts::Mineral::nacre, ts::Mineral::cone, ts::Mineral::seaglass,
-                                       ts::Mineral::amber, ts::Mineral::amethyst, ts::Mineral::lapis, ts::Mineral::agate};
-        const int rows = 12;
-        const int columns = 7;
+        const int rows = 8;
+        const int columns = 6;
         Sheet sheet;
         sheet.width = left + static_cast<int>(cell * columns) + 20;
         sheet.height = top + static_cast<int>(cell * rows) + 20;
@@ -305,30 +314,32 @@ int main(int argc, char** argv) {
         plan.rows = rows;
         plan.wall = 12;
         ts::draw_tray(plan, sheet.pixels.data(), sheet.width, true, 0, sheet.height);
-        label(sheet, "Materials: each its own kind of thing, on any shape", 24, 14, 22, cream, true);
+        label(sheet, titles[group], 24, 14, 22, cream, true);
         std::vector<ts::Shape> shapes;
         for (int c = 0; c < columns; ++c)
-            shapes.push_back(ts::Shape::make(91000U + static_cast<std::uint32_t>(c) * 313U,
-                                             static_cast<ts::Style>((c * 4 + 1) % ts::style_count)));
+            shapes.push_back(ts::Shape::make(91000U + static_cast<std::uint32_t>(c) * 313U, static_cast<ts::Style>(c)));
         for (int r = 0; r < rows; ++r) {
-            label(sheet, ts::mineral_name(kinds[r]), 20, top + static_cast<int>(cell * (r + .5)) - 10, 17, cream, true);
+            const ts::Mineral kind = groups[group][r];
+            const bool redone = kind == ts::Mineral::walnut || kind == ts::Mineral::nacre;
+            const std::string name = std::string(ts::mineral_name(kind)) + (redone ? " (redone)" : "");
+            label(sheet, name, 20, top + static_cast<int>(cell * (r + .5)) - 10, 17, cream, true);
             for (int c = 0; c < columns; ++c) {
                 Stone stone;
                 stone.shape = shapes[static_cast<std::size_t>(c)];
-                stone.finish = ts::make_finish(kinds[r], 700U + static_cast<std::uint32_t>(r * 7 + c) * 23U);
+                stone.finish = ts::make_finish(kind, 700U + static_cast<std::uint32_t>(r * 7 + c) * 23U);
                 ts::print_mineral(stone.finish, stone.shape, 160, stone.picture);
                 place(sheet, work, stone, (r + c) % 8, left + cell * (c + .5), top + cell * (r + .5), cell * .42, 2);
             }
         }
-        save(sheet, out + "/kinds-" + room + ".png");
+        save(sheet, out + "/kinds-" + std::to_string(group) + "-" + room + ".png");
         return 0;
     }
     if (argc > 3 && std::string(argv[3]) == "styles") {
         const double cell = 190;
         const int left = 30;
         const int top = 60;
-        const ts::Style styles[7] = {ts::Style::shell, ts::Style::spiral, ts::Style::pebble, ts::Style::candy,
-                                     ts::Style::bean, ts::Style::pillow, ts::Style::facet};
+        const ts::Style styles[7] = {ts::Style::shell, ts::Style::nodule, ts::Style::flake, ts::Style::candy,
+                                     ts::Style::wood, ts::Style::shell, ts::Style::facet};
         Sheet sheet;
         sheet.width = left + static_cast<int>(cell * 6) + 20;
         sheet.height = top + static_cast<int>(cell * 7) + 20;
@@ -346,7 +357,7 @@ int main(int argc, char** argv) {
         ts::draw_tray(plan, sheet.pixels.data(), sheet.width, true, 0, sheet.height);
         label(sheet, "The other styles, close up: face up and face down in several minerals", 24, 14, 22, cream, true);
         const ts::Mineral minerals[6] = {ts::Mineral::bone, ts::Mineral::obsidian, ts::Mineral::amber,
-                                         ts::Mineral::jade, ts::Mineral::labradorite, ts::Mineral::tigereye};
+                                         ts::Mineral::jade, ts::Mineral::labradorite, ts::Mineral::malachite};
         const int orientations[6] = {0, 4, 0, 4, 1, 6};
         for (int r = 0; r < 7; ++r) {
             Stone stone;
@@ -471,8 +482,8 @@ int main(int argc, char** argv) {
         ts::draw_tray(plan, sheet.pixels.data(), sheet.width, true, 0, sheet.height);
         const double tray_seconds = seconds_since(start);
         std::vector<ts::Shape> families;
-        const ts::Style styles[5] = {ts::Style::shell, ts::Style::wood, ts::Style::candy, ts::Style::spiral,
-                                     ts::Style::pebble};
+        const ts::Style styles[5] = {ts::Style::shell, ts::Style::wood, ts::Style::candy, ts::Style::nodule,
+                                     ts::Style::flake};
         for (int f = 0; f < 5; ++f)
             families.push_back(ts::Shape::make(4242U + static_cast<std::uint32_t>(f) * 101U, styles[f]));
         std::uint64_t random = 77;

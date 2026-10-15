@@ -59,26 +59,24 @@ double socket_reach(double angle) {
     return low;
 }
 
+bool grown_style(Style style) {
+    return style != Style::facet && style != Style::nodule;
+}
+
 const char* style_name(Style style) {
     switch (style) {
-    case Style::pebble:
-        return "worry stone";
     case Style::shell:
         return "shell";
-    case Style::spiral:
-        return "spiral";
     case Style::wood:
         return "petrified wood";
     case Style::candy:
         return "pulled candy";
-    case Style::bean:
-        return "bean";
-    case Style::pillow:
-        return "folded pillow";
     case Style::facet:
         return "faceted tumble";
     case Style::nodule:
         return "agate nodule";
+    case Style::flake:
+        return "knapped flake";
     }
     return "stone";
 }
@@ -129,11 +127,10 @@ Shape Shape::make_once(std::uint32_t seed, Style style, double likeness, const S
         to.bottom_power = from.bottom_power + (to.bottom_power - from.bottom_power) * (1 - keep);
         for (std::size_t k = 0; k < to.feature.size(); ++k)
             to.feature[k] = from.feature[k] + (to.feature[k] - from.feature[k]) * (1 - keep);
-        // A relation of a piece of fossil log is the same kind of piece.
-        if (shape.style_ == Style::wood)
-            to.feature[4] = from.feature[4] + 1;
-        if (shape.style_ == Style::shell) {
-            to.feature[0] = from.feature[0];
+        // A relation of a grown piece is the same kind of piece, broken another way.
+        if (grown_style(shape.style_)) {
+            if (shape.style_ != Style::wood)
+                to.feature[0] = from.feature[0];
             to.feature[4] = from.feature[4] + 1;
         }
     }
@@ -141,6 +138,10 @@ Shape Shape::make_once(std::uint32_t seed, Style style, double likeness, const S
         shape.grow_wood();
     } else if (shape.style_ == Style::shell) {
         shape.grow_shell();
+    } else if (shape.style_ == Style::candy) {
+        shape.grow_candy();
+    } else if (shape.style_ == Style::flake) {
+        shape.grow_flake();
     } else {
         shape.sample();
         shape.mesh();
@@ -162,24 +163,6 @@ void Shape::build(std::uint64_t& random) {
     m.mark_depth = next_between(random, -.06, .08);
     std::array<double, 16>& f = m.feature;
     switch (style_) {
-    case Style::pebble:
-        m.aspect = next_between(random, .62, .88);
-        m.top = next_between(random, .40, .50);
-        m.bottom = next_between(random, .26, .34);
-        m.top_power = next_between(random, 2.0, 2.6);
-        m.bottom_power = next_between(random, 2.2, 3.0);
-        f[0] = next_between(random, -.3, .3);   // the thumb's dent: where
-        f[1] = next_between(random, -.2, .2);
-        f[2] = next_between(random, .26, .42);  // its radii
-        f[3] = next_between(random, .18, .28);
-        f[4] = next_between(random, -pi, pi);   // its turn
-        f[5] = next_between(random, .09, .15);  // its depth
-        f[6] = next_between(random, -pi, pi);   // the underside's ridge: its turn
-        f[7] = next_between(random, -.3, .3);   // and offset
-        f[8] = next_between(random, .04, .07);  // its height
-        f[9] = next_between(random, .12, .2);   // and width
-        f[10] = next_between(random, -pi, pi);  // the crown's lean
-        break;
     case Style::shell: {
         // Shell-ness (shell_volume.cpp): a shell fragment, a rock with a shell's mould, a
         // scalloped rock or a pottery shard, each grown as a solid and broken.
@@ -201,23 +184,6 @@ void Shape::build(std::uint64_t& random) {
         f[14] = std::floor(next_between(random, 5, 10)); // a scalloped rock's hollows
         break;
     }
-    case Style::spiral:
-        m.aspect = next_between(random, .86, 1.0);
-        m.top = next_between(random, .34, .42);
-        m.bottom = next_between(random, .28, .36);
-        m.top_power = next_between(random, 2.0, 2.6);
-        m.bottom_power = next_between(random, 2.2, 2.8);
-        m.mark_depth = 0;
-        f[0] = next_between(random, .045, .075);   // growth per radian (log spiral)
-        f[1] = next_between(random, -pi, pi);      // the aperture's angle
-        f[2] = std::floor(next_between(random, 18, 30));  // ribs
-        f[3] = next_between(random, .025, .04);    // rib height
-        f[4] = next_between(random, .05, .08);     // the seam's depth
-        f[5] = next_between(random, .08, .14);     // the navel's depth, above
-        f[6] = next_between(random, .12, .2);      // and below
-        f[7] = next_between(random, .3, .6);       // the underside's ribs, as a share
-        f[8] = next_between(random, .05, .12);     // the aperture's lip
-        break;
     case Style::wood:
         // A chunk broken out of a fossil log (wood_volume.cpp): the log's measures, and how
         // many breaks freed the chunk.
@@ -257,53 +223,39 @@ void Shape::build(std::uint64_t& random) {
         f[9] = next_between(random, -.55, .55);          // the bands' centre
         f[10] = next_between(random, -.45, .45);
         break;
-    case Style::candy:
-        m.aspect = next_between(random, .46, .58);
-        m.top = next_between(random, .30, .38);
-        m.bottom = next_between(random, .26, .34);
-        m.top_power = next_between(random, 2.0, 2.6);
-        m.bottom_power = next_between(random, 2.0, 2.6);
-        m.mark_depth = 0;
-        f[0] = next_between(random, 1.5, 1.9);     // the lozenge's squareness
-        f[1] = next_between(random, .15, .3);      // the pulled tail
-        f[2] = next_between(random, -.35, .35);    // the bend
-        f[3] = next_between(random, .55, .95);     // the twist's slant
-        f[4] = next_between(random, 5.0, 7.5);     // twists along the length
-        f[5] = next_between(random, .035, .055);   // their height
-        f[6] = next_between(random, .5, 1.0);      // tightening towards the tail
-        f[7] = next_between(random, -.4, .4);      // the pinch, above: where
-        f[8] = next_between(random, .05, .09);     // and how deep
-        f[9] = next_between(random, -.5, .5);      // the flat, below: where
+    case Style::candy: {
+        // A chunk of pulled candy (candy_volume.cpp): cut taffy, broken hard candy, folded
+        // taffy or torn taffy, every kind about the same lump.
+        const double which = next_unit(random);
+        f[0] = which < .3 ? 0 : (which < .6 ? 1 : (which < .8 ? 2 : 3));
+        f[1] = next_between(random, .4, .52);            // the rope's radius
+        f[2] = std::floor(next_between(random, 3, 9));   // its strands
+        f[3] = next_between(random, .02, .09);           // how deep they part
+        f[4] = std::floor(next_between(random, 1, 60000)); // the seed of its cuts, breaks and lumps
+        f[5] = next_between(random, .4, 2.4);            // the twist, radians a unit
+        f[6] = next_between(random, 1.0, 1.4);           // the length between the ends
+        f[7] = next_between(random, -.25, .25);          // a bend
+        f[8] = next_between(random, .68, .9);            // the slump
+        f[9] = next_between(random, .025, .06);          // lumps
+        f[10] = std::floor(next_between(random, 2, 4));  // a fold's lengths
+        f[11] = next_between(random, 0, .22);            // the blades' pinch
+        f[13] = std::floor(next_between(random, 1, 4));  // hard candy's breaks along its sides
+        f[14] = next_between(random, .0008, .0018);      // the pulling's fine lines
         break;
-    case Style::bean:
-        m.aspect = next_between(random, .52, .66);
-        m.top = next_between(random, .38, .46);
-        m.bottom = next_between(random, .26, .34);
-        m.top_power = next_between(random, 2.0, 2.4);
-        m.bottom_power = next_between(random, 2.0, 2.6);
-        m.mark_depth = 0;
-        f[0] = next_between(random, .25, .45);     // the bend
-        f[1] = next_between(random, .06, .1);      // the crease's depth
-        f[2] = next_between(random, .3, .55);      // and length
-        f[3] = next_between(random, -.25, .25);    // the keel below: offset
-        f[4] = next_between(random, .04, .07);     // and height
-        f[5] = next_between(random, -.2, .2);      // one end fuller than the other
-        break;
-    case Style::pillow:
-        m.aspect = next_between(random, .74, .94);
-        m.top = next_between(random, .32, .40);
-        m.bottom = next_between(random, .26, .34);
-        m.top_power = next_between(random, 2.6, 3.4);
-        m.bottom_power = next_between(random, 2.2, 2.8);
-        f[0] = next_between(random, 2.8, 3.6);     // squareness
-        f[1] = next_between(random, -pi, pi);      // the fold's turn
-        f[2] = next_between(random, -.3, .3);      // and offset
-        f[3] = next_between(random, .07, .11);     // its height
-        f[4] = next_between(random, .16, .26);     // and width
-        f[5] = next_between(random, -.35, .35);    // the dimple below: where
-        f[6] = next_between(random, -.35, .35);
-        f[7] = next_between(random, .06, .1);      // and depth
-        f[8] = next_between(random, -.2, .2);      // the outline's shear
+    }
+    case Style::flake:
+        // A knapped flake (flake_volume.cpp).
+        f[1] = next_between(random, 1.7, 2.3);           // its length
+        f[2] = next_between(random, .55, .8);            // half its width
+        f[3] = next_between(random, .22, .34);           // its thickness at the platform
+        f[4] = std::floor(next_between(random, 1, 60000)); // the seed of its scars and edges
+        f[5] = next_between(random, .1, .4);             // its curl
+        f[6] = next_between(random, .05, .1);            // the bulb
+        f[7] = std::floor(next_between(random, 5, 10));  // older scars on its back
+        f[8] = next_between(random, -.15, .15);          // its skew
+        f[9] = next_between(random, .2, .7);             // the platform's slope
+        f[10] = next_between(random, .45, .7);           // where it begins to close
+        f[11] = std::floor(next_between(random, 3, 6));  // straight runs of its edge
         break;
     case Style::facet:
         m.aspect = next_between(random, .72, .95);
@@ -366,7 +318,6 @@ double Shape::outline_at(double angle) const {
     const double s = std::sin(a);
     double r = 1;
     switch (style_) {
-    case Style::pebble:
     case Style::facet: {
         const double y = s / m.aspect;
         r = 1 / std::sqrt(c * c + y * y);
@@ -391,75 +342,16 @@ double Shape::outline_at(double angle) const {
         }
         break;
     }
-    case Style::shell: {
-        // A fan narrowing to a hinge at the bottom, with two unequal ears beside it.
-        const double up = (s + 1) * .5;
-        r = f[9] + (1 - f[9]) * std::pow(up, .6);
-        r *= 1 / std::sqrt(c * c * (m.aspect * m.aspect) + s * s) * m.aspect;
-        const double ear_left = std::exp(-std::pow(wrap_angle(a - (-pi / 2 - .62)) / .2, 2));
-        const double ear_right = std::exp(-std::pow(wrap_angle(a - (-pi / 2 + .62)) / .2, 2));
-        r += f[2] * ear_left + f[3] * ear_right;
-        // The ribs scallop the edge.
-        const double hinge_angle = std::atan2(r * s + .55, r * c);
-        r *= 1 + .022 * std::cos(f[0] * hinge_angle) * up;
-        break;
-    }
-    case Style::spiral: {
-        // A logarithmic spiral's last whorl: growing round from the aperture to it again.
-        const double k = f[0];
-        double turned = a - f[1];
-        turned -= 2 * pi * std::floor(turned / (2 * pi));
-        r = std::exp(k * turned);
-        // The aperture's step, eased over a few degrees, and its lip.
-        const double step = smoothstep(2 * pi - .2, 2 * pi, turned);
-        r = r * (1 - step) + 1.0 * step;
-        r += f[8] * std::exp(-std::pow((2 * pi - turned) / .25, 2));
-        r *= 1 / std::sqrt(c * c + s * s / (m.aspect * m.aspect)) * m.aspect;
-        r = std::max(r, .7);
-        break;
-    }
+    case Style::shell:
     case Style::wood:
-        // Grown and broken as a solid (wood_volume.cpp); never drawn by an outline.
+    case Style::candy:
+    case Style::flake:
+        // Grown and broken as solids (the *_volume.cpp files); never drawn by an outline.
         r = 1;
         break;
     case Style::nodule:
         r = reach_inward(c, s);
         break;
-    case Style::candy:
-    case Style::bean: {
-        // A bent lozenge, found along the ray by halving.
-        double low = 0;
-        double high = 2.5;
-        for (int step = 0; step < 32; ++step) {
-            const double mid = (low + high) * .5;
-            const double x = mid * c;
-            const double y = mid * s;
-            double inside = 0;
-            if (style_ == Style::candy) {
-                const double tail = 1 + f[1] * smoothstep(.2, 1, x);
-                const double bent = y - f[2] * (x * x - .3);
-                const double n = f[0];
-                inside = std::pow(std::abs(x / tail), n) + std::pow(std::abs(bent / m.aspect), n);
-            } else {
-                const double bent = y - f[0] * (x * x - .35);
-                const double fuller = 1 + f[5] * x;
-                inside = x * x + std::pow(bent / (m.aspect * fuller), 2);
-            }
-            if (inside <= 1)
-                low = mid;
-            else
-                high = mid;
-        }
-        r = low;
-        break;
-    }
-    case Style::pillow: {
-        const double n = f[0];
-        const double x = c + f[8] * s;
-        const double y = s / m.aspect;
-        r = std::pow(std::pow(std::abs(x), n) + std::pow(std::abs(y), n), -1 / n);
-        break;
-    }
     }
     // The wobble every stone has, and a notch or a bulge where it was chipped or grew.
     double wobble = 1;
@@ -476,60 +368,11 @@ double Shape::feature_height(int face, double x, double y, double u) const {
     const double base = (face == 0 ? m.top : m.bottom) * profile(u, face == 0 ? m.top_power : m.bottom_power);
     const double keep = 1 - std::pow(u, 6);
     switch (style_) {
-    case Style::pebble: {
-        if (face == 0) {
-            const double ca = std::cos(f[4]);
-            const double sa = std::sin(f[4]);
-            const double dx = x - f[0];
-            const double dy = y - f[1];
-            const double along = dx * ca + dy * sa;
-            const double across = -dx * sa + dy * ca;
-            const double dent = f[5] * std::exp(-1.6 * (along * along / (f[2] * f[2]) + across * across / (f[3] * f[3])));
-            const double lean = .07 * (x * std::cos(f[10]) + y * std::sin(f[10]));
-            return base * (1 + lean) - dent * keep;
-        }
-        const double d = -x * std::sin(f[6]) + y * std::cos(f[6]) - f[7];
-        return base + f[8] * std::exp(-d * d / (f[9] * f[9])) * keep;
-    }
-    case Style::shell: {
-        const double hx = 0;
-        const double hy = -.55;
-        const double dist = std::hypot(x - hx, y - hy);
-        const double fan = std::atan2(y - hy, x - hx);
-        const double rib = std::pow(std::abs(std::cos(f[0] * fan * .5)), .7);
-        if (face == 0) {
-            const double crown = .07 * std::exp(-(x * x + (y + .25) * (y + .25)) / .18);
-            const double growth = f[8] * std::sin(dist * 34) * smoothstep(.15, .5, dist);
-            return base + (crown + f[1] * (rib - .5) * smoothstep(.1, .45, dist) + growth) * keep;
-        }
-        // The inside: a dish, faintly ribbed towards the edge, with the muscle's scar.
-        const double dish = f[5] * profile(std::min(1.0, std::hypot(x - f[4] * .3, y + .1) / .95), 2.0);
-        const double groove = .4 * f[1] * (rib - .5) * smoothstep(.6, .95, u);
-        const double sx = x - f[6];
-        const double sy = y - f[7];
-        const double scar = .03 * std::exp(-(sx * sx / .02 + sy * sy / .035));
-        return base - dish * keep - groove * keep + scar * keep;
-    }
-    case Style::spiral: {
-        const double r = std::hypot(x, y);
-        const double angle = std::atan2(y, x);
-        const double k = f[0];
-        // Which whorl a point is on: the seams lie where log(r) - k * angle is a whole
-        // number of turns' growth apart.
-        const double growth = 2 * pi * k;
-        double turned = angle - f[1];
-        turned -= 2 * pi * std::floor(turned / (2 * pi));
-        const double phase = (std::log(std::max(r, 1e-3)) - k * turned) / growth;
-        const double seam_distance = (phase - std::round(phase)) * growth;
-        const double seam = std::exp(-std::pow(seam_distance / .06, 2));
-        const double ribs = std::pow(std::abs(std::cos(f[2] * .5 * angle)), .8) - .5;
-        const double navel_depth = face == 0 ? f[5] : f[6];
-        const double navel = navel_depth * std::exp(-r * r / .03);
-        const double rib_share = face == 0 ? 1.0 : f[7];
-        return base + (-f[4] * seam + f[3] * ribs * rib_share * smoothstep(.12, .35, r) - navel) * keep;
-    }
+    case Style::shell:
     case Style::wood:
-        // Grown and broken as a solid (wood_volume.cpp).
+    case Style::candy:
+    case Style::flake:
+        // Grown as solids.
         return base;
     case Style::nodule: {
         // Broken faces: broad shallow breaks across the lump, where the bands show most.
@@ -551,48 +394,6 @@ double Shape::feature_height(int face, double x, double y, double u) const {
         // A lumpy husk.
         h += .025 * fbm2(x * 2.6, y * 2.6, static_cast<std::uint32_t>(f[4]) + 11 + static_cast<std::uint32_t>(face), 3) * keep;
         return h;
-    }
-    case Style::candy: {
-        const double slant = f[3];
-        const double tighten = 1 + f[6] * smoothstep(-.2, 1, x);
-        // Below, the stripes slant the other way in the stone's own frame, so the stone
-        // turned over shows the same slant: the twist looks nearly the same either way up.
-        const double sx = face == 0 ? x : -x;
-        const double along = (sx * std::cos(slant) + (y - f[2] * (x * x - .3)) * std::sin(slant) * 2.2) * f[4] * tighten;
-        const double stripe = std::pow(std::abs(std::cos(pi * along * .5)), .6) - .55;
-        double h = base + f[5] * stripe * keep;
-        if (face == 0) {
-            const double px = x - f[7];
-            h -= f[8] * std::exp(-(px * px / .02 + y * y / .05)) * keep;
-        } else {
-            const double flat_from = f[9];
-            const double side = x - flat_from;
-            if (side > 0)
-                h = std::min(h, base * (1 - .5 * smoothstep(0, .3, side)) + .02);
-        }
-        return h;
-    }
-    case Style::bean: {
-        if (face == 0) {
-            // A crease running in from the inner curve.
-            const double cy = y - f[0] * (x * x - .35);
-            const double along = std::clamp((-cy) / f[2], 0.0, 1.0);
-            const double crease = f[1] * std::exp(-x * x / .015) * (1 - along) * smoothstep(-.1, .2, -cy + .3);
-            return base - crease * keep;
-        }
-        const double keel = x - f[3];
-        return base + f[4] * std::exp(-keel * keel / .02) * keep;
-    }
-    case Style::pillow: {
-        if (face == 0) {
-            const double d = -x * std::sin(f[1]) + y * std::cos(f[1]) - f[2];
-            const double fold = f[3] * std::pow(std::max(0.0, 1 - std::abs(d) / f[4]), 2);
-            const double puff = .04 * std::cos(x * 4.2) * std::cos(y * 4.2);
-            return base + (fold + puff) * keep;
-        }
-        const double dx = x - f[5];
-        const double dy = y - f[6];
-        return base - f[7] * std::exp(-(dx * dx + dy * dy) / .025) * keep;
     }
     case Style::facet: {
         if (face == 0) {
@@ -860,29 +661,13 @@ double Shape::fine_height(int face, double x, double y) const {
             }
         return ridge + pits;
     }
-    // The other styles' own fine relief, in their unturned, unscaled frame.
-    const double c = std::cos(-m.turn);
-    const double sn = std::sin(-m.turn);
-    const double lx = (x * c - y * sn) / scale_;
-    const double ly = (x * sn + y * c) / scale_;
-    double h = wear(face, x, y);
     if (style_ == Style::shell) {
-        // Grown as a solid: its relief is in the solid.
+        // Grown as a solid: its relief is in the solid, and tumbling's wear.
         return wear(face, x, y) * .4;
     }
-    if (style_ == Style::spiral) {
-        // Polished through, an ammonite shows its sutures: frilled lines across each whorl
-        // where a chamber wall met the shell.
-        const double r = std::hypot(lx, ly);
-        const double angle = std::atan2(ly, lx);
-        const int chambers = 14;
-        const double frill = .07 * std::sin(r * 70 + 1.3) + .035 * std::sin(r * 160) + .02 * std::sin(r * 330);
-        const double at = (angle + frill) / (2 * pi) * chambers;
-        const double d = std::abs(at - std::round(at)) * (2 * pi / chambers) * r;
-        if (d < .008 && r > .12)
-            h -= .014 * (1 - d / .008) * (face == 0 ? 1.0 : .8);
-    }
-    return h;
+    if (grown_)
+        return 0;  // the solid's own fine relief (grow_from)
+    return wear(face, x, y);
 }
 
 // What tumbling leaves on any stone: a few small pits and a hairline fracture or two.
@@ -923,7 +708,7 @@ double Shape::wear(int face, double x, double y) const {
 }
 
 void Shape::bake_detail() {
-    constexpr int side = 320;
+    constexpr int side = detail_side;
     const double texel = 2 * reach / side;
     for (int face = 0; face < 2; ++face) {
         Detail& d = detail_[face];
@@ -933,8 +718,11 @@ void Shape::bake_detail() {
             for (int column = 0; column < side + 4; ++column) {
                 const double x = (column - 2 + .5) * texel - reach;
                 const double y = reach - (row - 2 + .5) * texel;
-                h[static_cast<std::size_t>(row * (side + 4) + column)] = fine_height(face, x, y);
+                const std::size_t at = static_cast<std::size_t>(row * (side + 4) + column);
+                h[at] = fine_height(face, x, y) + (relief_[face].empty() ? 0.0 : relief_[face][at]);
             }
+        relief_[face].clear();
+        relief_[face].shrink_to_fit();
         d.slope_x.assign(static_cast<std::size_t>(side * side), 0.0F);
         d.slope_y.assign(static_cast<std::size_t>(side * side), 0.0F);
         d.hollow.assign(static_cast<std::size_t>(side * side), 0.0F);
