@@ -1,23 +1,23 @@
 #pragma once
-// The game as a PlaySuite control. This is the only file that knows about
-// GUI.Forms and the shell. It turns input into moves, keeps the visual state
-// moving while there is something to animate, publishes finished frames to a
-// LiveSurface, and offers its commands to the command capsule.
+// The Pocket Library as a PlaySuite control. This is the only file that knows about
+// GUI.Forms and the shell. It shows the bookcase or an open book, turns input into
+// choices and page turns, keeps the reader's place in every book, and publishes each
+// finished picture to a LiveSurface.
 //
-// It does no work while nothing changes: the timer stops once the picture has
-// settled and starts again on input, a command, a resize or a return from the
-// shelf. See new-games/guide/05-performance.md.
+// Nothing moves on its own: a frame is drawn when something changes, and an untouched
+// library schedules nothing at all.
 #include "suite.hpp"
 
+#include "library.hpp"
 #include "platform/raster.hpp"
-#include "rules.hpp"
-#include "stage.hpp"
+#include "printer.hpp"
+#include "reader.hpp"
+#include "shelf_scene.hpp"
 
 #include "gui_forms/basic_controls.hpp"
 #include "gui_forms/live_surface.hpp"
 #include "gui_forms/timer.hpp"
 
-#include <chrono>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -28,11 +28,11 @@ namespace gf = gui_forms;
 
 struct Options {
     bool hosted = false;  // inside PlaySuite: the capsule carries the commands
-    bool dev = false;     // a separate save file, for tests and development
+    bool dev = false;     // a separate bookmarks file, for tests and development
 };
 
 class PocketLibraryView final : public gf::Control, public games::CommandSource {
-public:
+  public:
     PocketLibraryView(gf::StableId id, Options options);
     ~PocketLibraryView() override;
     static constexpr bool initialize_tree_after_construction = true;
@@ -51,49 +51,49 @@ public:
     void set_cabinet(bool foreground, bool music, bool sound, bool reduced = false);
     [[nodiscard]] std::vector<games::GameCommand> commands() const override;
     void run_command(std::string_view id) override;
-    // Choices that persist (sizes, levels, looks) are settings, not commands.
     [[nodiscard]] std::vector<games::GameSetting> settings() const override;
     void change_setting(std::string_view id, double value) override;
 
-private:
+  private:
     Options options_;
-    Session session_;
-    Layout layout_;
-    Visual visual_;
+    Library library_;
+    Printer printer_;
+    WoodTiles wood_;
+    Reader reader_;
+    Bookmarks marks_;
+    ShelfLayout shelf_;
+    int hover_ = -1;   // the book under the pointer
+    int cursor_ = -1;  // the book chosen with the keyboard
+    page::TypeStep step_ = page::TypeStep::medium;
     Canvas frame_;
     std::shared_ptr<gf::LiveSurface> surface_;
     std::unique_ptr<gf::Timer> timer_;
     std::vector<gf::SubscriptionToken> subscriptions_;
-    std::chrono::steady_clock::time_point last_tick_{};
-    std::chrono::steady_clock::time_point last_input_{};  // for the waiting remark
-    double scale_ = 1;        // device pixels per point
-    int device_width_ = 0;    // the surface, in device pixels
+    double scale_ = 1;
+    double width_ = 0;  // the view, in points
+    double height_ = 0;
+    int device_width_ = 0;
     int device_height_ = 0;
     bool render_dirty_ = true;
-    bool direct_ = false;     // the host presents the surface without a repaint
+    bool direct_ = false;
     bool front_ = true;
-    bool music_ = true;
-    bool sound_ = true;
-    bool reduced_ = false;
+    bool help_ = false;  // the game's own help card is showing
 
     void on_attached_to_window() override;
     void on_detaching_from_window(gf::Window& window) noexcept override;
     void tick();
     void request_frame();
-    void note_player();
+    void render();
     void publish();
-    void play(const std::string& name, float gain, float rate);
-    void sync_music();
+    void describe();
 
-    void press_cell(int cell);
-    void undo_press();
-    void new_board();
-    void cycle_size();
-    void set_next_size(int side);
+    void open_book(int index);
+    void close_book();
+    void turn(bool forward);
+    void to_contents(bool shown);
+    void move_cursor(int step);
     void set_help(bool open);
-    void move_cursor(int rows, int columns);
     void persist();
-    [[nodiscard]] bool restore();
     [[nodiscard]] std::string_view save_name() const;
 };
 

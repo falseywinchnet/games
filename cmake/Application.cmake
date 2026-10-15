@@ -19,6 +19,11 @@ add_library(game_table_art STATIC shared/cards/table_art.cpp shared/cards/card_b
             shared/cards/card_print.cpp shared/cards/card_press.cpp)
 target_include_directories(game_table_art PUBLIC shared PRIVATE shared/cards shared/felt)
 target_link_libraries(game_table_art PUBLIC game_felt game_paths GUIForms::Application PRIVATE paper_core ambient_core)
+# The shelf's wood (src/wood.cpp), in a library of its own so a game can stand its own
+# shelf in it: the shell and the Pocket Library both link it.
+add_library(game_wood STATIC src/wood.cpp)
+target_include_directories(game_wood PUBLIC src)
+target_link_libraries(game_wood PUBLIC GUIForms::Application)
 if(GAMES_MODULE_UI)
     add_library(vendor_game_ui STATIC ${GAMES_MODULE_UI})
     set(module_link_scope PUBLIC)
@@ -27,14 +32,14 @@ else()
     set(module_link_scope INTERFACE)
 endif()
 target_link_libraries(vendor_game_ui ${module_link_scope} ${GAMES_MODULE_LIBRARIES}
-    game_audio_adapters game_text_frames game_felt game_table_art GUIForms::Application)
+    game_audio_adapters game_text_frames game_felt game_table_art game_wood GUIForms::Application)
 target_compile_definitions(vendor_game_ui INTERFACE _USE_MATH_DEFINES)
 add_library(game_ui ${GAMES_MODULE_SOURCES} "${GAMES_CATALOG_DIR}/game_registry.cpp" shared/cards/table.cpp shared/cards/dealer.cpp src/presentation.cpp shared/puzzles/puzzle_view.cpp src/collection.cpp src/open_link.cpp
-    games/sudoku/src/sudoku_view.cpp src/suite.cpp src/text_sprites.cpp src/shelf.cpp src/wood.cpp src/capsule.cpp shared/puzzles/kitten.cpp
+    games/sudoku/src/sudoku_view.cpp src/suite.cpp src/text_sprites.cpp src/shelf.cpp src/capsule.cpp shared/puzzles/kitten.cpp
     src/help_book.cpp src/help_content.cpp src/settings_sheet.cpp src/suite_model.cpp src/paper_sheet.cpp)
 target_include_directories(game_ui PUBLIC src PRIVATE shared/felt)
 target_link_libraries(game_ui PUBLIC game_rules game_solver game_raster sudoku_generator vendor_game_ui paper_core
-    ambient_core)
+    ambient_core game_wood)
 if(WIN32)
     target_link_libraries(game_ui PRIVATE shell32)
 endif()

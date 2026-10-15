@@ -1,10 +1,8 @@
 #include "help_route.hpp"
 #include "pocketlibrary_view.hpp"
 
+#include "game_data.hpp"
 #include "platform/audio.hpp"
-#include "runtime_paths.hpp"
-#include "save.hpp"
-#include "scene.hpp"
 
 #include "gui_forms/surface_material.hpp"
 #include "gui_forms/window.hpp"
@@ -12,22 +10,23 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <optional>
 #include <span>
 
 namespace pl {
 namespace {
 
-std::uint64_t seed_from_clock() {
-    const std::chrono::system_clock::duration since = std::chrono::system_clock::now().time_since_epoch();
-    const std::uint64_t ticks = static_cast<std::uint64_t>(
-        std::chrono::duration_cast<std::chrono::microseconds>(since).count());
-    return ticks;
+constexpr std::string_view game_id = "pocketlibrary";
+
+std::vector<std::uint8_t> library_bytes() {
+    const std::optional<std::string> loaded = games::load_game_asset("pocketlibrary/books/library.plb");
+    std::vector<std::uint8_t> bytes;
+    if (loaded)
+        bytes.assign((*loaded).begin(), (*loaded).end());
+    return bytes;
 }
 
-std::string size_label(int side) {
-    const std::string number = std::to_string(side);
-    return number + " \xC3\x97 " + number;
-}
+const char* step_names[] = {"Small", "Medium", "Large"};
 
 }  // namespace
 
@@ -39,12 +38,18 @@ PocketLibraryView::PocketLibraryView(gf::StableId id, Options options)
     gf::SurfaceMaterial plain;
     plain.fills = {gf::MaterialFillLayer::solid(gf::Color::rgba(0, 0, 0))};
     set_authored_surface_material(plain);
-    set_accessible_name("Pocket Library. Press lamps to light the whole board.");
-    if (!restore()) {
-        session_.board = new_game(session_.next_side, seed_from_clock());
+    static_cast<void>(library_.open(library_bytes()));
+    const std::optional<std::string> saved = games::load_game_data(game_id, save_name());
+    if (saved)
+        static_cast<void>(decode_bookmarks(*saved, marks_));
+    step_ = static_cast<page::TypeStep>(marks_.step);
+    // The book open when the library was last left opens again where it was.
+    if (!marks_.open.empty()) {
+        for (std::size_t n = 0; n < library_.shelf().size(); ++n)
+            if (library_.shelf()[n].id == marks_.open)
+                open_book(static_cast<int>(n));
     }
-    snap(visual_, session_.board);
-    last_input_ = std::chrono::steady_clock::now();
+    describe();
 }
 
 PocketLibraryView::~PocketLibraryView() = default;
@@ -61,38 +66,28 @@ void PocketLibraryView::on_detaching_from_window(gf::Window&) noexcept {
         persist();
     } catch (...) {
     }
-    if (timer_) {
+    if (timer_)
         (*timer_).stop();
-    }
     timer_.reset();
     audio_stop();
 }
 
 void PocketLibraryView::activate() {
     gf::Window* window = attached_window();
-    if (window != nullptr) {
+    if (window != nullptr)
         static_cast<void>((*window).request_focus(shared_from_this()));
-    }
     request_frame();
 }
 
-void PocketLibraryView::set_cabinet(bool foreground, bool music, bool sound, bool reduced) {
+void PocketLibraryView::set_cabinet(bool foreground, bool music, bool sound, bool) {
     front_ = foreground;
-    music_ = music;
-    sound_ = sound;
-    reduced_ = reduced;
     audio_cabinet(foreground, music, sound);
     if (!foreground) {
-        // Leaving the front: nothing may keep running. The position is already saved.
-        visual_.hover = -1;
-        if (timer_) {
+        hover_ = -1;
+        if (timer_)
             (*timer_).stop();
-        }
         return;
     }
-    // Time spent behind the shelf is not time spent waiting on the player.
-    last_input_ = std::chrono::steady_clock::now();
-    sync_music();
     request_frame();
 }
 
@@ -100,10 +95,12 @@ void PocketLibraryView::arrange(gf::Rect bounds) {
     arrange_self(bounds);
     gf::Window* window = attached_window();
     scale_ = window != nullptr ? (*window).scale() : 1.0;
-    layout_ = compute_layout(bounds.width, bounds.height);
+    width_ = bounds.width;
+    height_ = bounds.height;
     device_width_ = std::max(1, static_cast<int>(std::lround(bounds.width * scale_)));
     device_height_ = std::max(1, static_cast<int>(std::lround(bounds.height * scale_)));
     frame_.resize(device_width_, device_height_);
+    shelf_ = lay_out_shelf(width_, height_, library_.shelf());
     if (surface_) {
         gf::LiveSurfaceDescription description;
         description.width = static_cast<std::uint32_t>(device_width_);
@@ -115,72 +112,47 @@ void PocketLibraryView::arrange(gf::Rect bounds) {
 
 void PocketLibraryView::on_paint(gf::Painter& painter, gf::Rect) {
     const gf::Rect bounds = client_rectangle();
-    if (surface_) {
-        // A retained repaint (an expose) shows the last published frame.
+    if (surface_)
         painter.draw_live_surface(surface_, bounds);
-    } else {
-        painter.fill_rect(bounds, gf::Color::rgba(43, 32, 23));
-    }
+    else
+        painter.fill_rect(bounds, gf::Color::rgba(37, 23, 13));
 }
 
-// Asks for one more frame. Safe to call often; it only restarts a stopped timer.
+// Asks for one frame. Safe to call often: the timer fires once and stops.
 void PocketLibraryView::request_frame() {
     render_dirty_ = true;
-    if (!timer_ || !visible() || !front_) {
+    if (!timer_ || !visible() || !front_)
         return;
-    }
-    if (!(*timer_).enabled()) {
-        last_tick_ = std::chrono::steady_clock::now();
-    }
     (*timer_).set_interval(std::chrono::milliseconds(16));
     (*timer_).start();
 }
 
-// The player did something: restart the wait for the timed remark.
-void PocketLibraryView::note_player() {
-    last_input_ = std::chrono::steady_clock::now();
-    if (note_input(visual_)) {
-        request_frame();
+void PocketLibraryView::tick() {
+    if (timer_)
+        (*timer_).stop();
+    if (!visible() || !front_)
+        return;
+    if (render_dirty_) {
+        render_dirty_ = false;
+        render();
+        publish();
     }
 }
 
-void PocketLibraryView::tick() {
-    if (!visible() || !front_) {
-        if (timer_) {
-            (*timer_).stop();
-        }
+void PocketLibraryView::render() {
+    if (frame_.w <= 0 || frame_.h <= 0)
         return;
-    }
-    const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-    const double elapsed = std::chrono::duration<double>(now - last_tick_).count();
-    const double seconds = std::clamp(elapsed, 0.0, .1);
-    last_tick_ = now;
-    const double idle = std::chrono::duration<double>(now - last_input_).count();
-    if (update_remark(visual_, session_.board, idle)) {
-        render_dirty_ = true;
-    }
-    const bool moving = advance(visual_, session_.board, seconds, reduced_);
-    audio_tick(seconds);
-    if (render_dirty_ || moving) {
-        render_dirty_ = false;
-        draw_scene(frame_, scale_, layout_, session_.board, visual_);
-        publish();
-    }
-    if (moving || render_dirty_ || !timer_) {
-        return;
-    }
-    // Settled. Keep a slow tick only while a sound is still loading or fading. If a
-    // timed remark is pending, sleep until exactly then: one wake, no frames between.
-    // Otherwise stop, and the game costs nothing until the next input.
-    const double wait = seconds_until_remark(visual_, session_.board, idle);
-    if (audio_needs_tick()) {
-        (*timer_).set_interval(std::chrono::milliseconds(50));
-    } else if (wait >= 0) {
-        const long long milliseconds = static_cast<long long>(std::ceil(wait * 1000)) + 20;
-        (*timer_).set_interval(std::chrono::milliseconds(milliseconds));
+    make_wood_tiles(scale_, wood_);
+    static_cast<void>(printer_.load());
+    if (reader_.is_open()) {
+        reader_.set_step(step_);
+        reader_.draw(frame_, scale_, printer_, wood_);
     } else {
-        (*timer_).stop();
+        const int lifted = hover_ >= 0 ? hover_ : cursor_;
+        draw_shelf(frame_, scale_, shelf_, library_.shelf(), lifted, wood_, printer_);
     }
+    if (help_)
+        draw_help_card(frame_, scale_, printer_, help_paragraphs());
 }
 
 void PocketLibraryView::publish() {
@@ -190,123 +162,118 @@ void PocketLibraryView::publish() {
         description.height = static_cast<std::uint32_t>(device_height_);
         surface_ = gf::LiveSurface::create(description);
         gf::Window* window = attached_window();
-        if (surface_ && window != nullptr) {
+        if (surface_ && window != nullptr)
             direct_ = (*window).queue_live_surface_presentation(shared_from_this(), surface_);
-        }
     }
-    if (!surface_) {
+    if (!surface_)
         return;
-    }
     gf::LiveSurfaceWriteLease lease = (*surface_).try_acquire_write();
     const bool matches = lease && static_cast<int>(lease.width()) == device_width_ &&
-                         static_cast<int>(lease.height()) == device_height_ &&
-                         frame_.w == device_width_ && frame_.h == device_height_;
+                         static_cast<int>(lease.height()) == device_height_ && frame_.w == device_width_ &&
+                         frame_.h == device_height_;
     if (matches) {
-        // The canvas and the surface are both BGRA premultiplied; copy row by row
-        // because the surface's rows may be wider than the picture.
+        // Both are BGRA premultiplied; the surface's rows may be wider than the picture.
         const std::span<std::byte> destination = lease.pixels();
         const std::size_t row_bytes = lease.row_bytes();
         const std::size_t picture_bytes = static_cast<std::size_t>(device_width_) * 4;
         for (int y = 0; y < device_height_; ++y) {
             const std::size_t row = static_cast<std::size_t>(y);
-            std::memcpy(destination.data() + row * row_bytes, frame_.px.data() + row * picture_bytes,
-                        picture_bytes);
+            std::memcpy(destination.data() + row * row_bytes, frame_.px.data() + row * picture_bytes, picture_bytes);
         }
         static_cast<void>(lease.publish());
     } else {
-        // The surface was busy or is being resized: try again on the next tick.
-        render_dirty_ = true;
+        // The surface was busy or is being resized: draw again on the next tick.
+        request_frame();
     }
-    if (!direct_) {
+    if (!direct_)
         invalidate(gf::Dirty::paint);
+}
+
+// What a screen reader is told is in front of it.
+void PocketLibraryView::describe() {
+    if (reader_.is_open()) {
+        std::string book;
+        for (const ShelfBook& shelved : library_.shelf())
+            if (shelved.id == reader_.place().book)
+                book = shelved.title;
+        set_accessible_name("Pocket Library. " + book + ". " + reader_.describe() +
+                            ". Arrow keys turn the pages; C shows the contents; Escape returns to the shelf.");
+    } else {
+        set_accessible_name("Pocket Library. A shelf of " + std::to_string(library_.shelf().size()) +
+                            " books. Arrow keys choose a book; Enter opens it.");
     }
 }
 
-void PocketLibraryView::play(const std::string& name, float gain, float rate) {
-    audio_sfx(name, gain, rate, sound_ && front_ && visible());
-}
+// ---------------------------------------------------------------- reading
 
-void PocketLibraryView::sync_music() {
-    // The template ships no music. Name your loop here, for example "pl_music".
-    audio_music("", music_ && front_);
-}
-
-// ---------------------------------------------------------------- the game
-
-void PocketLibraryView::press_cell(int cell) {
-    note_player();
-    if (solved(session_.board)) {
-        new_board();
+void PocketLibraryView::open_book(int index) {
+    if (index < 0 || static_cast<std::size_t>(index) >= library_.shelf().size())
         return;
-    }
-    if (!press(session_.board, cell)) {
+    const ShelfBook& book = library_.shelf()[static_cast<std::size_t>(index)];
+    const Work* work = library_.work(book.id);
+    if (work == nullptr)
         return;
+    LayoutOptions options;
+    options.step = step_;
+    if (book.id == "concordance") {
+        options.bible = library_.work("bsb");
+        options.places = library_.bible_places();
     }
-    // A lower note for a lamp going dark, a higher one for a lamp coming on.
-    const bool now_lit = session_.board.lit[static_cast<std::size_t>(cell)] != 0;
-    play("pl_press", .5f, now_lit ? 1.12f : .9f);
-    if (solved(session_.board)) {
-        play("pl_solved", .7f, 1);
-    }
+    reader_.open(*work, options, place_in(marks_, book.id));
+    marks_.open = book.id;
+    hover_ = -1;
+    cursor_ = index;
+    describe();
     persist();
     request_frame();
 }
 
-void PocketLibraryView::undo_press() {
-    note_player();
-    if (solved(session_.board) || !undo(session_.board)) {
+void PocketLibraryView::close_book() {
+    if (!reader_.is_open())
         return;
-    }
-    play("pl_press", .35f, .8f);
+    set_place(marks_, reader_.place());
+    reader_.close();
+    marks_.open.clear();
+    describe();
     persist();
     request_frame();
 }
 
-void PocketLibraryView::new_board() {
-    note_player();
-    const int best = session_.next_side == session_.board.side ? session_.board.best : 0;
-    session_.board = new_game(session_.next_side, seed_from_clock());
-    session_.board.best = best;
-    visual_.cursor = -1;
-    play("pl_deal", .5f, 1);
+void PocketLibraryView::turn(bool forward) {
+    if (!reader_.is_open())
+        return;
+    const bool turned = forward ? reader_.next(printer_) : reader_.previous(printer_);
+    if (!turned)
+        return;
+    set_place(marks_, reader_.place());
+    describe();
     persist();
     request_frame();
 }
 
-void PocketLibraryView::cycle_size() {
-    set_next_size(session_.next_side >= maximum_side ? minimum_side : session_.next_side + 1);
+void PocketLibraryView::to_contents(bool shown) {
+    if (!reader_.is_open() || reader_.contents_shown() == shown)
+        return;
+    reader_.show_contents(shown);
+    describe();
+    request_frame();
 }
 
-void PocketLibraryView::set_next_size(int side) {
-    session_.next_side = side;
-    // The size applies to the next board; a board nobody has touched is replaced at once.
-    if (session_.board.moves.empty()) {
-        new_board();
+void PocketLibraryView::move_cursor(int step) {
+    const int count = static_cast<int>(library_.shelf().size());
+    if (count == 0)
         return;
-    }
-    persist();
+    cursor_ = cursor_ < 0 ? 0 : std::clamp(cursor_ + step, 0, count - 1);
     request_frame();
 }
 
 void PocketLibraryView::set_help(bool open) {
-    if (open && games::route_help(*this)) {
+    // In the shell, help is its help book; on its own the game shows its own card.
+    if (open && games::route_help(*this))
         return;
-    }
-    note_player();
-    visual_.help = open;
-    request_frame();
-}
-
-void PocketLibraryView::move_cursor(int rows, int columns) {
-    const int side = session_.board.side;
-    int row = visual_.cursor >= 0 ? visual_.cursor / side : 0;
-    int column = visual_.cursor >= 0 ? visual_.cursor % side : 0;
-    if (visual_.cursor >= 0) {
-        row = std::clamp(row + rows, 0, side - 1);
-        column = std::clamp(column + columns, 0, side - 1);
-    }
-    visual_.cursor = row * side + column;
-    note_player();
+    if (help_ == open)
+        return;
+    help_ = open;
     request_frame();
 }
 
@@ -314,130 +281,164 @@ void PocketLibraryView::move_cursor(int rows, int columns) {
 
 void PocketLibraryView::on_pointer(gf::PointerEvent& event) {
     const gf::Point local = point_from_window(event.position);
-    const int under = visual_.help ? -1 : pick_cell(layout_, session_.board.side, local.x, local.y);
-    if (event.action == gf::PointerAction::move || event.action == gf::PointerAction::leave) {
-        const int hover = event.action == gf::PointerAction::leave ? -1 : under;
-        if (hover != visual_.hover) {
-            visual_.hover = hover;
-            set_cursor(hover >= 0 ? gf::CursorKind::hand : gf::CursorKind::arrow);
-            request_frame();
+    const int x = static_cast<int>(std::lround(local.x * scale_));
+    const int y = static_cast<int>(std::lround(local.y * scale_));
+    if (help_) {
+        if (event.action == gf::PointerAction::down) {
+            set_help(false);
+            event.handled = true;
         }
+        return;
+    }
+    if (!reader_.is_open()) {
+        const int under = spine_at(shelf_, local.x, local.y);
+        if (event.action == gf::PointerAction::move || event.action == gf::PointerAction::leave) {
+            const int hover = event.action == gf::PointerAction::leave ? -1 : under;
+            if (hover != hover_) {
+                hover_ = hover;
+                set_cursor(hover >= 0 ? gf::CursorKind::hand : gf::CursorKind::arrow);
+                request_frame();
+            }
+            return;
+        }
+        if (event.action == gf::PointerAction::down && event.button == gf::PointerButton::primary) {
+            activate();
+            if (under >= 0)
+                open_book(under);
+            event.handled = true;
+        }
+        return;
+    }
+    if (event.action == gf::PointerAction::wheel) {
+        const double delta = event.wheel_delta.y != 0 ? event.wheel_delta.y : -event.wheel_delta.x;
+        if (delta != 0)
+            turn(delta < 0);
+        event.handled = true;
+        return;
+    }
+    if (event.action == gf::PointerAction::move) {
+        const bool over = reader_.contents_shown() ? reader_.contents_entry_at(x, y) >= 0 : reader_.side_at(x, y) != 0;
+        set_cursor(over ? gf::CursorKind::hand : gf::CursorKind::arrow);
         return;
     }
     if (event.action == gf::PointerAction::down && event.button == gf::PointerButton::primary) {
         activate();
-        if (visual_.help) {
-            set_help(false);
-        } else if (solved(session_.board)) {
-            new_board();
-        } else if (under >= 0) {
-            visual_.cursor = -1;
-            press_cell(under);
+        if (reader_.contents_shown()) {
+            const int section = reader_.contents_entry_at(x, y);
+            if (section >= 0) {
+                reader_.to_section(static_cast<std::size_t>(section));
+                set_place(marks_, reader_.place());
+                describe();
+                persist();
+                request_frame();
+            }
+        } else {
+            const int side = reader_.side_at(x, y);
+            if (side != 0)
+                turn(side > 0);
         }
         event.handled = true;
     }
 }
 
 void PocketLibraryView::on_key(gf::KeyEvent& event) {
-    if (event.handled || event.action != gf::KeyAction::down) {
+    if (event.handled || event.action != gf::KeyAction::down)
         return;
-    }
     using Key = gf::PhysicalKey;
     const std::uint32_t key = event.physical_key;
-    const bool confirm = key == Key::enter || key == Key::space;
     event.handled = true;
-    if (visual_.help) {
-        if (key == Key::escape || key == Key::f1 || confirm) {
+    if (help_) {
+        if (key == Key::escape || key == Key::f1 || key == Key::enter || key == Key::space)
             set_help(false);
-        }
         return;
     }
-    if (key == Key::f1 || key == Key::h) {
+    if (key == Key::f1) {
         set_help(true);
-    } else if (key == Key::z || key == Key::u || key == Key::backspace) {
-        undo_press();
-    } else if (key == Key::n) {
-        new_board();
-    } else if (key == Key::up) {
-        move_cursor(-1, 0);
-    } else if (key == Key::down) {
-        move_cursor(1, 0);
-    } else if (key == Key::left) {
-        move_cursor(0, -1);
-    } else if (key == Key::right) {
-        move_cursor(0, 1);
-    } else if (confirm && solved(session_.board)) {
-        new_board();
-    } else if (confirm && visual_.cursor >= 0) {
-        press_cell(visual_.cursor);
-    } else {
-        event.handled = false;
+        return;
     }
+    if (!reader_.is_open()) {
+        if (key == Key::left || key == Key::up)
+            move_cursor(-1);
+        else if (key == Key::right || key == Key::down)
+            move_cursor(1);
+        else if ((key == Key::enter || key == Key::space) && cursor_ >= 0)
+            open_book(cursor_);
+        else
+            event.handled = false;
+        return;
+    }
+    if (key == Key::right || key == Key::page_down || key == Key::space || key == Key::down)
+        turn(true);
+    else if (key == Key::left || key == Key::page_up || key == Key::up || key == Key::backspace)
+        turn(false);
+    else if (key == Key::c)
+        to_contents(!reader_.contents_shown());
+    else if (key == Key::escape) {
+        if (reader_.contents_shown())
+            to_contents(false);
+        else
+            close_book();
+    } else
+        event.handled = false;
 }
 
 // ---------------------------------------------------------------- the capsule
 
 std::vector<games::GameCommand> PocketLibraryView::commands() const {
-    const Board& board = session_.board;
-    std::vector<games::GameCommand> list;
     // id, label, enabled, checked, primary. Primary commands show while the capsule is folded.
-    list.push_back({"new", "New board", true, false, true});
-    list.push_back({"undo", "Undo", !board.moves.empty() && !solved(board), false, false});
-    list.push_back({"help", "Help", true, visual_.help, false});
+    std::vector<games::GameCommand> list;
+    const bool open = reader_.is_open();
+    list.push_back({"shelf", "Shelf", open, false, true});
+    list.push_back({"contents", "Contents", open, open && reader_.contents_shown(), true});
+    list.push_back({"previous", "Previous page", open, false, false});
+    list.push_back({"next", "Next page", open, false, false});
+    list.push_back({"help", "Help", true, help_, false});
     return list;
+}
+
+void PocketLibraryView::run_command(std::string_view id) {
+    if (id == "shelf")
+        close_book();
+    else if (id == "contents")
+        to_contents(!reader_.contents_shown());
+    else if (id == "previous")
+        turn(false);
+    else if (id == "next")
+        turn(true);
+    else if (id == "help")
+        set_help(!help_);
 }
 
 // ---------------------------------------------------------------- the Settings screen
 
 std::vector<games::GameSetting> PocketLibraryView::settings() const {
-    // id, label, kind, value, choices, minimum, maximum, step, note. The shell draws them
-    // under its own Music, Sound, volume and Motion controls. The game saves the value.
-    games::GameSetting size{"size", "Board", games::GameSetting::Kind::choice,
-                            static_cast<double>(session_.next_side - minimum_side)};
-    for (int side = minimum_side; side <= maximum_side; ++side)
-        size.choices.push_back(size_label(side));
-    size.note = "An untouched board changes at once; otherwise the next board does.";
+    games::GameSetting size{"type", "Type size", games::GameSetting::Kind::choice, static_cast<double>(step_)};
+    for (const char* name : step_names)
+        size.choices.push_back(name);
+    size.note = "Every book is set again at the size chosen.";
     return {size};
 }
 
 void PocketLibraryView::change_setting(std::string_view id, double value) {
-    const int side = minimum_side + static_cast<int>(std::lround(value));
-    if (id == "size" && side >= minimum_side && side <= maximum_side && side != session_.next_side)
-        set_next_size(side);
+    const int chosen = static_cast<int>(std::lround(value));
+    if (id != "type" || chosen < 0 || chosen > 2 || chosen == static_cast<int>(step_))
+        return;
+    step_ = static_cast<page::TypeStep>(chosen);
+    marks_.step = chosen;
+    persist();
+    request_frame();
 }
 
-void PocketLibraryView::run_command(std::string_view id) {
-    if (id == "new") {
-        set_help(false);
-        new_board();
-    } else if (id == "undo") {
-        undo_press();
-    } else if (id == "size") {
-        cycle_size();
-    } else if (id == "help") {
-        set_help(!visual_.help);
-    }
-}
-
-// ---------------------------------------------------------------- the save
+// ---------------------------------------------------------------- the bookmarks
 
 std::string_view PocketLibraryView::save_name() const {
-    // PlaySuite keeps it in this game's save folder, which GAMES_STATE_DIR moves
-    // for tests and development runs.
     return options_.dev ? "pocket_library-dev-v1.txt" : "pocket_library-v1.txt";
 }
 
 void PocketLibraryView::persist() {
-    static_cast<void>(write_save(save_name(), encode_session(session_)));
-}
-
-bool PocketLibraryView::restore() {
-    std::string body;
-    if (!read_save(save_name(), body)) {
-        return false;
-    }
-    const bool ok = decode_session(body, session_);
-    return ok;
+    if (reader_.is_open())
+        set_place(marks_, reader_.place());
+    static_cast<void>(games::save_game_data(game_id, save_name(), encode_bookmarks(marks_)));
 }
 
 }  // namespace pl

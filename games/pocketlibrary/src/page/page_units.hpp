@@ -79,6 +79,8 @@ enum class Ink : std::uint8_t {
     soft,
     // Footnote callers, in the mockup's accent colour.
     accent,
+    // Gold leaf: the lettering on a book's spine.
+    gilt,
 };
 
 }  // namespace pl::page

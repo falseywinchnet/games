@@ -7,6 +7,7 @@ namespace pl::page {
 namespace {
 
 constexpr Rgb accent_rgb{0x7aU, 0x2eU, 0x22U};
+constexpr Rgb gilt_rgb{0xd8U, 0xb2U, 0x62U};
 // Verse numerals, notes and the running head are the mockup's ink at four
 // fifths (its opacity of .8 and .85).
 constexpr std::uint32_t soft_alpha = 204U;
@@ -30,6 +31,8 @@ InkValue ink_value(Ink ink) noexcept {
         return InkValue{ink_rgb, soft_alpha};
     case Ink::accent:
         return InkValue{accent_rgb, 255U};
+    case Ink::gilt:
+        return InkValue{gilt_rgb, 255U};
     }
     return InkValue{ink_rgb, 255U};
 }
