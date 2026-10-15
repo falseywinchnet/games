@@ -122,6 +122,12 @@
         "files"
       ]
     },
+    "tumbledstones": {
+      "first_party": true,
+      "capabilities": [
+        "threads"
+      ]
+    },
     "untangle": {
       "first_party": true
     },

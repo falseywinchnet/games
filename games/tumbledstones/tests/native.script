@@ -1,0 +1,24 @@
+0 resize 1100 760
+1500 capture ts-choose.ppm
+1600 click 669 490
+3400 capture ts-board.ppm
+3500 hover 632 343
+3600 click 632 343
+3720 capture ts-flipping.ppm
+4100 capture ts-flipped.ppm
+4200 action turn
+4290 capture ts-turning.ppm
+4500 capture ts-turned.ppm
+4600 hover 632 520
+5200 capture ts-set-down.ppm
+5300 action juggle
+5800 capture ts-juggle.ppm
+7800 capture ts-after-juggle.ppm
+7900 key f1
+8300 capture ts-help.ppm
+8400 key escape
+8600 resize 600 420
+9600 capture ts-small.ppm
+9700 key n
+10200 capture ts-chooser-small.ppm
+10600 quit
