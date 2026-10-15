@@ -8,7 +8,8 @@ each counted in the book's head: runs of white space read as one space (as a bro
 reads them), word joiners and byte-order marks are removed (they carry no text), and
 soft hyphens are removed (the page does not hyphenate).
 
-Written first for Standard Ebooks' EPUBs; Project Gutenberg's work through the same
+Written first for Standard Ebooks' EPUBs, and their source repositories (a tarball
+whose src/ folder is the EPUB unzipped); Project Gutenberg's work through the same
 walker with plainer results.
 """
 
@@ -95,12 +96,38 @@ class Writer:
                 return
 
 
+class Package:
+    """The files of an EPUB: a zip, or a Standard Ebooks source repository (a tarball
+    whose src/ folder is the unzipped EPUB)."""
+
+    def __init__(self, data: bytes) -> None:
+        import io
+        import tarfile
+        self.files = {}
+        if data[:2] == b"PK":
+            archive = zipfile.ZipFile(io.BytesIO(data))
+            for name in archive.namelist():
+                self.files[name] = archive.read(name)
+            return
+        with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
+            for member in archive.getmembers():
+                if not member.isfile():
+                    continue
+                parts = member.name.split("/", 1)
+                if len(parts) == 2 and parts[1].startswith("src/"):
+                    self.files[parts[1][len("src/"):]] = archive.extractfile(member).read()
+        if "META-INF/container.xml" not in self.files:
+            raise ValueError("neither an EPUB nor a Standard Ebooks source tree")
+
+    def read(self, name: str) -> bytes:
+        return self.files[name]
+
+
 class EpubBook:
     """The EPUB's package: metadata, spine and documents."""
 
     def __init__(self, data: bytes) -> None:
-        import io
-        self.archive = zipfile.ZipFile(io.BytesIO(data))
+        self.archive = Package(data)
         container = ElementTree.fromstring(self.archive.read("META-INF/container.xml"))
         rootfile = container.find(".//" + CONTAINER + "rootfile")
         self.opf_path = rootfile.get("full-path")
@@ -245,7 +272,10 @@ class Walker:
             pass
         elif tag in ("section", "article", "div", "main", "footer", "dl", "dd", "dt", "address", "center"):
             self.blocks(element, quote)
-        elif tag in ("span", "a", "em", "i", "b", "strong", "abbr", "cite", "small"):
+        elif tag == "br":
+            pass  # spacing between blocks: no text to carry
+        elif tag in ("span", "a", "em", "i", "b", "strong", "abbr", "cite", "small", "dfn", "var", "q", "u", "sup",
+                     "sub", "tt", "code", "font", "big", "ins", "mark", "label", "time", "s"):
             # Inline content standing in a block's place: a paragraph of its own.
             self.writer.paragraph("p")
             self.inline(element)

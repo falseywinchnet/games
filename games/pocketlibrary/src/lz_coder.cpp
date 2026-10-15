@@ -282,6 +282,147 @@ struct Finder {
     }
 };
 
+
+// ---- Prices --------------------------------------------------------------------------
+//
+// What a bit costs to code, in sixteenths of a bit, from its probability: the integer
+// method of LZMA's encoder, so the same text is parsed the same way on every platform.
+
+constexpr int price_shift = 4;
+
+struct PriceTable {
+    std::array<std::uint32_t, ((1 << probability_bits) >> price_shift)> values{};
+    PriceTable() {
+        for (std::size_t i = 0; i < values.size(); ++i) {
+            std::uint32_t w = (static_cast<std::uint32_t>(i) << price_shift) + (1U << (price_shift - 1));
+            std::uint32_t bits = 0;
+            for (int j = 0; j < 4; ++j) {
+                w = w * w;
+                bits <<= 1;
+                while (w >= (1U << 16)) {
+                    w >>= 1;
+                    ++bits;
+                }
+            }
+            values[i] = (static_cast<std::uint32_t>(probability_bits) << 4) - 15 - bits;
+        }
+    }
+};
+
+const PriceTable& price_table() {
+    static const PriceTable table;
+    return table;
+}
+
+std::uint32_t bit_price(std::uint16_t probability, int bit) {
+    const std::uint32_t p = bit != 0 ? (1U << probability_bits) - probability : probability;
+    return price_table().values[p >> price_shift];
+}
+
+std::uint32_t tree_price(const std::uint16_t* probabilities, int bits, std::uint32_t value) {
+    std::uint32_t price = 0;
+    std::uint32_t node = 1;
+    for (int i = bits - 1; i >= 0; --i) {
+        const int b = static_cast<int>((value >> i) & 1U);
+        price += bit_price(probabilities[node], b);
+        node = (node << 1) | static_cast<std::uint32_t>(b);
+    }
+    return price;
+}
+
+std::uint32_t reverse_tree_price(const std::uint16_t* probabilities, int bits, std::uint32_t value) {
+    std::uint32_t price = 0;
+    std::uint32_t node = 1;
+    for (int i = 0; i < bits; ++i) {
+        const int b = static_cast<int>(value & 1U);
+        value >>= 1;
+        price += bit_price(probabilities[node], b);
+        node = (node << 1) | static_cast<std::uint32_t>(b);
+    }
+    return price;
+}
+
+std::uint32_t literal_price(const Model& model, std::uint8_t previous, std::uint8_t byte, bool matched,
+                            std::uint8_t match_byte) {
+    const std::uint16_t* probabilities = model.literal.data() + static_cast<std::size_t>(previous) * 0x300;
+    std::uint32_t price = 0;
+    std::uint32_t symbol = 1;
+    if (!matched) {
+        for (int i = 7; i >= 0; --i) {
+            const int b = (byte >> i) & 1;
+            price += bit_price(probabilities[symbol], b);
+            symbol = (symbol << 1) | static_cast<std::uint32_t>(b);
+        }
+        return price;
+    }
+    std::uint32_t offset = 0x100;
+    std::uint32_t match = match_byte;
+    for (int i = 7; i >= 0; --i) {
+        match <<= 1;
+        const std::uint32_t match_bit = match & offset;
+        const int b = (byte >> i) & 1;
+        price += bit_price(probabilities[offset + match_bit + symbol], b);
+        symbol = (symbol << 1) | static_cast<std::uint32_t>(b);
+        offset = b != 0 ? (offset & match_bit) : (offset & ~match_bit);
+    }
+    return price;
+}
+
+// The prices that stay fixed while one stretch is parsed: lengths and distances.
+struct Prices {
+    std::array<std::uint32_t, maximum_length + 1> length{};
+    std::array<std::uint32_t, maximum_length + 1> rep_length{};
+    std::array<std::array<std::uint32_t, 1 << slot_bits>, length_states> slot{};
+    std::array<std::array<std::uint32_t, full_distances>, length_states> near{};
+    std::array<std::uint32_t, 1 << align_bits> align{};
+
+    static std::uint32_t length_price(const LengthModel& model, int length) {
+        const int value = length - minimum_length;
+        if (value < 8)
+            return bit_price(model.choice, 0) + tree_price(model.low.data(), 3, static_cast<std::uint32_t>(value));
+        if (value < 16)
+            return bit_price(model.choice, 1) + bit_price(model.choice2, 0) +
+                   tree_price(model.middle.data(), 3, static_cast<std::uint32_t>(value - 8));
+        return bit_price(model.choice, 1) + bit_price(model.choice2, 1) +
+               tree_price(model.high.data(), 8, static_cast<std::uint32_t>(value - 16));
+    }
+
+    void update(const Model& model) {
+        for (int length = minimum_length; length <= maximum_length; ++length) {
+            this->length[static_cast<std::size_t>(length)] = length_price(model.length, length);
+            rep_length[static_cast<std::size_t>(length)] = length_price(model.rep_length, length);
+        }
+        for (std::size_t state = 0; state < static_cast<std::size_t>(length_states); ++state) {
+            for (std::uint32_t s = 0; s < (1U << slot_bits); ++s) {
+                std::uint32_t price = tree_price(model.slot[state].data(), slot_bits, s);
+                if (s >= static_cast<std::uint32_t>(end_tree_slot))
+                    price += ((s >> 1) - 1 - align_bits) << 4;
+                slot[state][s] = price;
+            }
+            for (std::uint32_t distance = 0; distance < static_cast<std::uint32_t>(full_distances); ++distance) {
+                const int s = slot_of(distance);
+                std::uint32_t price = slot[state][static_cast<std::size_t>(s)];
+                if (s >= 4) {
+                    const int footer = (s >> 1) - 1;
+                    const std::uint32_t base = (2U | (static_cast<std::uint32_t>(s) & 1U)) << footer;
+                    price += reverse_tree_price(model.special.data() + base - static_cast<std::uint32_t>(s) - 1, footer,
+                                                distance - base);
+                }
+                near[state][distance] = price;
+            }
+        }
+        for (std::uint32_t value = 0; value < (1U << align_bits); ++value)
+            align[value] = reverse_tree_price(model.align.data(), align_bits, value);
+    }
+
+    std::uint32_t distance_price(std::uint32_t distance, int length) const {
+        const std::size_t state = static_cast<std::size_t>(std::min(length - minimum_length, length_states - 1));
+        if (distance < static_cast<std::uint32_t>(full_distances))
+            return near[state][distance];
+        return slot[state][static_cast<std::size_t>(slot_of(distance))] + align[distance & ((1U << align_bits) - 1)];
+    }
+};
+
 int length_at(std::span<const std::uint8_t> text, std::size_t position, std::uint32_t distance) {
     if (static_cast<std::size_t>(distance) + 1 > position)
         return 0;
@@ -293,17 +434,135 @@ int length_at(std::span<const std::uint8_t> text, std::size_t position, std::uin
     return length;
 }
 
-// Whether a match of `length` at `distance` is worth more than its bytes as literals.
-bool worth(int length, std::uint32_t distance) {
-    if (length < 2)
-        return false;
-    if (length == 2)
-        return distance < 128;
-    if (length == 3)
-        return distance < (1U << 14);
-    if (length == 4)
-        return distance < (1U << 20);
-    return true;
+// ---- The parse ---------------------------------------------------------------------------
+//
+// Each stretch of the text is parsed as a whole: every way of reaching each position by a
+// literal, a short repeat, a repeat of one of the last four distances or a new match is
+// priced, and the cheapest path is coded (in the manner of LZMA's optimal parser).
+
+enum class Step : std::uint8_t { literal, short_rep, rep, match };
+
+struct Choice {
+    Step step = Step::literal;
+    int length = 1;
+    std::uint32_t distance = 0;  // a match's distance, or a repeat's index
+};
+
+struct Node {
+    std::uint32_t price = 0xFFFFFFFFU;
+    int from = -1;
+    Choice choice;
+    int state = 0;
+    std::array<std::uint32_t, 4> reps{};
+};
+
+constexpr int stretch = 2048;
+
+struct Candidate {
+    int length = 0;
+    std::uint32_t distance = 0;
+};
+
+// Every match at `position` that is longer than the ones before it on the chain.
+void matches_at(const Finder& finder, std::size_t position, std::vector<Candidate>& out) {
+    out.clear();
+    const std::span<const std::uint8_t> text = finder.text;
+    if (position + 3 > text.size())
+        return;
+    const int limit = static_cast<int>(std::min<std::size_t>(maximum_length, text.size() - position));
+    int best = 2;
+    std::int32_t candidate = finder.head[finder.hash_at(position)];
+    int tries = finder.effort;
+    while (candidate >= 0 && tries > 0) {
+        const std::size_t at = static_cast<std::size_t>(candidate);
+        if (text[at + static_cast<std::size_t>(best)] == text[position + static_cast<std::size_t>(best)]) {
+            int length = 0;
+            while (length < limit && text[at + static_cast<std::size_t>(length)] == text[position + static_cast<std::size_t>(length)])
+                ++length;
+            if (length > best) {
+                best = length;
+                out.push_back(Candidate{length, static_cast<std::uint32_t>(position - at - 1)});
+                if (length == limit)
+                    break;
+            }
+        }
+        candidate = finder.previous[at];
+        --tries;
+    }
+}
+
+void emit(RangeEncoder& coder, Model& model, std::span<const std::uint8_t> text, std::size_t position,
+          const Choice& choice, int& state, std::array<std::uint32_t, 4>& reps) {
+    const std::size_t s = static_cast<std::size_t>(state);
+    if (choice.step == Step::literal) {
+        coder.bit(model.is_match[s], 0);
+        const bool matched = state >= 7 && position > reps[0];
+        const std::uint8_t match_byte = matched ? text[position - reps[0] - 1] : 0;
+        encode_literal(coder, model, position > 0 ? text[position - 1] : 0, text[position], matched, match_byte);
+        state = after_literal(state);
+        return;
+    }
+    coder.bit(model.is_match[s], 1);
+    if (choice.step == Step::match) {
+        coder.bit(model.is_rep[s], 0);
+        encode_length(coder, model.length, choice.length);
+        encode_distance(coder, model, choice.distance, choice.length);
+        reps[3] = reps[2];
+        reps[2] = reps[1];
+        reps[1] = reps[0];
+        reps[0] = choice.distance;
+        state = after_match(state);
+        return;
+    }
+    coder.bit(model.is_rep[s], 1);
+    if (choice.step == Step::short_rep) {
+        coder.bit(model.is_rep_g0[s], 0);
+        coder.bit(model.is_rep0_long[s], 0);
+        state = after_short_rep(state);
+        return;
+    }
+    const int index = static_cast<int>(choice.distance);
+    if (index == 0) {
+        coder.bit(model.is_rep_g0[s], 0);
+        coder.bit(model.is_rep0_long[s], 1);
+    } else {
+        coder.bit(model.is_rep_g0[s], 1);
+        if (index == 1) {
+            coder.bit(model.is_rep_g1[s], 0);
+        } else {
+            coder.bit(model.is_rep_g1[s], 1);
+            coder.bit(model.is_rep_g2[s], index == 3 ? 1 : 0);
+        }
+        const std::uint32_t chosen = reps[static_cast<std::size_t>(index)];
+        for (int r = index; r > 0; --r)
+            reps[static_cast<std::size_t>(r)] = reps[static_cast<std::size_t>(r - 1)];
+        reps[0] = chosen;
+    }
+    encode_length(coder, model.rep_length, choice.length);
+    state = after_rep(state);
+}
+
+std::uint32_t rep_price(const Model& model, int state, int index) {
+    const std::size_t s = static_cast<std::size_t>(state);
+    std::uint32_t price = bit_price(model.is_match[s], 1) + bit_price(model.is_rep[s], 1);
+    if (index == 0)
+        return price + bit_price(model.is_rep_g0[s], 0) + bit_price(model.is_rep0_long[s], 1);
+    price += bit_price(model.is_rep_g0[s], 1);
+    if (index == 1)
+        return price + bit_price(model.is_rep_g1[s], 0);
+    return price + bit_price(model.is_rep_g1[s], 1) + bit_price(model.is_rep_g2[s], index == 3 ? 1 : 0);
+}
+
+void relax(std::vector<Node>& nodes, int from, int to, std::uint32_t price, const Choice& choice, int state,
+           const std::array<std::uint32_t, 4>& reps) {
+    Node& node = nodes[static_cast<std::size_t>(to)];
+    if (price >= node.price)
+        return;
+    node.price = price;
+    node.from = from;
+    node.choice = choice;
+    node.state = state;
+    node.reps = reps;
 }
 
 }  // namespace
@@ -312,85 +571,84 @@ void lz_encode(std::span<const std::uint8_t> text, std::vector<std::uint8_t>& ou
     Model model;
     RangeEncoder coder(out);
     Finder finder(text, effort);
+    Prices prices;
     std::array<std::uint32_t, 4> reps{};
     int state = 0;
     std::size_t position = 0;
+    std::vector<Node> nodes;
+    std::vector<Candidate> candidates;
+    std::vector<int> path;
     while (position < text.size()) {
-        const std::uint8_t previous = position > 0 ? text[position - 1] : 0;
-        std::uint32_t distance = 0;
-        const int length = finder.longest(position, distance);
-        int rep_index = -1;
-        int rep_length = 0;
-        for (int r = 0; r < 4; ++r) {
-            const int candidate = length_at(text, position, reps[static_cast<std::size_t>(r)]);
-            if (candidate > rep_length) {
-                rep_length = candidate;
-                rep_index = r;
+        const int span = static_cast<int>(std::min<std::size_t>(stretch, text.size() - position));
+        prices.update(model);
+        nodes.assign(static_cast<std::size_t>(span) + 1, Node{});
+        nodes[0].price = 0;
+        nodes[0].state = state;
+        nodes[0].reps = reps;
+        for (int at = 0; at < span; ++at) {
+            const std::size_t here = position + static_cast<std::size_t>(at);
+            matches_at(finder, here, candidates);
+            finder.insert(here);
+            const Node node = nodes[static_cast<std::size_t>(at)];
+            if (node.price == 0xFFFFFFFFU)
+                continue;
+            const std::size_t s = static_cast<std::size_t>(node.state);
+            const int room = span - at;
+            // A literal.
+            {
+                const bool matched = node.state >= 7 && here > node.reps[0];
+                const std::uint8_t match_byte = matched ? text[here - node.reps[0] - 1] : 0;
+                const std::uint32_t price = node.price + bit_price(model.is_match[s], 0) +
+                                            literal_price(model, here > 0 ? text[here - 1] : 0, text[here], matched,
+                                                          match_byte);
+                relax(nodes, at, at + 1, price, Choice{Step::literal, 1, 0}, after_literal(node.state), node.reps);
+            }
+            // The byte at the last distance, once.
+            if (here > node.reps[0] && text[here] == text[here - node.reps[0] - 1]) {
+                const std::uint32_t price = node.price + bit_price(model.is_match[s], 1) +
+                                            bit_price(model.is_rep[s], 1) + bit_price(model.is_rep_g0[s], 0) +
+                                            bit_price(model.is_rep0_long[s], 0);
+                relax(nodes, at, at + 1, price, Choice{Step::short_rep, 1, 0}, after_short_rep(node.state), node.reps);
+            }
+            // Repeats of the last four distances.
+            for (int r = 0; r < 4; ++r) {
+                const int length = std::min(length_at(text, here, node.reps[static_cast<std::size_t>(r)]), room);
+                if (length < minimum_length)
+                    continue;
+                std::array<std::uint32_t, 4> rotated = node.reps;
+                const std::uint32_t chosen = rotated[static_cast<std::size_t>(r)];
+                for (int k = r; k > 0; --k)
+                    rotated[static_cast<std::size_t>(k)] = rotated[static_cast<std::size_t>(k - 1)];
+                rotated[0] = chosen;
+                const std::uint32_t base = node.price + rep_price(model, node.state, r);
+                for (int l = minimum_length; l <= length; ++l)
+                    relax(nodes, at, at + l, base + prices.rep_length[static_cast<std::size_t>(l)],
+                          Choice{Step::rep, l, static_cast<std::uint32_t>(r)}, after_rep(node.state), rotated);
+            }
+            // New matches.
+            const std::uint32_t match_base = node.price + bit_price(model.is_match[s], 1) + bit_price(model.is_rep[s], 0);
+            int shorter = minimum_length;
+            for (const Candidate& candidate : candidates) {
+                const int longest = std::min(candidate.length, room);
+                std::array<std::uint32_t, 4> shifted{candidate.distance, node.reps[0], node.reps[1], node.reps[2]};
+                for (int l = shorter; l <= longest; ++l)
+                    relax(nodes, at, at + l,
+                          match_base + prices.length[static_cast<std::size_t>(l)] + prices.distance_price(candidate.distance, l),
+                          Choice{Step::match, l, candidate.distance}, after_match(node.state), shifted);
+                shorter = std::max(shorter, longest + 1);
             }
         }
-        // One step of lazy evaluation: a longer match one byte on wins over this one.
-        bool take_match = worth(length, distance);
-        if (take_match && position + 1 < text.size() && length < 64) {
-            std::uint32_t next_distance = 0;
-            const int next_length = finder.longest(position + 1, next_distance);
-            if (next_length > length + 1 && worth(next_length, next_distance) && rep_length < length)
-                take_match = false;
+        // The cheapest path to the stretch's end, coded in order.
+        path.clear();
+        for (int at = span; at > 0; at = nodes[static_cast<std::size_t>(at)].from)
+            path.push_back(at);
+        std::size_t cursor = position;
+        for (std::size_t i = path.size(); i > 0; --i) {
+            const Node& node = nodes[static_cast<std::size_t>(path[i - 1])];
+            emit(coder, model, text, cursor, node.choice, state, reps);
+            cursor += static_cast<std::size_t>(node.choice.length);
         }
-        const bool take_rep = rep_length >= 2 && (rep_length + 1 >= length || !take_match);
-        if (take_rep) {
-            coder.bit(model.is_match[static_cast<std::size_t>(state)], 1);
-            coder.bit(model.is_rep[static_cast<std::size_t>(state)], 1);
-            if (rep_index == 0) {
-                coder.bit(model.is_rep_g0[static_cast<std::size_t>(state)], 0);
-                coder.bit(model.is_rep0_long[static_cast<std::size_t>(state)], 1);
-            } else {
-                coder.bit(model.is_rep_g0[static_cast<std::size_t>(state)], 1);
-                if (rep_index == 1) {
-                    coder.bit(model.is_rep_g1[static_cast<std::size_t>(state)], 0);
-                } else {
-                    coder.bit(model.is_rep_g1[static_cast<std::size_t>(state)], 1);
-                    coder.bit(model.is_rep_g2[static_cast<std::size_t>(state)], rep_index == 3 ? 1 : 0);
-                }
-                const std::uint32_t chosen = reps[static_cast<std::size_t>(rep_index)];
-                for (int r = rep_index; r > 0; --r)
-                    reps[static_cast<std::size_t>(r)] = reps[static_cast<std::size_t>(r - 1)];
-                reps[0] = chosen;
-            }
-            encode_length(coder, model.rep_length, rep_length);
-            state = after_rep(state);
-            for (int i = 0; i < rep_length; ++i)
-                finder.insert(position + static_cast<std::size_t>(i));
-            position += static_cast<std::size_t>(rep_length);
-        } else if (take_match) {
-            coder.bit(model.is_match[static_cast<std::size_t>(state)], 1);
-            coder.bit(model.is_rep[static_cast<std::size_t>(state)], 0);
-            encode_length(coder, model.length, length);
-            encode_distance(coder, model, distance, length);
-            reps[3] = reps[2];
-            reps[2] = reps[1];
-            reps[1] = reps[0];
-            reps[0] = distance;
-            state = after_match(state);
-            for (int i = 0; i < length; ++i)
-                finder.insert(position + static_cast<std::size_t>(i));
-            position += static_cast<std::size_t>(length);
-        } else if (position > reps[0] && text[position] == text[position - reps[0] - 1] && state >= 7) {
-            coder.bit(model.is_match[static_cast<std::size_t>(state)], 1);
-            coder.bit(model.is_rep[static_cast<std::size_t>(state)], 1);
-            coder.bit(model.is_rep_g0[static_cast<std::size_t>(state)], 0);
-            coder.bit(model.is_rep0_long[static_cast<std::size_t>(state)], 0);
-            state = after_short_rep(state);
-            finder.insert(position);
-            ++position;
-        } else {
-            coder.bit(model.is_match[static_cast<std::size_t>(state)], 0);
-            const bool matched = state >= 7 && position > reps[0];
-            const std::uint8_t match_byte = matched ? text[position - reps[0] - 1] : 0;
-            encode_literal(coder, model, previous, text[position], matched, match_byte);
-            state = after_literal(state);
-            finder.insert(position);
-            ++position;
-        }
+        position += static_cast<std::size_t>(span);
     }
     coder.finish();
 }
