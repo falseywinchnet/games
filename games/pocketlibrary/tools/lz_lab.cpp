@@ -23,10 +23,10 @@ int main(int argc, char** argv) {
         const std::vector<std::uint8_t> text((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
         std::vector<std::uint8_t> code;
         const std::chrono::steady_clock::time_point a = std::chrono::steady_clock::now();
-        library::lz_encode(text, code, effort);
+        pl::lz_encode(text, code, effort);
         const std::chrono::steady_clock::time_point b = std::chrono::steady_clock::now();
         std::vector<std::uint8_t> back;
-        const bool ok = library::lz_decode(code, text.size(), back);
+        const bool ok = pl::lz_decode(code, text.size(), back);
         const std::chrono::steady_clock::time_point c = std::chrono::steady_clock::now();
         const std::chrono::duration<double> encode_time = b - a;
         const std::chrono::duration<double> decode_time = c - b;

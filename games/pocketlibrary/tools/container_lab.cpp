@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
     const std::string folder = argv[1];
     const std::size_t block_bytes = static_cast<std::size_t>(std::stoul(argv[2]));
     const std::size_t primer_bytes = static_cast<std::size_t>(std::stoul(argv[3]));
-    library::CoderShape shape;
+    pl::CoderShape shape;
     if (argc > 4)
         shape.table_bits = std::stoi(argv[4]);
     const char* names[] = {"bsb", "jps1917", "berakot", "avot", "strongs-hebrew", "strongs-greek", "concordance"};
@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
         const std::size_t share = std::min(book.size(), primer_bytes / books.size());
         primer.insert(primer.end(), book.begin(), book.begin() + static_cast<std::ptrdiff_t>(share));
     }
-    library::TextModel taught(shape);
+    pl::TextModel taught(shape);
     const std::chrono::steady_clock::time_point teach_start = std::chrono::steady_clock::now();
     taught.learn(primer);
     const double teach_seconds = seconds_since(teach_start);
@@ -80,16 +80,16 @@ int main(int argc, char** argv) {
         const std::vector<std::vector<std::uint8_t>> blocks = cut(books[b], block_bytes);
         std::size_t raw = 0, coded = 0;
         for (const std::vector<std::uint8_t>& block : blocks) {
-            library::TextModel model = primer.empty() ? library::TextModel(shape) : taught;
+            pl::TextModel model = primer.empty() ? pl::TextModel(shape) : taught;
             std::vector<std::uint8_t> code;
-            library::encode(model, block, code);
+            pl::encode(model, block, code);
             raw += block.size();
             coded += code.size();
             if (decoded_bytes < 2000000) {
                 const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-                library::TextModel reader = primer.empty() ? library::TextModel(shape) : taught;
+                pl::TextModel reader = primer.empty() ? pl::TextModel(shape) : taught;
                 std::vector<std::uint8_t> back;
-                const bool ok = library::decode(reader, code, block.size(), back);
+                const bool ok = pl::decode(reader, code, block.size(), back);
                 decode_seconds += seconds_since(start);
                 decoded_bytes += block.size();
                 if (!ok || back != block) {

@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <array>
 
-namespace library {
+namespace pl {
 namespace {
 
 // Probabilities are 11-bit, starting at one half; each bit moves one a 32nd of the way.
@@ -579,4 +579,4 @@ bool lz_decode(std::span<const std::uint8_t> code, std::size_t length, std::vect
     return true;
 }
 
-}  // namespace library
+}  // namespace pl

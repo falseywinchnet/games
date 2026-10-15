@@ -14,7 +14,7 @@
 #include <span>
 #include <vector>
 
-namespace library {
+namespace pl {
 
 // Table sizes as powers of two. Every context table holds 1 << table_bits counters of
 // four bytes; the match model indexes 1 << match_bits positions.
@@ -50,4 +50,4 @@ void encode(TextModel& model, std::span<const std::uint8_t> text, std::vector<st
 [[nodiscard]] bool decode(TextModel& model, std::span<const std::uint8_t> code, std::size_t length,
                           std::vector<std::uint8_t>& out);
 
-}  // namespace library
+}  // namespace pl

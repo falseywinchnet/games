@@ -9,7 +9,7 @@
 #include <span>
 #include <vector>
 
-namespace library {
+namespace pl {
 
 // Codes `text`, appending to `out`. `effort` bounds the match search (positions tried
 // per byte); more is smaller and slower to encode, never slower to decode.
@@ -20,4 +20,4 @@ void lz_encode(std::span<const std::uint8_t> text, std::vector<std::uint8_t>& ou
 [[nodiscard]] bool lz_decode(std::span<const std::uint8_t> code, std::size_t length,
                              std::vector<std::uint8_t>& out);
 
-}  // namespace library
+}  // namespace pl

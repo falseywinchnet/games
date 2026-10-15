@@ -14,8 +14,10 @@ does not know is an error, not a silent drop.
 The form, one record a line, fields separated by TAB, the first field the record's kind:
 
     H key value        the head: source, hash, licence, counts, what was dropped
-    B id title short   a division of the book opens (a book of the Bible, a chapter
-                       of a treatise); `short` is its running head
+    B id title short [abbreviation]
+                       a division of the book opens (a book of the Bible, a
+                       treatise, a dictionary); `short` is its running head, the
+                       abbreviation (the SBL abbreviation for a book of the BSB) names it in references
     M level text       a title line of that division (level 1 the main title)
     C label            a chapter (or a folio side of the Talmud) opens
     K key              a dictionary entry opens
@@ -63,6 +65,7 @@ class Book:
         self.head = []
         self.records = []
         self.dropped = collections.Counter()
+        self.head_counts = collections.Counter()
 
     def add(self, kind: str, *fields: object) -> None:
         for field in fields:
@@ -83,6 +86,8 @@ class Book:
         with open(path, "w", encoding="utf-8", newline="\n") as file:
             for key, value in self.head:
                 file.write("H\t%s\t%s\n" % (key, value))
+            for change, count in sorted(self.head_counts.items()):
+                file.write("H\tcorrected\t%s: %d\n" % (change, count))
             for marker, count in sorted(self.dropped.items()):
                 file.write("H\tdropped\t%s %d\n" % (marker, count))
             for record in self.records:
@@ -139,6 +144,29 @@ def strip_refs(text: str, book: Book) -> str:
     return re.sub(r"\\ref (.*?)\|[^\\]*\\ref\*", display, text)
 
 
+def space_before_verse(book: Book, state: dict) -> None:
+    """The USFM sometimes joins a verse to the text before it with no space ("God.\\f
+    ...\\f*\\wj \\v 15", where Berean's plain text has "God. \u201cThe"). Inside a
+    paragraph, the running text before a verse ends in a space."""
+    if state["note"]:
+        return
+    index = len(book.records) - 1
+    while index >= 0:
+        kind = book.records[index][0]
+        if kind == "T":
+            if not book.records[index][1].endswith(" "):
+                book.records[index] = ("T", book.records[index][1] + " ")
+                book.head_counts["a space put between a verse and the text before it"] += 1
+            return
+        if kind in ("P", "S", "R", "C", "B", "V", "M"):
+            return
+        if kind == "E":
+            # the whole footnote is passed over: its text is not the verse's
+            while index > 0 and book.records[index][0] != "N":
+                index -= 1
+        index -= 1
+
+
 def usfm_inline(line: str, book: Book, state: dict) -> None:
     """The text of one paragraph line, from just after its paragraph marker."""
     position = 0
@@ -153,6 +181,7 @@ def usfm_inline(line: str, book: Book, state: dict) -> None:
         if not closing and position < len(line) and line[position] == " ":
             position += 1
         if marker == "v":
+            space_before_verse(book, state)
             number = re.match(r"(\S+) ?", line[position:])
             book.add("V", number.group(1))
             position += number.end()
@@ -197,6 +226,20 @@ def usfm_inline(line: str, book: Book, state: dict) -> None:
             raise ValueError("an unknown USFM marker \\%s%s" % (marker, "*" if closing else ""))
 
 
+# How references name the books (the SBL Handbook's abbreviations); the BSB's own \\toc3
+# is inconsistent in its capitals ("Gen", "JER", "1SA").
+ABBREVIATIONS = dict(zip(
+    ("GEN EXO LEV NUM DEU JOS JDG RUT 1SA 2SA 1KI 2KI 1CH 2CH EZR NEH EST JOB PSA PRO ECC SNG ISA JER "
+     "LAM EZK DAN HOS JOL AMO OBA JON MIC NAM HAB ZEP HAG ZEC MAL MAT MRK LUK JHN ACT ROM 1CO 2CO GAL "
+     "EPH PHP COL 1TH 2TH 1TI 2TI TIT PHM HEB JAS 1PE 2PE 1JN 2JN 3JN JUD REV").split(),
+    ["Gen", "Exod", "Lev", "Num", "Deut", "Josh", "Judg", "Ruth", "1 Sam", "2 Sam", "1 Kgs", "2 Kgs", "1 Chr",
+     "2 Chr", "Ezra", "Neh", "Esth", "Job", "Ps", "Prov", "Eccl", "Song", "Isa", "Jer", "Lam", "Ezek", "Dan",
+     "Hos", "Joel", "Amos", "Obad", "Jonah", "Mic", "Nah", "Hab", "Zeph", "Hag", "Zech", "Mal", "Matt", "Mark",
+     "Luke", "John", "Acts", "Rom", "1 Cor", "2 Cor", "Gal", "Eph", "Phil", "Col", "1 Thess", "2 Thess",
+     "1 Tim", "2 Tim", "Titus", "Phlm", "Heb", "Jas", "1 Pet", "2 Pet", "1 John", "2 John", "3 John", "Jude",
+     "Rev"]))
+
+
 def import_bsb(sources: dict, folder: str, out: str, make: bool = False) -> str:
     data, entry = read_pinned(sources, folder, "berean", "bsb_usfm.zip")
     book = Book("bsb")
@@ -223,13 +266,14 @@ def import_bsb(sources: dict, folder: str, out: str, make: bool = False) -> str:
             if match is None:
                 raise ValueError("%s: a line without a marker: %r" % (code, line[:40]))
             marker, rest = match.group(1), match.group(2)
-            if marker in ("id", "usfm", "toc3"):
+            if marker in ("id", "usfm"):
                 book.dropped["\\" + marker] += 1
-            elif marker in ("h", "toc1", "toc2"):
+            elif marker in ("h", "toc1", "toc2", "toc3"):
                 titles[marker] = rest
             elif marker in ("mt2", "mt1"):
                 if not opened:
-                    book.add("B", code, titles["toc1"], titles["h"])
+                    book.add("B", code, titles["toc1"], titles["h"], ABBREVIATIONS[code])
+                    book.dropped["\\toc3 (references use the SBL abbreviations)"] += 1
                     opened = True
                 book.add("M", "2" if marker == "mt2" else "1", rest)
             elif marker == "c":
@@ -690,14 +734,12 @@ def element_text(element: ElementTree.Element, book: Book, language: str) -> Non
         book.text(" ".join(element.text.split("\n")))
     for child in element:
         if child.tag == "greek":
-            book.add("Y", "greek", "1")
-            book.text(child.get("unicode"))
-            book.add("Y", "greek", "0")
-            if child.get("translit"):
-                book.text(" ")
-                book.add("Y", "italic", "1")
-                book.text(child.get("translit"))
-                book.add("Y", "italic", "0")
+            # The library sets English only: a Greek word is given by its
+            # transliteration (the word itself is listed as dropped).
+            book.dropped["Greek words in Greek letters (each kept as its transliteration)"] += 1
+            book.add("Y", "italic", "1")
+            book.text(child.get("translit") or child.get("BETA"))
+            book.add("Y", "italic", "0")
         elif child.tag == "strongsref":
             book.text(("G" if child.get("language") == "GREEK" else "H") + child.get("strongs").lstrip("0"))
         elif child.tag in ("strongs_derivation", "strongs_def", "kjv_def", "latin"):
@@ -734,11 +776,8 @@ def import_strongs_greek(sources: dict, folder: str, out: str) -> str:
             if child.tag == "strongs":
                 pass
             elif child is headword:
+                book.dropped["Greek words in Greek letters (each kept as its transliteration)"] += 1
                 book.text(" ")
-                book.add("Y", "greek", "1")
-                book.text(child.get("unicode"))
-                book.add("Y", "greek", "0")
-                book.text(", ")
                 book.add("Y", "italic", "1")
                 book.text(child.get("translit"))
                 book.add("Y", "italic", "0")
@@ -754,7 +793,8 @@ def import_strongs_greek(sources: dict, folder: str, out: str) -> str:
                 continue
             else:
                 raise ValueError("an unknown element <%s> in a Greek entry" % child.tag)
-            if child.tail and child.tail.strip() and child.tag != "strongs":
+            # The headword's own trailing space would stand before its semicolon.
+            if child.tail and child.tag != "strongs" and (child.tail.strip() or child is not headword):
                 book.text(" ".join(child.tail.split("\n")))
         collapse_spaces(book)
         count += 1
@@ -793,11 +833,8 @@ def import_strongs_hebrew(sources: dict, folder: str, out: str) -> str:
         book.add("Y", "bold", "1")
         book.text(number + ".")
         book.add("Y", "bold", "0")
+        book.dropped["Hebrew words in Hebrew letters (each kept as its transliteration)"] += 1
         book.text(" ")
-        book.add("Y", "hebrew", "1")
-        book.text(word.get("lemma"))
-        book.add("Y", "hebrew", "0")
-        book.text(", ")
         book.add("Y", "italic", "1")
         book.text(word.get("xlit"))
         book.add("Y", "italic", "0")
@@ -834,10 +871,11 @@ def hebrew_note(element: ElementTree.Element, book: Book) -> None:
     for child in element:
         tag = child.tag.replace(OSIS, "")
         if tag == "w":
-            if child.get("lemma"):
-                book.add("Y", "hebrew", "1")
-                book.text(child.get("lemma"))
-                book.add("Y", "hebrew", "0")
+            if child.get("xlit"):
+                book.dropped["Hebrew words in Hebrew letters (each kept as its transliteration)"] += 1
+                book.add("Y", "italic", "1")
+                book.text(child.get("xlit"))
+                book.add("Y", "italic", "0")
                 book.text(" ")
             if child.get("src"):
                 book.text("(H" + child.get("src") + ")")
@@ -858,6 +896,23 @@ def hebrew_note(element: ElementTree.Element, book: Book) -> None:
 
 
 # ---- The concordance, from the Berean tables ---------------------------------------
+
+def strongs_transliterations(sources: dict, folder: str) -> dict:
+    """Each Strong's number's word, transliterated, from the dictionaries."""
+    words = {}
+    data, entry = read_pinned(sources, folder, "strongs", "StrongHebrewG.xml")
+    for item in ElementTree.fromstring(data).iter(OSIS + "div"):
+        if item.get("type") == "entry":
+            word = item.find(OSIS + "w")
+            if word is not None and word.get("xlit"):
+                words["H" + item.get("n")] = word.get("xlit")
+    data, entry = read_pinned(sources, folder, "strongs", "strongsgreek.xml")
+    for item in ElementTree.fromstring(data).iter("entry"):
+        greek = item.find("greek")
+        if greek is not None and greek.get("translit"):
+            words["G" + item.findtext("strongs").strip().lstrip("0")] = greek.get("translit")
+    return words
+
 
 def import_concordance(sources: dict, folder: str, out: str, bsb_path: str) -> str:
     """Every Strong's number and, for each English rendering the BSB gives it, every verse
@@ -913,11 +968,22 @@ def import_concordance(sources: dict, folder: str, out: str, bsb_path: str) -> s
             places.append(place)
     book = Book("concordance")
     head_for(book, sources["berean"], [entry])
+    book.add("B", "Concordance", "A Concordance of the Berean Standard Bible by Strong's Numbers", "Concordance")
     def order(key: str) -> tuple:
         return (key[0] != "H", int(re.match(r"\d+", key[1:]).group(0)), key)
+    words = strongs_transliterations(sources, folder)
     total = 0
     for key in sorted(renderings, key=order):
         book.add("K", key)
+        book.add("P", "entry")
+        book.add("Y", "bold", "1")
+        book.text(key)
+        book.add("Y", "bold", "0")
+        if key in words:
+            book.text(" ")
+            book.add("Y", "italic", "1")
+            book.text(words[key])
+            book.add("Y", "italic", "0")
         for english in sorted(renderings[key], key=lambda word: (-len(renderings[key][word]), word)):
             places = renderings[key][english]
             book.add("G", english, " ".join(str(place) for place in places))

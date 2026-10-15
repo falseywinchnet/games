@@ -4,7 +4,7 @@
 #include <array>
 #include <cstring>
 
-namespace library {
+namespace pl {
 namespace {
 
 // The logistic curve in 4096ths, sampled every 128 steps of its argument from -2048 to
@@ -390,4 +390,4 @@ bool decode(TextModel& model, std::span<const std::uint8_t> code, std::size_t le
     return true;
 }
 
-}  // namespace library
+}  // namespace pl
