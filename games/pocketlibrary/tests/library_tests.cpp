@@ -111,6 +111,7 @@ void test_library_file() {
     std::vector<pl::BookText> books(2);
     books[0].id = "bsb";
     books[0].text = sample_bible;
+    books[0].shelf = "title\tHOLY BIBLE\nsubtitle\tBerean Standard Bible\ncategory\tScripture\nbinding\t1b1715\nleather\t1\n";
     books[1].id = "notes";
     books[1].text = "B\tN\tNotes\tNotes\nC\t\nP\tp\nT\tA line.\n";
     std::vector<std::uint8_t> bytes;
@@ -120,8 +121,11 @@ void test_library_file() {
     check(bytes == again, "the same books give the same file");
     pl::Library library;
     check(library.open(bytes), "the library opens");
-    check(library.shelf().size() == 2 && library.shelf()[0].title == "HOLY BIBLE", "the shelf, bound by the table");
-    check(library.shelf()[1].title == "notes", "a book the table does not know is lettered with its id");
+    check(library.shelf().size() == 2 && library.shelf()[0].title == "HOLY BIBLE", "the shelf, from the shelf record");
+    check(library.shelf()[0].category == "Scripture" && library.shelf()[0].binding.leather &&
+              library.shelf()[0].binding.red == 0x1b,
+          "the category and binding");
+    check(library.shelf()[1].title == "notes", "a book without a shelf record is lettered with its id");
     const pl::Work* bible = library.work("bsb");
     check(bible != nullptr && (*bible).divisions.size() == 2, "the Bible is read from the file");
     check(library.work("bsb") == bible, "and read once");

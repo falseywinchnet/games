@@ -178,7 +178,7 @@ void Reader::lay_out_contents(Printer& printer) {
     const page::FaceId roman = roman_face(*work_);
     page::TextStyle entry;
     entry.face = roman;
-    entry.em = page::body_em_lu(options_.step);
+    entry.em = body_em(*work_, options_.step);
     page::TextStyle title = entry;
     title.em = entry.em * 3 / 2;
     page::TextStyle head = entry;

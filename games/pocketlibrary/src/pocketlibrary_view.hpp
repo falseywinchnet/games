@@ -64,6 +64,7 @@ class PocketLibraryView final : public gf::Control, public games::CommandSource 
     ShelfLayout shelf_;
     int hover_ = -1;   // the book under the pointer
     int cursor_ = -1;  // the book chosen with the keyboard
+    double scroll_ = 0;  // how far the bookcase is scrolled, in points
     page::TypeStep step_ = page::TypeStep::medium;
     Canvas frame_;
     std::shared_ptr<gf::LiveSurface> surface_;
@@ -92,6 +93,8 @@ class PocketLibraryView final : public gf::Control, public games::CommandSource 
     void turn(bool forward);
     void to_contents(bool shown);
     void move_cursor(int step);
+    void move_plank(int planks);
+    void scroll_shelf(double points);
     void set_help(bool open);
     void persist();
     [[nodiscard]] std::string_view save_name() const;

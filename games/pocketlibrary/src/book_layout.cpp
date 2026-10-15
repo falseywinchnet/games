@@ -112,7 +112,7 @@ Styles make_styles(const Work& work, page::TypeStep step, const page::FontSet& f
     Styles styles;
     styles.roman = roman_face(work);
     styles.italic = italic_face(work);
-    styles.em = page::body_em_lu(step);
+    styles.em = body_em(work, step);
     const LayoutUnit em = styles.em;
     styles.body.face = styles.roman;
     styles.body.em = em;
@@ -411,7 +411,8 @@ void build_flow(const Work& work, const Section& section, const Styles& styles, 
             const ShapedRun& numeral = typesetter.shaped(styles.drop, chapter.label, false);
             drop_width = numeral.advance + percent_of(styles.drop.em, drop_padding_percent);
             pending = std::max(pending, line_height / 2);
-        } else if (!chapter.entry && !chapter.label.empty()) {
+        } else if (!chapter.entry && !chapter.label.empty() &&
+                   !(!chapter.blocks.empty() && chapter.blocks.front().style == BlockStyle::heading)) {
             const std::string heading = work.id == "berakot" ? "Folio " + chapter.label : "Chapter " + chapter.label;
             centred_line(flow, typesetter, styles, styles.chapter_heading, heading, c,
                          std::max(pending, percent_of(em, folio_space_percent)));
@@ -428,9 +429,12 @@ void build_flow(const Work& work, const Section& section, const Styles& styles, 
                 continue;
             }
             const bool heading = block.style == BlockStyle::heading || block.style == BlockStyle::acrostic;
+            const bool chapter_title = block.style == BlockStyle::heading && block.level == 0;
             const bool parallel = block.style == BlockStyle::parallel;
             TextStyle base = styles.body;
-            if (heading)
+            if (chapter_title)
+                base = styles.chapter_heading;
+            else if (heading)
                 base = styles.heading;
             else if (parallel)
                 base = styles.parallel;
@@ -472,7 +476,14 @@ void build_flow(const Work& work, const Section& section, const Styles& styles, 
             case BlockStyle::heading:
             case BlockStyle::acrostic:
                 frame.alignment = Alignment::centered;
-                space = std::max(pending, percent_of(base.em, heading_space_above_percent));
+                space = std::max(pending, percent_of(base.em, chapter_title ? folio_space_percent * 2
+                                                                              : heading_space_above_percent));
+                break;
+            case BlockStyle::quote:
+                frame.alignment = Alignment::justified;
+                frame.first_indent = em * 2;
+                frame.rest_indent = em * 2;
+                frame.width = page::content_width_lu - em * 2;
                 break;
             case BlockStyle::parallel:
                 frame.alignment = Alignment::centered;
@@ -751,6 +762,11 @@ page::PageLayout make_page(const Work& work, const Division& division, const Flo
 
 FaceId roman_face(const Work& work) {
     return work.id == "bsb" ? FaceId::eb_garamond_regular : FaceId::literata_regular;
+}
+
+LayoutUnit body_em(const Work& work, page::TypeStep step) {
+    const LayoutUnit nominal = page::body_em_lu(step);
+    return roman_face(work) == FaceId::literata_regular ? percent_of(nominal, 92) : nominal;
 }
 
 FaceId italic_face(const Work& work) {

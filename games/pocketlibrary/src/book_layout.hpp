@@ -35,6 +35,9 @@ struct LayoutOptions {
 
 // The faces a work is set in.
 [[nodiscard]] page::FaceId roman_face(const Work& work);
+// The body type's size for a work at a step: Literata, whose lowercase is taller, is
+// set 8% under EB Garamond's size so the two read alike.
+[[nodiscard]] page::LayoutUnit body_em(const Work& work, page::TypeStep step);
 [[nodiscard]] page::FaceId italic_face(const Work& work);
 
 // Lays out one section. `pages` is replaced; there is always an even number, the

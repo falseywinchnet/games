@@ -101,6 +101,7 @@ void PocketLibraryView::arrange(gf::Rect bounds) {
     device_height_ = std::max(1, static_cast<int>(std::lround(bounds.height * scale_)));
     frame_.resize(device_width_, device_height_);
     shelf_ = lay_out_shelf(width_, height_, library_.shelf());
+    scroll_ = std::clamp(scroll_, 0.0, scroll_limit(shelf_));
     if (surface_) {
         gf::LiveSurfaceDescription description;
         description.width = static_cast<std::uint32_t>(device_width_);
@@ -149,7 +150,7 @@ void PocketLibraryView::render() {
         reader_.draw(frame_, scale_, printer_, wood_);
     } else {
         const int lifted = hover_ >= 0 ? hover_ : cursor_;
-        draw_shelf(frame_, scale_, shelf_, library_.shelf(), lifted, wood_, printer_);
+        draw_shelf(frame_, scale_, shelf_, scroll_, library_.shelf(), lifted, wood_, printer_);
     }
     if (help_)
         draw_help_card(frame_, scale_, printer_, help_paragraphs());
@@ -264,6 +265,24 @@ void PocketLibraryView::move_cursor(int step) {
     if (count == 0)
         return;
     cursor_ = cursor_ < 0 ? 0 : std::clamp(cursor_ + step, 0, count - 1);
+    scroll_ = scroll_to_show(shelf_, cursor_, scroll_);
+    request_frame();
+}
+
+void PocketLibraryView::move_plank(int planks) {
+    if (library_.shelf().empty())
+        return;
+    cursor_ = cursor_ < 0 ? 0 : spine_beside(shelf_, cursor_, planks);
+    scroll_ = scroll_to_show(shelf_, cursor_, scroll_);
+    request_frame();
+}
+
+void PocketLibraryView::scroll_shelf(double points) {
+    const double next = std::clamp(scroll_ + points, 0.0, scroll_limit(shelf_));
+    if (next == scroll_)
+        return;
+    scroll_ = next;
+    hover_ = -1;
     request_frame();
 }
 
@@ -291,7 +310,12 @@ void PocketLibraryView::on_pointer(gf::PointerEvent& event) {
         return;
     }
     if (!reader_.is_open()) {
-        const int under = spine_at(shelf_, local.x, local.y);
+        const int under = spine_at(shelf_, scroll_, local.x, local.y);
+        if (event.action == gf::PointerAction::wheel) {
+            scroll_shelf(-event.wheel_delta.y);
+            event.handled = true;
+            return;
+        }
         if (event.action == gf::PointerAction::move || event.action == gf::PointerAction::leave) {
             const int hover = event.action == gf::PointerAction::leave ? -1 : under;
             if (hover != hover_) {
@@ -357,10 +381,18 @@ void PocketLibraryView::on_key(gf::KeyEvent& event) {
         return;
     }
     if (!reader_.is_open()) {
-        if (key == Key::left || key == Key::up)
+        if (key == Key::left)
             move_cursor(-1);
-        else if (key == Key::right || key == Key::down)
+        else if (key == Key::right)
             move_cursor(1);
+        else if (key == Key::up)
+            move_plank(-1);
+        else if (key == Key::down)
+            move_plank(1);
+        else if (key == Key::page_up)
+            scroll_shelf(-shelf_.height * 0.8);
+        else if (key == Key::page_down)
+            scroll_shelf(shelf_.height * 0.8);
         else if ((key == Key::enter || key == Key::space) && cursor_ >= 0)
             open_book(cursor_);
         else
@@ -387,16 +419,44 @@ void PocketLibraryView::on_key(gf::KeyEvent& event) {
 std::vector<games::GameCommand> PocketLibraryView::commands() const {
     // id, label, enabled, checked, primary. Primary commands show while the capsule is folded.
     std::vector<games::GameCommand> list;
-    const bool open = reader_.is_open();
-    list.push_back({"shelf", "Shelf", open, false, true});
-    list.push_back({"contents", "Contents", open, open && reader_.contents_shown(), true});
-    list.push_back({"previous", "Previous page", open, false, false});
-    list.push_back({"next", "Next page", open, false, false});
+    if (reader_.is_open()) {
+        list.push_back({"shelf", "Shelf", true, false, true});
+        list.push_back({"contents", "Contents", true, reader_.contents_shown(), true});
+        list.push_back({"previous", "Previous page", true, false, false});
+        list.push_back({"next", "Next page", true, false, false});
+    } else {
+        const int chosen = hover_ >= 0 ? hover_ : cursor_;
+        std::string label = "Open book";
+        if (chosen >= 0 && static_cast<std::size_t>(chosen) < library_.shelf().size())
+            label = "Open " + library_.shelf()[static_cast<std::size_t>(chosen)].title;
+        list.push_back({"open", label, chosen >= 0, false, true});
+        // One command for each plank's category: it brings that shelf into view.
+        for (const PlankBox& plank : shelf_.planks)
+            if (!plank.label.empty())
+                list.push_back({"go:" + plank.label, plank.label, true, false, false});
+    }
     list.push_back({"help", "Help", true, help_, false});
     return list;
 }
 
 void PocketLibraryView::run_command(std::string_view id) {
+    if (id == "open") {
+        open_book(hover_ >= 0 ? hover_ : cursor_);
+        return;
+    }
+    if (id.substr(0, 3) == "go:") {
+        const std::string_view category = id.substr(3);
+        for (std::size_t n = 0; n < library_.shelf().size(); ++n) {
+            if (library_.shelf()[n].category == category) {
+                cursor_ = static_cast<int>(n);
+                scroll_ = std::clamp(shelf_.planks[shelf_.spines[n].plank].top - shelf_.spines[n].height - 40, 0.0,
+                                     scroll_limit(shelf_));
+                request_frame();
+                return;
+            }
+        }
+        return;
+    }
     if (id == "shelf")
         close_book();
     else if (id == "contents")

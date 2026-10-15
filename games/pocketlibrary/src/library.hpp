@@ -25,6 +25,7 @@ struct ShelfBook {
     std::string id;
     std::string title;       // gilt on the spine
     std::string subtitle;    // smaller, below it
+    std::string category;    // the shelf it stands on: "Scripture", "Fiction"...
     Binding binding;
     double heft = 1;         // how thick the volume is, 0.5 to 2.5: grows with its text
 };

@@ -368,6 +368,22 @@
      "sha256": "9bb56f5815a55c2be2bc2e35d8a3a5702d5698b8c92e96ada632f9c4be541c56"
     }
    ]
+  },
+  {
+   "id": "se-the-time-machine",
+   "work": "H. G. Wells, The Time Machine (1895); Standard Ebooks edition",
+   "upstream": "https://standardebooks.org/ebooks/h-g-wells/the-time-machine",
+   "licence": "US public domain; Standard Ebooks' work dedicated by CC0 1.0 (the book's own dc:rights)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "the-time-machine.epub",
+     "url": "https://standardebooks.org/ebooks/h-g-wells/the-time-machine/downloads/h-g-wells_the-time-machine.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 535571,
+     "sha256": "3931b56fecfb0b0d00737f5fabcd00a46a96c26a6b1c9b8a60751d154057d9a6"
+    }
+   ]
   }
  ]
 }

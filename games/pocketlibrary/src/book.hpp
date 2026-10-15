@@ -48,9 +48,10 @@ enum class BlockStyle : std::uint8_t {
     title,         // a psalm's title, a colophon
     verse,         // a verse to itself, as the JPS is printed
     note,          // a note printed in the text (Gorfinkle's)
+    quote,         // a quotation set in from both sides
     entry,         // a dictionary or concordance entry
     folio,         // a passage of the Talmud
-    heading,       // a section heading; `level` 0 (major), 1 or 2
+    heading,       // a section heading; `level` 0 (a chapter's or major title), 1 or 2
     parallel,      // the parallel passages under a heading
     rendering,     // a concordance line: an English rendering and its verses
 };

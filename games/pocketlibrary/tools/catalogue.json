@@ -1,0 +1,77 @@
+{
+  "note": "The Pocket Library's shelf, in order. Each book: its id (the file name of its normalized text), how the spine is lettered (title, subtitle), the shelf it stands on (category), its binding (hex RGB; leather or cloth), and how it is read: importer 'own' for the first library's works (import_books.py has a reader for each), or 'epub' / 'gutenberg-text' with the source id and file name pinned in sources.lock.json.",
+  "books": [
+    {
+      "id": "bsb",
+      "title": "HOLY BIBLE",
+      "subtitle": "Berean Standard Bible",
+      "category": "Scripture",
+      "binding": "1b1715",
+      "leather": true,
+      "importer": "own"
+    },
+    {
+      "id": "jps1917",
+      "title": "THE HOLY SCRIPTURES",
+      "subtitle": "Jewish Publication Society, 1917",
+      "category": "Scripture",
+      "binding": "1f2a44",
+      "leather": false,
+      "importer": "own"
+    },
+    {
+      "id": "avot",
+      "title": "SAYINGS OF THE JEWISH FATHERS",
+      "subtitle": "Pirke Abot · Gorfinkle",
+      "category": "Scripture",
+      "binding": "2f4a33",
+      "leather": false,
+      "importer": "own"
+    },
+    {
+      "id": "berakot",
+      "title": "TRACTATE BERAKOT",
+      "subtitle": "The Babylonian Talmud · Cohen",
+      "category": "Scripture",
+      "binding": "5a1f1f",
+      "leather": false,
+      "importer": "own"
+    },
+    {
+      "id": "strongs-hebrew",
+      "title": "STRONG'S HEBREW",
+      "subtitle": "Dictionary of the Hebrew Bible",
+      "category": "Reference",
+      "binding": "4a3020",
+      "leather": true,
+      "importer": "own"
+    },
+    {
+      "id": "strongs-greek",
+      "title": "STRONG'S GREEK",
+      "subtitle": "Dictionary of the Greek Testament",
+      "category": "Reference",
+      "binding": "4a3424",
+      "leather": true,
+      "importer": "own"
+    },
+    {
+      "id": "concordance",
+      "title": "CONCORDANCE",
+      "subtitle": "The Berean Standard Bible",
+      "category": "Reference",
+      "binding": "3c2418",
+      "leather": true,
+      "importer": "own"
+    },
+    {
+      "id": "the-time-machine",
+      "title": "The Time Machine",
+      "subtitle": "H. G. Wells",
+      "category": "Science fiction",
+      "importer": "epub",
+      "source": "se-the-time-machine",
+      "file": "the-time-machine.epub"
+    }
+  ]
+}

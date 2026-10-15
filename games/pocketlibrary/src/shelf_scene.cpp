@@ -214,67 +214,31 @@ void fill_with_tile(Canvas& canvas, const std::vector<std::byte>& tile, int tile
     }
 }
 
-ShelfLayout lay_out_shelf(double width, double height, const std::vector<ShelfBook>& books) {
-    ShelfLayout layout;
-    layout.width = width;
-    layout.height = height;
-    layout.plank = std::round(height * 0.74);
-    const double unit = std::clamp(height * 0.062, 16.0, 40.0);
-    double total = 0;
-    std::vector<double> widths;
-    std::vector<double> heights;
-    for (const ShelfBook& book : books) {
-        widths.push_back(std::max(16.0, unit * book.heft));
-        heights.push_back(height * std::clamp(0.40 + 0.045 * book.heft, 0.40, 0.55));
-        total += widths.back() + 3;
-    }
-    const double room = width * 0.86;
-    const double fit = total > room ? room / total : 1.0;
-    double x = (width - total * fit) / 2;
-    for (std::size_t n = 0; n < books.size(); ++n) {
-        SpineBox box;
-        box.width = std::floor(widths[n] * fit);
-        box.height = std::floor(heights[n] * std::min(1.0, 0.85 + 0.15 * fit));
-        box.x = std::round(x);
-        box.y = layout.plank - box.height;
-        layout.spines.push_back(box);
-        x += (widths[n] + 3) * fit;
-    }
-    return layout;
-}
+namespace {
 
-int spine_at(const ShelfLayout& layout, double x, double y) {
-    for (std::size_t n = 0; n < layout.spines.size(); ++n) {
-        const SpineBox& box = layout.spines[n];
-        if (x >= box.x && x < box.x + box.width && y >= box.y - 8 && y < box.y + box.height)
-            return static_cast<int>(n);
-    }
-    return -1;
-}
+// The bookcase's measures, in points.
+constexpr double side_margin = 28;
+constexpr double top_margin = 36;
+constexpr double plank_clearance = 34;  // from a plank up to the tallest book's head room
+constexpr double plank_depth = 30;      // the plank and its label below the books
 
-void draw_shelf(Canvas& canvas, double scale, const ShelfLayout& layout, const std::vector<ShelfBook>& books,
-                int lifted, const WoodTiles& wood, Printer& printer) {
-    // The wall.
-    fill_with_tile(canvas, wood.wall, wood.wall_width, wood.wall_height, 0, 0, canvas.w, canvas.h, 1.0f);
+void draw_plank(Canvas& canvas, double scale, double x, double w, double y, const WoodTiles& wood) {
+    const double top = y - 3, front = y + 5, thick = 12;
     canvas.save();
     canvas.set_transform(Mat{});
     canvas.scale(scale, scale);
-    // The plank: its top running back behind the books, its front edge, its shadow.
-    const double x = 10, w = layout.width - 20, y = layout.plank;
-    const double top = y - 3, front = y + 5, thick = 12;
     canvas.begin();
     canvas.rect(x - 4, front + thick, w + 8, 20);
     canvas.fill(Paint::lin(0, front + thick, 0, front + thick + 20,
                            {{0, rgb(8, 4, 2, 150 / 255.f)}, {.35f, rgb(8, 4, 2, 70 / 255.f)}, {1, rgb(8, 4, 2, 0)}}));
     canvas.restore();
-    const int plank_left = static_cast<int>(std::lround(x * scale));
-    const int plank_width = static_cast<int>(std::lround(w * scale));
-    fill_with_tile(canvas, wood.plank, wood.plank_width, wood.plank_height, plank_left,
-                   static_cast<int>(std::lround(top * scale)), plank_width,
-                   static_cast<int>(std::lround((front - top) * scale)), 1.0f);
-    fill_with_tile(canvas, wood.plank, wood.plank_width, wood.plank_height, plank_left,
-                   static_cast<int>(std::lround(front * scale)), plank_width,
-                   static_cast<int>(std::lround(thick * scale)), 1.0f);
+    const int left = static_cast<int>(std::lround(x * scale));
+    const int width = static_cast<int>(std::lround(w * scale));
+    fill_with_tile(canvas, wood.plank, wood.plank_width, wood.plank_height, left,
+                   static_cast<int>(std::lround(top * scale)), width, static_cast<int>(std::lround((front - top) * scale)),
+                   1.0f);
+    fill_with_tile(canvas, wood.plank, wood.plank_width, wood.plank_height, left,
+                   static_cast<int>(std::lround(front * scale)), width, static_cast<int>(std::lround(thick * scale)), 1.0f);
     canvas.save();
     canvas.set_transform(Mat{});
     canvas.scale(scale, scale);
@@ -287,23 +251,174 @@ void draw_shelf(Canvas& canvas, double scale, const ShelfLayout& layout, const s
     canvas.rect(x, front, w, thick);
     canvas.fill(Paint::lin(0, front, 0, front + thick,
                            {{0, rgb(255, 236, 204, 36 / 255.f)}, {.4f, rgb(0, 0, 0, 0)}, {1, rgb(10, 5, 2, 110 / 255.f)}}));
+    canvas.restore();
+}
+
+// A small paper label pinned to the plank's front edge, lettered with the category.
+void draw_label(Canvas& canvas, double scale, double x, double y, const std::string& text, Printer& printer) {
+    if (text.empty() || !printer.ready())
+        return;
+    page::TextStyle style;
+    style.face = page::FaceId::literata_regular;
+    const double em_points = 9.5;
+    const int height = static_cast<int>(std::lround(15 * scale));
+    const double units = 1.0e6 / static_cast<double>(height);
+    style.em = static_cast<page::LayoutUnit>(em_points * scale * units);
+    style.uppercase = true;
+    style.tracking = style.em / 8;
+    style.ink = page::Ink::body;
+    const page::ShapedRun& shaped = printer.typesetter().shaped(style, text, false);
+    const double text_points = static_cast<double>(shaped.advance) / units / scale;
+    const int width = static_cast<int>(std::lround((text_points + 14) * scale));
+    page::PageRect rect;
+    rect.x = static_cast<std::int32_t>(std::lround(x * scale));
+    rect.y = static_cast<std::int32_t>(std::lround(y * scale));
+    rect.width = static_cast<std::uint32_t>(std::max(1, width));
+    rect.height = static_cast<std::uint32_t>(height);
+    page::PageLayout label;
+    page::PlacedRun run;
+    run.face = style.face;
+    run.em = style.em;
+    run.ink = style.ink;
+    run.x = static_cast<page::LayoutUnit>(7 * scale * units);
+    const page::FaceMetrics metrics = printer.fonts().metrics(style.face, style.em);
+    run.baseline = 500000 + metrics.cap_height / 2;
+    run.glyphs = shaped.glyphs;
+    label.runs.push_back(run);
+    const page::PixelTarget target{canvas.px.data(), static_cast<std::size_t>(canvas.w) * 4,
+                                   static_cast<std::uint32_t>(canvas.w), static_cast<std::uint32_t>(canvas.h)};
+    printer.rasterizer().draw_page(label, target, rect, page::PaperImage{});
+}
+
+}  // namespace
+
+ShelfLayout lay_out_shelf(double width, double height, const std::vector<ShelfBook>& books) {
+    ShelfLayout layout;
+    layout.width = width;
+    layout.height = height;
+    // Books stand a little under half the view tall, so a plank and the next show.
+    const double book_height = std::clamp(height * 0.42, 110.0, 240.0);
+    const double unit = std::clamp(book_height * 0.13, 15.0, 34.0);
+    const double pitch = book_height + plank_clearance + plank_depth;
+    const double right = width - side_margin;
+    double x = side_margin;
+    std::string category;
+    bool any = false;
+    for (std::size_t n = 0; n < books.size(); ++n) {
+        const ShelfBook& book = books[n];
+        const double spine = std::max(14.0, unit * book.heft);
+        const bool new_category = !any || book.category != category;
+        if (new_category || x + spine > right) {
+            PlankBox plank;
+            plank.top = top_margin + plank_clearance + book_height + pitch * static_cast<double>(layout.planks.size());
+            plank.label = new_category ? book.category : std::string();
+            layout.planks.push_back(plank);
+            x = side_margin + 6;
+            category = book.category;
+            any = true;
+        }
+        SpineBox box;
+        box.plank = layout.planks.size() - 1;
+        box.width = std::floor(spine);
+        box.height = std::floor(book_height * std::clamp(0.80 + 0.07 * book.heft, 0.80, 1.0));
+        box.x = std::round(x);
+        box.y = layout.planks.back().top - box.height;
+        layout.spines.push_back(box);
+        x += spine + 3;
+    }
+    layout.content_height = layout.planks.empty() ? height : layout.planks.back().top + plank_depth + top_margin;
+    return layout;
+}
+
+double scroll_limit(const ShelfLayout& layout) {
+    return std::max(0.0, layout.content_height - layout.height);
+}
+
+int spine_at(const ShelfLayout& layout, double scroll, double x, double y) {
+    const double at = y + scroll;
+    for (std::size_t n = 0; n < layout.spines.size(); ++n) {
+        const SpineBox& box = layout.spines[n];
+        if (x >= box.x && x < box.x + box.width && at >= box.y - 8 && at < box.y + box.height)
+            return static_cast<int>(n);
+    }
+    return -1;
+}
+
+int spine_beside(const ShelfLayout& layout, int book, int planks) {
+    if (book < 0 || static_cast<std::size_t>(book) >= layout.spines.size())
+        return book;
+    const SpineBox& from = layout.spines[static_cast<std::size_t>(book)];
+    const long target = static_cast<long>(from.plank) + planks;
+    if (target < 0 || static_cast<std::size_t>(target) >= layout.planks.size())
+        return book;
+    const double across = from.x + from.width / 2;
+    int best = book;
+    double nearest = 1e18;
+    for (std::size_t n = 0; n < layout.spines.size(); ++n) {
+        const SpineBox& box = layout.spines[n];
+        if (box.plank != static_cast<std::size_t>(target))
+            continue;
+        const double distance = std::fabs(box.x + box.width / 2 - across);
+        if (distance < nearest) {
+            nearest = distance;
+            best = static_cast<int>(n);
+        }
+    }
+    return best;
+}
+
+double scroll_to_show(const ShelfLayout& layout, int book, double scroll) {
+    if (book < 0 || static_cast<std::size_t>(book) >= layout.spines.size())
+        return scroll;
+    const SpineBox& box = layout.spines[static_cast<std::size_t>(book)];
+    const double top = box.y - plank_clearance;
+    const double bottom = layout.planks[box.plank].top + plank_depth;
+    double next = scroll;
+    if (top < next)
+        next = top;
+    if (bottom > next + layout.height)
+        next = bottom - layout.height;
+    return std::clamp(next, 0.0, scroll_limit(layout));
+}
+
+void draw_shelf(Canvas& canvas, double scale, const ShelfLayout& layout, double scroll,
+                const std::vector<ShelfBook>& books, int lifted, const WoodTiles& wood, Printer& printer) {
+    // The wall scrolls with the case.
+    const int shift = static_cast<int>(std::lround(scroll * scale));
+    const int tile_shift = wood.wall_height > 0 ? shift % wood.wall_height : 0;
+    fill_with_tile(canvas, wood.wall, wood.wall_width, wood.wall_height, 0, -tile_shift, canvas.w,
+                   canvas.h + tile_shift, 1.0f);
+    for (const PlankBox& plank : layout.planks) {
+        const double y = plank.top - scroll;
+        if (y < -plank_depth - 300 || y > layout.height + 300)
+            continue;
+        draw_plank(canvas, scale, 10, layout.width - 20, y, wood);
+        draw_label(canvas, scale, side_margin, y + 9, plank.label, printer);
+    }
     // Each book's shadow on the wall, thrown down and to the right.
+    canvas.save();
+    canvas.set_transform(Mat{});
+    canvas.scale(scale, scale);
     for (std::size_t n = 0; n < books.size() && n < layout.spines.size(); ++n) {
         const SpineBox& box = layout.spines[n];
         const double raise = static_cast<int>(n) == lifted ? 6 : 0;
+        const double y = box.y - raise - scroll;
+        if (y > layout.height || y + box.height < 0)
+            continue;
         canvas.begin();
-        canvas.rrect(box.x + 3, box.y - raise + 4, box.width + 2, box.height - 4, 3);
+        canvas.rrect(box.x + 3, y + 4, box.width + 2, box.height - 4, 3);
         canvas.fill(rgb(6, 3, 1, 0.45f));
     }
     canvas.restore();
-
-    // The books.
     for (std::size_t n = 0; n < books.size() && n < layout.spines.size(); ++n) {
         const ShelfBook& book = books[n];
         const SpineBox& box = layout.spines[n];
         const double raise = static_cast<int>(n) == lifted ? 6 : 0;
+        const double top = box.y - raise - scroll;
+        if (top > layout.height || top + box.height < 0)
+            continue;
         const int x0 = static_cast<int>(std::lround(box.x * scale));
-        const int y0 = static_cast<int>(std::lround((box.y - raise) * scale));
+        const int y0 = static_cast<int>(std::lround(top * scale));
         const int width = std::max(4, static_cast<int>(std::lround(box.width * scale)));
         const int height = std::max(8, static_cast<int>(std::lround(box.height * scale)));
         draw_spine_body(canvas, book, x0, y0, width, height, scale);

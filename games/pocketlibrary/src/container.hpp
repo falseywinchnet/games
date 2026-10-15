@@ -3,10 +3,14 @@
 // a book opens without the others, and each checked by the SHA-256 of its text when
 // it is decoded. Little-endian throughout:
 //
-//   "PLIB", version (u32, 1), book count (u32), coder (u32, 1 = lz_coder)
+//   "PLIB", version (u32, 2), book count (u32), coder (u32, 1 = lz_coder)
 //   per book: id length (u8), id, text length (u32), code offset (u32),
-//             code length (u32), SHA-256 of the text (32 bytes)
+//             code length (u32), SHA-256 of the text (32 bytes),
+//             shelf record length (u16), shelf record
 //   the codes, in the same order
+//
+// The shelf record is what the bookcase needs without opening the book: lines of
+// "key<TAB>value" (title, subtitle, category, binding, leather).
 //
 // A book's text is its normalized records (book.hpp reads them).
 #include "sha256.hpp"
@@ -24,6 +28,7 @@ struct ShelvedBook {
     std::uint32_t offset = 0;
     std::uint32_t code_length = 0;
     Sha256Digest digest{};
+    std::string shelf;  // the shelf record
 };
 
 class LibraryFile {
@@ -46,6 +51,7 @@ class LibraryFile {
 struct BookText {
     std::string id;
     std::string text;
+    std::string shelf;  // the shelf record, at most 65535 bytes
 };
 // The library file for `books`, in order. Deterministic: the same texts give the same
 // bytes on every platform.

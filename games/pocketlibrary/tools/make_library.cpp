@@ -1,5 +1,5 @@
 // Builds the library file (container.hpp) from the normalized books import_books.py
-// wrote, in shelf order, and proves it: every book is decoded again, checked against its
+// wrote, in the catalogue's shelf order (shelf.txt), and proves it: every book is decoded again, checked against its
 // SHA-256 and read as a work before the file is written.
 //
 //   make_library <normalized dir> <output file>
@@ -19,18 +19,31 @@ int main(int argc, char** argv) {
         return 2;
     }
     const std::string folder = argv[1];
-    const char* order[] = {"bsb", "jps1917", "avot", "berakot", "strongs-hebrew", "strongs-greek", "concordance"};
+    // The shelf, in order (import_books.py writes it from the catalogue): each book is a
+    // "book<TAB>id" line, its shelf record's lines, then a blank line.
+    std::ifstream shelf(folder + "/shelf.txt", std::ios::binary);
+    if (!shelf) {
+        std::fprintf(stderr, "missing shelf.txt\n");
+        return 1;
+    }
     std::vector<pl::BookText> books;
-    for (const char* id : order) {
-        std::ifstream file(folder + "/" + id + ".tsv", std::ios::binary);
+    std::string line;
+    while (std::getline(shelf, line)) {
+        if (line.rfind("book\t", 0) == 0) {
+            pl::BookText book;
+            book.id = line.substr(5);
+            books.push_back(book);
+        } else if (!line.empty() && !books.empty()) {
+            books.back().shelf += line + "\n";
+        }
+    }
+    for (pl::BookText& book : books) {
+        std::ifstream file(folder + "/" + book.id + ".tsv", std::ios::binary);
         if (!file) {
-            std::fprintf(stderr, "missing %s.tsv\n", id);
+            std::fprintf(stderr, "missing %s.tsv\n", book.id.c_str());
             return 1;
         }
-        pl::BookText book;
-        book.id = id;
         book.text.assign((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        books.push_back(book);
     }
     std::vector<std::uint8_t> bytes;
     pl::write_library(books, bytes);

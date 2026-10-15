@@ -47,6 +47,8 @@ bool style_of(std::string_view name, BlockStyle& style, std::uint8_t& level) {
         style = BlockStyle::verse;
     else if (name == "note")
         style = BlockStyle::note;
+    else if (name == "quote")
+        style = BlockStyle::quote;
     else if (name == "entry")
         style = BlockStyle::entry;
     else if (name == "folio")

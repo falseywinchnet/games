@@ -998,6 +998,38 @@ def import_concordance(sources: dict, folder: str, out: str, bsb_path: str) -> s
 
 # ---- Main --------------------------------------------------------------------------
 
+def load_catalogue() -> list:
+    with open(os.path.join(HERE, "catalogue.json"), encoding="utf-8") as file:
+        return json.load(file)["books"]
+
+
+def shelf_record(entry: dict) -> str:
+    """The lines the bookcase reads without opening the book (container.hpp)."""
+    lines = ["title\t" + entry["title"]]
+    if entry.get("subtitle"):
+        lines.append("subtitle\t" + entry["subtitle"])
+    if entry.get("category"):
+        lines.append("category\t" + entry["category"])
+    if entry.get("binding"):
+        lines.append("binding\t" + entry["binding"])
+    if entry.get("leather"):
+        lines.append("leather\t1")
+    return "\n".join(lines) + "\n"
+
+
+def import_entry(sources: dict, folder: str, out: str, entry: dict) -> str:
+    """A catalogue book read by a general importer."""
+    import epub_reader
+    data, pin = read_pinned(sources, folder, entry["source"], entry["file"])
+    book = Book(entry["id"])
+    head_for(book, sources[entry["source"]], [pin])
+    if entry["importer"] == "epub":
+        epub_reader.import_epub(data, book, entry["id"])
+    else:
+        raise ValueError("%s: no importer named %r" % (entry["id"], entry["importer"]))
+    return book.write(out)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--sources", default=os.path.join(ROOT, ".build", "library", "sources"))
@@ -1016,6 +1048,14 @@ def main() -> int:
              import_strongs_hebrew(sources, arguments.sources, arguments.out),
              import_strongs_greek(sources, arguments.sources, arguments.out),
              import_concordance(sources, arguments.sources, arguments.out, bsb)]
+    catalogue = load_catalogue()
+    for entry in catalogue:
+        if entry["importer"] != "own":
+            paths.append(import_entry(sources, arguments.sources, arguments.out, entry))
+    # The shelf, in order: id, then the shelf record's lines, then a blank line.
+    with open(os.path.join(arguments.out, "shelf.txt"), "w", encoding="utf-8", newline="\n") as file:
+        for entry in catalogue:
+            file.write("book\t" + entry["id"] + "\n" + shelf_record(entry) + "\n")
     for path in paths:
         print("%9d bytes  %s" % (os.path.getsize(path), os.path.relpath(path, ROOT)))
     return 1 if differences else 0

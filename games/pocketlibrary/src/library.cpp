@@ -7,24 +7,56 @@
 namespace pl {
 namespace {
 
-// How each book of the first library is bound and lettered. A book the table does not
-// know (one imported later) is bound in grey cloth and lettered with its first title.
-struct Bound {
-    const char* id;
-    const char* title;
-    const char* subtitle;
-    Binding binding;
+// The cloths a book without a binding of its own is bound in, chosen by its id so a
+// book keeps its colour.
+constexpr Binding cloths[] = {
+    {31, 42, 68, false}, {47, 74, 51, false}, {90, 31, 31, false}, {74, 52, 36, false}, {58, 40, 70, false},
+    {28, 60, 66, false}, {96, 72, 38, false}, {50, 50, 54, false}, {82, 46, 30, false}, {38, 56, 40, false},
 };
 
-constexpr Bound bindings[] = {
-    {"bsb", "HOLY BIBLE", "Berean Standard Bible", {27, 23, 21, true}},
-    {"jps1917", "THE HOLY SCRIPTURES", "Jewish Publication Society, 1917", {31, 42, 68, false}},
-    {"avot", "SAYINGS OF THE JEWISH FATHERS", "Pirke Abot · Gorfinkle", {47, 74, 51, false}},
-    {"berakot", "TRACTATE BERAKOT", "The Babylonian Talmud · Cohen", {90, 31, 31, false}},
-    {"strongs-hebrew", "STRONG'S HEBREW", "Dictionary of the Hebrew Bible", {74, 48, 32, true}},
-    {"strongs-greek", "STRONG'S GREEK", "Dictionary of the Greek Testament", {74, 52, 36, true}},
-    {"concordance", "CONCORDANCE", "The Berean Standard Bible", {60, 36, 24, true}},
-};
+std::uint8_t hex_byte(std::string_view text, std::size_t at) {
+    std::uint32_t value = 0;
+    for (std::size_t i = at; i < at + 2 && i < text.size(); ++i) {
+        const char c = text[i];
+        value <<= 4;
+        if (c >= '0' && c <= '9')
+            value |= static_cast<std::uint32_t>(c - '0');
+        else if (c >= 'a' && c <= 'f')
+            value |= static_cast<std::uint32_t>(c - 'a' + 10);
+        else if (c >= 'A' && c <= 'F')
+            value |= static_cast<std::uint32_t>(c - 'A' + 10);
+    }
+    return static_cast<std::uint8_t>(value);
+}
+
+// Reads a shelf record: lines of key TAB value.
+void read_shelf_record(std::string_view record, ShelfBook& book) {
+    std::size_t start = 0;
+    while (start < record.size()) {
+        std::size_t end = record.find('\n', start);
+        if (end == std::string_view::npos)
+            end = record.size();
+        const std::string_view line = record.substr(start, end - start);
+        start = end + 1;
+        const std::size_t tab = line.find('\t');
+        if (tab == std::string_view::npos)
+            continue;
+        const std::string_view key = line.substr(0, tab);
+        const std::string_view value = line.substr(tab + 1);
+        if (key == "title")
+            book.title = std::string(value);
+        else if (key == "subtitle")
+            book.subtitle = std::string(value);
+        else if (key == "category")
+            book.category = std::string(value);
+        else if (key == "binding" && value.size() == 6) {
+            book.binding.red = hex_byte(value, 0);
+            book.binding.green = hex_byte(value, 2);
+            book.binding.blue = hex_byte(value, 4);
+        } else if (key == "leather")
+            book.binding.leather = value == "1";
+    }
+}
 
 void parse_place(std::string_view rest, Place& place) {
     const std::size_t first = rest.find(' ');
@@ -53,13 +85,11 @@ bool Library::open(std::vector<std::uint8_t> bytes) {
         book.index = n;
         book.id = stored.id;
         book.title = stored.id;
-        for (const Bound& bound : bindings) {
-            if (stored.id == bound.id) {
-                book.title = bound.title;
-                book.subtitle = bound.subtitle;
-                book.binding = bound.binding;
-            }
-        }
+        std::uint32_t hash = 2166136261U;
+        for (const char c : stored.id)
+            hash = (hash ^ static_cast<std::uint8_t>(c)) * 16777619U;
+        book.binding = cloths[hash % (sizeof(cloths) / sizeof(cloths[0]))];
+        read_shelf_record(stored.shelf, book);
         // A volume's thickness follows the square root of its text: the Bible is
         // about twice a small treatise, not twenty times.
         const double megabytes = static_cast<double>(stored.length) / 1.0e6;

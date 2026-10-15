@@ -2,12 +2,13 @@
 
 #include "lz_coder.hpp"
 
+#include <algorithm>
 #include <cstring>
 
 namespace pl {
 namespace {
 
-constexpr std::uint32_t format_version = 1;
+constexpr std::uint32_t format_version = 2;
 constexpr std::uint32_t coder_lz = 1;
 
 void put_u32(std::vector<std::uint8_t>& out, std::uint32_t value) {
@@ -62,6 +63,14 @@ bool LibraryFile::open(std::vector<std::uint8_t> bytes) {
             return false;
         std::memcpy(book.digest.data(), view.data() + at, book.digest.size());
         at += book.digest.size();
+        if (at + 2 > view.size())
+            return false;
+        const std::size_t shelf_length = static_cast<std::size_t>(view[at]) | (static_cast<std::size_t>(view[at + 1]) << 8);
+        at += 2;
+        if (at + shelf_length > view.size())
+            return false;
+        book.shelf.assign(reinterpret_cast<const char*>(view.data() + at), shelf_length);
+        at += shelf_length;
         const std::uint64_t end = static_cast<std::uint64_t>(book.offset) + book.code_length;
         if (end > view.size())
             return false;
@@ -94,7 +103,7 @@ void write_library(const std::vector<BookText>& books, std::vector<std::uint8_t>
         lz_encode(bytes_of(books[n].text), codes[n]);
     std::size_t table = 16;
     for (const BookText& book : books)
-        table += 1 + book.id.size() + 12 + 32;
+        table += 1 + book.id.size() + 12 + 32 + 2 + std::min<std::size_t>(book.shelf.size(), 65535);
     out.insert(out.end(), {'P', 'L', 'I', 'B'});
     put_u32(out, format_version);
     put_u32(out, static_cast<std::uint32_t>(books.size()));
@@ -108,6 +117,10 @@ void write_library(const std::vector<BookText>& books, std::vector<std::uint8_t>
         put_u32(out, static_cast<std::uint32_t>(codes[n].size()));
         const Sha256Digest digest = sha256(bytes_of(books[n].text));
         out.insert(out.end(), digest.begin(), digest.end());
+        const std::size_t shelf_length = std::min<std::size_t>(books[n].shelf.size(), 65535);
+        out.push_back(static_cast<std::uint8_t>(shelf_length & 0xFFU));
+        out.push_back(static_cast<std::uint8_t>(shelf_length >> 8));
+        out.insert(out.end(), books[n].shelf.begin(), books[n].shelf.begin() + static_cast<std::ptrdiff_t>(shelf_length));
         offset += codes[n].size();
     }
     for (const std::vector<std::uint8_t>& code : codes)
