@@ -388,9 +388,9 @@ struct Prices {
     }
 
     void update(const Model& model) {
-        for (int length = minimum_length; length <= maximum_length; ++length) {
-            this->length[static_cast<std::size_t>(length)] = length_price(model.length, length);
-            rep_length[static_cast<std::size_t>(length)] = length_price(model.rep_length, length);
+        for (int value = minimum_length; value <= maximum_length; ++value) {
+            length[static_cast<std::size_t>(value)] = length_price(model.length, value);
+            rep_length[static_cast<std::size_t>(value)] = length_price(model.rep_length, value);
         }
         for (std::size_t state = 0; state < static_cast<std::size_t>(length_states); ++state) {
             for (std::uint32_t s = 0; s < (1U << slot_bits); ++s) {
