@@ -21,6 +21,10 @@
 namespace ts {
 
 constexpr double reach = 1.36;
+// How far a socket's floor reaches at `angle` (radians), in the shapes' units: a rounded
+// square every shape is scaled to fill.
+[[nodiscard]] double socket_reach(double angle);
+
 // The least a family's orientations may differ (self_distance): nearly alike, never alike.
 constexpr double least_self_distance = .06;  // the farthest any outline reaches from the middle
 
@@ -79,6 +83,11 @@ public:
     // An agate nodule's bands at a point of the solid, counted from its centre (-1 for
     // other styles): a banded mineral follows them, as agate's colour follows its growth.
     [[nodiscard]] double bands(double x, double y, double z) const;
+    // The direction a grained material's grain runs in the stone (object space): along a
+    // piece of fossil log, or straight up through a round of log stood on its end.
+    void grain_axis(double out[3]) const;
+    // A point on the line the grain grows round (the pith), object space.
+    void grain_centre(double out[3]) const;
 
     // The parameters the family was drawn with, for its relations.
     struct Measures {
@@ -88,7 +97,7 @@ public:
         double mark_angle = 0, mark_width = .3, mark_depth = 0;  // a notch or bulge
         double top = .4, bottom = .3;             // the faces' heights
         double top_power = 2, bottom_power = 2;   // their edge profile: 2 round, more flat
-        std::array<double, 12> feature{};         // the style's own measures
+        std::array<double, 16> feature{};         // the style's own measures
     };
     [[nodiscard]] const Measures& measures() const {
         return measures_;
@@ -104,6 +113,9 @@ private:
     std::vector<float> bottom_;
     double top_peak_ = 0, bottom_peak_ = 0;
     double scale_ = 1;               // the measures' units to the socket-filling outline
+    bool grown_ = false;             // made as a solid (wood_volume.cpp)
+    double grain_[3] = {1, 0, 0};    // a grown piece's grain, object space
+    double pith_[3] = {0, 0, 0};     // and a point of its pith
     std::vector<ShapeVertex> vertices_;
     std::vector<std::uint32_t> triangles_;
     struct Detail {
@@ -115,6 +127,7 @@ private:
     static Shape make_once(std::uint32_t seed, Style style, double likeness, const Shape* parent, int attempt);
     void build(std::uint64_t& random);
     void sample();
+    void grow_wood();               // wood_volume.cpp: a piece of fossil log, grown then broken
     void mesh();
     [[nodiscard]] double outline_at(double angle) const;
     // An outline found by marching (an agate nodule's rounded polygon): whether a point (in

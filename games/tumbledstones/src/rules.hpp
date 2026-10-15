@@ -4,7 +4,7 @@
 //
 // A tray of 10 x 10 sockets holds polished stones. Every stone belongs to a family, one
 // solid shape, and lies in one of eight orientations: face up or down, turned 0 to 3
-// quarter turns clockwise. Its mineral is chosen apart from its family and never
+// quarter turns clockwise. Its material is chosen apart from its family and never
 // matters. A stone is picked up, flipped and turned, and set down; then, and only then,
 // the stones joined to it orthogonally that share its family and its orientation exactly
 // are its group, and a group of two or more is pulled from the tray. Stones above fall
@@ -15,6 +15,9 @@
 // juggle. When no match can be made, or when the player asks, the tray is juggled: the
 // stones are lifted, tumbled and set down in new places and orientations, the swap marks
 // cleared, and stones of a family that has run out are turned into the family coming in.
+//
+// About a dozen materials are in play at once, each with a short run of stones: they come
+// and go faster than the families do. A stone keeps its material.
 //
 // At most five families lie in the tray at once. Each has a run of stones, drawn at
 // random; as one runs out another is brought in, by and by a near relation of one already
@@ -35,6 +38,7 @@ inline constexpr int side = 10;
 inline constexpr int cell_count = side * side;
 inline constexpr int most_families = 5;
 inline constexpr int family_slots = most_families + 1;  // the five, and one waiting to come in
+inline constexpr int material_slots = 12;               // materials in play
 inline constexpr int smallest_target = 2;
 inline constexpr int largest_target = 20;
 inline constexpr int least_recorded = 7;  // smaller pulls keep no best
@@ -42,7 +46,9 @@ inline constexpr int least_recorded = 7;  // smaller pulls keep no best
 struct Stone {
     int family = -1;             // a slot in Board::families; -1 an empty socket
     int orientation = 0;         // face * 4 + quarter turns clockwise; face 1 is down
-    std::uint32_t mineral = 0;   // the seed its mineral is drawn from
+    int material = 0;            // its material's kind (minerals.hpp's Mineral)
+    std::uint32_t material_seed = 0;  // which one of that kind: its colours
+    std::uint32_t mineral = 0;   // this stone's own pattern in it
     std::uint32_t serial = 0;    // this stone, for as long as it is in the tray
     bool swapped = false;        // swapped since the last juggle
 };
@@ -58,12 +64,21 @@ struct Family {
     int number = 0;              // the order families came in, from 1
 };
 
+// A material in play: its kind, its colours' seed, and how many stones it has to come.
+struct Material {
+    bool used = false;
+    int kind = 0;
+    std::uint32_t seed = 0;
+    int supply = 0;
+};
+
 struct Board {
     std::uint64_t seed = 1;
     std::uint64_t random = 1;
     int target = 7;
     std::array<Stone, cell_count> cells{};  // row-major, row 0 at the top
     std::array<Family, family_slots> families{};
+    std::array<Material, material_slots> materials{};
     std::uint32_t next_serial = 1;
     int families_seen = 0;
     int moves = 0;

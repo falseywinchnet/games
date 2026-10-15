@@ -4,6 +4,7 @@ set(TS_CORE_SOURCES
   "${GAME_MODULE_DIR}/src/save.cpp"
   "${GAME_MODULE_DIR}/src/stage.cpp"
   "${GAME_MODULE_DIR}/src/shapes.cpp"
+  "${GAME_MODULE_DIR}/src/wood_volume.cpp"
   "${GAME_MODULE_DIR}/src/minerals.cpp"
   "${GAME_MODULE_DIR}/src/room.cpp"
   "${GAME_MODULE_DIR}/src/stone_render.cpp"

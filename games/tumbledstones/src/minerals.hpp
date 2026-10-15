@@ -17,9 +17,10 @@ namespace ts {
 
 enum class Mineral {
     obsidian, walnut, ebony, petrified, bone, agate, amethyst, lapis, sodalite, malachite,
-    tigereye, quartz, smoky, rose, jade, labradorite, jasper, amber, blue_lace, onyx, chrysocolla
+    tigereye, quartz, smoky, rose, jade, labradorite, jasper, amber, blue_lace, onyx, chrysocolla,
+    candy, nacre, cone, seaglass
 };
-constexpr int mineral_count = 21;
+constexpr int mineral_count = 25;
 
 [[nodiscard]] const char* mineral_name(Mineral mineral);
 
@@ -43,10 +44,15 @@ struct Finish {
     double sheen = 0;                 // a colour that comes and goes with the angle
     Linear sheen_colour{};
     double flecks = 0;                // metallic specks
+    double scatter = .08;             // light scattered inside a clear one: a frosted glow
+    double shine = .045;              // the polish's reflection face on: low for chalky bone
+    bool rainbow = false;             // the sheen runs through the rainbow with the angle: nacre
 };
 
-// The mineral for stone `seed`: any mineral, weighted towards the dark polished ones.
+// The mineral for stone `seed`: any mineral, weighted so each kind of material turns up.
 [[nodiscard]] Finish draw_finish(std::uint32_t seed);
+// A mineral's share of the draw, in thousandths of the whole (the rules draw with it).
+[[nodiscard]] int mineral_weight(int mineral);
 // A given mineral, its measures drawn from `seed`.
 [[nodiscard]] Finish make_finish(Mineral mineral, std::uint32_t seed);
 

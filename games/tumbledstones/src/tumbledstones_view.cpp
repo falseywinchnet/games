@@ -104,7 +104,54 @@ TumbledStonesView::TumbledStonesView(gf::StableId id, Options options) : Control
     motion_.settle(session_.board);
 }
 
-TumbledStonesView::~TumbledStonesView() = default;
+TumbledStonesView::~TumbledStonesView() {
+    stop_studio();
+}
+
+void TumbledStonesView::run_studio(const gf::CancellationFlag&, void* context) {
+    TumbledStonesView& view = *static_cast<TumbledStonesView*>(context);
+    view.scene_.run_batch();
+    view.studio_done_.store(true);
+}
+
+void TumbledStonesView::stop_studio() noexcept {
+    if (studio_) {
+        (*studio_).join();
+        studio_.reset();
+        scene_.end_batch();
+    }
+}
+
+// Collects what the frame lacks and sets it making: a little at once, here (a stone set
+// down, a few new ones), anything more on the workshop's worker while play goes on.
+void TumbledStonesView::keep_studio_busy() {
+    if (studio_ && studio_done_.load()) {
+        (*studio_).join();
+        studio_.reset();
+        scene_.end_batch();
+        render_dirty_ = true;
+    }
+    scene_.want(frame());
+    if (studio_)
+        return;
+    const bool small = !scene_.shapes_waiting() && scene_.pictures_waiting() <= 6;
+    if (!scene_.begin_batch())
+        return;
+    if (small) {
+        scene_.run_batch();
+        scene_.end_batch();
+        render_dirty_ = true;
+        return;
+    }
+    studio_done_.store(false);
+    try {
+        studio_ = std::make_unique<gf::Worker>(run_studio, this);
+    } catch (...) {
+        scene_.run_batch();
+        scene_.end_batch();
+        render_dirty_ = true;
+    }
+}
 
 void TumbledStonesView::on_attached_to_window() {
     gf::Window& window = *attached_window();
@@ -125,6 +172,7 @@ void TumbledStonesView::on_detaching_from_window(gf::Window&) noexcept {
         (*timer_).stop();
     timer_.reset();
     subscriptions_.clear();
+    stop_studio();
     surface_.detach();
     surface_attached_ = false;
     audio_stop();
@@ -212,6 +260,8 @@ void TumbledStonesView::tick() {
     last_tick_ = now;
     const bool turning = !hand_.turns.empty();
     step_hand(seconds);
+    const bool settling = hover_ >= 0 && hover_time_ < 1.4 && !reduced_;
+    hover_time_ = std::min(10.0, hover_time_ + seconds);
     const bool was_moving = motion_.moving();
     const bool moving = motion_.advance(seconds);
     land_sounds_ = 0;
@@ -227,6 +277,7 @@ void TumbledStonesView::tick() {
             play("ts_settle", .5F, 1);
         }
     }
+    keep_studio_busy();
     if (was_moving && !moving) {
         scene_.forget_unused(session_);
         render_dirty_ = true;
@@ -237,10 +288,15 @@ void TumbledStonesView::tick() {
         }
     }
     audio_tick(seconds);
-    if (render_dirty_ || moving || was_moving || turning)
+    if (render_dirty_ || moving || was_moving || turning || settling)
         publish();
-    if (moving || render_dirty_ || !hand_.turns.empty() || !timer_)
+    if (moving || render_dirty_ || !hand_.turns.empty() || settling || !timer_)
         return;
+    if (studio_) {
+        // The workshop is still making pictures: look in again shortly.
+        (*timer_).set_interval(std::chrono::milliseconds(30));
+        return;
+    }
     if (audio_needs_tick())
         (*timer_).set_interval(std::chrono::milliseconds(50));
     else
@@ -252,6 +308,12 @@ Frame TumbledStonesView::frame() const {
     f.session = &session_;
     f.motion = &motion_;
     f.hover = panel_ == Panel::none && !busy() ? hover_ : -1;
+    f.hover_x = pointer_x_;
+    f.hover_y = pointer_y_;
+    // The stone under the pointer lifts a touch and rocks, the rocking dying away.
+    const double t = reduced_ ? 10.0 : hover_time_;
+    f.hover_lift = smoothstep(t / .22);
+    f.hover_spin = reduced_ ? 0.0 : .04 * std::exp(-t / .3) * std::sin(t * 18);
     f.cursor = keyboard_ && panel_ == Panel::none ? cursor_ : -1;
     if (hand_.serial != 0) {
         f.held = hand_.serial;
@@ -291,6 +353,7 @@ void TumbledStonesView::publish() {
     if (!laid_out_) {
         scene_.resize(layout_, scale_, surface_.order());
         laid_out_ = true;
+        keep_studio_busy();
     }
     const std::optional<render::Surface::Frame> drawn = surface_.begin(render::Rect{0, 0, device_width_, device_height_});
     if (!drawn) {
@@ -599,8 +662,14 @@ void TumbledStonesView::on_pointer(gf::PointerEvent& event) {
     const int under = pick_cell(layout_, x, y);
     if (event.action == gf::PointerAction::move || event.action == gf::PointerAction::leave) {
         const int hover = event.action == gf::PointerAction::leave ? -1 : under;
+        const bool moved = std::abs(x - pointer_x_) + std::abs(y - pointer_y_) > .5;
+        pointer_x_ = x;
+        pointer_y_ = y;
+        if (hover >= 0 && moved)
+            render_dirty_ = true;  // the glint follows the pointer
         if (hover != hover_) {
             hover_ = hover;
+            hover_time_ = 0;
             keyboard_ = false;
             set_cursor(hover >= 0 ? gf::CursorKind::hand : gf::CursorKind::arrow);
             render_dirty_ = true;

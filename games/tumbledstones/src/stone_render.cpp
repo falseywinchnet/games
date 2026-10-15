@@ -160,14 +160,18 @@ void crop(StonePicture& picture) {
     const int h = y1 - y0 + 1;
     std::vector<std::uint32_t> keep(static_cast<std::size_t>(w * h));
     std::vector<std::uint32_t> add(static_cast<std::size_t>(w * h));
+    std::vector<std::uint32_t> shine(picture.shine.empty() ? 0 : static_cast<std::size_t>(w * h));
     for (int y = 0; y < h; ++y)
         for (int x = 0; x < w; ++x) {
             const std::size_t from = static_cast<std::size_t>((y + y0) * picture.width + x + x0);
             keep[static_cast<std::size_t>(y * w + x)] = picture.keep[from];
             add[static_cast<std::size_t>(y * w + x)] = picture.add[from];
+            if (!shine.empty())
+                shine[static_cast<std::size_t>(y * w + x)] = picture.shine[from];
         }
     picture.keep.swap(keep);
     picture.add.swap(add);
+    picture.shine.swap(shine);
     picture.width = w;
     picture.height = h;
     picture.origin_x -= x0;
@@ -370,6 +374,8 @@ void draw_stone(const StoneLook& look, const Pose& pose, const DrawStone& how, S
 
     work.keep.assign(samples * 3, 1.0F);
     work.add.assign(samples * 3, 0.0F);
+    if (how.shine)
+        work.shine.assign(samples * 3, 0.0F);
     for (int y = 0; y < side; ++y) {
         for (int x = 0; x < side; ++x) {
             const std::size_t at = static_cast<std::size_t>(y * side + x);
@@ -388,6 +394,14 @@ void draw_stone(const StoneLook& look, const Pose& pose, const DrawStone& how, S
                 work.keep[at * 3] = static_cast<float>(1 - stopped * (1 - through_r));
                 work.keep[at * 3 + 1] = static_cast<float>(1 - stopped * (1 - through_g));
                 work.keep[at * 3 + 2] = static_cast<float>(1 - stopped * (1 - through_b));
+                // A clear stone gathers the light passing through it onto the wood: its
+                // shade glows in its own colour.
+                if (finish.clarity > .3) {
+                    const double gathered = stopped * stopped * stopped * (finish.clarity - .3) * .9 * expose;
+                    work.add[at * 3] = static_cast<float>(gathered * through_r * up.r);
+                    work.add[at * 3 + 1] = static_cast<float>(gathered * through_g * up.g);
+                    work.add[at * 3 + 2] = static_cast<float>(gathered * through_b * up.b);
+                }
                 continue;
             }
             // Where on the triangle: its corners' weights at this sample's centre.
@@ -452,7 +466,7 @@ void draw_stone(const StoneLook& look, const Pose& pose, const DrawStone& how, S
             const double clarity = std::clamp(static_cast<double>(tex.clarity), 0.0, 1.0);
             const bool metal = tex.fleck > .5F;
             const double rough = metal ? .12 : std::clamp(base_rough + .04 * (1 - nv), 0.0, 1.0);
-            const double f0 = .045;
+            const double f0 = finish.shine;
             const double f = fresnel(nv, f0);
             // The room mirrored, the reflection's direction about the normal.
             const double rx = 2 * nv * nx;
@@ -497,12 +511,25 @@ void draw_stone(const StoneLook& look, const Pose& pose, const DrawStone& how, S
             double out_g = spec_g + body * tex.g * light_g;
             double out_b = spec_b + body * tex.b * light_b;
             // A clear stone glows a little with the light scattered inside it.
-            const double glow = (1 - f) * clarity * .08;
+            const double glow = (1 - f) * clarity * finish.scatter;
             out_r += glow * tex.r * light_r;
             out_g += glow * tex.g * light_g;
             out_b += glow * tex.b * light_b;
             // A sheen that comes and goes with the angle.
-            if (finish.sheen > 0 && tex.sheen > 0) {
+            if (finish.rainbow && tex.sheen > 0) {
+                // Nacre: thin layers send back a colour that runs through the rainbow as the
+                // surface turns.
+                const double hue = 6 * (.35 + .9 * nz + .5 * nx - .35 * ny + .4 * tex.sheen);
+                const double h = hue - 6 * std::floor(hue / 6);
+                const double r = std::clamp(std::abs(h - 3) - 1, 0.0, 1.0);
+                const double g = std::clamp(2 - std::abs(h - 2), 0.0, 1.0);
+                const double b = std::clamp(2 - std::abs(h - 4), 0.0, 1.0);
+                const double lit = (light_r + light_g + light_b) / 3;
+                const double flash = finish.sheen * tex.sheen * .22 * lit * (.5 + .5 * room_seen);
+                out_r += flash * r;
+                out_g += flash * g;
+                out_b += flash * b;
+            } else if (finish.sheen > 0 && tex.sheen > 0) {
                 const double toward = std::max(0.0, (nx * sheen_x + ny * sheen_y + nz * sheen_z) / sheen_length);
                 const double flash = finish.sheen * tex.sheen * std::pow(toward, 6) * (.5 + .5 * room_seen);
                 const double lit = (light_r + light_g + light_b) / 3;
@@ -517,6 +544,11 @@ void draw_stone(const StoneLook& look, const Pose& pose, const DrawStone& how, S
             work.add[at * 3] = static_cast<float>(out_r * expose);
             work.add[at * 3 + 1] = static_cast<float>(out_g * expose);
             work.add[at * 3 + 2] = static_cast<float>(out_b * expose);
+            if (how.shine) {
+                work.shine[at * 3] = static_cast<float>(nx);
+                work.shine[at * 3 + 1] = static_cast<float>(ny);
+                work.shine[at * 3 + 2] = static_cast<float>(metal ? 1.0 : std::clamp(1 - rough * 1.7, 0.0, 1.0));
+            }
         }
     }
 
@@ -524,6 +556,10 @@ void draw_stone(const StoneLook& look, const Pose& pose, const DrawStone& how, S
     const std::size_t pixels = static_cast<std::size_t>(size) * static_cast<std::size_t>(size);
     out.keep.assign(pixels, 0xffffffU);
     out.add.assign(pixels, 0U);
+    if (how.shine)
+        out.shine.assign(pixels, 0U);
+    else
+        out.shine.clear();
     const float share = 1.0F / static_cast<float>(fine * fine);
     for (int y = 0; y < size; ++y) {
         for (int x = 0; x < size; ++x) {
@@ -554,6 +590,25 @@ void draw_stone(const StoneLook& look, const Pose& pose, const DrawStone& how, S
             const std::size_t at = static_cast<std::size_t>(y * size + x);
             out.keep[at] = k;
             out.add[at] = a | (coverage << 24);
+            if (how.shine && covered > 0) {
+                float sx = 0;
+                float sy = 0;
+                float polish = 0;
+                for (int sy2 = 0; sy2 < fine; ++sy2)
+                    for (int sx2 = 0; sx2 < fine; ++sx2) {
+                        const std::size_t f = static_cast<std::size_t>((y * fine + sy2) * side + x * fine + sx2);
+                        if (work.height[f] < 0)
+                            continue;
+                        sx += work.shine[f * 3];
+                        sy += work.shine[f * 3 + 1];
+                        polish += work.shine[f * 3 + 2];
+                    }
+                const float n = static_cast<float>(covered);
+                const std::uint32_t qx = static_cast<std::uint32_t>(std::lround(std::clamp(128 + 127 * sx / n, 0.0F, 255.0F)));
+                const std::uint32_t qy = static_cast<std::uint32_t>(std::lround(std::clamp(128 + 127 * sy / n, 0.0F, 255.0F)));
+                const std::uint32_t qp = static_cast<std::uint32_t>(std::lround(std::clamp(255 * polish / n, 0.0F, 255.0F)));
+                out.shine[at] = qx | (qy << 8) | (qp << 16) | (coverage << 24);
+            }
         }
     }
     crop(out);
@@ -621,6 +676,57 @@ void lay_stone_moved(const StonePicture& picture, std::uint32_t* pixels, int wid
             const std::uint32_t r = std::min(255U, (dr * (keep & 0xffU) + 127) / 255 + (add & 0xffU));
             const std::uint32_t g = std::min(255U, (dg * ((keep >> 8) & 0xffU) + 127) / 255 + ((add >> 8) & 0xffU));
             const std::uint32_t b = std::min(255U, (db * ((keep >> 16) & 0xffU) + 127) / 255 + ((add >> 16) & 0xffU));
+            row[px] = (r << red_shift) | (g << 8) | (b << blue_shift) | 0xff000000U;
+        }
+    }
+}
+
+void lay_glint(const StonePicture& picture, std::uint32_t* pixels, int width, int height, int stride, double x,
+               double y, double light_x, double light_y, double light_height, double strength, bool bgra) {
+    if (picture.shine.empty() || strength <= 0)
+        return;
+    const int left = static_cast<int>(std::lround(x - picture.origin_x));
+    const int top = static_cast<int>(std::lround(y - picture.origin_y));
+    const int x0 = std::max(left, 0);
+    const int y0 = std::max(top, 0);
+    const int x1 = std::min(left + picture.width, width);
+    const int y1 = std::min(top + picture.height, height);
+    const int red_shift = bgra ? 16 : 0;
+    const int blue_shift = bgra ? 0 : 16;
+    for (int py = y0; py < y1; ++py) {
+        std::uint32_t* row = pixels + static_cast<std::ptrdiff_t>(py) * stride;
+        const std::size_t source_row = static_cast<std::size_t>((py - top) * picture.width);
+        for (int px = x0; px < x1; ++px) {
+            const std::uint32_t s = picture.shine[source_row + static_cast<std::size_t>(px - left)];
+            const std::uint32_t covered = s >> 24;
+            const std::uint32_t polish = (s >> 16) & 0xffU;
+            if (covered == 0 || polish == 0)
+                continue;
+            const double nx = (static_cast<double>(s & 0xffU) - 128) / 127;
+            const double ny = (static_cast<double>((s >> 8) & 0xffU) - 128) / 127;
+            const double nz = std::sqrt(std::max(0.0, 1 - nx * nx - ny * ny));
+            // The light above the pointer, the eye straight above: the half way between.
+            double lx = light_x - (px + .5);
+            double ly = -(light_y - (py + .5));
+            double lz = light_height;
+            const double ll = std::sqrt(lx * lx + ly * ly + lz * lz);
+            lx /= ll;
+            ly /= ll;
+            lz /= ll;
+            const double hz = lz + 1;
+            const double hl = std::sqrt(lx * lx + ly * ly + hz * hz);
+            const double nh = std::max(0.0, (nx * lx + ny * ly + nz * hz) / hl);
+            const double p = polish / 255.0;
+            // A crisp highlight with a softer bloom round it.
+            const double sharp = 25 + 160 * p * p;
+            const double glint = strength * p * (std::pow(nh, sharp) + .3 * std::pow(nh, sharp * .15)) * (covered / 255.0) * 1.5;
+            if (glint < .004)
+                continue;
+            const std::uint32_t lift = static_cast<std::uint32_t>(std::lround(std::min(1.0, glint) * 255));
+            const std::uint32_t d = row[px];
+            const std::uint32_t r = std::min(255U, ((d >> red_shift) & 0xffU) + lift);
+            const std::uint32_t g = std::min(255U, ((d >> 8) & 0xffU) + lift * 247 / 255);
+            const std::uint32_t b = std::min(255U, ((d >> blue_shift) & 0xffU) + lift * 228 / 255);
             row[px] = (r << red_shift) | (g << 8) | (b << blue_shift) | 0xff000000U;
         }
     }

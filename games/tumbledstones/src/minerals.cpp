@@ -114,14 +114,25 @@ struct Weighted {
     Mineral mineral;
     double weight;
 };
-// Dark polished minerals most often; bone white, the clear ones and the bright ones less.
+// Each kind of material about as likely as any other, so the tray holds them all: dark
+// polished stone, woods, bone, candy, shell, glass, and the pretty gems.
 constexpr Weighted mineral_weights[] = {
-    {Mineral::obsidian, 1.3}, {Mineral::walnut, 1.1}, {Mineral::ebony, .8},     {Mineral::petrified, 1.2},
-    {Mineral::bone, .8},      {Mineral::agate, 1.3},  {Mineral::amethyst, 1.0}, {Mineral::lapis, 1.0},
-    {Mineral::sodalite, .7},  {Mineral::malachite, .8}, {Mineral::tigereye, 1.0}, {Mineral::quartz, .7},
-    {Mineral::smoky, .8},     {Mineral::rose, .5},    {Mineral::jade, .7},      {Mineral::labradorite, 1.0},
-    {Mineral::jasper, .7},    {Mineral::amber, .7},   {Mineral::blue_lace, .6}, {Mineral::onyx, .6},
-    {Mineral::chrysocolla, .6},
+    // dark polished stone
+    {Mineral::obsidian, 1.1}, {Mineral::onyx, .5}, {Mineral::labradorite, .6},
+    // woods
+    {Mineral::walnut, .6}, {Mineral::ebony, .4}, {Mineral::petrified, 1.4},
+    // bone
+    {Mineral::bone, 1.6},
+    // pulled candy
+    {Mineral::candy, 1.8},
+    // shell
+    {Mineral::nacre, 1.0}, {Mineral::cone, .9},
+    // glass and the clear stones
+    {Mineral::seaglass, 1.0}, {Mineral::quartz, .4}, {Mineral::smoky, .3}, {Mineral::amber, .4},
+    // the pretty gems, blues and purples first
+    {Mineral::amethyst, .5}, {Mineral::lapis, .5}, {Mineral::sodalite, .3}, {Mineral::blue_lace, .3},
+    {Mineral::chrysocolla, .2}, {Mineral::rose, .2}, {Mineral::jade, .2}, {Mineral::malachite, .2},
+    {Mineral::tigereye, .3}, {Mineral::agate, .4}, {Mineral::jasper, .2},
 };
 
 }  // namespace
@@ -182,8 +193,27 @@ const char* mineral_name(Mineral mineral) {
         return "onyx";
     case Mineral::chrysocolla:
         return "chrysocolla";
+    case Mineral::candy:
+        return "pulled candy";
+    case Mineral::nacre:
+        return "mother of pearl";
+    case Mineral::cone:
+        return "cone shell";
+    case Mineral::seaglass:
+        return "sea glass";
     }
     return "stone";
+}
+
+int mineral_weight(int mineral) {
+    double total = 0;
+    double mine = 0;
+    for (const Weighted& w : mineral_weights) {
+        total += w.weight;
+        if (static_cast<int>(w.mineral) == mineral)
+            mine += w.weight;
+    }
+    return static_cast<int>(std::lround(mine / total * 1000));
 }
 
 Finish draw_finish(std::uint32_t seed) {
@@ -243,16 +273,28 @@ Finish make_finish(Mineral mineral, std::uint32_t seed) {
         f.warp = next_between(random, .2, .5);
         f.roughness = .08;
         break;
-    case Mineral::petrified:
-        p = {varied(hex(0x6b4a32), random, .15), varied(hex(0xa8743c), random, .15), varied(hex(0x5e5a55), random, .12),
-             varied(hex(0x7a3424), random, .15), hex(0x2a1d16)};
-        f.axis[2] *= .3;
-        f.frequency = next_between(random, 6, 12);
-        f.warp = next_between(random, .3, .7);
-        f.roughness = .07;
-        f.clarity = .05;
+    case Mineral::petrified: {
+        // Fossil wood, after tumble-polished pieces: a ground colour, the grain's fibres in
+        // a second, patches of a third, and the darkest for the hairline cracks.
+        //   0 cream and tan (Wyoming), 1 black with cream (Japan), 2 red jasperized with
+        //   yellow (Arizona), 3 grey-brown with white.
+        f.variant = next_below(random, 4);
+        if (f.variant == 0)
+            p = {varied(hex(0xd8c4a2), random, .06), hex(0x5a3a22), hex(0xb07a3a), hex(0xeee2cc), hex(0x241610)};
+        else if (f.variant == 1)
+            p = {varied(hex(0x1c1814), random, .1), hex(0xd8c8a8), hex(0x8a7a62), hex(0x3a3028), hex(0x0a0807)};
+        else if (f.variant == 2)
+            p = {varied(hex(0x9a3a20), random, .08), hex(0xe2a64a), hex(0x5a1c10), hex(0xc86a30), hex(0x2a0e08)};
+        else
+            p = {varied(hex(0x8a7c6a), random, .06), hex(0x3a2c22), hex(0xe6ddcc), hex(0xb0a28a), hex(0x1c1612)};
+        f.axis[2] *= .2;
+        f.frequency = next_between(random, 5, 9);
+        f.warp = next_between(random, .2, .45);
+        f.roughness = .06;
+        f.clarity = .04;
         f.absorb = {3, 4, 5};
         break;
+    }
     case Mineral::bone:
         p = {varied(hex(0xe8dec8), random, .06), varied(hex(0xcbbb9c), random, .06), hex(0x9c8a6c), hex(0xf2ead8),
              hex(0xb8a888)};
@@ -403,7 +445,74 @@ Finish make_finish(Mineral mineral, std::uint32_t seed) {
         f.warp = .7;
         f.roughness = .1;
         break;
+    case Mineral::candy: {
+        // Boiled sugar: clear and coloured, with opaque stripes pulled through it.
+        const std::uint32_t colours[6] = {0xc81830, 0x3aa020, 0x6a1a9a, 0x1a5ad0, 0xe86a10, 0xe0508a};
+        const std::uint32_t stripes[6] = {0xf4f0ea, 0xf4f0ea, 0xf2d040, 0xf4f0ea, 0xf4f0ea, 0x40b0e0};
+        f.variant = next_below(random, 6);
+        const Linear sugar = hex(colours[f.variant]);
+        p = {sugar, hex(stripes[f.variant]), hex(colours[(f.variant + 3) % 6]), hex(0xfaf6f0), sugar};
+        f.frequency = next_between(random, 3.5, 6);
+        f.warp = next_between(random, .3, .8);
+        f.roughness = .015;
+        f.clarity = .74;
+        f.scatter = .55;
+        f.absorb = {static_cast<float>(-std::log(std::max(.04, static_cast<double>(sugar.r))) * 1.6),
+                    static_cast<float>(-std::log(std::max(.04, static_cast<double>(sugar.g))) * 1.6),
+                    static_cast<float>(-std::log(std::max(.04, static_cast<double>(sugar.b))) * 1.6)};
+        break;
     }
+    case Mineral::nacre:
+        // Mother of pearl: silvery white, its growth lines faint, a rainbow in the polish.
+        p = {varied(hex(0xe8e2dc), random, .05), hex(0xd8d0d4), hex(0xf6f2ee), hex(0xc8c0c8), hex(0xb8b0b8)};
+        f.frequency = next_between(random, 14, 24);
+        f.warp = next_between(random, .2, .5);
+        f.roughness = .06;
+        f.clarity = .12;
+        f.absorb = {1.5, 1.5, 1.5};
+        f.sheen = 1.0;
+        f.rainbow = true;
+        break;
+    case Mineral::cone: {
+        // A cone shell's porcelain: cream, with brown tents and zigzags, a satin glaze.
+        const std::uint32_t marks[3] = {0x6a3416, 0x3a2418, 0x9a4a1c};
+        p = {varied(hex(0xf0e2c8), random, .06), hex(marks[next_below(random, 3)]), hex(0xe8c89a), hex(0xfaf2e2),
+             hex(0xc89a6a)};
+        f.frequency = next_between(random, 5, 9);
+        f.warp = next_between(random, .3, .6);
+        f.roughness = .2;
+        break;
+    }
+    case Mineral::seaglass: {
+        // Tumbled glass, frosted all over: the light goes in and glows.
+        const std::uint32_t tints[5] = {0x8ed2c4, 0x6aa878, 0x3a5aaa, 0xb88a3a, 0xe4eae6};
+        const Linear tint = varied(hex(tints[next_below(random, 5)]), random, .05);
+        p = {tint, tint, hex(0xffffff), tint, tint};
+        f.frequency = 3;
+        f.warp = .4;
+        f.roughness = .5;
+        f.clarity = .68;
+        f.scatter = .32;
+        f.absorb = {static_cast<float>(-std::log(std::max(.05, static_cast<double>(tint.r))) * 1.2),
+                    static_cast<float>(-std::log(std::max(.05, static_cast<double>(tint.g))) * 1.2),
+                    static_cast<float>(-std::log(std::max(.05, static_cast<double>(tint.b))) * 1.2)};
+        break;
+    }
+    }
+    // Finishes the minerals' own surfaces have: oiled wood is satin, bone chalky.
+    if (mineral == Mineral::walnut)
+        f.roughness = .3;
+    if (mineral == Mineral::ebony)
+        f.roughness = .24;
+    if (mineral == Mineral::bone) {
+        f.roughness = .62;
+        f.shine = .022;
+        f.scatter = .3;
+    }
+    if (mineral == Mineral::jade)
+        f.scatter = .3;
+    if (mineral == Mineral::amber || mineral == Mineral::rose)
+        f.scatter = .35;
     return f;
 }
 
@@ -440,21 +549,25 @@ MineralSample sample_mineral(const Finish& f, double x, double y, double z) {
         break;
     }
     case Mineral::petrified: {
-        const double ring = from_axis(f, x, y, z) * f.frequency * .6 + f.warp * fbm3(x * 2, y * 2, z * 2, seed, 3);
-        const double r = fraction(ring);
-        const double mottle = fbm3(along(f, x, y, z) * .8, from_axis(f, x, y, z) * 4, 0, seed + 13, 4);
-        const Linear wood = mix(f.palette[0], f.palette[1], smoothstep(-.3, .4, mottle));
-        const Linear stone = mix(wood, mottle > .25 ? f.palette[3] : f.palette[2], smoothstep(.1, .6, std::abs(mottle)) * .6);
-        s.albedo = mix(stone, f.palette[4], smoothstep(.8, .95, r) * .3);
-        const double crack = std::abs(fbm3(x * 3, y * 3, z * 3, seed + 21, 3));
-        s.albedo = mix(s.albedo, f.palette[4], (1 - smoothstep(.0, .035, crack)) * .8);
-        // Streaks along the grain, some dark like the hairline cracks in real fossil wood.
+        const double a = along(f, x, y, z);
         const double across = from_axis(f, x, y, z);
-        const double fibre = noise3(along(f, x, y, z) * 1.5, across * 70, 0, seed + 9);
-        const double streak = noise3(along(f, x, y, z) * .7, across * 26, 0, seed + 19);
-        s.albedo = scaled(s.albedo, 1 + .14 * fibre);
-        s.albedo = mix(s.albedo, f.palette[4], smoothstep(.55, .8, streak) * .7);
-        s.albedo = mix(s.albedo, f.palette[1], smoothstep(.45, .75, -streak) * .35);
+        // The grain: long fine fibres, wavering a little, some gathered into darker streaks.
+        const double waver = .05 * fbm3(a * 1.2, across * 3, 0, seed + 3, 2);
+        const double fibre = noise3(a * 1.1, (across + waver) * 85, 0, seed + 9);
+        const double streak = noise3(a * .55, (across + waver) * 22, 0, seed + 19);
+        const double grain = smoothstep(.25, .6, fibre) * .5 + smoothstep(.35, .7, streak);
+        s.albedo = mix(f.palette[0], f.palette[1], std::min(1.0, grain) * .85);
+        // Patches where other minerals came in, and the growth rings, faint.
+        const double patch = fbm3(a * .9, across * 3.5, z * 2, seed + 13, 4);
+        s.albedo = mix(s.albedo, f.palette[2], smoothstep(.15, .45, patch) * .75);
+        s.albedo = mix(s.albedo, f.palette[3], smoothstep(.2, .5, -patch) * .5);
+        const double ring = fraction(across * f.frequency + f.warp * fbm3(x * 2, y * 2, z * 2, seed, 3));
+        s.albedo = mix(s.albedo, f.palette[1], smoothstep(.9, .97, ring) * .3);
+        // Hairline cracks: along the grain, and now and then across it.
+        const double along_crack = std::abs(noise3(a * .4, (across + waver) * 9, 0, seed + 31));
+        const double across_crack = std::abs(noise3(a * 7 + 2.0 * fbm3(x * 2, y * 2, z * 2, seed + 33, 2), across * 2, 0, seed + 35));
+        s.albedo = mix(s.albedo, f.palette[4], (1 - smoothstep(.0, .02, along_crack)) * .9);
+        s.albedo = mix(s.albedo, f.palette[4], (1 - smoothstep(.0, .012, across_crack)) * smoothstep(.2, .5, patch + .3) * .8);
         break;
     }
     case Mineral::bone: {
@@ -569,6 +682,48 @@ MineralSample sample_mineral(const Finish& f, double x, double y, double z) {
         s.clarity = static_cast<float>(f.clarity * (1.3 - light));
         break;
     }
+    case Mineral::candy: {
+        // Stripes pulled along the sugar and twisted: opaque white, a second colour, and
+        // clear sugar between.
+        const double a = along(f, x, y, z);
+        const double twist = from_axis(f, x, y, z) * 2.2 + f.warp * fbm3(x * 1.3, y * 1.3, z * 1.3, seed, 3);
+        const double t = fraction((a * f.frequency + twist) * .5);
+        s.albedo = f.palette[0];
+        s.clarity = static_cast<float>(f.clarity);
+        if (t < .16) {
+            s.albedo = f.palette[1];
+            s.clarity = .05F;
+        } else if (t > .5 && t < .58) {
+            s.albedo = f.palette[2];
+            s.clarity = .25F;
+        }
+        break;
+    }
+    case Mineral::nacre: {
+        const double t = along(f, x, y, z) * f.frequency + f.warp * fbm3(x * 2, y * 2, z * 2, seed, 3);
+        const double line = .5 + .5 * std::sin(t * 2 * pi);
+        s.albedo = mix(f.palette[0], f.palette[1], line * .5);
+        s.albedo = mix(s.albedo, f.palette[2], std::max(0.0, fbm3(x * 3, y * 3, z * 3, seed + 2, 3)) * .5);
+        s.sheen = static_cast<float>(.6 + .4 * fbm3(x * 4, y * 4, z * 4, seed + 5, 3));
+        break;
+    }
+    case Mineral::cone: {
+        // Tents: little triangles of cream in brown nets, and zigzag lines.
+        const double a = along(f, x, y, z) * f.frequency;
+        const double across = from_axis(f, x, y, z) * f.frequency * 1.4;
+        const double zig = std::abs(fraction(across + .35 * std::abs(fraction(a * 2) - .5)) - .5);
+        const double blotch = fbm3(x * 3, y * 3, z * 3, seed, 4);
+        s.albedo = f.palette[0];
+        s.albedo = mix(s.albedo, f.palette[1], smoothstep(.36, .44, zig) * smoothstep(-.1, .2, blotch));
+        s.albedo = mix(s.albedo, f.palette[2], std::max(0.0, -blotch) * .6);
+        break;
+    }
+    case Mineral::seaglass: {
+        const double frost = fbm3(x * 5, y * 5, z * 5, seed, 3);
+        s.albedo = mix(f.palette[0], f.palette[2], .25 + .15 * frost);
+        s.clarity = static_cast<float>(f.clarity * (.85 + .15 * frost));
+        break;
+    }
     case Mineral::onyx: {
         const double t = along(f, x, y, z) * f.frequency + f.warp * fbm3(x, y, z, seed, 3);
         const double r = fraction(t * .5);
@@ -586,10 +741,19 @@ void print_mineral(const Finish& given, const Shape& shape, int side, MineralPic
     Finish finish = given;
     if (finish.mineral == Mineral::walnut || finish.mineral == Mineral::ebony || finish.mineral == Mineral::petrified ||
         finish.mineral == Mineral::tigereye) {
-        const double turn = shape.measures().turn + .15 * finish.axis[2];
-        finish.axis[0] = std::cos(turn);
-        finish.axis[1] = std::sin(turn);
-        finish.axis[2] = .08 * finish.axis[2];
+        double grain[3] = {1, 0, 0};
+        shape.grain_axis(grain);
+        const double lean = .08 * finish.axis[2];
+        finish.axis[0] = grain[0] + lean * grain[2];
+        finish.axis[1] = grain[1] + lean;
+        finish.axis[2] = grain[2] + lean;
+        const double length = std::sqrt(finish.axis[0] * finish.axis[0] + finish.axis[1] * finish.axis[1] + finish.axis[2] * finish.axis[2]);
+        for (double& v : finish.axis)
+            v /= length;
+        // Wood's rings centre on its pith.
+        finish.centre[2] = 0;
+        if (shape.style() == Style::wood)
+            shape.grain_centre(finish.centre);
     }
     out.side = side;
     const std::size_t per_face = static_cast<std::size_t>(side * side);

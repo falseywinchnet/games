@@ -1,5 +1,6 @@
 #include "rules.hpp"
 
+#include "minerals.hpp"
 #include "noise.hpp"
 
 #include <algorithm>
@@ -136,6 +137,51 @@ void settle_families(Board& board) {
         static_cast<void>(introduce(board));
 }
 
+// A new material in a slot: a kind drawn by the minerals' shares, avoiding the kinds already
+// in play when it can, and a short run.
+void bring_material(Board& board, int slot) {
+    int total = 0;
+    for (int k = 0; k < mineral_count; ++k)
+        total += mineral_weight(k);
+    int kind = 0;
+    for (int attempt = 0; attempt < 6; ++attempt) {
+        int pick = next_below(board.random, std::max(1, total));
+        kind = 0;
+        for (int k = 0; k < mineral_count; ++k) {
+            pick -= mineral_weight(k);
+            if (pick < 0) {
+                kind = k;
+                break;
+            }
+        }
+        bool taken = false;
+        for (int s = 0; s < material_slots; ++s)
+            taken = taken || (s != slot && board.materials[static_cast<std::size_t>(s)].used &&
+                              board.materials[static_cast<std::size_t>(s)].kind == kind);
+        if (!taken)
+            break;
+    }
+    Material material;
+    material.used = true;
+    material.kind = kind;
+    material.seed = static_cast<std::uint32_t>(next_random(board.random) >> 32) | 1U;
+    material.supply = 6 + next_below(board.random, 13);
+    board.materials[static_cast<std::size_t>(slot)] = material;
+}
+
+// A material for a new stone: any in play, by lot; one that runs out is replaced.
+void draw_material(Board& board, Stone& stone) {
+    for (int s = 0; s < material_slots; ++s)
+        if (!board.materials[static_cast<std::size_t>(s)].used)
+            bring_material(board, s);
+    const int slot = next_below(board.random, material_slots);
+    Material& material = board.materials[static_cast<std::size_t>(slot)];
+    stone.material = material.kind;
+    stone.material_seed = material.seed;
+    if (--material.supply <= 0)
+        bring_material(board, slot);
+}
+
 // A new stone of a family in the tray that still has stones to come, the families weighed
 // by how many they have left. False when none has.
 bool draw_stone(Board& board, Stone& out) {
@@ -163,6 +209,7 @@ bool draw_stone(Board& board, Stone& out) {
     out.family = slot;
     out.orientation = next_below(board.random, 8);
     out.mineral = static_cast<std::uint32_t>(next_random(board.random) >> 32);
+    draw_material(board, out);
     out.serial = board.next_serial++;
     out.swapped = false;
     settle_families(board);
@@ -581,12 +628,17 @@ std::string encode_session(const Session& session) {
         out << "family=" << s << "," << f.seed << "," << f.style << "," << f.parent << "," << f.likeness << ","
             << f.supply << "," << (f.waiting ? 1 : 0) << "," << f.number << "\n";
     }
+    for (int s = 0; s < material_slots; ++s) {
+        const Material& m = b.materials[static_cast<std::size_t>(s)];
+        if (m.used)
+            out << "material=" << s << "," << m.kind << "," << m.seed << "," << m.supply << "\n";
+    }
     for (int c = 0; c < cell_count; ++c) {
         const Stone& stone = b.cells[static_cast<std::size_t>(c)];
         if (stone.family < 0)
             continue;
         out << "stone=" << c << "," << stone.family << "," << stone.orientation << "," << stone.mineral << ","
-            << stone.serial << "," << (stone.swapped ? 1 : 0) << "\n";
+            << stone.serial << "," << (stone.swapped ? 1 : 0) << "," << stone.material << "," << stone.material_seed << "\n";
     }
     return out.str();
 }
@@ -611,7 +663,7 @@ bool decode_session(const std::string& text, Session& destination) {
         const std::string value = line.substr(equals + 1);
         long long n = 0;
         std::uint64_t u = 0;
-        if (key != "best" && key != "family" && key != "stone") {
+        if (key != "best" && key != "family" && key != "stone" && key != "material") {
             if (!singles.insert(key).second)
                 return false;
         }
@@ -690,14 +742,31 @@ bool decode_session(const std::string& text, Session& destination) {
             f.supply = static_cast<int>(v[5]);
             f.waiting = v[6] == 1;
             f.number = static_cast<int>(v[7]);
+        } else if (key == "material") {
+            const std::vector<std::string> p = split(value, ',');
+            long long v[4] = {};
+            const long long low[4] = {0, 0, 1, 1};
+            const long long high[4] = {material_slots - 1, mineral_count - 1, 4294967295LL, 1000};
+            if (p.size() != 4)
+                return false;
+            for (int i = 0; i < 4; ++i)
+                if (!read_number(p[static_cast<std::size_t>(i)], low[i], high[i], v[i]))
+                    return false;
+            Material& m = b.materials[static_cast<std::size_t>(v[0])];
+            if (m.used)
+                return false;
+            m.used = true;
+            m.kind = static_cast<int>(v[1]);
+            m.seed = static_cast<std::uint32_t>(v[2]);
+            m.supply = static_cast<int>(v[3]);
         } else if (key == "stone") {
             const std::vector<std::string> p = split(value, ',');
-            long long v[6] = {};
-            const long long low[6] = {0, 0, 0, 0, 1, 0};
-            const long long high[6] = {cell_count - 1, family_slots - 1, 7, 4294967295LL, 4000000000LL, 1};
-            if (p.size() != 6)
+            long long v[8] = {};
+            const long long low[8] = {0, 0, 0, 0, 1, 0, 0, 0};
+            const long long high[8] = {cell_count - 1, family_slots - 1, 7, 4294967295LL, 4000000000LL, 1, mineral_count - 1, 4294967295LL};
+            if (p.size() != 8)
                 return false;
-            for (int i = 0; i < 6; ++i)
+            for (int i = 0; i < 8; ++i)
                 if (!read_number(p[static_cast<std::size_t>(i)], low[i], high[i], v[i]))
                     return false;
             if (!stone_cells.insert(static_cast<int>(v[0])).second || !serials.insert(static_cast<std::uint32_t>(v[4])).second)
@@ -708,6 +777,8 @@ bool decode_session(const std::string& text, Session& destination) {
             stone.mineral = static_cast<std::uint32_t>(v[3]);
             stone.serial = static_cast<std::uint32_t>(v[4]);
             stone.swapped = v[5] == 1;
+            stone.material = static_cast<int>(v[6]);
+            stone.material_seed = static_cast<std::uint32_t>(v[7]);
         } else {
             return false;
         }

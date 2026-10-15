@@ -36,6 +36,9 @@ struct StonePicture {
     double origin_x = 0, origin_y = 0;  // where the stone's centre lies in the picture
     std::vector<std::uint32_t> keep;    // r | g << 8 | b << 16, 255 keeps all
     std::vector<std::uint32_t> add;     // r | g << 8 | b << 16 | coverage << 24
+    // When asked for: the surface as seen, for a glint drawn later: the normal's x and y
+    // (128 + 127 n), its polish (0..255) and how far it is clear (0..255); empty otherwise.
+    std::vector<std::uint32_t> shine;
 };
 
 // Scratch for drawing, kept by whoever draws so storage is reused from stone to stone;
@@ -50,6 +53,7 @@ struct StoneWork {
     std::vector<float> sun;                   // coarse: the sun reaching each point
     std::vector<float> keep;                  // fine samples: 3 a sample
     std::vector<float> add;
+    std::vector<float> shine;                 // fine samples: normal x, y, polish
 };
 
 struct StoneLook {
@@ -63,11 +67,17 @@ struct DrawStone {
     double lift = 0;         // 0 resting .. 1 held up off the wood
     int fineness = 2;        // samples across a pixel: 2 at rest, 1 in motion
     bool shadow = true;      // the shade on the wood around it
+    bool shine = false;      // keep the surface for a glint (StonePicture::shine)
 };
 
 // The stone's picture, sized to hold it and its shadow.
 void draw_stone(const StoneLook& look, const Pose& pose, const DrawStone& how, StoneWork& work,
                 StonePicture& out);
+
+// A glint on a laid picture with `shine`: a small bright light at (light_x, light_y) device
+// pixels, `height` above the tray, caught by the stone's own facets as polish allows.
+void lay_glint(const StonePicture& picture, std::uint32_t* pixels, int width, int height, int stride, double x,
+               double y, double light_x, double light_y, double light_height, double strength, bool bgra);
 
 // Lays `picture` scaled by `scale`, turned `spin` radians in the tray's plane, squashed
 // across by `squash` (a stone turning over in flight), at `opacity`: nearest samples, for

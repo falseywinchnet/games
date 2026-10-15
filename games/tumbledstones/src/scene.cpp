@@ -1,5 +1,6 @@
 #include "scene.hpp"
 
+#include "noise.hpp"
 #include "platform/text.hpp"
 #include "r2d.hpp"
 
@@ -11,9 +12,19 @@ namespace ts {
 
 struct Scene::Art {
     std::uint32_t family_seed = 0;
-    const Shape* shape = nullptr;
+    ShapeEntry* shape = nullptr;
     Finish finish;
     MineralPicture picture;
+    bool ready = false;
+};
+
+struct Scene::PictureEntry {
+    const Art* art = nullptr;
+    int orientation = 0;
+    double lift = 0;
+    bool shine = false;
+    StonePicture picture;
+    bool ready = false;
 };
 
 namespace {
@@ -76,6 +87,7 @@ struct DrawJob {
     int orientation = 0;
     double lift = 0;
     StonePicture* out = nullptr;
+    bool shine = false;
 };
 struct DrawRound {
     std::vector<DrawJob> jobs;
@@ -90,6 +102,7 @@ void draw_one(void* context, int index) noexcept {
         how.radius = round.radius;
         how.lift = job.lift;
         how.fineness = 2;
+        how.shine = job.shine;
         draw_stone(job.look, orientation_pose(job.orientation), how, work, *job.out);
     } catch (...) {
         (*job.out) = StonePicture{};
@@ -173,158 +186,303 @@ void Scene::resize(const Layout& layout, double scale, render::Order order) {
     rest_shown_.assign(cell_count, Shown{});
     rest_valid_ = false;
     if (!same_stones) {
-        pictures_.clear();
-        lifted_.clear();
+        if (batch_open_) {
+            batch_stale_ = true;
+        } else {
+            pictures_.clear();
+            lifted_.clear();
+            hovered_.clear();
+            pending_pictures_.clear();
+        }
     }
 }
 
-const Shape& Scene::shape_for(const Family& family) {
-    std::map<std::uint32_t, std::unique_ptr<Shape>>::iterator found = shapes_.find(family.seed);
-    if (found != shapes_.end())
-        return *(*found).second;
-    const Style style = static_cast<Style>(std::clamp(family.style, 0, style_count - 1));
-    std::unique_ptr<Shape> shape;
-    if (family.parent != 0) {
-        // A near relation of another family: drawn towards that family's own measures.
-        const Shape parent = Shape::make(family.parent, style);
-        shape = std::make_unique<Shape>(Shape::make(family.seed, style, family.likeness / 100.0, &parent));
-    } else {
-        shape = std::make_unique<Shape>(Shape::make(family.seed, style));
+Scene::ShapeEntry& Scene::shape_for(const Family& family) {
+    std::unique_ptr<ShapeEntry>& slot = shapes_[family.seed];
+    if (!slot) {
+        slot = std::make_unique<ShapeEntry>();
+        (*slot).family = family;
+        pending_shapes_.push_back(slot.get());
     }
-    const Shape& made = *shape;
-    shapes_[family.seed] = std::move(shape);
-    return made;
+    return *slot;
 }
 
 Scene::Art& Scene::art_for(std::uint32_t serial, const Stone& look, const Family& family) {
-    std::unique_ptr<Art>& slot = art_[serial];
-    if (!slot)
+    const std::uint64_t key = (static_cast<std::uint64_t>(serial) << 32) ^ family.seed;
+    std::unique_ptr<Art>& slot = art_[key];
+    if (!slot) {
         slot = std::make_unique<Art>();
-    Art& art = *slot;
-    if (art.family_seed != family.seed || art.shape == nullptr) {
+        Art& art = *slot;
         art.family_seed = family.seed;
         art.shape = &shape_for(family);
-        art.finish = draw_finish(look.mineral);
-        art.picture = MineralPicture{};
+        // The stone's material, in play by the rules, its pattern this stone's own.
+        art.finish = make_finish(static_cast<Mineral>(std::clamp(look.material, 0, mineral_count - 1)), look.material_seed);
+        art.finish.seed = hash_bits(look.material_seed * 2654435761U ^ look.mineral);
+        pending_arts_.push_back(&art);
     }
-    return art;
+    return *slot;
 }
 
-void Scene::prepare(const Frame& frame) {
-    if (frame.motion == nullptr || frame.session == nullptr || tray_.empty())
+Scene::PictureEntry& Scene::picture_for(std::map<std::uint64_t, std::unique_ptr<PictureEntry>>& kept, Art& art,
+                                        std::uint32_t serial, int orientation, std::uint32_t family, double lift,
+                                        bool shine) {
+    std::unique_ptr<PictureEntry>& slot = kept[look_key(serial, orientation, family)];
+    if (!slot) {
+        slot = std::make_unique<PictureEntry>();
+        (*slot).art = &art;
+        (*slot).orientation = orientation;
+        (*slot).lift = lift;
+        (*slot).shine = shine;
+        pending_pictures_.push_back(slot.get());
+    }
+    return *slot;
+}
+
+const StonePicture* Scene::resting(std::uint32_t serial, int orientation, std::uint32_t family) const {
+    std::map<std::uint64_t, std::unique_ptr<PictureEntry>>::const_iterator found = pictures_.find(look_key(serial, orientation, family));
+    if (found == pictures_.end() || !(*(*found).second).ready)
+        return nullptr;
+    return &(*(*found).second).picture;
+}
+
+const StonePicture* Scene::lifted(std::uint32_t serial, int orientation, std::uint32_t family) const {
+    std::map<std::uint64_t, std::unique_ptr<PictureEntry>>::const_iterator found = lifted_.find(look_key(serial, orientation, family));
+    if (found == lifted_.end() || !(*(*found).second).ready)
+        return nullptr;
+    return &(*(*found).second).picture;
+}
+
+const StonePicture* Scene::hovered(std::uint32_t serial, int orientation, std::uint32_t family) const {
+    std::map<std::uint64_t, std::unique_ptr<PictureEntry>>::const_iterator found = hovered_.find(look_key(serial, orientation, family));
+    if (found == hovered_.end() || !(*(*found).second).ready)
+        return nullptr;
+    return &(*(*found).second).picture;
+}
+
+// The stone under the pointer that lifts and catches the glint: resting, not in hand, its
+// picture made.
+std::uint32_t Scene::hovered_serial(const Frame& frame) const {
+    if (frame.hover < 0 || frame.session == nullptr || frame.motion == nullptr || (*frame.motion).moving())
+        return 0;
+    const Board& board = (*frame.session).board;
+    const Stone& stone = board.cells[static_cast<std::size_t>(frame.hover)];
+    if (stone.family < 0 || stone.serial == frame.held)
+        return 0;
+    const Family& family = board.families[static_cast<std::size_t>(stone.family)];
+    return hovered(stone.serial, stone.orientation, family.seed) != nullptr ? stone.serial : 0;
+}
+
+const Scene::Art* Scene::art_ready(std::uint32_t serial, std::uint32_t family) const {
+    std::map<std::uint64_t, std::unique_ptr<Art>>::const_iterator found = art_.find((static_cast<std::uint64_t>(serial) << 32) ^ family);
+    if (found == art_.end() || !(*(*found).second).ready || !(*(*(*found).second).shape).ready)
+        return nullptr;
+    return (*found).second.get();
+}
+
+void Scene::want(const Frame& frame) {
+    if (frame.motion == nullptr || frame.session == nullptr)
         return;
-    // Every look the frame may show: each piece as it is and as it lands, and the held
-    // stone lifted.
-    struct Want {
-        std::uint32_t serial;
-        Stone look;
-        Family family;
-        bool lifted;
-    };
-    std::vector<Want> wants;
+    const Board& board = (*frame.session).board;
+    // Every family the board knows, the one waiting too: its shape is ready before it comes.
+    for (const Family& family : board.families)
+        if (family.used)
+            static_cast<void>(shape_for(family));
+    if (tray_.empty())
+        return;
     for (const Piece& piece : (*frame.motion).pieces()) {
         if (piece.gone)
             continue;
-        wants.push_back({piece.serial, piece.look, piece.family, false});
-        if (piece.landing_look.orientation != piece.look.orientation || piece.landing_family.seed != piece.family.seed)
-            wants.push_back({piece.serial, piece.landing_look, piece.landing_family, false});
+        Art& art = art_for(piece.serial, piece.look, piece.family);
+        static_cast<void>(picture_for(pictures_, art, piece.serial, piece.look.orientation, piece.family.seed, 0));
+        if (piece.landing_look.orientation != piece.look.orientation || piece.landing_family.seed != piece.family.seed) {
+            Art& landing = art_for(piece.serial, piece.landing_look, piece.landing_family);
+            static_cast<void>(picture_for(pictures_, landing, piece.serial, piece.landing_look.orientation, piece.landing_family.seed, 0));
+        }
     }
-    const Board& board = (*frame.session).board;
     if (frame.held != 0 && frame.held_cell >= 0) {
         const Stone& stone = board.cells[static_cast<std::size_t>(frame.held_cell)];
-        Stone look = stone;
-        look.orientation = frame.held_orientation;
-        wants.push_back({stone.serial, look, board.families[static_cast<std::size_t>(stone.family)], true});
+        const Family& family = board.families[static_cast<std::size_t>(stone.family)];
+        Art& art = art_for(stone.serial, stone, family);
+        static_cast<void>(picture_for(lifted_, art, stone.serial, frame.held_orientation, family.seed, 1));
     }
     if (frame.drag_cell >= 0) {
         const Stone& stone = board.cells[static_cast<std::size_t>(frame.drag_cell)];
-        wants.push_back({stone.serial, stone, board.families[static_cast<std::size_t>(stone.family)], true});
+        const Family& family = board.families[static_cast<std::size_t>(stone.family)];
+        Art& art = art_for(stone.serial, stone, family);
+        static_cast<void>(picture_for(lifted_, art, stone.serial, stone.orientation, family.seed, 1));
     }
-    // The minerals first, then the pictures, each round on every core.
-    PrintRound prints;
-    std::vector<Art*> arts;
-    for (const Want& want : wants) {
-        Art& art = art_for(want.serial, want.look, want.family);
-        arts.push_back(&art);
-        if (art.picture.side == 0) {
-            bool listed = false;
-            for (const PrintJob& job : prints.jobs)
-                listed = listed || job.picture == &art.picture;
-            if (!listed)
-                prints.jobs.push_back({art.shape, &art.finish, &art.picture});
+    if (frame.hover >= 0) {
+        const Stone& stone = board.cells[static_cast<std::size_t>(frame.hover)];
+        if (stone.family >= 0 && stone.serial != frame.held) {
+            const Family& family = board.families[static_cast<std::size_t>(stone.family)];
+            Art& art = art_for(stone.serial, stone, family);
+            static_cast<void>(picture_for(hovered_, art, stone.serial, stone.orientation, family.seed, .3, true));
         }
     }
+}
+
+bool Scene::begin_batch() {
+    if (batch_open_ || (pending_shapes_.empty() && pending_arts_.empty() && pending_pictures_.empty()))
+        return false;
+    batch_shapes_.swap(pending_shapes_);
+    batch_arts_.swap(pending_arts_);
+    batch_pictures_.swap(pending_pictures_);
+    pending_shapes_.clear();
+    pending_arts_.clear();
+    pending_pictures_.clear();
+    batch_radius_ = radius();
+    batch_open_ = true;
+    batch_stale_ = false;
+    return true;
+}
+
+namespace {
+
+struct ShapeJob {
+    Family family;
+    std::unique_ptr<Shape>* out;
+};
+struct ShapeRound {
+    std::vector<ShapeJob> jobs;
+};
+void make_one_shape(void* context, int index) noexcept {
+    ShapeJob& job = (*static_cast<ShapeRound*>(context)).jobs[static_cast<std::size_t>(index)];
+    try {
+        const Family& family = job.family;
+        const Style style = static_cast<Style>(std::clamp(family.style, 0, style_count - 1));
+        if (family.parent != 0) {
+            // A near relation of another family: drawn towards that family's own measures.
+            const Shape parent = Shape::make(family.parent, style);
+            *job.out = std::make_unique<Shape>(Shape::make(family.seed, style, family.likeness / 100.0, &parent));
+        } else {
+            *job.out = std::make_unique<Shape>(Shape::make(family.seed, style));
+        }
+    } catch (...) {
+        *job.out = std::make_unique<Shape>(Shape::make(1, Style::pebble));
+    }
+}
+
+}  // namespace
+
+void Scene::run_batch() noexcept {
+    // The families' shapes first, then the minerals on them, then the lit pictures.
+    ShapeRound shapes;
+    for (ShapeEntry* entry : batch_shapes_)
+        shapes.jobs.push_back({(*entry).family, &(*entry).shape});
+    run_jobs(runner_, static_cast<int>(shapes.jobs.size()), make_one_shape, &shapes);
+    PrintRound prints;
+    for (Art* art : batch_arts_)
+        prints.jobs.push_back({(*(*art).shape).shape.get(), &(*art).finish, &(*art).picture});
     run_jobs(runner_, static_cast<int>(prints.jobs.size()), print_one, &prints);
     DrawRound draws;
-    draws.radius = radius();
-    for (std::size_t i = 0; i < wants.size(); ++i) {
-        const Want& want = wants[i];
-        const Art& art = *arts[i];
-        if (art.picture.side == 0)
+    draws.radius = batch_radius_;
+    for (PictureEntry* entry : batch_pictures_) {
+        const Art& art = *(*entry).art;
+        if ((*art.shape).shape == nullptr || art.picture.side == 0)
             continue;
-        const std::uint64_t key = look_key(want.serial, want.look.orientation, want.family.seed);
-        std::map<std::uint64_t, StonePicture>& kept = want.lifted ? lifted_ : pictures_;
-        if (kept.count(key) != 0)
-            continue;
-        StonePicture& out = kept[key];
-        draws.jobs.push_back({StoneLook{art.shape, &art.finish, &art.picture}, want.look.orientation,
-                              want.lifted ? 1.0 : 0.0, &out});
+        draws.jobs.push_back({StoneLook{(*art.shape).shape.get(), &art.finish, &art.picture}, (*entry).orientation,
+                              (*entry).lift, &(*entry).picture, (*entry).shine});
     }
     run_jobs(runner_, static_cast<int>(draws.jobs.size()), draw_one, &draws);
 }
 
-void Scene::forget_unused(const Session& session) {
-    std::map<std::uint32_t, bool> present;
-    for (const Stone& stone : session.board.cells)
-        if (stone.family >= 0)
-            present[stone.serial] = true;
-    for (std::map<std::uint32_t, std::unique_ptr<Art>>::iterator it = art_.begin(); it != art_.end();) {
-        if (present.count((*it).first) == 0)
-            it = art_.erase(it);
-        else
-            ++it;
+void Scene::end_batch() {
+    if (!batch_open_)
+        return;
+    for (ShapeEntry* entry : batch_shapes_)
+        (*entry).ready = (*entry).shape != nullptr;
+    for (Art* art : batch_arts_)
+        (*art).ready = (*art).picture.side > 0;
+    for (PictureEntry* entry : batch_pictures_)
+        (*entry).ready = true;
+    batch_shapes_.clear();
+    batch_arts_.clear();
+    batch_pictures_.clear();
+    batch_open_ = false;
+    rest_valid_ = false;
+    if (batch_stale_) {
+        batch_stale_ = false;
+        pictures_.clear();
+        lifted_.clear();
+        hovered_.clear();
+        pending_pictures_.clear();
     }
-    // Pictures of looks the tray no longer shows.
+}
+
+void Scene::forget_unused(const Session& session) {
+    if (batch_open_)
+        return;
+    std::map<std::uint64_t, bool> arts;
     std::map<std::uint64_t, bool> shown;
     for (const Stone& stone : session.board.cells) {
         if (stone.family < 0)
             continue;
         const Family& family = session.board.families[static_cast<std::size_t>(stone.family)];
+        arts[(static_cast<std::uint64_t>(stone.serial) << 32) ^ family.seed] = true;
         shown[look_key(stone.serial, stone.orientation, family.seed)] = true;
     }
-    for (std::map<std::uint64_t, StonePicture>::iterator it = pictures_.begin(); it != pictures_.end();) {
+    // Pending work for what is gone goes too.
+    std::vector<PictureEntry*> pictures_left;
+    for (std::map<std::uint64_t, std::unique_ptr<PictureEntry>>::iterator it = pictures_.begin(); it != pictures_.end();) {
         if (shown.count((*it).first) == 0)
             it = pictures_.erase(it);
         else
             ++it;
     }
-    if (lifted_.size() > 24)
-        lifted_.clear();
-    // Shapes of families gone from the tray.
+    lifted_.clear();
+    if (hovered_.size() > 12)
+        hovered_.clear();
+    for (std::map<std::uint64_t, std::unique_ptr<Art>>::iterator it = art_.begin(); it != art_.end();) {
+        if (arts.count((*it).first) == 0)
+            it = art_.erase(it);
+        else
+            ++it;
+    }
+    pending_pictures_.clear();
+    for (std::pair<const std::uint64_t, std::unique_ptr<PictureEntry>>& entry : pictures_)
+        if (!(*entry.second).ready)
+            pending_pictures_.push_back(entry.second.get());
+    for (std::map<std::uint64_t, std::unique_ptr<PictureEntry>>::iterator it = hovered_.begin(); it != hovered_.end();) {
+        // One still to make may point at art just let go: it is asked for again if wanted.
+        if (!(*(*it).second).ready)
+            it = hovered_.erase(it);
+        else
+            ++it;
+    }
+    pending_arts_.clear();
+    for (std::pair<const std::uint64_t, std::unique_ptr<Art>>& entry : art_)
+        if (!(*entry.second).ready)
+            pending_arts_.push_back(entry.second.get());
     std::map<std::uint32_t, bool> families;
     for (const Family& family : session.board.families)
         if (family.used)
             families[family.seed] = true;
-    for (std::map<std::uint32_t, std::unique_ptr<Shape>>::iterator it = shapes_.begin(); it != shapes_.end();) {
+    for (std::map<std::uint32_t, std::unique_ptr<ShapeEntry>>::iterator it = shapes_.begin(); it != shapes_.end();) {
         bool in_use = families.count((*it).first) != 0;
-        for (const std::pair<const std::uint32_t, std::unique_ptr<Art>>& art : art_)
+        for (const std::pair<const std::uint64_t, std::unique_ptr<Art>>& art : art_)
             in_use = in_use || (*art.second).shape == (*it).second.get();
         if (!in_use)
             it = shapes_.erase(it);
         else
             ++it;
     }
+    pending_shapes_.clear();
+    for (std::pair<const std::uint32_t, std::unique_ptr<ShapeEntry>>& entry : shapes_)
+        if (!(*entry.second).ready)
+            pending_shapes_.push_back(entry.second.get());
 }
 
 void Scene::refresh_rest(const Frame& frame) {
     // What each socket should show at rest.
     std::vector<Shown> want(cell_count);
-    std::vector<const Piece*> resting(cell_count, nullptr);
+    std::vector<const Piece*> at_rest(cell_count, nullptr);
     std::uint32_t dragged = 0;
     if (frame.drag_cell >= 0)
         dragged = (*frame.session).board.cells[static_cast<std::size_t>(frame.drag_cell)].serial;
+    const std::uint32_t lifting = hovered_serial(frame);
     for (const Piece& piece : (*frame.motion).pieces()) {
-        if (piece.moving || piece.gone || piece.serial == frame.held || piece.serial == dragged)
+        if (piece.moving || piece.gone || piece.serial == frame.held || piece.serial == dragged ||
+            (lifting != 0 && piece.serial == lifting))
             continue;
         const int column = static_cast<int>(std::floor(piece.x));
         const int row = static_cast<int>(std::floor(piece.y));
@@ -332,7 +490,7 @@ void Scene::refresh_rest(const Frame& frame) {
             continue;
         const int cell = row * side + column;
         want[static_cast<std::size_t>(cell)] = Shown{piece.serial, piece.look.orientation, piece.family.seed, piece.look.swapped};
-        resting[static_cast<std::size_t>(cell)] = &piece;
+        at_rest[static_cast<std::size_t>(cell)] = &piece;
     }
     // The cells whose picture changed, and the rectangle they reach.
     const double cell = layout_.cell * scale_;
@@ -364,19 +522,18 @@ void Scene::refresh_rest(const Frame& frame) {
     // Lower stones first: the shade of a stone further up falls over the one below.
     std::vector<int> marked;
     for (int c = cell_count - 1; c >= 0; --c) {
-        const Piece* piece = resting[static_cast<std::size_t>(c)];
+        const Piece* piece = at_rest[static_cast<std::size_t>(c)];
         if (piece == nullptr)
             continue;
         if ((*piece).look.swapped)
             marked.push_back(c);
-        std::map<std::uint64_t, StonePicture>::const_iterator picture =
-            pictures_.find(look_key((*piece).serial, (*piece).look.orientation, (*piece).family.seed));
-        if (picture == pictures_.end())
+        const StonePicture* picture = resting((*piece).serial, (*piece).look.orientation, (*piece).family.seed);
+        if (picture == nullptr)
             continue;
         double x = 0;
         double y = 0;
         cell_centre(layout_, c, x, y);
-        lay_stone((*picture).second, rest_.data(), width_, height_, width_, x * scale_, y * scale_,
+        lay_stone(*picture, rest_.data(), width_, height_, width_, x * scale_, y * scale_,
                   order_ == render::Order::bgra, dirty.x0, dirty.y0, dirty.x1, dirty.y1);
     }
     const render::Target kept{rest_.data(), width_, width_, height_, order_};
@@ -401,7 +558,6 @@ void Scene::draw_marks(const render::Target& target, render::Rect clip, const st
 void Scene::draw(const render::Target& target, const Frame& frame) {
     if (tray_.empty() || frame.session == nullptr || frame.motion == nullptr)
         return;
-    prepare(frame);
     refresh_rest(frame);
     const render::Rect all{0, 0, std::min(width_, target.width), std::min(height_, target.height)};
     for (int y = 0; y < all.y1; ++y)
@@ -437,15 +593,31 @@ void Scene::draw(const render::Target& target, const Frame& frame) {
             moving.push_back(&piece);
     std::stable_sort(moving.begin(), moving.end(), lower_first);
     for (const Piece* piece : moving) {
-        std::map<std::uint64_t, StonePicture>::const_iterator picture =
-            pictures_.find(look_key((*piece).serial, (*piece).look.orientation, (*piece).family.seed));
-        if (picture == pictures_.end())
+        const StonePicture* picture = resting((*piece).serial, (*piece).look.orientation, (*piece).family.seed);
+        if (picture == nullptr)
             continue;
         const double x = (layout_.grid_x + (*piece).x * layout_.cell) * scale_;
         const double y = (layout_.grid_y + (*piece).y * layout_.cell) * scale_;
-        lay_stone_moved((*picture).second, target.pixels, target.width, target.height, target.stride, x, y,
+        lay_stone_moved(*picture, target.pixels, target.width, target.height, target.stride, x, y,
                         (*piece).scale, (*piece).spin, (*piece).squash, (*piece).opacity, bgra, 0, 0, target.width,
                         target.height);
+    }
+    // The stone under the pointer: lifted a touch, rocking as it settles, and the pointer's
+    // light glinting on its facets.
+    const std::uint32_t lifting = hovered_serial(frame);
+    if (lifting != 0) {
+        const Stone& stone = board.cells[static_cast<std::size_t>(frame.hover)];
+        const Family& family = board.families[static_cast<std::size_t>(stone.family)];
+        const StonePicture* picture = hovered(stone.serial, stone.orientation, family.seed);
+        double x = 0;
+        double y = 0;
+        cell_centre(layout_, frame.hover, x, y);
+        const double cx = x * scale_;
+        const double cy = (y - frame.hover_lift * layout_.cell * .02) * scale_;
+        lay_stone_moved(*picture, target.pixels, target.width, target.height, target.stride, cx, cy,
+                        1 + .02 * frame.hover_lift, frame.hover_spin, 1, 1, bgra, 0, 0, target.width, target.height);
+        lay_glint(*picture, target.pixels, target.width, target.height, target.stride, cx, cy, frame.hover_x * scale_,
+                  frame.hover_y * scale_, layout_.cell * scale_ * 1.1, .9, bgra);
     }
     // The stone in hand.
     if (frame.held != 0 && frame.held_cell >= 0) {
@@ -454,31 +626,31 @@ void Scene::draw(const render::Target& target, const Frame& frame) {
         double x = 0;
         double y = 0;
         cell_centre(layout_, frame.held_cell, x, y);
-        std::map<std::uint32_t, std::unique_ptr<Art>>::const_iterator art = art_.find(stone.serial);
-        if (frame.held_turning && art != art_.end() && (*(*art).second).picture.side > 0) {
-            const Art& a = *(*art).second;
+        const Art* art = art_ready(stone.serial, family.seed);
+        const StonePicture* still = lifted(stone.serial, frame.held_orientation, family.seed);
+        if ((frame.held_turning || still == nullptr) && art != nullptr) {
+            // Turning, or its lifted picture still being made: drawn here and now, plainly.
+            const Art& a = *art;
             DrawStone how;
             how.radius = radius();
             how.lift = 1;
             how.fineness = 1;
-            draw_stone(StoneLook{a.shape, &a.finish, &a.picture}, frame.held_pose, how, work_, turning_);
+            draw_stone(StoneLook{(*a.shape).shape.get(), &a.finish, &a.picture}, frame.held_pose, how, work_, turning_);
             lay_stone(turning_, target.pixels, target.width, target.height, target.stride, x * scale_, y * scale_, bgra, 0,
                       0, target.width, target.height);
-        } else {
-            std::map<std::uint64_t, StonePicture>::const_iterator picture =
-                lifted_.find(look_key(stone.serial, frame.held_orientation, family.seed));
-            if (picture != lifted_.end())
-                lay_stone((*picture).second, target.pixels, target.width, target.height, target.stride, x * scale_,
-                          y * scale_, bgra, 0, 0, target.width, target.height);
+        } else if (still != nullptr) {
+            lay_stone(*still, target.pixels, target.width, target.height, target.stride, x * scale_, y * scale_, bgra, 0,
+                      0, target.width, target.height);
         }
     }
     if (frame.drag_cell >= 0) {
         const Stone& stone = board.cells[static_cast<std::size_t>(frame.drag_cell)];
         const Family& family = board.families[static_cast<std::size_t>(stone.family)];
-        std::map<std::uint64_t, StonePicture>::const_iterator picture =
-            lifted_.find(look_key(stone.serial, stone.orientation, family.seed));
-        if (picture != lifted_.end())
-            lay_stone((*picture).second, target.pixels, target.width, target.height, target.stride,
+        const StonePicture* picture = lifted(stone.serial, stone.orientation, family.seed);
+        if (picture == nullptr)
+            picture = resting(stone.serial, stone.orientation, family.seed);
+        if (picture != nullptr)
+            lay_stone(*picture, target.pixels, target.width, target.height, target.stride,
                       frame.drag_x * scale_, frame.drag_y * scale_, bgra, 0, 0, target.width, target.height);
     }
     draw_counts(target, frame);

@@ -79,6 +79,12 @@ int main(int argc, char** argv) {
     find_pair(session.board, a, b);
     if (state == "hover") {
         frame.hover = 45;
+        double x = 0;
+        double y = 0;
+        ts::cell_centre(layout, 45, x, y);
+        frame.hover_x = x - layout.cell * .25;
+        frame.hover_y = y - layout.cell * .3;
+        frame.hover_lift = 1;
     } else if (state == "held" || state == "turning") {
         frame.held = session.board.cells[44].serial;
         frame.held_cell = 44;
@@ -126,7 +132,13 @@ int main(int argc, char** argv) {
     std::vector<std::uint32_t> pixels(static_cast<std::size_t>(w * h), 0U);
     const render::Target target{pixels.data(), w, w, h, render::Order::bgra};
     const std::chrono::steady_clock::time_point stones = std::chrono::steady_clock::now();
-    scene.prepare(frame);
+    for (int round = 0; round < 3; ++round) {
+        scene.want(frame);
+        if (!scene.begin_batch())
+            break;
+        scene.run_batch();
+        scene.end_batch();
+    }
     const double stone_seconds = seconds_since(stones);
     const std::chrono::steady_clock::time_point drawing = std::chrono::steady_clock::now();
     scene.draw(target, frame);

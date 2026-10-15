@@ -36,6 +36,9 @@ double wrap_angle(double a) {
     return a - 2 * pi * std::floor((a + pi) / (2 * pi));
 }
 
+
+}  // namespace
+
 // How far the socket's floor reaches at `angle`: a rounded square of half-side 0.98 and
 // corner radius 0.5, the room a stone may fill under any of its quarter turns.
 double socket_reach(double angle) {
@@ -55,8 +58,6 @@ double socket_reach(double angle) {
     }
     return low;
 }
-
-}  // namespace
 
 const char* style_name(Style style) {
     switch (style) {
@@ -128,9 +129,16 @@ Shape Shape::make_once(std::uint32_t seed, Style style, double likeness, const S
         to.bottom_power = from.bottom_power + (to.bottom_power - from.bottom_power) * (1 - keep);
         for (std::size_t k = 0; k < to.feature.size(); ++k)
             to.feature[k] = from.feature[k] + (to.feature[k] - from.feature[k]) * (1 - keep);
+        // A relation of a piece of fossil log is the same kind of piece.
+        if (shape.style_ == Style::wood)
+            to.feature[4] = from.feature[4] + 1;
     }
-    shape.sample();
-    shape.mesh();
+    if (shape.style_ == Style::wood) {
+        shape.grow_wood();
+    } else {
+        shape.sample();
+        shape.mesh();
+    }
     return shape;
 }
 
@@ -146,7 +154,7 @@ void Shape::build(std::uint64_t& random) {
     m.mark_angle = next_between(random, -pi, pi);
     m.mark_width = next_between(random, .25, .45);
     m.mark_depth = next_between(random, -.06, .08);
-    std::array<double, 12>& f = m.feature;
+    std::array<double, 16>& f = m.feature;
     switch (style_) {
     case Style::pebble:
         m.aspect = next_between(random, .62, .88);
@@ -202,27 +210,22 @@ void Shape::build(std::uint64_t& random) {
         f[8] = next_between(random, .05, .12);     // the aperture's lip
         break;
     case Style::wood:
-        // A tumbled block of petrified log, its grain along x: polished smooth, but with a
-        // ledge where a layer of the grain split away, hairline cracks along the grain and
-        // one across it, and a pit or two where the stone was soft.
-        m.aspect = next_between(random, .56, .74);
-        m.top = next_between(random, .42, .52);
-        m.bottom = next_between(random, .30, .38);
-        m.top_power = next_between(random, 3.6, 5.2);
-        m.bottom_power = next_between(random, 4.5, 7.0);
-        m.mark_depth = next_between(random, -.05, .05);
-        f[0] = next_between(random, 3.2, 4.6);     // the block's squareness
-        f[1] = std::floor(next_between(random, 1, 3));  // ledges where a layer split off
-        f[2] = next_between(random, .22, .38);     // a ledge's width
-        f[3] = next_between(random, .06, .09);     // and drop
-        f[4] = std::floor(next_between(random, 2, 6));  // hairline cracks along the grain
-        f[5] = next_between(random, -.6, .6);      // the crack across the grain: where
-        f[6] = next_between(random, 0, 1);         // and whether (over .4)
-        f[7] = std::floor(next_between(random, 0, 3));  // pits
-        f[8] = std::floor(next_between(random, 1, 60000));  // the seed of its ledges, cracks and pits
-        f[9] = next_between(random, .04, .1);      // how unevenly the ends broke
-        f[10] = next_between(random, .02, .05);    // the underside's hollow
-        f[11] = next_between(random, .0012, .0024); // the fibres
+        // A chunk broken out of a fossil log (wood_volume.cpp): the log's measures, and how
+        // many breaks freed the chunk.
+        f[0] = std::floor(next_between(random, 4, 8));   // breaks
+        f[1] = next_between(random, .75, 1.05);          // the log's radius
+        f[2] = next_between(random, 12, 24);             // growth rings
+        f[3] = std::floor(next_between(random, 18, 36)); // rays
+        f[4] = std::floor(next_between(random, 1, 60000)); // the seed of its breaks, bundles, bark and chips
+        f[5] = next_between(random, .05, .13);           // how far bundles' breaks stagger
+        f[6] = next_between(random, .06, .18);           // the share that tear out as splinters
+        f[7] = std::floor(next_between(random, 2, 6));   // glassy chips
+        f[8] = next_between(random, .04, .12);           // the pith's wander
+        f[9] = next_between(random, .02, .05);           // the bark's fissures
+        f[10] = next_between(random, .35, .7);           // where in the log the chunk was: from pith to bark
+        f[11] = next_between(random, -pi, pi);           // and round it
+        f[12] = next_between(random, .42, .62);          // the chunk's reach from its middle to a break
+        f[14] = next_between(random, .0012, .0026);      // fibres
         break;
     case Style::nodule:
         // A water-worn agate nodule: a rounded lump whose broken faces show the agate's
@@ -310,14 +313,14 @@ void Shape::build(std::uint64_t& random) {
 }
 
 double Shape::hashed(int a, int b) const {
-    const std::uint32_t key = static_cast<std::uint32_t>(measures_.feature[style_ == Style::wood ? 8 : 4]);
+    const std::uint32_t key = static_cast<std::uint32_t>(measures_.feature[4]);
     return (hash_signed(a, b, 7, key) + 1) * .5;
 }
 
 // An agate nodule: a rounded polygon of a few uneven sides.
 bool Shape::nodule_inside(double x, double y) const {
     const Measures& m = measures_;
-    const std::array<double, 12>& f = m.feature;
+    const std::array<double, 16>& f = m.feature;
     const int sides = static_cast<int>(f[0]);
     const double k = f[1];
     double sum = 0;
@@ -348,7 +351,7 @@ double Shape::reach_inward(double c, double s) const {
 // The outline's radius at `angle`, before the family is scaled to the unit circle.
 double Shape::outline_at(double angle) const {
     const Measures& m = measures_;
-    const std::array<double, 12>& f = m.feature;
+    const std::array<double, 16>& f = m.feature;
     const double a = angle - m.turn;
     const double c = std::cos(a);
     const double s = std::sin(a);
@@ -406,15 +409,10 @@ double Shape::outline_at(double angle) const {
         r = std::max(r, .7);
         break;
     }
-    case Style::wood: {
-        // A rounded block, its ends broken a little unevenly.
-        const double n = f[0];
-        const double y = s / m.aspect;
-        r = std::pow(std::pow(std::abs(c), n) + std::pow(std::abs(y), n), -1 / n);
-        const double end = std::max(0.0, std::abs(c) - .7) / .3;
-        r *= 1 + f[9] * end * noise2(a * 2.5, c > 0 ? 1.7 : 5.3, static_cast<std::uint32_t>(f[8]));
+    case Style::wood:
+        // Grown and broken as a solid (wood_volume.cpp); never drawn by an outline.
+        r = 1;
         break;
-    }
     case Style::nodule:
         r = reach_inward(c, s);
         break;
@@ -465,7 +463,7 @@ double Shape::outline_at(double angle) const {
 // The style's relief on face `face` at local (x, y) (unturned), `u` across the outline.
 double Shape::feature_height(int face, double x, double y, double u) const {
     const Measures& m = measures_;
-    const std::array<double, 12>& f = m.feature;
+    const std::array<double, 16>& f = m.feature;
     const double base = (face == 0 ? m.top : m.bottom) * profile(u, face == 0 ? m.top_power : m.bottom_power);
     const double keep = 1 - std::pow(u, 6);
     switch (style_) {
@@ -521,34 +519,9 @@ double Shape::feature_height(int face, double x, double y, double u) const {
         const double rib_share = face == 0 ? 1.0 : f[7];
         return base + (-f[4] * seam + f[3] * ribs * rib_share * smoothstep(.12, .35, r) - navel) * keep;
     }
-    case Style::wood: {
-        if (face == 0) {
-            // Ledges: a band of grain split away from one end, its tip ragged.
-            double h = base;
-            for (int k = 0; k < static_cast<int>(f[1]); ++k) {
-                const double centre = -m.aspect * .7 + 1.4 * m.aspect * hashed(k, 61);
-                const double half = f[2] * .5 * (.7 + .6 * hashed(k, 62));
-                const double end = hashed(k, 63) > .5 ? 1.0 : -1.0;
-                const double tip = end * (1 - (.45 + .7 * hashed(k, 64))) + .07 * noise2(y * 8, k * 2.0, static_cast<std::uint32_t>(f[8]) + 3);
-                const double side = std::abs(y - centre - .03 * noise2(x * 5, k * 3.0, static_cast<std::uint32_t>(f[8]) + 5)) - half;
-                const double across = 1 - smoothstep(-.012, .012, side);
-                const double along = smoothstep(-.015, .015, end > 0 ? x - tip : tip - x);
-                h -= f[3] * across * along * keep;
-            }
-            // Pits where softer stone wore away.
-            for (int k = 0; k < static_cast<int>(f[7]); ++k) {
-                const double px = -.7 + 1.4 * hashed(k, 71);
-                const double py = (-.7 + 1.4 * hashed(k, 72)) * m.aspect;
-                const double radius = .03 + .03 * hashed(k, 73);
-                const double d = std::hypot(x - px, y - py) / radius;
-                if (d < 1)
-                    h -= .05 * (1 - d * d) * keep;
-            }
-            return h;
-        }
-        // The underside: flatter, with a shallow hollow along the grain.
-        return base - f[10] * std::exp(-y * y / (m.aspect * m.aspect * .3)) * (1 - x * x * .6) * keep;
-    }
+    case Style::wood:
+        // Grown and broken as a solid (wood_volume.cpp).
+        return base;
     case Style::nodule: {
         // Broken faces: broad shallow breaks across the lump, where the bands show most.
         double h = base;
@@ -791,7 +764,7 @@ bool Shape::height(int face, double x, double y, double& out) const {
 
 // The agate's bands: nested, angular shells about a centre, as fortification agate grows.
 double Shape::band_field(double x, double y, double z) const {
-    const std::array<double, 12>& f = measures_.feature;
+    const std::array<double, 16>& f = measures_.feature;
     const double px = x - f[9];
     const double py = y - f[10];
     const double pz = z * 1.6;
@@ -810,37 +783,44 @@ double Shape::band_field(double x, double y, double z) const {
     return even + .05 * std::sin(even * 9 + 2 * hashed(0, 94)) + .015 * noise2(x * 6, y * 6, static_cast<std::uint32_t>(f[4]) + 13);
 }
 
+void Shape::grain_axis(double out[3]) const {
+    if (grown_) {
+        out[0] = grain_[0];
+        out[1] = grain_[1];
+        out[2] = grain_[2];
+        return;
+    }
+    out[0] = std::cos(measures_.turn);
+    out[1] = std::sin(measures_.turn);
+    out[2] = 0;
+}
+
+void Shape::grain_centre(double out[3]) const {
+    out[0] = pith_[0];
+    out[1] = pith_[1];
+    out[2] = pith_[2];
+}
+
 double Shape::bands(double x, double y, double z) const {
     return style_ == Style::nodule ? band_field(x, y, z) * measures_.feature[2] : -1;
 }
 
 double Shape::fine_height(int face, double x, double y) const {
     const Measures& m = measures_;
-    const std::array<double, 12>& f = m.feature;
+    const std::array<double, 16>& f = m.feature;
     if (style_ == Style::wood) {
-        const std::uint32_t grain = static_cast<std::uint32_t>(f[8]);
-        // Fibres along the grain.
-        double h = f[11] * std::sin(y * 150 + 9 * fbm2(x * 2.5, y * 9, grain + 21, 3)) * (.6 + .4 * noise2(x * 1.5, y * 30, grain + 22));
-        // Hairline cracks along the grain, and one across it.
-        const int cracks = face == 0 ? static_cast<int>(f[4]) : static_cast<int>(f[4]) / 2;
-        for (int k = 0; k < cracks; ++k) {
-            const int key = k + face * 20;
-            const double line = (-.85 + 1.7 * hashed(key, 51)) * m.aspect;
-            const double from = -1 + 1.2 * hashed(key, 52);
-            const double to = from + .35 + .9 * hashed(key, 53);
-            if (x < from || x > to)
-                continue;
-            const double fade = smoothstep(from, from + .08, x) * (1 - smoothstep(to - .08, to, x));
-            const double d = std::abs(y - line - .02 * noise2(x * 4, k * 1.3, grain + 23));
-            if (d < .008)
-                h -= .022 * std::pow(1 - d / .008, 1.5) * fade;
-        }
-        if (face == 0 && f[6] > .4) {
-            const double d = std::abs(x - f[5] - .03 * noise2(y * 5, 3.0, grain + 25));
-            if (d < .007)
-                h -= .02 * std::pow(1 - d / .007, 1.5);
-        }
-        return h;
+        // Fine grain: fibres along the log, or the end grain's pores on a round's break.
+        const std::uint32_t grain = static_cast<std::uint32_t>(f[4]);
+        // Across the grain as it lies in the tray.
+        const double gx = grain_[0];
+        const double gy = grain_[1];
+        const double flat = std::sqrt(gx * gx + gy * gy);
+        if (flat < .35)
+            return -.004 * std::max(0.0, noise2(x * 70, y * 70, grain + 5) - .35) + wear(face, x, y) * .4;
+        const double along = (x * gx + y * gy) / flat / scale_;
+        const double across = (-x * gy + y * gx) / flat / scale_;
+        const double fibre = f[14] * std::sin(across * 170 + 8 * fbm2(along * 2.5, across * 9, grain + 21, 3));
+        return fibre + wear(face, x, y) * .4;
     }
     if (style_ == Style::nodule) {
         double z = 0;

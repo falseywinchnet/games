@@ -151,6 +151,126 @@ int main(int argc, char** argv) {
         save(sheet, out + "/detail-" + room + ".png");
         return 0;
     }
+    if (argc > 3 && std::string(argv[3]) == "tilted") {
+        // The same fossil-log pieces from straight above and from a three-quarter view.
+        const double cell = 200;
+        const int left = 30;
+        const int top = 60;
+        Sheet sheet;
+        sheet.width = left + static_cast<int>(cell * 6) + 20;
+        sheet.height = top + static_cast<int>(cell * 2) + 20;
+        sheet.pixels.assign(static_cast<std::size_t>(sheet.width * sheet.height), 0U);
+        ts::TrayPlan plan;
+        plan.width = sheet.width;
+        plan.height = sheet.height;
+        plan.scale = 3;
+        plan.grid_x = left;
+        plan.grid_y = top;
+        plan.cell = cell;
+        plan.columns = 6;
+        plan.rows = 2;
+        plan.wall = 12;
+        ts::draw_tray(plan, sheet.pixels.data(), sheet.width, true, 0, sheet.height);
+        label(sheet, "Top row: from straight above, as the game is now.  Bottom row: the same pieces tilted towards you", 24, 16, 18, cream, true);
+        const std::uint32_t seeds[6] = {52000U, 52000U + 7919U * 4, 52000U + 7919U * 2, 52000U + 7919U * 9, 52000U + 7919U * 6, 52000U + 7919U * 7};
+        for (int k = 0; k < 6; ++k) {
+            Stone stone;
+            stone.shape = ts::Shape::make(seeds[k], ts::Style::wood);
+            stone.finish = ts::make_finish(ts::Mineral::petrified, 4242U + static_cast<std::uint32_t>(k) * 31U);
+            ts::print_mineral(stone.finish, stone.shape, 160, stone.picture);
+            place(sheet, work, stone, 0, left + cell * (k + .5), top + cell * .5, cell * .42, 2);
+            const ts::StoneLook look{&stone.shape, &stone.finish, &stone.picture};
+            ts::DrawStone how;
+            how.radius = cell * .4;
+            how.fineness = 2;
+            ts::StonePicture picture;
+            draw_stone(look, ts::turned(ts::orientation_pose(0), 0, -0.85), how, work, picture);
+            ts::lay_stone(picture, sheet.pixels.data(), sheet.width, sheet.height, sheet.width, left + cell * (k + .5),
+                          top + cell * 1.5, true, 0, 0, sheet.width, sheet.height);
+        }
+        save(sheet, out + "/tilted-" + room + ".png");
+        return 0;
+    }
+    if (argc > 3 && std::string(argv[3]) == "woodshapes") {
+        // The petrified wood shape generator alone: twelve families, each face up and face
+        // down, in one plain material so only the shape speaks.
+        const double cell = 170;
+        const int left = 30;
+        const int top = 60;
+        const int rows = 4;
+        const int columns = 6;
+        Sheet sheet;
+        sheet.width = left + static_cast<int>(cell * columns) + 20;
+        sheet.height = top + static_cast<int>(cell * rows) + 20;
+        sheet.pixels.assign(static_cast<std::size_t>(sheet.width * sheet.height), 0U);
+        ts::TrayPlan plan;
+        plan.width = sheet.width;
+        plan.height = sheet.height;
+        plan.scale = 2.6;
+        plan.grid_x = left;
+        plan.grid_y = top;
+        plan.cell = cell;
+        plan.columns = columns;
+        plan.rows = rows;
+        plan.wall = 12;
+        ts::draw_tray(plan, sheet.pixels.data(), sheet.width, true, 0, sheet.height);
+        const ts::Mineral material = argc > 4 && std::string(argv[4]) == "petrified" ? ts::Mineral::petrified : ts::Mineral::bone;
+        label(sheet, "The petrified wood shape: twelve families, each face up then face down", 24, 16, 20, cream, true);
+        for (int k = 0; k < 12; ++k) {
+            Stone stone;
+            stone.shape = ts::Shape::make(52000U + static_cast<std::uint32_t>(k) * 7919U, ts::Style::wood);
+            stone.finish = ts::make_finish(material, 4242U + static_cast<std::uint32_t>(k) * 31U);
+            ts::print_mineral(stone.finish, stone.shape, 160, stone.picture);
+            const int row = k / 3;
+            const int column = (k % 3) * 2;
+            place(sheet, work, stone, 0, left + cell * (column + .5), top + cell * (row + .5), cell * .42, 2);
+            place(sheet, work, stone, 4, left + cell * (column + 1.5), top + cell * (row + .5), cell * .42, 2);
+        }
+        save(sheet, out + "/woodshapes-" + room + (material == ts::Mineral::bone ? "" : "-petrified") + ".png");
+        return 0;
+    }
+    if (argc > 3 && std::string(argv[3]) == "kinds") {
+        const double cell = 150;
+        const int left = 170;
+        const int top = 56;
+        const ts::Mineral kinds[12] = {ts::Mineral::obsidian, ts::Mineral::walnut, ts::Mineral::petrified, ts::Mineral::bone,
+                                       ts::Mineral::candy, ts::Mineral::nacre, ts::Mineral::cone, ts::Mineral::seaglass,
+                                       ts::Mineral::amber, ts::Mineral::amethyst, ts::Mineral::lapis, ts::Mineral::agate};
+        const int rows = 12;
+        const int columns = 7;
+        Sheet sheet;
+        sheet.width = left + static_cast<int>(cell * columns) + 20;
+        sheet.height = top + static_cast<int>(cell * rows) + 20;
+        sheet.pixels.assign(static_cast<std::size_t>(sheet.width * sheet.height), 0U);
+        ts::TrayPlan plan;
+        plan.width = sheet.width;
+        plan.height = sheet.height;
+        plan.scale = 2.2;
+        plan.grid_x = left;
+        plan.grid_y = top;
+        plan.cell = cell;
+        plan.columns = columns;
+        plan.rows = rows;
+        plan.wall = 12;
+        ts::draw_tray(plan, sheet.pixels.data(), sheet.width, true, 0, sheet.height);
+        label(sheet, "Materials: each its own kind of thing, on any shape", 24, 14, 22, cream, true);
+        std::vector<ts::Shape> shapes;
+        for (int c = 0; c < columns; ++c)
+            shapes.push_back(ts::Shape::make(91000U + static_cast<std::uint32_t>(c) * 313U,
+                                             static_cast<ts::Style>((c * 4 + 1) % ts::style_count)));
+        for (int r = 0; r < rows; ++r) {
+            label(sheet, ts::mineral_name(kinds[r]), 20, top + static_cast<int>(cell * (r + .5)) - 10, 17, cream, true);
+            for (int c = 0; c < columns; ++c) {
+                Stone stone;
+                stone.shape = shapes[static_cast<std::size_t>(c)];
+                stone.finish = ts::make_finish(kinds[r], 700U + static_cast<std::uint32_t>(r * 7 + c) * 23U);
+                ts::print_mineral(stone.finish, stone.shape, 160, stone.picture);
+                place(sheet, work, stone, (r + c) % 8, left + cell * (c + .5), top + cell * (r + .5), cell * .42, 2);
+            }
+        }
+        save(sheet, out + "/kinds-" + room + ".png");
+        return 0;
+    }
     if (argc > 3 && std::string(argv[3]) == "styles") {
         const double cell = 190;
         const int left = 30;

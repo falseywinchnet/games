@@ -15,8 +15,10 @@
 #include "surface.hpp"
 
 #include "gui_forms/basic_controls.hpp"
+#include "gui_forms/threading.hpp"
 #include "gui_forms/timer.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <memory>
 #include <string>
@@ -97,6 +99,8 @@ private:
     bool new_best_ = false;
     bool win_waiting_ = false;    // the win panel opens once the pull has been shown
     int hover_ = -1;
+    double pointer_x_ = 0, pointer_y_ = 0;  // points
+    double hover_time_ = 10;      // seconds since the pointer came over its stone
     int cursor_ = -1;
     bool keyboard_ = false;       // the keyboard was used last: show its socket
     // A press on the tray: where, which button, and whether it became a drag.
@@ -107,12 +111,18 @@ private:
     int drag_to_ = -1;
     int pressed_button_ = 0;
     int land_sounds_ = 0;
-    bool help_ = false;         // landing clicks this frame, so a row lands as a patter
+    bool help_ = false;
+    // The workshop: shapes, minerals and lit pictures made on a worker while play goes on.
+    std::unique_ptr<gf::Worker> studio_;
+    std::atomic<bool> studio_done_{false};         // landing clicks this frame, so a row lands as a patter
 
     void on_attached_to_window() override;
     void on_detaching_from_window(gf::Window& window) noexcept override;
     void window_activation(bool active);
     void tick();
+    void keep_studio_busy();
+    void stop_studio() noexcept;
+    static void run_studio(const gf::CancellationFlag& cancelled, void* context);
     void request_frame();
     void publish();
     void play(const std::string& name, float gain, float rate);

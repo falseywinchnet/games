@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <iostream>
 #include <set>
+#include <utility>
 #include <string>
 #include <vector>
 
@@ -103,7 +104,7 @@ void test_generation() {
     pinned.board = ts::new_game(20261015, 9);
     const std::uint64_t digest = ts::checksum(ts::encode_session(pinned));
     std::cout << "seed 20261015 digest " << digest << "\n";
-    check(digest == 8114094063773672408ULL, "the generator for a known seed has not drifted");
+    check(digest == 935245551307783743ULL, "the generator for a known seed has not drifted");
 }
 
 void test_orientations() {
@@ -281,6 +282,40 @@ void test_long_play() {
     check(most_seen > ts::most_families + 2, "families run out and new ones come in");
 }
 
+void test_materials() {
+    ts::Board board = ts::new_game(4242, 20);
+    std::set<std::pair<int, std::uint32_t>> first;
+    for (const ts::Stone& stone : board.cells)
+        first.insert({stone.material, stone.material_seed});
+    check(first.size() <= static_cast<std::size_t>(ts::material_slots) + 8, "about a dozen materials are in play");
+    int used = 0;
+    for (const ts::Material& m : board.materials)
+        used += m.used ? 1 : 0;
+    check(used == ts::material_slots, "the pool holds a dozen materials");
+    // Play on: materials run out and new ones come.
+    int families = 0;
+    int juggles = 0;
+    bool stayed = true;
+    play_out(4242, 120, families, juggles, stayed);
+    std::set<std::uint32_t> seeds_before;
+    for (const ts::Material& m : board.materials)
+        seeds_before.insert(m.seed);
+    for (int k = 0; k < 40; ++k)
+        static_cast<void>(ts::juggle_tray(board));
+    for (int k = 0; k < 30 && !board.won; ++k) {
+        for (int cell = 0; cell + 1 < ts::cell_count; ++cell)
+            if (board.cells[static_cast<std::size_t>(cell)].family == board.cells[static_cast<std::size_t>(cell + 1)].family &&
+                cell % ts::side + 1 < ts::side) {
+                static_cast<void>(ts::set_down(board, cell, board.cells[static_cast<std::size_t>(cell + 1)].orientation));
+                break;
+            }
+    }
+    int changed = 0;
+    for (const ts::Material& m : board.materials)
+        changed += seeds_before.count(m.seed) == 0 ? 1 : 0;
+    check(changed > 0, "materials run out and are replaced, faster than families");
+}
+
 void test_save() {
     ts::Session session;
     session.board = ts::new_game(77, 9);
@@ -347,6 +382,7 @@ int main() {
     test_win();
     test_swaps();
     test_long_play();
+    test_materials();
     test_save();
     test_shapes();
     if (failures > 0) {
