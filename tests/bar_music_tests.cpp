@@ -1,4 +1,4 @@
-#include "fourpegs_audio.hpp"
+#include "bar_music.hpp"
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -10,12 +10,18 @@
 #include <vector>
 
 namespace {
+// Four Pegs' and Liar's Dice's tracks, as their audio adapters name them.
+constexpr std::array<games::BarTrack, 5> tracks{{{"fp_music_t1", 99310, 3177931},
+                                                 {"fp_music_t2", 90000, 2880000},
+                                                 {"fp_music_t3", 80000, 2560000},
+                                                 {"ld_music", 65454, 1570896},
+                                                 {"ld_music_tense", 65454, 1570896}}};
 void require(bool condition, const char* message) {
     if (!condition) {
         throw std::runtime_error(message);
     }
 }
-void settle(games::FourPegsAudio& audio) {
+void settle(games::BarMusic& audio) {
     audio.tick(0);
     const std::chrono::steady_clock::time_point deadline =
         std::chrono::steady_clock::now() + std::chrono::seconds(10);
@@ -23,11 +29,11 @@ void settle(games::FourPegsAudio& audio) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         audio.tick(0);
     }
-    require(!audio.pending(), "Four Pegs asynchronous load completes");
+    require(!audio.pending(), "asynchronous load completes");
 }
-void render(games::FourPegsAudio& audio, std::span<float> samples) {
+void render(games::BarMusic& audio, std::span<float> samples) {
     const gui_forms::AudioStatus result = audio.render(samples);
-    require(result == gui_forms::AudioStatus::ok, "Four Pegs actual mixer render");
+    require(result == gui_forms::AudioStatus::ok, "actual mixer render");
 }
 void exact_transition(const std::filesystem::path& root, const std::string& first_name,
                       const std::string& second_name, const std::size_t boundary) {
@@ -36,7 +42,7 @@ void exact_transition(const std::filesystem::path& root, const std::string& firs
     const gui_forms::AudioClipResult second =
         gui_forms::AudioClip::load_ogg(root / "audio" / (second_name + ".ogg"));
     require(first.clip && second.clip, "reference music decoded");
-    games::FourPegsAudio audio(true);
+    games::BarMusic audio(tracks, true);
     audio.music(first_name, false);
     audio.tick(.1);
     require(audio.status() == gui_forms::AudioStatus::closed && !audio.pending(),
@@ -118,7 +124,7 @@ void exact_transition(const std::filesystem::path& root, const std::string& firs
             "hidden game cannot revive pending load");
 }
 void replacement(const std::filesystem::path&) {
-    games::FourPegsAudio audio(true);
+    games::BarMusic audio(tracks, true);
     audio.music("fp_music_t1", true);
     settle(audio);
     std::array<float, 2> sample{};
@@ -153,7 +159,7 @@ int main(int argc, char** argv) {
         exact_transition(root, "ld_music", "ld_music_tense", 65454);
         replacement(root);
         std::cout
-            << "Four Pegs real-asset bar transition, fade, pause, replacement and teardown pass.\n";
+            << "Bar music: Four Pegs and Liar's Dice real-asset bar transition, fade, pause, replacement and teardown pass.\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

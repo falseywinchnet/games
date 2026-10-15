@@ -115,7 +115,8 @@ no audio count is hard-coded.
 looping beds whose volume and pitch follow the game (Rock Stack's brook and
 motor) need a few more lines in your audio adapter. Copy the pattern from
 `games/zenconstruction/src/platform/audio.cpp` (beds on `games::PcmPlayer`) or
-`src/fourpegs_audio.*` (bar transport), and keep the extra functions in your
+`src/bar_music.*` (music on the bar line: name your tracks as
+Four Pegs' `platform/audio.cpp` does), and keep the extra functions in your
 `platform/audio.hpp`.
 
 ### The save envelope (`src/save.hpp`)

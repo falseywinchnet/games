@@ -1,4 +1,4 @@
-#include "fourpegs_audio.hpp"
+#include "bar_music.hpp"
 #include "audio_loader.hpp"
 #include <algorithm>
 #include <array>
@@ -7,22 +7,15 @@
 #include <iostream>
 
 namespace games {
-FourPegsTrack fourpegs_track(std::string_view name) {
-    // Source: assets/audio/fourpegs_audio_manifest.json. Runtime Vorbis files
-    // are trimmed to these exact loop ends by prepare_portable_assets.py.
-    const std::array<FourPegsTrack, 5> tracks{{{"fp_music_t1", 99310, 3177931},
-                                               {"fp_music_t2", 90000, 2880000},
-                                               {"fp_music_t3", 80000, 2560000},
-                                               {"ld_music", 65454, 1570896},
-                                               {"ld_music_tense", 65454, 1570896}}};
-    for (const FourPegsTrack& track : tracks) {
+BarTrack BarMusic::track(std::string_view name) const {
+    for (const BarTrack& track : tracks_) {
         if (track.name == name) {
             return track;
         }
     }
     return {};
 }
-void FourPegsAudio::discard_load() {
+void BarMusic::discard_load() {
     if (cancellation_) {
         (*cancellation_).request();
     }
@@ -31,11 +24,11 @@ void FourPegsAudio::discard_load() {
     loaded_.reset();
     load_failed_ = false;
 }
-void FourPegsAudio::close_music() {
+void BarMusic::close_music() {
     if (ready_) {
         const gui_forms::AudioLoopStatus closed = transport_.close();
         if (closed != gui_forms::AudioLoopStatus::ok) {
-            std::cerr << "Four Pegs music close: " << static_cast<int>(closed) << '\n';
+            std::cerr << "Bar music close: " << static_cast<int>(closed) << '\n';
         }
     }
     transport_ = gui_forms::AudioLoopTransport{};
@@ -45,9 +38,9 @@ void FourPegsAudio::close_music() {
     request_id_ = cancel_id_ = 0;
     sent_gain_ = -1;
 }
-void FourPegsAudio::music(const std::string& name, bool enabled) {
+void BarMusic::music(const std::string& name, bool enabled) {
     enabled = enabled && foreground_ && master_music_;
-    const FourPegsTrack desired = fourpegs_track(name);
+    const BarTrack desired = track(name);
     if (wanted_.name != desired.name) {
         discard_load();
         wanted_ = desired;
@@ -63,17 +56,17 @@ void FourPegsAudio::music(const std::string& name, bool enabled) {
         close_music();
     }
 }
-bool FourPegsAudio::accept(gui_forms::AudioLoopCommand command, const char* operation) {
+bool BarMusic::accept(gui_forms::AudioLoopCommand command, const char* operation) {
     if (command.status == gui_forms::AudioLoopStatus::ok) {
         return true;
     }
     // Queue saturation is temporary. Keep the desired state and retry next tick.
     if (command.status != gui_forms::AudioLoopStatus::quota_exceeded) {
-        std::cerr << "Four Pegs " << operation << ": " << static_cast<int>(command.status) << '\n';
+        std::cerr << "Bar music " << operation << ": " << static_cast<int>(command.status) << '\n';
     }
     return false;
 }
-void FourPegsAudio::tick(double dt) {
+void BarMusic::tick(double dt) {
     player_.tick();
     if (!std::isfinite(dt)) {
         return;
@@ -103,7 +96,7 @@ void FourPegsAudio::tick(double dt) {
             playback_failed_ = true;
             discard_load();
             close_music();
-            std::cerr << "Four Pegs audio backend stopped; reopen the game to retry.\n";
+            std::cerr << "Bar music: the audio backend stopped; reopen the game to retry.\n";
             return;
         }
     }
@@ -159,11 +152,11 @@ void FourPegsAudio::tick(double dt) {
                 loaded_ = std::move(result.clip);
             } else {
                 load_failed_ = true;
-                std::cerr << "Four Pegs music decode/loop length failed: " << wanted_.name << '\n';
+                std::cerr << "Bar music decode/loop length failed: " << wanted_.name << '\n';
             }
         } catch (const std::exception& error) {
             load_failed_ = true;
-            std::cerr << "Four Pegs music decode: " << error.what() << '\n';
+            std::cerr << "Bar music decode: " << error.what() << '\n';
         }
     }
     if (!loaded_) {
@@ -180,7 +173,7 @@ void FourPegsAudio::tick(double dt) {
         loaded_.reset(); // Transport retains ownership through its final sample.
     }
 }
-void FourPegsAudio::effects(const std::string& name, double gain, double rate, bool enabled) {
+void BarMusic::effects(const std::string& name, double gain, double rate, bool enabled) {
     if (!enabled || !foreground_ || !master_sound_ || !std::isfinite(gain) ||
         !std::isfinite(rate)) {
         return;
@@ -189,12 +182,12 @@ void FourPegsAudio::effects(const std::string& name, double gain, double rate, b
     next_effect_ = (next_effect_ + 1) % 24;
     player_.start(slot, name, false, std::clamp(gain, 0.0, 1.0), std::clamp(rate, .5, 2.0));
 }
-void FourPegsAudio::duck(double amount) {
+void BarMusic::duck(double amount) {
     if (std::isfinite(amount)) {
         duck_ = std::max(duck_, std::clamp(amount, 0.0, 1.0));
     }
 }
-void FourPegsAudio::cabinet(bool foreground, bool music, bool sound) {
+void BarMusic::cabinet(bool foreground, bool music, bool sound) {
     foreground_ = foreground;
     master_music_ = music;
     master_sound_ = sound;
@@ -212,7 +205,7 @@ void FourPegsAudio::cabinet(bool foreground, bool music, bool sound) {
         tick(0);
     }
 }
-void FourPegsAudio::stop() {
+void BarMusic::stop() {
     discard_load();
     close_music();
     player_.shutdown();
@@ -221,22 +214,22 @@ void FourPegsAudio::stop() {
     playback_failed_ = false;
     duck_ = 0;
 }
-FourPegsAudio::~FourPegsAudio() {
+BarMusic::~BarMusic() {
     stop();
 }
-bool FourPegsAudio::pending() const {
+bool BarMusic::pending() const {
     const bool result = loading_.valid() || player_.pending();
     return result;
 }
-gui_forms::AudioStatus FourPegsAudio::status() const {
+gui_forms::AudioStatus BarMusic::status() const {
     const gui_forms::AudioStatus result = player_.status();
     return result;
 }
-gui_forms::AudioLoopReceipt FourPegsAudio::music_receipt() {
+gui_forms::AudioLoopReceipt BarMusic::music_receipt() {
     const gui_forms::AudioLoopReceipt result = transport_.poll(request_id_);
     return result;
 }
-gui_forms::AudioStatus FourPegsAudio::render(std::span<float> samples) {
+gui_forms::AudioStatus BarMusic::render(std::span<float> samples) {
     const gui_forms::AudioStatus result = player_.render(samples);
     return result;
 }

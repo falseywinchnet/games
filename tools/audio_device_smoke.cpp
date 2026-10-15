@@ -1,4 +1,5 @@
-#include "fourpegs_audio.hpp"
+#include "bar_music.hpp"
+#include <array>
 #include <chrono>
 #include <cstdlib>
 #include <iostream>
@@ -20,7 +21,10 @@ int main(int argc, char** argv) {
         const int environment = setenv("GAMES_ASSET_DIR", argv[1], 1);
 #endif
         require(environment == 0, "asset environment");
-        games::FourPegsAudio audio{};
+        constexpr std::array<games::BarTrack, 3> tracks{{{"fp_music_t1", 99310, 3177931},
+                                                         {"fp_music_t2", 90000, 2880000},
+                                                         {"fp_music_t3", 80000, 2560000}}};
+        games::BarMusic audio{tracks};
         audio.music("fp_music_t1", true);
         const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
         std::chrono::steady_clock::time_point previous = start;

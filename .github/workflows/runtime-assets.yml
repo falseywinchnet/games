@@ -7,6 +7,8 @@ on:
       # prepared asset (tests/audio_tests.cpp), so assets and new games don't need this.
       - 'src/*audio*'
       - 'src/pcm_player.*'
+      - 'src/bar_music.*'
+      - 'tests/bar_music*'
       - 'tests/portable_audio/**'
       - 'tests/*audio*'
       - 'games/eggy/**'
@@ -22,6 +24,8 @@ on:
       # prepared asset (tests/audio_tests.cpp), so assets and new games don't need this.
       - 'src/*audio*'
       - 'src/pcm_player.*'
+      - 'src/bar_music.*'
+      - 'tests/bar_music*'
       - 'tests/portable_audio/**'
       - 'tests/*audio*'
       - 'games/eggy/**'

@@ -1,10 +1,17 @@
 #include "audio.hpp"
-#include "fourpegs_audio.hpp"
+#include "bar_music.hpp"
 #include "runtime_paths.hpp"
+#include <array>
 #include <chrono>
 
 namespace fp {
-namespace { games::FourPegsAudio audio{}; }
+namespace {
+// Source: assets/audio/fourpegs_audio_manifest.json.
+constexpr std::array<games::BarTrack, 3> tracks{{{"fp_music_t1", 99310, 3177931},
+                                                 {"fp_music_t2", 90000, 2880000},
+                                                 {"fp_music_t3", 80000, 2560000}}};
+games::BarMusic audio{tracks};
+}
 std::string asset_dir() {
     const std::string result = games::asset_directory();
     return result;

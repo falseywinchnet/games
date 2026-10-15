@@ -1,10 +1,15 @@
 #include "audio.hpp"
 #include "runtime_paths.hpp"
-#include "fourpegs_audio.hpp"
+#include "bar_music.hpp"
+#include <array>
 #include <chrono>
 
 namespace ld {
-namespace { games::FourPegsAudio audio{}; }
+namespace {
+// The calm and the tense loop, one bar apart in the same tempo.
+constexpr std::array<games::BarTrack, 2> tracks{{{"ld_music", 65454, 1570896}, {"ld_music_tense", 65454, 1570896}}};
+games::BarMusic audio{tracks};
+}
 std::string asset_dir() { const std::string result = games::asset_directory(); return result; }
 double wall_clock() {
     const std::chrono::system_clock::duration elapsed = std::chrono::system_clock::now().time_since_epoch();

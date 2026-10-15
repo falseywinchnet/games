@@ -70,7 +70,7 @@ if(GAMES_TEST_VENDOR_FRAMES)
     add_library(fourpegs_frame_audio STATIC
         "${games_root}/src/audio_loader.cpp"
         "${games_root}/src/pcm_player.cpp"
-        "${games_root}/src/fourpegs_audio.cpp"
+        "${games_root}/src/bar_music.cpp"
         "${games_root}/src/scene_audio.cpp"
         "${games_root}/games/eggy/src/audio.cpp"
         "${games_root}/games/atomprobe/src/platform/audio.cpp"

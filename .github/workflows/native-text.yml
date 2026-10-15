@@ -2,9 +2,9 @@ name: Native portable text
 on:
   push:
     branches: [main]
-    paths: ['src/text_requests.*', 'src/game_text.*', 'assets/fonts/**', 'games/eggy/**', 'games/fourpegs/**', 'games/atomprobe/**', 'games/switchbox/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', 'tools/restore_*.py', 'tools/package_common.py', '.github/workflows/native-text.yml']
+    paths: ['src/text_requests.*', 'src/game_text.*', 'src/bar_music.*', 'assets/fonts/**', 'games/eggy/**', 'games/fourpegs/**', 'games/atomprobe/**', 'games/switchbox/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', 'tools/restore_*.py', 'tools/package_common.py', '.github/workflows/native-text.yml']
   pull_request:
-    paths: ['src/text_requests.*', 'src/game_text.*', 'assets/fonts/**', 'games/eggy/**', 'games/fourpegs/**', 'games/atomprobe/**', 'games/switchbox/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', 'tools/restore_*.py', 'tools/package_common.py', '.github/workflows/native-text.yml']
+    paths: ['src/text_requests.*', 'src/game_text.*', 'src/bar_music.*', 'assets/fonts/**', 'games/eggy/**', 'games/fourpegs/**', 'games/atomprobe/**', 'games/switchbox/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', 'tools/restore_*.py', 'tools/package_common.py', '.github/workflows/native-text.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -120,7 +120,7 @@ jobs:
         id: objects
         with:
           path: .ccache
-          key: text-objects-v1-${{ matrix.platform }}-${{ hashFiles('src/text_requests.*', 'src/game_text.*', 'games/**', 'shared/**', 'tests/portable_text/**') }}
+          key: text-objects-v1-${{ matrix.platform }}-${{ hashFiles('src/text_requests.*', 'src/game_text.*', 'src/bar_music.*', 'games/**', 'shared/**', 'tests/portable_text/**') }}
           restore-keys: text-objects-v1-${{ matrix.platform }}-
       - name: Configure compiler cache
         run: |
