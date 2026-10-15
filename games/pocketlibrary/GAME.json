@@ -33,7 +33,8 @@
     "src/container.cpp",
     "src/library.cpp",
     "src/lz_coder.cpp",
-    "src/sha256.cpp"
+    "src/sha256.cpp",
+    "src/text_pack.cpp"
   ],
   "ui_sources": [
     "src/pocketlibrary_view.cpp",

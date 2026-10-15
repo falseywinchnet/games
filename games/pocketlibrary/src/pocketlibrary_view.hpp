@@ -16,6 +16,7 @@
 
 #include "gui_forms/basic_controls.hpp"
 #include "gui_forms/live_surface.hpp"
+#include "gui_forms/threading.hpp"
 #include "gui_forms/timer.hpp"
 
 #include <memory>
@@ -79,6 +80,8 @@ class PocketLibraryView final : public gf::Control, public games::CommandSource 
     bool direct_ = false;
     bool front_ = true;
     bool help_ = false;  // the game's own help card is showing
+    // Decodes the library's base while the shelf is shown; joined before a book is read.
+    std::unique_ptr<gf::Worker> preparing_;
 
     void on_attached_to_window() override;
     void on_detaching_from_window(gf::Window& window) noexcept override;
@@ -88,6 +91,8 @@ class PocketLibraryView final : public gf::Control, public games::CommandSource 
     void publish();
     void describe();
 
+    static void prepare_library(const gf::CancellationFlag& cancellation, void* context);
+    void finish_preparing() noexcept;
     void open_book(int index);
     void close_book();
     void turn(bool forward);

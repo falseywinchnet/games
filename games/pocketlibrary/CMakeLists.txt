@@ -38,7 +38,7 @@ endif()
 # The library without pixels: the book model, the library file and its coder, the
 # shelf and the bookmarks. This is what PlaySuite's portable-core profile builds; the
 # pages are set and printed only in the application (build.cmake, pl_page).
-add_library(pl_core STATIC src/book.cpp src/container.cpp src/library.cpp src/lz_coder.cpp src/sha256.cpp)
+add_library(pl_core STATIC src/book.cpp src/container.cpp src/library.cpp src/lz_coder.cpp src/sha256.cpp src/text_pack.cpp)
 target_include_directories(pl_core PUBLIC src)
 target_link_libraries(pl_core PUBLIC game_paths)
 if(NOT MSVC)

@@ -7,7 +7,8 @@ add_library(pl_core STATIC
   "${GAME_MODULE_DIR}/src/container.cpp"
   "${GAME_MODULE_DIR}/src/library.cpp"
   "${GAME_MODULE_DIR}/src/lz_coder.cpp"
-  "${GAME_MODULE_DIR}/src/sha256.cpp")
+  "${GAME_MODULE_DIR}/src/sha256.cpp"
+  "${GAME_MODULE_DIR}/src/text_pack.cpp")
 target_include_directories(pl_core PUBLIC "${GAME_MODULE_DIR}/src")
 # Saves and assets come through PlaySuite (src/game_data.hpp).
 target_link_libraries(pl_core PUBLIC game_paths)

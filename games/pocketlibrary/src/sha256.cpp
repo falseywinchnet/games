@@ -2,6 +2,10 @@
 
 #include <bit>
 
+#if defined(__ARM_FEATURE_SHA2)
+#include <arm_neon.h>
+#endif
+
 namespace pl {
 namespace {
 
@@ -45,6 +49,28 @@ void Sha256::reset() noexcept {
 }
 
 void Sha256::compress(const std::uint8_t* block) noexcept {
+#if defined(__ARM_FEATURE_SHA2)
+    // The processor's SHA-256 instructions: four rounds an instruction pair, about
+    // fifteen times the arithmetic below. The same digest.
+    uint32x4_t first_half = vld1q_u32(state_.data());
+    uint32x4_t second_half = vld1q_u32(state_.data() + 4);
+    const uint32x4_t first_saved = first_half;
+    const uint32x4_t second_saved = second_half;
+    std::array<uint32x4_t, 4> words{};
+    for (std::size_t index = 0U; index < 4U; ++index)
+        words[index] = vreinterpretq_u32_u8(vrev32q_u8(vld1q_u8(block + index * 16U)));
+    for (std::size_t group = 0U; group < 16U; ++group) {
+        const uint32x4_t scheduled = vaddq_u32(words[group & 3U], vld1q_u32(round_constants.data() + group * 4U));
+        if (group < 12U)
+            words[group & 3U] = vsha256su1q_u32(vsha256su0q_u32(words[group & 3U], words[(group + 1U) & 3U]),
+                                                words[(group + 2U) & 3U], words[(group + 3U) & 3U]);
+        const uint32x4_t before = first_half;
+        first_half = vsha256hq_u32(first_half, second_half, scheduled);
+        second_half = vsha256h2q_u32(second_half, before, scheduled);
+    }
+    vst1q_u32(state_.data(), vaddq_u32(first_half, first_saved));
+    vst1q_u32(state_.data() + 4, vaddq_u32(second_half, second_saved));
+#else
     std::array<std::uint32_t, 64> schedule{};
     for (std::size_t index = 0U; index < 16U; ++index) {
         const std::size_t offset = index * 4U;
@@ -95,6 +121,7 @@ void Sha256::compress(const std::uint8_t* block) noexcept {
     state_[5] += f;
     state_[6] += g;
     state_[7] += h;
+#endif
 }
 
 void Sha256::update(std::span<const std::uint8_t> bytes) noexcept {

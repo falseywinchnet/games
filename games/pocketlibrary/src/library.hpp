@@ -38,6 +38,10 @@ class Library {
     [[nodiscard]] const std::vector<ShelfBook>& shelf() const {
         return shelf_;
     }
+    // Decodes what every book needs (the file's tables and base) ahead of the first
+    // book, so it may be done on a worker while the shelf is shown; work() does it
+    // itself otherwise. Not to be called while another call is running.
+    void prepare();
     // The book, decoded and read the first time it is asked for; nullptr when its text
     // is damaged. The pointer stays valid for the life of the library.
     [[nodiscard]] const Work* work(std::string_view id);

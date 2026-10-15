@@ -38,7 +38,13 @@ PocketLibraryView::PocketLibraryView(gf::StableId id, Options options)
     gf::SurfaceMaterial plain;
     plain.fills = {gf::MaterialFillLayer::solid(gf::Color::rgba(0, 0, 0))};
     set_authored_surface_material(plain);
-    static_cast<void>(library_.open(library_bytes()));
+    if (library_.open(library_bytes())) {
+        try {
+            preparing_ = std::make_unique<gf::Worker>(prepare_library, this);
+        } catch (...) {
+            // Without a worker the first book opened prepares the library itself.
+        }
+    }
     const std::optional<std::string> saved = games::load_game_data(game_id, save_name());
     if (saved)
         static_cast<void>(decode_bookmarks(*saved, marks_));
@@ -52,7 +58,20 @@ PocketLibraryView::PocketLibraryView(gf::StableId id, Options options)
     describe();
 }
 
-PocketLibraryView::~PocketLibraryView() = default;
+PocketLibraryView::~PocketLibraryView() {
+    finish_preparing();
+}
+
+void PocketLibraryView::prepare_library(const gf::CancellationFlag&, void* context) {
+    (*static_cast<PocketLibraryView*>(context)).library_.prepare();
+}
+
+void PocketLibraryView::finish_preparing() noexcept {
+    if (preparing_) {
+        (*preparing_).join();
+        preparing_.reset();
+    }
+}
 
 void PocketLibraryView::on_attached_to_window() {
     timer_ = std::make_unique<gf::Timer>(*attached_window(), std::chrono::milliseconds(16));
@@ -69,6 +88,7 @@ void PocketLibraryView::on_detaching_from_window(gf::Window&) noexcept {
     if (timer_)
         (*timer_).stop();
     timer_.reset();
+    finish_preparing();
     audio_stop();
 }
 
@@ -211,6 +231,7 @@ void PocketLibraryView::open_book(int index) {
     if (index < 0 || static_cast<std::size_t>(index) >= library_.shelf().size())
         return;
     const ShelfBook& book = library_.shelf()[static_cast<std::size_t>(index)];
+    finish_preparing();
     const Work* work = library_.work(book.id);
     if (work == nullptr)
         return;

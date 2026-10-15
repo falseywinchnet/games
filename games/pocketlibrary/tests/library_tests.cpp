@@ -4,6 +4,7 @@
 #include "container.hpp"
 #include "library.hpp"
 #include "lz_coder.hpp"
+#include "text_pack.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -107,41 +108,109 @@ void test_coder() {
           "a code cut short does not give the text back");
 }
 
+void test_digest() {
+    // Known answers (FIPS 180-4's examples), whichever way the processor computes them.
+    const std::string one = "abc";
+    const std::string two = "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
+    check(pl::sha256_hex(pl::sha256(bytes_of(one))) ==
+              "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+          "the SHA-256 of one block");
+    check(pl::sha256_hex(pl::sha256(bytes_of(two))) ==
+              "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1",
+          "the SHA-256 of two blocks");
+    const std::string million(1000000, 'a');
+    check(pl::sha256_hex(pl::sha256(bytes_of(million))) ==
+              "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0",
+          "the SHA-256 of a million letters");
+}
+
+void test_base() {
+    // A book coded after a base it repeats is a small fraction of the book coded alone,
+    // and decodes to the same bytes reading back into the base.
+    std::string base_text;
+    for (int n = 0; n < 200; ++n)
+        base_text += "In the beginning was the Word " + std::to_string(n * 7919 % 1000) + ". ";
+    const std::string book_text = "A passage: " + base_text.substr(1000, 2000);
+    std::vector<std::uint8_t> base_code, alone, after;
+    pl::LzBase base;
+    pl::lz_encode_base(bytes_of(base_text), base_code, 48, base);
+    pl::lz_encode(bytes_of(book_text), alone);
+    pl::lz_encode(bytes_of(book_text), after, 48, base);
+    check(after.size() * 4 < alone.size(), "a book after a base that says the same is coded smaller");
+    pl::LzBase decoded;
+    check(pl::lz_decode_base(base_code, base_text.size(), decoded) && decoded.size() == base_text.size(),
+          "the base decodes");
+    std::vector<std::uint8_t> back;
+    check(pl::lz_decode(after, book_text.size(), back, decoded) && std::string(back.begin(), back.end()) == book_text,
+          "the book after the base comes back");
+    check(!pl::lz_decode(after, book_text.size(), back) || std::string(back.begin(), back.end()) != book_text,
+          "and does not come back without it");
+}
+
+void test_packing() {
+    const std::string notes = "B\tN\tNotes\tNotes\nC\t\nP\tp\nT\tA line, and THE Lord's word \u00e2\u0080\u0094 \u00c3\u00a9t\u00c3\u00a9.\n";
+    std::vector<std::string_view> books{sample_bible, notes};
+    const pl::PackTables tables = pl::learn_tables(books);
+    pl::PackTables loaded;
+    check(pl::load_tables(pl::save_tables(tables), loaded), "the tables load back");
+    check(!pl::load_tables("nonsense", loaded), "damaged tables are refused");
+    const pl::TextPacker packer(tables);
+    for (const std::string_view book : books) {
+        std::string packed, back;
+        check(packer.pack(book, packed) && packer.unpack(packed, back) && back == book, "a book packs and comes back");
+        check(packed.size() < book.size(), "and packs smaller");
+    }
+    const std::string unseen = "B\tX\tX\tX\nC\t\nP\tp\nT\tZebra QUAGGA okapi \u00e2\u0084\u00a2 never seen.\n";
+    std::string packed, back;
+    check(packer.pack(unseen, packed) && packer.unpack(packed, back) && back == unseen,
+          "words and characters the tables never saw come back");
+}
+
 void test_library_file() {
-    std::vector<pl::BookText> books(2);
+    std::vector<pl::BookText> books(3);
     books[0].id = "bsb";
     books[0].text = sample_bible;
     books[0].shelf = "title\tHOLY BIBLE\nsubtitle\tBerean Standard Bible\ncategory\tScripture\nbinding\t1b1715\nleather\t1\n";
     books[1].id = "notes";
     books[1].text = "B\tN\tNotes\tNotes\nC\t\nP\tp\nT\tA line.\n";
+    books[2].id = "more";
+    books[2].text = "B\tM\tMore\tMore\nC\t\nP\tp\nT\tIn the beginning God created the heavens and the earth.\n";
+    pl::LibraryPlan plan;
+    plan.base = {"bsb"};
     std::vector<std::uint8_t> bytes;
-    pl::write_library(books, bytes);
+    check(pl::write_library(books, plan, bytes), "the library is written");
     std::vector<std::uint8_t> again;
-    pl::write_library(books, again);
-    check(bytes == again, "the same books give the same file");
+    check(pl::write_library(books, plan, again) && bytes == again, "the same books give the same file");
     pl::Library library;
     check(library.open(bytes), "the library opens");
-    check(library.shelf().size() == 2 && library.shelf()[0].title == "HOLY BIBLE", "the shelf, from the shelf record");
+    check(library.shelf().size() == 3 && library.shelf()[0].title == "HOLY BIBLE", "the shelf, from the shelf record");
     check(library.shelf()[0].category == "Scripture" && library.shelf()[0].binding.leather &&
               library.shelf()[0].binding.red == 0x1b,
           "the category and binding");
     check(library.shelf()[1].title == "notes", "a book without a shelf record is lettered with its id");
     const pl::Work* bible = library.work("bsb");
-    check(bible != nullptr && (*bible).divisions.size() == 2, "the Bible is read from the file");
+    check(bible != nullptr && (*bible).divisions.size() == 2, "the Bible is read from the base");
     check(library.work("bsb") == bible, "and read once");
+    check(library.work("more") != nullptr, "a book after the base is read");
     const pl::Versification* places = library.bible_places();
     check(places != nullptr && (*places).places.size() == 4, "the Bible's verses for the concordance");
 
-    // A damaged byte inside a code is caught by the code or by the text's SHA-256.
+    // A damaged byte inside a book's code is caught by the code or by the text's SHA-256.
     pl::LibraryFile file;
     check(file.open(bytes), "the file opens as a file");
-    const pl::ShelvedBook first = file.books()[0];
+    check(file.books()[0].in_base && !file.books()[1].in_base, "the planned book is in the base, the others not");
+    const pl::ShelvedBook third = file.books()[2];
     std::vector<std::uint8_t> damaged = bytes;
-    damaged[first.offset + first.code_length / 2] ^= 0x10U;
+    damaged[third.offset + third.code_length / 2] ^= 0x10U;
     check(file.open(damaged), "the damaged file's table still opens");
     std::string text;
-    check(!file.read(0, text) && text.empty(), "the damaged book is refused");
-    check(file.read(1, text) && text == books[1].text, "the undamaged book still reads");
+    check(!file.read(2, text) && text.empty(), "the damaged book is refused");
+    check(file.read(1, text) && text == books[1].text, "an undamaged book still reads");
+    check(file.read(0, text) && text == books[0].text, "and so does the base's book");
+    // A damaged base: nothing reads.
+    damaged = bytes;
+    damaged[file.base().offset + file.base().code_length / 2] ^= 0x10U;
+    check(file.open(damaged) && !file.prepare() && !file.read(1, text), "a damaged base is refused");
     std::vector<std::uint8_t> short_file(bytes.begin(), bytes.begin() + 20);
     check(!file.open(short_file), "a file cut short is refused");
 }
@@ -172,6 +241,9 @@ void test_bookmarks() {
 int main() {
     test_records();
     test_coder();
+    test_digest();
+    test_base();
+    test_packing();
     test_library_file();
     test_bookmarks();
     if (failures == 0)

@@ -24,7 +24,7 @@ std::vector<std::uint8_t> read_file(const std::string& path) {
     return bytes;
 }
 
-bool read_book(const pl::LibraryFile& library, const std::string& id, pl::Work& work) {
+bool read_book(pl::LibraryFile& library, const std::string& id, pl::Work& work) {
     for (std::size_t n = 0; n < library.books().size(); ++n) {
         if (library.books()[n].id != id)
             continue;

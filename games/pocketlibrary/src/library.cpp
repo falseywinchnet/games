@@ -101,6 +101,10 @@ bool Library::open(std::vector<std::uint8_t> bytes) {
     return true;
 }
 
+void Library::prepare() {
+    static_cast<void>(file_.prepare());
+}
+
 const Work* Library::work(std::string_view id) {
     for (std::size_t n = 0; n < shelf_.size(); ++n) {
         if (shelf_[n].id != id)
