@@ -1,11 +1,17 @@
-add_library(pt_core STATIC ${GAME_MODULE_DIR}/src/logic.cpp ${GAME_MODULE_DIR}/src/script.cpp ${GAME_MODULE_DIR}/src/birds.cpp ${GAME_MODULE_DIR}/src/parlor.cpp)
+add_library(pt_core STATIC ${GAME_MODULE_DIR}/src/logic.cpp ${GAME_MODULE_DIR}/src/perching.cpp ${GAME_MODULE_DIR}/src/script.cpp ${GAME_MODULE_DIR}/src/chatter.cpp ${GAME_MODULE_DIR}/src/birds.cpp ${GAME_MODULE_DIR}/src/aviary.cpp)
 target_include_directories(pt_core PUBLIC ${GAME_MODULE_DIR}/src)
 target_link_libraries(pt_core PUBLIC render_core)  # the 2D canvas, 3D renderer and meshes (shared/render)
+target_link_libraries(pt_core PUBLIC soil_core)    # the sand and the gravel path (shared/soil)
 target_link_libraries(pt_core PUBLIC game_paths Threads::Threads)
 target_compile_definitions(pt_core PRIVATE _USE_MATH_DEFINES)
 add_executable(parrots_rules_tests ${GAME_MODULE_DIR}/tests/logic_tests.cpp)
 target_link_libraries(parrots_rules_tests PRIVATE pt_core)
 add_test(NAME parrots_rules COMMAND parrots_rules_tests)
 set_tests_properties(parrots_rules PROPERTIES LABELS design)
+# design tools: a table as the player meets it, and still frames of the aviary
+add_executable(parrots_table_demo ${GAME_MODULE_DIR}/tests/table_demo.cpp)
+target_link_libraries(parrots_table_demo PRIVATE pt_core)
+add_executable(parrots_aviary_preview ${GAME_MODULE_DIR}/tests/aviary_preview.cpp)
+target_link_libraries(parrots_aviary_preview PRIVATE pt_core)
 
 list(APPEND GAMES_NATIVE_FRAME_MODULES parrots)

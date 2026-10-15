@@ -38,6 +38,7 @@ SCENES = {
     "mowingman": ("mowingman", 10.0),    # the yard as the mower works it
     "maze": ("maze", 26.0),              # walking by itself through the maze
     "gems": ("gems", 6.0),               # a resting board: breathing and sparkle
+    "parrots": ("parrots", 12.0),        # the aviary at rest: birds settled, breathing and blinking
     "untangle": ("untangle", 6.0),       # a resting board: the cat and frosted pegs
     "eggy": ("eggy", 8.0),               # Eggy climbing by himself, the camera following
 }

@@ -61,7 +61,7 @@ void flat_part(R3D& r, const Mesh& m, const M34& model, Col c) { draw_mesh(r, m,
 M34 frame_of(const BirdPose& p) {
     const double hop = std::fabs(std::sin(p.bob * M_PI)) * .06;
     const double up = p.fly * p.fly * 2.4;
-    return at(p.pos + V3{p.fly * 1.6, p.fly * .8, hop + up}) * M34::rot_z(p.yaw + p.fly * 1.2);
+    return at(p.pos + V3{p.fly * 1.6, p.fly * .8, hop + up}) * M34::rot_z(p.yaw + p.fly * 1.2) * M34::scale(p.size, p.size, p.size);
 }
 M34 head_of(const BirdPose& p, const M34& f) {
     const double shake = std::sin(p.shake * 26) * .35 * p.shake;

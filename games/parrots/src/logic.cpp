@@ -2,320 +2,322 @@
 
 #include <algorithm>
 #include <bit>
+#include <numeric>
 
 namespace pt {
 
 namespace {
 struct Rng {
     std::uint64_t s;
-    explicit Rng(std::uint64_t seed) : s(seed * 0x9E3779B97F4A7C15ULL + 0x6A09E667F3BCC909ULL) { next(); next(); }
-    std::uint64_t next() { s ^= s << 13; s ^= s >> 7; s ^= s << 17; return s; }
-    int range(int n) { return n <= 1 ? 0 : static_cast<int>(next() % static_cast<std::uint64_t>(n)); }
-    double unit() { return (next() >> 11) * (1.0 / 9007199254740992.0); }
+    explicit Rng(std::uint64_t seed) : s(seed * 0x9E3779B97F4A7C15ULL + 0xD1B54A32D192ED03ULL) {}
+    std::uint64_t next() {
+        s ^= s >> 12;
+        s ^= s << 25;
+        s ^= s >> 27;
+        return s * 0x2545F4914F6CDD1DULL;
+    }
+    int below(int n) { return n > 0 ? static_cast<int>(next() % static_cast<std::uint64_t>(n)) : 0; }
+    double u() { return static_cast<double>(next() >> 11) / 9007199254740992.0; }
 };
 
-bool world_ok(const Puzzle& p, const std::vector<Asked>& asked, const World& w) {
-    if (std::popcount(static_cast<unsigned>(w.liars)) != p.liar_count) return false;
-    for (const Statement& s : p.said)
-        if (s.f.eval(w, p.parrots) != w.honest(s.speaker)) return false;
-    for (const Asked& a : asked)
-        if (answer(a.q, w, p.parrots) != a.yes) return false;
-    return true;
-}
-}  // namespace
+const Seat& seat(const Scene& s, int i) { return s.seats[static_cast<size_t>(i)]; }
 
-bool Formula::eval(const World& w, int parrots) const {
-    const auto h = [&](int i) { return w.honest(i); };
-    switch (kind) {
-        case Kind::is_liar: return !h(a);
-        case Kind::is_honest: return h(a);
-        case Kind::both_liars: return !h(a) && !h(b);
-        case Kind::both_honest: return h(a) && h(b);
-        case Kind::exactly_one_liar: return h(a) != h(b);
-        case Kind::same_kind: return h(a) == h(b);
-        case Kind::did_it: return w.culprit == a;
-        case Kind::didnt_do_it: return w.culprit != a;
-        case Kind::one_of: return w.culprit == a || w.culprit == b;
-        case Kind::if_honest_did: return !h(a) || w.culprit == b;
-        case Kind::culprit_lies: return !h(w.culprit);
-        case Kind::culprit_honest: return h(w.culprit);
-        case Kind::count_liars: return std::popcount(static_cast<unsigned>(w.liars)) == n;
-        case Kind::at_least_liars: return std::popcount(static_cast<unsigned>(w.liars)) >= n;
-        case Kind::neighbour_did: return (w.culprit == a - 1 || w.culprit == a + 1) && w.culprit >= 0 && w.culprit < parrots;  // the birds either side in the row
-        case Kind::not_me: return w.culprit != a;
+// The kinds a table may use, by tier.
+bool allowed(Kind k, int tier) {
+    switch (k) {
+    case Kind::is_liar: case Kind::is_truthful: case Kind::did_it: case Kind::didnt_do_it: case Kind::not_me:
+    case Kind::culprit_on: case Kind::culprit_shade: case Kind::culprit_sun: case Kind::culprit_high: case Kind::culprit_low:
+    case Kind::sits_on: case Kind::sits_shade: case Kind::sits_sun: case Kind::sits_above: case Kind::sits_beside:
+        return true;
+    case Kind::one_of: case Kind::culprit_lies: case Kind::culprit_truthful: case Kind::culprit_red: case Kind::culprit_not_red: case Kind::culprit_beside:
+        return tier >= 1;
+    case Kind::exactly_one_liar: case Kind::same_kind: case Kind::culprit_above: case Kind::culprit_below: case Kind::culprit_alone:
+        return tier >= 2;
+    case Kind::if_truthful_did:
+        return tier >= 3;
     }
     return false;
 }
 
-bool answer(const Question& q, const World& w, int parrots) {
-    const bool t = q.f.eval(w, parrots);
-    return w.honest(q.to) ? t : !t;
-}
-
-std::vector<World> consistent(const Puzzle& p, const std::vector<Asked>& asked) {
-    std::vector<World> out;
-    for (unsigned m = 0; m < (1u << p.parrots); ++m)
-        for (int c = 0; c < p.parrots; ++c) {
-            const World w{static_cast<std::uint8_t>(m), c};
-            if (world_ok(p, asked, w)) out.push_back(w);
+// Every formula worth saying at this table, by `speaker` (-1: put as a question).
+std::vector<Formula> candidates(const Scene& s, int speaker, int tier) {
+    const int n = s.birds();
+    std::vector<Formula> out;
+    std::vector<int> stuffs;
+    for (const Seat& st : s.seats)
+        if (std::find(stuffs.begin(), stuffs.end(), static_cast<int>(st.stuff)) == stuffs.end()) stuffs.push_back(static_cast<int>(st.stuff));
+    for (int k = 0; k < kKinds; ++k) {
+        const Kind kind = static_cast<Kind>(k);
+        if (!allowed(kind, tier)) continue;
+        switch (kind) {
+        case Kind::not_me:
+            if (speaker >= 0) out.push_back({kind, speaker, 0, 0});
+            break;
+        case Kind::culprit_lies: case Kind::culprit_truthful: case Kind::culprit_shade: case Kind::culprit_sun: case Kind::culprit_high:
+        case Kind::culprit_low: case Kind::culprit_red: case Kind::culprit_not_red: case Kind::culprit_alone:
+            out.push_back({kind, 0, 0, 0});
+            break;
+        case Kind::culprit_on:
+            for (int st : stuffs) out.push_back({kind, 0, 0, st});
+            break;
+        case Kind::sits_on:
+            for (int a = 0; a < n; ++a)
+                for (int st : stuffs) out.push_back({kind, a, 0, st});
+            break;
+        case Kind::exactly_one_liar: case Kind::same_kind: case Kind::one_of: case Kind::if_truthful_did: case Kind::sits_above: case Kind::sits_beside:
+            for (int a = 0; a < n; ++a)
+                for (int b = 0; b < n; ++b)
+                    if (a != b && (kind == Kind::if_truthful_did || kind == Kind::sits_above || a < b)) out.push_back({kind, a, b, 0});
+            break;
+        default:
+            for (int a = 0; a < n; ++a) {
+                // nobody vouches for or against themself by name; "I didn't" is not_me
+                if (a == speaker && (kind == Kind::is_liar || kind == Kind::is_truthful || kind == Kind::did_it || kind == Kind::didnt_do_it)) continue;
+                out.push_back({kind, a, 0, 0});
+            }
         }
+    }
     return out;
 }
 
-bool settles(const Puzzle& p, const std::vector<Asked>& asked, const Question& q) {
-    std::vector<Asked> more = asked;
-    more.push_back({q, answer(q, p.truth, p.parrots)});
-    return consistent(p, more).size() == 1;
-}
-
-// ------------------------------------------------------------------ the grader
-namespace {
-// What a careful solver knows: for each parrot, whether honest / lying is still possible, and who could still be the culprit.
-struct Know {
-    std::uint8_t can_honest = 0x7F, can_lie = 0x7F;
-    std::uint8_t suspects = 0x7F;
-    bool fits(const World& w, int n) const {
-        for (int i = 0; i < n; ++i) {
-            if (w.honest(i) && !(can_honest >> i & 1)) return false;
-            if (!w.honest(i) && !(can_lie >> i & 1)) return false;
-        }
-        return suspects >> w.culprit & 1;
-    }
-    bool dead(int n) const {
-        for (int i = 0; i < n; ++i)
-            if (!(can_honest >> i & 1) && !(can_lie >> i & 1)) return true;
-        return (suspects & ((1u << n) - 1)) == 0;
-    }
-    bool solved(int n) const {
-        for (int i = 0; i < n; ++i)
-            if ((can_honest >> i & 1) && (can_lie >> i & 1)) return false;
-        return std::popcount(static_cast<unsigned>(suspects & ((1u << n) - 1))) == 1;
-    }
-    int open(int n) const {
-        int k = 0;
-        for (int i = 0; i < n; ++i) k += (can_honest >> i & 1) && (can_lie >> i & 1);
-        return k + std::popcount(static_cast<unsigned>(suspects & ((1u << n) - 1))) - 1;
-    }
-};
-
-// One constraint at a time: a value with no supporting world (given what is known) is struck out.
-// Constraint -1 is the liar count; 0.. are the statements; then the answers.
-int propagate(const Puzzle& p, const std::vector<Asked>& asked, Know& k) {
-    const int n = p.parrots;
-    const int total = 1 + static_cast<int>(p.said.size()) + static_cast<int>(asked.size());
-    int steps = 0;
-    for (bool again = true; again && !k.dead(n);) {
-        again = false;
-        for (int ci = 0; ci < total && !k.dead(n); ++ci) {
-            std::uint8_t sup_h = 0, sup_l = 0, sup_c = 0;
-            for (unsigned m = 0; m < (1u << n); ++m)
-                for (int c = 0; c < n; ++c) {
-                    const World w{static_cast<std::uint8_t>(m), c};
-                    if (!k.fits(w, n)) continue;
-                    bool ok;
-                    if (ci == 0) ok = std::popcount(m) == p.liar_count;
-                    else if (ci <= static_cast<int>(p.said.size())) {
-                        const Statement& s = p.said[static_cast<size_t>(ci - 1)];
-                        ok = s.f.eval(w, n) == w.honest(s.speaker);
-                    } else {
-                        const Asked& a = asked[static_cast<size_t>(ci - 1 - static_cast<int>(p.said.size()))];
-                        ok = answer(a.q, w, n) == a.yes;
-                    }
-                    if (!ok) continue;
-                    sup_h |= static_cast<std::uint8_t>(~m & 0x7F);
-                    sup_l |= static_cast<std::uint8_t>(m);
-                    sup_c |= static_cast<std::uint8_t>(1u << c);
-                }
-            const std::uint8_t nh = k.can_honest & sup_h, nl = k.can_lie & sup_l, nc = k.suspects & sup_c;
-            const int gained = std::popcount(static_cast<unsigned>(k.can_honest ^ nh)) + std::popcount(static_cast<unsigned>(k.can_lie ^ nl)) +
-                               std::popcount(static_cast<unsigned>(k.suspects ^ nc));
-            if (gained) {
-                steps += gained;
-                k.can_honest = nh;
-                k.can_lie = nl;
-                k.suspects = nc;
-                again = true;
-            }
-        }
-    }
-    return steps;
+std::vector<int> culprits_of(const std::vector<World>& worlds) {
+    std::vector<int> c;
+    for (const World& w : worlds)
+        if (std::find(c.begin(), c.end(), w.culprit) == c.end()) c.push_back(w.culprit);
+    std::sort(c.begin(), c.end());
+    return c;
 }
 }  // namespace
 
-bool grade(const Puzzle& p, const std::vector<Asked>& asked, int& steps, int& suppositions) {
-    const int n = p.parrots;
-    Know k;
-    steps = propagate(p, asked, k);
-    suppositions = 0;
-    while (!k.solved(n)) {
-        if (k.dead(n)) return false;
-        // stuck: suppose something, follow it, and strike it out if it ends in absurdity
-        bool progress = false;
-        for (int v = 0; v < 3 * n && !progress; ++v) {
-            Know t = k;
-            const int i = v % n, kind = v / n;
-            if (kind == 0) { if (!(t.can_honest >> i & 1) || !(t.can_lie >> i & 1)) continue; t.can_lie &= static_cast<std::uint8_t>(~(1u << i)); }
-            else if (kind == 1) { if (!(t.can_honest >> i & 1) || !(t.can_lie >> i & 1)) continue; t.can_honest &= static_cast<std::uint8_t>(~(1u << i)); }
-            else { if (!(t.suspects >> i & 1) || std::popcount(static_cast<unsigned>(t.suspects)) < 2) continue; t.suspects = static_cast<std::uint8_t>(1u << i); }
-            const int inner = propagate(p, asked, t);
-            if (!t.dead(n)) continue;
-            ++suppositions;
-            steps += inner;
-            if (kind == 0) k.can_honest &= static_cast<std::uint8_t>(~(1u << i));
-            else if (kind == 1) k.can_lie &= static_cast<std::uint8_t>(~(1u << i));
-            else k.suspects &= static_cast<std::uint8_t>(~(1u << i));
-            steps += 1 + propagate(p, asked, k);
-            progress = true;
-        }
-        if (!progress) return false;
+Scene scene_of(const Layout& layout, const std::vector<int>& at, const std::vector<bool>& red) {
+    Scene s;
+    for (size_t i = 0; i < at.size(); ++i) {
+        const Place& pl = layout.places[static_cast<size_t>(at[i])];
+        Seat st;
+        st.place = at[i];
+        st.bar = pl.bar;
+        st.stuff = pl.stuff;
+        st.shade = pl.shade;
+        st.high = layout.high(at[i]);
+        st.low = layout.low(at[i]);
+        st.rank = pl.rank;
+        st.red = i < red.size() && red[i];
+        s.seats.push_back(st);
     }
+    return s;
+}
+
+bool Scene::alone(int a) const {
+    for (int b = 0; b < birds(); ++b)
+        if (beside(a, b)) return false;
     return true;
 }
 
-// ------------------------------------------------------------------ the generator
-namespace {
-Formula random_formula(Rng& r, int n, int speaker, int tier, const GenParams& g, int twins_a, int twins_b) {
-    // kinds allowed grow with the tier
-    static const Kind t0[] = {Kind::is_liar, Kind::is_honest, Kind::did_it, Kind::didnt_do_it, Kind::not_me};
-    static const Kind t1[] = {Kind::both_liars, Kind::both_honest, Kind::one_of, Kind::exactly_one_liar, Kind::count_liars};
-    static const Kind t2[] = {Kind::same_kind, Kind::if_honest_did, Kind::culprit_lies, Kind::culprit_honest, Kind::neighbour_did};
-    static const Kind t3[] = {Kind::at_least_liars};
-    std::vector<Kind> pool(std::begin(t0), std::end(t0));
-    if (tier >= 1) pool.insert(pool.end(), std::begin(t1), std::end(t1));
-    if (tier >= 2) pool.insert(pool.end(), std::begin(t2), std::end(t2));
-    if (tier >= 3) pool.insert(pool.end(), std::begin(t3), std::end(t3));
-    Formula f;
-    f.kind = pool[static_cast<size_t>(r.range(static_cast<int>(pool.size())))];
-    auto other = [&](int not1, int not2) {
-        for (;;) {
-            const int x = r.range(n);
-            if (x != not1 && x != not2) return x;
-        }
-    };
-    f.a = other(speaker, -1);
-    f.b = other(speaker, f.a);
-    if (f.kind == Kind::not_me) f.a = speaker;
-    if (f.kind == Kind::neighbour_did) f.a = speaker;  // "one of my neighbours did it"
-    if (f.kind == Kind::count_liars || f.kind == Kind::at_least_liars) f.n = 1 + r.range(std::max(1, n - 1));
-    // the twins come up in pair statements
-    if (g.twins && twins_a >= 0 && (f.kind == Kind::exactly_one_liar || f.kind == Kind::both_liars || f.kind == Kind::same_kind) && speaker != twins_a && speaker != twins_b && r.unit() < .6) {
-        f.a = twins_a;
-        f.b = twins_b;
+bool by_eye(Kind k) { return k == Kind::sits_on || k == Kind::sits_shade || k == Kind::sits_sun || k == Kind::sits_above || k == Kind::sits_beside; }
+
+bool Formula::eval(const World& w, const Scene& s) const {
+    const int c = w.culprit;
+    switch (kind) {
+    case Kind::is_liar: return w.lies(a);
+    case Kind::is_truthful: return !w.lies(a);
+    case Kind::exactly_one_liar: return w.lies(a) != w.lies(b);
+    case Kind::same_kind: return w.lies(a) == w.lies(b);
+    case Kind::did_it: return c == a;
+    case Kind::didnt_do_it: case Kind::not_me: return c != a;
+    case Kind::one_of: return c == a || c == b;
+    case Kind::if_truthful_did: return w.lies(a) || c == b;
+    case Kind::culprit_lies: return w.lies(c);
+    case Kind::culprit_truthful: return !w.lies(c);
+    case Kind::culprit_on: return static_cast<int>(seat(s, c).stuff) == n;
+    case Kind::culprit_shade: return seat(s, c).shade;
+    case Kind::culprit_sun: return !seat(s, c).shade;
+    case Kind::culprit_high: return seat(s, c).high;
+    case Kind::culprit_low: return seat(s, c).low;
+    case Kind::culprit_red: return seat(s, c).red;
+    case Kind::culprit_not_red: return !seat(s, c).red;
+    case Kind::culprit_beside: return s.beside(c, a);
+    case Kind::culprit_alone: return s.alone(c);
+    case Kind::culprit_above: return c != a && s.higher(c, a);
+    case Kind::culprit_below: return c != a && s.higher(a, c);
+    case Kind::sits_on: return static_cast<int>(seat(s, a).stuff) == n;
+    case Kind::sits_shade: return seat(s, a).shade;
+    case Kind::sits_sun: return !seat(s, a).shade;
+    case Kind::sits_above: return s.higher(a, b);
+    case Kind::sits_beside: return s.beside(a, b);
     }
-    return f;
+    return false;
 }
 
-bool same_formula(const Formula& x, const Formula& y) {
-    if (x.kind != y.kind || x.n != y.n) return false;
-    return (x.a == y.a && x.b == y.b) || (x.a == y.b && x.b == y.a);
+std::vector<int> Puzzle::playing() const {
+    std::vector<int> p;
+    for (int i = 0; i < birds; ++i)
+        if (roles[static_cast<size_t>(i)] != Role::chatter) p.push_back(i);
+    return p;
 }
-}  // namespace
 
-Puzzle generate(const GenParams& g) {
-    const int n = std::clamp(g.parrots, 3, kMaxParrots);
-    for (std::uint64_t attempt = 0;; ++attempt) {
-        Rng r(g.seed * 7919 + attempt);
+World Puzzle::truth() const {
+    World w;
+    w.culprit = culprit;
+    for (int i = 0; i < birds; ++i)
+        if (roles[static_cast<size_t>(i)] == Role::liar) w.liars = static_cast<std::uint16_t>(w.liars | 1u << i);
+    return w;
+}
+
+bool answer(const Puzzle& p, int q, const World& w) {
+    const bool holds = p.offers[static_cast<size_t>(q)].eval(w, p.scene);
+    return w.lies(p.asker) ? !holds : holds;
+}
+
+std::vector<World> consistent(const Puzzle& p, const Asked* asked) {
+    const std::vector<int> play = p.playing();
+    const int m = static_cast<int>(play.size());
+    std::vector<World> out;
+    for (unsigned sub = 0; sub < (1u << m); ++sub) {
+        if (std::popcount(sub) != p.liar_count) continue;
+        World w;
+        for (int k = 0; k < m; ++k)
+            if (sub >> k & 1) w.liars = static_cast<std::uint16_t>(w.liars | 1u << play[static_cast<size_t>(k)]);
+        for (int c = 0; c < p.birds; ++c) {
+            w.culprit = c;
+            bool ok = true;
+            for (int i = 0; i < p.birds && ok; ++i)
+                for (const Formula& f : p.claims[static_cast<size_t>(i)])
+                    if (f.eval(w, p.scene) == w.lies(i)) { ok = false; break; }
+            if (ok && asked && asked->offer >= 0 && answer(p, asked->offer, w) != asked->yes) ok = false;
+            if (ok) out.push_back(w);
+        }
+    }
+    return out;
+}
+
+std::vector<int> suspects(const Puzzle& p, const Asked* asked) { return culprits_of(consistent(p, asked)); }
+
+Puzzle generate(const GenParams& g, const Scene& scene) {
+    Rng r(g.seed);
+    const int n = scene.birds();
+    const int liars = std::clamp(g.liars, 1, 2);
+    Puzzle best;
+    for (int attempt = 0; attempt < 400; ++attempt) {
         Puzzle p;
-        p.parrots = n;
-        // the hidden truth
-        p.liar_count = 1 + r.range(std::max(1, n - 2));
-        unsigned m = 0;
-        while (std::popcount(m) < p.liar_count) m |= 1u << r.range(n);
-        p.truth = {static_cast<std::uint8_t>(m), r.range(n)};
-        if (g.twins) { p.twins_a = r.range(n); do p.twins_b = r.range(n); while (p.twins_b == p.twins_a); }
-        // who keeps quiet
+        p.birds = n;
+        p.liar_count = liars;
+        p.scene = scene;
+        p.roles.assign(static_cast<size_t>(n), Role::chatter);
+        p.claims.assign(static_cast<size_t>(n), {});
         std::vector<int> order(static_cast<size_t>(n));
-        for (int i = 0; i < n; ++i) order[static_cast<size_t>(i)] = i;
-        for (int i = n - 1; i > 0; --i) std::swap(order[static_cast<size_t>(i)], order[static_cast<size_t>(r.range(i + 1))]);
-        const int silent = std::clamp(g.silent, 0, n - 2);
-        p.silent.assign(order.begin(), order.begin() + silent);
-        std::sort(p.silent.begin(), p.silent.end());
-        // statements: each speaker says something true if honest, false if a liar
-        auto deal = [&](int speaker) {
-            for (int t = 0; t < 200; ++t) {
-                const Formula f = random_formula(r, n, speaker, g.tier, g, p.twins_a, p.twins_b);
-                if (f.eval(p.truth, n) != p.truth.honest(speaker)) continue;
-                bool dup = false;
-                for (const Statement& s : p.said) dup = dup || same_formula(s.f, f);
-                if (dup) continue;
-                p.said.push_back({speaker, f});
-                return true;
+        std::iota(order.begin(), order.end(), 0);
+        for (int i = n - 1; i > 0; --i) std::swap(order[static_cast<size_t>(i)], order[static_cast<size_t>(r.below(i + 1))]);
+        for (int k = 0; k < liars + 2; ++k) p.roles[static_cast<size_t>(order[static_cast<size_t>(k)])] = k < liars ? Role::liar : Role::truthful;
+        // the culprit: a liar now and then, but anyone may have done it
+        p.culprit = r.u() < .3 ? order[static_cast<size_t>(r.below(liars))] : r.below(n);
+        const World truth = p.truth();
+        const std::vector<int> play = p.playing();
+        if (g.question) p.asker = play[static_cast<size_t>(r.below(static_cast<int>(play.size())))];
+        std::vector<int> speakers;
+        for (int i : play)
+            if (i != p.asker) speakers.push_back(i);
+        // what each speaker could say: true for the truthful, false for liars
+        std::vector<std::vector<Formula>> pool(static_cast<size_t>(n));
+        for (int i : speakers)
+            for (const Formula& f : candidates(scene, i, g.tier))
+                if (f.eval(truth, scene) == (p.roles[static_cast<size_t>(i)] == Role::truthful)) pool[static_cast<size_t>(i)].push_back(f);
+        int eye = 0;
+        const int eye_most = g.tier == 0 ? 2 : 1;
+        auto pick_for = [&](int i, const std::vector<Formula>& from) -> const Formula* {
+            if (from.empty()) return nullptr;
+            for (int tries = 0; tries < 30; ++tries) {
+                const Formula& f = from[static_cast<size_t>(r.below(static_cast<int>(from.size())))];
+                if (by_eye(f.kind) && eye >= eye_most) continue;
+                const auto& mine = p.claims[static_cast<size_t>(i)];
+                if (std::find(mine.begin(), mine.end(), f) != mine.end()) continue;
+                return &f;
             }
-            return false;
+            return nullptr;
         };
+        // one claim each to begin
         bool ok = true;
-        for (int i = 0; i < n && ok; ++i)
-            if (std::find(p.silent.begin(), p.silent.end(), i) == p.silent.end()) ok = deal(i);
+        for (int i : speakers) {
+            const Formula* f = pick_for(i, pool[static_cast<size_t>(i)]);
+            if (!f) { ok = false; break; }
+            eye += by_eye(f->kind);
+            p.claims[static_cast<size_t>(i)].push_back(*f);
+        }
         if (!ok) continue;
-        std::vector<World> ws = consistent(p, {});
-        // add a second remark from someone if the table is too vague (it never settles things alone when questions are due)
-        for (int extra = 0; extra < 3 && ws.size() > (silent ? 4u : 1u); ++extra) {
-            int sp;
-            do sp = r.range(n); while (std::find(p.silent.begin(), p.silent.end(), sp) != p.silent.end());
-            if (!deal(sp)) break;
-            ws = consistent(p, {});
-        }
-        if (ws.empty()) continue;
-        if (silent == 0) {
-            if (ws.size() != 1) continue;
-        } else {
-            // the table alone must leave doubt, which a well-chosen question can settle
-            if (ws.size() < 2 || ws.size() > 6) continue;
-            p.asks = std::max(1, g.asks);
-            p.offers.assign(static_cast<size_t>(silent), {});
-            int settling = 0, total = 0;
-            for (size_t si = 0; si < p.silent.size(); ++si) {
-                const int to = p.silent[si];
-                std::vector<Question> pool;
-                for (int t = 0; t < 60 && static_cast<int>(pool.size()) < 12; ++t) {
-                    Question q{to, random_formula(r, n, to, std::max(1, g.tier), g, p.twins_a, p.twins_b)};
-                    bool dup = false;
-                    for (const Question& o : pool) dup = dup || same_formula(o.f, q.f);
-                    if (!dup) pool.push_back(q);
+        // then claims that narrow the suspects, until one is left (or, with a question
+        // bird, two or three, for the question to settle)
+        const size_t goal_most = p.asker >= 0 ? 3 : 1;
+        for (int step = 0; step < 14; ++step) {
+            const std::vector<int> c = suspects(p);
+            if (c.size() <= goal_most) break;
+            // the claim (to a speaker with room) that leaves fewest suspects, among a sample
+            int best_i = -1;
+            Formula best_f;
+            size_t best_c = c.size();
+            for (int s = 0; s < 40; ++s) {
+                const int i = speakers[static_cast<size_t>(r.below(static_cast<int>(speakers.size())))];
+                if (p.claims[static_cast<size_t>(i)].size() >= 3) continue;
+                const Formula* f = pick_for(i, pool[static_cast<size_t>(i)]);
+                if (!f) continue;
+                p.claims[static_cast<size_t>(i)].push_back(*f);
+                const size_t left = suspects(p).size();
+                p.claims[static_cast<size_t>(i)].pop_back();
+                const bool fine = p.asker < 0 || left >= 2;
+                if (fine && (left < best_c || (left == best_c && r.u() < .3))) {
+                    best_c = left;
+                    best_i = i;
+                    best_f = *f;
                 }
-                // offer a mix: at least one that settles it (if any exists here), and some that don't
-                std::vector<Question> good, poor;
-                for (const Question& q : pool) (settles(p, {}, q) ? good : poor).push_back(q);
-                std::vector<Question>& offer = p.offers[si];
-                if (!good.empty()) offer.push_back(good[static_cast<size_t>(r.range(static_cast<int>(good.size())))]);
-                while (static_cast<int>(offer.size()) < g.choices && !poor.empty()) {
-                    const int k = r.range(static_cast<int>(poor.size()));
-                    offer.push_back(poor[static_cast<size_t>(k)]);
-                    poor.erase(poor.begin() + k);
-                }
-                for (int i = static_cast<int>(offer.size()) - 1; i > 0; --i) std::swap(offer[static_cast<size_t>(i)], offer[static_cast<size_t>(r.range(i + 1))]);
-                for (const Question& q : offer) { settling += settles(p, {}, q); ++total; }
             }
-            if (p.asks >= 2 && silent >= 2) {
-                // with two questions, a good pair is enough even if no single question settles it
-                bool pair = settling > 0;
-                for (size_t a = 0; a < p.offers.size() && !pair; ++a)
-                    for (const Question& qa : p.offers[a])
-                        for (size_t b = 0; b < p.offers.size() && !pair; ++b)
-                            for (const Question& qb : p.offers[b]) {
-                                if (&qa == &qb) continue;
-                                std::vector<Asked> one{{qa, answer(qa, p.truth, n)}};
-                                if (settles(p, one, qb)) { pair = true; break; }
-                            }
-                if (!pair) continue;
-            } else if (settling == 0) {
-                continue;
-            }
-            if (settling == total) continue;  // the choice must matter
+            if (best_i < 0) break;
+            eye += by_eye(best_f.kind);
+            p.claims[static_cast<size_t>(best_i)].push_back(best_f);
         }
-        // grade it with the settling question asked (if one is needed)
-        std::vector<Asked> best;
-        if (silent > 0)
-            for (const auto& offer : p.offers)
-                for (const Question& q : offer)
-                    if (best.empty() && settles(p, {}, q)) best.push_back({q, answer(q, p.truth, n)});
-        int steps = 0, sup = 0;
-        if (!grade(p, best, steps, sup) && silent == 0) continue;  // a human must be able to do it without guesswork
-        p.steps = steps;
-        p.suppositions = sup;
-        p.difficulty = steps + 6 * sup + 8 * silent;
+        std::vector<int> c = suspects(p);
+        if (p.asker < 0 ? c.size() != 1 : (c.size() < 2 || c.size() > 3)) continue;
+        // everyone who speaks says two things at least; padding never narrows a question
+        // table's suspects (it cannot widen anyone's)
+        for (int i : speakers)
+            for (int s = 0; s < 30 && p.claims[static_cast<size_t>(i)].size() < 2; ++s) {
+                const Formula* f = pick_for(i, pool[static_cast<size_t>(i)]);
+                if (!f) continue;
+                p.claims[static_cast<size_t>(i)].push_back(*f);
+                if (p.asker >= 0 && suspects(p).size() < 2) p.claims[static_cast<size_t>(i)].pop_back();
+                else eye += by_eye(f->kind);
+            }
+        bool two = true;
+        for (int i : speakers) two = two && p.claims[static_cast<size_t>(i)].size() >= 2;
+        if (!two) continue;
+        // the questions: exactly one settles it
+        if (p.asker >= 0) {
+            std::vector<Formula> good, bad;
+            for (const Formula& f : candidates(scene, -1, std::max(1, g.tier))) {
+                if (by_eye(f.kind) || f.kind == Kind::not_me) continue;
+                p.offers = {f};
+                const Asked a{0, answer(p, 0, truth)};
+                const size_t left = suspects(p, &a).size();
+                if (left == 1) good.push_back(f);
+                else if (left >= 2) bad.push_back(f);
+            }
+            if (good.empty() || static_cast<int>(bad.size()) < g.choices - 1) continue;
+            p.offers.clear();
+            p.offers.push_back(good[static_cast<size_t>(r.below(static_cast<int>(good.size())))]);
+            while (static_cast<int>(p.offers.size()) < g.choices) {
+                const Formula& f = bad[static_cast<size_t>(r.below(static_cast<int>(bad.size())))];
+                if (std::find(p.offers.begin(), p.offers.end(), f) == p.offers.end()) p.offers.push_back(f);
+            }
+            for (int i = static_cast<int>(p.offers.size()) - 1; i > 0; --i) std::swap(p.offers[static_cast<size_t>(i)], p.offers[static_cast<size_t>(r.below(i + 1))]);
+            for (size_t k = 0; k < p.offers.size(); ++k) {
+                const Asked a{static_cast<int>(k), answer(p, static_cast<int>(k), truth)};
+                if (suspects(p, &a).size() == 1) p.good = static_cast<int>(k);
+            }
+        }
+        // effort: claims to weigh, worlds to rule out, lies to see through
+        int claims = 0;
+        for (const auto& cl : p.claims) claims += static_cast<int>(cl.size());
+        p.difficulty = claims * 3 + static_cast<int>(consistent(p).size()) + liars * 4 + (p.asker >= 0 ? 8 : 0) + n;
         return p;
     }
+    return best;
 }
 
 }  // namespace pt

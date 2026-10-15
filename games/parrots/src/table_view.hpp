@@ -1,11 +1,13 @@
 #pragma once
 #include "suite.hpp"
-// The game as a GUI.Forms control: the parlor, the parrots' performance, the
-// notebook of everything said, marking beaks honest or lying with
-// contradictions shown as they appear, questions put to the tight-beaked, the
-// accusation and the verdict, the next table, and autosave.
+// The Paradoxiary as a GUI.Forms control: the aviary, its birds flying in to settle on
+// their perches, a bird's line in a popup when it is clicked (a question bird's questions
+// on offer instead, until one is asked), marks the player puts on birds with a right
+// click (truthful green, liar red), the accusation (the comic JE ACCUSE!, a crosshair and
+// a paintball), the verdict and its points, the next table, and autosave.
+#include "aviary.hpp"
 #include "logic.hpp"
-#include "parlor.hpp"
+#include "perching.hpp"
 #include "script.hpp"
 #include "platform/present.hpp"
 #include "pixel_surface.hpp"
@@ -16,7 +18,6 @@
 
 #include <chrono>
 #include <cstdint>
-#include <deque>
 #include <memory>
 #include <string>
 #include <vector>
@@ -47,40 +48,64 @@ public:
     std::uint64_t ticks() const { return ticks_; }
 
 private:
-    enum class Phase { intro, play, verdict };
-    enum class Panel { none, ask, accuse, help, records };
-    struct Button { std::string id, label; int x, y, w, h; bool enabled = true; };
+    enum class Phase { arrive, play, aim, shot, verdict };
+    enum class Panel { none, help, records };
+    // a bird's mark: what the player thinks it is
+    enum Mark : int { unmarked = 0, mark_truthful = 1, mark_liar = 2 };
+    struct Button { std::string id, label; int x, y, w, h; bool enabled = true; Col tint{0, 0, 0, 0}; };
     struct HiText { std::string s; int font; double size; int wrap; int x, y; Col c; };
-    struct Line { int who; std::string text; bool answer = false; int index = -1; };  // index: statement or answer number
-    struct Bubble { int who; std::string text; double age = 0; double life = 4; int shown = 0; };
+    // A popup: what a bird has just said, typed out beside it, or its questions on offer.
+    struct Popup {
+        int who = -1;
+        std::string text;
+        double age = 0;
+        int shown = 0;
+        bool questions = false;   // the question bird's offers, not a line
+    };
+    // A bird's way in: from high in the dome, perhaps to a perch it tries and leaves, to its own.
+    struct Flight {
+        V3 from{}, via{}, to{};
+        int first_try = -1;
+        double start = 0;         // seconds after the table opens
+        double leg1 = 1.6, rest = 0, leg2 = 0;
+    };
 
     Options opt_;
     // the table
     int level_ = 1;
     std::uint64_t seed_ = 1;
+    Layout layout_;
+    std::vector<Bird> flock_;
+    std::vector<int> at_;             // each bird's place
     Puzzle puz_;
     Script script_;
     std::vector<std::string> names_;
     std::vector<Manner> manners_;
     std::vector<int> species_;
     int crime_ = 0;
-    std::vector<Asked> asked_;
-    std::vector<int> marks_;          // per bird: 0 none, 1 honest, 2 liar
-    int suspect_ = -1;                // chosen in the accusation dialog
-    Phase phase_ = Phase::intro;
+    int asked_ = -1;                  // the offer asked, or -1
+    bool answer_ = false;
+    std::vector<int> marks_;
+    std::vector<int> heard_;          // per bird: lines heard so far (a playing bird's first is a claim)
+    std::vector<int> next_claim_;     // per bird: which claim comes round next
+    int target_ = -1;                 // the bird the paintball is fired at
+    double shot_t_ = 0;               // seconds since the paintball left
+    V3 splat_{};                      // where it hit, on the bird's breast (bird space: up from the feet)
+    bool splatted_ = false;
+    int table_points_ = 0, liars_right_ = 0;
+    Phase phase_ = Phase::arrive;
     double phase_t_ = 0;
-    int intro_next_ = 0;
     bool won_ = false;
-    std::vector<Line> notebook_;
-    std::deque<Bubble> bubbles_;
     std::string opener_;
-    std::vector<std::vector<std::string>> offer_text_;  // the questions on offer, worded once per table
+    std::vector<std::string> offer_text_;
+    std::vector<Flight> flights_;
+    Popup popup_;
     // records
-    int solved_ = 0, played_ = 0, streak_ = 0, best_streak_ = 0;
+    int solved_ = 0, played_ = 0, streak_ = 0, best_streak_ = 0, points_ = 0, best_points_ = 0;
     bool sound_ = true, music_ = true;
 
-    Parlor parlor_;
-    ParlorState st_;
+    Aviary aviary_;
+    AviaryState st_;
     Canvas frame_;
     render::PixelSurface pixels_;     // the window end: the small frame enlarged, and the text
     bool pixels_attached_ = false;
@@ -90,6 +115,7 @@ private:
     double t_ = 0, save_t_ = 0;
     std::uint64_t ticks_ = 0;
     bool dirty_ = false;
+    std::uint64_t drawn_sig_ = 0;     // what the last frame showed: an unchanged scene draws none
     std::uint64_t rng_ = 1;
 
     Panel panel_ = Panel::none;
@@ -102,22 +128,14 @@ private:
     std::vector<std::pair<double, std::string>> script_cmds_;
     std::vector<double> talk_;        // per bird: seconds of beak-flapping left
     std::vector<double> shake_;
-    std::vector<double> glow_;
-    mutable std::string contra_key_;
-    mutable std::vector<bool> contra_;
+    mutable double ov_size_ = 11.5;
 
-    int pixel_ = 2, panel_h_ = 100;
-    int top_h_ = 24;            // the host's band (bottom edge): one line, or two in a narrow window
+    int pixel_ = 2;
+    int top_h_ = 24;            // the keeper's band (bottom edge): one line, or two in a narrow window
     int top0_ = 0;              // hosted: room left clear above the band for the floating capsule and Help
     bool compact_ = false;
-    int nb_first_ = 0;          // the notebook's first visible line, when it has more than fits
-    bool nb_follow_ = true;     // keep the newest line in view (the introductions, an answer)
-    int nb_name_w_ = 46;        // the speakers' column
-    mutable double ov_size_ = 11.5;
     double bs_ = 2;
     int pw_ = 0, ph_ = 0, phys_w_ = 0, phys_h_ = 0;
-
-    std::vector<TextSprite> sprites_;
     std::vector<HiText> texts_;
 
     void on_attached_to_window() override;
@@ -126,29 +144,36 @@ private:
     void publish();
     // game
     void new_table(int level, std::uint64_t seed, bool fresh);
-    void say(int who, const std::string& text, double life = 0);
-    void mark(int bird);
-    void ask(int bird, int option);
+    void settle_now();                // skip the flight: every bird on its perch
+    void pose_birds(double dt);
+    void click_bird(int bird);
+    void speak(int who, const std::string& text);
+    void ask(int option);
+    void cycle_mark(int bird);
+    void fire(int bird);
     void accuse(int bird);
-    std::vector<bool> contradictions() const;  // per notebook line: impossible under the marks (and the suspect)
-    bool count_wrong() const;
+    int weekday() const;
     void persist();
     bool load();
+    void load_old_records();
     void play(const std::string& name, float gain = 1, float rate = 1);
     void action(const std::string& id);
     void open(Panel p);
     void layout_buttons();
     void layout_game_buttons();
+    void popup_box(int& x, int& y, int& w, int& h, int& text_h, int& options_y) const;
     void panel_box(int& wx, int& wy, int& ww, int& wh) const;
     std::vector<std::string> panel_lines() const;
-    void scroll_notebook(int lines);
     void run_script();
     double rand01();
     // drawing
     void compose();
     void draw_top();
-    void draw_notebook();
-    void draw_bubbles();
+    void draw_labels();
+    void draw_popup();
+    void draw_jaccuse();
+    void draw_shot();
+    void jaccuse_box(int& x, int& y, int& w, int& h) const;
     void draw_panel();
     void draw_button(const Button& b);
     const Mask& tmask(const std::string& s, int font, double size, int wrap_game) const;

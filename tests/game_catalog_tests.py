@@ -19,7 +19,8 @@ SPEC.loader.exec_module(catalog)
 # Solve's help was rewritten deliberately for its difficulty levels and new frames.
 # Nature Cube's (its new finale) and Rock Stack's (Shift hurries; the bowl jiggles) were
 # rewritten deliberately on 2026-10-10, at the user's word; Nature Cube's again on
-# 2026-10-11 (a portal pair can be taken over; the ends light when joined), likewise.
+# 2026-10-11 (a portal pair can be taken over; the ends light when joined), likewise. The Parrot's
+# Table's became The Paradoxiary's on 2026-10-15, the game reworked at the user's word.
 ORIGINAL_HELP = {'atom': 'ca18af9d89d615ad304a8208d958e7aace41d77f15a4e9ce7ca101b05cfd5467',
  'cube': 'a40a53845a6f5f01840fcddfca60e899d9d04576b2fb767f9b2718e32151d83e',
  'eggy': 'd899bd545ea8ac4956a1bd9f554d2df1794f0a138a2e7f78e9e041089d172c3d',
@@ -28,7 +29,7 @@ ORIGINAL_HELP = {'atom': 'ca18af9d89d615ad304a8208d958e7aace41d77f15a4e9ce7ca101
  'hearts': '2cb0d288172f0f823ba50a9400e6ac8ff555664b300b69492b7a77cc23845a9a',
  'koikoi': '32d15393b7d307472e00dc9a949b12b3b02e705729a2869ce6176fddb71945a3',
  'liarsdice': 'd44667a75950b88c2777a7256779a051fba0b3f079ed6ca419de4000c65e1be9',
- 'parrots': 'b761336d7a3e1b6277b980cf8fea44a8aa99c9d92caa9afd7bdbb26367695cc9',
+ 'parrots': '0f1042efc38705e52471c9f419679677e40e93c46ddf683c97abf07635aaa487',
  'pegs': '183961b64a8360d584cdaeb5142f641af73293e7cd097a2558ecf2437a34f006',
  'penthesheep': '692afff977c635a3f8499723f3c0718f5dc220c771f1f5ae56d6067cb19e3a36',
  'rockstack': '741be15ca6fc17d134fe9f6cb7d3dcebab3f16437a500ed1783978c92d92561e',

@@ -4,24 +4,24 @@
   "entry_id": 14,
   "entry_name": "parrots",
   "namespace": "pt",
-  "title": "The Parrot's Table",
+  "title": "The Paradoxiary",
   "kind": "Deduction",
-  "blurb": "Question the parrots, test their stories, and name the culprit.",
+  "blurb": "Parrots in a glasshouse jungle: some lie, two tell the truth, the rest just chatter. Find the culprit.",
   "colors": [
     [
-      34,
-      122,
-      85
+      46,
+      120,
+      64
     ],
     [
-      12,
-      52,
-      40
+      14,
+      40,
+      24
     ],
     [
-      244,
-      216,
-      104
+      236,
+      214,
+      120
     ]
   ],
   "help": "help.md",
@@ -41,6 +41,7 @@
   ],
   "hosted": true,
   "engines": [
-    "render"
+    "render",
+    "soil"
   ]
 }

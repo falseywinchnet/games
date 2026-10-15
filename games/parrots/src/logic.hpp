@@ -1,112 +1,141 @@
 #pragma once
-// The logic of the Parrot's Table. Each parrot at the table is honest (every
-// word true) or a liar (every word false), and exactly one of them did the
-// small crime. Statements are little formulas over who is honest and who did
-// it. A world is consistent when every speaker's statement is true exactly
-// when the speaker is honest, the number of liars is the number announced,
-// and every answer to a question asked fits the same rule.
+// The logic of the Paradoxiary. Five to ten parrots sit about the aviary. One or two of
+// them are liars (every claim they make is false), two know the truth and tell it, and
+// the rest are chatterers who know nothing of the matter and only pass the time. One
+// bird did the small crime. The player is told how many lie and that two know the
+// truth, but not who is playing: they find out by talking to the birds.
 //
-// The generator hides a truth, deals statements that are true or false as the
-// speaker demands, and keeps a few parrots tight-beaked: they say nothing until
-// asked. The solver enumerates every world (at most 7 parrots: 128 honesty
-// patterns times 7 culprits), so uniqueness is proven, not hoped for. A second,
-// human-like solver grades the deduction: how many single steps of inference
-// it takes, and how many times it has to suppose something and find it absurd.
+// A claim is a little formula over who lies, who did it, and where everyone sits (what
+// they sit on, in shade or sun, how high, beside whom), so some claims can be checked by
+// eye. The generator hides a truth, gives each liar and truth-teller two or three claims
+// that are false or true as they must be, and on later tables makes one of them a
+// question bird: it says nothing until asked, and of the questions on offer exactly one
+// settles the case. The solver enumerates every world (which of the playing birds lie,
+// and who did it), so uniqueness is proven, not hoped for.
 // Pure and deterministic: no UI, no clock.
+#include "perching.hpp"
+
 #include <cstdint>
 #include <string>
 #include <vector>
 
 namespace pt {
 
-constexpr int kMaxParrots = 7;
+constexpr int kMaxBirds = 10;
+
+enum class Role : std::uint8_t { chatter, liar, truthful };
+
+// What anyone can see of a bird where it sits.
+struct Seat {
+    int place = 0;
+    int bar = 0;
+    Stuff stuff = Stuff::wood;
+    bool shade = false;
+    bool high = false, low = false;
+    int rank = 0;          // height order among the places
+    bool red = false;      // a scarlet bird
+};
+
+struct Scene {
+    std::vector<Seat> seats;
+    [[nodiscard]] int birds() const { return static_cast<int>(seats.size()); }
+    [[nodiscard]] bool beside(int a, int b) const { return a != b && seats[static_cast<size_t>(a)].bar == seats[static_cast<size_t>(b)].bar; }
+    [[nodiscard]] bool alone(int a) const;
+    [[nodiscard]] bool higher(int a, int b) const { return seats[static_cast<size_t>(a)].rank > seats[static_cast<size_t>(b)].rank; }
+};
+
+// The scene of birds settled on a layout: bird i at place at[i], red where red[i].
+Scene scene_of(const Layout& layout, const std::vector<int>& at, const std::vector<bool>& red);
 
 struct World {
-    std::uint8_t liars = 0;   // bit i set: parrot i lies
+    std::uint16_t liars = 0;   // bit i: bird i lies
     int culprit = 0;
-    bool honest(int i) const { return !(liars >> i & 1); }
+    [[nodiscard]] bool lies(int i) const { return (liars >> i & 1) != 0; }
 };
 
-// A formula. Kinds name the statement templates; a, b are parrots; n is a number.
 enum class Kind : std::uint8_t {
+    // about who lies
     is_liar,          // a lies
-    is_honest,        // a tells the truth
-    both_liars,       // a and b both lie
-    both_honest,      // a and b both tell the truth
+    is_truthful,      // a does not lie
     exactly_one_liar, // exactly one of a, b lies
-    same_kind,        // a and b are the same (both honest or both liars)
+    same_kind,        // a and b both lie, or neither does
+    // about the crime
     did_it,           // a did it
-    didnt_do_it,      // a did not do it
-    one_of,           // a did it, or b did
-    if_honest_did,    // if a is honest, then b did it
-    culprit_lies,     // whoever did it is a liar
-    culprit_honest,   // whoever did it is honest
-    count_liars,      // exactly n of us lie
-    at_least_liars,   // at least n of us lie
-    neighbour_did,    // one of the birds sitting either side of a did it (they sit in a row; the ends have one neighbour)
+    didnt_do_it,      // a didn't
     not_me,           // "I didn't do it" (a = the speaker)
+    one_of,           // a or b did it
+    if_truthful_did,  // if a doesn't lie, b did it
+    culprit_lies,     // whoever did it is a liar
+    culprit_truthful, // whoever did it doesn't lie
+    // the crime and the aviary
+    culprit_on,       // whoever did it sits on stuff n
+    culprit_shade,    // ... sits in the shade
+    culprit_sun,      // ... sits in the sun
+    culprit_high,     // ... sits high up
+    culprit_low,      // ... sits low down
+    culprit_red,      // ... is a red bird
+    culprit_not_red,  // ... isn't red
+    culprit_beside,   // ... sits beside a
+    culprit_alone,    // ... has a bar to themself
+    culprit_above,    // ... sits higher than a
+    culprit_below,    // ... sits lower than a
+    // the aviary alone: true or false for anyone to see
+    sits_on,          // a sits on stuff n
+    sits_shade,       // a sits in the shade
+    sits_sun,         // a sits in the sun
+    sits_above,       // a sits higher than b
+    sits_beside,      // a sits beside b
 };
+constexpr int kKinds = static_cast<int>(Kind::sits_beside) + 1;
+// Can its truth be seen by looking, whatever the world?
+bool by_eye(Kind k);
 
 struct Formula {
     Kind kind = Kind::is_liar;
     int a = 0, b = 0, n = 0;
-    bool eval(const World& w, int parrots) const;
+    [[nodiscard]] bool eval(const World& w, const Scene& s) const;
+    bool operator==(const Formula&) const = default;
 };
-
-struct Statement {
-    int speaker = 0;
-    Formula f;
-};
-
-// A question the player may put to a silent parrot: "Is it true that ...?"
-struct Question {
-    int to = 0;       // who is asked
-    Formula f;        // what is asked
-};
-// The answer a parrot gives in world w: honest parrots say yes when it is true, liars when it is false.
-bool answer(const Question& q, const World& w, int parrots);
 
 struct Puzzle {
-    int parrots = 4;
+    int birds = 5;
     int liar_count = 1;
-    std::vector<Statement> said;           // statements volunteered
-    std::vector<int> silent;               // parrots who wait to be asked
-    std::vector<std::vector<Question>> offers;  // per silent parrot: the multiple-choice questions on offer
-    int asks = 0;                          // how many questions the player may ask in all
-    World truth;
-    int twins_a = -1, twins_b = -1;        // a pair of twins, if the table has them (names only)
-    int difficulty = 0;                    // graded deduction effort
-    int steps = 0, suppositions = 0;       // what the grade is made of
+    std::vector<Role> roles;                    // the truth
+    int culprit = 0;
+    std::vector<std::vector<Formula>> claims;   // per bird: what it claims (empty: chatter, or the question bird)
+    int asker = -1;                             // the question bird, or -1
+    std::vector<Formula> offers;                // the questions it may be asked
+    int good = -1;                              // the offer that settles the case
+    Scene scene;
+    int difficulty = 0;
+    [[nodiscard]] std::vector<int> playing() const;   // the liars and truth-tellers
+    [[nodiscard]] World truth() const;
 };
 
 struct Asked {
-    Question q;
+    int offer = -1;
     bool yes = false;
 };
 
-// Every world consistent with the statements, the liar count and the answers so far.
-std::vector<World> consistent(const Puzzle& p, const std::vector<Asked>& asked);
+// The answer the question bird gives to offer `q` in world w.
+bool answer(const Puzzle& p, int q, const World& w);
 
-// Grade the deduction with a human-like solver: single steps of inference over
-// facts ("X is honest", "Y didn't do it") and, when stuck, a supposition that is
-// carried to a contradiction. Returns false if it cannot finish.
-bool grade(const Puzzle& p, const std::vector<Asked>& asked, int& steps, int& suppositions);
+// Every world consistent with what the birds claim, the counts, and the answer if asked.
+// The player who has found out which birds are playing reasons over exactly these.
+std::vector<World> consistent(const Puzzle& p, const Asked* asked = nullptr);
+// The birds who could have done it in those worlds.
+std::vector<int> suspects(const Puzzle& p, const Asked* asked = nullptr);
 
 struct GenParams {
-    int parrots = 4;
-    int silent = 0;          // parrots who must be asked
-    int asks = 0;            // questions allowed
-    int choices = 3;         // options offered per silent parrot
-    bool twins = false;
-    int tier = 0;            // which statement kinds may appear (0 plain .. 3 everything)
+    int birds = 6;              // 5..10
+    int liars = 1;              // 1 or 2
+    bool question = false;      // one playing bird must be asked
+    int choices = 3;            // questions on offer
+    int tier = 0;               // 0 plain .. 3 everything
     std::uint64_t seed = 1;
 };
-// A puzzle whose truth is unique once the right question(s) are asked (if any
-// are needed), and not before. At least one offered question leads to the
-// unique answer; at least one offered question does not.
-Puzzle generate(const GenParams& g);
-
-// For the hint and the tests: does asking `q` (given the answers so far) leave exactly one world?
-bool settles(const Puzzle& p, const std::vector<Asked>& asked, const Question& q);
+// A puzzle on `scene` (one seat per bird) whose culprit is certain from the claims (and
+// the right answer, when there is a question bird), and not before the question.
+Puzzle generate(const GenParams& g, const Scene& scene);
 
 }  // namespace pt

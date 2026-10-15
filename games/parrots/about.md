@@ -1,1 +1,1 @@
-Every parrot is either honest or a liar, and one of them did the deed. Question them carefully and name the culprit by reasoning alone.
+Parrots settle through a jungle grown inside a Victorian glasshouse. One or two of them lie, two tell the truth, and the rest only chatter about the weather. Talk to the birds, find out who is playing, and name the culprit by reasoning alone.

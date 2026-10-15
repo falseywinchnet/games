@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
         auto view = gui_forms::make_control<pt::TableView>(gui_forms::StableId("parrots.view"), opt);
         auto window = std::make_unique<gui_forms::Window>(view, gui_forms::Size{1100, 780});
         gui_forms::ApplicationWindowOptions options;
-        options.title = opt.dev ? "The Parrot's Table (dev save)" : "The Parrot's Table";
+        options.title = opt.dev ? "The Paradoxiary (dev save)" : "The Paradoxiary";
         options.initial_size = {1100, 780};
         // dev only: PT_WINDOW=WxH opens at another size (for checking layouts)
         if (const char* ws = std::getenv("PT_WINDOW"); ws && opt.dev) {

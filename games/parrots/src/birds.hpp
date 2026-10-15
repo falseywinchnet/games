@@ -17,6 +17,7 @@ const char* species_name(int s);
 
 struct BirdPose {
     V3 pos{};              // feet, world
+    double size = 1;       // the bird's scale (a distant bird can be drawn a little larger)
     double yaw = 0;        // 0 faces the player
     int species = 0;
     Manner manner = Manner::sunny;
