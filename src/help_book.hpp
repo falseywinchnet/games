@@ -1,6 +1,6 @@
 #pragma once
-#include "gui_forms/controls/button_base/link_label/link_label.hpp"
 #include "gui_forms/controls/scrollable_control/scrollable_control.hpp"
+#include "business_card.hpp"
 #include "paper_sheet.hpp"
 #include "suite.hpp"
 #include <functional>
@@ -23,11 +23,19 @@ class HelpPages final : public gf::ScrollableControl {
     void arrange(gf::Rect bounds) override;
     void on_key_bubble(gf::KeyEvent& event) override;
     void select(int entry, std::string_view topic);
+    // Where the business card rests beside the front lines, in these pages' visible points:
+    // its middle and width, and how far above the pages it may still be seen. Told on every
+    // layout and scroll.
+    std::function<void(gf::Point, double, double)> card_moved;
+
+  protected:
+    void on_scroll_position_changed() override;
 
   private:
-    // The dedication and credits stand above every topic.
-    std::shared_ptr<gf::Label> dedication_, credits_, contact_;
-    std::shared_ptr<gf::LinkLabel> website_;
+    // The dedication and credits stand above every topic; the business card beside them.
+    std::shared_ptr<gf::Label> dedication_, credits_;
+    gf::Point card_centre_{};
+    double card_width_ = 0;
     std::vector<std::shared_ptr<gf::Button>> headings_;
     std::vector<std::shared_ptr<gf::Label>> bodies_;
     struct TopicKey {
@@ -42,7 +50,7 @@ class HelpPages final : public gf::ScrollableControl {
     void build(int scope);
     void add_topic(int entry, std::string topic, std::string title, std::string_view body);
     void toggle(int index);
-    void visit_website();
+    void report_card();
 };
 class HelpBook final : public gf::Control {
   public:
@@ -54,12 +62,18 @@ class HelpBook final : public gf::Control {
     void select(int entry, std::string_view topic);
     void on_key_bubble(gf::KeyEvent& event) override;
     std::function<void()> close;
+    std::function<void()> open_card;  // the business card was clicked: open it in the hand
 
   private:
     std::shared_ptr<HelpPages> pages_;
+    std::shared_ptr<BusinessCard> card_;
     std::shared_ptr<HelpGlyph> close_;
     PaperSheet sheet_;
     void clicked_close();
+    void place_card(gf::Point centre, double width, double top_room);
+    void wheel_over_card(gf::PointerEvent& event);
+    void card_clicked();
+    void visibility(bool shown);
     void on_detaching_from_window(gf::Window& window) noexcept override;
 };
 } // namespace games

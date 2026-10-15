@@ -1,7 +1,6 @@
 #include "help_book.hpp"
 #include "help_content.hpp"
 #include "game_module.hpp"
-#include "open_link.hpp"
 #include "presentation.hpp"
 #include <algorithm>
 namespace games {
@@ -14,23 +13,6 @@ std::shared_ptr<gf::Label> front_line(const std::string& id, std::string_view te
     (*label).set_text_wrapping(gf::TextWrapping::word);
     return label;
 }
-// A web link whose underline is measured from the text it draws.
-class WebLink final : public gf::LinkLabel {
-  public:
-    WebLink(gf::StableId id, std::string text) : LinkLabel(std::move(id), std::move(text)) {}
-    void on_paint(gf::Painter& p, gf::Rect) override {
-        const gf::Rect r = client_rectangle();
-        const gf::Color ink = hovered_visual() ? gf::Color::rgba(20, 60, 150)
-                              : visited()      ? gf::Color::rgba(92, 52, 140)
-                                               : gf::Color::rgba(28, 82, 176);
-        const double width = p.measure_text_utf8(text(), font()).width;
-        const double baseline = (r.height + font().size) * .5 - 1;
-        p.draw_text_utf8({2, baseline}, text(), font(), ink);
-        p.draw_line({2, baseline + 2}, {2 + width, baseline + 2}, ink, 1);
-        if (focus_cue_visible())
-            p.stroke_rect({0, 0, r.width, r.height}, ink, 1);
-    }
-};
 class TopicHeading final : public gf::Button {
   public:
     TopicHeading(gf::StableId id, std::string title) : Button(std::move(id), std::move(title)) {
@@ -99,16 +81,8 @@ void HelpPages::add_topic(int entry, std::string topic, std::string title,
 void HelpPages::initialize_control_tree() {
     dedication_ = front_line("dedication", dedication, 600);
     credits_ = front_line("credits", creators, 400);
-    // The sponsor's address, with the site beside it (or under it, where there is no room).
-    contact_ = front_line("contact", "Sponsor contact: " + std::string(contact), 400);
-    website_ = gf::make_control<WebLink>(gf::StableId("help.front.website"),
-                                         std::string(website));
-    (*website_).set_font({gf::FontRole::content, 16, 400, false});
-    (*website_).set_accessible_name("Open " + std::string(website) + " in the browser");
-    gf::on((*website_).clicked(), *this, &HelpPages::visit_website);
     for (const std::shared_ptr<gf::Control>& line :
-         {std::shared_ptr<gf::Control>(dedication_), std::shared_ptr<gf::Control>(credits_),
-          std::shared_ptr<gf::Control>(contact_), std::shared_ptr<gf::Control>(website_)}) {
+         {std::shared_ptr<gf::Control>(dedication_), std::shared_ptr<gf::Control>(credits_)}) {
         (*line).set_paint_plane(gf::PaintPlane::overlay);
         add_child(line);
     }
@@ -139,8 +113,14 @@ void HelpPages::build(int scope) {
     }
     add_topic(-1, "about", "About PlaySuite", help_about());
 }
-void HelpPages::visit_website() {
-    open_link("https://" + std::string(website) + "/");
+void HelpPages::report_card() {
+    const double room = 54;  // the book's heading band above the pages, less a margin
+    const double scrolled = scroll_position().y;
+    if (card_moved)
+        card_moved({card_centre_.x, card_centre_.y - scrolled}, card_width_, std::max(0.0, room - scrolled));
+}
+void HelpPages::on_scroll_position_changed() {
+    report_card();
 }
 void HelpPages::select(int entry, std::string_view topic) {
     // A game's help holds that game's pages only; an entry with no game here, all of them.
@@ -187,23 +167,18 @@ void HelpPages::arrange(gf::Rect bounds) {
     arrange_self(bounds);
     const double width = std::max(1.0, bounds.width - 24);
     std::vector<std::pair<std::shared_ptr<gf::Control>, gf::Rect>> layout;
+    // The business card at the right of the front lines, the lines wrapped beside it.
+    card_width_ = std::clamp(width * .30, 130.0, 190.0);
+    const double card_height = card_width_ * 2 / 3.5;
+    const double lines_width = std::max(120.0, width - card_width_ - 44);
     double y = 0;
     for (const std::shared_ptr<gf::Label>& line : {dedication_, credits_}) {
-        const double height = (*line).measure({width - 16, 100000}).height;
-        layout.push_back({line, {8, y, width - 16, height}});
-        y += height + 2;
+        const double height = (*line).measure({lines_width - 16, 100000}).height;
+        layout.push_back({line, {8, y, lines_width - 16, height}});
+        y += height + 6;
     }
-    const double contact_width = (*contact_).measure({width - 16, 100000}).width;
-    const double line_height = (*contact_).measure({width - 16, 100000}).height;
-    const double website_width = (*website_).measure({width - 16, 100000}).width + 4;
-    layout.push_back({contact_, {8, y, contact_width, line_height}});
-    if (8 + contact_width + 14 + website_width <= width - 8) {
-        layout.push_back({website_, {8 + contact_width + 14, y, website_width, line_height}});
-    } else {
-        y += line_height + 2;
-        layout.push_back({website_, {8, y, website_width, line_height}});
-    }
-    y += line_height + 18;
+    card_centre_ = {width - 14 - card_width_ / 2, 14 + card_height / 2};
+    y = std::max(y, card_height + 34) + 18;
     for (int index : order_) {
         layout.push_back({headings_[index], {0, y, width, 36}});
         y += 44;
@@ -223,6 +198,7 @@ void HelpPages::arrange(gf::Rect bounds) {
         r.y -= offset.y;
         set_child_layout(item.first, r);
     }
+    report_card();
 }
 void HelpPages::on_key_bubble(gf::KeyEvent& e) {
     if (e.handled || e.action != gf::KeyAction::down)
@@ -241,11 +217,17 @@ HelpBook::HelpBook(gf::StableId id) : Control(std::move(id)) {
 }
 void HelpBook::initialize_control_tree() {
     pages_ = gf::make_control<HelpPages>(gf::StableId("help.pages"));
+    (*pages_).card_moved = std::bind_front(&HelpBook::place_card, this);
+    card_ = gf::make_control<BusinessCard>(gf::StableId("help.business-card"), BusinessCard::Kind::page);
+    (*card_).scroll = std::bind_front(&HelpBook::wheel_over_card, this);
+    (*card_).open = std::bind_front(&HelpBook::card_clicked, this);
+    gf::on(visible_changed(), *this, &HelpBook::visibility);
     close_ = gf::make_control<HelpGlyph>(gf::StableId("help.close"), "×");
     (*close_).set_paint_plane(gf::PaintPlane::overlay);
     (*close_).set_accessible_name("Close PlaySuite help (H or Escape)");
     gf::on((*close_).clicked(), *this, &HelpBook::clicked_close);
     add_child(pages_);
+    add_child(card_);
     add_child(close_);
 }
 void HelpBook::on_key_bubble(gf::KeyEvent& event) {
@@ -261,11 +243,27 @@ void HelpBook::select(int entry, std::string_view topic) {
     if (window != nullptr)
         sheet_.prepare(*window);
     (*pages_).select(entry, topic);
+    (*card_).set_showing(true);
+}
+void HelpBook::visibility(bool shown) {
+    if (!shown)
+        (*card_).set_showing(false);
+}
+void HelpBook::place_card(gf::Point centre, double width, double top_room) {
+    (*card_).place(centre, width, top_room);
+}
+void HelpBook::card_clicked() {
+    if (open_card)
+        open_card();
+}
+void HelpBook::wheel_over_card(gf::PointerEvent& event) {
+    (*pages_).on_pointer(event);
 }
 void HelpBook::arrange(gf::Rect bounds) {
     arrange_self(bounds);
     set_child_layout(close_, {bounds.width - 48, 9, 36, 36});
     set_child_layout(pages_, {20, 62, bounds.width - 36, bounds.height - 82});
+    set_child_layout(card_, {20, 62, bounds.width - 36, bounds.height - 82});
 }
 void HelpBook::on_detaching_from_window(gf::Window& window) noexcept {
     sheet_.release(window);

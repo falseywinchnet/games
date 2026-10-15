@@ -121,6 +121,7 @@ int main() {
     gf::Window window(pages, {600, 420});
     window.perform_layout();
     std::size_t topic_count = 2;
+    double first_topic_y = -1;
     for (Entry entry : entries) {
         const std::string prefix = "help.body." + std::to_string(static_cast<int>(entry)) + ".";
         (*pages).select(static_cast<int>(entry), "rules");
@@ -137,31 +138,36 @@ int main() {
             assert(extra && (*extra).visible() && !(*body).visible());
             const std::shared_ptr<gf::Control> heading = find_control(
                 *pages, "help.topic." + std::to_string(static_cast<int>(entry)) + "." + topic.id);
-            // The chosen topic opens first, straight under the dedication and credits.
-            const gf::Rect website =
-                (*find_control(*pages, "help.front.website")).committed_arranged_bounds();
-            assert(heading &&
-                   std::abs((*heading).committed_arranged_bounds().y - (website.bottom() + 18)) < .01);
+            // The chosen topic opens first, straight under the dedication and credits (and
+            // the business card beside them, which the book lays over the pages).
+            const gf::Rect credits =
+                (*find_control(*pages, "help.front.credits")).committed_arranged_bounds();
+            assert(heading && (*heading).committed_arranged_bounds().y >= credits.bottom() + 18);
+            if (first_topic_y < 0)
+                first_topic_y = (*heading).committed_arranged_bounds().y;
+            assert(std::abs((*heading).committed_arranged_bounds().y - first_topic_y) < .01);
         }
         (*pages).select(static_cast<int>(entry), "missing-topic");
         assert((*body).visible());
-        // A game's help holds the suite's two pages and that game's own, under the four
+        // A game's help holds the suite's two pages and that game's own, under the two
         // shared credit lines; no other game's.
-        assert((*pages).children().size() == (2 + 1 + descriptor.help_topics.size()) * 2 + 4);
+        assert((*pages).children().size() == (2 + 1 + descriptor.help_topics.size()) * 2 + 2);
     }
     (*pages).select(-1, "about");
     // On the shelf the book holds every game's pages.
-    assert((*pages).children().size() == topic_count * 2 + 4); // and four credit lines
+    assert((*pages).children().size() == topic_count * 2 + 2); // and two credit lines
     assert((*find_control(*pages, "help.body.-1.about")).visible());
     assert(help_about().find(std::to_string(entry_count) + " games") != std::string::npos);
     // The dedication and credits head the document, above every topic, whatever is selected.
     const std::shared_ptr<gf::Control> dedication = find_control(*pages, "help.front.dedication");
-    const std::shared_ptr<gf::Control> website = find_control(*pages, "help.front.website");
-    assert(dedication && website);
+    const std::shared_ptr<gf::Control> credits = find_control(*pages, "help.front.credits");
+    assert(dedication && credits);
+    // The sponsor's address and website are on the business card now, not in the text.
+    assert(!find_control(*pages, "help.front.contact") && !find_control(*pages, "help.front.website"));
     window.perform_layout();
     const double first_heading = (*find_control(*pages, "help.topic.-1.about")).committed_arranged_bounds().y;
     assert((*dedication).committed_arranged_bounds().y < first_heading);
-    assert((*website).committed_arranged_bounds().y < first_heading);
+    assert((*credits).committed_arranged_bounds().y < first_heading);
     (*pages).select(-123, "missing-topic");
     assert((*find_control(*pages, "help.body.-1.rules")).visible());
     std::cout << "Native shelves and descriptor-owned help passed\n";

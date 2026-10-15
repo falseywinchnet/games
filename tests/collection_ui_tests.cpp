@@ -287,7 +287,10 @@ int main() {
                                      eggy = child(*collection, "collection.eggy"),
                                      cards = child(*collection, "collection.cards");
         assert(shelf && capsule && !eggy && !cards);
-        assert((*collection).children().size() == 5);
+        // The shell's own five, and the business card, hidden until help opens it; no game yet.
+        const std::shared_ptr<gf::Control> business_card = child(*collection, "collection.business-card");
+        assert(business_card && !(*business_card).visible());
+        assert((*collection).children().size() == 6);
         assert((*shelf).visible() && !(*capsule).visible());
         // PlaySuite lists all thirteen games in one place, with no categories.
         for (Entry entry : entries)

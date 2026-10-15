@@ -132,7 +132,8 @@ the control's behaviour, keyboard handling and accessibility:
 | `SuiteButton` (`src/shelf.hpp`) | `Button` | Gloss tones, glyphs, round or pill radius. The capsule, the shelf arrows, the master switches. |
 | `GameButton` (`src/presentation.hpp`) | `Button` | Four `ButtonSkin`s (slate, ivory, blue, mint) for game panels. |
 | `SettingSlider`, `SettingCheck`, `CardBackChoice` (`src/settings_sheet.hpp`) | `TrackBar`, `CheckBox`, `Button` | The gold groove and knob, the gold box, a card back as it looks on the table. |
-| `HelpGlyph`, `TopicHeading`, `WebLink` (`src/help_book.*`) | `Button`, `Button`, `LinkLabel` | The close mark, a disclosure heading, an underlined link measured from its text. |
+| `HelpGlyph`, `TopicHeading` (`src/help_book.*`) | `Button`, `Button` | The close mark, a disclosure heading. |
+| `BusinessCard` (`src/business_card.*`) | `Control` | Rainstar Software's card, drawn by `shared/cards/held_card.*`: on the help page a small still card that opens on a click; in the hand, over the whole window on black, turned by dragging or the arrows, its name the link to the website, Escape to put it away. |
 
 `games_theme(ButtonSkin)` (`src/presentation.hpp`) is the palette a sheet applies with
 `set_theme_override`. The help and Settings sheets are printed on the paper engine's

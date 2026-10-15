@@ -101,9 +101,14 @@ void Collection::initialize_control_tree() {
     (*settings_).bind_masters(model_);
     (*settings_).close = std::bind_front(&Collection::close_settings, this);
     (*settings_).set_visible(false);
+    (*help_).open_card = std::bind_front(&Collection::show_card, this);
+    card_ = gf::make_control<BusinessCard>(gf::StableId("collection.business-card"), BusinessCard::Kind::hand);
+    (*card_).close = std::bind_front(&Collection::close_card, this);
+    (*card_).set_visible(false);
     add_child(help_link_);
     add_child(help_);
     add_child(settings_);
+    add_child(card_);
     masters_ = SettingsStore::shared().observe(std::bind_front(&Collection::masters_changed, this));
     const SuiteSettings& masters = SettingsStore::shared().values();
     music_shown_ = masters.music;
@@ -206,6 +211,12 @@ void Collection::tick() {
     }
 }
 void Collection::on_pointer_preview(gf::PointerEvent& e) {
+    if (card_open()) {
+        // The card in the hand holds the whole window.
+        wake();
+        gf::Control::on_pointer_preview(e);
+        return;
+    }
     if (settings_open()) {
         const gf::Point local = (*settings_).point_from_window(e.position);
         const gf::Rect paper = (*settings_).paper();
@@ -243,6 +254,13 @@ void Collection::on_key_preview(gf::KeyEvent& e) {
         const bool help_key =
             e.physical_key == gf::PhysicalKey::h || e.physical_key == gf::PhysicalKey::f1;
         const bool escape = e.physical_key == gf::PhysicalKey::escape;
+        if (card_open() && (help_key || escape)) {
+            // The card goes back to the help book first.
+            if (!e.repeat)
+                close_card();
+            e.handled = true;
+            return;
+        }
         if (help_key || e.physical_key == gf::PhysicalKey::m ||
             ((help_open() || settings_open()) && escape)) {
             if (!e.repeat) {
@@ -261,7 +279,8 @@ void Collection::on_key_preview(gf::KeyEvent& e) {
     }
     // A game's key still works while help is open or a capsule button has the keyboard.
     const bool capsule_focus = focus && (*capsule_).contains(*focus);
-    if (!shelf_open_ && !entering_text && !settings_open() && (help_open() || capsule_focus) && forward_game_key(e)) {
+    if (!shelf_open_ && !entering_text && !settings_open() && !card_open() && (help_open() || capsule_focus) &&
+        forward_game_key(e)) {
         e.handled = true;
         return;
     }
@@ -338,7 +357,7 @@ bool Collection::forward_game_key(const gf::KeyEvent& event) {
 }
 bool Collection::overlay(const std::shared_ptr<gf::Control>& child) const {
     return child == shelf_ || child == capsule_ || child == help_ || child == help_link_ ||
-           child == settings_;
+           child == settings_ || child == card_;
 }
 void Collection::visibility() {
     for (const std::shared_ptr<gf::Control>& child : children())
@@ -381,6 +400,7 @@ void Collection::arrange(gf::Rect b) {
     const double paper_width = std::min(780.0, b.width - 32);
     set_child_layout(help_, {b.width - paper_width - 16, 16, paper_width, b.height - 32});
     set_child_layout(settings_, full);
+    set_child_layout(card_, full);
 }
 void Collection::on_paint(gf::Painter& p, gf::Rect) {
     if (shelf_open_ || !railed(active_))
@@ -527,12 +547,39 @@ void Collection::show_help(std::string_view topic) {
     invalidate(gf::Dirty::layout | gf::Dirty::paint);
 }
 void Collection::close_help() {
+    close_card();
     if (!help_open())
         return;
     if (attached_window() && help_focus_)
         static_cast<void>((*attached_window()).end_focus_scope(help_focus_));
     help_focus_ = {};
     (*help_).set_visible(false);
+    invalidate(gf::Dirty::paint);
+}
+void Collection::show_card() {
+    if (card_open() || !help_open())
+        return;
+    // The card is not inside the help book, so it takes the keyboard from help's scope rather
+    // than nesting in it, and gives it back when it is put away.
+    if (attached_window() && help_focus_)
+        static_cast<void>((*attached_window()).end_focus_scope(help_focus_));
+    help_focus_ = {};
+    (*card_).set_visible(true);
+    (*card_).set_showing(true);
+    if (attached_window())
+        card_focus_ = (*attached_window()).begin_focus_scope(card_);
+    invalidate(gf::Dirty::layout | gf::Dirty::paint);
+}
+void Collection::close_card() {
+    if (!card_open())
+        return;
+    if (attached_window() && card_focus_)
+        static_cast<void>((*attached_window()).end_focus_scope(card_focus_));
+    card_focus_ = {};
+    (*card_).set_showing(false);
+    (*card_).set_visible(false);
+    if (attached_window() && help_open())
+        help_focus_ = (*attached_window()).begin_focus_scope(help_);
     invalidate(gf::Dirty::paint);
 }
 } // namespace games

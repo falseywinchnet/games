@@ -42,6 +42,12 @@ class Collection final : public gf::Control, public HelpHost {
     [[nodiscard]] bool help_open() const {
         return help_ && (*help_).visible();
     }
+    // Rainstar Software's business card, opened from help over the whole window.
+    void show_card();
+    void close_card();
+    [[nodiscard]] bool card_open() const {
+        return card_ && (*card_).visible();
+    }
     [[nodiscard]] bool shelf_open() const {
         return shelf_open_;
     }
@@ -62,6 +68,8 @@ class Collection final : public gf::Control, public HelpHost {
     gf::FocusScopeId help_focus_{};
     std::shared_ptr<SettingsSheet> settings_;
     gf::FocusScopeId settings_focus_{};
+    std::shared_ptr<BusinessCard> card_;
+    gf::FocusScopeId card_focus_{};
     SettingsObservation masters_{};
     bool music_shown_ = true, sound_shown_ = true, reduced_shown_ = false;
     ModuleContext modules_;

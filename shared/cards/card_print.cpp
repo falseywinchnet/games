@@ -2,6 +2,7 @@
 
 #include "inflate.hpp"
 #include "paper.hpp"
+#include "table_art.hpp"
 
 #include <algorithm>
 #include <array>
@@ -74,10 +75,14 @@ std::uint32_t lattice_key(std::int64_t r, std::int64_t c) {
     k = (k ^ (k >> 13)) * 0x5bd1e995U;
     return k;
 }
-// The light on the finish at (x, y), device pixels: 1 on the flat stock.
-double dimple_light(double x, double y, double pitch) {
+// The slope of the finish's surface at (x, y), device pixels: its height's rise across and
+// down, in the screen's axes, with the steepness the offline bake used.
+struct Slope {
+    double x;
+    double y;
+};
+Slope dimple_slope(double x, double y, double pitch) {
     constexpr double kRoot = .70710678;
-    constexpr double kLight[3] = {-.45, -.6, .66};
     const double X = (x + y) * kRoot / pitch, Y = (y - x) * kRoot / pitch;  // turned, in pitches
     const double row_h = .866;
     const std::int64_t row = static_cast<std::int64_t>(std::floor(Y / row_h));
@@ -100,9 +105,16 @@ double dimple_light(double x, double y, double pitch) {
             gY += slope * (Y - cy);
         }
     }
-    // back to the screen's axes, with the steepness the offline bake used
+    // back to the screen's axes
     const double gx = (gX - gY) * kRoot, gy = (gX + gY) * kRoot;
-    const double nx = -gx * 1.5625, ny = -gy * 1.5625;
+    const Slope result{gx * 1.5625, gy * 1.5625};
+    return result;
+}
+// The light on the finish at (x, y), device pixels: 1 on the flat stock.
+double dimple_light(double x, double y, double pitch) {
+    constexpr double kLight[3] = {-.45, -.6, .66};
+    const Slope slope = dimple_slope(x, y, pitch);
+    const double nx = -slope.x, ny = -slope.y;
     const double lit = (nx * kLight[0] + ny * kLight[1] + kLight[2]) / std::sqrt(nx * nx + ny * ny + 1) / kLight[2];
     return lit;
 }
@@ -473,6 +485,41 @@ CardPaper make_card_paper(int w, int h, double pixels_per_point, double emboss_d
             out.light[i * 3 + static_cast<std::size_t>(c)] =
                 static_cast<float>(sheet_linear[i * 3 + static_cast<std::size_t>(c)] * shade[i] * exposure);
     return out;
+}
+
+namespace {
+// The finish's slopes a row at a time, on any core.
+struct SlopeRows {
+    int width = 0;
+    double pitch = 1;
+    int samples = 2;
+    float* slopes = nullptr;
+};
+void slope_row(void* context, int y) noexcept {
+    const SlopeRows& job = *static_cast<const SlopeRows*>(context);
+    const int n = job.samples;
+    for (int x = 0; x < job.width; ++x) {
+        double across = 0, down = 0;
+        for (int sy = 0; sy < n; ++sy)
+            for (int sx = 0; sx < n; ++sx) {
+                const Slope slope = dimple_slope(x + (sx + .5) / n, y + (sy + .5) / n, job.pitch);
+                across += slope.x;
+                down += slope.y;
+            }
+        const std::size_t i = (static_cast<std::size_t>(y) * job.width + x) * 2;
+        job.slopes[i] = static_cast<float>(across / (n * n));
+        job.slopes[i + 1] = static_cast<float>(down / (n * n));
+    }
+}
+}  // namespace
+
+void card_finish_slopes(int width, int height, double emboss_pitch, std::vector<float>& slopes) {
+    slopes.assign(static_cast<std::size_t>(std::max(width, 0)) * std::max(height, 0) * 2, 0.0F);
+    if (width <= 0 || height <= 0)
+        return;
+    const double pitch = std::max(.5, emboss_pitch);
+    SlopeRows job{width, pitch, pitch < 1.5 ? 4 : pitch < 3 ? 3 : 2, slopes.data()};  // samples as make_emboss
+    run_on_every_core(height, slope_row, &job);
 }
 
 std::vector<std::byte> paper_overlay(const CardPaper& paper) {

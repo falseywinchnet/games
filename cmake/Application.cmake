@@ -13,10 +13,10 @@ add_library(game_felt STATIC shared/felt/carpet.cpp shared/felt/image.cpp)
 # The felt and drawn card backs every card table shares, made once per run (Koi-Koi too).
 # Also the room's light on a card's face, baked offline (shared/cards/table_light.hpp), and
 # the cards printed in it (card_print.hpp, card_press.hpp): their PNGs read with the ambient
-# engine's inflater, on the paper engine's stock.
+# engine's inflater, on the paper engine's stock. And a card held in the hand (held_card.hpp).
 add_library(game_table_art STATIC shared/cards/table_art.cpp shared/cards/card_backs.cpp
             shared/cards/table_light.cpp shared/cards/table_light_bake.cpp
-            shared/cards/card_print.cpp shared/cards/card_press.cpp)
+            shared/cards/card_print.cpp shared/cards/card_press.cpp shared/cards/held_card.cpp)
 target_include_directories(game_table_art PUBLIC shared PRIVATE shared/cards shared/felt)
 target_link_libraries(game_table_art PUBLIC game_felt game_paths GUIForms::Application PRIVATE paper_core ambient_core)
 # The shelf's wood (src/wood.cpp), in a library of its own so a game can stand its own
@@ -36,7 +36,8 @@ target_link_libraries(vendor_game_ui ${module_link_scope} ${GAMES_MODULE_LIBRARI
 target_compile_definitions(vendor_game_ui INTERFACE _USE_MATH_DEFINES)
 add_library(game_ui ${GAMES_MODULE_SOURCES} "${GAMES_CATALOG_DIR}/game_registry.cpp" shared/cards/table.cpp shared/cards/dealer.cpp src/presentation.cpp shared/puzzles/puzzle_view.cpp src/collection.cpp src/open_link.cpp
     games/sudoku/src/sudoku_view.cpp src/suite.cpp src/text_sprites.cpp src/shelf.cpp src/capsule.cpp shared/puzzles/kitten.cpp
-    src/help_book.cpp src/help_content.cpp src/settings_sheet.cpp src/suite_model.cpp src/paper_sheet.cpp)
+    src/help_book.cpp src/help_content.cpp src/business_card.cpp src/card_remarks.cpp src/settings_sheet.cpp
+    src/suite_model.cpp src/paper_sheet.cpp)
 target_include_directories(game_ui PUBLIC src PRIVATE shared/felt)
 target_link_libraries(game_ui PUBLIC game_rules game_solver game_raster sudoku_generator vendor_game_ui paper_core
     ambient_core game_wood)
@@ -159,6 +160,10 @@ add_executable(shelf_help_tests tests/shelf_help_tests.cpp)
 target_link_libraries(shelf_help_tests PRIVATE game_ui)
 add_test(NAME shelf_help COMMAND shelf_help_tests)
 set_tests_properties(shelf_help PROPERTIES ENVIRONMENT "GAMES_ASSET_DIR=${GAMES_RUNTIME_ASSET_DIR}")
+# The help book's business card: the held card's drawing and picking, and its remarks.
+add_executable(business_card_tests tests/business_card_tests.cpp)
+target_link_libraries(business_card_tests PRIVATE game_ui)
+add_test(NAME business_card COMMAND business_card_tests)
 add_executable(catalog_ui_tests tests/catalog_ui_tests.cpp)
 target_link_libraries(catalog_ui_tests PRIVATE game_ui)
 add_test(NAME catalog_ui COMMAND catalog_ui_tests)
