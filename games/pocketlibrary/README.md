@@ -24,8 +24,10 @@ they left.
 
 ## Replayability
 
-A library is read, not replayed. Every book keeps its own place, and more books come
-as they are imported (ebooks and PDFs are planned).
+A library is read, not replayed. Every book keeps its own place. The shelves hold 343
+books: the seven of Scripture and reference, and 336 novels, plays, poems and children's
+books (batch 1, found and checked by workers, pinned in `tools/sources.lock.json` and
+catalogued by `tools/add_batch.py`). More come in batches; PDF import is planned.
 
 ## Passive mode
 

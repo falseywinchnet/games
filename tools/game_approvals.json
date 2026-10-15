@@ -95,6 +95,13 @@
         "threads"
       ]
     },
+    "pocketlibrary": {
+      "first_party": true,
+      "capabilities": [
+        "threads"
+      ],
+      "prepared_mb": 64
+    },
     "solitaire": {
       "first_party": true
     },
