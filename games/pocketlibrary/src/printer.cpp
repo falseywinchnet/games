@@ -22,10 +22,10 @@ bool Printer::load() {
         const char* file;
     };
     const Face faces[] = {
-        {page::FaceId::literata_regular, "pocketlibrary/fonts/Literata.ttf"},
-        {page::FaceId::literata_italic, "pocketlibrary/fonts/Literata-Italic.ttf"},
-        {page::FaceId::eb_garamond_regular, "pocketlibrary/fonts/EBGaramond-Regular.ttf"},
-        {page::FaceId::eb_garamond_italic, "pocketlibrary/fonts/EBGaramond-Italic.ttf"},
+        {page::FaceId::literata_regular, "pocketlibrary/fonts/literata.ttf"},
+        {page::FaceId::literata_italic, "pocketlibrary/fonts/literata-italic.ttf"},
+        {page::FaceId::eb_garamond_regular, "pocketlibrary/fonts/eb-garamond.ttf"},
+        {page::FaceId::eb_garamond_italic, "pocketlibrary/fonts/eb-garamond-italic.ttf"},
     };
     bytes_.reserve(4);
     for (const Face& face : faces) {

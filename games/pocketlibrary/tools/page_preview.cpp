@@ -91,10 +91,10 @@ int main(int argc, char** argv) {
     }
 
     const std::string fonts_dir = argv[2];
-    const std::vector<std::uint8_t> literata = read_file(fonts_dir + "/Literata.ttf");
-    const std::vector<std::uint8_t> literata_italic = read_file(fonts_dir + "/Literata-Italic.ttf");
-    const std::vector<std::uint8_t> garamond = read_file(fonts_dir + "/EBGaramond-Regular.ttf");
-    const std::vector<std::uint8_t> garamond_italic = read_file(fonts_dir + "/EBGaramond-Italic.ttf");
+    const std::vector<std::uint8_t> literata = read_file(fonts_dir + "/literata.ttf");
+    const std::vector<std::uint8_t> literata_italic = read_file(fonts_dir + "/literata-italic.ttf");
+    const std::vector<std::uint8_t> garamond = read_file(fonts_dir + "/eb-garamond.ttf");
+    const std::vector<std::uint8_t> garamond_italic = read_file(fonts_dir + "/eb-garamond-italic.ttf");
     pl::page::FontSet fonts;
     if (!fonts.load(pl::page::FaceId::literata_regular, literata) ||
         !fonts.load(pl::page::FaceId::literata_italic, literata_italic) ||
