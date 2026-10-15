@@ -105,8 +105,10 @@ void draw_spine_body(Canvas& canvas, const ShelfBook& book, int x0, int y0, int 
 // pixels long and `thickness` across, printed, then turned a quarter clockwise so it
 // reads from head to tail.
 void letter_spine(Canvas& canvas, Printer& printer, const std::string& text, page::FaceId face, double em_pixels,
-                  double centre_along, int x0, int y0, int length, int thickness, const Pixel& ground,
+                  double from, double to, int x0, int y0, int length, int thickness, const Pixel& ground,
                   bool capitals) {
+    const double centre_along = (from + to) / 2;
+    const double room = (to - from) * length;
     if (text.empty() || length <= 0 || thickness <= 0 || em_pixels < 3)
         return;
     const double to_units = 1.0e6 / static_cast<double>(thickness);
@@ -120,8 +122,8 @@ void letter_spine(Canvas& canvas, Printer& printer, const std::string& text, pag
     const page::ShapedRun& shaped = setter.shaped(style, text, false);
     const double width_pixels = static_cast<double>(shaped.advance) / to_units;
     double scale_down = 1;
-    if (width_pixels > length * 0.66)
-        scale_down = length * 0.66 / width_pixels;
+    if (width_pixels > room)
+        scale_down = room / width_pixels;
     if (scale_down < 1) {
         style.em = static_cast<page::LayoutUnit>(static_cast<double>(style.em) * scale_down);
         style.tracking = capitals ? style.em / 9 : 0;
@@ -315,9 +317,11 @@ void draw_shelf(Canvas& canvas, double scale, const ShelfLayout& layout, const s
         const int inset = std::max(1, width / 10);
         const int band = width - 2 * inset;
         const double title_em = band * 0.46;
-        letter_spine(canvas, printer, book.title, page::FaceId::literata_regular, title_em, 0.42, x0 + inset,
+        // The title in the upper stretch of the spine, between the head's rules or bands
+        // and the middle; the subtitle, smaller, in the lower stretch above the tail's.
+        letter_spine(canvas, printer, book.title, page::FaceId::literata_regular, title_em, 0.22, 0.60, x0 + inset,
                      y0, height, band, ground, true);
-        letter_spine(canvas, printer, book.subtitle, page::FaceId::literata_italic, title_em * 0.62, 0.765,
+        letter_spine(canvas, printer, book.subtitle, page::FaceId::literata_italic, title_em * 0.62, 0.64, 0.80,
                      x0 + inset, y0, height, band, ground, false);
     }
 }
