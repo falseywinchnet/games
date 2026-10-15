@@ -18,6 +18,8 @@ class Band : public Composer {
     void fade_in(double seconds) noexcept override { fade_.start(seconds); }
 
     [[nodiscard]] long notes() const { return notes_; }
+    // For tools: hear one instrument alone (its level as mixed, dry), or every one with -1.
+    void solo(int kind) noexcept { solo_ = kind; }
 
   protected:
     // `room`: the band's room (its size, tail and darkness).
@@ -46,6 +48,7 @@ class Band : public Composer {
     int queued_ = 0;
     long next_due_ = 0;
     long notes_ = 0;
+    int solo_ = -1;
     std::array<double, instrument_count> level_{};
     std::array<double, instrument_count> send_{};
 };

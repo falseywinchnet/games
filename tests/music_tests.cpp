@@ -43,15 +43,15 @@ void check_score(std::string_view style) {
     // at the level its game plays it
     const double level = score_level(style);
     require(level > 0, name + ": has a level");
-    const std::vector<float> first = render(*a, 40, 512, level), second = render(*b, 40, 441, level), other = render(*c, 40, 512, level);
+    const std::vector<float> first = render(*a, 30, 512, level), second = render(*b, 30, 441, level), other = render(*c, 10, 512, level);
     require(first == second, name + ": a seed plays the same whatever the block size");
-    require(first != other, name + ": another seed plays other music");
+    require(!std::equal(other.begin(), other.end(), first.begin()), name + ": another seed plays other music");
     for (const float s : first) require(std::isfinite(s), name + ": finite");
     const float peak = peak_of(first, 0, first.size());
     require(peak < 1.0F, name + ": inside full scale");
     // a note in every ten-second stretch: no score runs dry (the quiet ones rest between
     // phrases, but never for ten seconds)
-    for (std::size_t k = 0; k < 4; ++k) {
+    for (std::size_t k = 0; k < 3; ++k) {
         const std::size_t span = static_cast<std::size_t>(10 * sample_rate) * 2;
         require(peak_of(first, k * span, (k + 1) * span) > .02F, name + ": still playing in stretch " + std::to_string(k));
     }

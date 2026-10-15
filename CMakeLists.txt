@@ -75,13 +75,17 @@ add_test(NAME felt COMMAND felt_tests)
 add_library(music_core STATIC
   src/music/band.cpp
   src/music/instruments.cpp
+  src/music/instruments_lounge.cpp
   src/music/repertoire.cpp
   src/music/styles/banjo_band.cpp
   src/music/styles/glasshouse.cpp
   src/music/styles/island_band.cpp
   src/music/styles/koto_garden.cpp
+  src/music/styles/lounge_band.cpp
   src/music/styles/marimba_band.cpp
-  src/music/styles/maze_band.cpp)
+  src/music/styles/maze_band.cpp
+  src/music/styles/song_band.cpp
+  src/music/styles/songs.cpp)
 target_include_directories(music_core PUBLIC src/music)
 target_compile_features(music_core PUBLIC cxx_std_20)
 if(NOT MSVC)

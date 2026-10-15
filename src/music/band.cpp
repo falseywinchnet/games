@@ -9,9 +9,12 @@ void Band::note(long origin, double seconds, Instrument kind, double midi, doubl
     // touch, the comping later still, melodies a few milliseconds either way
     double slop = 0;
     switch (kind) {
-    case Instrument::kick: case Instrument::rim: case Instrument::hat: case Instrument::shaker: slop = (random_.uniform() - .5) * .008; break;
-    case Instrument::bass_marimba: slop = .006 + (random_.uniform() - .5) * .012; break;
-    case Instrument::comp_marimba: slop = .006 + (random_.uniform() - .5) * .016; break;
+    case Instrument::kick: case Instrument::rim: case Instrument::hat: case Instrument::shaker:
+    case Instrument::brush_sweep: case Instrument::brush_tap: case Instrument::snare: case Instrument::ride: case Instrument::clave:
+    case Instrument::cowbell: case Instrument::guiro: case Instrument::timbale: case Instrument::clap:
+    case Instrument::open_hat: case Instrument::crash: case Instrument::tom: slop = (random_.uniform() - .5) * .008; break;
+    case Instrument::bass_marimba: case Instrument::upright: case Instrument::electric_bass: case Instrument::synth_bass: slop = .006 + (random_.uniform() - .5) * .012; break;
+    case Instrument::comp_marimba: case Instrument::guitar: case Instrument::ukulele: slop = .006 + (random_.uniform() - .5) * .016; break;
     default: slop = (random_.uniform() - .5) * .022; break;
     }
     e.at = origin + std::max(0L, static_cast<long>((seconds + slop) * sample_rate));
@@ -64,7 +67,7 @@ void Band::render_add(std::span<float> stereo, double gain) noexcept {
         for (Voice& v : voices_) {
             if (!v.on) continue;
             const std::size_t k = static_cast<std::size_t>(v.kind);
-            const double s = play(v, random_, dt) * level_[k];
+            const double s = play(v, random_, dt) * (solo_ < 0 || solo_ == static_cast<int>(k) ? level_[k] : 0.0);
             double gl, gr;
             pan_gains(v.pan, gl, gr);
             dry_l += s * gl;

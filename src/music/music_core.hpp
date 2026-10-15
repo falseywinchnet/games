@@ -2,9 +2,10 @@
 // The suite's music engine: the parts every live score is made of. A score (a Composer)
 // writes music as it plays, sample by sample, from these: a seeded random stream, pitch
 // and filter arithmetic, oscillators, a state-variable filter, a small room, a fade, and
-// the harmony of chords and keys. Each game's score is in styles/ (repertoire.hpp names
-// them all); the marimba band's instruments and note queue are in instruments.hpp and
-// band.hpp. Pure and portable (no toolkit, no clock, no threads), so the same music
+// the harmony of chords and keys. Every score is in styles/ (repertoire.hpp names them
+// all): the games' bands, the lounge bands and the written songs any game may use. The
+// instruments the band-based scores share, and their note queue, are in instruments.hpp
+// and band.hpp. Pure and portable (no toolkit, no clock, no threads), so the same music
 // plays in the game (live_composer.hpp hands a score to the audio device), in a test and
 // in the renderer (tools/music_render.cpp).
 #include <algorithm>

@@ -12,6 +12,7 @@ double noise(Random& random) noexcept { return random.uniform() * 2 - 1; }
 }  // namespace
 
 double play(Voice& v, Random& random, double dt) noexcept {
+    if (v.kind >= Instrument::vibes) return play_lounge(v, random, dt);
     v.age += dt;
     const double a = v.age;
     double out = 0;
@@ -86,6 +87,7 @@ double play(Voice& v, Random& random, double dt) noexcept {
         if (a > len) v.on = false;
         break;
     }
+    default: break;
     }
     return out * v.vel;
 }
