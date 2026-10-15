@@ -151,6 +151,58 @@ int main(int argc, char** argv) {
         save(sheet, out + "/detail-" + room + ".png");
         return 0;
     }
+    if (argc > 4 && std::string(argv[3]) == "review") {
+        // One shape generator alone, for review: twelve families, each face up then face down,
+        // then six of them tilted towards the eye, all in plain bone so only the shape speaks.
+        const ts::Style style = static_cast<ts::Style>(std::clamp(std::atoi(argv[4]), 0, ts::style_count - 1));
+        const double cell = 170;
+        const int left = 30;
+        const int top = 60;
+        const int rows = 5;
+        const int columns = 6;
+        Sheet sheet;
+        sheet.width = left + static_cast<int>(cell * columns) + 20;
+        sheet.height = top + static_cast<int>(cell * rows) + 20;
+        sheet.pixels.assign(static_cast<std::size_t>(sheet.width * sheet.height), 0U);
+        ts::TrayPlan plan;
+        plan.width = sheet.width;
+        plan.height = sheet.height;
+        plan.scale = 2.6;
+        plan.grid_x = left;
+        plan.grid_y = top;
+        plan.cell = cell;
+        plan.columns = columns;
+        plan.rows = rows;
+        plan.wall = 12;
+        ts::draw_tray(plan, sheet.pixels.data(), sheet.width, true, 0, sheet.height);
+        const std::string title = std::string("Shape review: ") + ts::style_name(style) +
+                                  ". Twelve families face up then down; last row six of them tilted";
+        label(sheet, title, 24, 16, 19, cream, true);
+        std::vector<Stone> stones(12);
+        for (int k = 0; k < 12; ++k) {
+            Stone& stone = stones[static_cast<std::size_t>(k)];
+            stone.shape = ts::Shape::make(61000U + static_cast<std::uint32_t>(k) * 7919U, style);
+            stone.finish = ts::make_finish(ts::Mineral::bone, 4242U + static_cast<std::uint32_t>(k) * 31U);
+            ts::print_mineral(stone.finish, stone.shape, 160, stone.picture);
+            const int row = k / 3;
+            const int column = (k % 3) * 2;
+            place(sheet, work, stone, 0, left + cell * (column + .5), top + cell * (row + .5), cell * .42, 2);
+            place(sheet, work, stone, 4, left + cell * (column + 1.5), top + cell * (row + .5), cell * .42, 2);
+        }
+        for (int k = 0; k < 6; ++k) {
+            const Stone& stone = stones[static_cast<std::size_t>(k * 2)];
+            const ts::StoneLook look{&stone.shape, &stone.finish, &stone.picture};
+            ts::DrawStone how;
+            how.radius = cell * .4;
+            how.fineness = 2;
+            ts::StonePicture picture;
+            draw_stone(look, ts::turned(ts::orientation_pose(0), 0, -0.85), how, work, picture);
+            ts::lay_stone(picture, sheet.pixels.data(), sheet.width, sheet.height, sheet.width, left + cell * (k + .5),
+                          top + cell * 4.5, true, 0, 0, sheet.width, sheet.height);
+        }
+        save(sheet, out + "/review-" + std::to_string(static_cast<int>(style)) + ".png");
+        return 0;
+    }
     if (argc > 3 && std::string(argv[3]) == "tilted") {
         // The same fossil-log pieces from straight above and from a three-quarter view.
         const double cell = 200;

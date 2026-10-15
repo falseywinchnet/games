@@ -38,6 +38,13 @@ struct ShapeVertex {
     float nx = 0, ny = 0, nz = 0;  // unit normal
 };
 
+// A solid given by its density: negative inside, positive outside, about the distance to
+// its surface. The grown and broken shapes are made from these (wood_volume.cpp).
+struct Solid {
+    virtual ~Solid() = default;
+    [[nodiscard]] virtual double density(double x, double y, double z) const = 0;
+};
+
 class Shape {
 public:
     static constexpr int sectors = 256;  // round the outline
@@ -128,6 +135,11 @@ private:
     void build(std::uint64_t& random);
     void sample();
     void grow_wood();               // wood_volume.cpp: a piece of fossil log, grown then broken
+    void grow_shell();              // shell_volume.cpp: a shell, a shard or a scalloped rock, broken
+    // A solid made into this shape: found in a box of half-side `box` round `middle`, laid
+    // its thinnest way up, meshed, turned and scaled to the socket. `grain` and `pith` (the
+    // solid's frame) place a grained material's grain.
+    void grow_from(const Solid& solid, const double middle[3], double box, const double grain[3], const double pith[3]);
     void mesh();
     [[nodiscard]] double outline_at(double angle) const;
     // An outline found by marching (an agate nodule's rounded polygon): whether a point (in

@@ -47,7 +47,7 @@ struct Break {
     double c[3] = {0, 0, 0};   // a chip's centre
 };
 
-struct Log {
+struct Log final : Solid {
     std::uint32_t key = 1;
     double radius = .9;
     double rings = 16;
@@ -76,7 +76,7 @@ struct Log {
     }
 
     // Negative inside the chunk, positive outside; roughly the distance. In the log's frame.
-    double density(double x, double y, double z) const {
+    double density(double x, double y, double z) const override {
         const Place p = place(x, y, z);
         // The bark: lumpy, fissured into plates along the grain.
         const double plates = std::abs(std::sin(p.angle * 7 + .6 * noise2(x * 1.4, p.angle, key + 5)));
@@ -248,14 +248,14 @@ void eigen(double a[3][3], double v[3][3], double w[3]) {
 
 // The chunk as it lies: the log's frame turned so the chunk's thinnest way is up.
 struct Lying {
-    const Log* log = nullptr;
+    const Solid* solid = nullptr;
     double centre[3] = {0, 0, 0};  // the chunk's centre, log frame
     double axes[3][3] = {};        // rows: the lying frame's x, y, z in the log frame
     double density(double x, double y, double z) const {
         const double lx = centre[0] + axes[0][0] * x + axes[1][0] * y + axes[2][0] * z;
         const double ly = centre[1] + axes[0][1] * x + axes[1][1] * y + axes[2][1] * z;
         const double lz = centre[2] + axes[0][2] * x + axes[1][2] * y + axes[2][2] * z;
-        return (*log).density(lx, ly, lz);
+        return (*solid).density(lx, ly, lz);
     }
 };
 
@@ -263,24 +263,30 @@ struct Lying {
 
 void Shape::grow_wood() {
     const Log log = make_log(measures_);
+    const double grain[3] = {1, 0, 0};
+    const double pith[3] = {0, 0, 0};
+    grow_from(log, log.middle, 1.6, grain, pith);
+}
+
+void Shape::grow_from(const Solid& solid, const double middle[3], double box_half, const double grain[3], const double pith[3]) {
     // Find the chunk: sample a box round its middle, gather what is inside, and take its
     // centre and its principal axes.
     double sum[3] = {0, 0, 0};
     double cov[3][3] = {};
     std::vector<std::array<double, 3>> inside;
     constexpr int probe = 26;
-    const double box = 1.6;
+    const double box = box_half;
     for (int k = 0; k < probe; ++k)
         for (int j = 0; j < probe; ++j)
             for (int i = 0; i < probe; ++i) {
-                const double x = log.middle[0] + (-1 + 2 * (i + .5) / probe) * box;
-                const double y = log.middle[1] + (-1 + 2 * (j + .5) / probe) * box;
-                const double z = log.middle[2] + (-1 + 2 * (k + .5) / probe) * box;
-                if (log.density(x, y, z) < 0)
+                const double x = middle[0] + (-1 + 2 * (i + .5) / probe) * box;
+                const double y = middle[1] + (-1 + 2 * (j + .5) / probe) * box;
+                const double z = middle[2] + (-1 + 2 * (k + .5) / probe) * box;
+                if (solid.density(x, y, z) < 0)
                     inside.push_back({x, y, z});
             }
     if (inside.empty())
-        inside.push_back({log.middle[0], log.middle[1], log.middle[2]});
+        inside.push_back({middle[0], middle[1], middle[2]});
     for (const std::array<double, 3>& p : inside)
         for (int a = 0; a < 3; ++a)
             sum[a] += p[static_cast<std::size_t>(a)];
@@ -300,7 +306,7 @@ void Shape::grow_wood() {
             if (values3[order[b]] > values3[order[a]])
                 std::swap(order[a], order[b]);
     Lying lying;
-    lying.log = &log;
+    lying.solid = &solid;
     for (int a = 0; a < 3; ++a)
         lying.centre[a] = centre[a];
     for (int row = 0; row < 3; ++row)
@@ -323,10 +329,13 @@ void Shape::grow_wood() {
         }
     // The grain's direction and the pith, as the chunk lies (before the family's turn and
     // scale, applied below with the rest).
-    double grain_lying[3] = {lying.axes[0][0], lying.axes[1][0], lying.axes[2][0]};
+    double grain_lying[3] = {0, 0, 0};
     double pith_lying[3] = {0, 0, 0};
-    for (int row = 0; row < 3; ++row)
-        pith_lying[row] = (0 - centre[0]) * lying.axes[row][0] + (0 - centre[1]) * lying.axes[row][1] + (0 - centre[2]) * lying.axes[row][2];
+    for (int row = 0; row < 3; ++row) {
+        grain_lying[row] = grain[0] * lying.axes[row][0] + grain[1] * lying.axes[row][1] + grain[2] * lying.axes[row][2];
+        pith_lying[row] = (pith[0] - centre[0]) * lying.axes[row][0] + (pith[1] - centre[1]) * lying.axes[row][1] +
+                          (pith[2] - centre[2]) * lying.axes[row][2];
+    }
 
     // The grid over the lying chunk.
     constexpr int n = 84;
@@ -465,7 +474,7 @@ void Shape::grow_wood() {
         z_low = std::min(z_low, points[p + 2]);
         z_high = std::max(z_high, points[p + 2]);
     }
-    const double middle = (z_low + z_high) * .5;
+    const double level = (z_low + z_high) * .5;
     // How far the solid reaches round the tray's plane: object points are turned back into
     // the grid's frame and their columns read.
     const int levels = n;
@@ -528,7 +537,7 @@ void Shape::grow_wood() {
                 const double a = column.at(k);
                 const double b = column.at(k - 1);
                 if (a >= 0 && b < 0) {
-                    top = -half_z + (k - a / (a - b)) * hz - middle;
+                    top = -half_z + (k - a / (a - b)) * hz - level;
                     seen = true;
                     break;
                 }
@@ -537,7 +546,7 @@ void Shape::grow_wood() {
                 const double a = column.at(k - 1);
                 const double b = column.at(k);
                 if (a >= 0 && b < 0) {
-                    bottom = -(-half_z + (k - 1 + a / (a - b)) * hz - middle);
+                    bottom = -(-half_z + (k - 1 + a / (a - b)) * hz - level);
                     break;
                 }
             }
@@ -578,7 +587,7 @@ void Shape::grow_wood() {
         ShapeVertex vertex;
         vertex.x = static_cast<float>((gx * turn_c - gy * turn_s) * scale);
         vertex.y = static_cast<float>((gx * turn_s + gy * turn_c) * scale);
-        vertex.z = static_cast<float>((gz - middle) * scale);
+        vertex.z = static_cast<float>((gz - level) * scale);
         vertex.nx = static_cast<float>(nx * turn_c - ny * turn_s);
         vertex.ny = static_cast<float>(nx * turn_s + ny * turn_c);
         vertex.nz = static_cast<float>(nz);
@@ -590,7 +599,7 @@ void Shape::grow_wood() {
     grain_[2] = grain_lying[2];
     pith_[0] = (pith_lying[0] * turn_c - pith_lying[1] * turn_s) * scale;
     pith_[1] = (pith_lying[0] * turn_s + pith_lying[1] * turn_c) * scale;
-    pith_[2] = (pith_lying[2] - middle) * scale;
+    pith_[2] = (pith_lying[2] - level) * scale;
 }
 
 }  // namespace ts

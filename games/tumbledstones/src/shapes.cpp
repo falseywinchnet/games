@@ -132,9 +132,15 @@ Shape Shape::make_once(std::uint32_t seed, Style style, double likeness, const S
         // A relation of a piece of fossil log is the same kind of piece.
         if (shape.style_ == Style::wood)
             to.feature[4] = from.feature[4] + 1;
+        if (shape.style_ == Style::shell) {
+            to.feature[0] = from.feature[0];
+            to.feature[4] = from.feature[4] + 1;
+        }
     }
     if (shape.style_ == Style::wood) {
         shape.grow_wood();
+    } else if (shape.style_ == Style::shell) {
+        shape.grow_shell();
     } else {
         shape.sample();
         shape.mesh();
@@ -174,24 +180,27 @@ void Shape::build(std::uint64_t& random) {
         f[9] = next_between(random, .12, .2);   // and width
         f[10] = next_between(random, -pi, pi);  // the crown's lean
         break;
-    case Style::shell:
-        m.aspect = next_between(random, .82, 1.0);
-        m.top = next_between(random, .34, .44);
-        m.bottom = next_between(random, .20, .26);
-        m.top_power = next_between(random, 2.0, 2.4);
-        m.bottom_power = next_between(random, 2.0, 2.4);
-        m.mark_depth = 0;
-        f[0] = std::floor(next_between(random, 13, 21));  // ribs
-        f[1] = next_between(random, .025, .045);           // rib height
-        f[2] = next_between(random, .10, .20);             // the larger ear
-        f[3] = next_between(random, 0.0, .07);             // the smaller ear
-        f[4] = next_between(random, -.25, .25);            // the dish's lean
-        f[5] = next_between(random, .34, .46);             // the dish's depth
-        f[6] = next_between(random, -.35, .35);            // the muscle scar: where
-        f[7] = next_between(random, .05, .25);
-        f[8] = next_between(random, .004, .009);           // growth lines
-        f[9] = next_between(random, .6, .75);              // the hinge's narrowness
+    case Style::shell: {
+        // Shell-ness (shell_volume.cpp): a shell fragment, a rock with a shell's mould, a
+        // scalloped rock or a pottery shard, each grown as a solid and broken.
+        const double which = next_unit(random);
+        f[0] = which < .35 ? 0 : (which < .58 ? 1 : (which < .78 ? 2 : 3));
+        f[1] = next_between(random, .2, .48);            // the section's size
+        f[2] = std::floor(next_between(random, 12, 24)); // ribs
+        f[3] = next_between(random, .025, .05);          // their height
+        f[4] = std::floor(next_between(random, 1, 60000)); // the seed of its breaks, hollows and pits
+        f[5] = next_between(random, .08, .15);           // the wall
+        f[6] = next_between(random, 1.7, 2.6);           // the valve's fan
+        f[7] = next_between(random, .35, .6);            // and dome
+        f[8] = std::floor(next_between(random, 3, 7));   // fractures
+        f[9] = next_between(random, .3, .8);             // where on the valve the section was
+        f[10] = next_between(random, -.35, .35);
+        f[11] = next_between(random, .05, .18);          // a rock's lumps, a pot's bulge
+        f[12] = next_between(random, 0, 1);              // a shard from the rim (over .6)
+        f[13] = next_between(random, .003, .008);        // growth lines
+        f[14] = std::floor(next_between(random, 5, 10)); // a scalloped rock's hollows
         break;
+    }
     case Style::spiral:
         m.aspect = next_between(random, .86, 1.0);
         m.top = next_between(random, .34, .42);
@@ -858,27 +867,10 @@ double Shape::fine_height(int face, double x, double y) const {
     const double ly = (x * sn + y * c) / scale_;
     double h = wear(face, x, y);
     if (style_ == Style::shell) {
-        const double hx = 0;
-        const double hy = -.55;
-        const double dist = std::hypot(lx - hx, ly - hy);
-        const double fan = std::atan2(ly - hy, lx - hx);
-        if (face == 0) {
-            // Growth lines round the hinge, fine and uneven, with a stronger check now and then;
-            // and the ribs' crests kept crisp.
-            const double growth = dist * 95 + 3 * noise2(fan * 3, dist * 4, seed_ + 41);
-            h += .0035 * std::sin(growth) + .006 * smoothstep(.85, 1, std::sin(growth * .21));
-            const double crest = std::pow(std::abs(std::cos(f[0] * fan * .5)), 6);
-            h += .01 * crest * smoothstep(.15, .5, dist);
-        } else {
-            // Inside, the rim is toothed where the ribs end.
-            double u = 0;
-            if (height(1, x, y, u)) {
-                const double r = std::hypot(lx, ly);
-                const double teeth = std::pow(std::abs(std::cos(f[0] * fan * .5)), 2) - .5;
-                h += .012 * teeth * smoothstep(.62, .9, r);
-            }
-        }
-    } else if (style_ == Style::spiral) {
+        // Grown as a solid: its relief is in the solid.
+        return wear(face, x, y) * .4;
+    }
+    if (style_ == Style::spiral) {
         // Polished through, an ammonite shows its sutures: frilled lines across each whorl
         // where a chamber wall met the shell.
         const double r = std::hypot(lx, ly);

@@ -17,7 +17,8 @@
     "src/room_bake.cpp",
     "src/stone_render.cpp",
     "src/tray.cpp",
-    "src/wood_volume.cpp"
+    "src/wood_volume.cpp",
+    "src/shell_volume.cpp"
   ],
   "ui_sources": [
     "src/tumbledstones_view.cpp",
