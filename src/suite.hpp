@@ -65,6 +65,12 @@ class CommandSource {
     [[nodiscard]] virtual std::string key_command(std::uint32_t) const {
         return {};
     }
+    // The capsule's Back, asked of the game first: a game with a way back of its own
+    // (a book closed to its library) takes it and returns true; false lets the shell
+    // show its shelf.
+    virtual bool back() {
+        return false;
+    }
 };
 
 gf::Color mix_color(gf::Color a, gf::Color b, double t);

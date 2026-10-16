@@ -78,6 +78,11 @@ template<class View> class HostedGameInstance : public GameInstance {
             return (*view_).key_command(key);
         return {};
     }
+    bool back() override {
+        if constexpr (std::is_base_of_v<CommandSource, View>)
+            return (*view_).back();
+        return false;
+    }
   protected:
     std::shared_ptr<View> view_;
 };

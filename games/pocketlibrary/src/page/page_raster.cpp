@@ -6,7 +6,6 @@
 namespace pl::page {
 namespace {
 
-constexpr Rgb accent_rgb{0x7aU, 0x2eU, 0x22U};
 constexpr Rgb gilt_rgb{0xd8U, 0xb2U, 0x62U};
 // Verse numerals, notes and the running head are the mockup's ink at four
 // fifths (its opacity of .8 and .85).
@@ -15,27 +14,6 @@ constexpr std::uint32_t soft_alpha = 204U;
 // The page's proportions as a ratio of whole numbers: 715 wide to 1000 high.
 constexpr std::uint64_t page_ratio_width = 715U;
 constexpr std::uint64_t page_ratio_height = 1000U;
-
-struct InkValue final {
-    Rgb color{};
-    std::uint32_t alpha{255U};
-};
-
-InkValue ink_value(Ink ink) noexcept {
-    switch (ink) {
-    case Ink::body:
-        return InkValue{ink_rgb, 255U};
-    case Ink::red:
-        return InkValue{red_rgb, 255U};
-    case Ink::soft:
-        return InkValue{ink_rgb, soft_alpha};
-    case Ink::accent:
-        return InkValue{accent_rgb, 255U};
-    case Ink::gilt:
-        return InkValue{gilt_rgb, 255U};
-    }
-    return InkValue{ink_rgb, 255U};
-}
 
 // Layout units to 1/64 device pixel on a page `page_height` pixels high,
 // rounded to nearest; exact for negative values too.
@@ -84,6 +62,22 @@ SpreadGeometry fit_spread(std::uint32_t width, std::uint32_t height) noexcept {
 }
 
 PageRasterizer::PageRasterizer(const FontSet& fonts) : fonts_(&fonts) {}
+
+PageRasterizer::InkValue PageRasterizer::ink_value(Ink ink) const noexcept {
+    switch (ink) {
+    case Ink::body:
+        return InkValue{palette_.body, 255U};
+    case Ink::red:
+        return InkValue{palette_.red, 255U};
+    case Ink::soft:
+        return InkValue{palette_.body, soft_alpha};
+    case Ink::accent:
+        return InkValue{palette_.accent, 255U};
+    case Ink::gilt:
+        return InkValue{gilt_rgb, 255U};
+    }
+    return InkValue{palette_.body, 255U};
+}
 
 void PageRasterizer::clear_cache() {
     glyphs_.clear();

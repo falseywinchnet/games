@@ -81,7 +81,7 @@ void Collection::initialize_control_tree() {
     (*shelf_).select(active_);
     capsule_ = gf::make_control<CommandCapsule>(gf::StableId("collection.capsule"), sprites_);
     add_child(capsule_);
-    (*capsule_).back = std::bind_front(&Collection::show_shelf, this);
+    (*capsule_).back = std::bind_front(&Collection::back, this);
     (*capsule_).command = std::bind_front(&Collection::run_command, this);
     (*capsule_).bind_masters(model_);
     gf::on(model_.music.invoked(), *this, &Collection::toggle, 0);
@@ -487,6 +487,16 @@ void Collection::open_entry(Entry entry) {
     refresh_commands();
     persist();
     activate();
+}
+void Collection::back() {
+    CommandSource* s = shelf_open_ || help_open() || settings_open() ? nullptr : source(active_);
+    if (s && (*s).back()) {
+        refresh_commands();
+        if (attached_window() && view(active_))
+            static_cast<void>((*attached_window()).request_focus(view(active_)));
+        return;
+    }
+    show_shelf();
 }
 void Collection::show_shelf() {
     close_help();

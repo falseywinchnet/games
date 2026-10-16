@@ -62,6 +62,21 @@ PocketLibraryView::~PocketLibraryView() {
     finish_preparing();
 }
 
+void PocketLibraryView::initialize_control_tree() {
+    // The search: a GUI.Forms field over the bookcase's top, right of the capsule.
+    search_ = gf::make_control<gf::TextBox>(gf::StableId("pocketlibrary.search"), std::string());
+    (*search_).set_placeholder_text("Search titles and authors");
+    (*search_).set_maximum_length(60);
+    (*search_).set_font({gf::FontRole::content, 14, 400, false});
+    (*search_).set_accessible_name("Search the library by title or author");
+    (*search_).set_paint_plane(gf::PaintPlane::overlay);
+    (*search_).set_visible(!reader_.is_open());
+    add_child(search_);
+    gf::on((*search_).text_changed(), *this, &PocketLibraryView::searched);
+    gf::on((*search_).committed(), *this, &PocketLibraryView::search_committed);
+    gf::on((*search_).cancelled(), *this, &PocketLibraryView::search_cancelled);
+}
+
 void PocketLibraryView::prepare_library(const gf::CancellationFlag&, void* context) {
     (*static_cast<PocketLibraryView*>(context)).library_.prepare();
 }
@@ -120,8 +135,8 @@ void PocketLibraryView::arrange(gf::Rect bounds) {
     device_width_ = std::max(1, static_cast<int>(std::lround(bounds.width * scale_)));
     device_height_ = std::max(1, static_cast<int>(std::lround(bounds.height * scale_)));
     frame_.resize(device_width_, device_height_);
-    shelf_ = lay_out_shelf(width_, height_, library_.shelf());
-    scroll_ = std::clamp(scroll_, 0.0, scroll_limit(shelf_));
+    lay_out_bookcase();
+    place_search();
     if (surface_) {
         gf::LiveSurfaceDescription description;
         description.width = static_cast<std::uint32_t>(device_width_);
@@ -186,11 +201,16 @@ void PocketLibraryView::render() {
     make_wood_tiles(scale_, wood_);
     static_cast<void>(printer_.load());
     if (reader_.is_open()) {
-        reader_.set_step(step_);
+        apply_look();
         reader_.draw(frame_, scale_, printer_, wood_);
     } else {
         const int lifted = hover_ >= 0 ? hover_ : cursor_;
-        draw_shelf(frame_, scale_, shelf_, scroll_, library_.shelf(), lifted, wood_, printer_);
+        // A search that found nothing says so on the bare wall.
+        const std::string note = !shown_.empty() && first_on_shelf() < 0
+                                     ? "No title or author has \u201c" + query_ + "\u201d"
+                                     : std::string();
+        draw_shelf(frame_, scale_, shelf_, scroll_, library_.shelf(), on_shelf(lifted) ? lifted : -1, wood_,
+                   printer_, note);
     }
     if (help_)
         draw_help_card(frame_, scale_, printer_, help_paragraphs());
@@ -240,8 +260,14 @@ void PocketLibraryView::describe() {
         set_accessible_name("Pocket Library. " + book + ". " + reader_.describe() +
                             ". Arrow keys turn the pages; C shows the contents; Escape returns to the shelf.");
     } else {
-        set_accessible_name("Pocket Library. A shelf of " + std::to_string(library_.shelf().size()) +
-                            " books. Arrow keys choose a book; Enter opens it.");
+        std::size_t kept = 0;
+        for (std::size_t n = 0; n < library_.shelf().size(); ++n)
+            kept += on_shelf(static_cast<int>(n)) ? 1 : 0;
+        const std::string found = query_.empty() || shown_.empty()
+                                      ? "A shelf of " + std::to_string(kept) + " books"
+                                      : std::to_string(kept) + " books found for " + query_;
+        set_accessible_name("Pocket Library. " + found +
+                            ". Arrow keys choose a book; Enter opens it; Command or Control F searches by title or author.");
     }
 }
 
@@ -257,6 +283,7 @@ void PocketLibraryView::open_book(int index) {
         return;
     LayoutOptions options;
     options.step = step_;
+    options.typeface = static_cast<Typeface>(marks_.face);
     if (book.id == "concordance") {
         options.bible = library_.work("bsb");
         options.places = library_.bible_places();
@@ -265,6 +292,8 @@ void PocketLibraryView::open_book(int index) {
     marks_.open = book.id;
     hover_ = -1;
     cursor_ = index;
+    place_search();
+    activate();
     describe();
     persist();
     request_frame();
@@ -276,6 +305,10 @@ void PocketLibraryView::close_book() {
     set_place(marks_, reader_.place());
     reader_.close();
     marks_.open.clear();
+    place_search();
+    if (on_shelf(cursor_))
+        scroll_ = scroll_to_show(shelf_, cursor_, scroll_);
+    activate();
     describe();
     persist();
     request_frame();
@@ -318,19 +351,117 @@ void PocketLibraryView::to_contents(bool shown) {
 
 void PocketLibraryView::move_cursor(int step) {
     const int count = static_cast<int>(library_.shelf().size());
-    if (count == 0)
+    if (!on_shelf(cursor_)) {
+        cursor_ = first_on_shelf();
+    } else {
+        // Past the books a search left off the shelf.
+        int next = cursor_ + step;
+        while (next >= 0 && next < count && !on_shelf(next))
+            next += step;
+        if (next >= 0 && next < count)
+            cursor_ = next;
+    }
+    if (cursor_ < 0)
         return;
-    cursor_ = cursor_ < 0 ? 0 : std::clamp(cursor_ + step, 0, count - 1);
     scroll_ = scroll_to_show(shelf_, cursor_, scroll_);
     request_frame();
 }
 
 void PocketLibraryView::move_plank(int planks) {
-    if (library_.shelf().empty())
+    cursor_ = on_shelf(cursor_) ? spine_beside(shelf_, cursor_, planks) : first_on_shelf();
+    if (cursor_ < 0)
         return;
-    cursor_ = cursor_ < 0 ? 0 : spine_beside(shelf_, cursor_, planks);
     scroll_ = scroll_to_show(shelf_, cursor_, scroll_);
     request_frame();
+}
+
+bool PocketLibraryView::on_shelf(int book) const {
+    if (book < 0 || static_cast<std::size_t>(book) >= library_.shelf().size())
+        return false;
+    return shown_.empty() || shown_[static_cast<std::size_t>(book)];
+}
+
+int PocketLibraryView::first_on_shelf() const {
+    for (std::size_t n = 0; n < library_.shelf().size(); ++n)
+        if (on_shelf(static_cast<int>(n)))
+            return static_cast<int>(n);
+    return -1;
+}
+
+// ---------------------------------------------------------------- the search
+
+void PocketLibraryView::lay_out_bookcase() {
+    shelf_ = lay_out_shelf(width_, height_, library_.shelf(), shown_);
+    scroll_ = std::clamp(scroll_, 0.0, scroll_limit(shelf_));
+}
+
+// The field shows with the bookcase, right of the capsule and, in the shell, left of
+// its help mark at the top right.
+void PocketLibraryView::place_search() {
+    if (!search_)
+        return;
+    const bool wanted = !reader_.is_open() && !help_;
+    if ((*search_).visible() != wanted)
+        (*search_).set_visible(wanted);
+    const double right = width_ - (options_.hosted ? 56 : 16);
+    const double wide = std::clamp(right - 300, 140.0, 240.0);
+    set_child_layout(search_, {right - wide, 9, wide, 28});
+}
+
+bool PocketLibraryView::search_focused() const {
+    const gf::Window* window = attached_window();
+    return search_ && window != nullptr && (*window).focused_control() == search_;
+}
+
+void PocketLibraryView::focus_search() {
+    gf::Window* window = attached_window();
+    if (!search_ || window == nullptr || reader_.is_open())
+        return;
+    (*search_).select_all();
+    static_cast<void>((*window).request_focus(search_));
+}
+
+// Each letter typed keeps only the books whose title or author has every word sought,
+// standing in shelf order on as few planks as they need; the first is lifted.
+void PocketLibraryView::searched(const std::string& text) {
+    if (text == query_)
+        return;
+    query_ = text;
+    shown_.clear();
+    bool every = true;
+    for (const ShelfBook& book : library_.shelf()) {
+        const bool kept = book_matches(book, query_);
+        shown_.push_back(kept);
+        every = every && kept;
+    }
+    if (every)
+        shown_.clear();
+    lay_out_bookcase();
+    hover_ = -1;
+    if (!shown_.empty()) {
+        cursor_ = first_on_shelf();
+        scroll_ = 0;
+    } else if (on_shelf(cursor_)) {
+        scroll_ = scroll_to_show(shelf_, cursor_, scroll_);
+    }
+    describe();
+    request_frame();
+}
+
+// Enter opens the book lifted: the first found.
+void PocketLibraryView::search_committed(const std::string&) {
+    if (on_shelf(cursor_) && !shown_.empty())
+        open_book(cursor_);
+    else
+        activate();
+}
+
+// Escape empties the field; the whole library stands again.
+void PocketLibraryView::search_cancelled() {
+    if (search_ && !(*search_).text().empty())
+        (*search_).set_text(std::string());
+    searched(std::string());
+    activate();
 }
 
 void PocketLibraryView::scroll_shelf(double points) {
@@ -349,6 +480,7 @@ void PocketLibraryView::set_help(bool open) {
     if (help_ == open)
         return;
     help_ = open;
+    place_search();
     request_frame();
 }
 
@@ -427,6 +559,16 @@ void PocketLibraryView::on_key(gf::KeyEvent& event) {
         return;
     using Key = gf::PhysicalKey;
     const std::uint32_t key = event.physical_key;
+    if (search_focused()) {
+        // The field keeps its keys; Down or Tab goes on to the books found.
+        if (key == Key::down || key == Key::tab) {
+            activate();
+            if (!on_shelf(cursor_))
+                move_cursor(1);
+            event.handled = true;
+        }
+        return;
+    }
     event.handled = true;
     if (help_) {
         if (key == Key::escape || key == Key::f1 || key == Key::enter || key == Key::space)
@@ -438,7 +580,13 @@ void PocketLibraryView::on_key(gf::KeyEvent& event) {
         return;
     }
     if (!reader_.is_open()) {
-        if (key == Key::left)
+        const bool command = gf::has_modifier(event.modifiers, gf::Modifier::control) ||
+                             gf::has_modifier(event.modifiers, gf::Modifier::meta);
+        if (key == Key::f && command)
+            focus_search();
+        else if (key == Key::escape && !query_.empty())
+            search_cancelled();
+        else if (key == Key::left)
             move_cursor(-1);
         else if (key == Key::right)
             move_cursor(1);
@@ -450,7 +598,7 @@ void PocketLibraryView::on_key(gf::KeyEvent& event) {
             scroll_shelf(-shelf_.height * 0.8);
         else if (key == Key::page_down)
             scroll_shelf(shelf_.height * 0.8);
-        else if ((key == Key::enter || key == Key::space) && cursor_ >= 0)
+        else if ((key == Key::enter || key == Key::space) && on_shelf(cursor_))
             open_book(cursor_);
         else
             event.handled = false;
@@ -477,16 +625,17 @@ std::vector<games::GameCommand> PocketLibraryView::commands() const {
     // id, label, enabled, checked, primary. Primary commands show while the capsule is folded.
     std::vector<games::GameCommand> list;
     if (reader_.is_open()) {
-        list.push_back({"shelf", "Shelf", true, false, true});
+        list.push_back({"shelf", "Library", true, false, true});
         list.push_back({"contents", "Contents", true, reader_.contents_shown(), true});
         list.push_back({"previous", "Previous page", true, false, false});
         list.push_back({"next", "Next page", true, false, false});
     } else {
         const int chosen = hover_ >= 0 ? hover_ : cursor_;
         std::string label = "Open book";
-        if (chosen >= 0 && static_cast<std::size_t>(chosen) < library_.shelf().size())
+        if (on_shelf(chosen))
             label = "Open " + library_.shelf()[static_cast<std::size_t>(chosen)].title;
-        list.push_back({"open", label, chosen >= 0, false, true});
+        list.push_back({"open", label, on_shelf(chosen), false, true});
+        list.push_back({"search", "Search", true, search_focused(), false});
         // One command for each plank's category: it brings that shelf into view.
         for (const PlankBox& plank : shelf_.planks)
             if (!plank.label.empty())
@@ -498,13 +647,19 @@ std::vector<games::GameCommand> PocketLibraryView::commands() const {
 
 void PocketLibraryView::run_command(std::string_view id) {
     if (id == "open") {
-        open_book(hover_ >= 0 ? hover_ : cursor_);
+        const int chosen = hover_ >= 0 ? hover_ : cursor_;
+        if (on_shelf(chosen))
+            open_book(chosen);
+        return;
+    }
+    if (id == "search") {
+        focus_search();
         return;
     }
     if (id.substr(0, 3) == "go:") {
         const std::string_view category = id.substr(3);
         for (std::size_t n = 0; n < library_.shelf().size(); ++n) {
-            if (library_.shelf()[n].category == category) {
+            if (library_.shelf()[n].category == category && on_shelf(static_cast<int>(n))) {
                 cursor_ = static_cast<int>(n);
                 scroll_ = std::clamp(shelf_.planks[shelf_.spines[n].plank].top - shelf_.spines[n].height - 40, 0.0,
                                      scroll_limit(shelf_));
@@ -529,21 +684,63 @@ void PocketLibraryView::run_command(std::string_view id) {
 // ---------------------------------------------------------------- the Settings screen
 
 std::vector<games::GameSetting> PocketLibraryView::settings() const {
-    games::GameSetting size{"type", "Type size", games::GameSetting::Kind::choice, static_cast<double>(step_)};
+    using Kind = games::GameSetting::Kind;
+    games::GameSetting size{"type", "Type size", Kind::choice, static_cast<double>(step_)};
     for (const char* name : step_names)
         size.choices.push_back(name);
     size.note = "Every book is set again at the size chosen.";
-    return {size};
+    const games::GameSetting face{"face", "Typeface", Kind::choice, static_cast<double>(marks_.face),
+                                  {"As each book is set", "Literata", "EB Garamond"}, 0, 1, 1,
+                                  "As set, the Bible is in EB Garamond and every other book in Literata."};
+    games::GameSetting paper{"paper", "Paper", Kind::choice,
+                             static_cast<double>(std::clamp(marks_.paper, 0, paper_count - 1))};
+    for (const char* name : paper_names)
+        paper.choices.push_back(name);
+    paper.note = "Night is light ink on dark paper; Phosphor, green on black.";
+    const games::GameSetting texture{"texture", "Paper texture", Kind::slider, marks_.texture / 100.0, {}, 0, 1, .05,
+                                     "Halfway is the paper as it is made; none is a flat sheet."};
+    const games::GameSetting gutter{"gutter", "Shadow in the gutter", Kind::slider, marks_.gutter / 100.0, {}, 0, 1,
+                                    .05, ""};
+    return {size, face, paper, texture, gutter};
 }
 
 void PocketLibraryView::change_setting(std::string_view id, double value) {
     const int chosen = static_cast<int>(std::lround(value));
-    if (id != "type" || chosen < 0 || chosen > 2 || chosen == static_cast<int>(step_))
+    const int percent = static_cast<int>(std::lround(std::clamp(value, 0.0, 1.0) * 100));
+    if (id == "type" && chosen >= 0 && chosen <= 2 && chosen != static_cast<int>(step_)) {
+        step_ = static_cast<page::TypeStep>(chosen);
+        marks_.step = chosen;
+    } else if (id == "face" && chosen >= 0 && chosen <= 2 && chosen != marks_.face) {
+        marks_.face = chosen;
+    } else if (id == "paper" && chosen >= 0 && chosen < paper_count && chosen != marks_.paper) {
+        marks_.paper = chosen;
+    } else if (id == "texture" && percent != marks_.texture) {
+        marks_.texture = percent;
+    } else if (id == "gutter" && percent != marks_.gutter) {
+        marks_.gutter = percent;
+    } else {
         return;
-    step_ = static_cast<page::TypeStep>(chosen);
-    marks_.step = chosen;
+    }
     persist();
     request_frame();
+}
+
+// The reader's choices, given to the open book before it is drawn.
+void PocketLibraryView::apply_look() {
+    reader_.set_step(step_);
+    reader_.set_typeface(static_cast<Typeface>(marks_.face));
+    PageLook look;
+    look.paper = marks_.paper;
+    look.texture = marks_.texture / 100.0;
+    look.gutter = marks_.gutter / 100.0;
+    reader_.set_look(look);
+}
+
+bool PocketLibraryView::back() {
+    if (!reader_.is_open())
+        return false;
+    close_book();
+    return true;
 }
 
 // ---------------------------------------------------------------- the bookmarks

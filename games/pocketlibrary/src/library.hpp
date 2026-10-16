@@ -30,6 +30,11 @@ struct ShelfBook {
     double heft = 1;         // how thick the volume is, 0.5 to 2.5: grows with its text
 };
 
+// A search of the shelf: true when every word of `query` is found in the book's title or
+// its subtitle (the author), ignoring case and accents ("balzac", "Goriot", "tolstoi"
+// does not find "Tolstoy"). An empty query finds every book.
+[[nodiscard]] bool book_matches(const ShelfBook& book, std::string_view query);
+
 class Library {
   public:
     // Takes the library file's bytes. False, with an empty shelf, when the file does
@@ -67,6 +72,10 @@ struct Place {
 struct Bookmarks {
     std::string open;  // the book open when the game was left; empty for the shelf
     int step = 1;      // the type size: 0 small, 1 medium, 2 large
+    int face = 0;      // the typeface: 0 as each book is set, 1 Literata, 2 EB Garamond
+    int paper = 0;     // the paper, from India (0)
+    int texture = 50;  // the paper's markings, in percent: 50 as the paper is made
+    int gutter = 50;   // the shadow into the binding, in percent: 50 as made
     std::vector<Place> places;
 };
 [[nodiscard]] std::string encode_bookmarks(const Bookmarks& marks);

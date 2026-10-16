@@ -15,6 +15,7 @@
 #include "shelf_scene.hpp"
 
 #include "gui_forms/basic_controls.hpp"
+#include "gui_forms/controls/panel/text_box/text_box.hpp"
 #include "gui_forms/live_surface.hpp"
 #include "gui_forms/threading.hpp"
 #include "gui_forms/timer.hpp"
@@ -38,7 +39,7 @@ class PocketLibraryView final : public gf::Control, public games::CommandSource 
     PocketLibraryView(gf::StableId id, Options options);
     ~PocketLibraryView() override;
     static constexpr bool initialize_tree_after_construction = true;
-    void initialize_control_tree() {}
+    void initialize_control_tree();
     void arrange(gf::Rect bounds) override;
     void on_paint(gf::Painter& painter, gf::Rect damage) override;
     void on_pointer(gf::PointerEvent& event) override;
@@ -55,6 +56,9 @@ class PocketLibraryView final : public gf::Control, public games::CommandSource 
     void run_command(std::string_view id) override;
     [[nodiscard]] std::vector<games::GameSetting> settings() const override;
     void change_setting(std::string_view id, double value) override;
+    // The capsule's Back closes an open book to the library; on the bookcase it is the
+    // shell's.
+    bool back() override;
 
   private:
     Options options_;
@@ -66,6 +70,11 @@ class PocketLibraryView final : public gf::Control, public games::CommandSource 
     ShelfLayout shelf_;
     int hover_ = -1;   // the book under the pointer
     int cursor_ = -1;  // the book chosen with the keyboard
+    // The search over the bookcase: the field, what it holds, and which books it keeps
+    // (one flag a shelf book; empty while nothing is sought).
+    std::shared_ptr<gf::TextBox> search_;
+    std::string query_;
+    std::vector<bool> shown_;
     double scroll_ = 0;  // how far the bookcase is scrolled, in points
     page::TypeStep step_ = page::TypeStep::medium;
     Canvas frame_;
@@ -106,6 +115,16 @@ class PocketLibraryView final : public gf::Control, public games::CommandSource 
     void move_plank(int planks);
     void scroll_shelf(double points);
     void set_help(bool open);
+    void searched(const std::string& text);
+    void search_committed(const std::string& text);
+    void search_cancelled();
+    void focus_search();
+    void lay_out_bookcase();
+    void place_search();
+    [[nodiscard]] bool search_focused() const;
+    [[nodiscard]] bool on_shelf(int book) const;
+    [[nodiscard]] int first_on_shelf() const;
+    void apply_look();
     void persist();
     [[nodiscard]] std::string_view save_name() const;
 };

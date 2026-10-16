@@ -218,7 +218,7 @@ namespace {
 
 // The bookcase's measures, in points.
 constexpr double side_margin = 28;
-constexpr double top_margin = 36;
+constexpr double top_margin = shelf_top_room;
 constexpr double plank_clearance = 34;  // from a plank up to the tallest book's head room
 constexpr double plank_depth = 30;      // the plank and its label below the books
 
@@ -290,9 +290,87 @@ void draw_label(Canvas& canvas, double scale, double x, double y, const std::str
     printer.rasterizer().draw_page(label, target, rect, page::PaperImage{});
 }
 
+// A slip of paper centred on (x, y) in points, kept inside the view: its first line in
+// roman, a second (the author) in italic beneath. Long lines are set smaller to fit.
+void draw_note(Canvas& canvas, double scale, double x, double y, const std::vector<std::string>& lines,
+               Printer& printer) {
+    if (!printer.ready() || lines.empty() || lines.front().empty())
+        return;
+    const bool two = lines.size() > 1 && !lines[1].empty();
+    const double pad = 9;
+    const double first_em = 12.5, second_em = 10.5;
+    const double height_points = two ? 40 : 26;
+    const int height = std::max(1, static_cast<int>(std::lround(height_points * scale)));
+    const double units = 1.0e6 / static_cast<double>(height);
+    page::Typesetter& setter = printer.typesetter();
+    page::TextStyle first;
+    first.face = page::FaceId::literata_regular;
+    first.em = static_cast<page::LayoutUnit>(first_em * scale * units);
+    first.ink = page::Ink::body;
+    page::TextStyle second = first;
+    second.face = page::FaceId::literata_italic;
+    second.em = static_cast<page::LayoutUnit>(second_em * scale * units);
+    second.ink = page::Ink::soft;
+    // The widest the slip may be: the view less a margin each side.
+    const double room = std::max(60.0, static_cast<double>(canvas.w) / scale - 24) - 2 * pad;
+    double shrink = 1;
+    const double first_points = static_cast<double>(setter.shaped(first, lines[0], false).advance) / units / scale;
+    double widest = first_points;
+    if (two)
+        widest = std::max(widest, static_cast<double>(setter.shaped(second, lines[1], false).advance) / units / scale);
+    if (widest > room) {
+        shrink = room / widest;
+        first.em = static_cast<page::LayoutUnit>(static_cast<double>(first.em) * shrink);
+        second.em = static_cast<page::LayoutUnit>(static_cast<double>(second.em) * shrink);
+        widest = room;
+    }
+    const double width_points = widest + 2 * pad;
+    const double left = std::clamp(x - width_points / 2, 12.0, std::max(12.0, canvas.w / scale - 12 - width_points));
+    const double top = std::clamp(y - height_points / 2, 4.0, std::max(4.0, canvas.h / scale - 4 - height_points));
+    // Its shadow on whatever is behind.
+    canvas.save();
+    canvas.set_transform(Mat{});
+    canvas.scale(scale, scale);
+    canvas.begin();
+    canvas.rrect(left + 1.5, top + 2.5, width_points, height_points, 3);
+    canvas.fill(rgb(6, 3, 1, 0.45f));
+    canvas.restore();
+    page::PageRect rect;
+    rect.x = static_cast<std::int32_t>(std::lround(left * scale));
+    rect.y = static_cast<std::int32_t>(std::lround(top * scale));
+    rect.width = static_cast<std::uint32_t>(std::max(1, static_cast<int>(std::lround(width_points * scale))));
+    rect.height = static_cast<std::uint32_t>(height);
+    page::PageLayout note;
+    const page::LayoutUnit middle = static_cast<page::LayoutUnit>(width_points / 2 * scale * units);
+    const page::ShapedRun& set_first = setter.shaped(first, lines[0], false);
+    page::PlacedRun run;
+    run.face = first.face;
+    run.em = first.em;
+    run.ink = first.ink;
+    run.x = middle - set_first.advance / 2;
+    run.baseline = static_cast<page::LayoutUnit>((two ? 17.5 : 17.0) * scale * units);
+    run.glyphs = set_first.glyphs;
+    note.runs.push_back(run);
+    if (two) {
+        const page::ShapedRun& set_second = setter.shaped(second, lines[1], false);
+        page::PlacedRun by;
+        by.face = second.face;
+        by.em = second.em;
+        by.ink = second.ink;
+        by.x = middle - set_second.advance / 2;
+        by.baseline = static_cast<page::LayoutUnit>(32.0 * scale * units);
+        by.glyphs = set_second.glyphs;
+        note.runs.push_back(by);
+    }
+    const page::PixelTarget target{canvas.px.data(), static_cast<std::size_t>(canvas.w) * 4,
+                                   static_cast<std::uint32_t>(canvas.w), static_cast<std::uint32_t>(canvas.h)};
+    printer.rasterizer().draw_page(note, target, rect, page::PaperImage{});
+}
+
 }  // namespace
 
-ShelfLayout lay_out_shelf(double width, double height, const std::vector<ShelfBook>& books) {
+ShelfLayout lay_out_shelf(double width, double height, const std::vector<ShelfBook>& books,
+                          const std::vector<bool>& shown) {
     ShelfLayout layout;
     layout.width = width;
     layout.height = height;
@@ -306,6 +384,13 @@ ShelfLayout lay_out_shelf(double width, double height, const std::vector<ShelfBo
     bool any = false;
     for (std::size_t n = 0; n < books.size(); ++n) {
         const ShelfBook& book = books[n];
+        if (n < shown.size() && !shown[n]) {
+            SpineBox box;
+            box.hidden = true;
+            box.plank = layout.planks.empty() ? 0 : layout.planks.size() - 1;
+            layout.spines.push_back(box);
+            continue;
+        }
         const double spine = std::max(14.0, unit * book.heft);
         const bool new_category = !any || book.category != category;
         if (new_category || x + spine > right) {
@@ -338,7 +423,7 @@ int spine_at(const ShelfLayout& layout, double scroll, double x, double y) {
     const double at = y + scroll;
     for (std::size_t n = 0; n < layout.spines.size(); ++n) {
         const SpineBox& box = layout.spines[n];
-        if (x >= box.x && x < box.x + box.width && at >= box.y - 8 && at < box.y + box.height)
+        if (!box.hidden && x >= box.x && x < box.x + box.width && at >= box.y - 8 && at < box.y + box.height)
             return static_cast<int>(n);
     }
     return -1;
@@ -356,7 +441,7 @@ int spine_beside(const ShelfLayout& layout, int book, int planks) {
     double nearest = 1e18;
     for (std::size_t n = 0; n < layout.spines.size(); ++n) {
         const SpineBox& box = layout.spines[n];
-        if (box.plank != static_cast<std::size_t>(target))
+        if (box.hidden || box.plank != static_cast<std::size_t>(target))
             continue;
         const double distance = std::fabs(box.x + box.width / 2 - across);
         if (distance < nearest) {
@@ -368,7 +453,8 @@ int spine_beside(const ShelfLayout& layout, int book, int planks) {
 }
 
 double scroll_to_show(const ShelfLayout& layout, int book, double scroll) {
-    if (book < 0 || static_cast<std::size_t>(book) >= layout.spines.size())
+    if (book < 0 || static_cast<std::size_t>(book) >= layout.spines.size() ||
+        layout.spines[static_cast<std::size_t>(book)].hidden || layout.planks.empty())
         return scroll;
     const SpineBox& box = layout.spines[static_cast<std::size_t>(book)];
     const double top = box.y - plank_clearance;
@@ -382,7 +468,8 @@ double scroll_to_show(const ShelfLayout& layout, int book, double scroll) {
 }
 
 void draw_shelf(Canvas& canvas, double scale, const ShelfLayout& layout, double scroll,
-                const std::vector<ShelfBook>& books, int lifted, const WoodTiles& wood, Printer& printer) {
+                const std::vector<ShelfBook>& books, int lifted, const WoodTiles& wood, Printer& printer,
+                const std::string& empty_note) {
     // The wall scrolls with the case.
     const int shift = static_cast<int>(std::lround(scroll * scale));
     const int tile_shift = wood.wall_height > 0 ? shift % wood.wall_height : 0;
@@ -401,6 +488,8 @@ void draw_shelf(Canvas& canvas, double scale, const ShelfLayout& layout, double 
     canvas.scale(scale, scale);
     for (std::size_t n = 0; n < books.size() && n < layout.spines.size(); ++n) {
         const SpineBox& box = layout.spines[n];
+        if (box.hidden)
+            continue;
         const double raise = static_cast<int>(n) == lifted ? 6 : 0;
         const double y = box.y - raise - scroll;
         if (y > layout.height || y + box.height < 0)
@@ -413,6 +502,8 @@ void draw_shelf(Canvas& canvas, double scale, const ShelfLayout& layout, double 
     for (std::size_t n = 0; n < books.size() && n < layout.spines.size(); ++n) {
         const ShelfBook& book = books[n];
         const SpineBox& box = layout.spines[n];
+        if (box.hidden)
+            continue;
         const double raise = static_cast<int>(n) == lifted ? 6 : 0;
         const double top = box.y - raise - scroll;
         if (top > layout.height || top + box.height < 0)
@@ -439,15 +530,33 @@ void draw_shelf(Canvas& canvas, double scale, const ShelfLayout& layout, double 
         letter_spine(canvas, printer, book.subtitle, page::FaceId::literata_italic, title_em * 0.62, 0.64, 0.80,
                      x0 + inset, y0, height, band, ground, false);
     }
+    if (!empty_note.empty())
+        draw_note(canvas, scale, layout.width / 2, layout.height * 0.4, {empty_note}, printer);
+    if (lifted >= 0 && static_cast<std::size_t>(lifted) < books.size() &&
+        static_cast<std::size_t>(lifted) < layout.spines.size() && !layout.spines[static_cast<std::size_t>(lifted)].hidden) {
+        const ShelfBook& book = books[static_cast<std::size_t>(lifted)];
+        const SpineBox& box = layout.spines[static_cast<std::size_t>(lifted)];
+        // Over the book's head, in the room beneath the plank above; where that room is
+        // under the capsule and the search field at the top of the view, over the book's
+        // upper half instead.
+        const double above = box.y - 6 - scroll - 26;
+        const double centre = above - 20 >= shelf_top_room ? above : box.y - scroll + box.height * 0.3;
+        draw_note(canvas, scale, box.x + box.width / 2, centre, {book.title, book.subtitle}, printer);
+    }
 }
 
 std::vector<std::string> help_paragraphs() {
     return {
         "Pocket Library",
-        "Choose a book from the shelf: click it, or move along the shelf with the arrow keys and press Enter.",
+        "Choose a book from the shelf: click it, or move along the shelf with the arrow keys and press Enter. "
+        "Point at a book to read its title and author.",
+        "To find a book, type part of its title or its author's name in the search field (Command or Control F); "
+        "Enter opens the first found, Escape brings back the whole library.",
         "Turn the pages with the arrow keys, Page Up and Page Down, the space bar, the wheel, or a click on "
-        "either page. C shows the book's contents; choose a part to go to it. Escape returns to the shelf.",
-        "Every book opens where you left it. The type size is on the Settings screen.",
+        "either page. C shows the book's contents; choose a part to go to it. Escape or Back returns to the "
+        "library.",
+        "Every book opens where you left it. The type size, typeface, paper and its texture are on the "
+        "Settings screen.",
         "Press Escape or F1 to close this card.",
     };
 }

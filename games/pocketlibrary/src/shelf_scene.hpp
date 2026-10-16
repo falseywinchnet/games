@@ -33,6 +33,7 @@ void fill_with_tile(Canvas& canvas, const std::vector<std::byte>& tile, int tile
 struct SpineBox {
     double x = 0, y = 0, width = 0, height = 0;
     std::size_t plank = 0;
+    bool hidden = false;  // left off the shelf by a search
 };
 // A plank: its top, where its books stand, and the category lettered on its label.
 struct PlankBox {
@@ -47,8 +48,9 @@ struct ShelfLayout {
 };
 
 // Books stand in shelf order, a new plank for each category and wherever a plank is
-// full.
-[[nodiscard]] ShelfLayout lay_out_shelf(double width, double height, const std::vector<ShelfBook>& books);
+// full. `shown` says which books a search keeps (one flag a book); empty keeps all.
+[[nodiscard]] ShelfLayout lay_out_shelf(double width, double height, const std::vector<ShelfBook>& books,
+                                        const std::vector<bool>& shown = {});
 // The furthest the bookcase scrolls, in points.
 [[nodiscard]] double scroll_limit(const ShelfLayout& layout);
 // The book under a point of the view, or -1. `scroll` is how far the case is scrolled.
@@ -58,9 +60,14 @@ struct ShelfLayout {
 // The scroll that brings `book` into view from `scroll`, moving as little as it can.
 [[nodiscard]] double scroll_to_show(const ShelfLayout& layout, int book, double scroll);
 
-// `lifted` is the book drawn a little raised (under the pointer or the keyboard), or -1.
+// `lifted` is the book drawn a little raised (under the pointer or the keyboard), or -1;
+// a paper tag over it gives its title and author in full. `empty_note`, when not empty,
+// is lettered on the bare wall (a search that found nothing).
 void draw_shelf(Canvas& canvas, double scale, const ShelfLayout& layout, double scroll,
-                const std::vector<ShelfBook>& books, int lifted, const WoodTiles& wood, Printer& printer);
+                const std::vector<ShelfBook>& books, int lifted, const WoodTiles& wood, Printer& printer,
+                const std::string& empty_note = {});
+// Where the bookcase leaves room above its first plank, in points, for the search field.
+inline constexpr double shelf_top_room = 44;
 
 // The game's own help, a card of the library's paper over whatever is showing: shown
 // when the game runs outside the shell, whose help book it otherwise opens.

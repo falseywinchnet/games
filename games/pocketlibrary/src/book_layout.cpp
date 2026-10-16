@@ -108,11 +108,11 @@ TextStyle capitals_of(const TextStyle& base, const page::FontSet& fonts) {
     return capitals;
 }
 
-Styles make_styles(const Work& work, page::TypeStep step, const page::FontSet& fonts) {
+Styles make_styles(const Work& work, page::TypeStep step, Typeface typeface, const page::FontSet& fonts) {
     Styles styles;
-    styles.roman = roman_face(work);
-    styles.italic = italic_face(work);
-    styles.em = body_em(work, step);
+    styles.roman = roman_face(work, typeface);
+    styles.italic = italic_face(work, typeface);
+    styles.em = body_em(work, step, typeface);
     const LayoutUnit em = styles.em;
     styles.body.face = styles.roman;
     styles.body.em = em;
@@ -758,19 +758,26 @@ page::PageLayout make_page(const Work& work, const Division& division, const Flo
     return out;
 }
 
+// The reader's choice of face, or the book's own: the Bible in Garamond.
+bool set_in_garamond(const Work& work, Typeface typeface) {
+    if (typeface == Typeface::as_set)
+        return work.id == "bsb";
+    return typeface == Typeface::garamond;
+}
+
 }  // namespace
 
-FaceId roman_face(const Work& work) {
-    return work.id == "bsb" ? FaceId::eb_garamond_regular : FaceId::literata_regular;
+FaceId roman_face(const Work& work, Typeface typeface) {
+    return set_in_garamond(work, typeface) ? FaceId::eb_garamond_regular : FaceId::literata_regular;
 }
 
-LayoutUnit body_em(const Work& work, page::TypeStep step) {
+LayoutUnit body_em(const Work& work, page::TypeStep step, Typeface typeface) {
     const LayoutUnit nominal = page::body_em_lu(step);
-    return roman_face(work) == FaceId::literata_regular ? percent_of(nominal, 92) : nominal;
+    return roman_face(work, typeface) == FaceId::literata_regular ? percent_of(nominal, 92) : nominal;
 }
 
-FaceId italic_face(const Work& work) {
-    return work.id == "bsb" ? FaceId::eb_garamond_italic : FaceId::literata_italic;
+FaceId italic_face(const Work& work, Typeface typeface) {
+    return set_in_garamond(work, typeface) ? FaceId::eb_garamond_italic : FaceId::literata_italic;
 }
 
 void plan_sections(const Work& work, std::vector<Section>& out) {
@@ -806,7 +813,7 @@ void lay_out_section(const Work& work, const Section& section, const LayoutOptio
     if (section.division >= work.divisions.size())
         return;
     const Division& division = work.divisions[section.division];
-    const Styles styles = make_styles(work, options.step, typesetter.fonts());
+    const Styles styles = make_styles(work, options.step, options.typeface, typesetter.fonts());
     const PageMetrics metrics = page_metrics(styles);
     Flow flow;
     build_flow(work, section, styles, options, typesetter, flow);

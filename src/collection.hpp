@@ -30,6 +30,8 @@ class Collection final : public gf::Control, public HelpHost {
     void activate();
     void open_entry(Entry entry);
     void show_shelf();
+    // The capsule's Back: the game's own step back when it has one, else the shelf.
+    void back();
     void show_help(std::string_view topic = {}) override;
     void close_help();
     void show_settings();

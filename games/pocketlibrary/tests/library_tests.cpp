@@ -215,10 +215,31 @@ void test_library_file() {
     check(!file.open(short_file), "a file cut short is refused");
 }
 
+void test_search() {
+    pl::ShelfBook book;
+    book.title = "Father Goriot";
+    book.subtitle = "Honoré de Balzac";
+    check(pl::book_matches(book, ""), "an empty search finds every book");
+    check(pl::book_matches(book, "balzac"), "a book is found by its author");
+    check(pl::book_matches(book, "GORIOT"), "and by its title, in any case");
+    check(pl::book_matches(book, "honore gor"), "every word, in any order, part words too");
+    check(pl::book_matches(book, "Honoré"), "accents match themselves");
+    check(!pl::book_matches(book, "balzac dickens"), "every word must be found");
+    pl::ShelfBook other;
+    other.title = "Émile";
+    other.subtitle = "Flann O\u2019Brien";
+    check(pl::book_matches(other, "emile"), "an accented letter is found by its plain one");
+    check(pl::book_matches(other, "o'brien") && pl::book_matches(other, "obrien"), "apostrophes join their word");
+}
+
 void test_bookmarks() {
     pl::Bookmarks marks;
     marks.open = "avot";
     marks.step = 2;
+    marks.face = 2;
+    marks.paper = 9;
+    marks.texture = 20;
+    marks.gutter = 75;
     pl::Place place;
     place.book = "bsb";
     place.section = 40;
@@ -230,6 +251,11 @@ void test_bookmarks() {
     pl::Bookmarks read;
     check(pl::decode_bookmarks(pl::encode_bookmarks(marks), read), "the bookmarks read back");
     check(read.open == "avot" && read.step == 2, "the open book and the type size");
+    check(read.face == 2 && read.paper == 9 && read.texture == 20 && read.gutter == 75, "the page's look");
+    pl::Bookmarks older;
+    check(pl::decode_bookmarks("pocket-library-bookmarks 1\nopen \ntype 0\n", older) && older.face == 0 &&
+              older.paper == 0 && older.texture == 50 && older.gutter == 50,
+          "a file from before the look was chosen reads as the first look");
     const pl::Place back = pl::place_in(read, "bsb");
     check(back.section == 40 && back.page == 8, "the place in the Bible");
     check(pl::place_in(read, "jps1917").section == 0, "a book never opened opens at its start");
@@ -245,6 +271,7 @@ int main() {
     test_base();
     test_packing();
     test_library_file();
+    test_search();
     test_bookmarks();
     if (failures == 0)
         std::printf("pocketlibrary library tests passed\n");

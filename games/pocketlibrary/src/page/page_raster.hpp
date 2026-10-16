@@ -51,6 +51,14 @@ struct PaperImage final {
 // A window narrower than it is tall shows one page; otherwise a spread.
 [[nodiscard]] SpreadGeometry fit_spread(std::uint32_t width, std::uint32_t height) noexcept;
 
+// The inks a page is printed in. The default is the day's: warm black, the words of
+// Christ in red, callers in the accent. A dark paper takes light inks.
+struct InkPalette final {
+    Rgb body{ink_rgb};
+    Rgb red{red_rgb};
+    Rgb accent{0x7aU, 0x2eU, 0x22U};
+};
+
 struct RasterCounters final {
     std::uint64_t glyphs_drawn{0U};
     std::uint64_t glyph_cache_misses{0U};
@@ -73,6 +81,14 @@ class PageRasterizer final {
     // Lays the paper over the page's rectangle (a flat paper colour when `paper` is
     // empty or not the page's size) and prints the page on it.
     void draw_page(const PageLayout& page, const PixelTarget& target, PageRect rect, const PaperImage& paper);
+
+    // The inks every later page is printed in (the gilt stays gold).
+    void set_palette(const InkPalette& palette) noexcept {
+        palette_ = palette;
+    }
+    [[nodiscard]] const InkPalette& palette() const noexcept {
+        return palette_;
+    }
 
     // Drops every cached glyph: after the window changes size the old
     // sizes are not wanted again.
@@ -101,11 +117,17 @@ class PageRasterizer final {
     void blend_rectangle(const PixelTarget& target, PageRect clip, std::int64_t x0, std::int64_t y0,
                          std::int64_t x1, std::int64_t y1, Ink ink) const;
     void blend_pixel(std::uint8_t* pixel, std::uint32_t coverage, Ink ink) const noexcept;
+    struct InkValue final {
+        Rgb color{};
+        std::uint32_t alpha{255U};
+    };
+    [[nodiscard]] InkValue ink_value(Ink ink) const noexcept;
 
     const FontSet* fonts_;
     std::unordered_map<std::uint64_t, CachedGlyph> glyphs_{};
     std::vector<std::uint8_t> coverage_{};
     RasterCounters counters_{};
+    InkPalette palette_{};
 };
 
 }  // namespace pl::page

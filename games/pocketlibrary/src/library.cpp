@@ -58,6 +58,58 @@ void read_shelf_record(std::string_view record, ShelfBook& book) {
     }
 }
 
+int number_in(std::string_view text, int otherwise) {
+    int value = otherwise;
+    std::from_chars(text.data(), text.data() + text.size(), value);
+    return value;
+}
+
+// Text folded for searching: ASCII letters in lowercase, the accented Latin letters of
+// U+00C0 to U+017F as their plain letter, anything else that is not a letter or digit a
+// space.
+std::string folded(std::string_view text) {
+    // U+00C0 to U+00FF, then U+0100 to U+017F, each as its plain letter ('-' for none).
+    static constexpr std::string_view latin1 = "aaaaaaaceeeeiiiidnooooo-ouuuuyts"
+                                               "aaaaaaaceeeeiiiidnooooo-ouuuuyty";
+    static constexpr std::string_view extended = "aaaaaaccccccccddddeeeeeeeeeegggggggghhhhiiiiiiiiiiiijjkkklllllll"
+                                                 "lllnnnnnnnnnoooooooorrrrrrssssssssttttttuuuuuuuuuuuuwwyyyzzzzzzs";
+    std::string out;
+    out.reserve(text.size());
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        const unsigned char c = static_cast<unsigned char>(text[i]);
+        if (c < 0x80) {
+            if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
+                out += static_cast<char>(c);
+            else if (c >= 'A' && c <= 'Z')
+                out += static_cast<char>(c - 'A' + 'a');
+            else if (c != '\'')
+                out += ' ';
+            continue;
+        }
+        if ((c == 0xC3 || c == 0xC4 || c == 0xC5) && i + 1 < text.size()) {
+            const unsigned code = ((c & 0x1FU) << 6) | (static_cast<unsigned char>(text[i + 1]) & 0x3FU);
+            ++i;
+            char plain = '-';
+            if (code >= 0xC0 && code < 0x100)
+                plain = latin1[code - 0xC0];
+            else if (code >= 0x100 && code - 0x100 < extended.size())
+                plain = extended[code - 0x100];
+            out += plain == '-' ? ' ' : plain;
+            continue;
+        }
+        // A typeset apostrophe (U+2019) joins its word, as a plain one does.
+        if (c == 0xE2 && text.substr(i, 3) == "\xE2\x80\x99") {
+            i += 2;
+            continue;
+        }
+        // Other characters: skip their continuation bytes, leave a space.
+        while (i + 1 < text.size() && (static_cast<unsigned char>(text[i + 1]) & 0xC0U) == 0x80U)
+            ++i;
+        out += ' ';
+    }
+    return out;
+}
+
 void parse_place(std::string_view rest, Place& place) {
     const std::size_t first = rest.find(' ');
     const std::size_t second = first == std::string_view::npos ? first : rest.find(' ', first + 1);
@@ -136,10 +188,32 @@ const Versification* Library::bible_places() {
     return places_.get();
 }
 
+bool book_matches(const ShelfBook& book, std::string_view query) {
+    const std::string sought = folded(query);
+    const std::string text = " " + folded(book.title) + " " + folded(book.subtitle);
+    std::size_t start = 0;
+    while (start < sought.size()) {
+        while (start < sought.size() && sought[start] == ' ')
+            ++start;
+        std::size_t end = start;
+        while (end < sought.size() && sought[end] != ' ')
+            ++end;
+        if (end > start && text.find(sought.substr(start, end - start)) == std::string::npos)
+            return false;
+        start = end;
+    }
+    return true;
+}
+
 std::string encode_bookmarks(const Bookmarks& marks) {
     std::string out = "pocket-library-bookmarks 1\n";
     out += "open " + marks.open + "\n";
     out += "type " + std::to_string(marks.step) + "\n";
+    // Added later; a reader that does not know a line passes over it.
+    out += "face " + std::to_string(marks.face) + "\n";
+    out += "paper " + std::to_string(marks.paper) + "\n";
+    out += "texture " + std::to_string(marks.texture) + "\n";
+    out += "gutter " + std::to_string(marks.gutter) + "\n";
     for (const Place& place : marks.places)
         out += "at " + place.book + " " + std::to_string(place.section) + " " + std::to_string(place.page) + "\n";
     return out;
@@ -164,6 +238,14 @@ bool decode_bookmarks(std::string_view text, Bookmarks& marks) {
             int step = 1;
             std::from_chars(value.data(), value.data() + value.size(), step);
             made.step = std::clamp(step, 0, 2);
+        } else if (line.substr(0, 5) == "face ") {
+            made.face = std::clamp(number_in(line.substr(5), 0), 0, 2);
+        } else if (line.substr(0, 6) == "paper ") {
+            made.paper = std::max(0, number_in(line.substr(6), 0));
+        } else if (line.substr(0, 8) == "texture ") {
+            made.texture = std::clamp(number_in(line.substr(8), 50), 0, 100);
+        } else if (line.substr(0, 7) == "gutter ") {
+            made.gutter = std::clamp(number_in(line.substr(7), 50), 0, 100);
         } else if (line.substr(0, 3) == "at ") {
             Place place;
             parse_place(line.substr(3), place);

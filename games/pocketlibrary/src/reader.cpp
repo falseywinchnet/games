@@ -15,6 +15,32 @@ constexpr float wall_shade = 0.5f;
 // The margin left round the spread, as a fraction of the shorter side.
 constexpr double margin_fraction = 0.035;
 
+// The paper engine's stock for each of paper_names. Phosphor is Night's sheet made black,
+// for green ink.
+constexpr paper::Preset stocks[paper_count] = {
+    paper::Preset::india,     paper::Preset::book,     paper::Preset::wove,  paper::Preset::laid,
+    paper::Preset::rag,       paper::Preset::parchment, paper::Preset::recycled, paper::Preset::kraft,
+    paper::Preset::night,     paper::Preset::night,
+};
+constexpr int night_paper = 8;
+constexpr int phosphor_paper = 9;
+
+// The inks for a dark paper: the Pocket Bible's night page (P008 B), and Plan Paint's
+// Phosphor, green on black.
+page::InkPalette palette_for(int paper) {
+    page::InkPalette palette;
+    if (paper == night_paper) {
+        palette.body = {0xd9U, 0xcdU, 0xb6U};
+        palette.red = {0xe0U, 0x8aU, 0x70U};
+        palette.accent = {0xc8U, 0x9cU, 0x6cU};
+    } else if (paper == phosphor_paper) {
+        palette.body = {0x82U, 0xb3U, 0x61U};
+        palette.red = {0xc8U, 0xd8U, 0x6aU};
+        palette.accent = {0x5fU, 0x94U, 0x4aU};
+    }
+    return palette;
+}
+
 page::PlacedRun run_of(page::Typesetter& setter, const page::TextStyle& style, const std::string& text,
                        LayoutUnit x, LayoutUnit baseline, bool centred) {
     const page::ShapedRun& shaped = setter.shaped(style, text, false);
@@ -83,17 +109,42 @@ std::string Reader::describe() const {
 }
 
 void Reader::set_step(page::TypeStep step) {
+    if (options_.step == step)
+        return;
     options_.step = step;
+    forget_contents();
+}
+
+void Reader::set_typeface(Typeface typeface) {
+    if (options_.typeface == typeface)
+        return;
+    options_.typeface = typeface;
+    forget_contents();
+}
+
+void Reader::set_look(const PageLook& look) {
+    if (look == look_)
+        return;
+    look_ = look;
+    look_.paper = std::clamp(look_.paper, 0, paper_count - 1);
+    sheets_.clear();
+}
+
+// The contents are set in the body's face and size: set again when either changes.
+void Reader::forget_contents() {
+    contents_pages_.clear();
+    entries_.clear();
 }
 
 void Reader::ensure_laid_out(Printer& printer) {
     if (work_ == nullptr || sections_.empty() || !printer.ready())
         return;
-    if (laid_section_ == section_ && laid_step_ == options_.step)
+    if (laid_section_ == section_ && laid_step_ == options_.step && laid_typeface_ == options_.typeface)
         return;
     lay_out_section(*work_, sections_[section_], options_, printer.typesetter(), pages_);
     laid_section_ = section_;
     laid_step_ = options_.step;
+    laid_typeface_ = options_.typeface;
     if (pages_.empty())
         page_ = 0;
     else if (page_ >= pages_.size())
@@ -175,10 +226,10 @@ void Reader::lay_out_contents(Printer& printer) {
     if (!contents_pages_.empty() || work_ == nullptr || !printer.ready())
         return;
     page::Typesetter& setter = printer.typesetter();
-    const page::FaceId roman = roman_face(*work_);
+    const page::FaceId roman = roman_face(*work_, options_.typeface);
     page::TextStyle entry;
     entry.face = roman;
-    entry.em = body_em(*work_, options_.step);
+    entry.em = body_em(*work_, options_.step, options_.typeface);
     page::TextStyle title = entry;
     title.em = entry.em * 3 / 2;
     page::TextStyle head = entry;
@@ -267,13 +318,26 @@ const std::vector<std::uint8_t>& Reader::sheet(std::uint32_t width, std::uint32_
     for (const Sheet& made : sheets_)
         if (made.width == width && made.height == height && made.gutter == gutter)
             return made.pixels;
-    // The Pocket Bible's paper: India (P001), quiet (P012), a soft shadow into the
-    // gutter (P003). Made once for each page size and side.
-    paper::Parameters stock = paper::preset(paper::Preset::india);
+    // The paper chosen; at first the Pocket Bible's: India (P001), quiet (P012), a soft
+    // shadow into the gutter (P003). Made once for each page size and side.
+    paper::Parameters stock = paper::preset(stocks[look_.paper]);
+    if (look_.paper == phosphor_paper)
+        stock.colour = {0.0, 0.0, 0.0};
+    // The texture scales every marking of the sheet together.
+    const double marked = 2 * std::clamp(look_.texture, 0.0, 1.0);
+    stock.mottle *= marked;
+    stock.tooth *= marked;
+    stock.grain *= marked;
+    stock.web_contrast *= marked;
+    stock.fibre_contrast *= marked;
+    stock.fleck_contrast *= marked;
+    stock.laid_depth *= marked;
+    stock.blotch *= marked;
     stock.pixels_per_point = std::max(0.5, scale);
     stock.seed = gutter < 0 ? 1611 : 1612;
     paper::Shading shading;
     shading.gutter = gutter < 0 ? paper::Gutter::left : (gutter > 0 ? paper::Gutter::right : paper::Gutter::none);
+    shading.gutter_depth *= 2 * std::clamp(look_.gutter, 0.0, 1.0);
     shading.edge_width = 6;
     paper::Image image;
     Sheet made;
@@ -331,6 +395,8 @@ void Reader::draw(Canvas& canvas, double scale, Printer& printer, const WoodTile
     const page::PixelTarget target{canvas.px.data(), static_cast<std::size_t>(canvas.w) * 4,
                                    static_cast<std::uint32_t>(canvas.w), static_cast<std::uint32_t>(canvas.h)};
     const page::PageLayout blank;
+    const page::InkPalette day = printer.rasterizer().palette();
+    printer.rasterizer().set_palette(palette_for(look_.paper));
     const int sides = geometry_.folded ? 1 : 2;
     for (int side = 0; side < sides; ++side) {
         const page::PageRect& rect = side == 0 ? geometry_.left : geometry_.right;
@@ -342,6 +408,7 @@ void Reader::draw(Canvas& canvas, double scale, Printer& printer, const WoodTile
         const page::PageLayout& layout = index < shown.size() && printer.ready() ? shown[index] : blank;
         printer.rasterizer().draw_page(layout, target, rect, paper);
     }
+    printer.rasterizer().set_palette(day);
 }
 
 }  // namespace pl
