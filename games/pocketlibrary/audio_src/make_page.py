@@ -3,16 +3,19 @@
 
     python3 make_page.py [out dir]
 
-A page turned is the leaf's edge drawn over the page beneath: a soft hiss with little
-below 1 kHz and its top flat to 12 kHz, eased in and out, wavering as the hand moves.
-Its band and its shape were measured from recordings of pages being turned; the owner
-chose it by ear (no landing: a thud at the end sounded like a tap on the desk).
+A page turned is one soft stroke, like a blade drawn slowly along a whetstone: an airy
+wash of hiss and, through it, a faint ringing band near 4 kHz that moves a little as the
+stroke goes, swelling in and falling away to silence, roughened only slightly by the
+grain of the stone. Nothing in it is sudden. Every turn lasts exactly 0.68 s. The owner
+chose it by ear over crackles (too hard), a slide that ended in a landing (a tap on the
+desk) and a quicker swell (too hard): three of the candidates, K (the ring as heard
+first), L (softer, less ring, the top at 6.5 kHz) and M (softest and darkest), take
+turns as the variations.
 
-Ten variations are written (pl_page_0.wav ... pl_page_9.wav), each a little longer or
-shorter and wavering differently, so turning many pages does not repeat one sound; each
-has a mirror (pl_page_back_0.wav ...) for a page turned back, as a page turned forward
-crosses right to left. Deterministic: the same script gives the same bytes on every
-machine. Writes into this game's assets/audio/ unless told otherwise.
+Ten variations are written (pl_page_0.wav ... pl_page_9.wav), K, L and M in turn, each
+with its band a little higher or lower, so turning many pages does not repeat one sound; each has a mirror (pl_page_back_0.wav ...) for a page turned back, as a page
+turned forward crosses right to left. Deterministic: the same script gives the same
+bytes on every machine. Writes into this game's assets/audio/ unless told otherwise.
 """
 import math
 import random
@@ -23,24 +26,41 @@ from pathlib import Path
 
 RATE = 48000
 VARIATIONS = 10
-LEVEL = 0.06  # peak: half the chosen candidate's, so the page is felt more than heard
+SECONDS = 0.68
+PEAK = 0.09
+
+# The three strokes: how long each swells in (seconds), how loud its ringing band and its
+# airy wash are, where its top is softened (Hz), how much the stone's grain roughens it,
+# and its loudness (RMS over the body of the stroke; the slide it replaced was 0.0137).
+STROKES = {
+    "K": {"rise": 0.17, "ring": 0.60, "wash": 0.55, "top": 8000, "grit": 0.20, "loudness": 0.0100},
+    "L": {"rise": 0.17, "ring": 0.40, "wash": 0.60, "top": 6500, "grit": 0.15, "loudness": 0.0090},
+    "M": {"rise": 0.204, "ring": 0.25, "wash": 0.65, "top": 5500, "grit": 0.10, "loudness": 0.0085},
+}
 
 
 class Filter:
-    """A two-pole filter (RBJ cookbook), high- or low-pass."""
+    """A two-pole filter (RBJ cookbook): high-, low- or band-pass, retunable."""
 
     def __init__(self, kind, corner, q=0.707):
-        w = 2 * math.pi * corner / RATE
-        alpha = math.sin(w) / (2 * q)
-        a0 = 1 + alpha
-        if kind == "high":
-            self.b0 = self.b2 = (1 + math.cos(w)) / 2 / a0
-            self.b1 = -(1 + math.cos(w)) / a0
-        else:
-            self.b0 = self.b2 = (1 - math.cos(w)) / 2 / a0
-            self.b1 = (1 - math.cos(w)) / a0
-        self.a1, self.a2 = -2 * math.cos(w) / a0, (1 - alpha) / a0
+        self.kind, self.q = kind, q
         self.x1 = self.x2 = self.y1 = self.y2 = 0.0
+        self.tune(corner)
+
+    def tune(self, corner):
+        w = 2 * math.pi * corner / RATE
+        alpha = math.sin(w) / (2 * self.q)
+        a0 = 1 + alpha
+        c = math.cos(w)
+        if self.kind == "high":
+            self.b0 = self.b2 = (1 + c) / 2 / a0
+            self.b1 = -(1 + c) / a0
+        elif self.kind == "low":
+            self.b0 = self.b2 = (1 - c) / 2 / a0
+            self.b1 = (1 - c) / a0
+        else:
+            self.b0, self.b1, self.b2 = alpha / a0, 0.0, -alpha / a0
+        self.a1, self.a2 = -2 * c / a0, (1 - alpha) / a0
 
     def __call__(self, x):
         y = self.b0 * x + self.b1 * self.x1 + self.b2 * self.x2 - self.a1 * self.y1 - self.a2 * self.y2
@@ -48,40 +68,50 @@ class Filter:
         return y
 
 
-def smooth(t, start, end):
-    """0 before `start`, 1 after `end`, an S-curve between."""
-    if t <= start:
-        return 0.0
-    if t >= end:
-        return 1.0
-    u = (t - start) / (end - start)
-    return u * u * (3 - 2 * u)
+def swell(t, seconds, rise):
+    """A smooth rise over `rise` seconds, then a fall to silence over the rest."""
+    if t < rise:
+        v = t / rise
+        return v * v * (3 - 2 * v)
+    v = min(1.0, (t - rise) / (seconds - rise))
+    return math.cos(math.pi * v) * 0.5 + 0.5
 
 
-def page(seed, seconds, waver):
-    """One turn: `seconds` long, wavering by `waver` (how quickly the hand's pressure moves)."""
+def stroke(seed, recipe, band_from, band_to):
+    """One turn, SECONDS long, its ringing band moving from `band_from` to `band_to` Hz."""
     rng = random.Random(seed)
-    count = int(seconds * RATE)
-    cut = [Filter("high", 1000), Filter("high", 700)]
-    top = Filter("low", 12000)
-    drift = 0.0
-    left, right = [], []
+    count = int(round(SECONDS * RATE))
+    ring = [Filter("band", band_from, 4.0), Filter("band", band_from, 4.0)]
+    air = [Filter("high", 1200), Filter("low", 6000)]
+    soft = [Filter("low", recipe["top"]), Filter("low", recipe["top"])]
+    grain = 0.0
+    left, right = [0.0] * count, [0.0] * count
     for index in range(count):
         t = index / RATE
+        u = t / SECONDS
+        if index % 32 == 0:
+            centre = band_from + (band_to - band_from) * (u * u * (3 - 2 * u))
+            for f in ring:
+                f.tune(centre)
+        # The stone's grain: a slow, smoothed flutter in loudness.
+        grain += (rng.uniform(-1, 1) - grain) * (220 / RATE)
         noise = rng.uniform(-1, 1)
-        drift += (rng.uniform(-1, 1) - drift) * (waver * 40 / RATE)
-        rise = smooth(t, 0.0, seconds * 0.6) * (1 - smooth(t, seconds - 0.015, seconds))
-        sample = top(cut[1](cut[0](noise))) * rise * (1 + 2.5 * drift)
-        pan = smooth(t, 0.0, seconds)
-        left.append(sample * (0.6 + 0.4 * pan))
-        right.append(sample * (1.0 - 0.4 * pan))
-    fade = int(0.004 * RATE)
-    for index in range(fade):
-        g = index / fade
-        left[-1 - index] *= g
-        right[-1 - index] *= g
-    peak = max(max(abs(v) for v in left), max(abs(v) for v in right), 1e-9)
-    return [v * LEVEL / peak for v in left], [v * LEVEL / peak for v in right]
+        sample = ring[1](ring[0](noise)) * recipe["ring"]
+        wash = noise
+        for f in air:
+            wash = f(wash)
+        sample += wash * recipe["wash"]
+        for f in soft:
+            sample = f(sample)
+        sample *= swell(t, SECONDS, recipe["rise"]) * (1 + 6 * recipe["grit"] * grain)
+        left[index] = sample * (0.8 + 0.2 * u)
+        right[index] = sample * (1.0 - 0.2 * u)
+    body = math.sqrt(sum(v * v for v in left + right) / (2 * count) * 2.2)
+    gain = recipe["loudness"] / max(body, 1e-9)
+    peak = max(max(abs(v) for v in left), max(abs(v) for v in right)) * gain
+    if peak > PEAK:
+        gain *= PEAK / peak
+    return [v * gain for v in left], [v * gain for v in right]
 
 
 def write(path, left, right):
@@ -99,15 +129,13 @@ def main():
     out = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent / "assets" / "audio"
     out.mkdir(parents=True, exist_ok=True)
     for number in range(VARIATIONS):
-        # The first is the one chosen; the others a little longer or shorter, wavering
-        # more or less.
-        seconds = 0.20 + (0.0 if number == 0 else ((number * 7) % 9 - 4) * 0.0075)
-        waver = 1.0 if number == 0 else 0.7 + ((number * 3) % 7) * 0.1
-        left, right = page(36 + number, seconds, waver)
+        # K, L and M in turn, each time from a new seed with its band moved a little.
+        label = "KLM"[number % 3]
+        shift = ((number * 5) % 7 - 3) * 60
+        left, right = stroke(163 + number, STROKES[label], 3800 + shift, 4300 + shift)
         write(out / f"pl_page_{number}.wav", left, right)
         write(out / f"pl_page_back_{number}.wav", right, left)
-        print(f"pl_page_{number}: {seconds:.3f} s, waver {waver:.1f}")
-
+        print(f"pl_page_{number}: {label}, {len(left) / RATE:.3f} s, band {3800 + shift}-{4300 + shift} Hz")
 
 if __name__ == "__main__":
     main()
