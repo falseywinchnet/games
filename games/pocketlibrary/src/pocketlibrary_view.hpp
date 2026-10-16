@@ -80,6 +80,7 @@ class PocketLibraryView final : public gf::Control, public games::CommandSource 
     bool direct_ = false;
     bool front_ = true;
     bool help_ = false;  // the game's own help card is showing
+    unsigned turns_ = 0;  // pages turned, to vary each one's sound
     // Decodes the library's base while the shelf is shown; joined before a book is read.
     std::unique_ptr<gf::Worker> preparing_;
 
@@ -96,6 +97,7 @@ class PocketLibraryView final : public gf::Control, public games::CommandSource 
     void open_book(int index);
     void close_book();
     void turn(bool forward);
+    void rustle(bool forward);
     void to_contents(bool shown);
     void move_cursor(int step);
     void move_plank(int planks);

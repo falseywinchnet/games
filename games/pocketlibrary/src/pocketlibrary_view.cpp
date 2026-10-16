@@ -261,12 +261,23 @@ void PocketLibraryView::close_book() {
     request_frame();
 }
 
+// A page turning: the leaf crosses right to left going forward, left to right going
+// back; each turn a little higher or lower than the last, so reading quickly does not
+// sound like a machine.
+void PocketLibraryView::rustle(bool forward) {
+    static constexpr float rates[] = {1.0F, .94F, 1.05F, .97F, 1.03F, .95F, 1.02F};
+    const float rate = rates[turns_ % (sizeof(rates) / sizeof(rates[0]))];
+    ++turns_;
+    audio_sfx(forward ? "pl_page" : "pl_page_back", .85F, rate, front_ && visible());
+}
+
 void PocketLibraryView::turn(bool forward) {
     if (!reader_.is_open())
         return;
     const bool turned = forward ? reader_.next(printer_) : reader_.previous(printer_);
     if (!turned)
         return;
+    rustle(forward);
     set_place(marks_, reader_.place());
     describe();
     persist();
@@ -372,6 +383,7 @@ void PocketLibraryView::on_pointer(gf::PointerEvent& event) {
             const int section = reader_.contents_entry_at(x, y);
             if (section >= 0) {
                 reader_.to_section(static_cast<std::size_t>(section));
+                rustle(true);
                 set_place(marks_, reader_.place());
                 describe();
                 persist();
