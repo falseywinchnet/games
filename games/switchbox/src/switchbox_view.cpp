@@ -291,7 +291,7 @@ void SwitchboxView::tick() {
     if (!bubble_.text.empty()) {
         const int before = bubble_.shown;
         bubble_.age += dt;
-        bubble_.shown = std::min(static_cast<int>(bubble_.text.size()), static_cast<int>(bubble_.age * 30));
+        bubble_.shown = games::whole_characters(bubble_.text, static_cast<int>(bubble_.age * 30));
         if (bubble_.shown / 3 != before / 3 && bubble_.shown < static_cast<int>(bubble_.text.size()) && bubble_.text[static_cast<size_t>(bubble_.shown)] != ' ') {
             const float rate = (bubble_.muffled ? .85f : 1.05f) + .25f * static_cast<float>(std::rand() % 100) / 100;
             play("switchbox_babble_0" + std::to_string(1 + std::rand() % 6), bubble_.muffled ? .35f : .55f, rate);
@@ -708,7 +708,8 @@ void SwitchboxView::draw_bubble() {
     }
     const int wrap = (*rendering_).bubble_.special ? 170 : 130;
     const double size = (*rendering_).bubble_.special ? 17 : (*rendering_).bubble_.muffled ? 11 : 12.5;
-    const std::string shown = (*rendering_).bubble_.text.substr(0, static_cast<size_t>(std::max(1, (*rendering_).bubble_.shown)));
+    const std::string shown = (*rendering_).bubble_.text.substr(
+        0, static_cast<size_t>(games::whole_characters((*rendering_).bubble_.text, std::max(1, (*rendering_).bubble_.shown))));
     const int tw = std::min(wrap, text_w((*rendering_).bubble_.text, size, (*rendering_).bubble_.special)), th = text_h((*rendering_).bubble_.text, size, (*rendering_).bubble_.special, wrap);
     const int bw = tw + 12, bh = th + 7;
     const double pop = (*rendering_).cab_reduced_ || (*rendering_).save_.settings.reduced_motion ? 1.0 : std::min(1.0, (*rendering_).bubble_.age * 7);

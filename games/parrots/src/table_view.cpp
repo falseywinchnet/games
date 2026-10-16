@@ -1,6 +1,7 @@
 #include "help_route.hpp"
 #include "runtime_paths.hpp"
 #include "table_view.hpp"
+#include "game_text.hpp"
 
 #include "platform/audio.hpp"
 #include "platform/text.hpp"
@@ -33,14 +34,6 @@ std::filesystem::path save_path(bool dev, int version) {
     const std::string name = std::string("parrots_table") + (dev ? "-dev" : "") + "-v" + std::to_string(version) + ".txt";
     if (const char* dir = std::getenv("GAMES_STATE_DIR")) return std::filesystem::path(dir) / name;
     return games::state_directory() / name;
-}
-// How many bytes of `s` show `n` bytes' worth of it typed, rounded up to a whole character:
-// a song's notes and any other character beyond ASCII take more than one byte, and half a
-// character is not text the text service will draw.
-int whole_characters(const std::string& s, int n) {
-    std::size_t at = static_cast<std::size_t>(std::clamp(n, 0, static_cast<int>(s.size())));
-    while (at < s.size() && (static_cast<unsigned char>(s[at]) & 0xC0U) == 0x80U) ++at;
-    return static_cast<int>(at);
 }
 std::uint64_t fnv(const std::string& s) {
     std::uint64_t h = 14695981039346656037ULL;
@@ -620,7 +613,7 @@ void TableView::tick() {
     if (popup_.who >= 0) {
         const int before = popup_.shown;
         popup_.age += dt;
-        popup_.shown = whole_characters(popup_.text, static_cast<int>(popup_.age * 40));
+        popup_.shown = games::whole_characters(popup_.text, static_cast<int>(popup_.age * 40));
         if (popup_.shown / 3 != before / 3 && popup_.shown < static_cast<int>(popup_.text.size()) && popup_.text[static_cast<size_t>(popup_.shown)] != ' ') {
             const int sp = species_[static_cast<size_t>(popup_.who)];
             const float pitch = (sp == 6 || sp == 7) ? 1.35f : (sp <= 2 ? .85f : 1.05f);
@@ -1032,7 +1025,7 @@ void TableView::draw_popup() {
     frame_.begin(); frame_.rrect(x + .5, y + .5, w - 1, h - 1, 6); frame_.stroke(alpha(kInk, .7f), 1);
     const std::string head = names_[static_cast<size_t>(popup_.who)] + ", the " + species_name(species_[static_cast<size_t>(popup_.who)]);
     text(head, x + 8, y + 5, kGreen, 9.5, 1);
-    const std::string s = popup_.text.substr(0, static_cast<size_t>(whole_characters(popup_.text, std::max(1, popup_.shown))));
+    const std::string s = popup_.text.substr(0, static_cast<size_t>(games::whole_characters(popup_.text, std::max(1, popup_.shown))));
     text(s, x + 8, y + 18, kInk, 11, 0, w - 16);
     static_cast<void>(th);
     static_cast<void>(oy);

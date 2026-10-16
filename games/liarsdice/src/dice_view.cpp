@@ -1,6 +1,7 @@
 #include "help_route.hpp"
 #include "runtime_paths.hpp"
 #include "dice_view.hpp"
+#include "game_text.hpp"
 
 #include "platform/audio.hpp"
 #include "platform/text.hpp"
@@ -583,7 +584,7 @@ void DiceView::tick() {
     for (Bubble& b : bubbles_) {
         const int before = b.shown;
         b.age += dt;
-        b.shown = std::min(static_cast<int>(b.text.size()), static_cast<int>(b.age * 38));
+        b.shown = games::whole_characters(b.text, static_cast<int>(b.age * 38));
         if (b.shown / 3 != before / 3 && b.shown < static_cast<int>(b.text.size()) && b.text[static_cast<size_t>(b.shown)] != ' ') {
             if (b.seat < 0) play("ld_keeper_0" + std::to_string(1 + rng_.range(3)), .35f, .9f + .1f * static_cast<float>(rng_.unit()));
             else if (b.seat > 0 && b.seat < static_cast<int>(st_.crew.size())) {
@@ -1279,7 +1280,7 @@ void DiceView::draw_bubbles() {
     for (const Bubble& b : bubbles_) {
         const int wrap = std::min(b.seat < 0 ? 300 : 150, pw_ - 30);
         const double size = b.seat < 0 ? 12 : 11;
-        const std::string s = b.text.substr(0, static_cast<size_t>(std::max(1, b.shown)));
+        const std::string s = b.text.substr(0, static_cast<size_t>(games::whole_characters(b.text, std::max(1, b.shown))));
         const int font = b.seat < 0 ? 1 : 0;
         const int tw = std::min(wrap, text_w(b.text, size, font)), th = text_h(b.text, size, font, wrap);
         const int bw = tw + 14, bh = th + 8;

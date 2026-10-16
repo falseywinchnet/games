@@ -407,7 +407,7 @@ void EggyView::tick() {
     if (!bubble_.text.empty()) {
         const int before = bubble_.shown;
         bubble_.age += dt;
-        bubble_.shown = std::min(static_cast<int>(bubble_.text.size()), static_cast<int>(bubble_.age * 34));
+        bubble_.shown = games::whole_characters(bubble_.text, static_cast<int>(bubble_.age * 34));
         if (bubble_.shown / 3 != before / 3 && bubble_.shown < static_cast<int>(bubble_.text.size()) && bubble_.text[static_cast<size_t>(bubble_.shown)] != ' ')
             audio_sfx("eggy_chirp_0" + std::to_string(1 + std::rand() % 6), bubble_.officer ? .2f : .28f,
                       (bubble_.officer ? .75f : 1.05f) + .3f * static_cast<float>(std::rand()) / RAND_MAX, sound_on());
@@ -929,7 +929,8 @@ void EggyView::draw_bubble() {
     const RenderState& s = *rendering_;
     const double hx = s.bubble_x, hy = s.bubble_y;
     const int wrap = 66;
-    const std::string shown = (*rendering_).bubble_.text.substr(0, static_cast<size_t>(std::max(1, (*rendering_).bubble_.shown)));
+    const std::string shown = (*rendering_).bubble_.text.substr(
+        0, static_cast<size_t>(games::whole_characters((*rendering_).bubble_.text, std::max(1, (*rendering_).bubble_.shown))));
     const int tw = std::min(wrap, text_w((*rendering_).bubble_.text, 11, false)), th = text_h((*rendering_).bubble_.text, 11, false, wrap);
     const int bw = tw + 5, bh = th + 3;
     const double pop = std::min(1.0, (*rendering_).bubble_.age * 8);

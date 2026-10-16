@@ -1,8 +1,21 @@
 #pragma once
 #include "text_requests.hpp"
+#include <algorithm>
 #include <filesystem>
+#include <string_view>
 
 namespace games {
+// How many bytes of `text` show `typed` bytes' worth of it, rounded up to a whole
+// character. A speech bubble that types its line out must never ask for half of a character
+// beyond ASCII (a note, a curly quote, an accent): the text service refuses broken UTF-8,
+// and an exception out of a timer's tick stops that timer for good.
+[[nodiscard]] inline int whole_characters(std::string_view text, int typed) {
+    std::size_t at = static_cast<std::size_t>(std::clamp(typed, 0, static_cast<int>(text.size())));
+    while (at < text.size() && (static_cast<unsigned char>(text[at]) & 0xC0U) == 0x80U)
+        ++at;
+    return static_cast<int>(at);
+}
+
 struct TextImage final {
     // Logical advance and line height, rounded outward for game layout.
     int w{};

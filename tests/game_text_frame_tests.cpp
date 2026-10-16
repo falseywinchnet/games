@@ -69,6 +69,24 @@ int main(const int argc, char** const argv) {
             if (!complete) { std::this_thread::sleep_for(std::chrono::milliseconds(1)); }
         }
         require(complete, "A frame larger than the nine-slot queue completes without waiting inside the adapter");
+        // A typewriter's prefixes: rounded up to whole characters, every one is text the
+        // service draws (half a note or half an accent would be refused).
+        const std::string line = "\u266a Caf\u00e9 \u2014 la \u266a";
+        require(games::whole_characters(line, 0) == 0 && games::whole_characters(line, 1) == 3 &&
+                    games::whole_characters(line, 3) == 3 && games::whole_characters(line, 99) == static_cast<int>(line.size()),
+                "Typed counts round up to whole characters");
+        for (int typed = 1; typed <= static_cast<int>(line.size()); ++typed) {
+            const std::string prefix = line.substr(0, static_cast<std::size_t>(games::whole_characters(line, typed)));
+            bool drawn = false;
+            const std::chrono::steady_clock::time_point until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+            while (!drawn && std::chrono::steady_clock::now() < until) {
+                text.begin();
+                const games::TextImage image = text.get(prefix, false, 14, 0, 1);
+                drawn = text.ready() && image.mask.has_value();
+                if (!drawn) { std::this_thread::sleep_for(std::chrono::milliseconds(1)); }
+            }
+            require(drawn, "Every whole-character prefix of a line is drawn");
+        }
         for (std::size_t index = 0; index < source.size(); ++index) {
             require(masks[index].mask.has_value() && masks[index].mask.source_utf8() == source[index],
                 "Every successful frame label owns exactly its requested source");

@@ -279,7 +279,7 @@ void FourPegsView::speech_tick(double dt) {
     if (say_text_ != sp.text) { say_text_ = sp.text; say_age_ = 0; say_shown_ = 0; }
     const int before = say_shown_;
     say_age_ += dt;
-    say_shown_ = std::min(static_cast<int>(say_text_.size()), static_cast<int>(say_age_ * 30));
+    say_shown_ = games::whole_characters(say_text_, static_cast<int>(say_age_ * 30));
     const bool typing = say_shown_ < static_cast<int>(say_text_.size());
     actor_.set_talking(typing);
     // his voice: a low murmured syllable every few letters
@@ -746,7 +746,8 @@ void FourPegsView::draw_bubble() {
     lair_.to_screen(villain_head_center((*rendering_).st_.villain) + V3{.55, 0, .35}, hx, hy);
     const int wrap = 150;
     const double size = 13;
-    const std::string shown = (*rendering_).say_text_.substr(0, static_cast<size_t>(std::max(1, (*rendering_).say_shown_)));
+    const std::string shown = (*rendering_).say_text_.substr(
+        0, static_cast<size_t>(games::whole_characters((*rendering_).say_text_, std::max(1, (*rendering_).say_shown_))));
     const int tw = std::min(wrap, text_w((*rendering_).say_text_, size, false)), th = text_h((*rendering_).say_text_, size, false, wrap);
     const int bw = tw + 14, bh = th + 9;
     int bx = static_cast<int>(hx), by = static_cast<int>(hy - bh / 2.0);
