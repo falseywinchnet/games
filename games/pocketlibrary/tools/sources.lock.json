@@ -5744,6 +5744,2932 @@
      "sha256": "131502700f47d045aecd83baacfcbcd45f9aa8a303933825bc34fd34aa778edc"
     }
    ]
+  },
+  {
+   "id": "sefaria-mishnah-kulp",
+   "work": "Mishnah Yomit by Dr. Joshua Kulp (Sefaria)",
+   "upstream": "https://www.sefaria.org",
+   "licence": "CC-BY (Sefaria version record, inside each file)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Arakhin.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Kodashim/Mishnah%20Arakhin/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 31002,
+     "sha256": "edd0cfcec16068336a95e5e7fd7280f9f1e60e870fda03ca44e4a57f61ce02c8"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Bekhorot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Kodashim/Mishnah%20Bekhorot/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 46915,
+     "sha256": "d9e9a1014d044653c71afa1b08bc2ed6601108bb0a2a5d9fb160ab7d37dc4311"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Chullin.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Kodashim/Mishnah%20Chullin/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 49659,
+     "sha256": "ed8f03e66f77433e326ed1bf5631b16f7a3fd8c9a045a727703e7c29c1e1be94"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Keritot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Kodashim/Mishnah%20Keritot/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 32329,
+     "sha256": "bca9845bc18cf5df2ed5a4735ff56460974a1dbdd67d7f3c64254880893cad00"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Kinnim.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Kodashim/Mishnah%20Kinnim/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 12815,
+     "sha256": "688d85eef25185a91751e2c916886fc381870d633367e41384f4ce0573269db6"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Meilah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Kodashim/Mishnah%20Meilah/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 25021,
+     "sha256": "8e5103cab546425cce7471e0e9e8cae4c2935d2dc0c0faac655785984c856a12"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Menachot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Kodashim/Mishnah%20Menachot/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 68925,
+     "sha256": "35ab924302f020e6b5bc15cbfa92d9d1939aa55b2003fc3e98a787ae7023daed"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Middot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Kodashim/Mishnah%20Middot/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 23571,
+     "sha256": "00c1091bc6c0dbe0b991da36e7f123ac785bcbb4ef44d72e4b1237390cbb9f3e"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Tamid.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Kodashim/Mishnah%20Tamid/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 23973,
+     "sha256": "d6afe445fe101c238020a011660082d9807337de28aaf78485a67f08f165d7dd"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Temurah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Kodashim/Mishnah%20Temurah/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 25120,
+     "sha256": "772f5e1c54cc1555cc047ef89ec51044dc9ce50e2609944f0e5c6eb21162cf38"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Zevachim.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Kodashim/Mishnah%20Zevachim/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 64548,
+     "sha256": "a2576dee6dc4e085f8135bc8fe269862c69c7b4866c5df1ad831ff3eb9509ded"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Beitzah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Moed/Mishnah%20Beitzah/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 17502,
+     "sha256": "ec3002ecc942711cd3ee4010bfe8a5fece806e6d292fdca353e95dfa08455ac0"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Chagigah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Moed/Mishnah%20Chagigah/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 12401,
+     "sha256": "01bc38744fc71cffe0c825fa43a0ac863f1927ad2a52d2251c0fb2443d6608bb"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Eruvin.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Moed/Mishnah%20Eruvin/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 45025,
+     "sha256": "c160a6a913209f0f6e13bfb266edd764eb4d986744f51e08aa0f05ec8c07b6c0"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Megillah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Moed/Mishnah%20Megillah/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 17141,
+     "sha256": "bb814019789173552a509fe4e8c4dada4cf647496a119b0616e90df26e12d33c"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Moed_Katan.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Moed/Mishnah%20Moed%20Katan/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 10161,
+     "sha256": "321d9b12fb2ca70a5cbfde02fbfe102426e9ebe3f5cecbeab8cd9bee49e5588e"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Pesachim.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Moed/Mishnah%20Pesachim/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 43913,
+     "sha256": "26579bd1dd433d102b865f7b46742bea622faaff9c5e06d62cf39e49463e5304"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Rosh_Hashanah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Moed/Mishnah%20Rosh%20Hashanah/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 17938,
+     "sha256": "6d0626349919a627400eeb70bf2fc4e2467d94971c45b5fbd77bed869034ff2a"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Shabbat.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Moed/Mishnah%20Shabbat/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 58710,
+     "sha256": "491da72c55b49653ca381b59fcfaf9d6a332060c4cff916199f79bca90a3af89"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Shekalim.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Moed/Mishnah%20Shekalim/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 32841,
+     "sha256": "7c4009b5eb4825d6edf65afe9a109a5d353876c53cb451494e074b783c5165df"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Sukkah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Moed/Mishnah%20Sukkah/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 24633,
+     "sha256": "4bd0c797ab488f4f87dde6f092ceabfb3979e0c21b96dfd5e8c88b165730076e"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Ta'anit.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Moed/Mishnah%20Ta%27anit/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 19859,
+     "sha256": "e3596dbb5cdf1e576c8b5f3713c79e98371618c768435e3d116ad931f87c2943"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Yoma.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Moed/Mishnah%20Yoma/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 32468,
+     "sha256": "c471f88ace167e9946405cdcf29dd9befdddfa735cb8bd8318e5254c5084a91f"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Gittin.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Nashim/Mishnah%20Gittin/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 43791,
+     "sha256": "f8fd5576e980faf52217c7f27f2a7f0e82340c2c35954f5bbf0810cbe6a0ed07"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Ketubot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Nashim/Mishnah%20Ketubot/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 60025,
+     "sha256": "6a6dcfde16e9949f98ce09202e04ec22c3efa7a660a9eaf540856eefd1e32790"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Kiddushin.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Nashim/Mishnah%20Kiddushin/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 25391,
+     "sha256": "938990e899ff024a75251d064f671387ece29f72bce4e65b787536264d735d7c"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Nazir.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Nashim/Mishnah%20Nazir/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 39207,
+     "sha256": "1115b6715cf256f4bb2847c0380f86c55ea35dafb70b87e82c38c1e1f860e71f"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Nedarim.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Nashim/Mishnah%20Nedarim/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 51091,
+     "sha256": "69bb1bea9da66b570b2b01b4512d8ed4055f716af340515c8a232a3acb33ff61"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Sotah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Nashim/Mishnah%20Sotah/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 45586,
+     "sha256": "5e60812a4c0481834037252e9580b8a25dfe3c6023fbbec3c7a372f2edb6237f"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Yevamot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Nashim/Mishnah%20Yevamot/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 84470,
+     "sha256": "23de9ee49534358ab734a80f1d133d8d7257b0be9cbe2502bc80651dada26279"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Avodah_Zarah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Nezikin/Mishnah%20Avodah%20Zarah/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 28285,
+     "sha256": "682f4554a706b8a743e3dabc38661d6d6fc1e230806fcadea6ecfbc2306ecc3c"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Bava_Batra.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Nezikin/Mishnah%20Bava%20Batra/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 55336,
+     "sha256": "a30a49d002acdefa3adc14e71a1fac71ca0420fce28f798ac60f411af8162c7d"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Bava_Kamma.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Nezikin/Mishnah%20Bava%20Kamma/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 56640,
+     "sha256": "937b7889eefde8e3203594a91f9becf778f95083e2240e16ffe6048296359717"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Bava_Metzia.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Nezikin/Mishnah%20Bava%20Metzia/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 58099,
+     "sha256": "c8a5537217b042d32d6eae05c17be23c6d37719b9b05a930470f47e77a5d38f0"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Eduyot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Nezikin/Mishnah%20Eduyot/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 48363,
+     "sha256": "7e46818a1ea1bf1d3a19b0db6dbb1c44cfc9d98e54121ebdf4314c185c9f97b8"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Horayot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Nezikin/Mishnah%20Horayot/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 12823,
+     "sha256": "85d97aecb74287128778f98135a231777857db8e5f59e052757e28a413f5c226"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Makkot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Nezikin/Mishnah%20Makkot/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 26053,
+     "sha256": "29e9e28911f456140998e72f26c68c6ea992e9aa3e87cf4f13d6e788505a7c32"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Sanhedrin.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Nezikin/Mishnah%20Sanhedrin/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 61002,
+     "sha256": "e8ba4f9d623c3890de4210addf83a254a7e9dd449b4cd00012efcdaf63c9c794"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Shevuot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Nezikin/Mishnah%20Shevuot/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 41465,
+     "sha256": "59615aceb9997080aa917661489502a8609e1153e94ccca0d00872b44061cf9d"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Kelim.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Tahorot/Mishnah%20Kelim/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 131325,
+     "sha256": "3eb4defa91169ed9003cd37e5bc1ca1cddc575bbda9b806d9b855c03be5f63d2"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Makhshirin.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Tahorot/Mishnah%20Makhshirin/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 28889,
+     "sha256": "5e379e59149be9ec823f0b245d440ae085f01b658575618185e95e5c44bf09b4"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Mikvaot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Tahorot/Mishnah%20Mikvaot/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 38492,
+     "sha256": "3cd60316e390dee505a976c83a40d998f3a6f5bb53710d5595497df7dff78e26"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Negaim.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Tahorot/Mishnah%20Negaim/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 68772,
+     "sha256": "9aff64d45471916914a0745aab0974bd87b90b66c2fea27d3146c9d48de3cefc"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Niddah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Tahorot/Mishnah%20Niddah/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 38820,
+     "sha256": "4757cbb54ce517d323c67f8b349ef2aa090076b9993e29347417a86af5a89793"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Oholot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Tahorot/Mishnah%20Oholot/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 77059,
+     "sha256": "248e6addc904a8aa43fcef7b552d682e5f740152aa6518eac0192741c16c04c6"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Oktzin.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Tahorot/Mishnah%20Oktzin/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 13431,
+     "sha256": "33dd1f9262292e69713fad4def0e01ee452d22a5cdc6acbd6ce84ff74c197489"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Parah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Tahorot/Mishnah%20Parah/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 48129,
+     "sha256": "943882c2b066cbec905566a2e2f23a5ccd2a3032fb3cb83f4b62b7174fa4566d"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Tahorot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Tahorot/Mishnah%20Tahorot/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 51318,
+     "sha256": "7a7b8c0c356ee99652657f8f116188bb84c713bfe23b8733b87455f88cbb16c5"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Tevul_Yom.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Tahorot/Mishnah%20Tevul%20Yom/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 13998,
+     "sha256": "ca6223fceaecbfffb59d9a6a002ee58162412d62ee3b8adc77cccb0a3237ba69"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Yadayim.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Tahorot/Mishnah%20Yadayim/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 19482,
+     "sha256": "e8b3ff980553fef6da0f221fa4566064d1aea414219f31a383970780669b7245"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Zavim.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Tahorot/Mishnah%20Zavim/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 20232,
+     "sha256": "d5c96456b3e9c825fee8d4aa33eae14879110f6cca1069ff6013953aa4154721"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Berakhot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Zeraim/Mishnah%20Berakhot/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 24813,
+     "sha256": "e83a7879209b5d9f2bfc41d547bd95ec7a94be9b5fa02360255a1659812330a1"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Bikkurim.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Zeraim/Mishnah%20Bikkurim/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 17261,
+     "sha256": "cd7b007389a2ae087c2f5efa014669bdde29e9629fd8a56016d64066adbc5726"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Challah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Zeraim/Mishnah%20Challah/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 17178,
+     "sha256": "e4649e77a5585aaca9c22e1bca6667fae58db070813f956d2920f704a77cf889"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Demai.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Zeraim/Mishnah%20Demai/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 24816,
+     "sha256": "ab275973cfbd6db9316a39b348951d243fee9bad22df474ae30f0b612eee6c8c"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Kilayim.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Zeraim/Mishnah%20Kilayim/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 36669,
+     "sha256": "d3cef83994fe5e9e981d4243ee17b5b9080946e5280c2e885d86eb784614a19d"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Maaser_Sheni.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Zeraim/Mishnah%20Maaser%20Sheni/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 28031,
+     "sha256": "5a8e7038ff15212ec5a390b934f53391ca1bcf5352ec8fb5079f0288be5ea410"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Maasrot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Zeraim/Mishnah%20Maasrot/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 21059,
+     "sha256": "5f0d05366fa46e04099bc9f486b5e0baebb7f6e4b55fd46bf4770486dfa1724f"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Orlah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Zeraim/Mishnah%20Orlah/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 13922,
+     "sha256": "c1f377866aa521fba4af43f1d377e923d4a34d534c1078837887513ed3d29148"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Peah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Zeraim/Mishnah%20Peah/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 31595,
+     "sha256": "205b903a2b08394ccc6eb472da72ec194bcd27a6b4060a07e1d1d38ae7c15309"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Sheviit.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Zeraim/Mishnah%20Sheviit/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 38801,
+     "sha256": "fbc03390217473c210193c651d31cea1d4aeb1dce88f52933a38fee4a7f33fd3"
+    },
+    {
+     "name": "sefaria-mishnah-kulp-Mishnah_Terumot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Mishnah/Seder%20Zeraim/Mishnah%20Terumot/English/Mishnah%20Yomit%20by%20Dr.%20Joshua%20Kulp.json",
+     "retrieved": "2026-10-16",
+     "size": 42341,
+     "sha256": "43376f1c0d82f9f879d198310e7d2a474de90a3792bedd2466a9f35060b6c5af"
+    }
+   ]
+  },
+  {
+   "id": "sefaria-talmud-davidson",
+   "work": "The William Davidson digital edition of the Koren Noé Talmud, with commentary by Rabbi Adin Even-Israel Steinsaltz (Sefaria)",
+   "upstream": "https://www.sefaria.org",
+   "licence": "CC-BY-NC (Sefaria version record, inside each file)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "sefaria-talmud-davidson-Arakhin.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Kodashim/Arakhin/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 772406,
+     "sha256": "ae59e197d16b3ae8f4b26da1eb1ff420191b7451aea88b53aa3cef4970cd8e3b"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Bekhorot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Kodashim/Bekhorot/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 1259194,
+     "sha256": "f3f1c4557667b0fa8d250e153d0ea45d01be15694a1a72833fa9830b1d4a1f8e"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Chullin.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Kodashim/Chullin/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 2725654,
+     "sha256": "1965a31f890015b98e28b7e95ee725668c26d478ef0a88e98d7b27afc2e755f8"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Keritot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Kodashim/Keritot/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 813516,
+     "sha256": "7225c2d9564d5f6aaf47fabb96a5ee8e1a97c0772468a0af73f28716f9e63523"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Meilah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Kodashim/Meilah/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 326778,
+     "sha256": "1678e79ab85120f3a472cfdb7ab376988570a4e6ec646b7134cdba6a24773727"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Menachot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Kodashim/Menachot/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 2425268,
+     "sha256": "e56ba9450e59056e3c966d54e83b1718b42d31b6b23457b42c648e933ca45215"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Tamid.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Kodashim/Tamid/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 133788,
+     "sha256": "07eaf3f1aed111c00701de248da5ff5a893810906a53e388154c6a2bae9c474b"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Temurah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Kodashim/Temurah/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 761967,
+     "sha256": "674d8050b3e655a67fe65731cda1388adc8cb30e38cde525f5ec03921ff08013"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Zevachim.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Kodashim/Zevachim/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 2359739,
+     "sha256": "3c3e9d676d7d9c1d0807b276fc089981971deec204f32245836baf7a0f8537be"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Beitzah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Moed/Beitzah/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 737703,
+     "sha256": "dffff086902107162316d253c3b6666dcec7381832903fbd0d3d461bc68bb275"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Chagigah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Moed/Chagigah/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 487246,
+     "sha256": "17949f79d840de8534835c663d74547ba2eb549a140aafc3818af5c7bbc148d0"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Eruvin.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Moed/Eruvin/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 2004532,
+     "sha256": "7d63a109af5e412838afb825cc1d0a133b906f75fbc98aa77e4f60df4ec5aa44"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Megillah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Moed/Megillah/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 752128,
+     "sha256": "b588b24d73a874817ae1fd6c1df81169b3a4db9e8ca14c77edd7b926fc202eda"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Moed_Katan.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Moed/Moed%20Katan/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 584476,
+     "sha256": "5f5a655e681f5035442a4bb8e56d28f4c023c397bc35f9d8bbaec578f8892b9a"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Pesachim.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Moed/Pesachim/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 2345806,
+     "sha256": "0afb5bc38b0d9502f004b6df81912637a2b8d7a425039e6994fb95799c16e372"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Rosh_Hashanah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Moed/Rosh%20Hashanah/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 626375,
+     "sha256": "4d6c749b2bb717efe7d2bd25f4e98625cdfa09440af77c8acbd23cf37cd33b48"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Shabbat.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Moed/Shabbat/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 2879621,
+     "sha256": "3759dc41ad77e917a941bf73df2162a0ca82621b9e8570832b2fca9186cd928f"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Sukkah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Moed/Sukkah/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 907910,
+     "sha256": "ca7ade4daacff366a5f476b9d916cb1129c5f5f47c590188f150f69345c51bf1"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Taanit.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Moed/Taanit/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 552615,
+     "sha256": "b4dd85df7e5bd57d08b3e53630f451de5888311f864063a3918e412fc60ba0ab"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Yoma.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Moed/Yoma/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 1563630,
+     "sha256": "a5bcdc7ae2ffdd183fa743d7ab58d8f75bc1a7372ac281a9e91192cd4392401a"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Gittin.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Nashim/Gittin/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 1786193,
+     "sha256": "40ecdd207c94366b21389e30550be72074f34d7e939b19d06bf8e17e22ae1cb1"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Ketubot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Nashim/Ketubot/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 2013114,
+     "sha256": "30cf8e249bc1e6acbda4d567c37e090cfcbb702d73f42a588eb55ae698db10e5"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Kiddushin.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Nashim/Kiddushin/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 1652185,
+     "sha256": "9432a90565fad8d2ea83484b45ccc575f917413e9d8653a6bfeb7eebebe432d6"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Nazir.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Nashim/Nazir/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 863851,
+     "sha256": "8cebd54d447344489c9de3508bc7f9a6cd72db1a107c58062f8595c0290b0cf8"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Nedarim.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Nashim/Nedarim/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 944969,
+     "sha256": "51822f12b5c044fe88d6c7013196db66a8b0fe5493c560e8b6786c2faf5f9dc7"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Sotah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Nashim/Sotah/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 1001173,
+     "sha256": "4bfb7d80b87e3628b8178c1b4187ebc90815d0e6da58ae44425a5d4255126261"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Yevamot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Nashim/Yevamot/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 2652068,
+     "sha256": "c9852214d8ffee5fb5b96fc761e0aa728a4e36880bb41bb636ad9e7115fd1ba2"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Avodah_Zarah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Nezikin/Avodah%20Zarah/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 1298824,
+     "sha256": "7b74a1972e955e410c2cd204114582c72f16b0a2beaa1ec0b07c8d2a18b496f7"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Bava_Batra.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Nezikin/Bava%20Batra/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 2420192,
+     "sha256": "e8ea9c868656eb2734ed243590ded3729bb852c87dd1474af7cfcb4e45ff0148"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Bava_Kamma.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Nezikin/Bava%20Kamma/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 2628745,
+     "sha256": "49b08447d4d80a26667f713d933256d5b92504fbbea86dd73b0ba7819865b673"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Bava_Metzia.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Nezikin/Bava%20Metzia/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 2328904,
+     "sha256": "653a2e62a942b2d44b2806f716bebd24138e5004a9dc6abf54b2c83f72a79fcd"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Horayot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Nezikin/Horayot/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 335880,
+     "sha256": "1fec0469e11d0ba10379f31504852dd19da3464b80de34dd93c4104da29358a7"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Makkot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Nezikin/Makkot/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 514044,
+     "sha256": "3f00840699b42c1aa64f8017528123a7ee1f93e09b17c833a8c18f38cad17aa0"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Sanhedrin.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Nezikin/Sanhedrin/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 2623792,
+     "sha256": "ead1b281c68d65baad1aafb14c8eb26fe9c6fdca2119b8a80e93d0763f1c2fea"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Shevuot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Nezikin/Shevuot/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 977065,
+     "sha256": "d74c6f9e51174d36bd09f42f91d8693204153fff45494f10cf4d1b20f2e37609"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Niddah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Tahorot/Niddah/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 1678625,
+     "sha256": "9983daf569fb9bc8edb987da99b27b93653e39ffdb78c3967473d92efdeaf2c4"
+    },
+    {
+     "name": "sefaria-talmud-davidson-Berakhot.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Talmud/Bavli/Seder%20Zeraim/Berakhot/English/William%20Davidson%20Edition%20-%20English.json",
+     "retrieved": "2026-10-16",
+     "size": 1524331,
+     "sha256": "567a2e6d98de125c40b05341428f347dfca24265b9a048a97a20d97dc2729e5b"
+    }
+   ]
+  },
+  {
+   "id": "sefaria-midrash-rabbah",
+   "work": "The Sefaria Midrash Rabbah, 2022",
+   "upstream": "https://www.sefaria.org",
+   "licence": "CC-BY (Sefaria version record, inside each file)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "sefaria-midrash-rabbah-Bamidbar_Rabbah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Midrash/Aggadah/Midrash%20Rabbah/Bamidbar%20Rabbah/English/The%20Sefaria%20Midrash%20Rabbah%2C%202022.json",
+     "retrieved": "2026-10-16",
+     "size": 1859058,
+     "sha256": "1b8c75415bbb28a03e8218cb46555b35022f45b1b066e35e37edb9c1c9041f7c"
+    },
+    {
+     "name": "sefaria-midrash-rabbah-Bereshit_Rabbah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Midrash/Aggadah/Midrash%20Rabbah/Bereshit%20Rabbah/English/The%20Sefaria%20Midrash%20Rabbah%2C%202022.json",
+     "retrieved": "2026-10-16",
+     "size": 2454075,
+     "sha256": "7e57e310d68ed2779cc041518ef596c706e288a807c41dcb4fd610e339edb119"
+    },
+    {
+     "name": "sefaria-midrash-rabbah-Devarim_Rabbah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Midrash/Aggadah/Midrash%20Rabbah/Devarim%20Rabbah/English/The%20Sefaria%20Midrash%20Rabbah%2C%202022.json",
+     "retrieved": "2026-10-16",
+     "size": 420683,
+     "sha256": "789f56bf4c4485b1ec6f62e5db986c7acc7c6158f39f64555709087413adb2f8"
+    },
+    {
+     "name": "sefaria-midrash-rabbah-Eikhah_Rabbah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Midrash/Aggadah/Midrash%20Rabbah/Eikhah%20Rabbah/English/The%20Sefaria%20Midrash%20Rabbah%2C%202022.json",
+     "retrieved": "2026-10-16",
+     "size": 585475,
+     "sha256": "0513c5c737ecf9ee98e84334ddca9495b9665e30ae177ea7ac1e4465fce78df8"
+    },
+    {
+     "name": "sefaria-midrash-rabbah-Esther_Rabbah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Midrash/Aggadah/Midrash%20Rabbah/Esther%20Rabbah/English/The%20Sefaria%20Midrash%20Rabbah%2C%202022.json",
+     "retrieved": "2026-10-16",
+     "size": 282714,
+     "sha256": "307fbdd4dc76d4c0580b4adddaef7424a1c3bef0b4ee7855163f74fda5375256"
+    },
+    {
+     "name": "sefaria-midrash-rabbah-Kohelet_Rabbah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Midrash/Aggadah/Midrash%20Rabbah/Kohelet%20Rabbah/English/The%20Sefaria%20Midrash%20Rabbah%2C%202022.json",
+     "retrieved": "2026-10-16",
+     "size": 759098,
+     "sha256": "75702aae8ba61388a439164dea0106d12eae31de328cc12c1e87d2eb7b327f1e"
+    },
+    {
+     "name": "sefaria-midrash-rabbah-Ruth_Rabbah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Midrash/Aggadah/Midrash%20Rabbah/Ruth%20Rabbah/English/The%20Sefaria%20Midrash%20Rabbah%2C%202022.json",
+     "retrieved": "2026-10-16",
+     "size": 222702,
+     "sha256": "38a269d4e047de4bc5da3d027910559ad967e89d758c10d808c86b92388459d9"
+    },
+    {
+     "name": "sefaria-midrash-rabbah-Shemot_Rabbah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Midrash/Aggadah/Midrash%20Rabbah/Shemot%20Rabbah/English/The%20Sefaria%20Midrash%20Rabbah%2C%202022.json",
+     "retrieved": "2026-10-16",
+     "size": 1277136,
+     "sha256": "78fed0e972f9f428aeeabb41f6f645df2547f958be6231c575cdce916dc617cc"
+    },
+    {
+     "name": "sefaria-midrash-rabbah-Shir_HaShirim_Rabbah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Midrash/Aggadah/Midrash%20Rabbah/Shir%20HaShirim%20Rabbah/English/The%20Sefaria%20Midrash%20Rabbah%2C%202022.json",
+     "retrieved": "2026-10-16",
+     "size": 871859,
+     "sha256": "0d4b6d0bc92b9d13999dbe09feb20b54ebad317a5536dc47a74bf76ce7f90e44"
+    },
+    {
+     "name": "sefaria-midrash-rabbah-Vayikra_Rabbah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Midrash/Aggadah/Midrash%20Rabbah/Vayikra%20Rabbah/English/The%20Sefaria%20Midrash%20Rabbah%2C%202022.json",
+     "retrieved": "2026-10-16",
+     "size": 996282,
+     "sha256": "e0b176fe73f85b335d03291a6f5fc04a8878872788a4616e0d26addc30aa264f"
+    }
+   ]
+  },
+  {
+   "id": "sefaria-rashi",
+   "work": "Pentateuch with Rashi's commentary, trans. M. Rosenbaum and A. M. Silbermann, 1929-1934 (Sefaria)",
+   "upstream": "https://www.sefaria.org",
+   "licence": "Public Domain (Sefaria version record, inside each file)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "sefaria-rashi-Rashi_on_Deuteronomy.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Rashi/Torah/Rashi%20on%20Deuteronomy/English/Pentateuch%20with%20Rashi%27s%20commentary%20by%20M.%20Rosenbaum%20and%20A.M.%20Silbermann%2C%201929-1934.json",
+     "retrieved": "2026-10-16",
+     "size": 500568,
+     "sha256": "c36a97f834d87f8cc45622b4d463d6c277034b16094593186a5d2c6603fa942d"
+    },
+    {
+     "name": "sefaria-rashi-Rashi_on_Exodus.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Rashi/Torah/Rashi%20on%20Exodus/English/Pentateuch%20with%20Rashi%27s%20commentary%20by%20M.%20Rosenbaum%20and%20A.M.%20Silbermann%2C%201929-1934.json",
+     "retrieved": "2026-10-16",
+     "size": 784012,
+     "sha256": "dd47c29c785eecbfa372ed10d871e069335e9fe944255c07ce03f89d98cab1bb"
+    },
+    {
+     "name": "sefaria-rashi-Rashi_on_Genesis.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Rashi/Torah/Rashi%20on%20Genesis/English/Pentateuch%20with%20Rashi%27s%20commentary%20by%20M.%20Rosenbaum%20and%20A.M.%20Silbermann%2C%201929-1934.json",
+     "retrieved": "2026-10-16",
+     "size": 698089,
+     "sha256": "31b3f9b00b37bbae144cbf8841a52ff7b110e76bd6dd4ef50112559df43b3b24"
+    },
+    {
+     "name": "sefaria-rashi-Rashi_on_Leviticus.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Rashi/Torah/Rashi%20on%20Leviticus/English/Pentateuch%20with%20Rashi%27s%20commentary%20by%20M.%20Rosenbaum%20and%20A.M.%20Silbermann%2C%201929-1934.json",
+     "retrieved": "2026-10-16",
+     "size": 582165,
+     "sha256": "10cdee3fe7273e19d78e52c9c43576447524ba40cc325035c355c8c0b3e60a81"
+    },
+    {
+     "name": "sefaria-rashi-Rashi_on_Numbers.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Rashi/Torah/Rashi%20on%20Numbers/English/Pentateuch%20with%20Rashi%27s%20commentary%20by%20M.%20Rosenbaum%20and%20A.M.%20Silbermann%2C%201929-1934.json",
+     "retrieved": "2026-10-16",
+     "size": 541995,
+     "sha256": "eb9d5dce8b8843d5efe0a6c4996605dd63a1a47bccabfb9abeda3a66a9aecc01"
+    }
+   ]
+  },
+  {
+   "id": "sefaria-ramban",
+   "work": "Ramban (Nachmanides), Commentary on the Torah, trans. and annot. Charles B. Chavel, Shilo, 1971-1976 (Sefaria)",
+   "upstream": "https://www.sefaria.org",
+   "licence": "CC-BY (Sefaria version record, inside each file)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "sefaria-ramban-Ramban_on_Deuteronomy.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Ramban/Torah/Ramban%20on%20Deuteronomy/English/Commentary%20on%20the%20Torah%20by%20Ramban%20Nachmanides.%20Translated%20and%20annotated%20by%20Charles%20B.%20Chavel.%20New%20York%2C%20Shilo%20Pub.%20House%2C%201971-1976.json",
+     "retrieved": "2026-10-16",
+     "size": 1245611,
+     "sha256": "686954b8c786cf54999c21a4a9ac5ed94bb9dd07ee81012293818b564a6bec14"
+    },
+    {
+     "name": "sefaria-ramban-Ramban_on_Exodus.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Ramban/Torah/Ramban%20on%20Exodus/English/Commentary%20on%20the%20Torah%20by%20Ramban%20Nachmanides.%20Translated%20and%20annotated%20by%20Charles%20B.%20Chavel.%20New%20York%2C%20Shilo%20Pub.%20House%2C%201971-1976.json",
+     "retrieved": "2026-10-16",
+     "size": 1780096,
+     "sha256": "9a90ef4562f77a5a67cf111ad04228fcb878c2e4d2496e5aa6ed9fdc5ea0b667"
+    },
+    {
+     "name": "sefaria-ramban-Ramban_on_Genesis.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Ramban/Torah/Ramban%20on%20Genesis/English/Commentary%20on%20the%20Torah%20by%20Ramban%20Nachmanides.%20Translated%20and%20annotated%20by%20Charles%20B.%20Chavel.%20New%20York%2C%20Shilo%20Pub.%20House%2C%201971-1976.json",
+     "retrieved": "2026-10-16",
+     "size": 1708397,
+     "sha256": "0b36040da37d4a9b81e2700daf206f4dfe314c46a15dd5375fff8245c62303bb"
+    },
+    {
+     "name": "sefaria-ramban-Ramban_on_Leviticus.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Ramban/Torah/Ramban%20on%20Leviticus/English/Commentary%20on%20the%20Torah%20by%20Ramban%20Nachmanides.%20Translated%20and%20annotated%20by%20Charles%20B.%20Chavel.%20New%20York%2C%20Shilo%20Pub.%20House%2C%201971-1976.json",
+     "retrieved": "2026-10-16",
+     "size": 1610697,
+     "sha256": "2e234487866a981ea4a56f574ef25586d9c213d582c0be57d42a024246fdef19"
+    },
+    {
+     "name": "sefaria-ramban-Ramban_on_Numbers.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Ramban/Torah/Ramban%20on%20Numbers/English/Commentary%20on%20the%20Torah%20by%20Ramban%20Nachmanides.%20Translated%20and%20annotated%20by%20Charles%20B.%20Chavel.%20New%20York%2C%20Shilo%20Pub.%20House%2C%201971-1976.json",
+     "retrieved": "2026-10-16",
+     "size": 1234188,
+     "sha256": "a60f6c55b34cf01a7d6c9c36b02f52e18b11b0b8668e2182081c65aeaeede5ff"
+    }
+   ]
+  },
+  {
+   "id": "sefaria-ibn-ezra",
+   "work": "Ibn Ezra's commentary on the Pentateuch, trans. and annot. H. Norman Strickman and Arthur M. Silver, Menorah, 1988-2004 (Sefaria)",
+   "upstream": "https://www.sefaria.org",
+   "licence": "CC-BY-NC (Sefaria version record, inside each file)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "sefaria-ibn-ezra-Ibn_Ezra_on_Deuteronomy.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Ibn%20Ezra/Torah/Ibn%20Ezra%20on%20Deuteronomy/English/Ibn%20Ezra%27s%20commentary%20on%20the%20Pentateuch%2C%20tran.%20and%20annot.%20by%20H.%20Norman%20Strickman%20and%20Arthur%20M.%20Silver.%20Menorah%20Pub.%2C%201988-2004.json",
+     "retrieved": "2026-10-16",
+     "size": 734232,
+     "sha256": "00babda0eb74a729366009705b08b8c031ddad9bc2e8cbe3d1063a9ab0da1194"
+    },
+    {
+     "name": "sefaria-ibn-ezra-Ibn_Ezra_on_Exodus.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Ibn%20Ezra/Torah/Ibn%20Ezra%20on%20Exodus/English/Ibn%20Ezra%27s%20commentary%20on%20the%20Pentateuch%2C%20tran.%20and%20annot.%20by%20H.%20Norman%20Strickman%20and%20Arthur%20M.%20Silver.%20Menorah%20Pub.%2C%201988-2004.json",
+     "retrieved": "2026-10-16",
+     "size": 2053695,
+     "sha256": "1b0e3bd6160bf36555c85826b050bea957919d9b70139144279cd458a88fad42"
+    },
+    {
+     "name": "sefaria-ibn-ezra-Ibn_Ezra_on_Genesis.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Ibn%20Ezra/Torah/Ibn%20Ezra%20on%20Genesis/English/Ibn%20Ezra%27s%20commentary%20on%20the%20Pentateuch%2C%20tran.%20and%20annot.%20by%20H.%20Norman%20Strickman%20and%20Arthur%20M.%20Silver.%20Menorah%20Pub.%2C%201988-2004.json",
+     "retrieved": "2026-10-16",
+     "size": 1146864,
+     "sha256": "fd3f055373b198e5b0f0f1dc2e1f3a67c98ddbe65341db1f19288d50750bd8ea"
+    },
+    {
+     "name": "sefaria-ibn-ezra-Ibn_Ezra_on_Leviticus.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Ibn%20Ezra/Torah/Ibn%20Ezra%20on%20Leviticus/English/Ibn%20Ezra%27s%20commentary%20on%20the%20Pentateuch%2C%20tran.%20and%20annot.%20by%20H.%20Norman%20Strickman%20and%20Arthur%20M.%20Silver.%20Menorah%20Pub.%2C%201988-2004.json",
+     "retrieved": "2026-10-16",
+     "size": 751190,
+     "sha256": "cea9af2099a8dc74cf9dc0d13a094190f8632d1b01a3c43c9bbea3c39448067d"
+    },
+    {
+     "name": "sefaria-ibn-ezra-Ibn_Ezra_on_Numbers.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Ibn%20Ezra/Torah/Ibn%20Ezra%20on%20Numbers/English/Ibn%20Ezra%27s%20commentary%20on%20the%20Pentateuch%2C%20tran.%20and%20annot.%20by%20H.%20Norman%20Strickman%20and%20Arthur%20M.%20Silver.%20Menorah%20Pub.%2C%201988-2004.json",
+     "retrieved": "2026-10-16",
+     "size": 641179,
+     "sha256": "574d142f76b24d2028ee36951463a2950259ca6c236393426f86fd03ab61e4f4"
+    }
+   ]
+  },
+  {
+   "id": "sefaria-sforno",
+   "work": "Sforno on the Torah, trans. Eliyahu Munk, HaChut Hameshulash (Sefaria)",
+   "upstream": "https://www.sefaria.org",
+   "licence": "CC-BY (Sefaria version record, inside each file)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "sefaria-sforno-Sforno_on_Deuteronomy.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Sforno/Torah/Sforno%20on%20Deuteronomy/English/Eliyahu%20Munk%2C%20HaChut%20Hameshulash.json",
+     "retrieved": "2026-10-16",
+     "size": 270937,
+     "sha256": "534b354e38ffc40da84a3679e66a007b8869ab2810748281acde1c62abe44465"
+    },
+    {
+     "name": "sefaria-sforno-Sforno_on_Exodus.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Sforno/Torah/Sforno%20on%20Exodus/English/Eliyahu%20Munk%2C%20HaChut%20Hameshulash.json",
+     "retrieved": "2026-10-16",
+     "size": 351237,
+     "sha256": "27e825a2652d4ecedd9865e12267480f5d986192188ff73932c782141c8c7a44"
+    },
+    {
+     "name": "sefaria-sforno-Sforno_on_Genesis.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Sforno/Torah/Sforno%20on%20Genesis/English/Eliyahu%20Munk%2C%20HaChut%20Hameshulash.json",
+     "retrieved": "2026-10-16",
+     "size": 475293,
+     "sha256": "3fe3023b0c03367e4354a2edb4305c68a04a394cae9410c087aae9b0ca036922"
+    },
+    {
+     "name": "sefaria-sforno-Sforno_on_Leviticus.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Sforno/Torah/Sforno%20on%20Leviticus/English/Eliyahu%20Munk%2C%20HaChut%20Hameshulash.json",
+     "retrieved": "2026-10-16",
+     "size": 209311,
+     "sha256": "1083cad8e5702a05a57dec72e77bb837fd97a6e4e7a5b9ab0c2088974b5ec16d"
+    },
+    {
+     "name": "sefaria-sforno-Sforno_on_Numbers.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Rishonim%20on%20Tanakh/Sforno/Torah/Sforno%20on%20Numbers/English/Eliyahu%20Munk%2C%20HaChut%20Hameshulash.json",
+     "retrieved": "2026-10-16",
+     "size": 228424,
+     "sha256": "df905984b7bf219c608a402db7ff06cdfb958a17ebb0174581ac6af8d0016dca"
+    }
+   ]
+  },
+  {
+   "id": "sefaria-targum-jonathan-torah",
+   "work": "The Targum of Jonathan ben Uzziel on the Pentateuch, trans. J. W. Etheridge, London, 1862 (Sefaria)",
+   "upstream": "https://www.sefaria.org",
+   "licence": "Public Domain (Sefaria version record, inside each file)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "sefaria-targum-jonathan-torah-Targum_Jonathan_on_Deuteronomy.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Targum/Targum%20Jonathan/Torah/Targum%20Jonathan%20on%20Deuteronomy/English/The%20Targum%20of%20Jonathan%20ben%20Uzziel%2C%20trans.%20J.%20W.%20Etheridge%2C%20London%2C%201862.json",
+     "retrieved": "2026-10-16",
+     "size": 207202,
+     "sha256": "0821b178f711fff86a06ec0d3a1d999cf27e48872b69c9d461d17900239b44e0"
+    },
+    {
+     "name": "sefaria-targum-jonathan-torah-Targum_Jonathan_on_Exodus.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Targum/Targum%20Jonathan/Torah/Targum%20Jonathan%20on%20Exodus/English/The%20Targum%20of%20Jonathan%20ben%20Uzziel%2C%20trans.%20J.%20W.%20Etheridge%2C%20London%2C%201862.json",
+     "retrieved": "2026-10-16",
+     "size": 236785,
+     "sha256": "4747ca7bb5efbaf168d36557fed2498657cd3cba31c9dd5ede0d0b3a52c1b7b0"
+    },
+    {
+     "name": "sefaria-targum-jonathan-torah-Targum_Jonathan_on_Genesis.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Targum/Targum%20Jonathan/Torah/Targum%20Jonathan%20on%20Genesis/English/The%20Targum%20of%20Jonathan%20ben%20Uzziel%2C%20trans.%20J.%20W.%20Etheridge%2C%20London%2C%201862.json",
+     "retrieved": "2026-10-16",
+     "size": 294241,
+     "sha256": "ac04fca9443932a6bf23690964a60463310e5542e42c92c604df84849d1bc125"
+    },
+    {
+     "name": "sefaria-targum-jonathan-torah-Targum_Jonathan_on_Leviticus.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Targum/Targum%20Jonathan/Torah/Targum%20Jonathan%20on%20Leviticus/English/The%20Targum%20of%20Jonathan%20ben%20Uzziel%2C%20trans.%20J.%20W.%20Etheridge%2C%20London%2C%201862.json",
+     "retrieved": "2026-10-16",
+     "size": 167698,
+     "sha256": "498f7c3bff97d5afdc88395fb3585befc9deb4aca00013e891157481cb327c16"
+    },
+    {
+     "name": "sefaria-targum-jonathan-torah-Targum_Jonathan_on_Numbers.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Targum/Targum%20Jonathan/Torah/Targum%20Jonathan%20on%20Numbers/English/The%20Targum%20of%20Jonathan%20ben%20Uzziel%2C%20trans.%20J.%20W.%20Etheridge%2C%20London%2C%201862.json",
+     "retrieved": "2026-10-16",
+     "size": 232546,
+     "sha256": "1bcd45e30dca599a8e6dff9322fb85fb052ed020f61bb7a8ece33050fd3e70ed"
+    }
+   ]
+  },
+  {
+   "id": "sefaria-targum-jerusalem",
+   "work": "Targum Jerusalem, trans. J. W. Etheridge, London, 1862 (Sefaria)",
+   "upstream": "https://www.sefaria.org",
+   "licence": "Public Domain (Sefaria version record, inside each file)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "sefaria-targum-jerusalem-Targum_Jerusalem.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Targum/Targum%20Jerusalem/Targum%20Jerusalem/English/Targum%20Jerusalem%2C%20trans.%20J.%20W.%20Etheridge%2C%20London%2C%201862.json",
+     "retrieved": "2026-10-16",
+     "size": 240560,
+     "sha256": "c563e72c1f223a1025eee768951c3805ec01ce1968cadb9b9f3c9e5cebdfd6bb"
+    }
+   ]
+  },
+  {
+   "id": "sefaria-targum-isaiah",
+   "work": "The Chaldee Paraphrase on the Prophet Isaiah, trans. C. W. H. Pauli, London, 1871 (Sefaria)",
+   "upstream": "https://www.sefaria.org",
+   "licence": "Public Domain (Sefaria version record, inside each file)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "sefaria-targum-isaiah-Targum_Jonathan_on_Isaiah.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Targum/Targum%20Jonathan/Prophets/Targum%20Jonathan%20on%20Isaiah/English/London%20Chaldee%20Paraphrase%2C%201871.json",
+     "retrieved": "2026-10-16",
+     "size": 264306,
+     "sha256": "f1943915fe0585d00d2f578ddba4a9b096ade03f9edc9d9531fad4a16050c0da"
+    }
+   ]
+  },
+  {
+   "id": "sefaria-onkelos-metsudah",
+   "work": "Metsudah Chumash, Metsudah Publications, 2009, with the Onkelos translation (Sefaria)",
+   "upstream": "https://www.sefaria.org",
+   "licence": "CC-BY-NC (Sefaria version record, inside each file)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "sefaria-onkelos-metsudah-Onkelos_Deuteronomy.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Targum/Onkelos/Torah/Onkelos%20Deuteronomy/English/Metsudah%20Chumash%2C%20Metsudah%20Publications%2C%202009%20%5Bwith%20Onkelos%20translation%5D.json",
+     "retrieved": "2026-10-16",
+     "size": 175607,
+     "sha256": "a3e3e0a51dc3e959f0c15a1cf85cf47bf18f3ca07cc709490681209fd9340e98"
+    },
+    {
+     "name": "sefaria-onkelos-metsudah-Onkelos_Exodus.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Targum/Onkelos/Torah/Onkelos%20Exodus/English/Metsudah%20Chumash%2C%20Metsudah%20Publications%2C%202009%20%5Bwith%20Onkelos%20translation%5D.json",
+     "retrieved": "2026-10-16",
+     "size": 206528,
+     "sha256": "bfb56a73f8895f9282a1070e4df178763b9ed7a6277ded884ae62e9a0a1eb13e"
+    },
+    {
+     "name": "sefaria-onkelos-metsudah-Onkelos_Genesis.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Targum/Onkelos/Torah/Onkelos%20Genesis/English/Metsudah%20Chumash%2C%20Metsudah%20Publications%2C%202009%20%5Bwith%20Onkelos%20translation%5D.json",
+     "retrieved": "2026-10-16",
+     "size": 242213,
+     "sha256": "5a1e31b311c5026d9c3325de6be7b4b4027051addfb5d67cff1ee2405a9c9dcc"
+    },
+    {
+     "name": "sefaria-onkelos-metsudah-Onkelos_Leviticus.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Targum/Onkelos/Torah/Onkelos%20Leviticus/English/Metsudah%20Chumash%2C%20Metsudah%20Publications%2C%202009%20%5Bwith%20Onkelos%20translation%5D.json",
+     "retrieved": "2026-10-16",
+     "size": 155983,
+     "sha256": "fbc2002feadfc47e600efbc057cd6fab411562d6bf5320f93e5acdaf7197bdbb"
+    },
+    {
+     "name": "sefaria-onkelos-metsudah-Onkelos_Numbers.json",
+     "url": "https://storage.googleapis.com/sefaria-export/json/Tanakh/Targum/Onkelos/Torah/Onkelos%20Numbers/English/Metsudah%20Chumash%2C%20Metsudah%20Publications%2C%202009%20%5Bwith%20Onkelos%20translation%5D.json",
+     "retrieved": "2026-10-16",
+     "size": 200338,
+     "sha256": "c0b68ad2cda679369ffcdcc6194297de0065d3d3ed4a6885e8671010ce2c2414"
+    }
+   ]
+  },
+  {
+   "id": "stepbible-tbesg",
+   "work": "STEPBible, Translators Brief lexicon of Extended Strongs for Greek (TBESG), STEPBible-Data at bd09545",
+   "upstream": "https://github.com/STEPBible/STEPBible-Data",
+   "licence": "CC BY 4.0 (STEPBible-Data: \"available to other projects under CC BY 4.0\")",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "tbesg.txt",
+     "url": "https://raw.githubusercontent.com/STEPBible/STEPBible-Data/bd09545c7a44b39ace20f16c0359915f2aa23a62/Lexicons/TBESG%20-%20Translators%20Brief%20lexicon%20of%20Extended%20Strongs%20for%20Greek%20-%20STEPBible.org%20CC%20BY.txt",
+     "retrieved": "2026-10-16",
+     "size": 4736912,
+     "sha256": "312f723d7b8ef263bbdfb0451c9b8057125804dfff390b6f8544cff2a84b57f4"
+    }
+   ]
+  },
+  {
+   "id": "stepbible-tbesh",
+   "work": "STEPBible, Translators Brief lexicon of Extended Strongs for Hebrew (TBESH), STEPBible-Data at bd09545",
+   "upstream": "https://github.com/STEPBible/STEPBible-Data",
+   "licence": "CC BY 4.0 (STEPBible-Data: \"available to other projects under CC BY 4.0\")",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "tbesh.txt",
+     "url": "https://raw.githubusercontent.com/STEPBible/STEPBible-Data/bd09545c7a44b39ace20f16c0359915f2aa23a62/Lexicons/TBESH%20-%20Translators%20Brief%20lexicon%20of%20Extended%20Strongs%20for%20Hebrew%20-%20STEPBible.org%20CC%20BY.txt",
+     "retrieved": "2026-10-16",
+     "size": 3288045,
+     "sha256": "464dccadd95fd8620dd05fa0d7a4caba58ec3c4d5db3ebf38e43d046ca25b591"
+    }
+   ]
+  },
+  {
+   "id": "abbott-smith",
+   "work": "G. Abbott-Smith, A Manual Greek Lexicon of the New Testament, Scribner's, 1922; TEI edition, translatable-exegetical-tools at 8c00cb2",
+   "upstream": "https://github.com/translatable-exegetical-tools/Abbott-Smith",
+   "licence": "Public domain (\"The lexicon (abbott-smith.tei.xml) ... is in the public domain\")",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "abbott-smith.tei.xml",
+     "url": "https://raw.githubusercontent.com/translatable-exegetical-tools/Abbott-Smith/8c00cb244761aa23659421a8cbbbf7a3b27b7d59/abbott-smith.tei.xml",
+     "retrieved": "2026-10-16",
+     "size": 5698817,
+     "sha256": "99821bee411626b4aa3e674040297b54b267eff86cb4f9b7ef69a8bdb18b6f90"
+    }
+   ]
+  },
+  {
+   "id": "web",
+   "work": "World English Bible, with the deuterocanon (ebible.org USFM, eng-web)",
+   "upstream": "https://ebible.org/find/details.php?id=eng-web",
+   "licence": "Public domain (\"The World English Bible is in the Public Domain\"; the name is kept only for the text as published, which this is: its words unchanged, its cross-references not printed)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "eng-web_usfm.zip",
+     "url": "https://ebible.org/Scriptures/eng-web_usfm.zip",
+     "retrieved": "2026-10-16",
+     "size": 3244779,
+     "sha256": "614f08ed7c1bf86e55d80638d8b1f3b420acf031342250a420c9d1feed0c5273"
+    }
+   ]
+  },
+  {
+   "id": "batch2-origin-of-species",
+   "work": "Charles Darwin, On the Origin of Species (1859); Standard Ebooks edition (CC0)",
+   "upstream": "https://github.com/standardebooks/charles-darwin_the-origin-of-species",
+   "licence": "US public domain: work 1859; Standard Ebooks edition (CC0); published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "charles-darwin_the-origin-of-species.epub",
+     "url": "https://standardebooks.org/ebooks/charles-darwin/the-origin-of-species/downloads/charles-darwin_the-origin-of-species.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 973360,
+     "sha256": "604810db31d2493d3f256c9801930cd943c600437a83b2b22869af1b118c9da1"
+    }
+   ]
+  },
+  {
+   "id": "batch2-voyage-of-the-beagle",
+   "work": "Charles Darwin, The Voyage of the Beagle (1839); Standard Ebooks edition (CC0)",
+   "upstream": "https://github.com/standardebooks/charles-darwin_the-voyage-of-the-beagle",
+   "licence": "US public domain: work 1839; Standard Ebooks edition (CC0); published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "charles-darwin_the-voyage-of-the-beagle.epub",
+     "url": "https://standardebooks.org/ebooks/charles-darwin/the-voyage-of-the-beagle/downloads/charles-darwin_the-voyage-of-the-beagle.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 4093971,
+     "sha256": "679707e7bcbdd5e4c5ecbdda278fb23453681aad53a2b26afc30dcbdf037dd2d"
+    }
+   ]
+  },
+  {
+   "id": "batch2-walden",
+   "work": "Henry David Thoreau, Walden (1854); Standard Ebooks edition (CC0)",
+   "upstream": "https://github.com/standardebooks/henry-david-thoreau_walden",
+   "licence": "US public domain: work 1854; Standard Ebooks edition (CC0); published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "henry-david-thoreau_walden.epub",
+     "url": "https://standardebooks.org/ebooks/henry-david-thoreau/walden/downloads/henry-david-thoreau_walden.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 997147,
+     "sha256": "6168a788b950aae3e778bfe9e176feda5d948453ca0050cf00ba9e706d7332ae"
+    }
+   ]
+  },
+  {
+   "id": "batch2-franklin-autobiography",
+   "work": "Benjamin Franklin, The Autobiography of Benjamin Franklin (1791); Standard Ebooks edition (CC0)",
+   "upstream": "https://github.com/standardebooks/benjamin-franklin_the-autobiography-of-benjamin-franklin",
+   "licence": "US public domain: work 1791; Standard Ebooks edition (CC0); published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "benjamin-franklin_the-autobiography-of-benjamin-franklin.epub",
+     "url": "https://standardebooks.org/ebooks/benjamin-franklin/the-autobiography-of-benjamin-franklin/downloads/benjamin-franklin_the-autobiography-of-benjamin-franklin.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 607548,
+     "sha256": "9543fb58796c5ac7c373cc957041741c4668ebd6364381fc6ef87d9c57708dbc"
+    }
+   ]
+  },
+  {
+   "id": "batch2-douglass-narrative",
+   "work": "Frederick Douglass, Narrative of the Life of Frederick Douglass (1845); Standard Ebooks edition (CC0)",
+   "upstream": "https://github.com/standardebooks/frederick-douglass_narrative-of-the-life-of-frederick-douglass",
+   "licence": "US public domain: work 1845; Standard Ebooks edition (CC0); published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "frederick-douglass_narrative-of-the-life-of-frederick-douglass.epub",
+     "url": "https://standardebooks.org/ebooks/frederick-douglass/narrative-of-the-life-of-frederick-douglass/downloads/frederick-douglass_narrative-of-the-life-of-frederick-douglass.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 416801,
+     "sha256": "82fa0f4924369d2fe3689f4f28dcb5c67c7d0f13742008481be65ea47e387512"
+    }
+   ]
+  },
+  {
+   "id": "batch2-souls-of-black-folk",
+   "work": "W. E. B. Du Bois, The Souls of Black Folk (1903); Standard Ebooks edition (CC0)",
+   "upstream": "https://github.com/standardebooks/w-e-b-du-bois_the-souls-of-black-folk",
+   "licence": "US public domain: work 1903; Standard Ebooks edition (CC0); published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "w-e-b-du-bois_the-souls-of-black-folk.epub",
+     "url": "https://standardebooks.org/ebooks/w-e-b-du-bois/the-souls-of-black-folk/downloads/w-e-b-du-bois_the-souls-of-black-folk.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 1298154,
+     "sha256": "a37cc07c1ec7a6b0d70a1458e8300b6ead6907257edc26e63ff6ef829f75fa85"
+    }
+   ]
+  },
+  {
+   "id": "batch2-wealth-of-nations",
+   "work": "Adam Smith, The Wealth of Nations (1776); Standard Ebooks edition (CC0)",
+   "upstream": "https://github.com/standardebooks/adam-smith_the-wealth-of-nations",
+   "licence": "US public domain: work 1776; Standard Ebooks edition (CC0); published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "adam-smith_the-wealth-of-nations.epub",
+     "url": "https://standardebooks.org/ebooks/adam-smith/the-wealth-of-nations/downloads/adam-smith_the-wealth-of-nations.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 1354544,
+     "sha256": "e65544449dd687284c792e45c0f0aa1b163ba53b811ad62d6553fcf18c8a5314"
+    }
+   ]
+  },
+  {
+   "id": "batch2-on-liberty",
+   "work": "John Stuart Mill, On Liberty (1859); Standard Ebooks edition (CC0)",
+   "upstream": "https://github.com/standardebooks/john-stuart-mill_on-liberty",
+   "licence": "US public domain: work 1859; Standard Ebooks edition (CC0); published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "john-stuart-mill_on-liberty.epub",
+     "url": "https://standardebooks.org/ebooks/john-stuart-mill/on-liberty/downloads/john-stuart-mill_on-liberty.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 580183,
+     "sha256": "2b5ec11023d43c9e07885fb2cec350203ef2f45c71b852cdd05e205aee5aae5b"
+    }
+   ]
+  },
+  {
+   "id": "batch2-federalist-papers",
+   "work": "Alexander Hamilton; John Jay; James Madison, The Federalist Papers (1788); Standard Ebooks edition (CC0)",
+   "upstream": "https://github.com/standardebooks/alexander-hamilton_john-jay_james-madison_the-federalist-papers",
+   "licence": "US public domain: work 1788; Standard Ebooks edition (CC0); published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "alexander-hamilton_john-jay_james-madison_the-federalist-papers.epub",
+     "url": "https://standardebooks.org/ebooks/alexander-hamilton_john-jay_james-madison/the-federalist-papers/downloads/alexander-hamilton_john-jay_james-madison_the-federalist-papers.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 1112095,
+     "sha256": "00161cd6a5327c391b8ae0c20339391787ec131626f9e822bcee57a9c1b841e8"
+    }
+   ]
+  },
+  {
+   "id": "batch2-varieties-of-religious-experience",
+   "work": "William James, The Varieties of Religious Experience (1902); Standard Ebooks edition (CC0)",
+   "upstream": "https://github.com/standardebooks/william-james_the-varieties-of-religious-experience",
+   "licence": "US public domain: work 1902; Standard Ebooks edition (CC0); published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "william-james_the-varieties-of-religious-experience.epub",
+     "url": "https://standardebooks.org/ebooks/william-james/the-varieties-of-religious-experience/downloads/william-james_the-varieties-of-religious-experience.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 967142,
+     "sha256": "1e3b7648b4cc5d3f8c3cebdd9433e7b487b131f4cede119847f9c3af351a01f5"
+    }
+   ]
+  },
+  {
+   "id": "batch2-pragmatism",
+   "work": "William James, Pragmatism (1907); Standard Ebooks edition (CC0)",
+   "upstream": "https://github.com/standardebooks/william-james_pragmatism",
+   "licence": "US public domain: work 1907; Standard Ebooks edition (CC0); published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "william-james_pragmatism.epub",
+     "url": "https://standardebooks.org/ebooks/william-james/pragmatism/downloads/william-james_pragmatism.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 732848,
+     "sha256": "78db5b1768a2fa17977ca057ac94495dcad1820aa7ccdfb5211af824ebd66ded"
+    }
+   ]
+  },
+  {
+   "id": "batch2-art-of-war",
+   "work": "Sun Tzu, The Art of War (-500); Standard Ebooks edition (CC0), Giles translation 1910",
+   "upstream": "https://github.com/standardebooks/sun-tzu_the-art-of-war_lionel-giles",
+   "licence": "US public domain: work 500 BCE; Standard Ebooks edition (CC0), Giles translation 1910; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "sun-tzu_the-art-of-war_lionel-giles.epub",
+     "url": "https://standardebooks.org/ebooks/sun-tzu/the-art-of-war/lionel-giles/downloads/sun-tzu_the-art-of-war_lionel-giles.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 592844,
+     "sha256": "5070fa08bb9c683731fcaff1e89d011b3d55be5c71bed5b4d6e55398c004d88e"
+    }
+   ]
+  },
+  {
+   "id": "batch2-meditations",
+   "work": "Marcus Aurelius, Meditations (180); Standard Ebooks edition (CC0), Long translation 1862",
+   "upstream": "https://github.com/standardebooks/marcus-aurelius_meditations_george-long",
+   "licence": "US public domain: work 180; Standard Ebooks edition (CC0), Long translation 1862; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "marcus-aurelius_meditations_george-long.epub",
+     "url": "https://standardebooks.org/ebooks/marcus-aurelius/meditations/george-long/downloads/marcus-aurelius_meditations_george-long.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 733307,
+     "sha256": "c2b77e9daa37694b978f78f9ae2d801fd263be533af187e8b36b7da28845e0c8"
+    }
+   ]
+  },
+  {
+   "id": "batch2-problems-of-philosophy",
+   "work": "Bertrand Russell, The Problems of Philosophy (1912); Standard Ebooks edition (CC0)",
+   "upstream": "https://github.com/standardebooks/bertrand-russell_the-problems-of-philosophy",
+   "licence": "US public domain: work 1912; Standard Ebooks edition (CC0); PD in the USA (1912); in UK copyright until 2040 (Russell d. 1970); Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "bertrand-russell_the-problems-of-philosophy.epub",
+     "url": "https://standardebooks.org/ebooks/bertrand-russell/the-problems-of-philosophy/downloads/bertrand-russell_the-problems-of-philosophy.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 583474,
+     "sha256": "bdcc9b114ee0071df4d5d332a28b6983b8d238e0878be98d3b6ad852467cb822"
+    }
+   ]
+  },
+  {
+   "id": "batch2-descartes-philosophical-works",
+   "work": "René Descartes, Philosophical Works (1637); Standard Ebooks edition (CC0), Veitch translation",
+   "upstream": "https://github.com/standardebooks/rene-descartes_philosophical-works_john-veitch",
+   "licence": "US public domain: work 1637; Standard Ebooks edition (CC0), Veitch translation; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "rene-descartes_philosophical-works_john-veitch.epub",
+     "url": "https://standardebooks.org/ebooks/rene-descartes/philosophical-works/john-veitch/downloads/rene-descartes_philosophical-works_john-veitch.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 582931,
+     "sha256": "8729cc2a1a6691029470aa84830a39e9d7a9cafc7e595e42732e7931143d2c65"
+    }
+   ]
+  },
+  {
+   "id": "batch2-leviathan",
+   "work": "Thomas Hobbes, Leviathan (1651); Standard Ebooks edition (CC0)",
+   "upstream": "https://github.com/standardebooks/thomas-hobbes_leviathan",
+   "licence": "US public domain: work 1651; Standard Ebooks edition (CC0); published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "thomas-hobbes_leviathan.epub",
+     "url": "https://standardebooks.org/ebooks/thomas-hobbes/leviathan/downloads/thomas-hobbes_leviathan.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 998166,
+     "sha256": "32a143e85f1a3fa520b446433600980fdd6171f05da24999af36edd3becbd540"
+    }
+   ]
+  },
+  {
+   "id": "batch2-locke-two-treatises",
+   "work": "John Locke, Two Treatises of Government (1689); Standard Ebooks edition (CC0)",
+   "upstream": "https://github.com/standardebooks/john-locke_two-treatises-of-government",
+   "licence": "US public domain: work 1689; Standard Ebooks edition (CC0); published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "john-locke_two-treatises-of-government.epub",
+     "url": "https://standardebooks.org/ebooks/john-locke/two-treatises-of-government/downloads/john-locke_two-treatises-of-government.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 740017,
+     "sha256": "cb3c9aba5d8ea202befd6fcfa4cde1b6689ba74bbb0055a7ba4d304cb0dae9b6"
+    }
+   ]
+  },
+  {
+   "id": "batch2-hume-enquiry",
+   "work": "David Hume, An Enquiry Concerning Human Understanding (1748); Standard Ebooks edition (CC0)",
+   "upstream": "https://github.com/standardebooks/david-hume_an-enquiry-concerning-human-understanding",
+   "licence": "US public domain: work 1748; Standard Ebooks edition (CC0); published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "david-hume_an-enquiry-concerning-human-understanding.epub",
+     "url": "https://standardebooks.org/ebooks/david-hume/an-enquiry-concerning-human-understanding/downloads/david-hume_an-enquiry-concerning-human-understanding.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 701459,
+     "sha256": "7c3c1b512f91229cecde0cfe93bdf087b28235321008bf0efccaab01c08c165e"
+    }
+   ]
+  },
+  {
+   "id": "batch2-decline-and-fall",
+   "work": "Edward Gibbon, The History of the Decline and Fall of the Roman Empire (1776); Standard Ebooks edition (CC0), all six volumes in one",
+   "upstream": "https://github.com/standardebooks/edward-gibbon_the-history-of-the-decline-and-fall-of-the-roman-empire",
+   "licence": "US public domain: work 1776; Standard Ebooks edition (CC0), all six volumes in one; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "edward-gibbon_the-history-of-the-decline-and-fall-of-the-roman-empire.epub",
+     "url": "https://standardebooks.org/ebooks/edward-gibbon/the-history-of-the-decline-and-fall-of-the-roman-empire/downloads/edward-gibbon_the-history-of-the-decline-and-fall-of-the-roman-empire.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 6068185,
+     "sha256": "eab1cb8d18bfe7da0d94e48973d52212b34d7fcea42cd5b005b83ebaa50ccb9d"
+    }
+   ]
+  },
+  {
+   "id": "batch2-herodotus-histories",
+   "work": "Herodotus, Histories (-430); Standard Ebooks edition (CC0), Macaulay translation 1890",
+   "upstream": "https://github.com/standardebooks/herodotus_histories_g-c-macaulay",
+   "licence": "US public domain: work 430 BCE; Standard Ebooks edition (CC0), Macaulay translation 1890; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "herodotus_histories_g-c-macaulay.epub",
+     "url": "https://standardebooks.org/ebooks/herodotus/histories/g-c-macaulay/downloads/herodotus_histories_g-c-macaulay.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 1137277,
+     "sha256": "73314640389eef2332e99877893cc8178ecbf92c6560caa94c8d945ffc808597"
+    }
+   ]
+  },
+  {
+   "id": "batch2-thucydides",
+   "work": "Thucydides, History of the Peloponnesian War (-400); Standard Ebooks edition (CC0), Crawley translation 1874",
+   "upstream": "https://github.com/standardebooks/thucydides_history-of-the-peloponnesian-war_richard-crawley",
+   "licence": "US public domain: work 400 BCE; Standard Ebooks edition (CC0), Crawley translation 1874; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "thucydides_history-of-the-peloponnesian-war_richard-crawley.epub",
+     "url": "https://standardebooks.org/ebooks/thucydides/history-of-the-peloponnesian-war/richard-crawley/downloads/thucydides_history-of-the-peloponnesian-war_richard-crawley.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 2610371,
+     "sha256": "3a284be91a6370ef0abcd02d8790268630f85428aa3f3aa2eb059ca60ff365f6"
+    }
+   ]
+  },
+  {
+   "id": "batch2-plato-dialogues",
+   "work": "Plato, Dialogues (-380); Standard Ebooks edition (CC0), Jowett translation",
+   "upstream": "https://github.com/standardebooks/plato_dialogues_benjamin-jowett",
+   "licence": "US public domain: work 380 BCE; Standard Ebooks edition (CC0), Jowett translation; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "plato_dialogues_benjamin-jowett.epub",
+     "url": "https://standardebooks.org/ebooks/plato/dialogues/benjamin-jowett/downloads/plato_dialogues_benjamin-jowett.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 2973126,
+     "sha256": "ccb390101a894343a3086c37afb3a35727eff53a5615fcec3fe2f72b7e63c99d"
+    }
+   ]
+  },
+  {
+   "id": "batch2-nicomachean-ethics",
+   "work": "Aristotle, Nicomachean Ethics (-340); Standard Ebooks edition (CC0), Peters translation",
+   "upstream": "https://github.com/standardebooks/aristotle_nicomachean-ethics_f-h-peters",
+   "licence": "US public domain: work 340 BCE; Standard Ebooks edition (CC0), Peters translation; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "aristotle_nicomachean-ethics_f-h-peters.epub",
+     "url": "https://standardebooks.org/ebooks/aristotle/nicomachean-ethics/f-h-peters/downloads/aristotle_nicomachean-ethics_f-h-peters.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 870658,
+     "sha256": "96507a5f1a28f49061cf8739fff7145e34eae3c2485a2699a5a5df1a3d971a27"
+    }
+   ]
+  },
+  {
+   "id": "batch2-tusculan-disputations",
+   "work": "Cicero, Tusculan Disputations (-45); Standard Ebooks edition (CC0), Yonge translation",
+   "upstream": "https://github.com/standardebooks/cicero_tusculan-disputations_c-d-yonge",
+   "licence": "US public domain: work 45 BCE; Standard Ebooks edition (CC0), Yonge translation; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "cicero_tusculan-disputations_c-d-yonge.epub",
+     "url": "https://standardebooks.org/ebooks/cicero/tusculan-disputations/c-d-yonge/downloads/cicero_tusculan-disputations_c-d-yonge.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 656436,
+     "sha256": "f620aa2a131cd3580cb08d1311a55ff134a145f246f5a4a6d2f1a11f39783f3e"
+    }
+   ]
+  },
+  {
+   "id": "batch2-epictetus-discourses",
+   "work": "Epictetus, Discourses (108); Standard Ebooks edition (CC0), Long translation",
+   "upstream": "https://github.com/standardebooks/epictetus_discourses_george-long",
+   "licence": "US public domain: work 108; Standard Ebooks edition (CC0), Long translation; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "epictetus_discourses_george-long.epub",
+     "url": "https://standardebooks.org/ebooks/epictetus/discourses/george-long/downloads/epictetus_discourses_george-long.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 801689,
+     "sha256": "79f70aeecb743a48b523bd8fa874cf43ce3e070df5bf9012064589e1f4ae67d8"
+    }
+   ]
+  },
+  {
+   "id": "batch2-epictetus-short-works",
+   "work": "Epictetus, Short Works (The Enchiridion and Fragments) (125); Standard Ebooks edition (CC0), Long translation",
+   "upstream": "https://github.com/standardebooks/epictetus_short-works_george-long",
+   "licence": "US public domain: work 125; Standard Ebooks edition (CC0), Long translation; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "epictetus_short-works_george-long.epub",
+     "url": "https://standardebooks.org/ebooks/epictetus/short-works/george-long/downloads/epictetus_short-works_george-long.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 502406,
+     "sha256": "c32bd37d4e52168017c21b93d5a9fff7f11e8af6caccbd345165ca8eeb2db0d6"
+    }
+   ]
+  },
+  {
+   "id": "batch2-seneca-dialogues",
+   "work": "Seneca, Dialogues (49); Standard Ebooks edition (CC0), Stewart translation 1889",
+   "upstream": "https://github.com/standardebooks/seneca_dialogues_aubrey-stewart",
+   "licence": "US public domain: work 49; Standard Ebooks edition (CC0), Stewart translation 1889; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "seneca_dialogues_aubrey-stewart.epub",
+     "url": "https://standardebooks.org/ebooks/seneca/dialogues/aubrey-stewart/downloads/seneca_dialogues_aubrey-stewart.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 1138745,
+     "sha256": "c1e6cf216d086e088886a9ce33088af6b25a7bd9605939f7d3fe83b318cf9522"
+    }
+   ]
+  },
+  {
+   "id": "batch2-consolation-of-philosophy",
+   "work": "Boethius, The Consolation of Philosophy (524); Standard Ebooks edition (CC0), James translation 1897",
+   "upstream": "https://github.com/standardebooks/boethius_the-consolation-of-philosophy_h-r-james",
+   "licence": "US public domain: work 524; Standard Ebooks edition (CC0), James translation 1897; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "boethius_the-consolation-of-philosophy_h-r-james.epub",
+     "url": "https://standardebooks.org/ebooks/boethius/the-consolation-of-philosophy/h-r-james/downloads/boethius_the-consolation-of-philosophy_h-r-james.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 1121986,
+     "sha256": "2d496b0fc78ab000b6654a71f451c7b4e54aeca06895e6060704520c6ac1246a"
+    }
+   ]
+  },
+  {
+   "id": "batch2-the-prince",
+   "work": "Niccolò Machiavelli, The Prince (1532); Standard Ebooks edition (CC0), Marriott translation 1908",
+   "upstream": "https://github.com/standardebooks/niccolo-machiavelli_the-prince_w-k-marriott",
+   "licence": "US public domain: work 1532; Standard Ebooks edition (CC0), Marriott translation 1908; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "niccolo-machiavelli_the-prince_w-k-marriott.epub",
+     "url": "https://standardebooks.org/ebooks/niccolo-machiavelli/the-prince/w-k-marriott/downloads/niccolo-machiavelli_the-prince_w-k-marriott.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 459478,
+     "sha256": "7004c891f56673a8cf697fffc9bf0333a19188cd7b18fbbaa260cd13213d9362"
+    }
+   ]
+  },
+  {
+   "id": "batch2-discourses-on-livy",
+   "work": "Niccolò Machiavelli, Discourses on Livy (1531); Standard Ebooks edition (CC0), Thomson translation 1883",
+   "upstream": "https://github.com/standardebooks/niccolo-machiavelli_discourses-on-livy_ninian-hill-thomson",
+   "licence": "US public domain: work 1531; Standard Ebooks edition (CC0), Thomson translation 1883; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "niccolo-machiavelli_discourses-on-livy_ninian-hill-thomson.epub",
+     "url": "https://standardebooks.org/ebooks/niccolo-machiavelli/discourses-on-livy/ninian-hill-thomson/downloads/niccolo-machiavelli_discourses-on-livy_ninian-hill-thomson.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 911424,
+     "sha256": "b6ce80526490b64b35ef7f507382671efc8934cd1115f2b46a10bcce4ae232db"
+    }
+   ]
+  },
+  {
+   "id": "batch2-social-contract",
+   "work": "Jean-Jacques Rousseau, The Social Contract (1762); Standard Ebooks edition (CC0), Cole translation 1913",
+   "upstream": "https://github.com/standardebooks/jean-jacques-rousseau_the-social-contract_g-d-h-cole",
+   "licence": "US public domain: work 1762; Standard Ebooks edition (CC0), Cole translation 1913; PD in the USA (Cole translation 1913); UK copyright to 2029 (Cole d. 1959); Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "jean-jacques-rousseau_the-social-contract_g-d-h-cole.epub",
+     "url": "https://standardebooks.org/ebooks/jean-jacques-rousseau/the-social-contract/g-d-h-cole/downloads/jean-jacques-rousseau_the-social-contract_g-d-h-cole.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 612181,
+     "sha256": "235f2f43b77e3cea44dab375b429ba119eb26788a9fedfe59bf87f809f392737"
+    }
+   ]
+  },
+  {
+   "id": "batch2-reflections-on-the-revolution",
+   "work": "Edmund Burke, Reflections on the Revolution in France (1790); Standard Ebooks edition (CC0)",
+   "upstream": "https://github.com/standardebooks/edmund-burke_reflections-on-the-revolution-in-france",
+   "licence": "US public domain: work 1790; Standard Ebooks edition (CC0); published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "edmund-burke_reflections-on-the-revolution-in-france.epub",
+     "url": "https://standardebooks.org/ebooks/edmund-burke/reflections-on-the-revolution-in-france/downloads/edmund-burke_reflections-on-the-revolution-in-france.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 598801,
+     "sha256": "8bba612a9c84d5b794c2ede210b9d447b61cdcd67c61d983474ac1f406beb6c4"
+    }
+   ]
+  },
+  {
+   "id": "batch2-emerson-essays",
+   "work": "Ralph Waldo Emerson, Essays (1841); Standard Ebooks edition (CC0), First and Second Series",
+   "upstream": "https://github.com/standardebooks/ralph-waldo-emerson_essays",
+   "licence": "US public domain: work 1841; Standard Ebooks edition (CC0), First and Second Series; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "ralph-waldo-emerson_essays.epub",
+     "url": "https://standardebooks.org/ebooks/ralph-waldo-emerson/essays/downloads/ralph-waldo-emerson_essays.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 932896,
+     "sha256": "140f20164e33e5d9b18f2071fac94c5c886522c4e2a6dae7cf3194840ae3f496"
+    }
+   ]
+  },
+  {
+   "id": "batch2-leisure-class",
+   "work": "Thorstein Veblen, The Theory of the Leisure Class (1899); Standard Ebooks edition (CC0)",
+   "upstream": "https://github.com/standardebooks/thorstein-veblen_the-theory-of-the-leisure-class",
+   "licence": "US public domain: work 1899; Standard Ebooks edition (CC0); published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "thorstein-veblen_the-theory-of-the-leisure-class.epub",
+     "url": "https://standardebooks.org/ebooks/thorstein-veblen/the-theory-of-the-leisure-class/downloads/thorstein-veblen_the-theory-of-the-leisure-class.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 712240,
+     "sha256": "bb1b2e4530d50d7e7c3fb8e58abbe7cfa1297ffec4c3a97403ecce7e7602a6ec"
+    }
+   ]
+  },
+  {
+   "id": "batch2-tao-te-ching",
+   "work": "Laozi, Tao Te Ching (-400); Standard Ebooks edition (CC0), Legge translation 1891",
+   "upstream": "https://github.com/standardebooks/laozi_tao-te-ching_james-legge",
+   "licence": "US public domain: work 400 BCE; Standard Ebooks edition (CC0), Legge translation 1891; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "laozi_tao-te-ching_james-legge.epub",
+     "url": "https://standardebooks.org/ebooks/laozi/tao-te-ching/james-legge/downloads/laozi_tao-te-ching_james-legge.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 803239,
+     "sha256": "d4712f380304672afccc0b1a0ee0e7232fe1d528c838874b8dfe041582bd7207"
+    }
+   ]
+  },
+  {
+   "id": "batch2-analects",
+   "work": "Confucius, Analects (-475); Standard Ebooks edition (CC0), Legge translation",
+   "upstream": "https://github.com/standardebooks/confucius_analects_james-legge",
+   "licence": "US public domain: work 475 BCE; Standard Ebooks edition (CC0), Legge translation; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "confucius_analects_james-legge.epub",
+     "url": "https://standardebooks.org/ebooks/confucius/analects/james-legge/downloads/confucius_analects_james-legge.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 526365,
+     "sha256": "ea05aa93716b5866871e74a4e095bb92f426eb6f7ce324e54de8a8e48e1f2179"
+    }
+   ]
+  },
+  {
+   "id": "batch2-conquest-of-happiness",
+   "work": "Bertrand Russell, The Conquest of Happiness (1930); Allen & Unwin / Liveright 1930, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/77894",
+   "licence": "US public domain: work 1930; Allen & Unwin / Liveright 1930, Gutenberg; PD in the USA only (published 1930); in UK copyright until 2040 (Russell d. 1970)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg77894-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/77894/pg77894-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 392942,
+     "sha256": "4554f24fcca393052ca01ab552d142d4bd8b869ad027f4113007226c1c9fd78f"
+    }
+   ]
+  },
+  {
+   "id": "batch2-novum-organum",
+   "work": "Francis Bacon, Novum Organum (1620); ed. Joseph Devey, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/45988",
+   "licence": "US public domain: work 1620; ed. Joseph Devey, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg45988-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/45988/pg45988-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 379048,
+     "sha256": "fda6ad7a52ff2334a8d9739f3f3863856078466cfb2c6ffb3bb68b98f71d44c1"
+    }
+   ]
+  },
+  {
+   "id": "batch2-spinoza-ethics",
+   "work": "Benedict de Spinoza, Ethics (1677); Elwes translation 1883, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/3800",
+   "licence": "US public domain: work 1677; Elwes translation 1883, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg3800-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/3800/pg3800-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 226035,
+     "sha256": "7d45b9cabcd3e09f618e66af9f38466eb5e4b6c0901f36bd6838bc687301f1a8"
+    }
+   ]
+  },
+  {
+   "id": "batch2-locke-essay-1",
+   "work": "John Locke, An Essay Concerning Humane Understanding, Volume 1 (Books 1 and 2) (1689); based on the 2nd edition (1694), Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/10615",
+   "licence": "US public domain: work 1689; based on the 2nd edition (1694), Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg10615-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/10615/pg10615-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 540743,
+     "sha256": "db8c99562c413862480918d711cdde95df0270299cdecf713a8e18e3b66c8f07"
+    }
+   ]
+  },
+  {
+   "id": "batch2-locke-essay-2",
+   "work": "John Locke, An Essay Concerning Humane Understanding, Volume 2 (Books 3 and 4) (1689); based on the 2nd edition (1694), Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/10616",
+   "licence": "US public domain: work 1689; based on the 2nd edition (1694), Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg10616-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/10616/pg10616-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 349779,
+     "sha256": "610dd4fed19b98836d0fea9e22e1bcd4aef4cf8bc2fa4a57a2bd78f6ae944762"
+    }
+   ]
+  },
+  {
+   "id": "batch2-malthus-population",
+   "work": "Thomas Robert Malthus, An Essay on the Principle of Population (1798); 1st edition, J. Johnson 1798, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/4239",
+   "licence": "US public domain: work 1798; 1st edition, J. Johnson 1798, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg4239-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/4239/pg4239-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 189632,
+     "sha256": "85fc69594bc55dd5a4651e552f8ffa08358d1d1e53accea2d1c94c0ffeb3d0f5"
+    }
+   ]
+  },
+  {
+   "id": "batch2-aristotle-poetics",
+   "work": "Aristotle, Poetics (-335); Butcher translation, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/1974",
+   "licence": "US public domain: work 335 BCE; Butcher translation, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg1974-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/1974/pg1974-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 103187,
+     "sha256": "1f567490ec7aedab0e26a16fcba9ada78be5671aee383299fd9663a0d16beb33"
+    }
+   ]
+  },
+  {
+   "id": "batch2-aristotle-politics",
+   "work": "Aristotle, Politics: A Treatise on Government (-350); Ellis translation (1776; Everyman 1912), Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/6762",
+   "licence": "US public domain: work 350 BCE; Ellis translation (1776; Everyman 1912), Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg6762-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/6762/pg6762-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 288407,
+     "sha256": "d9429a498596328d337d38f8a8b2182c942f44739eaf05d4a09dd242e1336acc"
+    }
+   ]
+  },
+  {
+   "id": "batch2-provincial-letters",
+   "work": "Blaise Pascal, The Provincial Letters (1656); M'Crie translation, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/73959",
+   "licence": "US public domain: work 1656; M'Crie translation, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg73959-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/73959/pg73959-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 833015,
+     "sha256": "0f58c1b3114db7639af8255f911df3b024dfd0e10f3452e2ce86b4779ca2232d"
+    }
+   ]
+  },
+  {
+   "id": "batch2-pensees",
+   "work": "Blaise Pascal, Pensées (1670); Project Gutenberg #46921, The Thoughts of Blaise Pascal, trans. C. Kegan Paul from Molinier's text (Kegan Paul, 1885)",
+   "upstream": "https://www.gutenberg.org/ebooks/18269",
+   "licence": "US public domain: published 1670; translation 1885",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg46921-images-3.epub",
+     "url": "https://www.gutenberg.org/ebooks/46921.epub3.images",
+     "retrieved": "2026-10-15",
+     "size": 418433,
+     "sha256": "a7183c92e39ea25c467b7891179eb304601809f8124f98920de276fecbafb1cc"
+    }
+   ]
+  },
+  {
+   "id": "batch2-anabasis",
+   "work": "Xenophon, Anabasis (-370); Dakyns translation, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/1170",
+   "licence": "US public domain: work 370 BCE; Dakyns translation, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg1170-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/1170/pg1170-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 283253,
+     "sha256": "38277b6c1fefadf5767606511ba3eb12e97ff3ba51fc3abccc939cf370d865cc"
+    }
+   ]
+  },
+  {
+   "id": "batch2-memorabilia",
+   "work": "Xenophon, The Memorabilia (-371); Dakyns translation, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/1177",
+   "licence": "US public domain: work 371 BCE; Dakyns translation, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg1177-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/1177/pg1177-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 235342,
+     "sha256": "8e47fb960d79a7681be1fd5d68978bd495f116706e2749f24a5f4fa2e14db602"
+    }
+   ]
+  },
+  {
+   "id": "batch2-lucretius",
+   "work": "Lucretius, On the Nature of Things (-55); Leonard verse translation 1916, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/785",
+   "licence": "US public domain: work 55 BCE; Leonard verse translation 1916, Gutenberg; PD in the USA (Leonard translation 1916)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg785-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/785/pg785-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 255876,
+     "sha256": "f7b264d4046b2a946acbd83b3f5063aafb8f45ad9af99508a24a1d38e39ad2ac"
+    }
+   ]
+  },
+  {
+   "id": "batch2-livy-1",
+   "work": "Livy, The History of Rome, Books 1 to 8 (-27); Bohn's Classical Library (1849), Spillan translation, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/19725",
+   "licence": "US public domain: work 27 BCE; Bohn's Classical Library (1849), Spillan translation, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg19725-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/19725/pg19725-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 621638,
+     "sha256": "1089e19d1c5f016922c9849fd7cec2a6caf3e0f65518dec77bf4fabff616c0f5"
+    }
+   ]
+  },
+  {
+   "id": "batch2-tacitus-germany-agricola",
+   "work": "Tacitus, The Germany and the Agricola (98); Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/7524",
+   "licence": "US public domain: work 98; Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg7524-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/7524/pg7524-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 218080,
+     "sha256": "a7ba3ea08edd22b0a4b97622c11c9d8d2bac44f1e6474dfb88596ba96a7008eb"
+    }
+   ]
+  },
+  {
+   "id": "batch2-tacitus-histories",
+   "work": "Tacitus, The Histories (105); Fyfe translation 1912, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/16927",
+   "licence": "US public domain: work 105; Fyfe translation 1912, Gutenberg; PD in the USA (Fyfe translation 1912); UK copyright to 2035 (Fyfe d. 1965)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg16927-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/16927/pg16927-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 858614,
+     "sha256": "d2d870f6917cd390f64ee89a93b409e27275b9245a63156e7f3613153b12e2f5"
+    }
+   ]
+  },
+  {
+   "id": "batch2-plutarch-lives",
+   "work": "Plutarch, Lives of the Noble Grecians and Romans (100); Dryden translation, revised by A. H. Clough, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/674",
+   "licence": "US public domain: work 100; Dryden translation, revised by A. H. Clough, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg674-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/674/pg674-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 1767973,
+     "sha256": "70128889d940805a7aba50644edbf7a0ba248ad1fa8009b70cc9ad6fc738466b"
+    }
+   ]
+  },
+  {
+   "id": "batch2-vitruvius",
+   "work": "Vitruvius, The Ten Books on Architecture (-15); Morgan translation 1914, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/20239",
+   "licence": "US public domain: work 15 BCE; Morgan translation 1914, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg20239-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/20239/pg20239-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 14280597,
+     "sha256": "45f46c459ee553e2b9bffb07786718f55478f1f248b3f759a4ce2edf5644f42f"
+    }
+   ]
+  },
+  {
+   "id": "batch2-summa-theologica-1",
+   "work": "Thomas Aquinas, Summa Theologica, Part I (Prima Pars) (1268); Complete American Edition, Benziger Brothers, Gutenberg (CCEL transcription)",
+   "upstream": "https://www.gutenberg.org/ebooks/17611",
+   "licence": "US public domain: work 1268; Complete American Edition, Benziger Brothers, Gutenberg (CCEL transcription); published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg17611-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/17611/pg17611-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 976340,
+     "sha256": "a377f43ef9f7f95f54969e90fc3296c74a38106a75f0d53f13af10755e6386e8"
+    }
+   ]
+  },
+  {
+   "id": "batch2-montaigne-essays",
+   "work": "Michel de Montaigne, Essays (1580); Cotton translation, ed. W. C. Hazlitt, complete, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/3600",
+   "licence": "US public domain: work 1580; Cotton translation, ed. W. C. Hazlitt, complete, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg3600-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/3600/pg3600-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 1279014,
+     "sha256": "8c9f41e65d918f4f318aafaef89d820ff8594f6c5c865bc3cc3a9cfb3a4d8f19"
+    }
+   ]
+  },
+  {
+   "id": "batch2-praise-of-folly",
+   "work": "Desiderius Erasmus, The Praise of Folly (1511); Wilson translation 1668, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/9371",
+   "licence": "US public domain: work 1511; Wilson translation 1668, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg9371-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/9371/pg9371-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 147948,
+     "sha256": "840849e39e8bb9df916e1d57df213ddb69a62521b91fedd3f429af6cf711cdda"
+    }
+   ]
+  },
+  {
+   "id": "batch2-berkeley-principles",
+   "work": "George Berkeley, A Treatise Concerning the Principles of Human Knowledge (1710); Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/4723",
+   "licence": "US public domain: work 1710; Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg4723-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/4723/pg4723-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 173388,
+     "sha256": "610f1ebfbcf1f5efd4582af7e649e979fe98f36a79ceb2772355e797f0144a45"
+    }
+   ]
+  },
+  {
+   "id": "batch2-critique-of-pure-reason",
+   "work": "Immanuel Kant, The Critique of Pure Reason (1781); Meiklejohn translation, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/4280",
+   "licence": "US public domain: work 1781; Meiklejohn translation, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg4280-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/4280/pg4280-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 628556,
+     "sha256": "b85e83c9c71399050e3034ebe5374ac1877bad61ba2336044ca58e99c89181d7"
+    }
+   ]
+  },
+  {
+   "id": "batch2-democracy-in-america-1",
+   "work": "Alexis de Tocqueville, Democracy in America, Volume 1 (1835); Reeve translation, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/815",
+   "licence": "US public domain: work 1835; Reeve translation, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg815-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/815/pg815-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 542330,
+     "sha256": "79561700605a805f35339551a269cca2326c9e2db1c2bb86fccbdea323f81eba"
+    }
+   ]
+  },
+  {
+   "id": "batch2-democracy-in-america-2",
+   "work": "Alexis de Tocqueville, Democracy in America, Volume 2 (1840); Reeve translation, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/816",
+   "licence": "US public domain: work 1840; Reeve translation, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg816-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/816/pg816-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 411782,
+     "sha256": "0402ad43bdc37fb36b4092d6067f248ad6d0719c9454da4bb74cc9773d70e082"
+    }
+   ]
+  },
+  {
+   "id": "batch2-world-as-will-1",
+   "work": "Arthur Schopenhauer, The World as Will and Idea, Volume 1 (1818); Haldane & Kemp translation, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/38427",
+   "licence": "US public domain: work 1818; Haldane & Kemp translation, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg38427-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/38427/pg38427-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 883349,
+     "sha256": "941ea5de431ee29380b814c57c5e62d20ec7f5919b03ad9e6cf1f487f7ddbcbd"
+    }
+   ]
+  },
+  {
+   "id": "batch2-chance-love-logic",
+   "work": "Charles S. Peirce, Chance, Love, and Logic (1923); ed. Morris R. Cohen, with an essay by John Dewey, 1923, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/65274",
+   "licence": "US public domain: work 1923; ed. Morris R. Cohen, with an essay by John Dewey, 1923, Gutenberg; PD in the USA (published 1923)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg65274-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/65274/pg65274-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 453416,
+     "sha256": "82eb24d633e0b80c429f5bace3bad40231c6502721e6617d65c375fdda83ac06"
+    }
+   ]
+  },
+  {
+   "id": "batch2-science-and-the-modern-world",
+   "work": "Alfred North Whitehead, Science and the Modern World (1925); Macmillan 1925, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/68611",
+   "licence": "US public domain: work 1925; Macmillan 1925, Gutenberg; PD in the USA (published 1925)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg68611-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/68611/pg68611-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 426769,
+     "sha256": "8750d408ec657f4edc372c2a6e653049fd1ae48da01a070465ede726c6d35f75"
+    }
+   ]
+  },
+  {
+   "id": "batch2-on-war",
+   "work": "Carl von Clausewitz, On War (1832); Graham translation, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/1946",
+   "licence": "US public domain: work 1832; Graham translation, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg1946-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/1946/pg1946-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 913036,
+     "sha256": "ef25510b5da8aca7a1be979097a595fd0b53915f72ca6911630838ac004fa851"
+    }
+   ]
+  },
+  {
+   "id": "batch2-sea-power",
+   "work": "Alfred Thayer Mahan, The Influence of Sea Power upon History, 1660-1783 (1890); Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/13529",
+   "licence": "US public domain: work 1890; Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg13529-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/13529/pg13529-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 3808675,
+     "sha256": "a9f8dc8ed1a63dbd382f8f5e0d1f0fb03989f33a5b937e94fe6a10d75560dbee"
+    }
+   ]
+  },
+  {
+   "id": "batch2-scientific-management",
+   "work": "Frederick Winslow Taylor, The Principles of Scientific Management (1911); Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/6435",
+   "licence": "US public domain: work 1911; Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg6435-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/6435/pg6435-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 161288,
+     "sha256": "293894718be0720f4eeab191f189599f0b5c6a18e07eaafb2f812747eeb63c8b"
+    }
+   ]
+  },
+  {
+   "id": "batch2-my-life-and-work",
+   "work": "Henry Ford, My Life and Work (1922); with Samuel Crowther, 1922, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/7213",
+   "licence": "US public domain: work 1922; with Samuel Crowther, 1922, Gutenberg; PD in the USA (published 1922)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg7213-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/7213/pg7213-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 285451,
+     "sha256": "e1655f8b680f80553a2614c5080e8a2f90eec5b45743a3091b2dec84e6bf2654"
+    }
+   ]
+  },
+  {
+   "id": "batch2-carnot-motive-power",
+   "work": "Sadi Carnot, Reflections on the Motive Power of Heat (1824); Thurston translation, with Kelvin's account of Carnot's theory, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/78610",
+   "licence": "US public domain: work 1824; Thurston translation, with Kelvin's account of Carnot's theory, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg78610-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/78610/pg78610-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 1555340,
+     "sha256": "989c2ac470d9d73402f875edd36fa87d9e5a8a9ad4a9804dedc2915702e069bd"
+    }
+   ]
+  },
+  {
+   "id": "batch2-foundations-of-science",
+   "work": "Henri Poincaré, The Foundations of Science (1902); Halsted translation 1913, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/39713",
+   "licence": "US public domain: work 1902; Halsted translation 1913, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg39713-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/39713/pg39713-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 559335,
+     "sha256": "9e35f4e2ee3e168ee937fc4e9f5f72d2dd62147a59575c86fa8c46e0fa0b07bd"
+    }
+   ]
+  },
+  {
+   "id": "batch2-principles-of-science",
+   "work": "William Stanley Jevons, The Principles of Science (1874); Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/74864",
+   "licence": "US public domain: work 1874; Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg74864-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/74864/pg74864-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 1485697,
+     "sha256": "eb92fae4ee5520cf2026bed02ebe45a12ea8fd07d13946bfbd81c2882bf12914"
+    }
+   ]
+  },
+  {
+   "id": "batch2-principles-of-geology",
+   "work": "Charles Lyell, Principles of Geology (1830); 9th edition, revised, 1853, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/33224",
+   "licence": "US public domain: work 1830; 9th edition, revised, 1853, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg33224-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/33224/pg33224-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 8894381,
+     "sha256": "42f5f2442dfe4fab71f28f4b40c3464a4b6445c0f5753a90804d096d7d60d0be"
+    }
+   ]
+  },
+  {
+   "id": "batch2-mendel-heredity",
+   "work": "William Bateson; Gregor Mendel, Mendel's Principles of Heredity: A Defence (1902); Cambridge 1902, with Mendel's papers translated, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/69362",
+   "licence": "US public domain: work 1902; Cambridge 1902, with Mendel's papers translated, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg69362-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/69362/pg69362-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 626880,
+     "sha256": "e1cb44de47151f4cbd234dd630f2ed85627185749c9294a21334404c62c21324"
+    }
+   ]
+  },
+  {
+   "id": "batch2-snow-cholera",
+   "work": "John Snow, On the Mode of Communication of Cholera (1849); 2nd edition, much enlarged, 1855, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/72894",
+   "licence": "US public domain: work 1849; 2nd edition, much enlarged, 1855, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg72894-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/72894/pg72894-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 2882904,
+     "sha256": "54d196db4d998208420665ac5a7ac87adef3577d44d62b1cf0fa92c43cdb5fde"
+    }
+   ]
+  },
+  {
+   "id": "batch2-farmers-of-forty-centuries",
+   "work": "F. H. King, Farmers of Forty Centuries (1911); Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/5350",
+   "licence": "US public domain: work 1911; Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg5350-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/5350/pg5350-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 305720,
+     "sha256": "5869b167a3f413f71902ed072ea24e8fec0fb5d3c68fa52ee0d6480f7a46b735"
+    }
+   ]
+  },
+  {
+   "id": "batch2-faraday-researches-1",
+   "work": "Michael Faraday, Experimental Researches in Electricity, Volume 1 (1839); 2nd edition, Taylor 1849 (Series I-XIV), Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/14986",
+   "licence": "US public domain: work 1839; 2nd edition, Taylor 1849 (Series I-XIV), Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg14986-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/14986/pg14986-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 613552,
+     "sha256": "4dc5c0b19addc108ddf1c448f08a90c1510228d839b30b3cadb3eb46b8dc212c"
+    }
+   ]
+  },
+  {
+   "id": "batch2-bhagavad-gita",
+   "work": "Anonymous, The Song Celestial, or Bhagavad-Gita (-200); Arnold verse translation (1885), Truslove, Hanson & Comba 1900, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/2388",
+   "licence": "US public domain: work 200 BCE; Arnold verse translation (1885), Truslove, Hanson & Comba 1900, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg2388-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/2388/pg2388-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 141990,
+     "sha256": "30b8c022add9b06fcbadfc2f61da10db2dd2844911c98bed8550888345eccd06"
+    }
+   ]
+  },
+  {
+   "id": "batch2-dhammapada",
+   "work": "Anonymous, The Dhammapada (-250); Sacred Books of the East vol. 10 (1881), Gutenberg; Müller's introduction and notes omitted by Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/2017",
+   "licence": "US public domain: work 250 BCE; Sacred Books of the East vol. 10 (1881), Gutenberg; Müller's introduction and notes omitted by Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg2017-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/2017/pg2017-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 124888,
+     "sha256": "68a614241187052977e2c3aa108088311dffb8e5f13b29241a2d0210dc9a1f52"
+    }
+   ]
+  },
+  {
+   "id": "batch2-system-of-logic",
+   "work": "John Stuart Mill, A System of Logic, Ratiocinative and Inductive (1843); 8th edition, Harper 1882, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/27942",
+   "licence": "US public domain: work 1843; 8th edition, Harper 1882, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg27942-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/27942/pg27942-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 1170056,
+     "sha256": "8db8b676ddfb21c9382b0e7a78b186cdb14dbe65ded9291b4b95f7181b1e9a26"
+    }
+   ]
+  },
+  {
+   "id": "batch2-utilitarianism",
+   "work": "John Stuart Mill, Utilitarianism (1861); 7th edition, Longmans 1879, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/11224",
+   "licence": "US public domain: work 1861; 7th edition, Longmans 1879, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg11224-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/11224/pg11224-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 127597,
+     "sha256": "5ca6a1c07695a638d376c1bc8ba564e31745e247620f89c58b0c2a3d01eed06e"
+    }
+   ]
+  },
+  {
+   "id": "batch2-iliad",
+   "work": "Homer, The Iliad (-750); Standard Ebooks edition (CC0), Bryant blank-verse translation 1870",
+   "upstream": "https://github.com/standardebooks/homer_the-iliad_william-cullen-bryant",
+   "licence": "US public domain: work 750 BCE; Standard Ebooks edition (CC0), Bryant blank-verse translation 1870; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "homer_the-iliad_william-cullen-bryant.epub",
+     "url": "https://standardebooks.org/ebooks/homer/the-iliad/william-cullen-bryant/downloads/homer_the-iliad_william-cullen-bryant.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 803905,
+     "sha256": "2dcf8921e448ce92b0dc7265621b4c47d518831073d82d2da342fa9d18581399"
+    }
+   ]
+  },
+  {
+   "id": "batch2-odyssey",
+   "work": "Homer, The Odyssey (-725); Standard Ebooks edition (CC0), Bryant blank-verse translation 1871",
+   "upstream": "https://github.com/standardebooks/homer_the-odyssey_william-cullen-bryant",
+   "licence": "US public domain: work 725 BCE; Standard Ebooks edition (CC0), Bryant blank-verse translation 1871; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "homer_the-odyssey_william-cullen-bryant.epub",
+     "url": "https://standardebooks.org/ebooks/homer/the-odyssey/william-cullen-bryant/downloads/homer_the-odyssey_william-cullen-bryant.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 976128,
+     "sha256": "fc142346de4014f50b67e2fbc60e31f169233c445ea02b53ddee3c4f54f6433d"
+    }
+   ]
+  },
+  {
+   "id": "batch2-hesiod",
+   "work": "Hesiod, Hesiod, the Homeric Hymns, and Homerica (-700); Loeb 1914, Evelyn-White prose translation, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/348",
+   "licence": "US public domain: work 700 BCE; Loeb 1914, Evelyn-White prose translation, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg348-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/348/pg348-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 500763,
+     "sha256": "77edd122837382ded7ee34257d90a39bef25fcfd7585990b99b2ea41aaefbc47"
+    }
+   ]
+  },
+  {
+   "id": "batch2-agamemnon",
+   "work": "Aeschylus, Agamemnon (-458); Standard Ebooks edition (CC0), Murray translation 1920",
+   "upstream": "https://github.com/standardebooks/aeschylus_agamemnon_gilbert-murray",
+   "licence": "US public domain: work 458 BCE; Standard Ebooks edition (CC0), Murray translation 1920; PD in the USA (Murray translation 1920); UK copyright to 2027 (Murray d. 1957); Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "aeschylus_agamemnon_gilbert-murray.epub",
+     "url": "https://standardebooks.org/ebooks/aeschylus/agamemnon/gilbert-murray/downloads/aeschylus_agamemnon_gilbert-murray.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 493918,
+     "sha256": "7f47ffd0813513f4f4f4770df98762d323b00c566381d7916c1f4040900b6eb8"
+    }
+   ]
+  },
+  {
+   "id": "batch2-libation-bearers",
+   "work": "Aeschylus, The Libation Bearers (-458); Standard Ebooks edition (CC0), Murray translation 1923",
+   "upstream": "https://github.com/standardebooks/aeschylus_the-libation-bearers_gilbert-murray",
+   "licence": "US public domain: work 458 BCE; Standard Ebooks edition (CC0), Murray translation 1923; PD in the USA (Murray translation 1923); UK copyright to 2027 (Murray d. 1957); Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "aeschylus_the-libation-bearers_gilbert-murray.epub",
+     "url": "https://standardebooks.org/ebooks/aeschylus/the-libation-bearers/gilbert-murray/downloads/aeschylus_the-libation-bearers_gilbert-murray.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 435608,
+     "sha256": "253cee4309d74ec57505cc742fc07b6650c3459283999d6b4261700d0df459af"
+    }
+   ]
+  },
+  {
+   "id": "batch2-eumenides",
+   "work": "Aeschylus, The Eumenides (-458); Standard Ebooks edition (CC0), Murray translation 1925",
+   "upstream": "https://github.com/standardebooks/aeschylus_the-eumenides_gilbert-murray",
+   "licence": "US public domain: work 458 BCE; Standard Ebooks edition (CC0), Murray translation 1925; PD in the USA (Murray translation 1925); UK copyright to 2027 (Murray d. 1957); Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "aeschylus_the-eumenides_gilbert-murray.epub",
+     "url": "https://standardebooks.org/ebooks/aeschylus/the-eumenides/gilbert-murray/downloads/aeschylus_the-eumenides_gilbert-murray.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 473274,
+     "sha256": "bd43d2b3d91b57b4e35769f03ca1bb52fcc78e2236a4723ea6e9711ee5b34274"
+    }
+   ]
+  },
+  {
+   "id": "batch2-aeschylus-four-plays",
+   "work": "Aeschylus, Four Plays of Aeschylus (-472); Morshead translation, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/8714",
+   "licence": "US public domain: work 472 BCE; Morshead translation, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg8714-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/8714/pg8714-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 296645,
+     "sha256": "e01485c22d5d7ae7d1391d3fd48ff8cdd0949064493595db790012f23aed0d5d"
+    }
+   ]
+  },
+  {
+   "id": "batch2-oedipus-the-king",
+   "work": "Sophocles, Oedipus the King (-429); Standard Ebooks edition (CC0), Storr translation 1912",
+   "upstream": "https://github.com/standardebooks/sophocles_oedipus-rex_francis-storr",
+   "licence": "US public domain: work 429 BCE; Standard Ebooks edition (CC0), Storr translation 1912; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "sophocles_oedipus-rex_francis-storr.epub",
+     "url": "https://standardebooks.org/ebooks/sophocles/oedipus-rex/francis-storr/downloads/sophocles_oedipus-rex_francis-storr.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 457833,
+     "sha256": "7f8d2e1fd11e8abfcfb0c0c5db2efe14af401de3421342c112bb3986df4e394d"
+    }
+   ]
+  },
+  {
+   "id": "batch2-oedipus-at-colonus",
+   "work": "Sophocles, Oedipus at Colonus (-401); Standard Ebooks edition (CC0), Storr translation 1912",
+   "upstream": "https://github.com/standardebooks/sophocles_oedipus-at-colonus_francis-storr",
+   "licence": "US public domain: work 401 BCE; Standard Ebooks edition (CC0), Storr translation 1912; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "sophocles_oedipus-at-colonus_francis-storr.epub",
+     "url": "https://standardebooks.org/ebooks/sophocles/oedipus-at-colonus/francis-storr/downloads/sophocles_oedipus-at-colonus_francis-storr.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 490371,
+     "sha256": "91fcdd37e805dabae6d251c702c1e7450cb01aef1fa996dc9c6ad7fa8bf255b1"
+    }
+   ]
+  },
+  {
+   "id": "batch2-antigone",
+   "work": "Sophocles, Antigone (-441); Standard Ebooks edition (CC0), Storr translation 1912",
+   "upstream": "https://github.com/standardebooks/sophocles_antigone_francis-storr",
+   "licence": "US public domain: work 441 BCE; Standard Ebooks edition (CC0), Storr translation 1912; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "sophocles_antigone_francis-storr.epub",
+     "url": "https://standardebooks.org/ebooks/sophocles/antigone/francis-storr/downloads/sophocles_antigone_francis-storr.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 480285,
+     "sha256": "584a3317e9b5d96dc4ef1e51d246673bb195076275eecb9ee6fb66f2557d94bc"
+    }
+   ]
+  },
+  {
+   "id": "batch2-philoctetes",
+   "work": "Sophocles, Philoctetes (-409); Standard Ebooks edition (CC0), Storr translation 1913",
+   "upstream": "https://github.com/standardebooks/sophocles_philoctetes_francis-storr",
+   "licence": "US public domain: work 409 BCE; Standard Ebooks edition (CC0), Storr translation 1913; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "sophocles_philoctetes_francis-storr.epub",
+     "url": "https://standardebooks.org/ebooks/sophocles/philoctetes/francis-storr/downloads/sophocles_philoctetes_francis-storr.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 526689,
+     "sha256": "4d40b7acfad81a4952e26cd03d4bf6fffb0db737e5ed7c2d98119708ece317dc"
+    }
+   ]
+  },
+  {
+   "id": "batch2-medea",
+   "work": "Euripides, Medea (-431); Murray translation 1906, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/35451",
+   "licence": "US public domain: work 431 BCE; Murray translation 1906, Gutenberg; PD in the USA (Murray translation 1906); UK copyright to 2027 (Murray d. 1957)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg35451-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/35451/pg35451-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 127148,
+     "sha256": "a79f1f4d690c43dd84821c2d2840033a2784f6850a7db5852be3adfb575c9904"
+    }
+   ]
+  },
+  {
+   "id": "batch2-hippolytus-bacchae",
+   "work": "Euripides, Hippolytus; The Bacchae (-428); Murray translations 1902, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/8418",
+   "licence": "US public domain: work 428 BCE; Murray translations 1902, Gutenberg; PD in the USA (Murray translations 1902); UK copyright to 2027 (Murray d. 1957)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg8418-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/8418/pg8418-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 139125,
+     "sha256": "71bc285219dd7fdb5a9697c770fc83ef92d4bc5b1713688a6dc9a8c1e0987ed0"
+    }
+   ]
+  },
+  {
+   "id": "batch2-trojan-women",
+   "work": "Euripides, The Trojan Women (-415); Murray translation 1905, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/35171",
+   "licence": "US public domain: work 415 BCE; Murray translation 1905, Gutenberg; PD in the USA (Murray translation 1905); UK copyright to 2027 (Murray d. 1957)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg35171-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/35171/pg35171-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 130578,
+     "sha256": "98ff369f3cb2afe6a62ceb9e8d9a2374794ec3a133117296c190f7da32759116"
+    }
+   ]
+  },
+  {
+   "id": "batch2-iphigenia-in-tauris",
+   "work": "Euripides, Iphigenia in Tauris (-414); Murray translation 1910, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/5063",
+   "licence": "US public domain: work 414 BCE; Murray translation 1910, Gutenberg; PD in the USA (Murray translation 1910); UK copyright to 2027 (Murray d. 1957)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg5063-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/5063/pg5063-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 130503,
+     "sha256": "c4be5dc1dd7ec17b45a544010127d11586c5ce7f47beddaa1be49bc59c83283b"
+    }
+   ]
+  },
+  {
+   "id": "batch2-alcestis",
+   "work": "Euripides, Alcestis (-438); Murray translation 1915, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/10523",
+   "licence": "US public domain: work 438 BCE; Murray translation 1915, Gutenberg; PD in the USA (Murray translation 1915); UK copyright to 2027 (Murray d. 1957)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg10523-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/10523/pg10523-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 109164,
+     "sha256": "2eda9200084f9386cf5f20e2868cfb8e657c5148c79b4dac180d4be4ded6d384"
+    }
+   ]
+  },
+  {
+   "id": "batch2-aristophanes-comedies-1",
+   "work": "Aristophanes, The Eleven Comedies, Volume 1 (-425); Athenian Society translation 1912, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/8688",
+   "licence": "US public domain: work 425 BCE; Athenian Society translation 1912, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg8688-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/8688/pg8688-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 305102,
+     "sha256": "0055cfaae063d815c6729aa0c2a0cbc1e51c5c77cf56388d41228c9cac2f094e"
+    }
+   ]
+  },
+  {
+   "id": "batch2-the-birds",
+   "work": "Aristophanes, The Birds (-414); Standard Ebooks edition (CC0), Athenian Society translation 1912",
+   "upstream": "https://github.com/standardebooks/aristophanes_the-birds_the-athenian-society",
+   "licence": "US public domain: work 414 BCE; Standard Ebooks edition (CC0), Athenian Society translation 1912; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "aristophanes_the-birds_the-athenian-society.epub",
+     "url": "https://standardebooks.org/ebooks/aristophanes/the-birds/the-athenian-society/downloads/aristophanes_the-birds_the-athenian-society.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 615101,
+     "sha256": "60edddab9203bcce0dae1f12dcd47d8b277a204889119504881f04bbb62d0855"
+    }
+   ]
+  },
+  {
+   "id": "batch2-the-frogs",
+   "work": "Aristophanes, The Frogs (-405); Harvard Classics vol. 8 (1909), Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/7998",
+   "licence": "US public domain: work 405 BCE; Harvard Classics vol. 8 (1909), Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg7998-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/7998/pg7998-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 103716,
+     "sha256": "1fbcad9789f6a839e3a3ef33a2d1f1509f82e1f8bf410a35c2efffea34f9e741"
+    }
+   ]
+  },
+  {
+   "id": "batch2-aeneid",
+   "work": "Virgil, The Aeneid (-19); Standard Ebooks edition (CC0), Dryden translation 1697",
+   "upstream": "https://github.com/standardebooks/virgil_the-aeneid_john-dryden",
+   "licence": "US public domain: work 19 BCE; Standard Ebooks edition (CC0), Dryden translation 1697; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "virgil_the-aeneid_john-dryden.epub",
+     "url": "https://standardebooks.org/ebooks/virgil/the-aeneid/john-dryden/downloads/virgil_the-aeneid_john-dryden.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 676705,
+     "sha256": "1611889c517bceed4384b7b2b9c633718aa9f90cfa265229283a59c13e1f7c62"
+    }
+   ]
+  },
+  {
+   "id": "batch2-georgics",
+   "work": "Virgil, The Georgics (-29); Standard Ebooks edition (CC0), Dryden translation 1697",
+   "upstream": "https://github.com/standardebooks/virgil_the-georgics_john-dryden",
+   "licence": "US public domain: work 29 BCE; Standard Ebooks edition (CC0), Dryden translation 1697; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "virgil_the-georgics_john-dryden.epub",
+     "url": "https://standardebooks.org/ebooks/virgil/the-georgics/john-dryden/downloads/virgil_the-georgics_john-dryden.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 862941,
+     "sha256": "820c4096a0d0a33473fb501baf818235e38853d80b700302e7c9f74f8d8a48a3"
+    }
+   ]
+  },
+  {
+   "id": "batch2-eclogues",
+   "work": "Virgil, The Eclogues (-38); Standard Ebooks edition (CC0), Dryden translation 1697",
+   "upstream": "https://github.com/standardebooks/virgil_the-eclogues_john-dryden",
+   "licence": "US public domain: work 38 BCE; Standard Ebooks edition (CC0), Dryden translation 1697; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "virgil_the-eclogues_john-dryden.epub",
+     "url": "https://standardebooks.org/ebooks/virgil/the-eclogues/john-dryden/downloads/virgil_the-eclogues_john-dryden.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 596497,
+     "sha256": "74f8517436045f272044fc9a511dca85d9dcc57829c4ac62fd4b22016aa52134"
+    }
+   ]
+  },
+  {
+   "id": "batch2-metamorphoses",
+   "work": "Ovid, Metamorphoses (8); Standard Ebooks edition (CC0), Garth's 1717 composite translation",
+   "upstream": "https://github.com/standardebooks/ovid_metamorphoses_various-translators",
+   "licence": "US public domain: work 8; Standard Ebooks edition (CC0), Garth's 1717 composite translation; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "ovid_metamorphoses_various-translators.epub",
+     "url": "https://standardebooks.org/ebooks/ovid/metamorphoses/various-translators/downloads/ovid_metamorphoses_various-translators.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 1249443,
+     "sha256": "4a1e5fddc1cc7babdf8db69b1c2078031bc4f86d692328d044a5749362e693f4"
+    }
+   ]
+  },
+  {
+   "id": "batch2-divine-comedy",
+   "work": "Dante Alighieri, The Divine Comedy (1320); Standard Ebooks edition (CC0), Longfellow translation 1867",
+   "upstream": "https://github.com/standardebooks/dante-alighieri_the-divine-comedy_henry-wadsworth-longfellow",
+   "licence": "US public domain: work 1320; Standard Ebooks edition (CC0), Longfellow translation 1867; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "dante-alighieri_the-divine-comedy_henry-wadsworth-longfellow.epub",
+     "url": "https://standardebooks.org/ebooks/dante-alighieri/the-divine-comedy/henry-wadsworth-longfellow/downloads/dante-alighieri_the-divine-comedy_henry-wadsworth-longfellow.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 1539040,
+     "sha256": "0967637b28326932bdac0738703bc4b7dc6f508574a67c38ee6f55a8f74a1c16"
+    }
+   ]
+  },
+  {
+   "id": "batch2-canterbury-tales",
+   "work": "Geoffrey Chaucer, The Canterbury Tales (1400); Standard Ebooks edition (CC0), Purves's text in the original Middle English",
+   "upstream": "https://github.com/standardebooks/geoffrey-chaucer_the-canterbury-tales",
+   "licence": "US public domain: work 1400; Standard Ebooks edition (CC0), Purves's text in the original Middle English; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "geoffrey-chaucer_the-canterbury-tales.epub",
+     "url": "https://standardebooks.org/ebooks/geoffrey-chaucer/the-canterbury-tales/downloads/geoffrey-chaucer_the-canterbury-tales.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 1171646,
+     "sha256": "249fd148da5ec3680a9ba3aefdc8656534936dc04a99779a3c20346cab478ea4"
+    }
+   ]
+  },
+  {
+   "id": "batch2-book-of-enoch",
+   "work": "Anonymous, The Book of Enoch (-200); SPCK 1917, intro by W. O. E. Oesterley, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/77935",
+   "licence": "US public domain: work 200 BCE; SPCK 1917, intro by W. O. E. Oesterley, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg77935-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/77935/pg77935-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 269040,
+     "sha256": "5d7e0786780878e93526284257651a8c960a7474e0f9fa554239205740e0aab2"
+    }
+   ]
+  },
+  {
+   "id": "batch2-apostolic-fathers",
+   "work": "Clement of Rome; Ignatius; Polycarp; Hermas; and others, The Writings of the Apostolic Fathers (100); Ante-Nicene Christian Library vol. 1, T&T Clark 1870, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/77576",
+   "licence": "US public domain: work 100; Ante-Nicene Christian Library vol. 1, T&T Clark 1870, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg77576-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/77576/pg77576-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 641824,
+     "sha256": "a5b023d6c806df837058149d82b6bfda5eb53cbeb5e62c3bf07241994782e365"
+    }
+   ]
+  },
+  {
+   "id": "batch2-origen-1",
+   "work": "Origen, The Writings of Origen, Volume 1 (230); Ante-Nicene Christian Library vol. 10, T&T Clark 1869, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/70561",
+   "licence": "US public domain: work 230; Ante-Nicene Christian Library vol. 10, T&T Clark 1869, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg70561-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/70561/pg70561-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 716297,
+     "sha256": "76f5fd24cd194b2b03dde81ac5ff5521148ff67f853f9103fc38c40df3399db3"
+    }
+   ]
+  },
+  {
+   "id": "batch2-origen-2",
+   "work": "Origen, The Writings of Origen, Volume 2 (248); Ante-Nicene Christian Library vol. 23, T&T Clark 1872, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/70693",
+   "licence": "US public domain: work 248; Ante-Nicene Christian Library vol. 23, T&T Clark 1872, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg70693-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/70693/pg70693-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 883292,
+     "sha256": "20dd7062731caaca4967ef772c5a3f3d6fe4f04abd152d693899d630869ac49c"
+    }
+   ]
+  },
+  {
+   "id": "batch2-confessions",
+   "work": "Augustine of Hippo, The Confessions of St. Augustine (400); Pusey translation 1838, Gutenberg",
+   "upstream": "https://www.gutenberg.org/ebooks/3296",
+   "licence": "US public domain: work 400; Pusey translation 1838, Gutenberg; published before 1931: public domain in the USA",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "pg3296-images-3.epub",
+     "url": "https://www.gutenberg.org/cache/epub/3296/pg3296-images-3.epub",
+     "retrieved": "2026-10-15",
+     "size": 458087,
+     "sha256": "5c6bf0987a4b955650d047cb354d06032f3319a93b3295037ac4716c8125a9cf"
+    }
+   ]
+  },
+  {
+   "id": "batch2-city-of-god",
+   "work": "Augustine of Hippo, The City of God (426); Standard Ebooks edition (CC0), Dods translation 1871",
+   "upstream": "https://github.com/standardebooks/augustine-of-hippo_the-city-of-god_marcus-dods_george-wilson_j-j-smith",
+   "licence": "US public domain: work 426; Standard Ebooks edition (CC0), Dods translation 1871; published before 1931: public domain in the USA; Standard Ebooks dedicates its edition to the public domain (CC0)",
+   "status": "cleared",
+   "files": [
+    {
+     "name": "augustine-of-hippo_the-city-of-god_marcus-dods_george-wilson_j-j-smith.epub",
+     "url": "https://standardebooks.org/ebooks/augustine-of-hippo/the-city-of-god/marcus-dods_george-wilson_j-j-smith/downloads/augustine-of-hippo_the-city-of-god_marcus-dods_george-wilson_j-j-smith.epub?source=download",
+     "retrieved": "2026-10-15",
+     "size": 1615277,
+     "sha256": "fa346acdf8870f88787a86756c5999f614fe334c4a71f87d3f4ce7632f198803"
+    }
+   ]
   }
  ]
 }

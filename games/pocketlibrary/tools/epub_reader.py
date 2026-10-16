@@ -209,6 +209,11 @@ class Walker:
     def block(self, element: ElementTree.Element, quote: bool) -> None:
         tag = local(element.tag)
         kinds = epub_types(element)
+        # Project Gutenberg's own header and licence, and the lines between them and the
+        # book, are the distributor's, not the book's.
+        if boilerplate(element):
+            self.book.dropped["Project Gutenberg's header, licence and separators"] += 1
+            return
         if tag in ("h1", "h2", "h3", "h4", "h5", "h6") or (tag == "hgroup"):
             text = heading_text(element)
             if not text:
@@ -357,7 +362,7 @@ class Walker:
         elif tag == "br":
             self.writer.trim()
             self.writer.paragraph("flush")
-        elif tag == "span" and ("pagenum" in classes or "pagebreak" in kinds):
+        elif tag == "span" and ("pagenum" in classes or "tei-pb" in classes or "pagebreak" in kinds):
             self.book.dropped["page numbers of the printed edition"] += 1
         elif tag in ("img", "svg"):
             self.book.dropped["pictures"] += 1
@@ -380,6 +385,22 @@ class Walker:
             self.book.dropped["note references without their note"] += 1
             return
         label = heading_text(anchor) or "*"
+        if self.in_note:
+            # A note on a note (an editor's comment on the author's note, as in Gibbon):
+            # the reader sets no note inside a note, so it stands in brackets in its own.
+            self.book.dropped["notes on notes (each set in brackets inside its note)"] += 1
+            self.writer.text(" [")
+            first = True
+            for child in note:
+                if local(child.tag) in ("p", "div", "blockquote"):
+                    if not first:
+                        self.writer.text(" ")
+                    self.inlines(child)
+                    first = False
+            if first:
+                self.inlines(note)
+            self.writer.text("]")
+            return
         self.book.add("N", label)
         self.in_note = True
         first = True
@@ -394,6 +415,25 @@ class Walker:
         self.writer.trim()
         self.in_note = False
         self.book.add("E")
+
+
+def boilerplate(element: ElementTree.Element) -> bool:
+    """Project Gutenberg's own header, licence and "*** START/END OF ***" lines."""
+    return "pg-boilerplate" in (element.get("class") or "").split() or (element.get("id") or "") in (
+        "pg-header", "pg-footer", "pg-start-separator", "pg-end-separator")
+
+
+def first_heading(element: ElementTree.Element) -> str:
+    """The text of the first heading in a document, outside Gutenberg's boilerplate."""
+    if boilerplate(element):
+        return ""
+    if local(element.tag) in ("h1", "h2", "h3", "h4", "h5", "h6"):
+        return heading_text(element)
+    for child in element:
+        text = first_heading(child)
+        if text:
+            return text
+    return ""
 
 
 def import_epub(data: bytes, book: typing.Any, division_id: str) -> None:
@@ -418,12 +458,6 @@ def import_epub(data: bytes, book: typing.Any, division_id: str) -> None:
             book.dropped["the publisher's pages (title page, imprint, colophon, licence)"] += 1
             continue
         # The chapter is named by its first heading.
-        label = ""
-        for element in body.iter():
-            if local(element.tag) in ("h1", "h2", "h3", "h4", "h5", "h6"):
-                label = heading_text(element)
-                if label:
-                    break
-        book.add("C", label)
+        book.add("C", first_heading(body))
         walker = Walker(writer, epub, path, notes)
         walker.blocks(body)

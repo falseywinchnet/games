@@ -170,7 +170,7 @@ PlaySuite has **26 games**: FreeCell, Hearts, Koi-Koi, Solitaire, Spider, TriPea
 <td width="50%" valign="top">
 <a href="games/pocketlibrary"><img src="games/pocketlibrary/screens/readme.jpg" alt="Pocket Library" width="100%"></a>
 <br><b><a href="games/pocketlibrary">Pocket Library</a></b> · Bookshelf
-<br>A bookcase of 343 books in the public domain, from the Bible and Strong&#x27;s to Dickens, Tolstoy, Shakespeare and Oz, each set as a printed book on India paper and opened to the page you left.
+<br>A bookcase of 472 books, from the Bible, the Talmud and the lexicons to Plato, Darwin, Dickens, Tolstoy, Shakespeare and Oz, each set as a printed book on the paper you choose and opened to the page you left.
 </td>
 </tr>
 <tr>

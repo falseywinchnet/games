@@ -11,10 +11,14 @@ not failed is added:
   - sources.lock.json gains its pin (a book public only de facto says so in its status);
   - catalogue.json gains its entry, read by the general EPUB importer.
 
-The catalogue is then put in shelf order: Scripture and Reference as they stand, then
-Fiction, Science fiction, Fantasy, Drama, Poetry and Children's; within a category by the
-author's surname, then first publication, then title. Ids already in the catalogue are
-kept as they are.
+The catalogue is then put in shelf order: Scripture, Rabbinic writings, Church Fathers
+and Reference as they stand, then Philosophy, History, Society, Science, Fiction, Science
+fiction, Fantasy, Drama, Poetry and Children's; within a category by the author's
+surname, then first publication, then title. A category's share-alike books (a licence
+naming -SA) stand together at its end. Ids already in the catalogue are kept as they are.
+
+A book under a Creative Commons licence carries it into the catalogue (`licence`,
+`licence_url`, `credit`) for its About card; public-domain and CC0 books need none.
 
     add_batch.py <batch.json> <check.json> <candidates dir> [--sources DIR]
 """
@@ -31,9 +35,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 
 CATEGORIES = {"fiction": "Fiction", "science-fiction": "Science fiction", "fantasy": "Fantasy",
-              "drama": "Drama", "poetry": "Poetry", "children": "Children's"}
-SHELF_ORDER = ["Scripture", "Reference", "Fiction", "Science fiction", "Fantasy", "Drama", "Poetry",
-               "Children's"]
+              "drama": "Drama", "poetry": "Poetry", "children": "Children's", "scripture": "Scripture",
+              "rabbinic": "Rabbinic writings", "church-fathers": "Church Fathers", "reference": "Reference",
+              "philosophy": "Philosophy", "history": "History", "society": "Society", "science": "Science"}
+SHELF_ORDER = ["Scripture", "Rabbinic writings", "Church Fathers", "Reference", "Philosophy", "History", "Society",
+               "Science", "Fiction", "Science fiction", "Fantasy", "Drama", "Poetry", "Children's"]
+# Shelved as they stand in the catalogue, in the order they were added, not by author.
+CURATED = ("Scripture", "Rabbinic writings", "Church Fathers", "Reference")
 SUFFIXES = {"jr.", "jr", "sr.", "sr", "ii", "iii"}
 
 
@@ -67,13 +75,18 @@ def sort_title(title: str) -> str:
     return " ".join(words).lower()
 
 
+def share_alike(entry: dict) -> bool:
+    return "-SA" in entry.get("licence", "")
+
+
 def shelf_key(entry: dict, position: int) -> tuple:
     category = entry.get("category", "")
     rank = SHELF_ORDER.index(category) if category in SHELF_ORDER else len(SHELF_ORDER)
-    if category in ("Scripture", "Reference"):
-        return (rank, position)
+    if category in CURATED:
+        return (rank, share_alike(entry), position)
     author = surname(entry.get("author", ""))
-    return (rank, author or sort_title(entry["title"]), entry.get("first_published", 0), sort_title(entry["title"]))
+    return (rank, share_alike(entry), author or sort_title(entry["title"]), entry.get("first_published", 0),
+            sort_title(entry["title"]))
 
 
 def sha256_of(path: str) -> str:
@@ -145,6 +158,10 @@ def main() -> int:
                  "author": found["author"], "first_published": found["first_published"]}
         if found.get("translator"):
             entry["translator"] = found["translator"]
+        if (found.get("licence") or "").startswith("CC BY"):
+            for key in ("licence", "licence_url", "credit"):
+                if found.get(key):
+                    entry[key] = found[key]
         catalogue["books"].append(entry)
         added += 1
     # Books already catalogued take their author from their subtitle, for sorting.

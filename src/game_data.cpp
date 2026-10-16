@@ -101,8 +101,9 @@ std::optional<std::string> load_game_asset(std::string_view relative) {
     if (!valid_path(relative)) {
         return std::nullopt;
     }
-    // Assets are bounded by the gate's per-file limit; allow the largest approved file.
-    constexpr std::size_t asset_limit = 64 * 1024 * 1024;
+    // Assets are bounded by the gate's limits; allow the largest approved file (the Pocket
+    // Library's books, approved to 128 MB in tools/game_approvals.json).
+    constexpr std::size_t asset_limit = 128 * 1024 * 1024;
     return read_bounded(std::filesystem::path(asset_directory()) / std::string(relative), asset_limit);
 }
 

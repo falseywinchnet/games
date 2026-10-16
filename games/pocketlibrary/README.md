@@ -24,10 +24,19 @@ they left.
 
 ## Replayability
 
-A library is read, not replayed. Every book keeps its own place. The shelves hold 343
-books: the seven of Scripture and reference, and 336 novels, plays, poems and children's
-books (batch 1, found and checked by workers, pinned in `tools/sources.lock.json` and
-catalogued by `tools/add_batch.py`). More come in batches; PDF import is planned.
+A library is read, not replayed. Every book keeps its own place. The shelves hold 472
+books on fourteen planks: Scripture, Rabbinic writings, Church Fathers and Reference (our
+own importers, `tools/import_books.py`, `sefaria_reader.py`, `lexicon_reader.py` and
+`usfm_reader.py`), Philosophy, History, Society and Science, and the novels, plays,
+poems and children's books. Batches 1 (336 books) and 2 (111, non-fiction and the Greek
+and Latin classics) were found and checked by workers, pinned in
+`tools/sources.lock.json` and catalogued by `tools/add_batch.py`. Books that need
+figures or mathematics wait for the reader to print them.
+
+Licences: most books are public domain; some are CC BY or CC BY-NC (allowed: PlaySuite
+is free and never sold) and carry their credit on the book's About card. Share-alike
+books are allowed too: each stands on its own plank at the end of its category with a
+green label low on the spine, and none is merged into another book.
 
 ## Passive mode
 

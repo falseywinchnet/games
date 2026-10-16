@@ -1,1 +1,1 @@
-A bookcase of 343 books in the public domain, from the Bible and Strong's to Dickens, Tolstoy, Shakespeare and Oz, each set as a printed book on India paper and opened to the page you left.
+A bookcase of 472 books, from the Bible, the Talmud and the lexicons to Plato, Darwin, Dickens, Tolstoy, Shakespeare and Oz, each set as a printed book on the paper you choose and opened to the page you left.

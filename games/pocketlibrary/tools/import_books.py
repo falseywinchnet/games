@@ -1003,8 +1003,10 @@ def load_catalogue() -> list:
         return json.load(file)["books"]
 
 
-def shelf_record(entry: dict) -> str:
-    """The lines the bookcase reads without opening the book (container.hpp)."""
+def shelf_record(entry: dict, sources: dict) -> str:
+    """The lines the bookcase reads without opening the book (container.hpp), and what the
+    book's About card shows: the edition (the lock's account of the source), the licence
+    (public domain unless the catalogue names one), its address and the credit it asks."""
     lines = ["title\t" + entry["title"]]
     if entry.get("subtitle"):
         lines.append("subtitle\t" + entry["subtitle"])
@@ -1014,19 +1016,42 @@ def shelf_record(entry: dict) -> str:
         lines.append("binding\t" + entry["binding"])
     if entry.get("leather"):
         lines.append("leather\t1")
+    source = sources.get(entry.get("source", ""))
+    if source:
+        lines.append("edition\t" + source["work"])
+    for key in ("licence", "licence_url", "credit"):
+        if entry.get(key):
+            lines.append(key + "\t" + entry[key])
     return "\n".join(lines) + "\n"
 
 
 def import_entry(sources: dict, folder: str, out: str, entry: dict) -> str:
-    """A catalogue book read by a general importer."""
+    """A catalogue book read by a general importer: `epub` (an EPUB), `sefaria` (Sefaria's
+    JSON, one file a division, in the order `files` gives), `tbes` (a STEPBible brief
+    lexicon, its `language` G or H), `abbott-smith` (Abbott-Smith's TEI) or `usfm` (the
+    books `codes` names from a zipped USFM Bible)."""
     import epub_reader
-    data, pin = read_pinned(sources, folder, entry["source"], entry["file"])
+    import lexicon_reader
+    import sefaria_reader
+    import usfm_reader
+    names = entry["files"] if "files" in entry else [entry["file"]]
+    pinned = [read_pinned(sources, folder, entry["source"], name) for name in names]
     book = Book(entry["id"])
-    head_for(book, sources[entry["source"]], [pin])
-    if entry["importer"] == "epub":
+    head_for(book, sources[entry["source"]], [pin for _, pin in pinned])
+    data = pinned[0][0]
+    importer = entry["importer"]
+    if importer == "epub":
         epub_reader.import_epub(data, book, entry["id"])
+    elif importer == "sefaria":
+        sefaria_reader.import_sefaria([sefaria_reader.load(bytes_) for bytes_, _ in pinned], book)
+    elif importer == "tbes":
+        lexicon_reader.import_tbes(data, book, entry["language"])
+    elif importer == "abbott-smith":
+        lexicon_reader.import_abbott_smith(data, book)
+    elif importer == "usfm":
+        usfm_reader.import_usfm(data, book, entry["codes"])
     else:
-        raise ValueError("%s: no importer named %r" % (entry["id"], entry["importer"]))
+        raise ValueError("%s: no importer named %r" % (entry["id"], importer))
     return book.write(out)
 
 
@@ -1055,7 +1080,7 @@ def main() -> int:
     # The shelf, in order: id, then the shelf record's lines, then a blank line.
     with open(os.path.join(arguments.out, "shelf.txt"), "w", encoding="utf-8", newline="\n") as file:
         for entry in catalogue:
-            file.write("book\t" + entry["id"] + "\n" + shelf_record(entry) + "\n")
+            file.write("book\t" + entry["id"] + "\n" + shelf_record(entry, sources) + "\n")
     for path in paths:
         print("%9d bytes  %s" % (os.path.getsize(path), os.path.relpath(path, ROOT)))
     return 1 if differences else 0
