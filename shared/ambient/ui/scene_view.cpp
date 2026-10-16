@@ -349,6 +349,10 @@ void SceneView::tick() {
                 trace_.present_max = std::max(trace_.present_max, present);
             }
         } else {
+            // A frame owed while the scenery is still being made (help opened, the game
+            // shown again) is answered with the waiting picture, published once more, so
+            // nothing waits on a slow first bake.
+            pixels_.invalidate_all();
             publish(nullptr, 0, 0);
         }
     }
@@ -575,6 +579,7 @@ void SceneView::set_help(bool open) {
         return;
     help_open_ = open;
     update_card();
+    render_dirty_ = true;
     request_frame();
 }
 
