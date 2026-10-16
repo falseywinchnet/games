@@ -262,13 +262,16 @@ void PocketLibraryView::close_book() {
 }
 
 // A page turning: the leaf crosses right to left going forward, left to right going
-// back; each turn a little higher or lower than the last, so reading quickly does not
-// sound like a machine.
+// back. Each turn takes the next of ten variations (audio_src/make_page.py), seven on
+// each time so neighbours differ, a shade higher or lower, so reading quickly does not
+// repeat one sound.
 void PocketLibraryView::rustle(bool forward) {
-    static constexpr float rates[] = {1.0F, .94F, 1.05F, .97F, 1.03F, .95F, 1.02F};
+    static constexpr float rates[] = {1.0F, .97F, 1.02F, .98F, 1.03F};
+    const unsigned variation = (turns_ * 7U) % 10U;
     const float rate = rates[turns_ % (sizeof(rates) / sizeof(rates[0]))];
     ++turns_;
-    audio_sfx(forward ? "pl_page" : "pl_page_back", .85F, rate, front_ && visible());
+    const std::string name = (forward ? "pl_page_" : "pl_page_back_") + std::to_string(variation);
+    audio_sfx(name, 1.F, rate, front_ && visible());
 }
 
 void PocketLibraryView::turn(bool forward) {

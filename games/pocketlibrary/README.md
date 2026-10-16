@@ -48,8 +48,10 @@ The shelf is PlaySuite's own: its walnut wall and oak plank. The books stand spi
 bound in leather or cloth and lettered in gold. A book opens to a spread on the paper
 engine's India paper (#f0ece0) with a soft shadow into the gutter. The Bible is set in
 EB Garamond, every other book in Literata, in warm black ink, the words of Christ in
-red. The sounds planned are a book taken down and put back and a page turned; none is in
-yet, because a sound is judged by listening. No music.
+red. A page turned rustles softly: the leaf's edge drawn over the page beneath, its band
+measured from recordings, in ten variations so quick reading never repeats one, crossing
+the way the page goes (`audio_src/make_page.py`, chosen by ear). A book taken down and put
+back is still to come. No music.
 
 ## Controls
 
