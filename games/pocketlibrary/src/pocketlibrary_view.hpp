@@ -19,6 +19,7 @@
 #include "gui_forms/threading.hpp"
 #include "gui_forms/timer.hpp"
 
+#include <chrono>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -81,6 +82,7 @@ class PocketLibraryView final : public gf::Control, public games::CommandSource 
     bool front_ = true;
     bool help_ = false;  // the game's own help card is showing
     unsigned turns_ = 0;  // pages turned, to vary each one's sound
+    std::chrono::steady_clock::time_point last_tick_ = std::chrono::steady_clock::now();
     // Decodes the library's base while the shelf is shown; joined before a book is read.
     std::unique_ptr<gf::Worker> preparing_;
 
@@ -98,6 +100,7 @@ class PocketLibraryView final : public gf::Control, public games::CommandSource 
     void close_book();
     void turn(bool forward);
     void rustle(bool forward);
+    void wake_audio();
     void to_contents(bool shown);
     void move_cursor(int step);
     void move_plank(int planks);

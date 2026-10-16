@@ -149,14 +149,34 @@ void PocketLibraryView::request_frame() {
 }
 
 void PocketLibraryView::tick() {
-    if (timer_)
-        (*timer_).stop();
-    if (!visible() || !front_)
+    // The sound: a page's rustle is loaded the first time it is wanted and only starts
+    // when the audio is ticked, so the timer runs while any sound is loading or fading.
+    const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+    const double elapsed = std::chrono::duration<double>(now - last_tick_).count();
+    last_tick_ = now;
+    audio_tick(elapsed);
+    if (!visible() || !front_) {
+        if (timer_)
+            (*timer_).stop();
         return;
+    }
     if (render_dirty_) {
         render_dirty_ = false;
         render();
         publish();
+    }
+    if (timer_ && !render_dirty_ && !audio_needs_tick())
+        (*timer_).stop();
+}
+
+// Keeps the timer running for the sound, without drawing a frame.
+void PocketLibraryView::wake_audio() {
+    if (!timer_ || !visible() || !front_)
+        return;
+    if (!(*timer_).enabled()) {
+        last_tick_ = std::chrono::steady_clock::now();
+        (*timer_).set_interval(std::chrono::milliseconds(16));
+        (*timer_).start();
     }
 }
 
@@ -272,6 +292,7 @@ void PocketLibraryView::rustle(bool forward) {
     ++turns_;
     const std::string name = (forward ? "pl_page_" : "pl_page_back_") + std::to_string(variation);
     audio_sfx(name, 1.F, rate, front_ && visible());
+    wake_audio();
 }
 
 void PocketLibraryView::turn(bool forward) {
