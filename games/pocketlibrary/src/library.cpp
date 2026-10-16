@@ -43,18 +43,27 @@ void read_shelf_record(std::string_view record, ShelfBook& book) {
             continue;
         const std::string_view key = line.substr(0, tab);
         const std::string_view value = line.substr(tab + 1);
-        if (key == "title")
+        if (key == "title") {
             book.title = std::string(value);
-        else if (key == "subtitle")
+        } else if (key == "subtitle") {
             book.subtitle = std::string(value);
-        else if (key == "category")
+        } else if (key == "category") {
             book.category = std::string(value);
-        else if (key == "binding" && value.size() == 6) {
+        } else if (key == "binding" && value.size() == 6) {
             book.binding.red = hex_byte(value, 0);
             book.binding.green = hex_byte(value, 2);
             book.binding.blue = hex_byte(value, 4);
-        } else if (key == "leather")
+        } else if (key == "leather") {
             book.binding.leather = value == "1";
+        } else if (key == "edition") {
+            book.edition = std::string(value);
+        } else if (key == "licence") {
+            book.licence = std::string(value);
+        } else if (key == "licence_url") {
+            book.licence_url = std::string(value);
+        } else if (key == "credit") {
+            book.credit = std::string(value);
+        }
     }
 }
 

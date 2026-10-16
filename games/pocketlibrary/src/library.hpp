@@ -28,6 +28,16 @@ struct ShelfBook {
     std::string category;    // the shelf it stands on: "Scripture", "Fiction"...
     Binding binding;
     double heft = 1;         // how thick the volume is, 0.5 to 2.5: grows with its text
+    // Where the text comes from and on what terms, for the book's About card: the
+    // edition, its licence ("Public domain", "CC BY 4.0", "CC BY-SA 4.0"...), the
+    // licence's address and the credit the licence asks for (empty when it asks none).
+    std::string edition;
+    std::string licence = "Public domain";
+    std::string licence_url;
+    std::string credit;
+    [[nodiscard]] bool share_alike() const {
+        return licence.find("-SA") != std::string::npos;
+    }
 };
 
 // A search of the shelf: true when every word of `query` is found in the book's title or

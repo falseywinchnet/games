@@ -85,6 +85,19 @@ void draw_spine_body(Canvas& canvas, const ShelfBook& book, int x0, int y0, int 
             put(canvas, x0 + x, y0 + y, red * light, green * light, blue * light);
         }
     }
+    // A share-alike book carries a small green paper label low on its spine, between the
+    // tail's rules, as a library marks a shelf's special stock.
+    if (book.share_alike()) {
+        const int label_height = std::max(3, static_cast<int>(std::lround(height * 0.035)));
+        const int label_top = y0 + static_cast<int>(height * 0.86);
+        const int inset = std::max(1, width / 5);
+        for (int y = label_top; y < label_top + label_height; ++y) {
+            for (int x = x0 + inset; x < x0 + width - inset; ++x) {
+                const float paper = 0.93f + 0.07f * static_cast<float>(grain(x, y) & 255U) / 255.f;
+                put(canvas, x, y, 78 * paper, 156 * paper, 92 * paper);
+            }
+        }
+    }
     // Gilt rules: beside the bands on leather, near head and tail on cloth.
     const page::Rgb gilt{0xd8U, 0xb2U, 0x62U};
     const double rules_leather[] = {0.08, 0.92};
@@ -381,6 +394,7 @@ ShelfLayout lay_out_shelf(double width, double height, const std::vector<ShelfBo
     const double right = width - side_margin;
     double x = side_margin;
     std::string category;
+    bool share_alike = false;
     bool any = false;
     for (std::size_t n = 0; n < books.size(); ++n) {
         const ShelfBook& book = books[n];
@@ -393,13 +407,17 @@ ShelfLayout lay_out_shelf(double width, double height, const std::vector<ShelfBo
         }
         const double spine = std::max(14.0, unit * book.heft);
         const bool new_category = !any || book.category != category;
-        if (new_category || x + spine > right) {
+        const bool new_section = !new_category && book.share_alike() && !share_alike;
+        if (new_category || new_section || x + spine > right) {
             PlankBox plank;
             plank.top = top_margin + plank_clearance + book_height + pitch * static_cast<double>(layout.planks.size());
-            plank.label = new_category ? book.category : std::string();
+            plank.share_alike = book.share_alike();
+            if (new_category || new_section)
+                plank.label = book.share_alike() ? book.category + " \u00b7 Share-alike" : book.category;
             layout.planks.push_back(plank);
             x = side_margin + 6;
             category = book.category;
+            share_alike = book.share_alike();
             any = true;
         }
         SpineBox box;
@@ -553,8 +571,8 @@ std::vector<std::string> help_paragraphs() {
         "To find a book, type part of its title or its author's name in the search field (Command or Control F); "
         "Enter opens the first found, Escape brings back the whole library.",
         "Turn the pages with the arrow keys, Page Up and Page Down, the space bar, the wheel, or a click on "
-        "either page. C shows the book's contents; choose a part to go to it. Escape or Back returns to the "
-        "library.",
+        "either page. C shows the book's contents; choose a part to go to it. I shows where the book comes "
+        "from and its licence. Escape or Back returns to the library.",
         "Every book opens where you left it. The type size, typeface, paper and its texture are on the "
         "Settings screen.",
         "Press Escape or F1 to close this card.",

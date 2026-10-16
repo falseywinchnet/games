@@ -17,12 +17,25 @@ book in Literata or in EB Garamond), the paper (India, Book, Wove, Laid, Rag,
 Parchment, Recycled, Kraft, Night, light ink on dark paper, and Phosphor, green on
 black), the paper's texture and the shadow in the gutter.
 
-The shelves hold 343 books, a plank to each kind: Scripture (the Berean Standard
-Bible, the Holy Scriptures of the Jewish Publication Society, 1917, Gorfinkle's Sayings
-of the Jewish Fathers and Cohen's Tractate Berakot), Reference (Strong's Hebrew and
-Greek dictionaries and a concordance of the Berean Standard Bible), then Fiction,
-Science fiction, Fantasy, Drama, Poetry and Children's books. On each plank the books
-stand by author, and an author's books in the order they were first published. Scroll
-the bookcase with the wheel, or go to a plank from the capsule.
+The shelves hold 472 books, a plank to each kind. Scripture: the Berean Standard
+Bible, the Holy Scriptures of the Jewish Publication Society (1917), the deuterocanon of
+the World English Bible, and 1 Enoch. Rabbinic writings: the Mishnah, Gorfinkle's
+Sayings of the Jewish Fathers, Cohen's Tractate Berakot, the Talmud in four volumes (the
+William Davidson edition, with Steinsaltz's explanation), the Midrash Rabbah, the
+Targums, and Rashi, Ibn Ezra, Ramban and Sforno on the Torah. Church Fathers: the
+Apostolic Fathers, Origen and Augustine. Reference: Strong's Hebrew and Greek
+dictionaries, a concordance of the Berean Standard Bible, STEPBible's brief Hebrew and
+Greek lexicons, and Abbott-Smith's Greek lexicon of the New Testament (Hebrew words are
+given in Latin letters).
 
-Every book is in the public domain and set exactly as its source gives it.
+Then Philosophy, History, Society (politics, economics, law and war) and Science, and
+Fiction, Science fiction, Fantasy, Drama, Poetry and Children's books. The first four
+planks stand in their traditional order; on the others the books stand by author, and an
+author's books in the order they were first published. Scroll the bookcase with the
+wheel, or go to a plank from the capsule.
+
+Every book is set exactly as its source gives it. Most are in the public domain; a few
+are shared by their makers under Creative Commons licences that ask for credit (some also
+ask that the book not be sold, and PlaySuite never is). Books under a share-alike licence
+stand together at the end of their shelf with a small green label low on the spine. I,
+or About this book in the capsule, shows any open book's edition, licence and credit.

@@ -36,9 +36,12 @@ struct SpineBox {
     bool hidden = false;  // left off the shelf by a search
 };
 // A plank: its top, where its books stand, and the category lettered on its label.
+// A category's share-alike books stand together on planks of their own at its end,
+// labelled as such (`share_alike`).
 struct PlankBox {
     double top = 0;
     std::string label;
+    bool share_alike = false;
 };
 struct ShelfLayout {
     double width = 0, height = 0;  // the view, in points
@@ -47,8 +50,8 @@ struct ShelfLayout {
     std::vector<PlankBox> planks;
 };
 
-// Books stand in shelf order, a new plank for each category and wherever a plank is
-// full. `shown` says which books a search keeps (one flag a book); empty keeps all.
+// Books stand in shelf order, a new plank for each category, for its share-alike books
+// and wherever a plank is full. `shown` says which books a search keeps (one flag a book); empty keeps all.
 [[nodiscard]] ShelfLayout lay_out_shelf(double width, double height, const std::vector<ShelfBook>& books,
                                         const std::vector<bool>& shown = {});
 // The furthest the bookcase scrolls, in points.

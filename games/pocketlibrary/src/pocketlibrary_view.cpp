@@ -28,6 +28,35 @@ std::vector<std::uint8_t> library_bytes() {
 
 const char* step_names[] = {"Small", "Medium", "Large"};
 
+// The About card: what the book is, the edition it is set from, and on what terms.
+std::vector<std::string> about_paragraphs(const ShelfBook& book) {
+    std::vector<std::string> lines;
+    lines.push_back(book.title);
+    if (!book.subtitle.empty())
+        lines.push_back(book.subtitle);
+    if (!book.edition.empty())
+        lines.push_back("Set from: " + book.edition + ".");
+    std::string licence = "Licence: " + book.licence;
+    if (!book.licence_url.empty())
+        licence += " (" + book.licence_url + ")";
+    lines.push_back(licence + ".");
+    if (!book.credit.empty())
+        lines.push_back("Credit: " + book.credit);
+    if (book.share_alike())
+        lines.push_back("You may copy and adapt this text, crediting its makers, and must share what you make "
+                        "from it under the same licence. It stands with the other share-alike books at the end "
+                        "of its shelf, and nothing of it is mixed into any other book.");
+    else if (book.licence.find("-NC") != std::string::npos)
+        lines.push_back("You may copy and adapt this text for any purpose that is not commercial, crediting its "
+                        "makers. PlaySuite is free and is never sold.");
+    else if (book.licence.starts_with("CC BY"))
+        lines.push_back("You may copy and adapt this text for any purpose, crediting its makers.");
+    else
+        lines.push_back("The text is in the public domain in the United States: free to read, copy and share.");
+    lines.push_back("Press Escape or I to close this card.");
+    return lines;
+}
+
 }  // namespace
 
 PocketLibraryView::PocketLibraryView(gf::StableId id, Options options)
@@ -212,6 +241,11 @@ void PocketLibraryView::render() {
         draw_shelf(frame_, scale_, shelf_, scroll_, library_.shelf(), on_shelf(lifted) ? lifted : -1, wood_,
                    printer_, note);
     }
+    if (about_ && reader_.is_open()) {
+        const ShelfBook* book = open_shelf_book();
+        if (book != nullptr)
+            draw_help_card(frame_, scale_, printer_, about_paragraphs(*book));
+    }
     if (help_)
         draw_help_card(frame_, scale_, printer_, help_paragraphs());
 }
@@ -303,6 +337,7 @@ void PocketLibraryView::close_book() {
     if (!reader_.is_open())
         return;
     set_place(marks_, reader_.place());
+    about_ = false;
     reader_.close();
     marks_.open.clear();
     place_search();
@@ -473,6 +508,24 @@ void PocketLibraryView::scroll_shelf(double points) {
     request_frame();
 }
 
+const ShelfBook* PocketLibraryView::open_shelf_book() const {
+    if (!reader_.is_open())
+        return nullptr;
+    const std::string id = reader_.place().book;
+    for (const ShelfBook& book : library_.shelf())
+        if (book.id == id)
+            return &book;
+    return nullptr;
+}
+
+void PocketLibraryView::set_about(bool open) {
+    const bool shown = open && reader_.is_open();
+    if (about_ == shown)
+        return;
+    about_ = shown;
+    request_frame();
+}
+
 void PocketLibraryView::set_help(bool open) {
     // In the shell, help is its help book; on its own the game shows its own card.
     if (open && games::route_help(*this))
@@ -490,9 +543,10 @@ void PocketLibraryView::on_pointer(gf::PointerEvent& event) {
     const gf::Point local = point_from_window(event.position);
     const int x = static_cast<int>(std::lround(local.x * scale_));
     const int y = static_cast<int>(std::lround(local.y * scale_));
-    if (help_) {
+    if (help_ || about_) {
         if (event.action == gf::PointerAction::down) {
             set_help(false);
+            set_about(false);
             event.handled = true;
         }
         return;
@@ -575,6 +629,11 @@ void PocketLibraryView::on_key(gf::KeyEvent& event) {
             set_help(false);
         return;
     }
+    if (about_) {
+        if (key == Key::escape || key == Key::i || key == Key::enter || key == Key::space)
+            set_about(false);
+        return;
+    }
     if (key == Key::f1) {
         set_help(true);
         return;
@@ -610,6 +669,8 @@ void PocketLibraryView::on_key(gf::KeyEvent& event) {
         turn(false);
     else if (key == Key::c)
         to_contents(!reader_.contents_shown());
+    else if (key == Key::i)
+        set_about(true);
     else if (key == Key::escape) {
         if (reader_.contents_shown())
             to_contents(false);
@@ -629,6 +690,7 @@ std::vector<games::GameCommand> PocketLibraryView::commands() const {
         list.push_back({"contents", "Contents", true, reader_.contents_shown(), true});
         list.push_back({"previous", "Previous page", true, false, false});
         list.push_back({"next", "Next page", true, false, false});
+        list.push_back({"about", "About this book", true, about_, false});
     } else {
         const int chosen = hover_ >= 0 ? hover_ : cursor_;
         std::string label = "Open book";
@@ -638,7 +700,7 @@ std::vector<games::GameCommand> PocketLibraryView::commands() const {
         list.push_back({"search", "Search", true, search_focused(), false});
         // One command for each plank's category: it brings that shelf into view.
         for (const PlankBox& plank : shelf_.planks)
-            if (!plank.label.empty())
+            if (!plank.label.empty() && !plank.share_alike)
                 list.push_back({"go:" + plank.label, plank.label, true, false, false});
     }
     list.push_back({"help", "Help", true, help_, false});
@@ -679,6 +741,8 @@ void PocketLibraryView::run_command(std::string_view id) {
         turn(true);
     else if (id == "help")
         set_help(!help_);
+    else if (id == "about")
+        set_about(!about_);
 }
 
 // ---------------------------------------------------------------- the Settings screen

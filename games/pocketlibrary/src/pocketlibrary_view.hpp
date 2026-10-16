@@ -90,6 +90,7 @@ class PocketLibraryView final : public gf::Control, public games::CommandSource 
     bool direct_ = false;
     bool front_ = true;
     bool help_ = false;  // the game's own help card is showing
+    bool about_ = false;  // the open book's About card (its edition and licence) is showing
     unsigned turns_ = 0;  // pages turned, to vary each one's sound
     std::chrono::steady_clock::time_point last_tick_ = std::chrono::steady_clock::now();
     // Decodes the library's base while the shelf is shown; joined before a book is read.
@@ -115,6 +116,8 @@ class PocketLibraryView final : public gf::Control, public games::CommandSource 
     void move_plank(int planks);
     void scroll_shelf(double points);
     void set_help(bool open);
+    void set_about(bool open);
+    [[nodiscard]] const ShelfBook* open_shelf_book() const;
     void searched(const std::string& text);
     void search_committed(const std::string& text);
     void search_cancelled();
