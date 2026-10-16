@@ -559,10 +559,25 @@ void TumbledStonesView::begin_game() {
     request_frame();
 }
 
+void TumbledStonesView::follow_cursor() {
+    if (cursor_ < 0 || hover_ == cursor_)
+        return;
+    hover_ = cursor_;
+    hover_time_ = 0;
+    // The glint's light stands above and to the left of the stone, as a pointer would.
+    double x = 0;
+    double y = 0;
+    cell_centre(layout_, cursor_, x, y);
+    pointer_x_ = x - layout_.cell * .25;
+    pointer_y_ = y - layout_.cell * .3;
+    render_dirty_ = true;
+}
+
 void TumbledStonesView::move_cursor(int rows, int columns, bool swap) {
     keyboard_ = true;
     if (cursor_ < 0) {
         cursor_ = hover_ >= 0 ? hover_ : 44;
+        follow_cursor();
         request_frame();
         return;
     }
@@ -574,11 +589,13 @@ void TumbledStonesView::move_cursor(int rows, int columns, bool swap) {
     if (swap) {
         swap_with(cursor_, next);
         cursor_ = next;
+        follow_cursor();
         return;
     }
     if (hand_.serial != 0 && hand_.cell != next)
         set_down();
     cursor_ = next;
+    follow_cursor();
     request_frame();
 }
 
@@ -675,6 +692,9 @@ void TumbledStonesView::on_pointer(gf::PointerEvent& event) {
             hover_ = hover;
             hover_time_ = 0;
             keyboard_ = false;
+            // The keys carry on from the stone under the pointer.
+            if (hover >= 0)
+                cursor_ = hover;
             set_cursor(hover >= 0 ? gf::CursorKind::hand : gf::CursorKind::arrow);
             render_dirty_ = true;
         }
@@ -800,6 +820,7 @@ void TumbledStonesView::on_key(gf::KeyEvent& event) {
         keyboard_ = true;
         if (cursor_ < 0)
             cursor_ = hover_ >= 0 ? hover_ : 44;
+        follow_cursor();
         pick_up(cursor_);
         if (key == Key::f)
             turn_over();

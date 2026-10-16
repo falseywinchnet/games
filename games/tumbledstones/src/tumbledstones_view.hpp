@@ -146,6 +146,9 @@ private:
     void step_hand(double seconds);
     [[nodiscard]] Pose hand_pose() const;
     void move_cursor(int rows, int columns, bool swap);
+    // The keyboard and the pointer share one stone: the keys move the lift and the glint
+    // to the cursor's stone, as the pointer moves the cursor to its own.
+    void follow_cursor();
     [[nodiscard]] int panel_button(double x, double y) const;
     void press_panel_button(int button);
     void cancel_press();
