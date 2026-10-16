@@ -180,9 +180,17 @@ Rejected:
 
 ## Reproducing
 
+The shipped file is not kept in Git: every rebuild would stay in the history for good.
+`tools/publish_library.py` publishes it to the repository's `library-data` release, named
+by its content, and pins it in `pinned_assets.json`; builds fetch and check it
+(`tools/pinned_assets.py`, run by the asset preparation) and ship it inside PlaySuite.
+Commit the pin, never the file.
+
 ```sh
 # the file, from normalized folders (the shipped one: only .build/library/normalized)
 make_library --cache <dir> [--base-mb 16] [--effort 48] [--trial] <out.plb> <dir>...
+# publish it and pin it (then commit pinned_assets.json)
+python3 tools/publish_library.py assets/books/library.plb
 # reading speed, per step
 read_lab <file.plb> [repeats]
 prepare_lab <file.plb>

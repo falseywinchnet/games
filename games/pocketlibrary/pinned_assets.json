@@ -1,0 +1,10 @@
+{
+ "files": [
+  {
+   "path": "books/library.plb",
+   "url": "https://github.com/falseywinchnet/games/releases/download/library-data/library-1faca9b7dc287973.plb",
+   "size": 85802857,
+   "sha256": "1faca9b7dc2879736137c6b22e4db75edd66fca7c96869ca6c32015470cd03f0"
+  }
+ ]
+}

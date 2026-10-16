@@ -103,7 +103,6 @@
     },
     "pocketlibrary": {
       "first_party": true,
-      "source_mb": 128,
       "prepared_mb": 128
     },
     "solitaire": {

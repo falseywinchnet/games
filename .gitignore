@@ -7,3 +7,6 @@
 /.ccache/
 
 __pycache__/
+
+# Pinned large assets (games/<id>/pinned_assets.json): fetched by tools/pinned_assets.py, never committed.
+games/pocketlibrary/assets/books/library.plb

@@ -15,7 +15,10 @@ collection. Read it first; then the document for the work in hand:
   edits nothing outside its folder. The README's game list is generated from each
   game's `GAME.json`, `about.md` and `screens/readme.jpg` by `tools/make_readme.py`,
   which the `readme.yml` workflow runs after every push to `main`; edit those files,
-  not the list.
+  not the list. An asset too large for Git (the Pocket Library's books) is pinned in
+  `games/<id>/pinned_assets.json` and fetched by the asset preparation from the
+  `library-data` release, which is build input: never commit the file, and keep that
+  release when old releases are removed.
 - `shared/<id>/`: engines several games build on, discovered from `ENGINE.json` and
   declared in a game's `GAME.json`: `render` (the 2D canvas, r3d and the surfaces),
   `ambient` (living 3D scenes), `cards` and `puzzles` (the card and puzzle engines),

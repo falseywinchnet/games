@@ -33,6 +33,10 @@ and Latin classics) were found and checked by workers, pinned in
 `tools/sources.lock.json` and catalogued by `tools/add_batch.py`. Books that need
 figures or mathematics wait for the reader to print them.
 
+The library file (`assets/books/library.plb`) is not in Git: it is published to the
+`library-data` release and pinned in `pinned_assets.json` (`tools/publish_library.py`);
+the asset preparation fetches and checks it, and the packages carry it.
+
 Licences: most books are public domain; some are CC BY or CC BY-NC (allowed: PlaySuite
 is free and never sold) and carry their credit on the book's About card. Share-alike
 books are allowed too: each stands on its own plank at the end of its category with a
