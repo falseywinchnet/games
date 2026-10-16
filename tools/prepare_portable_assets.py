@@ -393,6 +393,9 @@ def main() -> None:
         target = output / entry["file"]
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(entry["path"], target)
+        # Readable by everyone, whatever the source's own mode: the packages install as
+        # root, and the suite runs as the person playing.
+        target.chmod(0o644)
         resources.append({key: entry[key] for key in ("file", "source_sha256")})
     # What the last run copied from the shared assets folder that no source provides now (a
     # removed file) is stale as well: a runtime restored from a cache keeps everything it held.

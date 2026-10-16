@@ -54,9 +54,16 @@ def matches(path: Path, pin: dict) -> bool:
     return path.is_file() and path.stat().st_size == pin["size"] and sha256_of(path) == pin["sha256"]
 
 
+# A shipped asset must be readable by whoever runs the installed suite (packages install
+# as root): a download lands in a private temporary file, so its mode is set explicitly.
+READABLE = 0o644
+
+
 def fetch(root: Path = ROOT, quiet: bool = False) -> None:
     for game, pin, path in pins(root):
         if matches(path, pin):
+            if path.stat().st_mode & 0o777 != READABLE:
+                path.chmod(READABLE)
             continue
         if not quiet:
             print("%s: fetching %s (%.1f MB)" % (game, pin["path"], pin["size"] / 1048576), flush=True)
@@ -71,6 +78,7 @@ def fetch(root: Path = ROOT, quiet: bool = False) -> None:
                     out.write(chunk)
             if not matches(Path(temporary), pin):
                 raise ValueError("%s: the download of %s does not match its pin" % (game, pin["url"]))
+            os.chmod(temporary, READABLE)
             os.replace(temporary, path)
         finally:
             if os.path.exists(temporary):
