@@ -6,6 +6,7 @@
   "namespace": "ps_solve",
   "title": "Puzzle Solve",
   "kind": "Reconstruction",
+  "category": "puzzles",
   "blurb": "Turn and flip glass pieces to rebuild a blue and yellow design.",
   "colors": [
     [

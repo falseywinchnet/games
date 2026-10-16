@@ -6,6 +6,7 @@
   "namespace": "fp",
   "title": "Four Pegs",
   "kind": "Codebreaking",
+  "category": "puzzles",
   "blurb": "Crack the Curator's four-peg code in ten tries.",
   "colors": [
     [

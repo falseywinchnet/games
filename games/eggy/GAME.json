@@ -6,6 +6,7 @@
   "namespace": "eggy",
   "title": "Eggy",
   "kind": "A long climb",
+  "category": "skill",
   "blurb": "Help a duckling climb a very, very tall mountain.",
   "colors": [
     [

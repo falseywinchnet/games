@@ -6,6 +6,7 @@
   "namespace": "sh",
   "title": "Pen the Sheep",
   "kind": "Pasture puzzle",
+  "category": "puzzles",
   "blurb": "Place fences before a clever sheep finds its way out.",
   "colors": [
     [

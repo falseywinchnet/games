@@ -6,6 +6,7 @@
   "namespace": "ps_hearts",
   "title": "Hearts",
   "kind": "Card table",
+  "category": "cards",
   "blurb": "Three computer opponents. Pass, dodge the points, or shoot the moon.",
   "colors": [
     [

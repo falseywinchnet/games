@@ -6,6 +6,7 @@
   "namespace": "ps_untangle",
   "title": "Untangle",
   "kind": "Graph puzzle",
+  "category": "puzzles",
   "blurb": "Drag the points until no two lines cross.",
   "colors": [
     [

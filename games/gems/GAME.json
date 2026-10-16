@@ -6,6 +6,7 @@
   "namespace": "ps_gems",
   "title": "Gems",
   "kind": "Match three",
+  "category": "matching",
   "blurb": "Swap jewels into rows. Set off bombs, stars and hypercubes.",
   "colors": [
     [

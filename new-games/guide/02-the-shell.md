@@ -10,7 +10,10 @@ and `src/shelf.hpp`. If they disagree with this page, they are right.
 ## The shelf
 
 The main menu is a wall of walnut shelves holding every game as a box, in the
-manner of a 1990s games collection. There are no categories. One click opens a
+manner of a 1990s games collection, filed by category: cards, logic and puzzles,
+matching, skill, and the quiet corner (living scenes, the library). The categories
+follow one another along the shelves, a wooden bookend between them and a card tag on
+the plank naming each; within one, the boxes stand by title. One click opens a
 box with a short box-to-window transition; arrow keys choose a box and Enter
 opens it. A ticket describes the box under the pointer.
 
@@ -20,6 +23,7 @@ Your game's box is generated from `GAME.json` and its own `cover.cpp`:
 |---|---|---|
 | `title` | On the box, condensed capitals | At most 28 characters |
 | `kind` | Small line under the title | Two or three words: "Pasture puzzle", "Bluffing" |
+| `category` | Where on the shelf the box stands | One of `cards`, `puzzles` (logic and puzzles), `matching`, `skill`, `quiet` (living scenes, reading) |
 | `blurb` | The ticket | One sentence, at most 90 characters, an invitation: "Place fences before a clever sheep finds its way out." |
 | `colors[0]`, `colors[1]` | The box's vertical gradient | Two related colours from the game's own palette, dark enough that cream lettering reads |
 | `colors[2]` | Glow behind the emblem and trim | The game's brightest colour |
@@ -35,7 +39,8 @@ character or its central object, in the game's colours. Replace the template
 emblem in `cover.cpp` and inspect it on the actual shelf.
 
 Look at the other modules' `GAME.json` colours and choose a palette distinct
-from the neighboring boxes. The shelf orders games by permanent `entry_id`.
+from the neighboring boxes. The shelf orders games by `category`, then by title (a
+leading "The" ignored); the permanent `entry_id` is for saves, not for the shelf.
 
 Prototype the emblem with the canvas, then inspect it in the native shell:
 `draw_emblem` in the game's `tools/preview.cpp`, shown on mock boxes by

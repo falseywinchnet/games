@@ -6,6 +6,7 @@
   "namespace": "ps_sudoku",
   "title": "Sudoku",
   "kind": "Number logic",
+  "category": "puzzles",
   "blurb": "Fresh puzzles at three difficulties, with notes and a night mode.",
   "colors": [
     [

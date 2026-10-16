@@ -6,6 +6,7 @@
   "namespace": "mm",
   "title": "Mowing",
   "kind": "Garden mowing",
+  "category": "skill",
   "blurb": "Eggy mows the lawn on his own. Take the wheel, or catch a gnome peeking from the grass.",
   "colors": [
     [

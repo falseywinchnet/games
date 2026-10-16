@@ -53,6 +53,8 @@ def main() -> int:
     parser.add_argument("--namespace", required=True, help="the game's C++ namespace: 2 to 4 lowercase letters, e.g. tp")
     parser.add_argument("--title", required=True, help='the name on the box, e.g. "Tide Pools"')
     parser.add_argument("--kind", default="Puzzle", help='two or three words under the title, e.g. "Shore puzzle"')
+    parser.add_argument("--category", default="puzzles", choices=("cards", "puzzles", "matching", "skill", "quiet"),
+                        help="the shelf's section the box stands in")
     parser.add_argument("--blurb", default="", help="one sentence for the shelf ticket")
     parser.add_argument("--entry-id", type=int, help="permanent saved-game id; defaults to the next unreserved number")
     parser.add_argument("--directory", type=Path, help="external destination folder instead of games/<id>")
@@ -109,6 +111,7 @@ def main() -> int:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["entry_id"] = entry_id
     manifest["kind"] = options.kind
+    manifest["category"] = options.category
     manifest["blurb"] = options.blurb or "TODO: one sentence that makes someone pick up the box."
     written = json.dumps(manifest, indent=2)
     # Keep the three colour triples on one line each, as in the template.

@@ -3,6 +3,7 @@
   "namespace": "ts",
   "title": "Tumbled Stones",
   "kind": "Shape matching",
+  "category": "matching",
   "blurb": "Flip and turn polished stones until their hidden shapes line up, then pull them out.",
   "view_class": "TumbledStonesView",
   "view_header": "tumbledstones_view.hpp",

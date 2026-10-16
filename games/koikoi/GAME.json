@@ -6,6 +6,7 @@
   "namespace": "kk",
   "title": "Koi-Koi",
   "kind": "Hanafuda",
+  "category": "cards",
   "blurb": "Match the months, collect sets, and choose when to risk another turn.",
   "colors": [
     [

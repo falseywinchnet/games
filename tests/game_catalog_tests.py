@@ -55,7 +55,7 @@ class CatalogTests(unittest.TestCase):
         directory = self.root / "games" / name
         directory.mkdir(parents=True)
         data = dict(schema_version=1, id=name, entry_id=entry, entry_name=name,
-                    namespace="ns_" + name, title="A Garden", kind="Puzzle",
+                    namespace="ns_" + name, title="A Garden", kind="Puzzle", category="puzzles",
                     blurb="Grow a garden.", colors=[[1, 2, 3], [4, 5, 6], [7, 8, 9]],
                     module="module.cpp", cover="cover.cpp", help="help.md",
                     build="build.cmake", ui_sources=[], audio_sources=[], libraries=[])
@@ -155,6 +155,16 @@ class CatalogTests(unittest.TestCase):
                 self.save(directory, dict(original, entry_id=value))
                 with self.assertRaisesRegex(ValueError, "entry_id"):
                     catalog.discover(self.root)
+
+    def test_category_is_one_of_the_shelfs(self):
+        directory, original = self.module()
+        for value in ("Puzzle", "", None, 3, "Quiet"):
+            with self.subTest(value=value):
+                self.save(directory, dict(original, category=value))
+                with self.assertRaisesRegex(ValueError, "category"):
+                    catalog.discover(self.root)
+        self.save(directory, dict(original, category="quiet"))
+        self.assertEqual(catalog.discover(self.root)[0]["category"], "quiet")
 
     def test_missing_required_files(self):
         directory, original = self.module()

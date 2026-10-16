@@ -18,6 +18,8 @@ CPP_KEYWORDS = frozenset("""
     struct switch synchronized template this thread_local throw true try typedef typeid
     typename union unsigned using virtual void volatile wchar_t while xor xor_eq
 """.split())
+# The shelf's categories, in the order it shows them; src/suite.cpp names them.
+CATEGORIES = ('cards', 'puzzles', 'matching', 'skill', 'quiet')
 RESERVED_TOPICS = frozenset(('rules', 'help', 'about'))
 
 
@@ -168,6 +170,8 @@ def discover(root: Path, extra_dirs=(), include_disabled=False) -> list[dict]:
         for key in ('title', 'kind', 'blurb'):
             if not isinstance(data.get(key), str) or not data[key].strip():
                 fail(f'{key} must be nonempty text')
+        if data.get('category') not in CATEGORIES:
+            fail('category must be one of ' + ', '.join(CATEGORIES))
         def local_file(value, directory=False):
             if (not isinstance(value, str) or not value or Path(value).is_absolute()
                     or any(c in value for c in (';', '"', '$', '\\', '\n', '\r', '\0'))):
@@ -245,7 +249,7 @@ inline constexpr bool valid_entry(Entry entry) {{ return entry_index(entry)>=0; 
     cpp += '}\nnamespace {\nconst std::array<GameDescriptor,entry_count> catalog{{\n'
     for g in games:
         colors = ','.join('gf::Color::rgba('+','.join(map(str,c))+')' for c in g['colors'])
-        info = ','.join(quoted(g[k]) for k in ('title','kind','blurb'))+','+colors
+        info = ','.join(quoted(g[k]) for k in ('title','kind','blurb'))+','+colors+','+str(CATEGORIES.index(g['category']))
         topics = ','.join('{'+','.join(quoted(v) for v in (t['id'], t['title'], (g['directory']/t['file']).read_text(encoding="utf-8").strip()))+'}' for t in g['help_topics'])
         cpp += '{Entry::'+g['entry_name']+','+quoted(g['id'])+',{'+info+'},'+quoted((g['directory']/g['help']).read_text(encoding="utf-8").strip())+',{'+topics+'},'+str(g.get('hosted',False)).lower()+','+str(g.get('rail',False)).lower()+',modules::'+g['id']+'_create,modules::'+g['id']+'_cover},\n'
     cpp += '''}};

@@ -6,6 +6,7 @@
   "namespace": "ps_cube",
   "title": "Nature Cube",
   "kind": "Path puzzle",
+  "category": "puzzles",
   "blurb": "Join each colored pair across three faces of a tilting glass cube.",
   "colors": [
     [

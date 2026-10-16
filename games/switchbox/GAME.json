@@ -6,6 +6,7 @@
   "namespace": "sbx",
   "title": "Switchbox",
   "kind": "Switch puzzle",
+  "category": "puzzles",
   "blurb": "Find the order that lights every switch.",
   "colors": [
     [

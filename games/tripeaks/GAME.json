@@ -6,6 +6,7 @@
   "namespace": "ps_tripeaks",
   "title": "TriPeaks",
   "kind": "Patience",
+  "category": "cards",
   "blurb": "Clear three peaks of cards in long runs up and down the ranks.",
   "colors": [
     [

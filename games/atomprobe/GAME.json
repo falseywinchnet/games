@@ -6,6 +6,7 @@
   "namespace": "ap",
   "title": "Atom Probe",
   "kind": "Deduction",
+  "category": "puzzles",
   "blurb": "Fire probes into the sealed box and find the hidden atoms.",
   "colors": [
     [

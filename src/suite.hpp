@@ -14,8 +14,13 @@ struct EntryInfo {
     const char* kind;
     const char* blurb;
     gf::Color cover_top, cover_bottom, accent;
+    int category; // the shelf's section, from GAME.json (tools/game_catalog.py's CATEGORIES)
 };
 const EntryInfo& entry_info(Entry entry);
+// The shelf's sections, in its order: cards, logic and puzzles, matching, skill, and the
+// quiet corner (the living scenes and the library).
+inline constexpr int category_count = 5;
+const char* category_name(int category);
 const char* suite_name();
 
 // A command a game offers in the PlaySuite capsule. Primary commands stay visible

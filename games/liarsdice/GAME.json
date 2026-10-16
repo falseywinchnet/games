@@ -6,6 +6,7 @@
   "namespace": "ld",
   "title": "Liar's Dice",
   "kind": "Bluffing",
+  "category": "puzzles",
   "blurb": "Read the crew, raise the bid, or call their bluff.",
   "colors": [
     [

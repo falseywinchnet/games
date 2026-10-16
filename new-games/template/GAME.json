@@ -3,6 +3,7 @@
   "namespace": "tg",
   "title": "Template Game",
   "kind": "Lamp puzzle",
+  "category": "puzzles",
   "blurb": "The kit's placeholder: press lamps until the whole board is lit.",
   "view_class": "TemplateView",
   "view_header": "template_view.hpp",

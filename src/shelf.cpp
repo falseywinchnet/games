@@ -14,6 +14,7 @@ constexpr gf::Color rgb(int r, int g, int b, int a = 255) {
 constexpr double kLiftRoom = 22; // above a box: how far it lifts, and its top face
 constexpr double kTravel = 16;
 constexpr double kAspect = 1.38; // box height / width, like a big-box game
+constexpr double kTagRoom = 24;  // below a shelf: its category's tag
 constexpr gf::Color gold = rgb(255, 210, 122);
 std::string upper(std::string s) {
     for (char& c : s)
@@ -50,6 +51,39 @@ void paint_plank(gf::Painter& p, double x, double y, double w, const ShelfWood* 
     // The plank's ends, end grain darker.
     p.fill_rect({x, top, 2, front + thick - top}, rgb(40, 22, 10, 120));
     p.fill_rect({x + w - 2, top, 2, front + thick - top}, rgb(40, 22, 10, 160));
+}
+// A wooden bookend standing on the plank at `line`, seen as the boxes are: its front in
+// the light, its top and right side receding up and to the right.
+void paint_bookend(gf::Painter& p, double x, double line, double width, double height, const ShelfWood* wood) {
+    const double depth = width * .9, rise = depth * .62;
+    const gf::Rect front{x, line - height, width, height};
+    p.draw_box_shadow({front.x + depth * .5, front.y - rise, front.width, front.height}, 2, {3, 2}, 5, 0, rgb(0, 0, 0, 150));
+    paint_polygon(p,
+                  {{front.x + width, front.y}, {front.x + width + depth, front.y - rise},
+                   {front.x + width + depth, line - rise}, {front.x + width, line}},
+                  rgb(58, 34, 18));
+    paint_polygon(p, {{front.x, front.y}, {front.x + depth, front.y - rise}, {front.x + width + depth, front.y - rise},
+                      {front.x + width, front.y}},
+                  rgb(196, 146, 94));
+    if (wood != nullptr && (*wood).ready())
+        p.fill_image_pattern((*wood).plank, (*wood).plank_pixels, front, {ShelfWood::plank_w, ShelfWood::plank_h});
+    else
+        p.fill_rect(front, rgb(150, 100, 58));
+    const gf::GradientStop light[] = {{0, rgb(255, 232, 196, 50)}, {.5, rgb(0, 0, 0, 0)}, {1, rgb(10, 5, 2, 90)}};
+    p.fill_linear_gradient(front, {front.x, front.y}, {front.x, line}, light);
+    p.draw_line({front.x, front.y + .5}, {front.x + width, front.y + .5}, rgb(255, 228, 186, 150), 1);
+    p.draw_line({front.x + .5, front.y}, {front.x + .5, line}, rgb(255, 228, 186, 60), 1);
+    p.draw_line({front.x + width - .5, front.y}, {front.x + width - .5, line}, rgb(26, 14, 6, 160), 1);
+}
+// A category's name on a card tag fixed to the plank's front edge, under the first box.
+void paint_tag(gf::Painter& p, TextSprites& sprites, const std::string& name, double x, double line) {
+    const SpriteSpec text{upper(name), Face::condensed, true, 13, rgb(66, 40, 20)};
+    const gf::Size size = sprites.measure(text);
+    const gf::Rect card{x + 4, line + 4, size.width + 18, size.height + 6};
+    p.draw_box_shadow(card, 2, {0, 2}, 5, 0, rgb(0, 0, 0, 160));
+    fill_vertical(p, card, rgb(248, 240, 218), rgb(226, 210, 176));
+    p.stroke_rect(card, rgb(120, 86, 46, 210), 1);
+    sprites.draw(p, text, {card.x + 9, card.y + 3});
 }
 } // namespace
 
@@ -214,6 +248,23 @@ PolygonShade faded(PolygonShade shade, double opacity) {
         c.alpha = static_cast<unsigned char>(std::lround(c.alpha * opacity));
     return shade;
 }
+// A title as the shelf files it: without a leading "The", ignoring case.
+std::string filed_as(const char* title) {
+    std::string s = title;
+    if (s.rfind("The ", 0) == 0)
+        s = s.substr(4);
+    for (char& c : s)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return s;
+}
+// The shelf's order: by category, then by title.
+bool shelved_before(Entry a, Entry b) {
+    const EntryInfo& x = entry_info(a);
+    const EntryInfo& y = entry_info(b);
+    if (x.category != y.category)
+        return x.category < y.category;
+    return filed_as(x.title) < filed_as(y.title);
+}
 } // namespace
 ShelfArrow::ShelfArrow(gf::StableId id, bool up) : Button(std::move(id)), up_(up) {
     set_accessible_name(up ? "Move the shelves up" : "Move the shelves down");
@@ -290,17 +341,47 @@ void ShelfRows::arrange(gf::Rect bounds) {
     const double box_height = box_width * kAspect + kLiftRoom;
     pitch_ = box_height + 26;
     slots_.clear();
+    slot_shelves_.clear();
     shelf_lines_.clear();
-    double y = 8;
-    for (std::size_t index = 0; index < boxes_.size();) {
-        const int count = std::min(columns_, static_cast<int>(boxes_.size() - index));
-        // Rows start at the left so the spare width gathers at the right, for the arrows.
-        const double full_row = columns_ * box_width + (columns_ - 1) * gap;
-        double x = std::max(margin, std::min((width - full_row) * .5, margin + 6));
-        for (int column = 0; column < count; ++column, ++index) {
-            slots_.push_back({x, y, box_width, box_height});
-            x += box_width + gap;
+    bookends_.clear();
+    tags_.clear();
+    // Rows start at the left so the spare width gathers at the right, for the arrows.
+    const double full_row = columns_ * box_width + (columns_ - 1) * gap;
+    const double left = std::max(margin, std::min((width - full_row) * .5, margin + 6));
+    const double right = left + full_row + .5;
+    // A bookend between two categories: narrow, a little nearer each box than a gap.
+    constexpr double bookend = 16, beside = 10;
+    double x = left, y = 8;
+    int shelf = 0, category = -1;
+    bool empty = true;
+    const double face_height = box_width * kAspect;
+    for (const std::shared_ptr<ShelfBox>& box : boxes_) {
+        const int next = entry_info((*box).entry()).category;
+        if (next != category && !empty) {
+            // A new category on the same shelf stands past a bookend, if there is room.
+            const double start = x - gap + beside;
+            if (start + bookend + beside + box_width <= right) {
+                bookends_.push_back({start, y + box_height, face_height * .58});
+                x = start + bookend + beside;
+            } else {
+                x = right + 1;
+            }
         }
+        if (!empty && x + box_width > right) {
+            shelf_lines_.push_back(y + box_height);
+            y += pitch_;
+            x = left;
+            ++shelf;
+        }
+        if (next != category)
+            tags_.push_back({next, x, y + box_height});
+        category = next;
+        slots_.push_back({x, y, box_width, box_height});
+        slot_shelves_.push_back(shelf);
+        x += box_width + gap;
+        empty = false;
+    }
+    if (!empty) {
         shelf_lines_.push_back(y + box_height);
         y += pitch_;
     }
@@ -379,8 +460,39 @@ void ShelfRows::on_pointer(gf::PointerEvent& event) {
 void ShelfRows::on_pointer_bubble(gf::PointerEvent& event) {
     wheel(event);
 }
+int ShelfRows::position_of(Entry entry) const {
+    for (std::size_t i = 0; i < boxes_.size(); ++i)
+        if ((*boxes_[i]).entry() == entry)
+            return static_cast<int>(i);
+    return -1;
+}
+Entry ShelfRows::entry_at(int position) const {
+    return (*boxes_[static_cast<std::size_t>(std::clamp(position, 0, count() - 1))]).entry();
+}
+int ShelfRows::vertical(int position, int shelves) const {
+    if (position < 0 || static_cast<std::size_t>(position) >= slots_.size())
+        return position;
+    const int last = slot_shelves_.back();
+    const int shelf = std::clamp(slot_shelves_[static_cast<std::size_t>(position)] + shelves, 0, last);
+    if (shelf == slot_shelves_[static_cast<std::size_t>(position)])
+        return shelves < 0 ? 0 : count() - 1;
+    // The box on that shelf nearest across.
+    const double across = slots_[static_cast<std::size_t>(position)].x + slots_[static_cast<std::size_t>(position)].width * .5;
+    int best = position;
+    double nearest = 1e18;
+    for (std::size_t i = 0; i < slots_.size(); ++i) {
+        if (slot_shelves_[i] != shelf)
+            continue;
+        const double d = std::abs(slots_[i].x + slots_[i].width * .5 - across);
+        if (d < nearest) {
+            nearest = d;
+            best = static_cast<int>(i);
+        }
+    }
+    return best;
+}
 void ShelfRows::reveal(Entry entry) {
-    const int index = entry_index(entry);
+    const int index = position_of(entry);
     if (index < 0 || static_cast<std::size_t>(index) >= slots_.size())
         return;
     const gf::Rect slot = slots_[static_cast<std::size_t>(index)];
@@ -391,8 +503,8 @@ void ShelfRows::reveal(Entry entry) {
     // Keep the margin above a revealed box, so the top row reveals the shelf's top.
     if (slot.height > height || slot.y < y)
         y = slot.y - 8;
-    else if (slot.bottom() > y + height)
-        y = slot.bottom() - height;
+    else if (slot.bottom() + kTagRoom > y + height)
+        y = slot.bottom() + kTagRoom - height;
     jump_to(y);
 }
 int ShelfRows::page_rows() const {
@@ -404,6 +516,11 @@ void ShelfRows::on_paint(gf::Painter& p, gf::Rect) {
     p.clip_rect(view);
     for (double line : shelf_lines_)
         paint_plank(p, 10, line - offset_, view.width - 20, wood);
+    for (const Bookend& end : bookends_)
+        paint_bookend(p, end.x, end.line - offset_, 16, end.height, wood);
+    if (sprites != nullptr)
+        for (const Tag& tag : tags_)
+            paint_tag(p, *sprites, category_name(tag.category), tag.x, tag.line - offset_);
     p.restore();
 }
 
@@ -432,15 +549,20 @@ ShelfView::ShelfView(gf::StableId id, TextSprites& sprites)
 }
 void ShelfView::initialize_control_tree() {
     rows_ = gf::make_control<ShelfRows>(gf::StableId("shelf.rows"));
+    (*rows_).sprites = &sprites_;
     add_child(rows_);
     for (int i = 0; i < entry_count; ++i) {
         boxes_[i] = gf::make_control<ShelfBox>(gf::StableId("shelf.box." + std::to_string(static_cast<int>(entries[i]))),
                                                entries[i], sprites_);
         (*boxes_[i]).focused = std::bind(&ShelfView::focused_box, this, entries[i]);
         (*boxes_[i]).wake = std::bind_front(&ShelfView::request_animation, this);
-        (*rows_).add_box(boxes_[i]);
         gf::on((*boxes_[i]).clicked(), *this, &ShelfView::launch, entries[i]);
     }
+    // On the shelves by category, then by title.
+    std::array<Entry, entry_count> shelved = entries;
+    std::stable_sort(shelved.begin(), shelved.end(), shelved_before);
+    for (Entry entry : shelved)
+        (*rows_).add_box(boxes_[static_cast<std::size_t>(entry_index(entry))]);
     (*rows_).add_arrows();
     (*rows_).wake = std::bind_front(&ShelfView::request_animation, this);
     for (int i = 0; i < 4; ++i) {
@@ -586,28 +708,30 @@ void ShelfView::on_key_bubble(gf::KeyEvent& e) {
     if (e.handled || e.action != gf::KeyAction::down)
         return;
     using K = gf::PhysicalKey;
-    const int i = entry_index(selection_);
-    const int columns = (*rows_).columns();
+    // In the shelves' order: along a shelf, and up and down to the box nearest across.
+    const ShelfRows& rows = *rows_;
+    const int i = rows.position_of(selection_);
+    const int last = rows.count() - 1;
     int next = i;
     if (e.physical_key == K::left)
         next = std::max(0, i - 1);
     else if (e.physical_key == K::right)
-        next = std::min(entry_count - 1, i + 1);
+        next = std::min(last, i + 1);
     else if (e.physical_key == K::up)
-        next = std::max(0, i - columns);
+        next = rows.vertical(i, -1);
     else if (e.physical_key == K::down)
-        next = std::min(entry_count - 1, i + columns);
+        next = rows.vertical(i, 1);
     else if (e.physical_key == K::page_up)
-        next = std::max(0, i - columns * (*rows_).page_rows());
+        next = rows.vertical(i, -rows.page_rows());
     else if (e.physical_key == K::page_down)
-        next = std::min(entry_count - 1, i + columns * (*rows_).page_rows());
+        next = rows.vertical(i, rows.page_rows());
     else if (e.physical_key == K::home)
         next = 0;
     else if (e.physical_key == K::end)
-        next = entry_count - 1;
+        next = last;
     else
         return;
-    select(entries[static_cast<std::size_t>(next)]);
+    select(rows.entry_at(next));
     focus_selection();
     e.handled = true;
 }

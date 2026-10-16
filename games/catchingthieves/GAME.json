@@ -5,6 +5,7 @@
   "namespace": "ct",
   "title": "Catching Thieves",
   "kind": "Garden puzzle",
+  "category": "puzzles",
   "blurb": "Push pumpkins over the burrows before the cheeky raccoons raid your garden.",
   "colors": [
     [

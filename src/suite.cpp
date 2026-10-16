@@ -16,6 +16,10 @@ const EntryInfo& entry_info(Entry entry) { return game_descriptor(entry).info; }
 const char* suite_name() {
     return "PlaySuite";
 }
+const char* category_name(int category) {
+    static constexpr const char* names[category_count] = {"Cards", "Logic & puzzles", "Matching", "Skill", "Quiet corner"};
+    return category >= 0 && category < category_count ? names[category] : "";
+}
 gf::Color mix_color(gf::Color a, gf::Color b, double t) {
     t = std::clamp(t, 0.0, 1.0);
     struct MixChannel {

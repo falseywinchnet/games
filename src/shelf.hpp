@@ -48,7 +48,10 @@ class ShelfArrow final : public gf::Button {
 };
 
 // The scrolling part of the shelf owns box layout and the planks beneath them. It
-// clips its boxes while the surrounding sign stays fixed. It has no scroll bar: the
+// clips its boxes while the surrounding sign stays fixed. The boxes stand in the order
+// they were added (by category, then by title): each category follows the last along
+// the shelves, a wooden bookend between them, and a card tag on the plank under its
+// first box names it. It has no scroll bar: the
 // wheel scrolls it, the keyboard reveals the chosen box, and two candy arrows hover
 // one above the other at its right side, over the wall beside the boxes; each press
 // glides one shelf, and an arrow dims when there is no more shelf its way.
@@ -63,6 +66,12 @@ class ShelfRows final : public gf::Control {
     void on_pointer(gf::PointerEvent& event) override;
     void on_pointer_bubble(gf::PointerEvent& event) override;
     void reveal(Entry entry);
+    // The boxes in shelf order: where an entry stands, which stands at a place, and the
+    // place a number of shelves up (negative) or down from one, nearest across.
+    [[nodiscard]] int position_of(Entry entry) const;
+    [[nodiscard]] Entry entry_at(int position) const;
+    [[nodiscard]] int count() const { return static_cast<int>(boxes_.size()); }
+    [[nodiscard]] int vertical(int position, int shelves) const;
     // Advances a glide started by an arrow; returns true while still moving.
     bool step(double dt, bool reduced);
     [[nodiscard]] int columns() const { return columns_; }
@@ -73,11 +82,24 @@ class ShelfRows final : public gf::Control {
     std::function<void()> wake;
     // The planks' wood, owned by the shelf; plain colour until it is made.
     const ShelfWood* wood = nullptr;
+    // The lettering for the categories' tags, owned by the shelf.
+    TextSprites* sprites = nullptr;
 
   private:
+    // A bookend standing on a shelf, and a category's tag under its first box.
+    struct Bookend {
+        double x = 0, line = 0, height = 0;
+    };
+    struct Tag {
+        int category = 0;
+        double x = 0, line = 0;
+    };
     std::vector<std::shared_ptr<ShelfBox>> boxes_;
     std::vector<gf::Rect> slots_;
+    std::vector<int> slot_shelves_;
     std::vector<double> shelf_lines_;
+    std::vector<Bookend> bookends_;
+    std::vector<Tag> tags_;
     std::shared_ptr<ShelfArrow> up_, down_;
     int columns_ = 1;
     double pitch_ = 1, content_ = 0, offset_ = 0, target_ = 0;

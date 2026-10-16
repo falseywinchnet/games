@@ -6,6 +6,7 @@
   "namespace": "pt",
   "title": "The Paradoxiary",
   "kind": "Deduction",
+  "category": "puzzles",
   "blurb": "Parrots in a glasshouse jungle: some lie, two tell the truth, the rest just chatter. Find the culprit.",
   "colors": [
     [

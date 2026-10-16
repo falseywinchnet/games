@@ -6,6 +6,7 @@
   "namespace": "ps_spider",
   "title": "Spider",
   "kind": "Patience",
+  "category": "cards",
   "blurb": "Ten columns, one to four suits. Complete eight same-suit runs.",
   "colors": [
     [

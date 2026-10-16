@@ -6,6 +6,7 @@
   "namespace": "ps_freecell",
   "title": "FreeCell",
   "kind": "Patience",
+  "category": "cards",
   "blurb": "Four free cells and every card face up. Nearly every deal can be won.",
   "colors": [
     [

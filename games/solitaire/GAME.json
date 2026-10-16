@@ -6,6 +6,7 @@
   "namespace": "ps_solitaire",
   "title": "Solitaire",
   "kind": "Klondike patience",
+  "category": "cards",
   "blurb": "Build four suits from ace to king. Draw one card or three.",
   "colors": [
     [

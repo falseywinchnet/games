@@ -62,33 +62,44 @@ int main() {
             assert_revealed(*item, *rows);
         }
         assert((*music).committed_arranged_bounds() == music_bounds);
+        // The keys follow the shelves' order: by category, then by title.
+        assert((*rows).count() == entry_count);
+        const Entry first = (*rows).entry_at(0);
+        const Entry last = (*rows).entry_at(entry_count - 1);
+        for (int i = 1; i < entry_count; ++i) {
+            const EntryInfo& before = entry_info((*rows).entry_at(i - 1));
+            const EntryInfo& after = entry_info((*rows).entry_at(i));
+            assert(before.category <= after.category);
+        }
         key(window, gf::PhysicalKey::home);
-        assert((*shelf).selection() == entries.front());
-        assert_revealed(*box(*shelf, entries.front()), *rows);
+        assert((*shelf).selection() == first);
+        assert_revealed(*box(*shelf, first), *rows);
         if (entries.size() > 1) {
             key(window, gf::PhysicalKey::right);
-            assert((*shelf).selection() == entries[1]);
+            assert((*shelf).selection() == (*rows).entry_at(1));
             key(window, gf::PhysicalKey::left);
-            assert((*shelf).selection() == entries.front());
+            assert((*shelf).selection() == first);
+            // Down: to the shelf below, the box nearest across; up again comes back.
             key(window, gf::PhysicalKey::down);
-            const int row_end = std::min(entry_count - 1, (*rows).columns());
-            assert((*shelf).selection() == entries[static_cast<std::size_t>(row_end)]);
+            const gf::Rect top = (*box(*shelf, first)).committed_arranged_bounds();
+            const gf::Rect below = (*box(*shelf, (*shelf).selection())).committed_arranged_bounds();
+            assert((*shelf).selection() == last || below.y > top.y);
             assert_revealed(*box(*shelf, (*shelf).selection()), *rows);
             key(window, gf::PhysicalKey::up);
-            assert((*shelf).selection() == entries.front());
+            assert((*shelf).selection() == first);
         }
         key(window, gf::PhysicalKey::end);
-        assert((*shelf).selection() == entries.back());
-        assert_revealed(*box(*shelf, entries.back()), *rows);
+        assert((*shelf).selection() == last);
+        assert_revealed(*box(*shelf, last), *rows);
         key(window, gf::PhysicalKey::page_up);
         assert_revealed(*box(*shelf, (*shelf).selection()), *rows);
         key(window, gf::PhysicalKey::page_down);
         assert_revealed(*box(*shelf, (*shelf).selection()), *rows);
         // Tab focus also reveals a control independently of the selected index.
-        assert(window.request_focus(box(*shelf, entries.front())));
+        assert(window.request_focus(box(*shelf, first)));
         window.perform_layout();
-        assert((*shelf).selection() == entries.front());
-        assert_revealed(*box(*shelf, entries.front()), *rows);
+        assert((*shelf).selection() == first);
+        assert_revealed(*box(*shelf, first), *rows);
         // The side arrows: dimmed toward an end with no more shelf; a press moves a shelf.
         const std::shared_ptr<gf::Button> up =
             std::dynamic_pointer_cast<gf::Button>(find_control(*shelf, "shelf.rows.up"));

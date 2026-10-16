@@ -6,6 +6,7 @@
   "namespace": "pl",
   "title": "Pocket Library",
   "kind": "Bookshelf",
+  "category": "quiet",
   "blurb": "Sometimes reading is fun too",
   "enabled": true,
   "hosted": true,

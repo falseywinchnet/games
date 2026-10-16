@@ -6,6 +6,7 @@
   "namespace": "mz",
   "title": "Maze 95",
   "kind": "First-person maze",
+  "category": "puzzles",
   "blurb": "Explore strange corridors, ceiling flips and encounters. Find the reward.",
   "colors": [
     [

@@ -6,6 +6,7 @@
   "namespace": "zc",
   "title": "Rock Stack",
   "kind": "Stone construction",
+  "category": "skill",
   "blurb": "Work a little crane to balance river stones beside a brook.",
   "colors": [
     [
