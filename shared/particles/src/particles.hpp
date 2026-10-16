@@ -195,17 +195,22 @@ struct Layer {
     std::vector<float> coverage;     // sum of coverage
     std::vector<float> through;      // product of (1 - coverage): what passes them all
     std::vector<float> added;        // 3 per pixel
-    // Large soft glows are drawn on a grid of half the resolution (they have no detail
-    // to lose) and smoothed back up as the layer is composed: 3 per coarse pixel.
+    // Large soft glows are drawn on a grid of a quarter the resolution (they have no
+    // detail to lose) and smoothed back up as the layer is composed: 3 per coarse pixel.
+    static constexpr int coarse_step = 4;
     int coarse_width = 0, coarse_height = 0;
     std::vector<float> coarse;
     // The pixels drawn on since the last reset (half-open, fine pixels; empty when
-    // left >= right): only these are cleared again and composed.
+    // left >= right): by streaks and small glows, by large glows, and both together.
+    // Only these are cleared again and composed.
+    int fine_left = 0, fine_top = 0, fine_right = 0, fine_bottom = 0;
+    int glow_left = 0, glow_top = 0, glow_right = 0, glow_bottom = 0;
     int dirty_left = 0, dirty_top = 0, dirty_right = 0, dirty_bottom = 0;
     // Ready for a new frame of `width` x `height`: everything cleared at a new size,
     // only what was drawn on at the same size.
     void reset(int width, int height);
     void mark(int left, int top, int right, int bottom);
+    void mark_glow(int left, int top, int right, int bottom);
 };
 
 // How particles are drawn.

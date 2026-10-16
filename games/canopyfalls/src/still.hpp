@@ -53,6 +53,11 @@ void render_sky(const Look& look, const Camera& camera, int width, int height, L
 // size (off the window's thread, in bands that may be baked at once); a frame then
 // draws the falling sheet from a loop of its own noise, the sun's glitter on the pool,
 // and the particles, and puts the tone curve on it.
+// Runs `count` jobs, each once and in any order, on as many threads as it likes, and
+// returns when all are done; `runner` is its own. The view lends one over its pool;
+// without one the jobs run here in turn.
+using Runner = void (*)(void* runner, int count, void (*job)(void* context, int index) noexcept, void* context);
+
 class LiveFalls final {
   public:
     LiveFalls(const Look& look, const Camera& camera);
@@ -62,7 +67,9 @@ class LiveFalls final {
 
     // Once, before the first size is finished (any thread): the sky, the light, the
     // planting, the sheet's noise, and the water run until it has reached the pool.
-    void prepare_once();
+    // The sky and the noise are spread over `run` when there is one. Later calls do
+    // nothing.
+    void prepare_once(Runner run = nullptr, void* runner = nullptr);
     // A new picture size: begin it (the window's thread), bake every band (any threads,
     // each band once), finish it (any one thread, after every band), then adopt it (the
     // window's thread). The size shown goes on drawing until it is adopted.

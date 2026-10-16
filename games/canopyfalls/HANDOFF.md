@@ -13,8 +13,9 @@ A living waterfall on the ambient engine's `SceneView`. The look, the sound and 
     - the particles (`shared/particles`): clumps, broad veils, drops, glints, mist;
     - one tone-curve table.
 - **View:** `src/falls_view.cpp`.
-  - The scene raster is one pixel per two points at Balanced, one per point at Fine, one per three at Light, capped near 680,000 pixels.
-  - Baking runs on its own threads (`std::async`, as Mowing does) while the last picture stays up.
+  - The scene raster is one pixel per point at Balanced (capped at a million pixels), one per device pixel at Fine (1.6 million), one per two points at Light (half a million).
+  - Baking runs on a GUI.Forms `Worker`, which shares the sky table, the sheet's noise and the bands with up to seven helper Workers (the card table's crew: `AtomicThreadPool` runs batches this small on the caller alone), through the `Runner` that `LiveFalls::prepare_once` takes. The last picture stays up meanwhile.
+  - The first picture comes quickly: a third of the size with one ray, then the full size behind it.
   - Particle density is 0.4, 0.7 or 1.0 by detail.
 - **Sound:** `src/falls_voice.cpp`, a live voice under Sound.
 - **Music:** the suite's `heavenly_harp` style (`src/music/styles`), under Music.
@@ -31,12 +32,9 @@ On the M4 Mac mini, 2026-10-15, full application build (LLVM 22.1.8, toolkit 6fd
   - the picture stays up while a resize to 760 × 520 bakes;
   - the help card opens over the moving falls; the script quits cleanly;
   - captures are in `screens/`.
-- **Cost:**
-  - Headless, 550 × 380 at density 0.7: baking 18 s on one thread (about 2.5 s over the cores); preparing once 1.1 s; a frame about 4.5 ms (particles 2.65 ms, glitter 0.6, tone 0.4, sheet 0.3, the water's step 0.3).
-  - In the window at 1100 × 760, settled:
-    - a 10 s profile puts the real work at about a fifth of a core: particles about 10%, the rest of the frame 4%, the forest's sound 2.5%, the harp 1.5%;
-    - the process clock reads about a third of a core over the same 10 s, the cores running slowly between short bursts (see the ambient README);
-    - the governor holds it near 16 to 20 frames a second.
+- **Cost** (2026-10-15, the second round):
+  - Headless at 1100 × 760, density 0.7: baking 11 s on one thread (was about 58 s at that size: the near leaves are filed in a grid, the noise turns by table); a frame about 6 ms (particles 3.8, sheet 1.1, tone 0.45, glitter 0.3, shade 0.3).
+  - In the window (1060 × 680, scale 1, on a shared M4): the quick picture is up by 1.2 s, the full one by about 4.5 s, about 18 CPU-seconds in all over eight threads. Settled, the process clock reads about 36% of a core.
 - **Music:** the port renders the same as the approved stems: 260 of 7.2 million samples differ, by one step. Dropping dead partials made it 55 times faster than real time, with the same loudness and peak.
 
 ## Not verified yet
@@ -48,7 +46,7 @@ On the M4 Mac mini, 2026-10-15, full application build (LLVM 22.1.8, toolkit 6fd
 
 ## Next
 
-- **Cost:** draw each picture in one burst on a worker, as Stillwater does, to escape the slow-clock penalty, and make the streaks cheaper. That would bring the process to Stillwater's level.
+- **Cost:** draw each picture in one burst on a worker, as Stillwater does, to escape the slow-clock penalty. That would bring the process to Stillwater's level.
 - **Frogs and lilies that answer a touch;** the moving light on the rock.
 
 ## Decisions

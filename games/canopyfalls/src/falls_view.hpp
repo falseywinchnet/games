@@ -1,8 +1,9 @@
 #pragma once
 // Canopy Falls in PlaySuite: the ambient engine's SceneView hosting the live falls.
 //
-// The scene is baked for each picture size off the window's thread, in bands over the
-// processor's cores, while the last picture stays up; once ready, each frame moves the
+// The scene is baked for each picture size off the window's thread (GUI.Forms Workers
+// sharing the bands) while the last picture stays up; the
+// first comes quickly at a third of the size, then the full one. Once ready, each frame moves the
 // water on and draws it (still.hpp, LiveFalls). The forest's sound (falls_voice.hpp) is
 // a live voice under Sound; the music is the suite's "heavenly_harp" style under Music.
 #include "scene_view.hpp"
@@ -10,12 +11,14 @@
 #include "still.hpp"
 
 #include <atomic>
-#include <future>
 #include <memory>
 #include <vector>
 
 namespace games {
 class LiveComposer;
+}
+namespace gui_forms {
+class Worker;
 }
 
 namespace cf {
@@ -40,15 +43,25 @@ class FallsScenery final : public ambient::Scenery {
     bool scripted_action(std::string_view action, ambient::SceneContext& context) override;
     void sound(bool running, ambient::SceneContext& context) override;
 
+    // What the baking thread reports.
+    struct Baking {
+        LiveFalls* falls = nullptr;
+        std::atomic<bool> done{false};
+        std::atomic<bool> failed{false};
+    };
+
   private:
     void start_bake();
+    void stop_bake() noexcept;
 
     std::unique_ptr<LiveFalls> falls_;
-    std::future<void> baking_{};          // the size being baked, on other threads
-    std::atomic<bool> cancel_{false};
+    Baking baking_{};
+    std::unique_ptr<gui_forms::Worker> baker_{};  // bakes the pending size; declared after what it borrows
     ambient::SceneSize wanted_{};         // the size the view asks for
     ambient::SceneSize baking_size_{};    // the size being baked
     ambient::SceneSize shown_size_{};     // the size shown
+    bool quick_{};                        // the size being baked is the quick first one
+    bool quick_shown_{};                  // the picture shown is the quick first one
     bool settled_{};
     ambient::Detail detail_{ambient::Detail::balanced};
     std::vector<std::uint32_t> picture_{};

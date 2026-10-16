@@ -149,6 +149,17 @@ struct NearLeaf {
     double bend = 0;
     double distance = 4;
     std::uint32_t seed = 0;
+    double cos_angle = 1, sin_angle = 0;  // of `angle`, worked out once
+};
+
+// The leaves filed by where they lie in the view, so a ray looks only at the few that
+// may cover it: a grid over u = x / z, v = (y - eye) / z of the leaves' planes, each
+// cell listing (in drawing order) every leaf whose bounds reach it.
+struct LeafGrid {
+    static constexpr double u_from = -4.5, v_from = -3.5, cell = .04;
+    static constexpr int columns = 225, rows = 175;
+    std::vector<std::uint32_t> first;   // rows * columns + 1: where each cell's list starts
+    std::vector<std::uint32_t> leaves;  // the lists, one after another
 };
 
 // A lily pad on the pool, perhaps with a flower.
@@ -170,6 +181,7 @@ struct Context {
     std::vector<Crown> crowns;
     std::vector<Crown> jungle;   // the trees and shrubs either side of the clearing, nearest first
     std::vector<NearLeaf> leaves;
+    LeafGrid leaf_grid;
     std::vector<Lily> lilies;
     // The sky precomputed over azimuth and elevation, `sky_step` radians apart,
     // bilinear between: azimuth -100..100 degrees, elevation -10..90.
@@ -448,9 +460,9 @@ void plant_near_canopy(Context& c) {
     // Placed for the scene's own view, whatever view draws them.
     const Camera scene_camera{};
     plant_ground(c);
-    // Fronds hanging into the view from the upper left, a leafy branch from the upper
-    // right, on planes a few metres ahead (metres measured on the plane), each rooted
-    // just outside the picture's corner as the scene's lens sees it.
+    // Fronds hanging into the view from the upper left, on planes a few metres ahead
+    // (metres measured on the plane), each rooted just outside the picture's corner as
+    // the scene's lens sees it.
     for (int i = 0; i < 5; ++i) {
         NearLeaf leaf;
         leaf.frond = true;
@@ -462,39 +474,78 @@ void plant_near_canopy(Context& c) {
         leaf.seed = hash32(51 + static_cast<std::uint32_t>(i));
         c.leaves.push_back(leaf);
     }
-    // Three branches reaching in from the upper right, each hung with narrow pointed
-    // leaves on alternate sides, drooping.
-    for (int branch = 0; branch < 3; ++branch) {
-        const double distance = 2.6 + .9 * branch;
-        double x = 0, y = 0;
-        anchor_outside(scene_camera, 1050.0 + 10 * branch, -5.0 + 50 * branch, distance, x, y);
-        double heading = pi + .25 + .18 * branch;  // leftward, a little down
-        const int count = 18 + 4 * branch;
-        for (int k = 0; k < count; ++k) {
-            const std::uint32_t h = hash3(branch, k, 2, 77);
-            NearLeaf leaf;
-            leaf.slender = true;
-            leaf.distance = distance;
-            leaf.x = x;
-            leaf.y = y;
-            const double side = (k % 2 == 0) ? 1.0 : -1.0;
-            // Leaves hang from the branch: mostly downward, swung to their side.
-            leaf.angle = side * (.35 + .5 * unit(h)) + .15 * (unit(hash32(h)) - .5);
-            leaf.size = (.22 + .16 * unit(hash32(h + 1))) * (1 - .35 * k / count);
-            leaf.bend = .5 * (unit(hash32(h + 2)) - .5);
-            leaf.seed = hash32(h + 3);
-            c.leaves.push_back(leaf);
-            const double step = .075 + .02 * unit(hash32(h + 4));
-            heading += .05 * (unit(hash32(h + 5)) - .45);
-            x += std::cos(heading) * step;
-            y += std::sin(heading) * step - .012 * k * step;
-            c.leaves.back().next_x = x;
-            c.leaves.back().next_y = y;
-        }
+    // (The leafy branches that once reached in from the upper right hung in the air,
+    // rooted in nothing; they are gone.)
+}
+
+// Works out each leaf's angle once and files the leaves in the grid by their bounds.
+void file_leaves(Context& c) {
+    const double eye = (*c.camera).eye_height;
+    LeafGrid& grid = c.leaf_grid;
+    const std::size_t cells = static_cast<std::size_t>(LeafGrid::columns) * LeafGrid::rows;
+    std::vector<std::uint32_t> counts(cells + 1, 0);
+    std::vector<int> box(c.leaves.size() * 4, 0);
+    for (std::size_t i = 0; i < c.leaves.size(); ++i) {
+        NearLeaf& leaf = c.leaves[i];
+        leaf.cos_angle = std::cos(leaf.angle);
+        leaf.sin_angle = std::sin(leaf.angle);
+        // Everything a leaf draws lies within its size (and a frond's leaflets) of its
+        // base, or along its twig to the next leaf.
+        const double reach = leaf.size * 1.25 + .5;
+        const double x0 = std::min(leaf.x, leaf.slender ? leaf.next_x : leaf.x) - reach;
+        const double x1 = std::max(leaf.x, leaf.slender ? leaf.next_x : leaf.x) + reach;
+        const double y0 = std::min(leaf.y, leaf.slender ? leaf.next_y : leaf.y) - reach - eye;
+        const double y1 = std::max(leaf.y, leaf.slender ? leaf.next_y : leaf.y) + reach - eye;
+        const int c0 = std::clamp(static_cast<int>(std::floor((x0 / leaf.distance - LeafGrid::u_from) / LeafGrid::cell)), 0, LeafGrid::columns - 1);
+        const int c1 = std::clamp(static_cast<int>(std::floor((x1 / leaf.distance - LeafGrid::u_from) / LeafGrid::cell)), 0, LeafGrid::columns - 1);
+        const int r0 = std::clamp(static_cast<int>(std::floor((y0 / leaf.distance - LeafGrid::v_from) / LeafGrid::cell)), 0, LeafGrid::rows - 1);
+        const int r1 = std::clamp(static_cast<int>(std::floor((y1 / leaf.distance - LeafGrid::v_from) / LeafGrid::cell)), 0, LeafGrid::rows - 1);
+        box[i * 4] = c0;
+        box[i * 4 + 1] = c1;
+        box[i * 4 + 2] = r0;
+        box[i * 4 + 3] = r1;
+        for (int r = r0; r <= r1; ++r)
+            for (int col = c0; col <= c1; ++col)
+                ++counts[static_cast<std::size_t>(r) * LeafGrid::columns + static_cast<std::size_t>(col)];
+    }
+    grid.first.assign(cells + 1, 0);
+    for (std::size_t k = 0; k < cells; ++k)
+        grid.first[k + 1] = grid.first[k] + counts[k];
+    grid.leaves.assign(grid.first[cells], 0);
+    std::vector<std::uint32_t> filled(cells, 0);
+    for (std::size_t i = 0; i < c.leaves.size(); ++i)
+        for (int r = box[i * 4 + 2]; r <= box[i * 4 + 3]; ++r)
+            for (int col = box[i * 4]; col <= box[i * 4 + 1]; ++col) {
+                const std::size_t k = static_cast<std::size_t>(r) * LeafGrid::columns + static_cast<std::size_t>(col);
+                grid.leaves[grid.first[k] + filled[k]] = static_cast<std::uint32_t>(i);
+                ++filled[k];
+            }
+}
+
+// Runs jobs over `run`, or here in turn without one.
+void run_jobs(Runner run, void* runner, int count, void (*job)(void*, int) noexcept, void* context) {
+    if (run != nullptr) {
+        run(runner, count, job, context);
+        return;
+    }
+    for (int i = 0; i < count; ++i)
+        job(context, i);
+}
+
+// One row of the precomputed sky.
+void sky_row(void* context, int gy) noexcept {
+    Context& c = *static_cast<Context*>(context);
+    for (int gx = 0; gx < c.sky_columns; ++gx) {
+        const double az = sky_azimuth_from + gx * c.sky_step;
+        const double el = std::max(sky_elevation_from + gy * c.sky_step, .002);
+        const Vec3 d{std::cos(el) * std::sin(az), std::sin(el), std::cos(el) * std::cos(az)};
+        c.sky_grid[static_cast<std::size_t>(gy) * static_cast<std::size_t>(c.sky_columns) + static_cast<std::size_t>(gx)] =
+            c.sky.radiance(d);
     }
 }
 
-void prepare(Context& c, const Look& look, const Camera& camera, int width, int height, double time) {
+void prepare(Context& c, const Look& look, const Camera& camera, int width, int height, double time,
+             Runner run = nullptr, void* runner = nullptr) {
     c.look = &look;
     c.camera = &camera;
     c.sky = Sky(look.sky);
@@ -524,18 +575,12 @@ void prepare(Context& c, const Look& look, const Camera& camera, int width, int 
     c.sky_columns = static_cast<int>(200 * pi / 180 / c.sky_step) + 2;
     c.sky_rows = static_cast<int>(100 * pi / 180 / c.sky_step) + 2;
     c.sky_grid.assign(static_cast<std::size_t>(c.sky_columns) * static_cast<std::size_t>(c.sky_rows), Rgb{});
-    for (int gy = 0; gy < c.sky_rows; ++gy)
-        for (int gx = 0; gx < c.sky_columns; ++gx) {
-            const double az = sky_azimuth_from + gx * c.sky_step;
-            const double el = std::max(sky_elevation_from + gy * c.sky_step, .002);
-            const Vec3 d{std::cos(el) * std::sin(az), std::sin(el), std::cos(el) * std::cos(az)};
-            c.sky_grid[static_cast<std::size_t>(gy) * static_cast<std::size_t>(c.sky_columns) + static_cast<std::size_t>(gx)] =
-                c.sky.radiance(d);
-        }
+    run_jobs(run, runner, c.sky_rows, &sky_row, &c);
     plant_forest(c);
     plant_jungle(c);
     plant_near_canopy(c);
     std::stable_sort(c.leaves.begin(), c.leaves.end(), FartherFirst{});
+    file_leaves(c);
     // Lily pads in the calm water beside the walkway, in drifts.
     for (int i = 0; i < 46; ++i) {
         const std::uint32_t h = hash32(4000 + static_cast<std::uint32_t>(i));
@@ -1023,10 +1068,16 @@ Rgb air_between(const Context& c, Vec3 direction, Rgb seen, double distance, dou
 
 Cover near_canopy(const Context& c, Vec3 direction, Rgb behind, double limit) {
     Cover out;
+    if (direction.z <= 0)
+        return out;
     const double eye = (*c.camera).eye_height;
-    for (const NearLeaf& leaf : c.leaves) {
-        if (direction.z <= 0)
-            continue;
+    const int column = static_cast<int>(std::floor((direction.x / direction.z - LeafGrid::u_from) / LeafGrid::cell));
+    const int row = static_cast<int>(std::floor((direction.y / direction.z - LeafGrid::v_from) / LeafGrid::cell));
+    if (column < 0 || column >= LeafGrid::columns || row < 0 || row >= LeafGrid::rows || c.leaf_grid.first.empty())
+        return out;
+    const std::size_t cell = static_cast<std::size_t>(row) * LeafGrid::columns + static_cast<std::size_t>(column);
+    for (std::uint32_t k = c.leaf_grid.first[cell]; k < c.leaf_grid.first[cell + 1]; ++k) {
+        const NearLeaf& leaf = c.leaves[c.leaf_grid.leaves[k]];
         const double t = leaf.distance / direction.z;
         if (t > limit)
             continue;
@@ -1037,8 +1088,8 @@ Cover near_canopy(const Context& c, Vec3 direction, Rgb behind, double limit) {
         double vein = 0;
         if (leaf.frond) {
             // A rachis curving from its base, leaflets hanging from both sides.
-            const double ca = std::cos(leaf.angle);
-            const double sa = std::sin(leaf.angle);
+            const double ca = leaf.cos_angle;
+            const double sa = leaf.sin_angle;
             const double lx = (px - leaf.x) * ca + (py - leaf.y) * sa;
             const double ly = -(px - leaf.x) * sa + (py - leaf.y) * ca;
             // lx runs along the frond (+ away from the base); ly across it.
@@ -1065,8 +1116,8 @@ Cover near_canopy(const Context& c, Vec3 direction, Rgb behind, double limit) {
             }
         } else if (leaf.slender) {
             // A narrow pointed leaf hanging from its stalk, its midrib curved.
-            const double ca = std::cos(leaf.angle);
-            const double sa = std::sin(leaf.angle);
+            const double ca = leaf.cos_angle;
+            const double sa = leaf.sin_angle;
             const double lx = (px - leaf.x) * ca + (py - leaf.y) * sa;
             const double ly = -(px - leaf.x) * sa + (py - leaf.y) * ca;
             const double u = -ly / leaf.size;  // 0 at the stalk, 1 at the tip
@@ -1094,8 +1145,8 @@ Cover near_canopy(const Context& c, Vec3 direction, Rgb behind, double limit) {
             vein = midrib * .8 + .15 * std::pow(std::fabs(std::cos((u * 14 + std::fabs(v) * 10) * pi)), 4);
         } else {
             // A broad heart-shaped leaf hanging from its stalk.
-            const double ca = std::cos(leaf.angle);
-            const double sa = std::sin(leaf.angle);
+            const double ca = leaf.cos_angle;
+            const double sa = leaf.sin_angle;
             const double lx = (px - leaf.x) * ca + (py - leaf.y) * sa;
             const double ly = -(px - leaf.x) * sa + (py - leaf.y) * ca;
             const double u = -ly / leaf.size;  // 0 at the stalk, 1 at the tip
@@ -1731,12 +1782,12 @@ void plant_falls(FallsParticles& f, std::uint32_t seed) {
             if (wide == 0) {
                 // Clumps of white water and the torn runs behind them.
                 e.rate = static_cast<float>(20 + 70 * depth);
-                e.size = {static_cast<float>(.08 + .2 * depth), static_cast<float>(.3 + .8 * depth)};
+                e.size = {static_cast<float>(.05 + .12 * depth), static_cast<float>(.18 + .48 * depth)};
                 e.tail = {.04f, .24f};
             } else {
                 // Broad, faint sheets of spray between them.
                 e.rate = static_cast<float>(3 + 9 * depth);
-                e.size = {.9f, 2.4f};
+                e.size = {.3f, .8f};
                 e.tail = {.15f, .4f};
             }
             static_cast<void>(system.add_emitter(e));
@@ -2129,24 +2180,28 @@ void sheet_noise_at(double xs, double s, float out[noise_channels]) {
     out[8] = static_cast<float>(fingers);
 }
 
-void make_sheet_noise(SheetNoise& n) {
+// One column of the loop.
+void sheet_noise_column(void* context, int col) noexcept {
+    SheetNoise& n = *static_cast<SheetNoise*>(context);
+    const double xs = n.x_from + col * n.dx;
+    for (int row = 0; row < loop_rows; ++row) {
+        const double s = loop_seconds * row / loop_rows;
+        const double w = static_cast<double>(row) / loop_rows;
+        float a[noise_channels] = {}, b[noise_channels] = {};
+        sheet_noise_at(xs, s, a);
+        sheet_noise_at(xs, s - loop_seconds, b);
+        float* out = &n.values[(static_cast<std::size_t>(col) * loop_rows + static_cast<std::size_t>(row)) * noise_channels];
+        for (int k = 0; k < noise_channels; ++k)
+            out[k] = static_cast<float>(a[k] * (1 - w) + b[k] * w);
+    }
+}
+
+void make_sheet_noise(SheetNoise& n, Runner run, void* runner) {
     const Channel& ch = channels[0];
     n.x_from = ch.left - 3;
     n.columns = static_cast<int>((ch.right - ch.left + 6) / n.dx) + 1;
     n.values.assign(static_cast<std::size_t>(n.columns) * loop_rows * noise_channels, 0.0f);
-    for (int col = 0; col < n.columns; ++col) {
-        const double xs = n.x_from + col * n.dx;
-        for (int row = 0; row < loop_rows; ++row) {
-            const double s = loop_seconds * row / loop_rows;
-            const double w = static_cast<double>(row) / loop_rows;
-            float a[noise_channels] = {}, b[noise_channels] = {};
-            sheet_noise_at(xs, s, a);
-            sheet_noise_at(xs, s - loop_seconds, b);
-            float* out = &n.values[(static_cast<std::size_t>(col) * loop_rows + static_cast<std::size_t>(row)) * noise_channels];
-            for (int k = 0; k < noise_channels; ++k)
-                out[k] = static_cast<float>(a[k] * (1 - w) + b[k] * w);
-        }
-    }
+    run_jobs(run, runner, n.columns, &sheet_noise_column, &n);
 }
 
 // What a frame needs of one pixel of the sheet, worked out once per size: everything
@@ -2180,6 +2235,11 @@ struct Baked {
     std::vector<float> depth;    // per pixel: the distance particles must be nearer than
     std::vector<SheetPixel> sheet;
     std::vector<GlitterPixel> glitter;
+    // The picture with nothing moving, tone-mapped once: a frame starts from it and
+    // redraws only the box where something moves.
+    std::vector<std::uint32_t> still;
+    int moving_left = 0, moving_top = 0, moving_right = 0, moving_bottom = 0;  // the sheet and the glitter
+    long id = 0;
     Context context;
     std::vector<Box> boxes;
     int samples = 2;
@@ -2308,16 +2368,19 @@ void shade_sheet(const SheetPixel& p, const SheetNoise& noise, double time, floa
 
 // A height field for the pool's ripples that tiles: a few travelling waves with whole
 // numbers of cycles across its 8 m square, so two layers can drift over each other.
-double ripple_height(double x, double z, double t) {
+// The pool's ripples: a few travelling waves with whole numbers of cycles across an
+// 8 m square, so the pattern tiles. Their slopes, at (x, z) and time t.
+void ripple_slope(double x, double z, double t, double& slope_x, double& slope_z) {
     const double k = 2 * pi / 8;
-    double h = 0;
     const int waves[6][2] = {{3, 1}, {-2, 3}, {5, -2}, {1, -6}, {-7, 2}, {4, 5}};
     const double speeds[6] = {.9, -.7, 1.3, .6, -1.1, .8};
+    slope_x = slope_z = 0;
     for (int i = 0; i < 6; ++i) {
         const double phase = k * (waves[i][0] * x + waves[i][1] * z) - speeds[i] * t * 2;
-        h += std::sin(phase) / (1 + .25 * i);
+        const double c = turn_cos(phase) * .0045 * k / (1 + .25 * i);
+        slope_x += c * waves[i][0];
+        slope_z += c * waves[i][1];
     }
-    return h * .0045;
 }
 
 } // namespace
@@ -2327,6 +2390,7 @@ struct LiveFalls::State {
     Camera camera{};
     Context base{};
     SheetNoise noise{};
+    bool prepared = false;
     bool noise_made = false;
     std::unique_ptr<Baked> shown;
     std::unique_ptr<Baked> pending;
@@ -2341,6 +2405,9 @@ struct LiveFalls::State {
     std::array<std::uint8_t, 4096> curve{};   // the tone curve, by the square root of light
     std::array<double, 6> spent{};             // seconds in each stage of drawing, summed
     long frames = 0;
+    long sizes_made = 0;
+    long drawn_id = -1;                        // the size the last frame was drawn at
+    int last_left = 0, last_top = 0, last_right = 0, last_bottom = 0;  // the particles' box last frame
 };
 
 namespace {
@@ -2414,12 +2481,15 @@ int LiveFalls::bands() const {
     return ((*s.pending).height + (*s.pending).band_rows - 1) / (*s.pending).band_rows;
 }
 
-void LiveFalls::prepare_once() {
+void LiveFalls::prepare_once(Runner run, void* runner) {
     State& s = *state_;
     // The context every size shares: the sky, the light, the planting.
-    prepare(s.base, s.look, s.camera, 1100, 760, 0);
+    if (!s.prepared) {
+        prepare(s.base, s.look, s.camera, 1100, 760, 0, run, runner);
+        s.prepared = true;
+    }
     if (!s.noise_made) {
-        make_sheet_noise(s.noise);
+        make_sheet_noise(s.noise, run, runner);
         s.noise_made = true;
     }
     if (!s.warmed) {
@@ -2568,6 +2638,29 @@ void LiveFalls::finish_size() {
         b.glitter.insert(b.glitter.end(), part.begin(), part.end());
     b.band_sheet.clear();
     b.band_glitter.clear();
+    // The box the sheet and the glitter can change.
+    int left = b.width, top = b.height, right = 0, bottom = 0;
+    for (const SheetPixel& p : b.sheet) {
+        const int x = static_cast<int>(p.index % static_cast<std::uint32_t>(b.width));
+        const int y = static_cast<int>(p.index / static_cast<std::uint32_t>(b.width));
+        left = std::min(left, x);
+        right = std::max(right, x + 1);
+        top = std::min(top, y);
+        bottom = std::max(bottom, y + 1);
+    }
+    for (const GlitterPixel& g : b.glitter) {
+        const int x = static_cast<int>(g.index % static_cast<std::uint32_t>(b.width));
+        const int y = static_cast<int>(g.index / static_cast<std::uint32_t>(b.width));
+        left = std::min(left, x);
+        right = std::max(right, x + 1);
+        top = std::min(top, y);
+        bottom = std::max(bottom, y + 1);
+    }
+    b.moving_left = left;
+    b.moving_top = top;
+    b.moving_right = std::max(left, right);
+    b.moving_bottom = std::max(top, bottom);
+    b.id = ++s.sizes_made;
     // The sun's glare in the eye, over everything, by how much of its disc shows.
     const Context& c = b.context;
     SheetCapture unused;
@@ -2583,6 +2676,15 @@ void LiveFalls::finish_size() {
                 b.over[i * 3 + 1] += static_cast<float>(g.g);
                 b.over[i * 3 + 2] += static_cast<float>(g.b);
             }
+    // The still picture, finished.
+    const std::size_t pixels = static_cast<std::size_t>(b.width) * static_cast<std::size_t>(b.height);
+    b.still.resize(pixels);
+    for (std::size_t i = 0; i < pixels; ++i) {
+        const float keep = 1 - b.cover[i];
+        b.still[i] = 0xFF000000U | (static_cast<std::uint32_t>(tone(s.curve, b.behind[i * 3] * keep + b.over[i * 3])) << 16) |
+                     (static_cast<std::uint32_t>(tone(s.curve, b.behind[i * 3 + 1] * keep + b.over[i * 3 + 1])) << 8) |
+                     tone(s.curve, b.behind[i * 3 + 2] * keep + b.over[i * 3 + 2]);
+    }
 }
 
 void LiveFalls::adopt() {
@@ -2653,7 +2755,58 @@ void LiveFalls::draw(std::vector<std::uint32_t>& out) {
     std::chrono::steady_clock::time_point clock = std::chrono::steady_clock::now();
     const Baked& b = *s.shown;
     const std::size_t pixels = static_cast<std::size_t>(b.width) * static_cast<std::size_t>(b.height);
-    s.picture.assign(b.behind.begin(), b.behind.end());
+    // A new size starts from its still picture.
+    if (s.drawn_id != b.id || out.size() != pixels) {
+        out = b.still;
+        s.picture.assign(b.behind.begin(), b.behind.end());
+        s.drawn_id = b.id;
+        s.last_left = s.last_top = s.last_right = s.last_bottom = 0;
+    }
+    // The particles first, to know where they fall.
+    const Context& c = b.context;
+    const particles::Lens lens = lens_for(s.camera, b.width, b.height);
+    shade_particles(c, s.particles, lens, s.shades);
+    s.layer.reset(b.width, b.height);
+    lap(clock, s.spent[3]);
+    particles::Splat splat;
+    splat.softness = .85f;
+    splat.taper = .3f;
+    splat.fray = .6f;
+    splat.fray_length = .4f;
+    particles::Splatter::draw(s.particles.system, s.shades, lens, b.depth, splat, s.layer);
+    lap(clock, s.spent[4]);
+    // The box to redraw: where the sheet and the glitter are, and where particles are
+    // now or were last frame (so they leave nothing behind).
+    int left = b.moving_left, top = b.moving_top, right = b.moving_right, bottom = b.moving_bottom;
+    const int boxes[2][4] = {{s.layer.dirty_left, s.layer.dirty_top, s.layer.dirty_right, s.layer.dirty_bottom},
+                             {s.last_left, s.last_top, s.last_right, s.last_bottom}};
+    for (int k = 0; k < 2; ++k) {
+        if (boxes[k][0] >= boxes[k][2] || boxes[k][1] >= boxes[k][3])
+            continue;
+        if (left >= right || top >= bottom) {
+            left = boxes[k][0];
+            top = boxes[k][1];
+            right = boxes[k][2];
+            bottom = boxes[k][3];
+            continue;
+        }
+        left = std::min(left, boxes[k][0]);
+        top = std::min(top, boxes[k][1]);
+        right = std::max(right, boxes[k][2]);
+        bottom = std::max(bottom, boxes[k][3]);
+    }
+    s.last_left = s.layer.dirty_left;
+    s.last_top = s.layer.dirty_top;
+    s.last_right = s.layer.dirty_right;
+    s.last_bottom = s.layer.dirty_bottom;
+    if (left >= right || top >= bottom)
+        return;
+    for (int y = top; y < bottom; ++y) {
+        const std::size_t from = (static_cast<std::size_t>(y) * static_cast<std::size_t>(b.width) + static_cast<std::size_t>(left)) * 3;
+        std::copy(b.behind.begin() + static_cast<std::ptrdiff_t>(from),
+                  b.behind.begin() + static_cast<std::ptrdiff_t>(from + static_cast<std::size_t>(right - left) * 3),
+                  s.picture.begin() + static_cast<std::ptrdiff_t>(from));
+    }
     lap(clock, s.spent[0]);
     // The falling sheet, now.
     for (const SheetPixel& p : b.sheet) {
@@ -2666,18 +2819,17 @@ void LiveFalls::draw(std::vector<std::uint32_t>& out) {
     }
     lap(clock, s.spent[1]);
     // The sun glittering on the pool's ripples.
-    const Context& c = b.context;
     const float sun_r = static_cast<float>(c.sunlight.r), sun_g = static_cast<float>(c.sunlight.g), sun_b = static_cast<float>(c.sunlight.b);
     for (const GlitterPixel& g : b.glitter) {
-        const double e = .03;
-        const double h = ripple_height(g.x, g.z, s.time);
-        const double hx = (ripple_height(g.x + e, g.z, s.time) - h) / e;
-        const double hz = (ripple_height(g.x, g.z + e, s.time) - h) / e;
-        const double fine = .006 * noise2(g.x / .5 + s.time * .3, g.z / .5, 302);
-        const Vec3 n = normalized({-hx - fine, 1, -hz + fine});
+        double hx = 0, hz = 0;
+        ripple_slope(g.x, g.z, s.time, hx, hz);
+        const Vec3 n = normalized({-hx, 1, -hz});
         const double facing = std::max(0.0, n.x * g.half[0] + n.y * g.half[1] + n.z * g.half[2]);
-        const double f60 = std::pow(facing, 60);
-        const double glitter = std::pow(f60, 15) * 60 + f60 * .5;
+        // facing^60 and its fifteenth power, by squaring.
+        const double f2 = facing * facing, f4 = f2 * f2, f8 = f4 * f4, f16 = f8 * f8, f32 = f16 * f16;
+        const double f60 = f32 * f16 * f8 * f4;
+        const double g2 = f60 * f60, g4 = g2 * g2, g8 = g4 * g4;
+        const double glitter = g8 * g4 * g2 * f60 * 60 + f60 * .5;
         const float add = static_cast<float>(glitter * g.reach);
         float* at = &s.picture[static_cast<std::size_t>(g.index) * 3];
         at[0] += sun_r * add;
@@ -2685,29 +2837,19 @@ void LiveFalls::draw(std::vector<std::uint32_t>& out) {
         at[2] += sun_b * add;
     }
     lap(clock, s.spent[2]);
-    // The particles, between what lies behind and what is in front.
-    const particles::Lens lens = lens_for(s.camera, b.width, b.height);
-    shade_particles(c, s.particles, lens, s.shades);
-    s.layer.reset(b.width, b.height);
-    lap(clock, s.spent[3]);
-    particles::Splat splat;
-    splat.softness = .85f;
-    splat.taper = .3f;
-    splat.fray = .6f;
-    splat.fray_length = .4f;
-    particles::Splatter::draw(s.particles.system, s.shades, lens, b.depth, splat, s.layer);
     particles::Splatter::compose(s.layer, s.picture);
     lap(clock, s.spent[4]);
-    // What is in front, then the tone curve.
-    out.resize(pixels);
-    for (std::size_t i = 0; i < pixels; ++i) {
-        const float keep = 1 - b.cover[i];
-        const float r = s.picture[i * 3] * keep + b.over[i * 3];
-        const float g = s.picture[i * 3 + 1] * keep + b.over[i * 3 + 1];
-        const float bl = s.picture[i * 3 + 2] * keep + b.over[i * 3 + 2];
-        out[i] = 0xFF000000U | (static_cast<std::uint32_t>(tone(s.curve, r)) << 16) |
-                 (static_cast<std::uint32_t>(tone(s.curve, g)) << 8) | tone(s.curve, bl);
-    }
+    // What is in front, then the tone curve, in the box.
+    for (int y = top; y < bottom; ++y)
+        for (int x = left; x < right; ++x) {
+            const std::size_t i = static_cast<std::size_t>(y) * static_cast<std::size_t>(b.width) + static_cast<std::size_t>(x);
+            const float keep = 1 - b.cover[i];
+            const float r = s.picture[i * 3] * keep + b.over[i * 3];
+            const float g = s.picture[i * 3 + 1] * keep + b.over[i * 3 + 1];
+            const float bl = s.picture[i * 3 + 2] * keep + b.over[i * 3 + 2];
+            out[i] = 0xFF000000U | (static_cast<std::uint32_t>(tone(s.curve, r)) << 16) |
+                     (static_cast<std::uint32_t>(tone(s.curve, g)) << 8) | tone(s.curve, bl);
+        }
     lap(clock, s.spent[5]);
 }
 

@@ -98,11 +98,47 @@ inline double unit(std::uint32_t h) {
     return (h >> 8) * (1.0 / 16777216.0);
 }
 
+// The unit vectors of the gradient noise's directions, a full turn in 65536 steps with
+// a guard, read between steps: the same directions as working out the sine and cosine,
+// to within a billionth, at a fraction of the cost.
+struct TurnTable {
+    double cosine[65537]{};
+    double sine[65537]{};
+    TurnTable() {
+        for (int i = 0; i <= 65536; ++i) {
+            const double angle = 2 * pi * i / 65536.0;
+            cosine[i] = std::cos(angle);
+            sine[i] = std::sin(angle);
+        }
+    }
+};
+inline const TurnTable& turn_table() {
+    static const TurnTable table;
+    return table;
+}
+
+// The cosine of an angle in radians, from the table.
+inline double turn_cos(double angle) {
+    double turns = angle * (1 / (2 * pi));
+    turns -= std::floor(turns);
+    const double at = turns * 65536;
+    const int step = std::min(65535, static_cast<int>(at));
+    const double between = at - step;
+    const TurnTable& t = turn_table();
+    return t.cosine[step] + (t.cosine[step + 1] - t.cosine[step]) * between;
+}
+
 // Gradient noise in two dimensions, about -1..1, smooth (quintic fade).
 inline double gradient(int ix, int iy, std::uint32_t seed, double fx, double fy) {
     const std::uint32_t h = hash2(ix, iy, seed);
-    const double angle = unit(h) * 2 * pi;
-    return std::cos(angle) * fx + std::sin(angle) * fy;
+    // unit(h) * 65536, as the table's step and the fraction between steps.
+    const std::uint32_t bits = h >> 8;            // 24 bits of the turn
+    const std::uint32_t step = bits >> 8;         // 16 of them pick the step
+    const double between = (bits & 255U) * (1.0 / 256);
+    const TurnTable& t = turn_table();
+    const double c = t.cosine[step] + (t.cosine[step + 1] - t.cosine[step]) * between;
+    const double s = t.sine[step] + (t.sine[step + 1] - t.sine[step]) * between;
+    return c * fx + s * fy;
 }
 inline double noise2(double x, double y, std::uint32_t seed) {
     const double fx0 = std::floor(x);
@@ -150,7 +186,7 @@ inline Cells cells(double x, double y, std::uint32_t seed) {
             const std::uint32_t h = hash2(ix + dx, iy + dy, seed);
             const double px = ix + dx + unit(h);
             const double py = iy + dy + unit(hash32(h));
-            const double d = std::hypot(px - x, py - y);
+            const double d = std::sqrt((px - x) * (px - x) + (py - y) * (py - y));
             if (d < out.nearest) {
                 out.second = out.nearest;
                 out.nearest = d;

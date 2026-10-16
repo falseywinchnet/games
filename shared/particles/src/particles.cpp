@@ -198,12 +198,13 @@ Projected project(const Lens& lens, Vec point) {
     if (distance <= .05f)
         return out;
     const float side = std::sqrt(across * across + upward * upward);
-    const float angle = std::atan2(side, ahead);
+    // sin and cos of the angle from the view's centre are side and ahead over the
+    // distance: no trigonometry needed.
     const float b = lens.bend;
-    const float c = std::cos(angle);
+    const float c = ahead / distance;
     if (b + c <= .05f)
         return out;
-    const float radius = (b + 1) * lens.focal * std::sin(angle) / (b + c);
+    const float radius = (b + 1) * lens.focal * side / (b * distance + ahead);
     const float ux = side > 1e-6f ? across / side : 0.0f;
     const float uy = side > 1e-6f ? upward / side : 0.0f;
     out.x = static_cast<float>(lens.width) * .5f + radius * ux;
@@ -214,6 +215,25 @@ Projected project(const Lens& lens, Vec point) {
     return out;
 }
 
+namespace {
+// Widens the half-open box (l, t, r, b) to take in another; an empty box takes it whole.
+void widen(int& l, int& t, int& r, int& b, int left, int top, int right, int bottom) {
+    if (left >= right || top >= bottom)
+        return;
+    if (l >= r || t >= b) {
+        l = left;
+        t = top;
+        r = right;
+        b = bottom;
+        return;
+    }
+    l = std::min(l, left);
+    t = std::min(t, top);
+    r = std::max(r, right);
+    b = std::max(b, bottom);
+}
+} // namespace
+
 void Layer::reset(int w, int h) {
     if (w != width || h != height || colour.empty()) {
         width = w;
@@ -223,27 +243,31 @@ void Layer::reset(int w, int h) {
         coverage.assign(n, 0.0f);
         through.assign(n, 1.0f);
         added.assign(n * 3, 0.0f);
-        coarse_width = (std::max(0, w) + 1) / 2;
-        coarse_height = (std::max(0, h) + 1) / 2;
+        coarse_width = (std::max(0, w) + coarse_step - 1) / coarse_step + 1;
+        coarse_height = (std::max(0, h) + coarse_step - 1) / coarse_step + 1;
         coarse.assign(static_cast<std::size_t>(coarse_width) * static_cast<std::size_t>(coarse_height) * 3, 0.0f);
-    } else if (dirty_left < dirty_right && dirty_top < dirty_bottom) {
+    } else {
         // Only what was drawn on: row by row.
-        for (int y = dirty_top; y < dirty_bottom; ++y) {
-            const std::size_t first = static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(dirty_left);
-            const std::size_t count = static_cast<std::size_t>(dirty_right - dirty_left);
+        for (int y = fine_top; y < fine_bottom; ++y) {
+            const std::size_t first = static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(fine_left);
+            const std::size_t count = static_cast<std::size_t>(fine_right - fine_left);
             std::fill(colour.begin() + static_cast<std::ptrdiff_t>(first * 3), colour.begin() + static_cast<std::ptrdiff_t>((first + count) * 3), 0.0f);
             std::fill(coverage.begin() + static_cast<std::ptrdiff_t>(first), coverage.begin() + static_cast<std::ptrdiff_t>(first + count), 0.0f);
             std::fill(through.begin() + static_cast<std::ptrdiff_t>(first), through.begin() + static_cast<std::ptrdiff_t>(first + count), 1.0f);
             std::fill(added.begin() + static_cast<std::ptrdiff_t>(first * 3), added.begin() + static_cast<std::ptrdiff_t>((first + count) * 3), 0.0f);
         }
-        const int cl = dirty_left / 2, cr = std::min(coarse_width, (dirty_right + 1) / 2 + 1);
-        const int ct = dirty_top / 2, cb = std::min(coarse_height, (dirty_bottom + 1) / 2 + 1);
-        for (int y = ct; y < cb; ++y) {
-            const std::size_t first = static_cast<std::size_t>(y) * static_cast<std::size_t>(coarse_width) + static_cast<std::size_t>(cl);
-            std::fill(coarse.begin() + static_cast<std::ptrdiff_t>(first * 3),
-                      coarse.begin() + static_cast<std::ptrdiff_t>((first + static_cast<std::size_t>(cr - cl)) * 3), 0.0f);
+        if (glow_left < glow_right && glow_top < glow_bottom) {
+            const int cl = std::max(0, glow_left / coarse_step - 1), cr = std::min(coarse_width, glow_right / coarse_step + 2);
+            const int ct = std::max(0, glow_top / coarse_step - 1), cb = std::min(coarse_height, glow_bottom / coarse_step + 2);
+            for (int y = ct; y < cb; ++y) {
+                const std::size_t first = static_cast<std::size_t>(y) * static_cast<std::size_t>(coarse_width) + static_cast<std::size_t>(cl);
+                std::fill(coarse.begin() + static_cast<std::ptrdiff_t>(first * 3),
+                          coarse.begin() + static_cast<std::ptrdiff_t>((first + static_cast<std::size_t>(cr - cl)) * 3), 0.0f);
+            }
         }
     }
+    fine_left = fine_top = fine_right = fine_bottom = 0;
+    glow_left = glow_top = glow_right = glow_bottom = 0;
     dirty_left = dirty_top = dirty_right = dirty_bottom = 0;
 }
 
@@ -252,30 +276,32 @@ void Layer::mark(int left, int top, int right, int bottom) {
     top = std::max(0, top);
     right = std::min(width, right);
     bottom = std::min(height, bottom);
-    if (left >= right || top >= bottom)
-        return;
-    if (dirty_left >= dirty_right || dirty_top >= dirty_bottom) {
-        dirty_left = left;
-        dirty_top = top;
-        dirty_right = right;
-        dirty_bottom = bottom;
-        return;
-    }
-    dirty_left = std::min(dirty_left, left);
-    dirty_top = std::min(dirty_top, top);
-    dirty_right = std::max(dirty_right, right);
-    dirty_bottom = std::max(dirty_bottom, bottom);
+    widen(fine_left, fine_top, fine_right, fine_bottom, left, top, right, bottom);
+    widen(dirty_left, dirty_top, dirty_right, dirty_bottom, left, top, right, bottom);
+}
+
+void Layer::mark_glow(int left, int top, int right, int bottom) {
+    left = std::max(0, left);
+    top = std::max(0, top);
+    right = std::min(width, right);
+    bottom = std::min(height, bottom);
+    widen(glow_left, glow_top, glow_right, glow_bottom, left, top, right, bottom);
+    widen(dirty_left, dirty_top, dirty_right, dirty_bottom, left, top, right, bottom);
 }
 
 namespace {
 
-// Smooth noise along a line, 0..1, from a particle's seed.
+// Smooth noise along a line, 0..1, from a particle's seed: a random value at each
+// whole step, eased between.
+float bead_value(std::uint32_t seed, std::uint32_t k) {
+    return static_cast<float>(mix32(seed + k * 0x9E3779B1U) >> 8) * (1.0f / 16777216.0f);
+}
 float beads(std::uint32_t seed, float t) {
     const float cell = std::floor(t);
     const float f = t - cell;
     const std::uint32_t k = static_cast<std::uint32_t>(static_cast<std::int32_t>(cell));
-    const float a = draw(seed, k + 101);
-    const float b = draw(seed, k + 102);
+    const float a = bead_value(seed, k);
+    const float b = bead_value(seed, k + 1);
     const float s = f * f * (3 - 2 * f);
     return a + (b - a) * s;
 }
@@ -292,6 +318,61 @@ bool hidden(const Target& target, std::size_t pixel, float depth) {
 // A streak from its tail (a) to its head (b), `width` pixels wide at its head and
 // tapering toward its tail, soft at its edges, its opacity gathering toward the head
 // and, if frayed, broken into beads along its `length` metres.
+// A thin streak running mostly up or down (most falling water): walked down its rows,
+// each row touching only the few pixels across it, with the same soft edge, taper,
+// head and fray as the general case.
+void draw_thin_streak(Target& target, Projected a, Projected b, float half, float alpha, Shade shade, const Splat& settings,
+                      const float* along, int bead_count) {
+    Layer& layer = target.layer;
+    const float head = settings.head;
+    const float vx = b.x - a.x, vy = b.y - a.y;
+    const float length = std::sqrt(vx * vx + vy * vy);
+    // Horizontal distance to perpendicular distance.
+    const float across = std::fabs(vy) / length;
+    const float y_low = std::min(a.y, b.y), y_high = std::max(a.y, b.y);
+    const int top = std::max(0, static_cast<int>(std::floor(y_low - half - 1)));
+    const int bottom = std::min(layer.height - 1, static_cast<int>(std::ceil(y_high + half + 1)));
+    const float depth = b.depth;
+    int box_left = layer.width, box_right = -1;
+    for (int y = top; y <= bottom; ++y) {
+        const float py = static_cast<float>(y) + .5f;
+        const float u = std::clamp((py - a.y) / vy, 0.0f, 1.0f);
+        const float cx = a.x + vx * u;
+        // Beyond the streak's ends, the distance past the end counts too.
+        const float beyond = py < y_low ? y_low - py : (py > y_high ? py - y_high : 0.0f);
+        const float half_here = half * (settings.taper + (1 - settings.taper) * u);
+        const float soft = std::max(.5f, half_here * settings.softness);
+        const float inner = half_here - soft;
+        const float span = half_here + .5f - inner;
+        const int x0 = std::max(0, static_cast<int>(std::floor(cx - half_here - 1)));
+        const int x1 = std::min(layer.width - 1, static_cast<int>(std::ceil(cx + half_here + 1)));
+        const float at = u * static_cast<float>(bead_count - 1);
+        const int k = std::min(bead_count - 2, static_cast<int>(at));
+        const float frayed = along[k] + (along[k + 1] - along[k]) * (at - static_cast<float>(k));
+        const float row_cover = alpha * ((1 - head) + head * u * u) * frayed;
+        for (int x = x0; x <= x1; ++x) {
+            const float dx = (static_cast<float>(x) + .5f - cx) * across;
+            const float distance = beyond > 0 ? std::sqrt(dx * dx + beyond * beyond) : std::fabs(dx);
+            const float ramp = std::clamp((half_here + .5f - distance) / span, 0.0f, 1.0f);
+            if (ramp <= 0)
+                continue;
+            const std::size_t pixel = static_cast<std::size_t>(y) * static_cast<std::size_t>(layer.width) + static_cast<std::size_t>(x);
+            if (hidden(target, pixel, depth))
+                continue;
+            const float cover = std::min(.98f, row_cover * ramp * ramp * (3 - 2 * ramp));
+            layer.colour[pixel * 3] += shade.r * cover;
+            layer.colour[pixel * 3 + 1] += shade.g * cover;
+            layer.colour[pixel * 3 + 2] += shade.b * cover;
+            layer.coverage[pixel] += cover;
+            layer.through[pixel] *= 1 - cover;
+            box_left = std::min(box_left, x);
+            box_right = std::max(box_right, x);
+        }
+    }
+    if (box_left <= box_right)
+        layer.mark(box_left, top, box_right + 1, bottom + 1);
+}
+
 void draw_streak(Target& target, Projected a, Projected b, float width, Shade shade, const Splat& settings,
                  std::uint32_t seed, float length) {
     const float head = settings.head;
@@ -303,6 +384,20 @@ void draw_streak(Target& target, Projected a, Projected b, float width, Shade sh
         width = 1;
     }
     const float half = width * .5f;
+    if (width <= 3 && std::fabs(b.y - a.y) >= 2 && std::fabs(b.y - a.y) >= 2 * std::fabs(b.x - a.x)) {
+        constexpr int beads_along = 5;
+        float along[beads_along];
+        for (int k = 0; k < beads_along; ++k) {
+            float frayed = 1;
+            if (settings.fray > 0) {
+                const float n = beads(seed, static_cast<float>(k) / (beads_along - 1) * length / settings.fray_length);
+                frayed = 1 - settings.fray * (1 - n * n);
+            }
+            along[k] = frayed;
+        }
+        draw_thin_streak(target, a, b, half, alpha, shade, settings, along, beads_along);
+        return;
+    }
     const float x0 = std::min(a.x, b.x) - half - 1, x1 = std::max(a.x, b.x) + half + 1;
     const float y0 = std::min(a.y, b.y) - half - 1, y1 = std::max(a.y, b.y) + half + 1;
     const int left = std::max(0, static_cast<int>(std::floor(x0)));
@@ -318,7 +413,7 @@ void draw_streak(Target& target, Projected a, Projected b, float width, Shade sh
     const float reach2 = (half + .5f) * (half + .5f);
     const float depth = b.depth;
     // The fray along the streak, worked out at a few points and read between them.
-    constexpr int bead_count = 9;
+    constexpr int bead_count = 5;
     float along[bead_count];
     for (int k = 0; k < bead_count; ++k) {
         float frayed = 1;
@@ -380,11 +475,12 @@ struct Falloff {
     }
 };
 
-// A glow wider than a few pixels, on the half-resolution grid.
+// A glow wider than a few pixels, on the coarse grid (a quarter the resolution).
 void draw_coarse_glow(Target& target, Projected at, float radius, Shade shade) {
     static const Falloff falloff;
     Layer& layer = target.layer;
-    const float cx = at.x * .5f, cy = at.y * .5f, r = std::min(radius * .5f, 200.0f);
+    constexpr float step = Layer::coarse_step;
+    const float cx = at.x / step, cy = at.y / step, r = std::min(radius / step, 100.0f);
     const float sigma = r * .5f;
     const float reach = r * 1.5f;
     const int left = std::max(0, static_cast<int>(std::floor(cx - reach)));
@@ -394,9 +490,10 @@ void draw_coarse_glow(Target& target, Projected at, float radius, Shade shade) {
     if (left > right || top > bottom)
         return;
     // The fine pixels it reaches once smoothed back up.
-    layer.mark(left * 2 - 1, top * 2 - 1, right * 2 + 3, bottom * 2 + 3);
-    // Each coarse pixel stands for four: its share of the energy is a quarter.
-    const float norm = shade.alpha / (6.2831853f * sigma * sigma * 4);
+    layer.mark_glow((left - 1) * Layer::coarse_step, (top - 1) * Layer::coarse_step, (right + 2) * Layer::coarse_step,
+                    (bottom + 2) * Layer::coarse_step);
+    // Each coarse pixel stands for step * step fine ones: its share of the energy.
+    const float norm = shade.alpha / (6.2831853f * sigma * sigma * step * step);
     const float inverse = 1 / (2 * sigma * sigma);
     for (int y = top; y <= bottom; ++y)
         for (int x = left; x <= right; ++x) {
@@ -405,8 +502,9 @@ void draw_coarse_glow(Target& target, Projected at, float radius, Shade shade) {
             const float weight = falloff.at((dx * dx + dy * dy) * inverse) * norm;
             if (weight <= 0)
                 continue;
-            const std::size_t fine = static_cast<std::size_t>(std::min(layer.height - 1, y * 2)) * static_cast<std::size_t>(layer.width) +
-                                     static_cast<std::size_t>(std::min(layer.width - 1, x * 2));
+            const std::size_t fine = static_cast<std::size_t>(std::min(layer.height - 1, y * Layer::coarse_step)) *
+                                         static_cast<std::size_t>(layer.width) +
+                                     static_cast<std::size_t>(std::min(layer.width - 1, x * Layer::coarse_step));
             if (hidden(target, fine, at.depth))
                 continue;
             const std::size_t pixel = static_cast<std::size_t>(y) * static_cast<std::size_t>(layer.coarse_width) + static_cast<std::size_t>(x);
@@ -418,9 +516,10 @@ void draw_coarse_glow(Target& target, Projected at, float radius, Shade shade) {
 
 // Light added in a soft disc of `radius` pixels (a Gaussian, its energy kept).
 void draw_glow(Target& target, Projected at, float radius, Shade shade) {
+    static const Falloff falloff;
     Layer& layer = target.layer;
     radius = std::clamp(radius, .5f, 400.0f);
-    if (radius > 6 && layer.coarse_width > 0) {
+    if (radius > 10 && layer.coarse_width > 0) {
         draw_coarse_glow(target, at, radius, shade);
         return;
     }
@@ -439,8 +538,8 @@ void draw_glow(Target& target, Projected at, float radius, Shade shade) {
         for (int x = left; x <= right; ++x) {
             const float dx = static_cast<float>(x) + .5f - at.x;
             const float dy = static_cast<float>(y) + .5f - at.y;
-            const float weight = std::exp(-(dx * dx + dy * dy) * inverse) * norm;
-            if (weight < 1e-7f)
+            const float weight = falloff.at((dx * dx + dy * dy) * inverse) * norm;
+            if (weight <= 0)
                 continue;
             const std::size_t pixel = static_cast<std::size_t>(y) * static_cast<std::size_t>(layer.width) +
                                       static_cast<std::size_t>(x);
@@ -495,24 +594,26 @@ void Splatter::compose(const Layer& layer, std::span<float> picture) {
     const std::size_t n = static_cast<std::size_t>(layer.width) * static_cast<std::size_t>(layer.height);
     if (picture.size() < n * 3)
         return;
-    // The coarse glows, smoothed back up (bilinear between coarse pixel centres).
-    if (layer.dirty_left >= layer.dirty_right || layer.dirty_top >= layer.dirty_bottom)
-        return;
-    if (layer.coarse_width > 0 && layer.coarse.size() >= static_cast<std::size_t>(layer.coarse_width * layer.coarse_height) * 3)
-        for (int y = layer.dirty_top; y < layer.dirty_bottom; ++y) {
-            const float gy = std::clamp((static_cast<float>(y) + .5f) * .5f - .5f, 0.0f, static_cast<float>(layer.coarse_height - 1));
+    // The large glows, smoothed back up from the coarse grid (bilinear between coarse
+    // pixel centres), where they fell.
+    constexpr float step = Layer::coarse_step;
+    if (layer.glow_left < layer.glow_right && layer.coarse.size() >= static_cast<std::size_t>(layer.coarse_width * layer.coarse_height) * 3)
+        for (int y = layer.glow_top; y < layer.glow_bottom; ++y) {
+            const float gy = std::clamp((static_cast<float>(y) + .5f) / step - .5f, 0.0f, static_cast<float>(layer.coarse_height - 1));
             const int y0 = static_cast<int>(gy);
             const int y1 = std::min(layer.coarse_height - 1, y0 + 1);
             const float fy = gy - static_cast<float>(y0);
-            for (int x = layer.dirty_left; x < layer.dirty_right; ++x) {
-                const float gx = std::clamp((static_cast<float>(x) + .5f) * .5f - .5f, 0.0f, static_cast<float>(layer.coarse_width - 1));
+            const std::size_t row0 = static_cast<std::size_t>(y0) * static_cast<std::size_t>(layer.coarse_width);
+            const std::size_t row1 = static_cast<std::size_t>(y1) * static_cast<std::size_t>(layer.coarse_width);
+            for (int x = layer.glow_left; x < layer.glow_right; ++x) {
+                const float gx = std::clamp((static_cast<float>(x) + .5f) / step - .5f, 0.0f, static_cast<float>(layer.coarse_width - 1));
                 const int x0 = static_cast<int>(gx);
                 const int x1 = std::min(layer.coarse_width - 1, x0 + 1);
                 const float fx = gx - static_cast<float>(x0);
-                const std::size_t a = (static_cast<std::size_t>(y0) * static_cast<std::size_t>(layer.coarse_width) + static_cast<std::size_t>(x0)) * 3;
-                const std::size_t b = (static_cast<std::size_t>(y0) * static_cast<std::size_t>(layer.coarse_width) + static_cast<std::size_t>(x1)) * 3;
-                const std::size_t c = (static_cast<std::size_t>(y1) * static_cast<std::size_t>(layer.coarse_width) + static_cast<std::size_t>(x0)) * 3;
-                const std::size_t d = (static_cast<std::size_t>(y1) * static_cast<std::size_t>(layer.coarse_width) + static_cast<std::size_t>(x1)) * 3;
+                const std::size_t a = (row0 + static_cast<std::size_t>(x0)) * 3;
+                const std::size_t b = (row0 + static_cast<std::size_t>(x1)) * 3;
+                const std::size_t c = (row1 + static_cast<std::size_t>(x0)) * 3;
+                const std::size_t d = (row1 + static_cast<std::size_t>(x1)) * 3;
                 const std::size_t i = (static_cast<std::size_t>(y) * static_cast<std::size_t>(layer.width) + static_cast<std::size_t>(x)) * 3;
                 for (std::size_t k = 0; k < 3; ++k) {
                     const float top = layer.coarse[a + k] + (layer.coarse[b + k] - layer.coarse[a + k]) * fx;
@@ -521,11 +622,12 @@ void Splatter::compose(const Layer& layer, std::span<float> picture) {
                 }
             }
         }
-    for (int y = layer.dirty_top; y < layer.dirty_bottom; ++y)
-        for (int x = layer.dirty_left; x < layer.dirty_right; ++x) {
+    // The streaks over what they cover, and the small glows' light.
+    for (int y = layer.fine_top; y < layer.fine_bottom; ++y)
+        for (int x = layer.fine_left; x < layer.fine_right; ++x) {
             const std::size_t i = static_cast<std::size_t>(y) * static_cast<std::size_t>(layer.width) + static_cast<std::size_t>(x);
-            const float covered = 1 - layer.through[i];
             if (layer.coverage[i] > 1e-6f) {
+                const float covered = 1 - layer.through[i];
                 const float average = 1 / layer.coverage[i];
                 for (std::size_t k = 0; k < 3; ++k)
                     picture[i * 3 + k] = picture[i * 3 + k] * layer.through[i] + layer.colour[i * 3 + k] * average * covered;
