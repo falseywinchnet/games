@@ -3,7 +3,8 @@
 //
 //   ts_preview <out.png> <width> <height> <scale> <state> [seed]
 //
-// states: play, hover, held, turning, drag, pull, fall, juggle, choose, won. Prints how
+// states: play, hover, held, turning, drag, pull, fall, juggle, choose, won, pour-<hundredths of a
+// second into a new game's pour>. Prints how
 // long the tray, the stones and one whole frame took.
 #include "noise.hpp"
 #include "rules.hpp"
@@ -115,6 +116,9 @@ int main(int argc, char** argv) {
         const ts::Outcome outcome = ts::juggle_tray(session.board);
         motion.plan(before, outcome, session.board, false);
         motion.advance(.1 + ts::juggle_rise + ts::juggle_fly * .4);
+    } else if (state.rfind("pour-", 0) == 0) {
+        motion.pour(session.board, false);
+        motion.advance(std::atof(state.c_str() + 5) / 100);
     } else if (state == "choose") {
         frame.panel = ts::Panel::choose;
         frame.choosing = 12;

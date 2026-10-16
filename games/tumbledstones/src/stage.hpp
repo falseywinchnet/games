@@ -52,6 +52,7 @@ struct Piece {
     double spin = 0;            // radians
     double squash = 1;          // 1 flat on, 0 edge on
     bool moving = false;        // drawn over the tray, not in the kept picture of it
+    bool dropping = false;      // falling, or waiting to: it comes in through the tray's top edge
     bool gone = false;          // pulled and faded out
     // The plan: up to three legs, one after another.
     struct Leg {
@@ -74,6 +75,9 @@ public:
     // swap made as the player made it), what the rules said happened, and the board after.
     // Reduced motion settles at once.
     void plan(const Board& before, const Outcome& outcome, const Board& after, bool reduced);
+    // A new game's stones pouring into the empty tray: the columns in a quick sweep, each
+    // column's stones a little apart, so they land one after another from the bottom up.
+    void pour(const Board& board, bool reduced);
     // Advances by `seconds`; true while anything still moves.
     bool advance(double seconds);
     [[nodiscard]] bool moving() const {

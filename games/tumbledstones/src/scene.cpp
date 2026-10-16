@@ -598,8 +598,10 @@ void Scene::draw(const render::Target& target, const Frame& frame) {
             continue;
         const double x = (layout_.grid_x + (*piece).x * layout_.cell) * scale_;
         const double y = (layout_.grid_y + (*piece).y * layout_.cell) * scale_;
+        // A falling stone comes in through the tray's top edge, not over its frame.
+        const int top = (*piece).dropping ? static_cast<int>(layout_.grid_y * scale_) : 0;
         lay_stone_moved(*picture, target.pixels, target.width, target.height, target.stride, x, y,
-                        (*piece).scale, (*piece).spin, (*piece).squash, (*piece).opacity, bgra, 0, 0, target.width,
+                        (*piece).scale, (*piece).spin, (*piece).squash, (*piece).opacity, bgra, 0, top, target.width,
                         target.height);
     }
     // The stone under the pointer: lifted a touch, rocking as it settles, and the pointer's

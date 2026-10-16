@@ -544,12 +544,7 @@ void TumbledStonesView::begin_game() {
     win_waiting_ = false;
     hand_ = Hand{};
     // The stones pour in from above.
-    Board empty = session_.board;
-    for (Stone& stone : empty.cells)
-        stone = Stone{};
-    Outcome pour;
-    pour.accepted = true;
-    motion_.plan(empty, pour, session_.board, reduced_);
+    motion_.pour(session_.board, reduced_);
     play("ts_button", .35F, 1.1F);
     persist();
     request_frame();

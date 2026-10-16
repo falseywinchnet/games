@@ -260,13 +260,50 @@ void Motion::plan(const Board& before_board, const Outcome& outcome, const Board
         place(piece);
 }
 
+void Motion::pour(const Board& board, bool reduced) {
+    settle(board);
+    if (reduced)
+        return;
+    double end = 0;
+    // settle laid the pieces out in the cells' order.
+    std::size_t next = 0;
+    for (int cell = 0; cell < cell_count; ++cell) {
+        if (board.cells[static_cast<std::size_t>(cell)].family < 0)
+            continue;
+        Piece& piece = pieces_[next++];
+        const int column = cell % side;
+        const int row = cell / side;
+        double x1 = 0;
+        double y1 = 0;
+        cell_point(cell, x1, y1);
+        // The column's stones in a train above the tray, the lowest first, a gap between each.
+        const std::uint32_t h = hash_bits(static_cast<std::uint32_t>(column) * 2654435761U + board.cells[0].serial);
+        const double jitter = static_cast<double>(h & 0xffU) / 255.0 * .05;
+        Piece::Leg& leg = piece.legs[piece.leg_count++];
+        leg.kind = 2;
+        leg.start = column * .06 + jitter;
+        leg.x0 = x1;
+        leg.y0 = -.6 - (side - 1 - row) * 1.15;
+        leg.x1 = x1;
+        leg.y1 = y1;
+        leg.end = leg.start + fall_time(y1 - leg.y0);
+        piece.landed = false;
+        end = std::max(end, leg.end);
+    }
+    finish_ = end;
+    for (Piece& piece : pieces_)
+        place(piece);
+}
+
 void Motion::place(Piece& piece) const {
     if (piece.leg_count == 0) {
         piece.moving = false;
+        piece.dropping = false;
         return;
     }
     const Piece::Leg& last = piece.legs[piece.leg_count - 1];
     piece.moving = clock_ < last.end;
+    piece.dropping = false;
     piece.lift = 0;
     piece.scale = 1;
     piece.opacity = 1;
@@ -288,6 +325,7 @@ void Motion::place(Piece& piece) const {
     while (at + 1 < piece.leg_count && clock_ >= piece.legs[at].end)
         ++at;
     const Piece::Leg& leg = piece.legs[at];
+    piece.dropping = leg.kind == 2;
     if (clock_ < leg.start) {
         piece.x = leg.x0;
         piece.y = leg.y0;
