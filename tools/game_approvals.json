@@ -13,6 +13,12 @@
         "threads"
       ]
     },
+    "canopyfalls": {
+      "first_party": true,
+      "capabilities": [
+        "threads"
+      ]
+    },
     "catchingthieves": {
       "first_party": true,
       "capabilities": [
@@ -97,9 +103,6 @@
     },
     "pocketlibrary": {
       "first_party": true,
-      "capabilities": [
-        "threads"
-      ],
       "prepared_mb": 64
     },
     "solitaire": {
@@ -129,9 +132,13 @@
         "files"
       ]
     },
+    "tripeaks": {
+      "first_party": true
+    },
     "tumbledstones": {
       "first_party": true,
       "capabilities": [
+        "files",
         "threads"
       ]
     },

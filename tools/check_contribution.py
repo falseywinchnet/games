@@ -88,7 +88,7 @@ CAPABILITIES = {
 # PlaySuite's own C++ namespaces: GUI.Forms, the shell's game API and the shared
 # engines in shared/.
 NAMESPACES = ("gui_forms::", "games::", "ambient::", "coverage::", "grass::", "paint::", "soil::",
-              "felt::", "cards::", "puzzles::", "render::", "__cxxabiv1::")
+              "felt::", "cards::", "puzzles::", "render::", "paper::", "particles::", "__cxxabiv1::")
 
 # The standard library, apart from what the capabilities above cover.
 STD = re.compile(r"(^|[\s(<,*&])std::")
