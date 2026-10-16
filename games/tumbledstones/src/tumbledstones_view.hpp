@@ -98,6 +98,7 @@ private:
     int choosing_ = 7;
     bool new_best_ = false;
     bool win_waiting_ = false;    // the win panel opens once the pull has been shown
+    double pour_wait_ = -1;       // a new game's pour, held until its stones are drawn: seconds held
     int hover_ = -1;
     double pointer_x_ = 0, pointer_y_ = 0;  // points
     double hover_time_ = 10;      // seconds since the pointer came over its stone

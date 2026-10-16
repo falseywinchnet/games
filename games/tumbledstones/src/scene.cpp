@@ -245,6 +245,15 @@ const StonePicture* Scene::resting(std::uint32_t serial, int orientation, std::u
     return &(*(*found).second).picture;
 }
 
+bool Scene::pictures_ready(const Motion& motion) const {
+    if (tray_.empty())
+        return false;
+    for (const Piece& piece : motion.pieces())
+        if (!piece.gone && resting(piece.serial, piece.look.orientation, piece.family.seed) == nullptr)
+            return false;
+    return true;
+}
+
 const StonePicture* Scene::lifted(std::uint32_t serial, int orientation, std::uint32_t family) const {
     std::map<std::uint64_t, std::unique_ptr<PictureEntry>>::const_iterator found = lifted_.find(look_key(serial, orientation, family));
     if (found == lifted_.end() || !(*(*found).second).ready)

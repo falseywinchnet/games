@@ -262,8 +262,15 @@ void TumbledStonesView::tick() {
     step_hand(seconds);
     const bool settling = hover_ >= 0 && hover_time_ < 1.4 && !reduced_;
     hover_time_ = std::min(10.0, hover_time_ + seconds);
+    // A new game's stones are shaped and drawn in the background: the pour waits for
+    // them (a few seconds at most), or it would fall unseen and the stones appear at once.
+    if (pour_wait_ >= 0) {
+        pour_wait_ += seconds;
+        if (scene_.pictures_ready(motion_) || pour_wait_ > 4)
+            pour_wait_ = -1;
+    }
     const bool was_moving = motion_.moving();
-    const bool moving = motion_.advance(seconds);
+    const bool moving = motion_.advance(pour_wait_ >= 0 ? 0.0 : seconds);
     land_sounds_ = 0;
     for (const Motion::Cue& cue : motion_.take_cues()) {
         if (cue.kind == 1) {
@@ -471,6 +478,7 @@ void TumbledStonesView::put_back() {
 }
 
 void TumbledStonesView::show_outcome(const Board& before, const Outcome& outcome) {
+    pour_wait_ = -1;
     motion_.plan(before, outcome, session_.board, reduced_);
     if (outcome.won) {
         new_best_ = record_win(session_);
@@ -545,6 +553,7 @@ void TumbledStonesView::begin_game() {
     hand_ = Hand{};
     // The stones pour in from above.
     motion_.pour(session_.board, reduced_);
+    pour_wait_ = reduced_ ? -1.0 : 0.0;
     play("ts_button", .35F, 1.1F);
     persist();
     request_frame();

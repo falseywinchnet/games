@@ -92,6 +92,8 @@ public:
     [[nodiscard]] bool shapes_waiting() const {
         return !pending_shapes_.empty();
     }
+    // Whether every stone on its way has its picture: a new game's pour waits for them.
+    [[nodiscard]] bool pictures_ready(const Motion& motion) const;
     // Draws the whole frame into `target` (the surface's size), with what is ready.
     void draw(const render::Target& target, const Frame& frame);
     // Lets go of pictures of stones no longer in the tray (not while a batch runs).
