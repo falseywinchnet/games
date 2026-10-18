@@ -11,17 +11,7 @@
   "core_sources": [
     "src/rules.cpp",
     "src/save.cpp",
-    "src/stage.cpp",
-    "src/shapes.cpp",
-    "src/minerals.cpp",
-    "src/room.cpp",
-    "src/room_bake.cpp",
-    "src/stone_render.cpp",
-    "src/tray.cpp",
-    "src/wood_volume.cpp",
-    "src/shell_volume.cpp",
-    "src/candy_volume.cpp",
-    "src/flake_volume.cpp"
+    "src/stage.cpp"
   ],
   "ui_sources": [
     "src/tumbledstones_view.cpp",
@@ -40,7 +30,7 @@
   "schema_version": 1,
   "entry_id": 22,
   "entry_name": "tumbledstones",
-  "enabled": true,
+  "enabled": false,
   "hosted": true,
   "module": "module.cpp",
   "cover": "cover.cpp",
@@ -71,7 +61,8 @@
   ],
   "help_topics": [],
   "engines": [
-    "render"
+    "render",
+    "stones"
   ],
   "assets": "assets"
 }

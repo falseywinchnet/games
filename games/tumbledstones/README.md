@@ -1,5 +1,12 @@
 # Tumbled Stones
 
+**Retired** (October 2026). The game is off the shelf (`"enabled": false` in
+`GAME.json`); its id, entry id and namespace stay reserved. Its rule could not be
+played to its aim: a stone set down pulled its group at once, so groups never grew past
+the few that chance made, and a pull of seven was out of reach. Its stones, materials,
+light and tray became the stones engine (`shared/stones`), on which Specimen Cabinet is
+built; the rest of this folder is kept as it was, and no longer builds on its own.
+
 ## The game
 
 A tray of polished stones, each one of a few solid shapes cut from any mineral. Turn

@@ -33,6 +33,8 @@ def games() -> list[dict]:
     for manifest_path in sorted((ROOT / "games").glob("*/GAME.json")):
         folder = manifest_path.parent
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if not manifest.get("enabled", True):
+            continue  # retired: off the shelf, so off the front page
         about_path = folder / "about.md"
         about = about_path.read_text(encoding="utf-8").strip() if about_path.is_file() else manifest["blurb"]
         shot = folder / manifest.get("readme_screenshot", "screens/readme.jpg")
