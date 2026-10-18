@@ -170,6 +170,74 @@ Rgb wood_at(double u, double v) {
     return {c.r * k, c.g * k, c.b * k};
 }
 
+double unit_hash(int a, int b, std::uint32_t key) {
+    return (hash_signed(a, b, 3, key) + 1) * .5;
+}
+
+// Walnut made as a cabinet maker would: boards glued edge to edge, running across, each
+// with its own tone and its own grain. Plain-sawn, the face cuts across the growth rings
+// at a slant, so they rise into arches along the board; quartersawn, it cuts through
+// them, so they run straight. Fine pores lie along the grain, darkest in each year's
+// early wood; a board now and then carries a streak of pale sapwood.
+//   style 1 oiled black walnut, plain-sawn; 2 quartersawn, darker; 3 lighter, figured.
+Rgb walnut_at(double u, double v, int style) {
+    const Rgb base = from_hex(style == 3 ? 0x5e3c24 : style == 2 ? 0x2e1c12 : 0x3a2517);
+    const Rgb late = from_hex(style == 3 ? 0x34200f : style == 2 ? 0x160c07 : 0x1d110a);
+    const Rgb light = from_hex(style == 3 ? 0x8a5e3a : style == 2 ? 0x4a2e1c : 0x5c3c26);
+    const Rgb sap = from_hex(0xb8956a);
+    const double width = style == 2 ? 78 : 128;
+    const double offset = 37;
+    const int board = static_cast<int>(std::floor((v + offset) / width));
+    const double vb = v + offset - board * width;
+    const std::uint32_t key = 911U + static_cast<std::uint32_t>(style);
+    const double tone = .82 + .34 * unit_hash(board, 1, key);
+    double rings = 0;
+    if (style == 2) {
+        // Straight stripes, a little wavy, closer here and wider there.
+        rings = (vb + 4 * noise2(u / 300, board * 3.1, key + 2)) / (2.6 + 1.4 * unit_hash(board, 2, key)) +
+                .6 * fbm2(u / 420, vb / 30, key + 3, 2);
+    } else {
+        // The pith lies below the face; where the face comes nearest it the rings close
+        // into arches, the cathedrals of plain-sawn wood.
+        const double centre = width * (.25 + .5 * unit_hash(board, 3, key));
+        const double depth = width * (.35 + .4 * unit_hash(board, 4, key)) +
+                             width * .3 * std::sin(u / (520 + 380 * unit_hash(board, 5, key)) + 6.28 * unit_hash(board, 6, key)) +
+                             18 * fbm2(u / 260, board * 1.7, key + 4, 3);
+        const double dv = vb - centre;
+        rings = std::sqrt(dv * dv + depth * depth) / (5.5 + 2.5 * unit_hash(board, 7, key)) +
+                1.2 * fbm2(u / 220, vb / 45 + board, key + 5, 3);
+    }
+    const double within = rings - std::floor(rings);
+    const double early = 1 - smoothstep(0, .22, within);
+    Rgb c = mixed(base, light, smoothstep(.35, .95, within) * .35);
+    c = mixed(c, late, early * .5);
+    // Long streaks of colour along the board.
+    const double streak = fbm2(u / 520, vb / 26 + board * 5.3, key + 6, 3);
+    c = mixed(c, late, smoothstep(0, .5, streak) * .35);
+    c = mixed(c, light, smoothstep(0, .5, -streak) * .25);
+    // Pores: fine dark dashes along the grain, thick in the early wood.
+    const double pore = noise2(u / 7.5, v / .55, key + 7);
+    if (pore > .55 - .25 * early)
+        c = mixed(c, late, .5);
+    // A curly figure: bands across the grain that the light picks out.
+    if (style == 3) {
+        const double curl = std::sin(u / 2.6 + 3 * fbm2(u / 90, v / 40, key + 8, 2));
+        const double k = 1 + .09 * curl;
+        c = {c.r * k, c.g * k, c.b * k};
+    }
+    // Pale sapwood at one edge of an odd board.
+    if (style == 1 && unit_hash(board, 8, key) > .8) {
+        const double sapwood = smoothstep(width * .78, width * .9, vb + 10 * noise2(u / 80, board, key + 9));
+        c = mixed(c, sap, sapwood * .8);
+    }
+    c = {c.r * tone, c.g * tone, c.b * tone};
+    // The glue line between boards.
+    const double seam = std::min(vb, width - vb);
+    if (seam < .7)
+        c = {c.r * .35, c.g * .35, c.b * .35};
+    return c;
+}
+
 // Dark felt lining a socket.
 Rgb felt_at(double u, double v) {
     static const Rgb base = from_hex(0x1b2420);
@@ -248,7 +316,7 @@ void draw_tray(const TrayPlan& plan, std::uint32_t* pixels, int stride, bool bgr
             }
             const double u = px / plan.scale;
             const double v = py / plan.scale;
-            const Rgb albedo = felt ? felt_at(u, v) : wood_at(u, v);
+            const Rgb albedo = felt ? felt_at(u, v) : plan.wood == 0 ? wood_at(u, v) : walnut_at(u, v, plan.wood);
             const Light3 room = (nz > .9999) ? room_up : room_diffuse(nx, ny, nz);
             const double sun_dot = has_sun ? std::max(0.0, nx * sun.x + ny * sun.y + nz * sun.z) : 0.0;
             const double sun_k = sun_dot / pi * sun_seen;

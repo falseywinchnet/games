@@ -17,6 +17,7 @@ struct TrayPlan {
     double cell = 64;              // a socket's pitch, device pixels
     int columns = 10, rows = 10;
     Lining lining = Lining::wood;
+    int wood = 0;                  // the wood: 0 the tray's, 1 walnut boards, 2 quartersawn, 3 figured
     double wall = 0;               // the raised edge's width round the picture, device pixels
 };
 

@@ -15,6 +15,7 @@
 #include "stone_render.hpp"
 #include "tray.hpp"
 
+#include "carpet.hpp"
 #include "headless_text.hpp"
 #include "png_writer.hpp"
 
@@ -94,6 +95,364 @@ double seconds_since(std::chrono::steady_clock::time_point start) {
     return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
 }
 
+// Specimen Cabinet layout mock-ups: a box in device pixels.
+struct Area {
+    double x = 0, y = 0, w = 0, h = 0;
+};
+
+// A felt strip: deep green baize, a fine nap, sunk a little into the wood.
+void felt(Sheet& sheet, const Area& a, double scale) {
+    const double radius = 10 * scale;
+    for (int y = static_cast<int>(a.y); y < static_cast<int>(a.y + a.h); ++y)
+        for (int x = static_cast<int>(a.x); x < static_cast<int>(a.x + a.w); ++x) {
+            if (x < 0 || y < 0 || x >= sheet.width || y >= sheet.height)
+                continue;
+            const double dx = std::max({a.x + radius - x, 0.0, x - (a.x + a.w - radius)});
+            const double dy = std::max({a.y + radius - y, 0.0, y - (a.y + a.h - radius)});
+            if (dx * dx + dy * dy > radius * radius)
+                continue;
+            const double nap = .06 * ts::fbm2(x * .9 / scale, y * .9 / scale, 7, 3) + .03 * ts::noise2(x * 3.0, y * 3.0, 9);
+            // Shade where the wood's edge overhangs it, top and left.
+            const double inset = std::min({(x - a.x) / (14 * scale), (y - a.y) / (14 * scale), 1.0});
+            const double light = (.82 + nap) * (.55 + .45 * inset);
+            const double r = 34 * light, g = 86 * light, b = 62 * light;
+            sheet.pixels[static_cast<std::size_t>(y * sheet.width + x)] =
+                static_cast<std::uint32_t>(std::clamp(b, 0.0, 255.0)) | (static_cast<std::uint32_t>(std::clamp(g, 0.0, 255.0)) << 8) |
+                (static_cast<std::uint32_t>(std::clamp(r, 0.0, 255.0)) << 16) | 0xff000000U;
+        }
+}
+
+// The tumbler, seen from above: a turned walnut bowl, a brass band round its rim, dark
+// inside where the stones lie jumbled.
+void bowl(Sheet& sheet, double cx, double cy, double radius, double scale) {
+    for (int y = static_cast<int>(cy - radius - 2); y <= static_cast<int>(cy + radius + 2); ++y)
+        for (int x = static_cast<int>(cx - radius - 2); x <= static_cast<int>(cx + radius + 2); ++x) {
+            if (x < 0 || y < 0 || x >= sheet.width || y >= sheet.height)
+                continue;
+            const double d = std::hypot(x - cx, y - cy) / radius;
+            if (d > 1.0)
+                continue;
+            double r = 0, g = 0, b = 0;
+            const double band = 8 * scale / radius;
+            if (d > 1 - band) {
+                // Brass, lit from the window above and left.
+                const double lit = .6 + .4 * (-(x - cx) - (y - cy)) / (radius * 1.4);
+                r = 200 * lit;
+                g = 156 * lit;
+                b = 78 * lit;
+            } else {
+                // The bowl's inside: walnut, darker towards the middle and the far wall.
+                const double depth = 1 - d / (1 - band);
+                const double grain = .08 * ts::noise2(x * .05 / scale, y * .5 / scale, 11);
+                const double wall = .35 + .65 * std::pow(d / (1 - band), 3) * (.6 + .4 * ((x - cx) + (y - cy)) / radius);
+                const double shade = (.28 + .3 * wall + grain) * (1 - .35 * depth);
+                r = 120 * shade;
+                g = 74 * shade;
+                b = 44 * shade;
+            }
+            sheet.pixels[static_cast<std::size_t>(y * sheet.width + x)] =
+                static_cast<std::uint32_t>(std::clamp(b, 0.0, 255.0)) | (static_cast<std::uint32_t>(std::clamp(g, 0.0, 255.0)) << 8) |
+                (static_cast<std::uint32_t>(std::clamp(r, 0.0, 255.0)) << 16) | 0xff000000U;
+        }
+}
+
+// Felt from the suite's fibre renderer, a tile laid over the area, a shade where the wood's
+// edge overhangs it.
+void felt_cloth(Sheet& sheet, const Area& a, const paint::Image& tile, double scale) {
+    const double radius = 10 * scale;
+    for (int y = static_cast<int>(a.y); y < static_cast<int>(a.y + a.h); ++y)
+        for (int x = static_cast<int>(a.x); x < static_cast<int>(a.x + a.w); ++x) {
+            if (x < 0 || y < 0 || x >= sheet.width || y >= sheet.height)
+                continue;
+            const double dx = std::max({a.x + radius - x, 0.0, x - (a.x + a.w - radius)});
+            const double dy = std::max({a.y + radius - y, 0.0, y - (a.y + a.h - radius)});
+            if (dx * dx + dy * dy > radius * radius)
+                continue;
+            const paint::Color& c = tile.pixels[static_cast<std::size_t>((y % tile.height) * tile.width + (x % tile.width))];
+            const double inset = std::min({(x - a.x) / (12 * scale), (y - a.y) / (12 * scale), 1.0});
+            const double light = .5 + .5 * inset;
+            sheet.pixels[static_cast<std::size_t>(y * sheet.width + x)] = static_cast<std::uint32_t>(c.b * light) |
+                (static_cast<std::uint32_t>(c.g * light) << 8) | (static_cast<std::uint32_t>(c.r * light) << 16) | 0xff000000U;
+        }
+}
+
+// The tumbler: a drum tipped with its open mouth raised towards the felt, as a mixer's is,
+// its body running off beyond the window's top edge. Fins inside lift the stones as it
+// turns and spill them over the lip onto the felt. Ray cast from straight above (the
+// tray's own view), lit by the room's bake as the stones are, and casting its shadow.
+//   style 0: black rubber, ribbed; style 1: walnut staves, a brass lip; style 2: copper,
+//   a riveted band.
+struct Drum {
+    double c[3];      // the mouth's centre: screen x, screen y (down), height above the table
+    double a[3];      // the axis, from the mouth into the drum
+    double u[3];      // two directions round it
+    double v[3];
+    double radius;
+    double wall;
+    double turn;
+    int style;
+};
+
+// Where a vertical ray at (x, y) first meets the cylinder of radius `r` about the drum's
+// axis, from above (first) or from below (!first): its height, or false.
+bool cylinder_hit(const Drum& d, double x, double y, double r, bool first, double& z) {
+    // The ray: (x, y, h) for all h. w(h) = p - c; radial part's length = r.
+    const double wx = x - d.c[0];
+    const double wy = y - d.c[1];
+    // w = (wx, wy, h - cz); radial = w - (w.a) a. Quadratic in h.
+    const double ax = d.a[0], ay = d.a[1], az = d.a[2];
+    // radial(h) = e + (h - cz) * g, with e from (wx, wy, 0) and g from (0, 0, 1).
+    const double ea = wx * ax + wy * ay;
+    const double e[3] = {wx - ea * ax, wy - ea * ay, -ea * az};
+    const double g[3] = {-az * ax, -az * ay, 1 - az * az};
+    const double qa = g[0] * g[0] + g[1] * g[1] + g[2] * g[2];
+    const double qb = 2 * (e[0] * g[0] + e[1] * g[1] + e[2] * g[2]);
+    const double qc = e[0] * e[0] + e[1] * e[1] + e[2] * e[2] - r * r;
+    const double disc = qb * qb - 4 * qa * qc;
+    if (disc < 0 || qa < 1e-12)
+        return false;
+    const double root = std::sqrt(disc);
+    const double k = first ? (-qb + root) / (2 * qa) : (-qb - root) / (2 * qa);
+    z = d.c[2] + k;
+    return true;
+}
+
+double axial(const Drum& d, double x, double y, double z) {
+    return (x - d.c[0]) * d.a[0] + (y - d.c[1]) * d.a[1] + (z - d.c[2]) * d.a[2];
+}
+
+double around(const Drum& d, double x, double y, double z) {
+    const double w[3] = {x - d.c[0], y - d.c[1], z - d.c[2]};
+    return std::atan2(w[0] * d.v[0] + w[1] * d.v[1] + w[2] * d.v[2], w[0] * d.u[0] + w[1] * d.u[1] + w[2] * d.u[2]);
+}
+
+std::uint32_t screen_byte(double light) {
+    return static_cast<std::uint32_t>(std::lround(ts::screen_value(light) * 255));
+}
+
+// `rim_only` draws the mouth's rim alone: over stones laid inside the drum.
+void tumbler_end(Sheet& sheet, double cx, double mouth_y, double radius, int style, double turn, double scale, bool rim_only) {
+    constexpr double pi = 3.14159265358979;
+    Drum d{};
+    const double tilt = .3;  // radians the axis falls from level, the mouth the higher end
+    d.c[0] = cx;
+    d.c[1] = mouth_y;
+    d.c[2] = radius * 1.25;
+    // Into the drum: up the screen (negative y) and down towards the table.
+    d.a[0] = 0;
+    d.a[1] = -std::cos(tilt);
+    d.a[2] = -std::sin(tilt);
+    d.u[0] = 1; d.u[1] = 0; d.u[2] = 0;
+    d.v[0] = 0; d.v[1] = d.a[2]; d.v[2] = -d.a[1];  // a x u, up away from the table at the mouth
+    d.radius = radius;
+    d.wall = radius * .1;
+    d.turn = turn;
+    d.style = style;
+    const double expose = ts::exposure();
+    // Its shadow: the drum's outline as seen from above, moved away from the window's light
+    // and softened, laid over the table.
+    if (!rim_only) {
+        const int x0 = std::max(0, static_cast<int>(cx - radius * 2));
+        const int x1 = std::min(sheet.width, static_cast<int>(cx + radius * 2.4));
+        const int y1 = std::min(sheet.height, static_cast<int>(mouth_y + radius * 1.6));
+        const int w = x1 - x0;
+        std::vector<float> cover(static_cast<std::size_t>(w * y1), 0.0F);
+        const double shift_x = radius * .18;
+        const double shift_y = radius * .3;
+        for (int y = 0; y < y1; ++y)
+            for (int x = x0; x < x1; ++x) {
+                double z = 0;
+                const double px = x - shift_x;
+                const double py = y - shift_y;
+                bool in = cylinder_hit(d, px, py, radius, true, z) && axial(d, px, py, z) >= 0;
+                if (!in && std::abs(d.a[2]) > 1e-6) {
+                    const double zm = d.c[2] + ((px - d.c[0]) * d.a[0] + (py - d.c[1]) * d.a[1]) / -d.a[2];
+                    const double dx = px - d.c[0], dy = py - d.c[1], dz = zm - d.c[2];
+                    in = dx * dx + dy * dy + dz * dz < radius * radius;
+                }
+                cover[static_cast<std::size_t>(y * w + (x - x0))] = in ? 1.0F : 0.0F;
+            }
+        // Softened: two passes of a box blur, across then down.
+        const int reach = std::max(2, static_cast<int>(radius * .22));
+        std::vector<float> across(cover.size(), 0.0F);
+        for (int y = 0; y < y1; ++y) {
+            double sum = 0;
+            for (int x = -reach; x < w + reach; ++x) {
+                const int in_x = x + reach;
+                const int out_x = x - reach - 1;
+                if (in_x >= 0 && in_x < w)
+                    sum += cover[static_cast<std::size_t>(y * w + in_x)];
+                if (out_x >= 0 && out_x < w)
+                    sum -= cover[static_cast<std::size_t>(y * w + out_x)];
+                if (x >= 0 && x < w)
+                    across[static_cast<std::size_t>(y * w + x)] = static_cast<float>(sum / (2 * reach + 1));
+            }
+        }
+        for (int x = 0; x < w; ++x) {
+            double sum = 0;
+            for (int y = -reach; y < y1 + reach; ++y) {
+                const int in_y = y + reach;
+                const int out_y = y - reach - 1;
+                if (in_y >= 0 && in_y < y1)
+                    sum += across[static_cast<std::size_t>(in_y * w + x)];
+                if (out_y >= 0 && out_y < y1)
+                    sum -= across[static_cast<std::size_t>(out_y * w + x)];
+                if (y >= 0 && y < y1) {
+                    const double k = 1 - .5 * sum / (2 * reach + 1);
+                    std::uint32_t& p = sheet.pixels[static_cast<std::size_t>(y * sheet.width + x + x0)];
+                    p = static_cast<std::uint32_t>((p & 0xffU) * k) | (static_cast<std::uint32_t>(((p >> 8) & 0xffU) * k) << 8) |
+                        (static_cast<std::uint32_t>(((p >> 16) & 0xffU) * k) << 16) | 0xff000000U;
+                }
+            }
+        }
+    }
+    // Then the drum.
+    for (int y = 0; y < static_cast<int>(mouth_y + radius * 1.6); ++y)
+        for (int x = static_cast<int>(cx - radius - 2); x <= static_cast<int>(cx + radius + 2); ++x) {
+            if (x < 0 || y < 0 || x >= sheet.width || y >= sheet.height)
+                continue;
+            const double px = x + .5;
+            const double py = y + .5;
+            double n[3] = {0, 0, 1};
+            double albedo[3] = {0, 0, 0};
+            double f0[3] = {.04, .04, .04};
+            double rough = .4;
+            double dim = 1;
+            bool seen = false;
+            double z = 0;
+            // The outside, from above.
+            if (cylinder_hit(d, px, py, radius, true, z) && axial(d, px, py, z) >= 0) {
+                seen = true;
+                const double t = axial(d, px, py, z);
+                for (int k = 0; k < 3; ++k)
+                    n[k] = ((k == 0 ? px : k == 1 ? py : z) - d.c[k] - t * d.a[k]) / radius;
+                const double phi = around(d, px, py, z) + turn;
+                if (style == 0) {
+                    albedo[0] = albedo[1] = albedo[2] = .03;
+                    f0[0] = f0[1] = f0[2] = .035;
+                    rough = .55;
+                    // Ribs round the barrel, and a raised lip at the mouth.
+                    const double rib = std::fmod(t / scale, 26.0);
+                    if (rib < 4 || t < 7 * scale)
+                        rough = .4;
+                } else if (style == 1) {
+                    if (t < 9 * scale) {
+                        albedo[0] = albedo[1] = albedo[2] = 0;
+                        f0[0] = .91; f0[1] = .72; f0[2] = .38;
+                        rough = .2;
+                    } else {
+                        const double stave = phi / (2 * pi) * 16;
+                        const double seam = std::abs(stave - std::round(stave)) < .05 ? .45 : 1.0;
+                        const double grain = .82 + .18 * ts::noise2(stave * 3, t / scale * .05, 23);
+                        albedo[0] = .25 * grain * seam; albedo[1] = .125 * grain * seam; albedo[2] = .065 * grain * seam;
+                        rough = .3;
+                    }
+                } else {
+                    albedo[0] = albedo[1] = albedo[2] = 0;
+                    f0[0] = .95; f0[1] = .62; f0[2] = .48;
+                    rough = .26;
+                    if (t < 14 * scale) {
+                        f0[0] = .82; f0[1] = .5; f0[2] = .38;
+                        rough = .18;
+                        const double rivet = std::fmod(phi + 20 * pi, pi / 8) - pi / 16;
+                        const double along = t / scale - 7;
+                        if (rivet * rivet * radius * radius / (scale * scale) + along * along < 5) {
+                            rough = .1;
+                            n[2] += .5;
+                        }
+                    }
+                }
+            } else {
+                // The mouth: a ring of the wall's end, and inside it the dark of the drum.
+                // The plane t = 0 met by the vertical ray: z = (w.a = 0).
+                if (std::abs(d.a[2]) > 1e-6) {
+                    const double zm = d.c[2] + ((px - d.c[0]) * d.a[0] + (py - d.c[1]) * d.a[1]) / -d.a[2];
+                    const double w[3] = {px - d.c[0], py - d.c[1], zm - d.c[2]};
+                    const double r = std::sqrt(w[0] * w[0] + w[1] * w[1] + w[2] * w[2]);
+                    if (r < radius) {
+                        seen = true;
+                        if (r > radius - d.wall) {
+                            // The rim, facing out of the mouth.
+                            n[0] = -d.a[0]; n[1] = -d.a[1]; n[2] = -d.a[2];
+                            if (style == 1) {
+                                f0[0] = .91; f0[1] = .72; f0[2] = .38;
+                                rough = .25;
+                            } else if (style == 2) {
+                                f0[0] = .82; f0[1] = .5; f0[2] = .38;
+                                rough = .22;
+                            } else {
+                                albedo[0] = albedo[1] = albedo[2] = .04;
+                                rough = .45;
+                            }
+                        } else if (rim_only) {
+                            // Over the stones laid inside: the drum's shade on them.
+                            std::uint32_t& p = sheet.pixels[static_cast<std::size_t>(y * sheet.width + x)];
+                            const double k = .45 + .25 * (r / (radius - d.wall));
+                            p = static_cast<std::uint32_t>((p & 0xffU) * k) | (static_cast<std::uint32_t>(((p >> 8) & 0xffU) * k) << 8) |
+                                (static_cast<std::uint32_t>(((p >> 16) & 0xffU) * k) << 16) | 0xff000000U;
+                            seen = false;
+                        } else {
+                            // Inside: the far wall, seen through the mouth, darker the deeper.
+                            double zi = 0;
+                            if (cylinder_hit(d, px, py, radius - d.wall, false, zi)) {
+                                const double t = std::max(0.0, axial(d, px, py, zi));
+                                for (int k = 0; k < 3; ++k)
+                                    n[k] = -((k == 0 ? px : k == 1 ? py : zi) - d.c[k] - t * d.a[k]) / (radius - d.wall);
+                                dim = std::exp(-t / (radius * .9)) * .6;
+                                const double phi = around(d, px, py, zi) + turn;
+                                // The lifting fins, coming round as it turns.
+                                const double fin = std::fmod(phi + 20 * pi, 2 * pi / 3);
+                                const bool on_fin = fin < .16;
+                                albedo[0] = style == 1 ? .2 : style == 2 ? .3 : .05;
+                                albedo[1] = style == 1 ? .1 : style == 2 ? .18 : .05;
+                                albedo[2] = style == 1 ? .05 : style == 2 ? .12 : .05;
+                                if (on_fin)
+                                    dim *= 1.6;
+                                rough = .6;
+                            }
+                        }
+                    }
+                }
+            }
+            if (!seen)
+                continue;
+            const double nl = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+            for (double& c : n)
+                c /= nl;
+            // The bake's directions are the tray's: y up the screen.
+            const double tx = n[0];
+            const double ty = -n[1];
+            const double tz = n[2];
+            const ts::Light3 mirrored = ts::room_reflection(2 * tz * tx, 2 * tz * ty, 2 * tz * tz - 1, rough);
+            const ts::Light3 diffuse = ts::room_diffuse(tx, ty, tz);
+            const double fres = std::pow(1 - std::clamp(tz, 0.0, 1.0), 5);
+            const double spec[3] = {mirrored.r, mirrored.g, mirrored.b};
+            const double diff[3] = {diffuse.r, diffuse.g, diffuse.b};
+            double out[3];
+            for (int k = 0; k < 3; ++k) {
+                const double f = f0[k] + (1 - f0[k]) * fres;
+                out[k] = (f * spec[k] + (1 - f) * albedo[k] * diff[k]) * expose * dim;
+            }
+            sheet.pixels[static_cast<std::size_t>(y * sheet.width + x)] =
+                screen_byte(out[2]) | (screen_byte(out[1]) << 8) | (screen_byte(out[0]) << 16) | 0xff000000U;
+        }
+}
+
+// A brass pin's head: a clue, fixed in its socket.
+void pin(Sheet& sheet, double cx, double cy, double radius) {
+    for (int y = static_cast<int>(cy - radius); y <= static_cast<int>(cy + radius); ++y)
+        for (int x = static_cast<int>(cx - radius); x <= static_cast<int>(cx + radius); ++x) {
+            if (x < 0 || y < 0 || x >= sheet.width || y >= sheet.height)
+                continue;
+            const double d = std::hypot(x - cx, y - cy) / radius;
+            if (d > 1)
+                continue;
+            const double lit = .55 + .45 * std::max(0.0, 1 - std::hypot(x - cx + radius * .35, y - cy + radius * .35) / radius);
+            sheet.pixels[static_cast<std::size_t>(y * sheet.width + x)] = static_cast<std::uint32_t>(70 * lit) |
+                (static_cast<std::uint32_t>(170 * lit) << 8) | (static_cast<std::uint32_t>(226 * lit) << 16) | 0xff000000U;
+        }
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -106,6 +465,214 @@ int main(int argc, char** argv) {
     ts::StoneWork work;
     const std::uint32_t cream = 0xeee2c8;
 
+    // Specimen Cabinet: a layout mock-up at a window size.
+    //   ts_candidates <out> <room> cabinet <width> <height> <A|B|C>
+    if (argc > 6 && std::string(argv[3]) == "cabinet") {
+        const double points_w = std::atof(argv[4]);
+        const double points_h = std::atof(argv[5]);
+        const std::string layout = argv[6];
+        const double scale = 2;
+        Sheet sheet;
+        sheet.width = static_cast<int>(points_w * scale);
+        sheet.height = static_cast<int>(points_h * scale);
+        sheet.pixels.assign(static_cast<std::size_t>(sheet.width * sheet.height), 0U);
+        constexpr int n = 5;
+        // Where things go, in points: clear of the capsule (top left) and Help (top right).
+        const double m = 12;
+        const double top = 54;
+        const double avail_h = points_h - top - m;
+        Area cabinet;
+        Area strip;
+        double tumbler_x = 0, tumbler_y = 0, tumbler_r = 0;
+        if (layout == "A") {
+            // Tumbler | cabinet | felt strip, side by side.
+            const double size = std::min(avail_h, (points_w - 4 * m) * .5);
+            const double rest = points_w - size - 4 * m;
+            const double bowl_d = std::min({rest * .5, avail_h, size * .8});
+            cabinet = {m + bowl_d + m, top + (avail_h - size) * .5, size, size};
+            tumbler_r = bowl_d * .5;
+            tumbler_x = m + tumbler_r;
+            tumbler_y = top + avail_h * .5;
+            strip = {cabinet.x + size + m, top, points_w - (cabinet.x + size + m) - m, avail_h};
+        } else if (layout == "B") {
+            // Cabinet and tumbler above, a felt strip the window's width below.
+            const double size = std::min(avail_h * .7, (points_w - 3 * m) * .62);
+            cabinet = {m, top, size, size};
+            const double room = points_w - size - 3 * m;
+            tumbler_r = std::min(room, size) * .5;
+            tumbler_x = cabinet.x + size + m + room * .5;
+            tumbler_y = top + size * .5;
+            strip = {m, top + size + m, points_w - 2 * m, points_h - (top + size + m) - m};
+        } else if (layout == "D") {
+            // The cabinet at the left; at the right the closed tumbler over a felt strip,
+            // its stones spilling into a pile at the strip's head.
+            const double size = std::min(avail_h, (points_w - 3 * m) * .6);
+            cabinet = {m, top + (avail_h - size) * .5, size, size};
+            const double column = points_w - size - 3 * m;
+            strip = {cabinet.x + size + m, top + 24, column, avail_h - 24};
+            tumbler_r = 0;
+            tumbler_x = strip.x;
+            tumbler_y = top;
+        } else {
+            // A column at the left, tumbler over felt; the cabinet beside it.
+            const double size = std::min(avail_h, (points_w - 3 * m) * .62);
+            const double column = points_w - size - 3 * m;
+            cabinet = {m + column + m, top + (avail_h - size) * .5, size, size};
+            tumbler_r = std::min(column, avail_h * .45) * .5;
+            tumbler_x = m + column * .5;
+            tumbler_y = top + tumbler_r;
+            strip = {m, top + 2 * tumbler_r + m, column, avail_h - 2 * tumbler_r - m};
+        }
+        const double cell = cabinet.w / n;
+        ts::TrayPlan plan;
+        plan.width = sheet.width;
+        plan.height = sheet.height;
+        plan.scale = scale;
+        plan.grid_x = cabinet.x * scale;
+        plan.grid_y = cabinet.y * scale;
+        plan.cell = cell * scale;
+        plan.columns = n;
+        plan.rows = n;
+        plan.wall = 10 * scale;
+        plan.wood = argc > 9 ? std::atoi(argv[9]) : 0;
+        ts::draw_tray(plan, sheet.pixels.data(), sheet.width, true, 0, sheet.height);
+        const bool closed = layout == "D";
+        if (closed) {
+            const int preset = argc > 7 ? std::atoi(argv[7]) : 9;
+            paint::CarpetParameters cloth = paint::carpet_preset(preset);
+            const paint::Image tile = paint::render_carpet_tile(cloth, 256);
+            felt_cloth(sheet, {strip.x * scale, strip.y * scale, strip.w * scale, strip.h * scale}, tile, scale);
+            const int style = argc > 8 ? std::atoi(argv[8]) : 0;
+            const double drum_r = strip.w * .25;
+            const double mouth_y = strip.y + 6;
+            tumbler_end(sheet, (strip.x + strip.w * .5) * scale, mouth_y * scale, drum_r * scale, style, .35, scale, false);
+            // A few stones inside, in the drum's shade, then the rim over them.
+            const ts::Style inner_styles[3] = {ts::Style::candy, ts::Style::flake, ts::Style::shell};
+            const ts::Mineral inner_kinds[3] = {ts::Mineral::amber, ts::Mineral::jade, ts::Mineral::obsidian};
+            const double inner_spots[3][2] = {{-.35, -.05}, {.15, .02}, {.42, -.12}};
+            for (int k = 0; k < 3; ++k) {
+                Stone stone;
+                stone.shape = ts::Shape::make(7700U + static_cast<std::uint32_t>(k) * 97U, inner_styles[k]);
+                stone.finish = ts::make_finish(inner_kinds[k], 51U + static_cast<std::uint32_t>(k));
+                ts::print_mineral(stone.finish, stone.shape, 128, stone.picture);
+                const ts::StoneLook look{&stone.shape, &stone.finish, &stone.picture};
+                ts::DrawStone how;
+                how.radius = drum_r * scale * .3;
+                how.fineness = 2;
+                ts::StonePicture picture;
+                draw_stone(look, ts::orientation_pose(k * 3), how, work, picture);
+                ts::lay_stone_moved(picture, sheet.pixels.data(), sheet.width, sheet.height, sheet.width,
+                                    (strip.x + strip.w * .5 + inner_spots[k][0] * drum_r) * scale, (mouth_y + inner_spots[k][1] * drum_r) * scale, 1,
+                                    k * 1.3, 1, 1, true, 0, 0, sheet.width, sheet.height);
+            }
+            tumbler_end(sheet, (strip.x + strip.w * .5) * scale, mouth_y * scale, drum_r * scale, style, .35, scale, true);
+        } else {
+            felt(sheet, {strip.x * scale, strip.y * scale, strip.w * scale, strip.h * scale}, scale);
+            bowl(sheet, tumbler_x * scale, tumbler_y * scale, tumbler_r * scale, scale);
+        }
+        // Five shapes and five materials; the solution pairs them by two orthogonal squares.
+        const ts::Style styles[n] = {ts::Style::shell, ts::Style::wood, ts::Style::candy, ts::Style::flake, ts::Style::nodule};
+        const ts::Mineral kinds[n] = {ts::Mineral::lapis, ts::Mineral::amber, ts::Mineral::jade, ts::Mineral::obsidian,
+                                      ts::Mineral::nacre};
+        std::vector<ts::Shape> shapes;
+        std::vector<ts::Finish> finishes;
+        for (int k = 0; k < n; ++k) {
+            shapes.push_back(ts::Shape::make(83000U + static_cast<std::uint32_t>(k) * 211U, styles[k]));
+            finishes.push_back(ts::make_finish(kinds[k], 1300U + static_cast<std::uint32_t>(k) * 17U));
+        }
+        std::vector<Stone> stones;
+        for (int k = 0; k < n * n; ++k) {
+            Stone stone;
+            stone.shape = shapes[static_cast<std::size_t>(k / n)];
+            stone.finish = finishes[static_cast<std::size_t>(k % n)];
+            ts::print_mineral(stone.finish, stone.shape, 160, stone.picture);
+            stones.push_back(std::move(stone));
+        }
+        // The clues in the cabinet, pinned; their shape is (row + column), their material
+        // (2 row + column), both mod 5.
+        const int clues[7][2] = {{0, 1}, {1, 3}, {2, 0}, {2, 4}, {3, 2}, {4, 1}, {4, 4}};
+        std::vector<int> used(static_cast<std::size_t>(n * n), 0);
+        for (const int* rc : clues) {
+            const int shape = (rc[0] + rc[1]) % n;
+            const int material = (2 * rc[0] + rc[1]) % n;
+            used[static_cast<std::size_t>(shape * n + material)] = 1;
+            const double cx = (cabinet.x + (rc[1] + .5) * cell) * scale;
+            const double cy = (cabinet.y + (rc[0] + .5) * cell) * scale;
+            place(sheet, work, stones[static_cast<std::size_t>(shape * n + material)], (rc[0] * 3 + rc[1]) % 8, cx, cy,
+                  cell * scale * .42, 2);
+            pin(sheet, cx + cell * scale * .3, cy - cell * scale * .3, 3.5 * scale);
+        }
+        // On the felt: a few sorted by shape, in rows, as a player lays them out.
+        std::vector<int> left;
+        for (int k = 0; k < n * n; ++k)
+            if (used[static_cast<std::size_t>(k)] == 0)
+                left.push_back(k);
+        const bool wide = strip.w > strip.h;
+        const double small = std::min(cell * .8, wide ? strip.h * .8 : strip.w / 3.3);
+        const double pitch = small * 1.06;
+        for (int shape = 0; shape < 3; ++shape) {
+            int along = 0;
+            for (int k : left) {
+                if (k / n != shape || along >= 3)
+                    continue;
+                // Wide: groups of three side by side; tall: a row for each shape.
+                const double cx = wide ? strip.x + 10 + (shape * 3.4 + along + .5) * pitch : strip.x + 8 + (along + .5) * pitch;
+                const double cy = wide ? strip.y + strip.h * .5 : strip.y + 8 + (shape + .5 + (closed ? 1.6 : 0)) * pitch;
+                if (cx + small * .45 > strip.x + strip.w || cy + small * .45 > strip.y + strip.h)
+                    continue;
+                place(sheet, work, stones[static_cast<std::size_t>(k)], (k * 5) % 8, cx * scale, cy * scale, small * scale * .42, 2);
+                used[static_cast<std::size_t>(k)] = 2;
+                ++along;
+            }
+        }
+        // The rest jumbled in the tumbler, overlapping, the lowest darker.
+        std::uint64_t random = 991;
+        std::vector<int> heap;
+        for (int k : left)
+            if (used[static_cast<std::size_t>(k)] == 0)
+                heap.push_back(k);
+        if (closed) {
+            // A small pile under the chute: six stones heaped, the rest still in the drum.
+            const double piece = std::min(cell * .7, strip.w * .2);
+            const double px = strip.x + strip.w * .5;
+            const double py = strip.y + 6 + strip.w * .25 * .35 + piece * .65;
+            const double spots[6][2] = {{-.55, .25}, {.5, .3}, {0, .45}, {-.25, -.05}, {.3, -.02}, {.02, .12}};
+            for (std::size_t i = 0; i < heap.size() && i < 6; ++i) {
+                const Stone& stone = stones[static_cast<std::size_t>(heap[i])];
+                const ts::StoneLook look{&stone.shape, &stone.finish, &stone.picture};
+                ts::DrawStone how;
+                how.radius = piece * scale * .42;
+                how.fineness = 2;
+                ts::StonePicture picture;
+                draw_stone(look, ts::orientation_pose(static_cast<int>(i % 8)), how, work, picture);
+                ts::lay_stone_moved(picture, sheet.pixels.data(), sheet.width, sheet.height, sheet.width,
+                                    (px + spots[i][0] * piece) * scale, (py + spots[i][1] * piece) * scale, 1, ts::next_between(random, -3.14, 3.14), 1,
+                                    1, true, 0, 0, sheet.width, sheet.height);
+            }
+            heap.clear();
+        }
+        const double piece = tumbler_r * .44;
+        for (std::size_t i = 0; i < heap.size(); ++i) {
+            const double a = ts::next_between(random, -3.14159, 3.14159);
+            const double r = std::sqrt(ts::next_unit(random)) * (tumbler_r * .78 - piece * .5);
+            const Stone& stone = stones[static_cast<std::size_t>(heap[i])];
+            const ts::StoneLook look{&stone.shape, &stone.finish, &stone.picture};
+            ts::DrawStone how;
+            how.radius = piece * scale * .5;
+            how.fineness = 2;
+            ts::StonePicture picture;
+            draw_stone(look, ts::orientation_pose(static_cast<int>(i % 8)), how, work, picture);
+            ts::lay_stone_moved(picture, sheet.pixels.data(), sheet.width, sheet.height, sheet.width,
+                                (tumbler_x + r * std::cos(a)) * scale, (tumbler_y + r * std::sin(a)) * scale, 1,
+                                ts::next_between(random, -3.14159, 3.14159), 1, .55 + .45 * static_cast<double>(i) / heap.size(), true,
+                                0, 0, sheet.width, sheet.height);
+        }
+        const std::string title = std::string("Layout ") + layout + ", " + std::to_string(static_cast<int>(points_w)) + " x " +
+                                  std::to_string(static_cast<int>(points_h));
+        label(sheet, title, static_cast<int>(16 * scale), static_cast<int>(14 * scale), 15 * scale, cream, true);
+        save(sheet, out + "/cabinet-" + layout + "-" + std::to_string(static_cast<int>(points_w)) + ".png");
+        return 0;
+    }
     // Close up: petrified wood and scalloped chunks, both faces, in several minerals.
     if (argc > 3 && std::string(argv[3]) == "detail") {
         const double cell = 210;

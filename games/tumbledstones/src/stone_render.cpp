@@ -220,7 +220,7 @@ void draw_stone(const StoneLook& look, const Pose& pose, const DrawStone& how, S
     const double grow = 1 + .08 * how.lift;
     const double radius = how.radius * grow;
     // The picture holds the stone and the shade it throws.
-    const int half = static_cast<int>(std::ceil(radius * 1.9)) + 2;
+    const int half = static_cast<int>(std::ceil(radius * 2.1)) + 2;
     const int size = half * 2;
     out.width = size;
     out.height = size;
@@ -389,9 +389,12 @@ void draw_stone(const StoneLook& look, const Pose& pose, const DrawStone& how, S
                 const double room_seen = room_open;
                 if (!how.shadow)
                     continue;
-                // The wood: the room's light, and the sun's, less what the stone stops.
+                // The wood: the room's light, and the sun's, less what the stone stops. The
+                // shade fades out before the picture's edge: the low window's long shadows
+                // would otherwise end there in a straight line.
                 const double lit = (1 - sun_share) * room_seen + sun_share * sun_seen;
-                const double stopped = 1 - lit;
+                const double border = std::min({x, y, side - 1 - x, side - 1 - y}) / (radius * fine * .45);
+                const double stopped = (1 - lit) * std::clamp(border, 0.0, 1.0);
                 work.keep[at * 3] = static_cast<float>(1 - stopped * (1 - through_r));
                 work.keep[at * 3 + 1] = static_cast<float>(1 - stopped * (1 - through_g));
                 work.keep[at * 3 + 2] = static_cast<float>(1 - stopped * (1 - through_b));
