@@ -59,8 +59,8 @@ Brink brink_at(double x) {
         const double across = (x - (ch.left + ch.right) / 2) / ((ch.right - ch.left) / 2);
         const double fullness = std::max(.18, 1 - std::pow(std::fabs(across), 3)) *
                                 (.7 + .3 * (.5 + .5 * fbm(x / 3.1, i * 3.1, 11, 3)));
-        const double level = ch.level + 1.1 * fbm(x / 17, 4.4, 13, 2) + .35 * fbm(x / 4.5, 1.9, 14, 2) +
-                             .1 * fbm(x / 1.2, 6.1, 15, 2);
+        // A smooth lip: the water rounds every small roughness of the rock over.
+        const double level = ch.level + 1.1 * fbm(x / 17, 4.4, 13, 2) + .35 * fbm(x / 4.5, 1.9, 14, 2);
         const double floor = level - ch.depth * fullness - .04 * fbm(x / .7, 3.7, 12, 2);
         out.inside = w;
         out.channel = i;
@@ -2215,6 +2215,10 @@ struct SheetPixel {
     float coherent = 0, aerated = 0, gaps = 0, onset = 0, veil = 0, end = 0, low = 0, depth_edge = 0;
     float glass0[3]{}, glass1[3]{}, froth0[3]{}, froth1[3]{};
     float rock[3]{};
+    // Where the brink's line crosses the pixel: the share of it the water covers, and
+    // what shows above the line.
+    float top = 1;
+    float above[3]{};
     float a = 1, b[3]{};        // what the eye sees: a * (the sheet over the rock) + b
 };
 
@@ -2306,7 +2310,9 @@ SheetPixel sheet_pixel(const Context& c, Vec3 direction, const SheetCapture& cap
     const double froth_glow = phase_hg(mu, .6) * 4 * pi;
     const Rgb froth0 = c.fill_front * .75 + c.fill_up * .15;
     const Rgb froth1 = c.sunlight * (.02 * froth_glow * sunlit);
-    const Rgb parts[4] = {glass0, through_glass, froth0, froth1};
+    // Over the lip the water is glass, smooth as it turns; its ropes form a little lower.
+    const Rgb ropes = through_glass * (.15 + .85 * smoothstep(.4, 2.5, drop));
+    const Rgb parts[4] = {glass0, ropes, froth0, froth1};
     float* targets[4] = {p.glass0, p.glass1, p.froth0, p.froth1};
     for (int k = 0; k < 4; ++k) {
         targets[k][0] = static_cast<float>(parts[k].r);
@@ -2521,6 +2527,31 @@ void bake_sample(const Context& c, const std::vector<Box>& boxes, Vec3 d, Rgb& b
 }
 } // namespace
 
+namespace {
+// The share of pixel (column, row) below the line along the top of the falls (the
+// brink and its thin rim) as the wall shows it: 0 above it, 1 below, between where the
+// line crosses the pixel.
+double under_brink(const Context& c, int column, int row) {
+    const Vec3 eye{0, (*c.camera).eye_height, 0};
+    const Vec3 upper = view_direction(c, column + .5, row);
+    const Vec3 lower = view_direction(c, column + .5, row + 1);
+    if (upper.z <= .01 || lower.z <= .01)
+        return 0;
+    const double t_upper = (wall_z - eye.z) / upper.z;
+    const double t_lower = (wall_z - eye.z) / lower.z;
+    const double x = eye.x + upper.x * t_upper;
+    const double y_high = std::max(eye.y + upper.y * t_upper, eye.y + lower.y * t_lower);
+    const double y_low = std::min(eye.y + upper.y * t_upper, eye.y + lower.y * t_lower);
+    // Nowhere near the brink (it lies between 38 and 43 m up).
+    if (y_low > 44 || y_high < 37 || y_high <= y_low)
+        return 0;
+    const Brink brink = brink_at(x);
+    if (brink.level - brink.rock <= 0)
+        return 0;
+    return std::clamp((brink.level + .07 - y_low) / (y_high - y_low), 0.0, 1.0);
+}
+} // namespace
+
 void LiveFalls::bake_band(int band) {
     State& s = *state_;
     Baked& b = *s.pending;
@@ -2551,10 +2582,40 @@ void LiveFalls::bake_band(int band) {
             b.cover[i] = static_cast<float>(cover);
             if (cover > .995)
                 continue;
+            const double under = under_brink(c, column, row);
             if (centre.hit) {
                 SheetPixel p = sheet_pixel(c, d, centre, s.noise);
                 p.index = static_cast<std::uint32_t>(i);
+                if (under < 1) {
+                    // The top of the falls crosses this pixel: what shows above it.
+                    Rgb above{}, unused_front{};
+                    double unused_cover = 0, unused_depth = 0;
+                    SheetCapture unused;
+                    bake_sample(c, b.boxes, view_direction(c, column + .5, row + (1 - under) * .5), above, unused_front,
+                                unused_cover, unused, unused_depth);
+                    p.top = static_cast<float>(under);
+                    p.above[0] = static_cast<float>(above.r);
+                    p.above[1] = static_cast<float>(above.g);
+                    p.above[2] = static_cast<float>(above.b);
+                }
                 sheet.push_back(p);
+            } else if (under > 0) {
+                // The pixel's centre is above the top of the falls but its lower part is
+                // not: the water there, drawn over what the centre sees.
+                SheetCapture low;
+                Rgb unused_behind{}, unused_front{};
+                double unused_cover = 0, unused_depth = 0;
+                const Vec3 down = view_direction(c, column + .5, row + 1 - under * .5);
+                bake_sample(c, b.boxes, down, unused_behind, unused_front, unused_cover, low, unused_depth);
+                if (low.hit) {
+                    SheetPixel p = sheet_pixel(c, down, low, s.noise);
+                    p.index = static_cast<std::uint32_t>(i);
+                    p.top = static_cast<float>(under);
+                    p.above[0] = static_cast<float>(behind.r);
+                    p.above[1] = static_cast<float>(behind.g);
+                    p.above[2] = static_cast<float>(behind.b);
+                    sheet.push_back(p);
+                }
             } else if (centre.pool) {
                 const Vec3 half = normalized(sun - d);
                 if (half.y > .96) {
@@ -2813,9 +2874,8 @@ void LiveFalls::draw(std::vector<std::uint32_t>& out) {
         float colour[3];
         shade_sheet(p, s.noise, s.time, colour);
         float* at = &s.picture[static_cast<std::size_t>(p.index) * 3];
-        at[0] = colour[0];
-        at[1] = colour[1];
-        at[2] = colour[2];
+        for (int k = 0; k < 3; ++k)
+            at[k] = p.above[k] + (colour[k] - p.above[k]) * p.top;
     }
     lap(clock, s.spent[1]);
     // The sun glittering on the pool's ripples.
