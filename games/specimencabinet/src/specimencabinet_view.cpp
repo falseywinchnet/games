@@ -11,10 +11,8 @@
 #include "gui_forms/window.hpp"
 
 #include <algorithm>
-#include <atomic>
 #include <cmath>
 #include <cstdlib>
-#include <thread>
 
 namespace sc {
 namespace {
@@ -30,43 +28,10 @@ std::uint64_t seed_from_clock() {
     return ticks ^ 0x5bec1e5ULL;
 }
 
-// A few heavy jobs at a time (the stones' pictures, the table's bands), shared by GUI.Forms
-// Workers and the caller, all taking jobs from one count: the card table's crew
-// (shared/cards/table_art.cpp), borrowed.
-struct Crew {
-    int threads = 1;
-};
-struct Round {
-    void (*job)(void*, int) noexcept;
-    void* context;
-    int count;
-    std::atomic<int> next{0};
-};
-void take_jobs(Round& round) noexcept {
-    for (int i = round.next.fetch_add(1); i < round.count; i = round.next.fetch_add(1))
-        round.job(round.context, i);
-}
-void crew_member(const gf::CancellationFlag&, void* context) {
-    take_jobs(*static_cast<Round*>(context));
-}
-void crew_run(void* runner, int count, void (*job)(void*, int) noexcept, void* context) {
-    const Crew& crew = *static_cast<const Crew*>(runner);
-    Round round{job, context, count};
-    std::vector<std::unique_ptr<gf::Worker>> helpers;
-    const int wanted = std::min(crew.threads, count) - 1;
-    try {
-        for (int i = 0; i < wanted; ++i)
-            helpers.push_back(std::make_unique<gf::Worker>(crew_member, &round));
-    } catch (...) {
-        // fewer helpers than hoped: the caller and those started do the work
-    }
-    take_jobs(round);
-    for (std::unique_ptr<gf::Worker>& helper : helpers)
-        (*helper).join();
-}
-Crew& crew() {
-    static Crew shared{static_cast<int>(std::clamp(std::thread::hardware_concurrency(), 1U, 8U))};
-    return shared;
+// The heavy jobs (the stones' pictures, the table's bands) on every core: the card
+// tables' crew (shared/cards/table_art.hpp).
+void crew_run(void*, int count, void (*job)(void*, int) noexcept, void* context) {
+    games::run_on_every_core(count, job, context);
 }
 
 int size_index(int n) {
@@ -88,7 +53,7 @@ SpecimenCabinetView::SpecimenCabinetView(gf::StableId id, Options options) : Con
     set_accessible_name(
         "Specimen Cabinet. Set every stone in the cabinet so that no row and no column holds two stones of one "
         "shape or of one material.");
-    scene_.set_runner(Runner{crew_run, &crew()});
+    scene_.set_runner(Runner{crew_run, nullptr});
     if (!restore()) {
         session_ = Session{};
         new_game(session_, seed_from_clock(), 5);

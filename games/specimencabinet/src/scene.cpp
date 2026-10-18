@@ -565,9 +565,21 @@ void Scene::draw(const render::Target& target, const Frame& frame) {
             const stones::StonePicture* picture = lifted(frame.held, orientation);
             if (picture == nullptr)
                 picture = resting(frame.held, orientation);
-            if (picture != nullptr)
+            if (picture != nullptr) {
+                // Held up, it throws a soft shadow down and away from the window's light:
+                // discs laid one in another, darker towards the middle.
+                const render::Rect all{0, 0, target.width, target.height};
+                const double r = radius();
+                const double sx = frame.held_x * s + r * .22;
+                const double sy = frame.held_y * s + r * .34;
+                for (int ring = 0; ring < 6; ++ring) {
+                    const double rr = r * (1.05 - .08 * ring);
+                    render::r2d::rounded(target, all, sx - rr, sy - rr * .92, 2 * rr, 2 * rr * .92, rr, colour(ink), .07F,
+                                         colour(ink), 0);
+                }
                 stones::lay_stone(*picture, target.pixels, target.width, target.height, target.stride, frame.held_x * s,
                                   frame.held_y * s, bgra, 0, 0, target.width, target.height);
+            }
         }
         draw_counts(target, frame);
     }
