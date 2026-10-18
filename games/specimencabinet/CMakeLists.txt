@@ -38,7 +38,7 @@ if(NOT TARGET game_paths)
 endif()
 
 # Pure game: rules, save, layout. This is what PlaySuite's portable-core profile builds.
-add_library(sc_core STATIC src/platform/raster.cpp src/rules.cpp src/save.cpp src/stage.cpp)
+add_library(sc_core STATIC src/rules.cpp src/save.cpp src/stage.cpp)
 target_include_directories(sc_core PUBLIC src)
 target_link_libraries(sc_core PUBLIC game_paths)
 target_compile_definitions(sc_core PRIVATE _USE_MATH_DEFINES)

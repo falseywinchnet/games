@@ -1,17 +1,15 @@
 // Headless checks of the rules, the save and the layout. No window, no toolkit.
-// These run in the repository's portable-core profile on every platform, so they
-// must be deterministic and must not depend on timing.
 #include "rules.hpp"
 #include "save.hpp"
 #include "stage.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
-#include <filesystem>
 #include <iostream>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace {
@@ -25,261 +23,233 @@ void check(bool condition, const char* what) {
     }
 }
 
-void test_generation() {
-    for (int side = sc::minimum_side; side <= sc::maximum_side; ++side) {
-        for (std::uint64_t seed = 1; seed <= 200; ++seed) {
-            const sc::Board first = sc::new_game(side, seed);
-            const sc::Board second = sc::new_game(side, seed);
-            check(first.lit == second.lit, "the same seed gives the same board");
-            check(!sc::solved(first), "a new board is never already solved");
-            check(static_cast<int>(first.lit.size()) == side * side, "a board has side * side lamps");
+// The solution is a Graeco-Latin square: every row and column holds each shape and each
+// material once, and every stone is used once.
+bool graeco_latin(const sc::Puzzle& p) {
+    const int n = p.n;
+    std::vector<int> pairs(static_cast<std::size_t>(n * n), 0);
+    for (int i = 0; i < n; ++i) {
+        int row_shape = 0, row_material = 0, column_shape = 0, column_material = 0;
+        for (int j = 0; j < n; ++j) {
+            row_shape |= 1 << p.shape[static_cast<std::size_t>(i * n + j)];
+            row_material |= 1 << p.material[static_cast<std::size_t>(i * n + j)];
+            column_shape |= 1 << p.shape[static_cast<std::size_t>(j * n + i)];
+            column_material |= 1 << p.material[static_cast<std::size_t>(j * n + i)];
+            ++pairs[static_cast<std::size_t>(sc::solution_stone(p, i * n + j))];
         }
+        const int all = (1 << n) - 1;
+        if (row_shape != all || row_material != all || column_shape != all || column_material != all)
+            return false;
     }
-    // The seeded boards are pinned: a change here means saved games would no longer
-    // reload to the position the player left. Update deliberately, with a new save version.
-    const sc::Board pinned = sc::new_game(4, 20261003);
-    std::string picture;
-    for (std::size_t index = 0; index < pinned.lit.size(); ++index) {
-        picture += pinned.lit[index] != 0 ? '1' : '0';
-    }
-    std::cout << "seed 20261003, side 4: " << picture << "\n";
-    check(picture == "0011001011001111", "the generator's output for a known seed has not drifted");
-}
-
-void test_moves() {
-    sc::Board board = sc::new_game(4, 7);
-    const std::vector<std::uint8_t> start = board.lit;
-    check(sc::press(board, 5), "a press inside the board is accepted");
-    check(board.lit != start, "a press changes the board");
-    check(!sc::press(board, -1) && !sc::press(board, 16), "a press outside the board is refused");
-    check(board.moves.size() == 1, "refused presses are not recorded");
-    check(sc::undo(board), "a press can be taken back");
-    check(board.lit == start && board.moves.empty(), "undo restores the exact position");
-    check(!sc::undo(board), "undo with no presses reports false");
-    // Pressing the same lamp twice returns to the start: the rule every solution rests on.
-    static_cast<void>(sc::press(board, 9));
-    static_cast<void>(sc::press(board, 9));
-    check(board.lit == start, "two presses of one lamp cancel");
-}
-
-// Proves each generated board can be solved, independently of how it was generated:
-// solves "which lamps must be pressed" as linear equations over the two values
-// dark and lit (Gaussian elimination), presses the answer and checks the board.
-bool solve_board(const sc::Board& board, std::vector<int>& presses) {
-    const int cells = board.side * board.side;
-    // rows[i] holds, for lamp i, which presses turn it over, then whether it must turn.
-    std::vector<std::vector<std::uint8_t>> rows(static_cast<std::size_t>(cells),
-                                                std::vector<std::uint8_t>(static_cast<std::size_t>(cells) + 1, 0));
-    for (int cell = 0; cell < cells; ++cell) {
-        const int row = cell / board.side;
-        const int column = cell % board.side;
-        const int neighbours[5][2] = {{row, column}, {row - 1, column}, {row + 1, column},
-                                      {row, column - 1}, {row, column + 1}};
-        for (int index = 0; index < 5; ++index) {
-            const int r = neighbours[index][0];
-            const int c = neighbours[index][1];
-            if (r >= 0 && c >= 0 && r < board.side && c < board.side) {
-                rows[static_cast<std::size_t>(r * board.side + c)][static_cast<std::size_t>(cell)] = 1;
-            }
-        }
-        rows[static_cast<std::size_t>(cell)][static_cast<std::size_t>(cells)] =
-            board.lit[static_cast<std::size_t>(cell)] != 0 ? 0 : 1;
-    }
-    std::vector<int> pivot_of_column(static_cast<std::size_t>(cells), -1);
-    int rank = 0;
-    for (int column = 0; column < cells && rank < cells; ++column) {
-        int found = -1;
-        for (int row = rank; row < cells; ++row) {
-            if (rows[static_cast<std::size_t>(row)][static_cast<std::size_t>(column)] != 0) {
-                found = row;
-                break;
-            }
-        }
-        if (found < 0) {
-            continue;
-        }
-        std::swap(rows[static_cast<std::size_t>(rank)], rows[static_cast<std::size_t>(found)]);
-        for (int row = 0; row < cells; ++row) {
-            if (row == rank || rows[static_cast<std::size_t>(row)][static_cast<std::size_t>(column)] == 0) {
-                continue;
-            }
-            for (int k = column; k <= cells; ++k) {
-                rows[static_cast<std::size_t>(row)][static_cast<std::size_t>(k)] ^=
-                    rows[static_cast<std::size_t>(rank)][static_cast<std::size_t>(k)];
-            }
-        }
-        pivot_of_column[static_cast<std::size_t>(column)] = rank;
-        ++rank;
-    }
-    for (int row = rank; row < cells; ++row) {
-        if (rows[static_cast<std::size_t>(row)][static_cast<std::size_t>(cells)] != 0) {
-            return false;  // an equation "nothing = 1": this board has no solution
-        }
-    }
-    presses.clear();
-    for (int column = 0; column < cells; ++column) {
-        const int pivot = pivot_of_column[static_cast<std::size_t>(column)];
-        if (pivot >= 0 && rows[static_cast<std::size_t>(pivot)][static_cast<std::size_t>(cells)] != 0) {
-            presses.push_back(column);
-        }
-    }
+    for (int count : pairs)
+        if (count != 1)
+            return false;
     return true;
 }
 
-void test_solvable() {
-    for (int side = sc::minimum_side; side <= sc::maximum_side; ++side) {
-        for (std::uint64_t seed = 1; seed <= 300; ++seed) {
-            sc::Board board = sc::new_game(side, seed);
-            std::vector<int> presses;
-            const bool has_solution = solve_board(board, presses);
-            check(has_solution, "every generated board has a solution");
-            for (std::size_t index = 0; index < presses.size(); ++index) {
-                static_cast<void>(sc::press(board, presses[index]));
+void test_generation() {
+    for (int n : sc::sizes) {
+        double slowest = 0;
+        int fewest = 99;
+        int most = 0;
+        for (std::uint64_t seed = 1; seed <= 24; ++seed) {
+            const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+            const sc::Puzzle p = sc::make_puzzle(seed * 7919, n);
+            slowest = std::max(slowest, std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count());
+            check(graeco_latin(p), "the solution is a Graeco-Latin square");
+            std::array<int, sc::most_stones> given{};
+            given.fill(-1);
+            int clues = 0;
+            for (int cell = 0; cell < n * n; ++cell)
+                if (p.clue[static_cast<std::size_t>(cell)]) {
+                    given[static_cast<std::size_t>(cell)] = sc::solution_stone(p, cell);
+                    ++clues;
+                }
+            check(sc::count_solutions(p, given, 2) == 1, "the clues allow exactly one answer");
+            fewest = std::min(fewest, clues);
+            most = std::max(most, clues);
+            const sc::Puzzle again = sc::make_puzzle(seed * 7919, n);
+            check(again.shape == p.shape && again.material == p.material && again.clue == p.clue &&
+                      again.family_seed == p.family_seed && again.material_kind == p.material_kind,
+                  "the same seed makes the same cabinet");
+            // n different materials and every style before any repeats.
+            for (int a = 0; a < n; ++a)
+                for (int b = a + 1; b < n; ++b) {
+                    check(p.material_kind[static_cast<std::size_t>(a)] != p.material_kind[static_cast<std::size_t>(b)],
+                          "the materials differ");
+                    if (b < sc::style_choices)
+                        check(p.family_style[static_cast<std::size_t>(a)] != p.family_style[static_cast<std::size_t>(b)],
+                              "each style once before any repeats");
+                }
+        }
+        std::printf("%d x %d: %d to %d clues, slowest %.3f s\n", n, n, fewest, most, slowest);
+    }
+}
+
+void test_play() {
+    sc::Session s;
+    sc::new_game(s, 4242, 5);
+    const sc::Puzzle& p = s.puzzle;
+    int clues = 0;
+    for (int cell = 0; cell < 25; ++cell)
+        if (p.clue[static_cast<std::size_t>(cell)]) {
+            ++clues;
+            check(sc::stone_in(s, cell) == sc::solution_stone(p, cell), "a clue starts in its socket");
+            check(!sc::movable(s, sc::stone_in(s, cell)), "a clue is pinned");
+        }
+    check(static_cast<int>(s.pile.size()) == sc::pile_size, "the pile starts full");
+    check(static_cast<int>(s.drum.size()) == 25 - clues - sc::pile_size, "the rest wait in the tumbler");
+    // A stone from the pile to a socket: the tumbler drops the next.
+    const int first = s.pile.front();
+    int empty = -1;
+    for (int cell = 0; cell < 25 && empty < 0; ++cell)
+        if (sc::stone_in(s, cell) < 0)
+            empty = cell;
+    const int waiting = s.drum.front();
+    sc::Outcome o = sc::set_in_cabinet(s, first, empty);
+    check(o.accepted && sc::stone_in(s, empty) == first, "a stone is set in a socket");
+    check(o.dropped.size() == 1 && o.dropped[0] == waiting && s.pile.back() == waiting, "the tumbler drops the next stone");
+    check(s.moves == 1, "setting a stone in a socket is a move");
+    // A stone from the pile onto that socket: the two trade places.
+    const int second = s.pile.front();
+    o = sc::set_in_cabinet(s, second, empty);
+    check(o.accepted && o.displaced == first && sc::stone_in(s, empty) == second &&
+              s.where[static_cast<std::size_t>(first)].place == sc::Place::pile,
+          "a stone set on an occupied socket trades places with the one there");
+    // Onto the felt: free, and no move.
+    o = sc::set_on_felt(s, first, .3, .6);
+    check(o.accepted && s.where[static_cast<std::size_t>(first)].place == sc::Place::felt && s.moves == 2,
+          "a stone laid on the felt costs nothing");
+    // A clue's socket refuses.
+    int clue_cell = -1;
+    for (int cell = 0; cell < 25 && clue_cell < 0; ++cell)
+        if (p.clue[static_cast<std::size_t>(cell)])
+            clue_cell = cell;
+    check(!sc::set_in_cabinet(s, first, clue_cell).accepted, "a clue's socket refuses another stone");
+    // A stone in the tumbler cannot be taken.
+    if (!s.drum.empty())
+        check(!sc::movable(s, s.drum.front()), "a stone in the tumbler cannot be taken");
+
+    // Every stone where the solution has it: solved, the record kept.
+    sc::Session solved;
+    sc::new_game(solved, 99, 4);
+    bool won = false;
+    bool best = false;
+    int guard = 0;
+    while (!solved.won && guard++ < 200) {
+        for (int cell = 0; cell < 16; ++cell) {
+            const int stone = sc::solution_stone(solved.puzzle, cell);
+            if (sc::movable(solved, stone) && sc::stone_in(solved, cell) != stone) {
+                const sc::Outcome r = sc::set_in_cabinet(solved, stone, cell);
+                won = won || r.won;
+                best = best || r.new_best;
             }
-            check(sc::solved(board), "pressing the solver's lamps lights the board");
-            check(board.best == static_cast<int>(presses.size()), "solving records the best count");
+        }
+    }
+    check(solved.won && won && best, "the cabinet filled correctly is solved, and its record kept");
+    check(sc::clashes(solved).empty(), "a solved cabinet has no clashes");
+    check(solved.best[4].moves == solved.moves, "the record holds the moves");
+
+    // A clash: two stones of one shape in a row.
+    sc::Session c;
+    sc::new_game(c, 7, 4);
+    int a = -1;
+    int b = -1;
+    for (int stone : c.pile)
+        for (int other : c.pile)
+            if (stone != other && sc::stone_shape(c.puzzle, stone) == sc::stone_shape(c.puzzle, other) && a < 0) {
+                a = stone;
+                b = other;
+            }
+    if (a >= 0) {
+        int row_empty[2] = {-1, -1};
+        for (int r = 0; r < 4 && row_empty[1] < 0; ++r) {
+            int found = 0;
+            int cells[2] = {-1, -1};
+            for (int col = 0; col < 4 && found < 2; ++col)
+                if (sc::stone_in(c, r * 4 + col) < 0)
+                    cells[found++] = r * 4 + col;
+            if (found == 2) {
+                row_empty[0] = cells[0];
+                row_empty[1] = cells[1];
+            }
+        }
+        if (row_empty[1] >= 0) {
+            static_cast<void>(sc::set_in_cabinet(c, a, row_empty[0]));
+            static_cast<void>(sc::set_in_cabinet(c, b, row_empty[1]));
+            const std::vector<int> bad = sc::clashes(c);
+            check(std::find(bad.begin(), bad.end(), row_empty[0]) != bad.end(), "two of one shape in a row clash");
         }
     }
 }
 
 void test_save() {
-    sc::Session session;
-    session.board = sc::new_game(5, 99);
-    session.next_side = 6;
-    static_cast<void>(sc::press(session.board, 3));
-    static_cast<void>(sc::press(session.board, 11));
-    const std::string body = sc::encode_session(session);
-    sc::Session loaded;
-    check(sc::decode_session(body, loaded), "a saved session decodes");
-    check(loaded.board.lit == session.board.lit && loaded.board.moves == session.board.moves,
-          "the decoded board is the saved board");
-    check(loaded.next_side == 6 && loaded.board.seed == 99, "the decoded settings are the saved settings");
-
-    std::string body_out;
-    const std::string sealed = sc::seal(body);
-    check(sc::unseal(sealed, body_out) && body_out == body, "the envelope round-trips");
-    std::string damaged = sealed;
-    damaged[damaged.size() / 2] ^= 1;
-    check(!sc::unseal(damaged, body_out), "one flipped bit is detected");
-    check(!sc::unseal("SOMETHINGELSE1\n" + body, body_out), "another game's file is refused");
-    check(!sc::unseal(std::string(sc::save_limit_bytes + 10, 'x'), body_out), "an oversized file is refused");
-
+    sc::Session s;
+    sc::new_game(s, 31337, 7);
+    static_cast<void>(sc::set_on_felt(s, s.pile.front(), .25, .75));
+    s.best[5] = sc::Best{30, 600};
+    const std::string body = sc::encode_session(s);
+    sc::Session back;
+    check(sc::decode_session(body, back), "a session reloads");
+    check(sc::encode_session(back) == body, "and is the same session");
+    std::string body_sealed = sc::seal(body);
+    std::string unsealed;
+    check(sc::unseal(body_sealed, unsealed) && unsealed == body, "the envelope keeps the body");
+    body_sealed[body_sealed.size() / 2] ^= 1;
+    check(!sc::unseal(body_sealed, unsealed), "a damaged save is refused");
+    // Damaged bodies: a stone twice, a clue moved, a stone missing.
+    std::string twice = body;
+    const std::size_t at = twice.find("stone=1,");
+    twice.replace(at, 8, "stone=0,");
     sc::Session untouched;
-    untouched.next_side = 3;
-    check(!sc::decode_session("side=99\nseed=1\nmoves=\n", untouched), "an impossible size is refused");
-    check(!sc::decode_session("side=4\nseed=1\nmoves=0,77\n", untouched), "an impossible move is refused");
-    check(!sc::decode_session("side=4\nseed=abc\n", untouched), "a malformed number is refused");
-    check(untouched.next_side == 3, "a refused load leaves the destination untouched");
-
-    // A save folder of this run's own, so two runs at once cannot collide.
-    const long long stamp = std::chrono::steady_clock::now().time_since_epoch().count();
-    const std::filesystem::path directory =
-        std::filesystem::temp_directory_path() / ("sc-save-test-" + std::to_string(stamp));
-    std::filesystem::remove_all(directory);
-#ifdef _WIN32
-    static_cast<void>(_putenv_s("GAMES_STATE_DIR", directory.string().c_str()));
-#else
-    static_cast<void>(setenv("GAMES_STATE_DIR", directory.string().c_str(), 1));
-#endif
-    check(sc::write_save("specimen_cabinet-dev-v1.txt", body), "a save is written, creating its folder");
-    check(sc::read_save("specimen_cabinet-dev-v1.txt", body_out) && body_out == body, "the written save reads back");
-    check(!sc::read_save("absent.txt", body_out), "a missing save reports false");
-    check(!sc::write_save("../escape.txt", body), "a save name cannot leave the game's folder");
-    std::filesystem::remove_all(directory);
+    check(!sc::decode_session(twice, untouched), "a stone listed twice is refused");
+    check(!sc::decode_session("version=1\nn=6\nseed=1\n", untouched), "a 6 x 6 is refused");
+    // A square that is not Graeco-Latin: two of its sockets swapped.
+    std::string swapped = body;
+    const std::size_t square = swapped.find("square=") + 7;
+    const std::size_t comma = swapped.find(',', square);
+    const std::string first = swapped.substr(square, comma - square);
+    const std::size_t second_end = swapped.find(',', comma + 1);
+    const std::string second = swapped.substr(comma + 1, second_end - comma - 1);
+    swapped.replace(square, second_end - square, second + "," + first);
+    check(first == second || !sc::decode_session(swapped, untouched), "a square that breaks the rule is refused");
+    check(!sc::decode_session("", untouched), "an empty body is refused");
 }
 
-// Sweeps window sizes from below the minimum up to a large display and proves the
-// layout never leaves the surface and never overlaps itself.
 void test_layout() {
-    for (int width = 320; width <= 2600; width += 20) {
-        for (int height = 240; height <= 1500; height += 10) {
-            const sc::Layout layout = sc::compute_layout(width, height);
-            const sc::Box boxes[3] = {layout.status, layout.board, layout.message};
-            for (int index = 0; index < 3; ++index) {
-                const sc::Box& box = boxes[index];
-                const bool within = box.x >= 0 && box.y >= 0 && box.x + box.w <= width + .001 &&
-                                    box.y + box.h <= height + .001 && box.w > 0 && box.h > 0;
-                if (!within) {
-                    std::cerr << "layout " << width << "x" << height << " box " << index << "\n";
-                }
-                check(within, "every region stays on the surface");
+    const double sizes[][2] = {{1100, 760}, {600, 370}, {600, 320}, {1600, 1000}, {900, 600}};
+    for (int n : sc::sizes)
+        for (const double* size : sizes) {
+            const sc::Layout l = sc::compute_layout(size[0], size[1], n);
+            const sc::Box screen{0, 0, size[0], size[1]};
+            check(l.cabinet.x >= 0 && l.cabinet.y >= sc::capsule_clearance - 1 && l.cabinet.x + l.cabinet.w <= size[0] &&
+                      l.cabinet.y + l.cabinet.h <= size[1],
+                  "the cabinet is on the surface, below the capsule");
+            check(l.felt.x + l.felt.w <= size[0] + .5 && l.felt.y + l.felt.h <= size[1] + .5, "the felt is on the surface");
+            check(!sc::overlap(l.cabinet, l.felt), "the cabinet and the felt are apart");
+            check(l.mouth_x > l.felt.x && l.mouth_x < l.felt.x + l.felt.w, "the tumbler's mouth is over the felt");
+            for (int k = 0; k < sc::pile_size; ++k)
+                check(sc::inside(l.felt, l.pile[static_cast<std::size_t>(k * 2)], l.pile[static_cast<std::size_t>(k * 2 + 1)]),
+                      "the pile lies on the felt");
+            check(sc::inside(screen, l.panel.x, l.panel.y), "the panel is on the surface");
+            for (int cell = 0; cell < n * n; ++cell) {
+                const sc::Box b = sc::cell_box(l, cell);
+                check(sc::pick_cell(l, b.x + b.w * .5, b.y + b.h * .5) == cell, "a socket's middle picks it");
             }
-            check(!sc::overlap(layout.status, layout.board), "the status strip clears the board");
-            check(!sc::overlap(layout.message, layout.board), "the message line clears the board");
-            check(layout.panel.x >= 0 && layout.panel.y >= 0 &&
-                      layout.panel.x + layout.panel.w <= width && layout.panel.y + layout.panel.h <= height,
-                  "the help card stays on the surface");
+            double x = 0, y = 0, fx = 0, fy = 0;
+            sc::felt_point(l, .3, .7, x, y);
+            sc::felt_fraction(l, x, y, fx, fy);
+            check(std::abs(fx - .3) < 1e-9 && std::abs(fy - .7) < 1e-9, "a felt point goes there and back");
         }
-    }
-    // At the smallest hosted surface the lamps must still be comfortable targets.
-    const sc::Layout small = sc::compute_layout(sc::minimum_width, sc::minimum_height);
-    const sc::Box cell = sc::cell_box(small, sc::maximum_side, 0);
-    check(cell.w >= 36, "at 600 x 370 the smallest lamp is still at least 36 points across");
-    check(small.compact, "600 x 370 uses the compact layout");
-    // Picking: the centre of each cell picks it; the gap between lamps picks nothing.
-    const sc::Layout layout = sc::compute_layout(900, 700);
-    for (int cell_index = 0; cell_index < 16; ++cell_index) {
-        const sc::Box box = sc::cell_box(layout, 4, cell_index);
-        check(sc::pick_cell(layout, 4, box.x + box.w * .5, box.y + box.h * .5) == cell_index,
-              "the centre of a lamp picks that lamp");
-    }
-    const sc::Box first = sc::cell_box(layout, 4, 0);
-    check(sc::pick_cell(layout, 4, first.x + 1, first.y + 1) == -1, "a cell's corner is not a target");
-    check(sc::pick_cell(layout, 4, -5, -5) == -1, "outside the board picks nothing");
-}
-
-// The animation must come to rest, or the game would never go idle.
-void test_settles() {
-    sc::Board board = sc::new_game(6, 5);
-    sc::Visual visual;
-    sc::snap(visual, board);
-    static_cast<void>(sc::press(board, 14));
-    int frames = 0;
-    while (sc::advance(visual, board, 1.0 / 60, false)) {
-        ++frames;
-        if (frames > 600) {
-            break;
-        }
-    }
-    check(frames > 2 && frames < 120, "a press animates briefly and then settles");
-    check(!sc::advance(visual, board, 1.0 / 60, false), "a settled picture stays settled");
-    for (std::size_t index = 0; index < board.lit.size(); ++index) {
-        check(visual.glow[index] == (board.lit[index] != 0 ? 1.0 : 0.0), "a settled lamp sits exactly on its value");
-    }
-    static_cast<void>(sc::press(board, 2));
-    check(sc::advance(visual, board, 1.0 / 60, true), "reduced motion applies the change at once");
-    check(!sc::advance(visual, board, 1.0 / 60, true), "and is then settled, with no easing");
-}
-
-// A reaction to a pause is one scheduled event, never a reason to keep ticking.
-void test_remark() {
-    sc::Board board = sc::new_game(4, 3);
-    sc::Visual visual;
-    sc::snap(visual, board);
-    check(sc::seconds_until_remark(visual, board, 0) == sc::remark_after_seconds, "the remark is due after the wait");
-    check(!sc::update_remark(visual, board, sc::remark_after_seconds - 1), "nothing is said early");
-    check(sc::update_remark(visual, board, sc::remark_after_seconds + .5), "the remark is made when due");
-    check(sc::seconds_until_remark(visual, board, 999) < 0, "and then nothing more is pending");
-    check(!sc::update_remark(visual, board, 999), "it is made once");
-    check(sc::note_input(visual) && !visual.remarked, "the player's next action withdraws it");
-    visual.help = true;
-    check(sc::seconds_until_remark(visual, board, 999) < 0, "no remark while help is open");
 }
 
 }  // namespace
 
 int main() {
     test_generation();
-    test_moves();
-    test_solvable();
+    test_play();
     test_save();
     test_layout();
-    test_settles();
-    test_remark();
-    if (failures > 0) {
-        std::cerr << failures << " check(s) failed\n";
-        return 1;
-    }
-    std::cout << "Specimen Cabinet: rules, save, layout, settling and timed remark passed\n";
-    return 0;
+    std::printf("%d checks failed\n", failures);
+    return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

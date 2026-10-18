@@ -1,6 +1,5 @@
 # Included by the generated registry, with GAME_MODULE_DIR set to this folder.
 add_library(sc_core STATIC
-  "${GAME_MODULE_DIR}/src/platform/raster.cpp"
   "${GAME_MODULE_DIR}/src/rules.cpp"
   "${GAME_MODULE_DIR}/src/save.cpp"
   "${GAME_MODULE_DIR}/src/stage.cpp")
