@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 namespace sc {
 
@@ -43,8 +44,17 @@ Layout compute_layout(double width, double height, int n) {
         l.pile[static_cast<std::size_t>(k * 2 + 1)] = py + spots[k * 2 + 1] * l.stone;
     }
     const double pw = std::min(l.width - 2 * margin, l.compact ? 340.0 : 420.0);
-    const double ph = std::min(l.height - top - margin, l.compact ? 220.0 : 260.0);
+    const double ph = std::min(l.height - top - margin, l.compact ? 236.0 : 282.0);
     l.panel = Box{(l.width - pw) * .5, top + (l.height - top - ph) * .5, pw, ph};
+    // The chooser: three sizes side by side, Cancel under them; the solved card's button.
+    const double gap = l.compact ? 8 : 12;
+    const double bw = (pw - 2 * 24 - gap * 2) / 3;
+    const double bh = l.compact ? 70 : 86;
+    const double by = l.panel.y + (l.compact ? 72 : 92);
+    for (std::size_t k = 0; k < l.choose.size(); ++k)
+        l.choose[k] = Box{l.panel.x + 24 + static_cast<double>(k) * (bw + gap), by, bw, bh};
+    l.cancel = Box{l.panel.x + (pw - 120) * .5, by + bh + gap, 120, l.compact ? 28.0 : 32.0};
+    l.again = Box{l.panel.x + (pw - 190) * .5, l.panel.y + (l.compact ? 120 : 146), 190, l.compact ? 30.0 : 36.0};
     l.type = l.compact ? 12 : 14;
     l.title = l.compact ? 18 : 24;
     return l;
@@ -64,10 +74,15 @@ int pick_cell(const Layout& layout, double x, double y) {
     return row * layout.n + column;
 }
 
+// Stones lie a half stone inside the felt, and clear of the counts at its foot.
+double felt_foot(const Layout& layout) {
+    return layout.type * 1.6;
+}
+
 void felt_fraction(const Layout& layout, double x, double y, double& fx, double& fy) {
     const double half = layout.stone * .5;
     const double w = std::max(1.0, layout.felt.w - 2 * half);
-    const double h = std::max(1.0, layout.felt.h - 2 * half);
+    const double h = std::max(1.0, layout.felt.h - 2 * half - felt_foot(layout));
     fx = std::clamp((x - layout.felt.x - half) / w, 0.0, 1.0);
     fy = std::clamp((y - layout.felt.y - half) / h, 0.0, 1.0);
 }
@@ -75,7 +90,51 @@ void felt_fraction(const Layout& layout, double x, double y, double& fx, double&
 void felt_point(const Layout& layout, double fx, double fy, double& x, double& y) {
     const double half = layout.stone * .5;
     x = layout.felt.x + half + std::clamp(fx, 0.0, 1.0) * std::max(1.0, layout.felt.w - 2 * half);
-    y = layout.felt.y + half + std::clamp(fy, 0.0, 1.0) * std::max(1.0, layout.felt.h - 2 * half);
+    y = layout.felt.y + half + std::clamp(fy, 0.0, 1.0) * std::max(1.0, layout.felt.h - 2 * half - felt_foot(layout));
+}
+
+void stone_point(const Layout& layout, const Session& session, int stone, double& x, double& y) {
+    const Where& w = session.where[static_cast<std::size_t>(stone)];
+    if (w.place == Place::cabinet) {
+        const Box b = cell_box(layout, w.cell);
+        x = b.x + b.w * .5;
+        y = b.y + b.h * .5;
+    } else if (w.place == Place::felt) {
+        felt_point(layout, w.x, w.y, x, y);
+    } else if (w.place == Place::pile) {
+        const int spot = std::clamp(w.cell, 0, pile_size - 1);
+        x = layout.pile[static_cast<std::size_t>(spot * 2)];
+        y = layout.pile[static_cast<std::size_t>(spot * 2 + 1)];
+    } else {
+        x = layout.mouth_x;
+        y = layout.mouth_y;
+    }
+}
+
+int stone_under(const Layout& layout, const Session& session, double x, double y, const std::vector<int>& hidden) {
+    // Drawn cabinet first, then the felt from the back, then the pile: the last drawn is on top.
+    const int count = session.puzzle.n * session.puzzle.n;
+    const double reach = layout.stone * .5;
+    int best = -1;
+    double best_rank = -1;
+    for (int stone = 0; stone < count; ++stone) {
+        const Where& w = session.where[static_cast<std::size_t>(stone)];
+        if (w.place == Place::drum || !movable(session, stone) ||
+            std::find(hidden.begin(), hidden.end(), stone) != hidden.end())
+            continue;
+        double sx = 0;
+        double sy = 0;
+        stone_point(layout, session, stone, sx, sy);
+        if (std::hypot(x - sx, y - sy) > reach)
+            continue;
+        const double layer = w.place == Place::cabinet ? 0 : w.place == Place::felt ? 1 : 2;
+        const double rank = layer * 100000 + sy;
+        if (rank > best_rank) {
+            best_rank = rank;
+            best = stone;
+        }
+    }
+    return best;
 }
 
 }  // namespace sc

@@ -114,8 +114,15 @@ void fill_pile(Session& session, Outcome& outcome) {
     while (static_cast<int>(session.pile.size()) < pile_size && !session.drum.empty()) {
         const int stone = session.drum.front();
         session.drum.erase(session.drum.begin());
+        // It lies in the first spot free, so the pile's stones stay where they fell.
+        unsigned taken = 0;
+        for (int other : session.pile)
+            taken |= 1U << session.where[static_cast<std::size_t>(other)].cell;
+        int spot = 0;
+        while ((taken & (1U << spot)) != 0)
+            ++spot;
         session.pile.push_back(stone);
-        session.where[static_cast<std::size_t>(stone)] = Where{Place::pile, -1, 0, 0};
+        session.where[static_cast<std::size_t>(stone)] = Where{Place::pile, spot, 0, 0};
         outcome.dropped.push_back(stone);
     }
 }
@@ -551,6 +558,7 @@ bool decode_session(const std::string& text, Session& destination) {
     std::array<bool, most_stones> seen{};
     std::array<int, most_stones> socket{};
     socket.fill(-1);
+    unsigned spots = 0;
     for (const std::vector<long long>& e : stones) {
         const long long stone = e[0];
         const long long place = e[1];
@@ -567,6 +575,11 @@ bool decode_session(const std::string& text, Session& destination) {
                 return false;
             w.cell = static_cast<int>(e[2]);
             socket[static_cast<std::size_t>(e[2])] = static_cast<int>(stone);
+        } else if (w.place == Place::pile) {
+            if (e[2] < 0 || e[2] >= pile_size || (spots & (1U << e[2])) != 0)
+                return false;
+            w.cell = static_cast<int>(e[2]);
+            spots |= 1U << e[2];
         }
         s.where[static_cast<std::size_t>(stone)] = w;
         s.turn[static_cast<std::size_t>(stone)] = static_cast<int>(e[5]);

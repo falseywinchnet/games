@@ -11,6 +11,7 @@
 #include "rules.hpp"
 
 #include <array>
+#include <vector>
 
 namespace sc {
 
@@ -38,6 +39,9 @@ struct Layout {
     double stone = 50;    // a stone's size, across
     std::array<double, pile_size * 2> pile{};  // where the pile's stones lie, x then y
     Box panel;            // the chooser and the solved card, centred over everything
+    std::array<Box, sizes.size()> choose{};  // the chooser's buttons, one a size
+    Box cancel;           // the chooser's way back to the cabinet under way
+    Box again;            // the solved card's button for another cabinet
     double type = 13;     // body text size in points
     double title = 20;    // heading size in points
 };
@@ -58,5 +62,12 @@ inline constexpr double capsule_clearance = 54;
 // half width inside it.
 void felt_fraction(const Layout& layout, double x, double y, double& fx, double& fy);
 void felt_point(const Layout& layout, double fx, double fy, double& x, double& y);
+// Where a stone lies, its centre in points: in its socket, on the felt or on the pile. A
+// stone in the tumbler is at its mouth.
+void stone_point(const Layout& layout, const Session& session, int stone, double& x, double& y);
+// The stone a press at (x, y) would take: the topmost movable stone there, or -1. Stones
+// in `hidden` (falling, still on their way) are passed over.
+[[nodiscard]] int stone_under(const Layout& layout, const Session& session, double x, double y,
+                              const std::vector<int>& hidden);
 
 }  // namespace sc

@@ -9,10 +9,10 @@
   "view_header": "specimencabinet_view.hpp",
   "save_file": "specimen_cabinet-v1.txt",
   "core_sources": [
-    "src/platform/raster.cpp",
     "src/rules.cpp",
     "src/save.cpp",
-    "src/stage.cpp"
+    "src/stage.cpp",
+    "src/tumbler.cpp"
   ],
   "ui_sources": [
     "src/specimencabinet_view.cpp",
@@ -24,12 +24,9 @@
     "tests/rules_tests.cpp"
   ],
   "contract_test": "tests/view_contract_tests.cpp",
-  "borrowed": [
-    "src/platform/raster.cpp",
-    "src/platform/raster.hpp"
-  ],
+  "borrowed": [],
   "audio_prefix": "sc_",
-  "audio_manifest": "",
+  "audio_manifest": "assets/audio/sc_audio_manifest.json",
   "settles_when_untouched": true,
   "schema_version": 1,
   "entry_id": 26,
@@ -41,9 +38,21 @@
   "help": "help.md",
   "build": "build.cmake",
   "colors": [
-    [92, 66, 44],
-    [36, 26, 19],
-    [255, 215, 122]
+    [
+      92,
+      66,
+      44
+    ],
+    [
+      36,
+      26,
+      19
+    ],
+    [
+      255,
+      215,
+      122
+    ]
   ],
   "audio_sources": [
     "src/platform/audio.cpp"
@@ -52,6 +61,7 @@
     "sc_core"
   ],
   "help_topics": [],
+  "assets": "assets",
   "engines": [
     "render",
     "stones"

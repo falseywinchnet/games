@@ -1,127 +1,181 @@
-// Headless frames: renders the game at any size and state to a PNG, with real
-// fonts, on any machine. Look at the picture; do not assume it.
+// Renders any state of the game to a PNG, with the scene the window uses, the kit's
+// headless text and the card tables' felt:
 //
-//   preview out.png [width height [scale [state]]]
-//     width, height  the surface in points (default 1100 x 760; the minimum is 600 x 370)
-//     scale          device pixels per point (default 1; try 2 and 1.5)
-//     state          start | mid | remark | solved | help | box   (default mid)
+//   sc_preview <out.png> <width> <height> <scale> <state> [n [seed]]
 //
-// "box" draws a mock of the game's box on the shelf at three sizes, so the emblem
-// and cover colours can be judged alongside the native emblem in cover.cpp.
-#include "platform/text.hpp"
-#include "png_writer.hpp"
+// states: start (the pile just filled), sorting (stones laid out on the felt), held (a
+// stone in hand over a socket), wrong (over a pinned socket), falling (a stone on its way
+// to the pile), full (the cabinet full, with clashes), choose, won, help. Prints how long
+// the table, the stones and one whole frame took.
+#include "carpet.hpp"
 #include "rules.hpp"
 #include "scene.hpp"
 #include "stage.hpp"
 
-#include <algorithm>
-#include <cmath>
+#include "png_writer.hpp"
+
+#include <chrono>
+#include <cstdio>
 #include <cstdlib>
-#include <iostream>
 #include <string>
+#include <vector>
 
 namespace {
 
-// Keep these equal to "colors" in GAME.json (top, bottom, accent).
-const sc::Col cover_top = sc::rgb(92, 66, 44);
-const sc::Col cover_bottom = sc::rgb(36, 26, 19);
-const sc::Col cover_accent = sc::rgb(255, 215, 122);
+double seconds_since(std::chrono::steady_clock::time_point start) {
+    return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+}
 
-// The box emblem, prototyped with the canvas. `s` is the emblem's size and (cx, cy) its
-// centre, as in paint_entry_emblem. Use only discs, rounded rectangles, lines and
-// polygons, sized as fractions of `s`, so it transcribes line for line to gf::Painter.
-void draw_emblem(sc::Canvas& canvas, double cx, double cy, double s) {
-    for (int row = 0; row < 2; ++row) {
-        for (int column = 0; column < 2; ++column) {
-            const bool lit = row != column;
-            const sc::Col colour = lit ? cover_accent : sc::rgb(110, 96, 84);
-            canvas.fill_circle(cx + (column - .5) * s * .46, cy + (row - .5) * s * .46, s * .19, colour);
-        }
+// Takes stones from the pile and lays them on the felt in rows by shape, as a player sorts
+// them: `count` of them.
+void sort_some(sc::Session& session, int count) {
+    const int n = session.puzzle.n;
+    std::vector<int> along(static_cast<std::size_t>(n), 0);
+    for (int k = 0; k < count && !session.pile.empty(); ++k) {
+        const int stone = session.pile.front();
+        const int shape = sc::stone_shape(session.puzzle, stone);
+        const double x = .08 + .26 * along[static_cast<std::size_t>(shape)]++;
+        const double y = .3 + .7 * shape / std::max(1, n - 1);
+        static_cast<void>(sc::set_on_felt(session, stone, std::min(x, 1.0), y));
     }
 }
 
-// An approximation of ShelfBox::on_paint: cover gradient, accent glow, emblem, and the
-// title on a dark scrim. The real shelf letters the title in Barlow Condensed.
-void draw_box(sc::Canvas& canvas, double x, double y, double width) {
-    const double height = width * 1.34;
-    canvas.begin();
-    canvas.rrect(x, y, width, height, width * .04);
-    canvas.fill(sc::Paint::lin(0, y, 0, y + height, {{0, cover_top}, {1, cover_bottom}}));
-    const double emblem = width * .56;
-    const double cx = x + width * .5;
-    const double cy = y + height * .38;
-    canvas.begin();
-    canvas.circle(cx, cy, emblem * .95);
-    canvas.fill(sc::Paint::rad(cx, cy, emblem * .95, {{0, sc::alpha(cover_accent, .35f)}, {1, sc::alpha(cover_accent, 0)}}));
-    draw_emblem(canvas, cx, cy, emblem);
-    canvas.fill_rect(x, y + height * .7, width, height * .2, sc::alpha(sc::hex(0x000000), .45f));
-    const double size = std::clamp(width * .11, 8.0, 18.0);
-    const sc::Mask& title = sc::text_mask("SPECIMEN CABINET", sc::Font::title, size, 0);
-    canvas.draw_mask(title, static_cast<int>(cx - title.w * .5), static_cast<int>(y + height * .8 - title.h * .5),
-                     sc::hex(0xFFF6E0));
-}
-
-int preview_box(const char* path) {
-    sc::Canvas canvas;
-    canvas.resize(560, 300);
-    canvas.clear(sc::hex(0x4A3020));
-    draw_box(canvas, 24, 150, 64);    // a crowded shelf in a small window
-    draw_box(canvas, 120, 100, 110);  // the usual size
-    draw_box(canvas, 270, 30, 190);   // lifted toward the viewer
-    if (!kit::write_png(path, canvas.w, canvas.h, canvas.px)) {
-        std::cerr << "preview: cannot write " << path << "\n";
-        return 1;
+// Sets every stone where the answer has it, as the tumbler gives them up.
+void set_answer(sc::Session& session) {
+    const int cells = session.puzzle.n * session.puzzle.n;
+    for (int step = 0; step < cells * 4; ++step) {
+        int cell = 0;
+        while (cell < cells && !(sc::stone_in(session, cell) != sc::solution_stone(session.puzzle, cell) &&
+                                 sc::movable(session, sc::solution_stone(session.puzzle, cell))))
+            ++cell;
+        if (cell == cells)
+            return;
+        static_cast<void>(sc::set_in_cabinet(session, sc::solution_stone(session.puzzle, cell), cell));
     }
-    std::cout << path << "  mock shelf boxes at 64, 110 and 190 px\n";
-    return 0;
 }
 
 }  // namespace
 
 int main(int argc, char** argv) {
-    if (argc < 2) {
-        std::cerr << "usage: preview out.png [width height [scale [start|mid|remark|solved|help|box]]]\n";
+    if (argc < 6) {
+        std::fprintf(stderr, "sc_preview <out.png> <width> <height> <scale> <state> [n [seed]]\n");
         return 2;
     }
-    const double width = argc > 3 ? std::atof(argv[2]) : 1100;
-    const double height = argc > 3 ? std::atof(argv[3]) : 760;
-    const double scale = argc > 4 ? std::atof(argv[4]) : 1;
-    const std::string state = argc > 5 ? argv[5] : "mid";
-    if (state == "box") {
-        const int result = preview_box(argv[1]);
-        return result;
+    const std::string out = argv[1];
+    const double width = std::atof(argv[2]);
+    const double height = std::atof(argv[3]);
+    const double scale = std::atof(argv[4]);
+    const std::string state = argv[5];
+    const int n = argc > 6 ? std::atoi(argv[6]) : 5;
+    const std::uint64_t seed = argc > 7 ? std::strtoull(argv[7], nullptr, 10) : 20261017ULL;
+
+    sc::Session session;
+    session.best[5] = sc::Best{31, 412};
+    sc::new_game(session, seed, n);
+    session.moves = 9;
+    session.seconds = 187;
+    sc::Frame frame;
+    frame.session = &session;
+    std::vector<int> waiting;
+    frame.waiting = &waiting;
+
+    const sc::Layout layout = sc::compute_layout(width, height, n);
+    sc::Scene scene;
+    const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+    const paint::Image cloth = paint::render_carpet_tile(paint::carpet_preset(3), 256);
+    std::vector<std::byte> felt(cloth.pixels.size() * 4);
+    for (std::size_t i = 0; i < cloth.pixels.size(); ++i) {
+        felt[4 * i] = static_cast<std::byte>(cloth.pixels[i].b);
+        felt[4 * i + 1] = static_cast<std::byte>(cloth.pixels[i].g);
+        felt[4 * i + 2] = static_cast<std::byte>(cloth.pixels[i].r);
+        felt[4 * i + 3] = std::byte{255};
     }
-    if (width < 100 || height < 100 || scale < .5 || scale > 4) {
-        std::cerr << "preview: size or scale out of range\n";
-        return 2;
+    scene.set_felt(felt, 256);
+    scene.resize(layout, scale, render::Order::bgra);
+    const double table_seconds = seconds_since(start);
+
+    if (state == "sorting" || state == "held" || state == "wrong" || state == "falling") {
+        sort_some(session, 2 * n);
+        if (state == "held" || state == "wrong") {
+            const int stone = session.pile.front();
+            int cell = -1;
+            for (int c = 0; c < n * n && cell < 0; ++c)
+                if (session.puzzle.clue[static_cast<std::size_t>(c)] == (state == "wrong"))
+                    cell = c;
+            const sc::Box b = sc::cell_box(layout, cell);
+            frame.held = stone;
+            frame.held_x = b.x + b.w * .58;
+            frame.held_y = b.y + b.h * .44;
+            frame.target = cell;
+            frame.target_ok = state == "held";
+        } else if (state == "falling") {
+            waiting.push_back(session.pile.back());
+            frame.falling = session.pile.back();
+            frame.fall = .55;
+            frame.turn = 1.1;
+        }
+    } else if (state == "full") {
+        // Every stone set, one pair of a row's stones changed round: the clashes marked.
+        set_answer(session);
+        session.won = false;
+        // Two unpinned stones of one row changed round: their columns clash.
+        int a = -1;
+        int b = -1;
+        for (int cell = 0; cell < n * n && b < 0; ++cell) {
+            if (session.puzzle.clue[static_cast<std::size_t>(cell)])
+                continue;
+            if (a < 0)
+                a = cell;
+            else if (cell / n == a / n)
+                b = cell;
+        }
+        if (b >= 0) {
+            const int first = sc::stone_in(session, a);
+            const int second = sc::stone_in(session, b);
+            session.where[static_cast<std::size_t>(first)].cell = b;
+            session.where[static_cast<std::size_t>(second)].cell = a;
+        }
+        frame.clashes = true;
+    } else if (state == "choose") {
+        frame.panel = sc::Panel::choose;
+        frame.can_cancel = true;
+    } else if (state == "won") {
+        set_answer(session);
+        frame.panel = sc::Panel::won;
+        frame.new_best = session.won;
+    } else if (state == "help") {
+        frame.help = true;
     }
-    sc::Board board = sc::new_game(5, 20261003);
-    sc::Visual visual;
-    if (state == "solved") {
-        board.lit.assign(board.lit.size(), 1);
-        board.moves.assign(11, 0);
-        board.best = 11;
-    } else if (state != "start") {
-        static_cast<void>(sc::press(board, 7));
-        static_cast<void>(sc::press(board, 12));
-        static_cast<void>(sc::press(board, 18));
-        board.best = 14;
+
+    const int w = static_cast<int>(width * scale);
+    const int h = static_cast<int>(height * scale);
+    std::vector<std::uint32_t> pixels(static_cast<std::size_t>(w * h), 0U);
+    const render::Target target{pixels.data(), w, w, h, render::Order::bgra};
+    const std::chrono::steady_clock::time_point stones = std::chrono::steady_clock::now();
+    for (int round = 0; round < 3; ++round) {
+        scene.want(frame);
+        if (!scene.begin_batch())
+            break;
+        scene.run_batch();
+        scene.end_batch();
     }
-    sc::snap(visual, board);
-    if (state == "mid") {
-        visual.hover = 8;
-        visual.glow[12] = .5;  // a lamp caught halfway through its turn
+    const double stone_seconds = seconds_since(stones);
+    const std::chrono::steady_clock::time_point drawing = std::chrono::steady_clock::now();
+    scene.draw(target, frame);
+    const double frame_seconds = seconds_since(drawing);
+    // A second frame, the kept table and stones in place: what a step of the hand costs.
+    const std::chrono::steady_clock::time_point again = std::chrono::steady_clock::now();
+    scene.draw(target, frame);
+    const double second_seconds = seconds_since(again);
+    std::vector<std::uint8_t> bytes(pixels.size() * 4);
+    for (std::size_t i = 0; i < pixels.size(); ++i) {
+        bytes[i * 4] = static_cast<std::uint8_t>(pixels[i] & 0xffU);
+        bytes[i * 4 + 1] = static_cast<std::uint8_t>((pixels[i] >> 8) & 0xffU);
+        bytes[i * 4 + 2] = static_cast<std::uint8_t>((pixels[i] >> 16) & 0xffU);
+        bytes[i * 4 + 3] = 255;
     }
-    visual.help = state == "help";
-    visual.remarked = state == "remark";
-    const sc::Layout layout = sc::compute_layout(width, height);
-    sc::Canvas canvas;
-    canvas.resize(static_cast<int>(std::lround(width * scale)), static_cast<int>(std::lround(height * scale)));
-    sc::draw_scene(canvas, scale, layout, board, visual);
-    if (!kit::write_png(argv[1], canvas.w, canvas.h, canvas.px)) {
-        std::cerr << "preview: cannot write " << argv[1] << "\n";
-        return 1;
-    }
-    std::cout << argv[1] << "  " << canvas.w << " x " << canvas.h << " px  (" << state << ")\n";
-    return 0;
+    const bool ok = kit::write_png(out, w, h, bytes);
+    std::printf("%s %s: table %.0f ms, stones %.0f ms, first frame %.0f ms, next %.1f ms\n", ok ? "wrote" : "FAILED",
+                out.c_str(), table_seconds * 1000, stone_seconds * 1000, frame_seconds * 1000, second_seconds * 1000);
+    return ok ? 0 : 1;
 }

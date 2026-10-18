@@ -1,16 +1,9 @@
-# Sound sources
+# Specimen Cabinet's sounds
 
-Every sound in PlaySuite is made here, from code: no samples, no recordings, no
-borrowed tunes. Keep the scripts that render this game's music and effects in this
-folder so anyone can rebuild them. `make_sfx.py` is a small standard-library
-starting point; for richer instruments, copy
-`games/zenconstruction/audio_src/engine/synth.py` into this folder (it needs NumPy)
-and write the score beside it. See the Craft section of `new-games/AGENTS.md`.
-
-Render into this game's `assets/audio/` with the `sc_` file prefix. The generator
-already uses that destination. The build discovers these files automatically;
-there is no central audio count or wiring step. Keep music loop metadata in a JSON
-file alongside the audio, with a `music` array containing each track's `id`,
-`loop_start_sample` and `loop_end_sample_exclusive` in 48 kHz sample units.
-The runtime merges prefixed audio into `audio/` and copies other module assets
-below `specimencabinet/`. Its verifier rejects filename collisions and missing loops.
+The effects and the music were synthesized for Tumbled Stones by
+`games/tumbledstones/audio_src/stones_audio.py` (its synth engine borrowed from Catching
+Thieves) and are used here unchanged under this game's prefix: `sc_lift` (a stone
+taken up), `sc_set` (set in a socket), `sc_land` (laid on the felt), `sc_tumble` (the
+tumbler turning), `sc_deny` (a socket that refuses), `sc_win`, `sc_button`, and
+`sc_music`, a calm loop of 24 bars at 104 beats a minute (`assets/audio/sc_audio_manifest.json`).
+To make them again, run that script and rename its `ts_` files to `sc_`.

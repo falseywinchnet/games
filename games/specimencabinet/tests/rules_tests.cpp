@@ -232,6 +232,10 @@ void test_layout() {
                 check(sc::inside(l.felt, l.pile[static_cast<std::size_t>(k * 2)], l.pile[static_cast<std::size_t>(k * 2 + 1)]),
                       "the pile lies on the felt");
             check(sc::inside(screen, l.panel.x, l.panel.y), "the panel is on the surface");
+            for (const sc::Box& b : l.choose)
+                check(b.x >= l.panel.x && b.x + b.w <= l.panel.x + l.panel.w + .5 && b.y + b.h <= l.panel.y + l.panel.h,
+                      "the chooser's buttons lie on its card");
+            check(l.again.y + l.again.h <= l.panel.y + l.panel.h + .5, "the solved card's button lies on it");
             for (int cell = 0; cell < n * n; ++cell) {
                 const sc::Box b = sc::cell_box(l, cell);
                 check(sc::pick_cell(l, b.x + b.w * .5, b.y + b.h * .5) == cell, "a socket's middle picks it");

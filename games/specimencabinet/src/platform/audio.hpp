@@ -1,6 +1,6 @@
 #pragma once
 // Sound: one looping music track with crossfades, and pitch-varied effects.
-// Names are file stems under assets/audio ("sc_press" plays sc_press.wav as
+// Names are file stems under assets/audio ("sc_set" plays sc_set.wav as
 // prepared for the runtime). A missing file stays silent, so a game can be
 // written before its sounds exist.
 //

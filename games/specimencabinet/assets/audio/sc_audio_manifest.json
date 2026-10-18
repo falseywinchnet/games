@@ -1,0 +1,12 @@
+{
+ "music": [
+  {
+   "id": "sc_music",
+   "bpm": 104,
+   "bars": 24,
+   "bar_samples": 110768,
+   "loop_end_sample_exclusive": 2658432,
+   "seconds": 55.384
+  }
+ ]
+}

@@ -44,7 +44,7 @@ enum class Place { drum, pile, felt, cabinet };
 
 struct Where {
     Place place = Place::drum;
-    int cell = -1;       // its socket, in the cabinet
+    int cell = -1;       // its socket, in the cabinet; its spot (0..pile_size-1), on the pile
     double x = 0;        // on the felt: across and down the strip, 0..1
     double y = 0;
 };
