@@ -6,13 +6,17 @@
 //
 // Every voice is synthesized here, sample by sample (nothing recorded):
 //
-//   harp      a concert harp: gut strings plucked with the pad of the finger near their
-//             middle, so round and hollow (odd harmonics, falling away steeply); each
-//             string ringing in two planes a hair apart, so its tone blooms as it dies;
-//             starting a little sharp and settling; long in the bass, short at the top;
-//             through the soundboard's warm resonances. It plays as a harpist does: bass
-//             octaves, arpeggios flowing over octaves, the tune in the upper strings, a
-//             full glissando to open each passage;
+//   harp      a ten-string harp, tuned to D major's pentatonic notes from D4 to B5,
+//             so every string sits in each key the music visits: each string a
+//             waveguide (Karplus and Strong's delay line, tuned between samples by an
+//             all-pass, losing its upper partials a little each pass), ringing in two
+//             planes a hair apart so its tone blooms as it dies; plucked with the pad
+//             of the finger near its middle; a ringing string stopped a moment before
+//             it is plucked again; all ten on one bridge, so strings in tune with what
+//             sounds ring in sympathy; heard mostly as the strings' own swing, round
+//             and warm, through the soundboard's low resonances. It plays as a
+//             harpist does on so few strings: strokes across those that belong to the
+//             chord, the chord's root low down, raindrops on the upper strings;
 //   celesta   small struck bells: the tune's long notes an octave up, and sparkles at
 //             the ends of phrases;
 //   pad       a soft, airy synthesizer under it all: each chord tone a cluster of warm,

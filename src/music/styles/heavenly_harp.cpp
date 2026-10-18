@@ -145,30 +145,6 @@ void add_tick(Struck& s, double level, double seconds, double brightness_hz) {
     s.tick_a = static_cast<float>(1 - std::exp(-tau * brightness_hz / rate));
 }
 
-// A concert harp's string: plucked with the pad of the finger near its middle, so mostly
-// odd harmonics, falling as 1/n^2 and softened further by the finger; ringing in two
-// planes a hair apart (the second fades sooner), so the tone blooms and wavers; a touch
-// sharp as it is plucked, settling in a few hundredths of a second.
-void pluck_harp(Struck& s, double hz, double velocity, double pan, Random& r) {
-    begin(s, HeavenlyHarp::harp, pan, .0018);
-    const double point = r.between(.42, .52);
-    const double finger = 1150 + 1300 * velocity;
-    const double ring = std::clamp(13 * std::pow(hz / 65, -.62), 1.1, 16.0);
-    const double apart = r.between(.00022, .00045);
-    for (int n = 1; n <= 14; ++n) {
-        const double fn = n * hz * std::sqrt(1 + .00008 * n * n);
-        const double shape = std::fabs(std::sin(n * pi * point)) / (n * n);
-        const double soft = 1 / (1 + (fn / finger) * (fn / finger));
-        const double amp = shape * soft * velocity * 1.6;
-        const double seconds = ring / (1 + .18 * (n - 1) + 2 * (fn / 4000) * (fn / 4000));
-        add_partial(s, fn * (1 - apart), amp * .62, seconds);
-        add_partial(s, fn * (1 + apart), amp * .38, seconds * .55);
-    }
-    s.bend = .0028 * (.5 + velocity);
-    s.bend_decay = std::exp(-1 / (.035 * rate));
-    add_tick(s, .035 * velocity, .0012, 3200);
-}
-
 void strike_celesta(Struck& s, double hz, double velocity, double pan) {
     begin(s, HeavenlyHarp::celesta, pan, .001);
     const double scale = std::pow(hz / 1046.5, -.3);
@@ -329,6 +305,227 @@ void run_pad(PadNote& n, const SineTable& sine, float& out_l, float& out_r) {
     out_r += static_cast<float>((n.low_r + air) * n.env);
 }
 
+// ---- The ten-string harp -------------------------------------------------------------
+
+// Ten gut strings tuned to D major's pentatonic notes, D4 to B5: every one sits in
+// each key the music visits, so no stroke across them is ever sour.
+constexpr int string_count = 10;
+constexpr double string_midi[string_count] = {62, 64, 66, 69, 71, 74, 76, 78, 81, 83};
+constexpr int line_size = 512;                   // samples; a power of two over the longest period
+constexpr int line_mask = line_size - 1;
+// How much of what is heard is the string's own swing (round, its partials falling as
+// 1/n^2) rather than the force it puts on the bridge (brighter, as 1/n): warmth.
+constexpr float warmth = .85f;
+
+// One plane of a string's vibration: a wave running round a delay line one period long
+// (Karplus and Strong's string, as a waveguide). Each pass it goes through a gentle
+// low-pass (the gut's and the air's losses, heavier on the higher partials), a loss
+// that sets how long it rings, and an all-pass that sets the period between whole
+// samples without dulling it.
+struct Plane {
+    std::array<float, line_size> line{};
+    int length = 2;              // whole samples of delay
+    int at = 0;                  // where the next sample is written
+    float tune = 0;              // the all-pass's coefficient
+    float tune_in = 0, tune_out = 0;
+    float low = 0, low_a = .6f;  // the loss filter
+    float gain = .999f;
+    float last = 0;              // the last output, for the bridge
+};
+
+// Sets a plane to `hz` with a ringing time of `seconds` and a brightness `low_a`
+// (0 to 1: the share of each pass's change the loss filter lets through).
+void tune_plane(Plane& p, double hz, double seconds, double low_a) {
+    const double period = rate / hz;
+    const double filter_delay = (1 - low_a) / low_a;        // the one-pole's delay at low frequencies
+    const double rest = period - filter_delay;
+    const int whole = std::clamp(static_cast<int>(std::floor(rest - .5)), 2, line_size - 2);
+    const double fraction = rest - whole;                    // in [.5, 1.5): a stable all-pass
+    p.length = whole;
+    p.tune = static_cast<float>((1 - fraction) / (1 + fraction));
+    p.low_a = static_cast<float>(low_a);
+    p.gain = static_cast<float>(std::min(.99995, std::pow(10.0, -3.0 / (seconds * hz))));
+}
+
+// A string: its two planes a hair apart in pitch (the second fades sooner, so the tone
+// blooms and wavers as it dies), its place in the stereo field, what is still to be
+// done to it, and how loud it is ringing.
+struct HarpString {
+    Plane planes[2];
+    float left = 0, right = 0;
+    float level = 0;             // a follower of its output, to rest it when silent
+    float force_scale = 1;       // the bridge force's level, the same for every string
+    bool resting = true;
+    // A pluck waiting while the finger stops the ringing string.
+    int mute = 0;
+    double pending_velocity = 0, pending_point = .45;
+    float flesh = 0, flesh_low = 0;  // the finger leaving the string: a soft tick
+    float onset = 1;             // the string slipping off the finger's pad: 0 to 1
+};
+
+struct Harp {
+    std::array<HarpString, string_count> strings{};
+    float bridge = 0;            // the bridge's motion last sample, which every string feels
+    float flesh_a = 0, flesh_decay = 0;
+    float onset_step = 0;
+};
+
+void prepare_harp(Harp& harp, Random& r) {
+    for (int k = 0; k < string_count; ++k) {
+        HarpString& st = harp.strings[static_cast<std::size_t>(k)];
+        const double hz = midi_hz(string_midi[k]);
+        // Long in the bass, shorter at the top; the low strings pass round their loops
+        // less often, so they want more loss each pass for the same mellowness.
+        const double ring = std::clamp(13 * std::pow(hz / 65, -.62), 1.1, 16.0);
+        const double low_a = std::clamp(.42 + .45 * (hz / 900), .42, .86);
+        const double apart = r.between(.00022, .00045);
+        tune_plane(st.planes[0], hz * (1 - apart), ring, low_a);
+        tune_plane(st.planes[1], hz * (1 + apart), ring * .6, low_a);
+        pan_gains(std::clamp((string_midi[k] - 67.5) / 26, -.45, .45), st.left, st.right);
+        st.force_scale = static_cast<float>(1 / (tau * hz / rate));
+    }
+    harp.flesh_a = static_cast<float>(1 - std::exp(-tau * 2600 / rate));
+    harp.flesh_decay = static_cast<float>(std::exp(-1 / (.0014 * rate)));
+    harp.onset_step = static_cast<float>(1 / (.0015 * rate));
+}
+
+// Loads a pluck into one plane: the string's shape as the finger lets it go, a corner
+// at `point` along it, rounded by the pad of the finger (softer for a gentle pluck),
+// with a whisper of the skin's roughness.
+void load_pluck(Plane& p, double amount, double point, double width, Random& r) {
+    const int n = p.length + 1;
+    std::array<float, line_size> shape{};
+    const double corner = point * n;
+    for (int j = 0; j < n; ++j) {
+        const double x = j + .5;
+        shape[static_cast<std::size_t>(j)] =
+            static_cast<float>(x < corner ? x / corner : (n - x) / (n - corner)) + static_cast<float>(r.between(-.015, .015));
+    }
+    // The finger's pad: two passes of a running average round the loop.
+    const int span = std::clamp(static_cast<int>(std::lround(width * n)), 1, n / 3);
+    std::array<float, line_size> smooth{};
+    for (int pass = 0; pass < 2; ++pass) {
+        double sum = 0;
+        for (int j = -span; j <= span; ++j)
+            sum += shape[static_cast<std::size_t>((j + n) % n)];
+        for (int j = 0; j < n; ++j) {
+            smooth[static_cast<std::size_t>(j)] = static_cast<float>(sum / (2 * span + 1));
+            sum += shape[static_cast<std::size_t>((j + span + 1) % n)] - shape[static_cast<std::size_t>((j - span + n) % n)];
+        }
+        shape = smooth;
+    }
+    double mean = 0;
+    for (int j = 0; j < n; ++j)
+        mean += shape[static_cast<std::size_t>(j)];
+    mean /= n;
+    for (int j = 0; j < n; ++j) {
+        const std::size_t at = static_cast<std::size_t>((p.at - n + j) & line_mask);
+        p.line[at] += static_cast<float>((shape[static_cast<std::size_t>(j)] - mean) * amount);
+    }
+    // The sample just read had the shape's first point too: so the wave carries on
+    // from it without a jump (the bridge would hear one as a crack).
+    const float first = static_cast<float>((shape[0] - mean) * amount);
+    p.tune_in += first;
+    p.tune_out += first;
+    p.low += first;
+    p.last += first;
+}
+
+void release(HarpString& st, Random& r) {
+    const double v = st.pending_velocity;
+    // A gentle pluck is the round pad of the finger; a firmer one (the music's firmest
+    // is about .3), more of its edge. The pad rounds off the partials above about the
+    // eighth, as on a harp plucked near the middle of its strings.
+    const double width = .06 - .025 * std::min(1.0, v / .3);
+    load_pluck(st.planes[0], v * .62, st.pending_point, width, r);
+    load_pluck(st.planes[1], v * .38, st.pending_point + .02, width, r);
+    st.flesh = static_cast<float>(.05 * v);
+    st.onset = 0;
+    st.resting = false;
+    st.level = std::max(st.level, static_cast<float>(v));
+}
+
+// A finger on string `k`: a ringing string is stopped first, for a few milliseconds,
+// as a harpist's finger stops it in taking hold.
+void pluck_string(Harp& harp, int k, double velocity, Random& r) {
+    HarpString& st = harp.strings[static_cast<std::size_t>(std::clamp(k, 0, string_count - 1))];
+    st.pending_velocity = velocity;
+    st.pending_point = r.between(.4, .5);
+    if (!st.resting && st.level > .002f) {
+        st.mute = static_cast<int>(.006 * rate);
+        return;
+    }
+    release(st, r);
+}
+
+float run_plane(Plane& p, float input) {
+    const float x = p.line[static_cast<std::size_t>((p.at - p.length) & line_mask)];
+    const float y = p.tune * x + p.tune_in - p.tune * p.tune_out;
+    p.tune_in = x;
+    p.tune_out = y;
+    p.low += p.low_a * (y - p.low);
+    p.line[static_cast<std::size_t>(p.at)] = p.low * p.gain + input;
+    p.at = (p.at + 1) & line_mask;
+    const float force = y - p.last;
+    p.last = y;
+    return force;
+}
+
+// One sample of the harp: every ringing string, coupled through the bridge, as the
+// soundboard hears them (the force the strings put on the bridge).
+void run_harp(Harp& harp, Random& r, float& out_l, float& out_r) {
+    float bridge = 0;
+    const float coupling = .0005f;
+    for (HarpString& st : harp.strings) {
+        if (st.mute > 0) {
+            // The finger stopping the string, then letting it go plucked.
+            for (Plane& p : st.planes) {
+                for (float& v : p.line)
+                    v *= .97f;
+                p.tune_in *= .97f;
+                p.tune_out *= .97f;
+                p.last *= .97f;
+                p.low *= .97f;
+            }
+            if (--st.mute == 0)
+                release(st, r);
+        }
+        if (st.resting && std::fabs(harp.bridge) < 1e-6f)
+            continue;
+        // The bridge gives way under all the strings together: each loses a little of
+        // its motion into it, and a string tuned to what is sounding is stirred into
+        // ringing in sympathy. Passive, so it never adds energy.
+        const float shared = -coupling * harp.bridge;
+        float force = run_plane(st.planes[0], shared) + run_plane(st.planes[1], shared);
+        force = force * st.force_scale * (1 - warmth) + (st.planes[0].last + st.planes[1].last) * warmth;
+        if (st.onset < 1) {
+            // A millisecond and a half for the string to slip off the finger.
+            st.onset = std::min(1.0f, st.onset + harp.onset_step);
+            force *= st.onset * (2 - st.onset);
+        }
+        if (st.flesh > 1e-5f) {
+            st.flesh_low += harp.flesh_a * (static_cast<float>(r.unit() * 2 - 1) - st.flesh_low);
+            force += st.flesh_low * st.flesh;
+            st.flesh *= harp.flesh_decay;
+        }
+        bridge += st.planes[0].last + st.planes[1].last;
+        st.level = std::max(std::fabs(force), st.level * .9995f);
+        if (!st.resting && st.level < 2e-6f && st.mute == 0) {
+            // Rung out: rests until it is plucked, or the bridge stirs it.
+            st.resting = true;
+            for (Plane& p : st.planes) {
+                p.line.fill(0);
+                p.low = p.tune_in = p.tune_out = p.last = 0;
+            }
+        } else if (st.resting && st.level >= 2e-6f) {
+            st.resting = false;
+        }
+        out_l += force * st.left;
+        out_r += force * st.right;
+    }
+    harp.bridge = bridge;
+}
+
 // ---- The hall ------------------------------------------------------------------------
 
 struct Hall {
@@ -408,11 +605,12 @@ struct Score {
     long phrases = 0;
     int tonic = 62;              // D
     int home = 62;
-    double last_tune = 79;
+    int last_drop = 8;           // the string the last raindrop fell on
     std::vector<Event> events;  // reserved once: planning a phrase allocates nothing
     std::size_t next_event = 0;
     std::array<Struck, 128> struck{};
     std::size_t struck_next = 0;
+    Harp harp{};
     std::array<Biquad, 3> body_l{}, body_r{};   // the harp's soundboard
     std::array<PadNote, 8> pad{};                // two sets of four: one fading, one coming
     int pad_set = 0;
@@ -452,37 +650,31 @@ void add(Score& s, double beat, int voice, double midi, double velocity, double 
     s.events.push_back(e);
 }
 
-// Pan a harp note by its string: low strings left, high right, as the instrument stands.
-double harp_pan(double midi) {
-    return std::clamp((midi - 62) / 40, -.45, .45);
+// Whether string `k` sounds one of the chord's tones (its root alone, if `root_only`).
+bool string_in_chord(int tonic, const Chord& chord, int k, bool root_only) {
+    const int pitch = static_cast<int>(string_midi[k]) % 12;
+    for (int which = 0; which < (root_only ? 1 : 4); ++which) {
+        const int tone = static_cast<int>(std::lround(chord_tone(tonic, chord, which, 0)));
+        if ((tone % 12 + 12) % 12 == pitch)
+            return true;
+    }
+    return false;
 }
 
-double nearest_chord_tone(int tonic, const Chord& chord, double midi, double low, double high) {
-    double best = midi, distance = 1e9;
-    for (int octave = -1; octave <= 3; ++octave)
-        for (int which = 0; which < 3; ++which) {
-            const double m = chord_tone(tonic, chord, which, octave);
-            if (m < low || m > high)
-                continue;
-            if (std::fabs(m - midi) < distance) {
-                distance = std::fabs(m - midi);
-                best = m;
-            }
+// The chord's string nearest string `k` among strings `low` to `high`, or `k` itself.
+int nearest_chord_string(int tonic, const Chord& chord, int k, int low, int high) {
+    int best = std::clamp(k, low, high), distance = 99;
+    for (int j = low; j <= high; ++j)
+        if (string_in_chord(tonic, chord, j, false) && std::abs(j - k) < distance) {
+            distance = std::abs(j - k);
+            best = j;
         }
     return best;
 }
 
-double scale_move(int tonic, double midi, int steps) {
-    int index = 0;
-    double best = 1e9;
-    for (int i = -14; i <= 35; ++i) {
-        const double m = step_midi(tonic, i);
-        if (std::fabs(m - midi) < best) {
-            best = std::fabs(m - midi);
-            index = i;
-        }
-    }
-    return step_midi(tonic, index + steps);
+void add_string(Score& s, double beat, int k, double velocity) {
+    add(s, beat, HeavenlyHarp::harp, string_midi[k], velocity, 0);
+    s.events.back().slot = k;
 }
 
 void plan_phrase(Score& s) {
@@ -500,36 +692,39 @@ void plan_phrase(Score& s) {
         chords[static_cast<std::size_t>(b)].degree = progressions[which][b];
         chords[static_cast<std::size_t>(b)].lydian = progressions[which][b] == 3 && r.unit() < .45;
     }
-    const int harp = HeavenlyHarp::harp;
-    // The harp is stroked, softly: the pedals set so every string sounds the chord (its
-    // root, third, fifth and ninth), the fingers drawn across a span of strings, up or
-    // down, the stroke swelling in its middle and falling away at its ends. One or two
-    // a bar, their rings overlapping.
+    // The harp is stroked, softly: the fingers drawn across a span of its ten strings,
+    // up or down, sounding those that belong to the chord (the others held still), the
+    // stroke swelling in its middle and falling away at its ends. One or two a bar,
+    // their rings overlapping.
     for (int b = 0; b < 4; ++b) {
         const Chord& c = chords[static_cast<std::size_t>(b)];
         const double bar = b * beats_per_bar;
-        // Under each chord, very softly, its root low down.
-        const double root = chord_tone(tonic, c, 0, -2);
-        add(s, bar + r.between(0, .08), harp, root, .2, harp_pan(root));
+        // Under each chord, very softly, its lowest root (or its lowest tone).
+        int root = -1;
+        for (int k = 0; k < string_count && root < 0; ++k)
+            if (string_in_chord(tonic, c, k, true))
+                root = k;
+        for (int k = 0; k < string_count && root < 0; ++k)
+            if (string_in_chord(tonic, c, k, false))
+                root = k;
+        if (root >= 0 && root < 5)
+            add_string(s, bar + r.between(0, .08), root, .2);
         const int strokes = (b == 3 || r.unit() < .35) ? 1 : 2;
         for (int k = 0; k < strokes; ++k) {
-            // The chord's strings from a low one to a high one.
-            std::array<double, 48> strings{};
+            // The chord's strings from a low one to a high one; where the chord has
+            // few strings, every string in the span (the tuning is never sour).
+            std::array<int, string_count> strings{};
             std::size_t n = 0;
-            const int from_octave = -1 + r.pick(2);
-            const int span = 1 + r.pick(3);  // octaves
-            for (int octave = from_octave; octave < from_octave + span + 1; ++octave)
-                for (int which = 0; which < 4; ++which) {
-                    const double m = chord_tone(tonic, c, which == 3 ? 3 : which, octave - (which == 3 ? 1 : 0));
-                    if (m >= 48 && m <= 96 && n < strings.size()) {
-                        strings[n] = m;
-                        ++n;
-                    }
-                }
-            std::sort(strings.begin(), strings.begin() + static_cast<std::ptrdiff_t>(n));
-            n = static_cast<std::size_t>(std::unique(strings.begin(), strings.begin() + static_cast<std::ptrdiff_t>(n)) - strings.begin());
-            if (n < 3)
-                continue;
+            const int from = r.pick(3);
+            const int to = std::min(string_count - 1, from + 5 + r.pick(5));
+            for (int j = from; j <= to; ++j)
+                if (string_in_chord(tonic, c, j, false))
+                    strings[n++] = j;
+            if (n < 3) {
+                n = 0;
+                for (int j = from; j <= to; ++j)
+                    strings[n++] = j;
+            }
             const bool upward = r.unit() < .65;
             const double length = r.between(.6, 1.8) / beat_seconds;  // in beats
             const double start_at = bar + (k == 0 ? r.between(.05, .6) : r.between(1.5, 2.2));
@@ -539,8 +734,8 @@ void plan_phrase(Score& s) {
                 // An unhurried start and finish, quicker through the middle.
                 const double when = start_at + length * (t < .5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t));
                 const double swell = std::sin(pi * (.15 + .7 * t));
-                const double m = upward ? strings[i] : strings[n - 1 - i];
-                add(s, when, harp, m, peak * (.45 + .55 * swell) * r.between(.85, 1.1), harp_pan(m));
+                const int string = upward ? strings[i] : strings[n - 1 - i];
+                add_string(s, when, string, peak * (.45 + .55 * swell) * r.between(.85, 1.1));
             }
         }
     }
@@ -562,21 +757,22 @@ void plan_phrase(Score& s) {
             s.events.push_back(e);
         }
     }
-    // Raindrops: now and then a single light note high up, lilting, out of time; sometimes
-    // two or three falling together, as drops do off a leaf.
-    double drop = s.last_tune;
+    // Raindrops: now and then a single light note on the upper strings, lilting, out of
+    // time; sometimes two or three falling together, as drops do off a leaf.
+    int drop = s.last_drop;
     double at = r.between(.3, 1.2);
     while (at < 11.6) {
         const Chord& c = chords[static_cast<std::size_t>(std::min(3, static_cast<int>(at / beats_per_bar)))];
         const int run = r.unit() < .3 ? 2 + r.pick(2) : 1;
-        drop = nearest_chord_tone(tonic, c, drop + r.between(-3, 3.5), 76, 93);
+        drop = nearest_chord_string(tonic, c, drop + r.pick(5) - 2, 5, string_count - 1);
+        int string = drop;
         for (int i = 0; i < run; ++i) {
-            const double m = i == 0 ? drop : scale_move(tonic, drop, -i * (1 + r.pick(2)));
-            add(s, at + i * r.between(.18, .32), harp, m, r.between(.13, .24) * (1 - .15 * i), harp_pan(m) + .1);
+            add_string(s, at + i * r.between(.18, .32), string, r.between(.13, .24) * (1 - .15 * i));
+            string = std::max(0, string - 1 - r.pick(2));
         }
         at += r.between(.9, 2.8);
     }
-    s.last_tune = drop;
+    s.last_drop = drop;
     // The celesta's sparkle in the breathing bar: the chord falling from high up.
     {
         const Chord& c = chords[3];
@@ -622,7 +818,7 @@ void start(Score& s, const Event& e) {
         return;
     }
     if (e.voice == HeavenlyHarp::harp)
-        pluck_harp(free_struck(s), hz, e.velocity, e.pan, s.random);
+        pluck_string(s.harp, e.slot, e.velocity, s.random);
     else
         strike_celesta(free_struck(s), hz, e.velocity, e.pan);
 }
@@ -664,9 +860,10 @@ void prepare(Score& s, std::uint32_t seed) {
     if (s.random.s == 0)
         s.random.s = 1;
     s.hall.prepare(3.8);
+    prepare_harp(s.harp, s.random);
     // The soundboard's warmth: the body's resonances.
-    band(s.body_l[0], 230, 90);
-    band(s.body_r[0], 240, 90);
+    band(s.body_l[0], 200, 110);
+    band(s.body_r[0], 210, 110);
     band(s.body_l[1], 480, 160);
     band(s.body_r[1], 500, 160);
     band(s.body_l[2], 1050, 420);
@@ -679,9 +876,9 @@ void render(Score& s, std::span<float> stereo, double gain, Fade& fade) {
     constexpr int harp = HeavenlyHarp::harp;
     constexpr int pad = HeavenlyHarp::pad;
     const std::size_t frames = stereo.size() / 2;
-    const float levels[voices] = {.2f, .38f, .12f, .04f};
+    const float levels[voices] = {1.29f, .38f, .12f, .04f};  // the harp's strings speak softly; it leads all the same
     const float sends[voices] = {.42f, .5f, .38f, .45f};
-    const float body[3] = {.55f, .3f, .14f};
+    const float body[3] = {.9f, .45f, .14f};
     for (std::size_t f = 0; f < frames; ++f) {
         ++s.clock;
         if (s.next_event >= s.events.size() && s.clock >= s.phrase_end - static_cast<long>(1.4 * beat_seconds * rate))
@@ -701,6 +898,7 @@ void render(Score& s, std::span<float> stereo, double gain, Fade& fade) {
         }
         for (PadNote& n : s.pad)
             run_pad(n, s.sine, voice_l[pad], voice_r[pad]);
+        run_harp(s.harp, s.random, voice_l[harp], voice_r[harp]);
         // The harp through its soundboard.
         {
             float add_l = 0, add_r = 0;
