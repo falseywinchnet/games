@@ -107,6 +107,12 @@
     "solve": {
       "first_party": true
     },
+    "specimencabinet": {
+      "first_party": true,
+      "capabilities": [
+        "files"
+      ]
+    },
     "spider": {
       "first_party": true
     },
