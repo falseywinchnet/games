@@ -212,14 +212,8 @@ def check_game_folder(folder, game, fork, limits, approvals, style):
     problems = []
     approved = approvals.get(game, {})
     folder_limit = approved.get("source_mb", limits["source_mb"]) * 1024 * 1024
-    # A pinned asset (tools/pinned_assets.py) is not source: Git ignores it, and a local
-    # checkout holds it only because the asset preparation fetched it.
-    import pinned_assets
-    pinned = {path.resolve() for owner, _, path in pinned_assets.pins(ROOT) if owner == game}
     total = 0
     for path in sorted(folder.rglob("*")):
-        if path.resolve() in pinned:
-            continue
         if not path.is_file() or path.is_symlink():
             if path.is_symlink():
                 problems.append(f"{path.relative_to(ROOT)}: symbolic links are not allowed")

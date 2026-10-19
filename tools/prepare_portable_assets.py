@@ -241,15 +241,6 @@ def asset_inventory(source: Path, extra_dirs=()) -> dict:
         for stem in local_audio:
             if ("music" in stem.lower() or "loop" in stem.lower()) and stem not in loops:
                 raise ValueError("Missing producer loop metadata: " + stem)
-    # A pinned asset (tools/pinned_assets.py) is a resource whether or not it has been
-    # fetched yet: its pin says what its bytes are, so the verification of a runtime
-    # restored from a cache needs no download.
-    import pinned_assets
-    enabled = {owner for owner, _, _ in roots}
-    for owner, pin, path in pinned_assets.pins(source.parent):
-        output = owner + "/" + pin["path"]
-        if owner in enabled and output.casefold() not in resources:
-            resources[output.casefold()] = {"path": path, "file": output, "source_sha256": pin["sha256"]}
     return {"audio": sorted(audio.values(), key=lambda value: value["source"]),
             "resources": sorted(resources.values(), key=lambda value: value["file"]),
             "producer_manifests": producers, "module_manifests": manifests, "loops": loops}
@@ -319,10 +310,6 @@ def main() -> None:
     if output == source or source in output.parents or output in source.parents:
         raise ValueError("Runtime output must be separate from source assets")
     extra_dirs = options.extra_game_dir + [Path(value) for value in os.environ.get("GAMES_EXTRA_GAME_DIRS", "").split(";") if value]
-    # Assets too large for Git (games/<id>/pinned_assets.json) are fetched and checked
-    # first, so they are gathered like any other.
-    import pinned_assets
-    pinned_assets.fetch(source.parent)
     inventory = asset_inventory(source, extra_dirs)
     output.mkdir(parents=True, exist_ok=True)
     prepare_fonts(source / "fonts", output / "fonts")

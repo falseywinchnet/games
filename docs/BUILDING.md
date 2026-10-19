@@ -23,14 +23,6 @@ python3 tools/prepare_portable_assets.py --output build/runtime --ffmpeg ffmpeg
 python3 tools/verify_portable_assets.py --runtime build/runtime
 ```
 
-The preparation first fetches the assets too large for Git, each pinned by
-`games/<id>/pinned_assets.json` (`tools/pinned_assets.py`; today the Pocket Library's
-books, `library.plb`), from this repository's `library-data` release, and checks their
-SHA-256. They are then gathered and packaged like any other asset: PlaySuite ships them
-and downloads nothing itself. `python3 tools/pinned_assets.py` fetches them alone, and
-`--verify` checks them without the network. The `library-data` release is build input,
-not an app release: keep it whenever old releases are removed.
-
 Fetch the toolkit text dependencies:
 
 ```sh

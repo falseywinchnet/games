@@ -18,7 +18,7 @@ struct EntryInfo {
 };
 const EntryInfo& entry_info(Entry entry);
 // The shelf's sections, in its order: cards, logic and puzzles, matching, skill, and the
-// quiet corner (the living scenes and the library).
+// quiet corner (the living scenes).
 inline constexpr int category_count = 5;
 const char* category_name(int category);
 const char* suite_name();
@@ -71,8 +71,8 @@ class CommandSource {
         return {};
     }
     // The capsule's Back, asked of the game first: a game with a way back of its own
-    // (a book closed to its library) takes it and returns true; false lets the shell
-    // show its shelf.
+    // (a page or a panel closed back to its main view) takes it and returns true;
+    // false lets the shell show its shelf.
     virtual bool back() {
         return false;
     }

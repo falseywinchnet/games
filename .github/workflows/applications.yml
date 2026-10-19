@@ -50,11 +50,10 @@ jobs:
         id: runtime-cache
         with:
           path: build/runtime-assets
-          # Only what feeds preparation: shared assets, each game's assets, pinned assets
-          # (games/*/pinned_assets.json, fetched by the preparation: the Pocket Library's
-          # books) and manifest, the engines' manifests and the tools. A miss restores the
+          # Only what feeds preparation: shared assets, each game's assets and manifest,
+          # the engines' manifests and the tools. A miss restores the
           # last runtime and the preparation encodes only the sounds whose sources changed.
-          key: runtime-v3-${{ hashFiles('assets/**', 'games/*/assets/**', 'games/*/pinned_assets.json', 'games/*/GAME.json', 'shared/*/assets/**', 'shared/*/ENGINE.json', 'tools/*portable_assets.py', 'tools/pinned_assets.py', 'tools/game_catalog.py') }}
+          key: runtime-v3-${{ hashFiles('assets/**', 'games/*/assets/**', 'games/*/GAME.json', 'shared/*/assets/**', 'shared/*/ENGINE.json', 'tools/*portable_assets.py', 'tools/game_catalog.py') }}
           restore-keys: runtime-v3-
       - name: Install authoring tools
         if: steps.runtime-cache.outputs.cache-hit != 'true'

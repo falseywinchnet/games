@@ -20,7 +20,7 @@ add_library(game_table_art STATIC shared/cards/table_art.cpp shared/cards/card_b
 target_include_directories(game_table_art PUBLIC shared PRIVATE shared/cards shared/felt)
 target_link_libraries(game_table_art PUBLIC game_felt game_paths GUIForms::Application PRIVATE paper_core ambient_core)
 # The shelf's wood (src/wood.cpp), in a library of its own so a game can stand its own
-# shelf in it: the shell and the Pocket Library both link it.
+# shelf in it.
 add_library(game_wood STATIC src/wood.cpp)
 target_include_directories(game_wood PUBLIC src)
 target_link_libraries(game_wood PUBLIC GUIForms::Application)

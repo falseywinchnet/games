@@ -101,10 +101,6 @@
         "threads"
       ]
     },
-    "pocketlibrary": {
-      "first_party": true,
-      "prepared_mb": 128
-    },
     "solitaire": {
       "first_party": true
     },

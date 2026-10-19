@@ -11,7 +11,7 @@ and `src/shelf.hpp`. If they disagree with this page, they are right.
 
 The main menu is a wall of walnut shelves holding every game as a box, in the
 manner of a 1990s games collection, filed by category: cards, logic and puzzles,
-matching, skill, and the quiet corner (living scenes, the library). The categories
+matching, skill, and the quiet corner (living scenes). The categories
 follow one another along the shelves, a wooden bookend between them and a card tag on
 the plank naming each; within one, the boxes stand by title. One click opens a
 box with a short box-to-window transition; arrow keys choose a box and Enter
