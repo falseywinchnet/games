@@ -8,7 +8,7 @@ The main menu is a shelf of boxed games in a walnut-panelled shop, in the manner
 
 ## Its companion, the Pocket Library
 
-PlaySuite's sister application is the **[Pocket Library](https://github.com/falseywinchnet/books)**: a reading room of 725 books, from Scripture, both Talmuds and the Church Fathers to the Greek and Roman classics, philosophy, history, science and the great novels, each set and printed on its page as you read. It began as a box on this shelf and now has a home of its own, built the same way, with the same shell and packages. If you want books rather than games, it's there.
+PlaySuite's sister application is the **[Pocket Library](https://github.com/falseywinchnet/books)**: a reading room of 746 books, from Scripture, both Talmuds and the Church Fathers to the Greek and Roman classics, philosophy, history, science and the great novels, each set and printed on its page as you read. It began as a box on this shelf and now has a home of its own, built the same way, with the same shell and packages. If you want books rather than games, it's there.
 
 ## Add your own game
 
