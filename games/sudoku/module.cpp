@@ -1,8 +1,11 @@
+#include "batch_cues.hpp"
 #include "game_module.hpp"
 #include "legacy_game_module.hpp"
 #include "src/sudoku_score.hpp"
 namespace games::modules {
 std::unique_ptr<GameInstance> sudoku_create([[maybe_unused]] ModuleContext& context) {
+    // The effects are rendered live from the audio batch scripts (shared/batch_cues).
+    batch_cues::register_batch_cues();
     // The music is a koto garden synthesized live (src/sudoku_music.hpp), by day and by night.
     if (std::shared_ptr<LiveScore> day = ps_sudoku::make_score(false))
         live_score("sudoku_day", std::move(day));

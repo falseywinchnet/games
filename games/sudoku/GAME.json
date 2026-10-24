@@ -33,6 +33,11 @@
     "src/sudoku_music.cpp",
     "src/sudoku_score.cpp"
   ],
-  "libraries": [],
+  "libraries": [
+    "batch_cues_core"
+  ],
+  "engines": [
+    "batch_cues"
+  ],
   "hosted": false
 }
