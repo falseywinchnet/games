@@ -48,7 +48,11 @@ int main() {
         std::filesystem::remove(legacy);
         std::filesystem::remove(fp::save_path(false));
         std::filesystem::remove(fp::save_path(true));
-        std::filesystem::remove(directory);
+        // The emptied scratch folder is left to the system if it will not go: Emscripten's
+        // Node file system on macOS reports a directory unlink as EPERM, not EISDIR,
+        // so remove() never falls back to rmdir there.
+        std::error_code ignored;
+        std::filesystem::remove(directory, ignored);
         std::cout << "Four Pegs v2 save replacement and v1 isolation pass.\n";
         return 0;
     } catch (const std::exception& error) {
