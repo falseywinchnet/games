@@ -195,6 +195,10 @@ void SceneView::set_cabinet(bool foreground, bool music, bool sound, bool reduce
         dragging_ = false;
         if (timer_)
             (*timer_).stop();
+        // A visit's trace is reported as it ends: a window that is never closed (a
+        // browser page) still reports each one.
+        report_trace();
+        trace_ = Trace{trace_.on};
         return;
     }
     request_frame();

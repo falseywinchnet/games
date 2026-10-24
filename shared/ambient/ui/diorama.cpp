@@ -34,7 +34,9 @@ template <typename Result> bool finished(const std::future<Result>& future) {
 }
 
 // The processor time this thread has used, in seconds: what the work costs whatever
-// core it lands on, which is what the governor budgets.
+// core it lands on, which is what the governor budgets. In a browser (Emscripten) the
+// thread clock is the page's wall clock, so a worker the system preempts is charged
+// for the wait too: the budget errs toward fewer pictures, never more.
 double thread_seconds() {
 #ifdef _WIN32
     FILETIME creation{};
@@ -57,7 +59,7 @@ double thread_seconds() {
 
 // A worker building the picture the player is looking at: on Apple silicon, asked for
 // the performance cores, or the system parks it on an efficiency core where the same
-// work takes three times the processor seconds.
+// work takes three times the processor seconds. A browser worker cannot ask.
 void prefer_performance_core() {
 #ifdef __APPLE__
     pthread_set_qos_class_self_np(QOS_CLASS_USER_INITIATED, 0);
@@ -321,7 +323,12 @@ const std::vector<std::uint32_t>& Diorama::draw(SceneContext& context, int& widt
     const Rates current = context.governor.rates();
     const bool first = last_sway_ < 0;
     const double time = context.time;
-    const bool due = time - last_sway_ >= 1.0 / std::max(current.sway, 0.5) || time < last_sway_;
+    // Ticks land on the display's beat, not on the picture period: a browser's 60 Hz
+    // frames bring a 24 a second timer at 33 and 50 ms, and an exact test there would
+    // start a picture only every other tick. Half a frame interval of slack keeps one a
+    // tick when the rates match, and the same count when pictures are rarer.
+    const double slack = 0.5 / std::max(current.frames, 1.0);
+    const bool due = time - last_sway_ >= 1.0 / std::max(current.sway, 0.5) - slack || time < last_sway_;
     // A finished picture is shown with this frame.
     const bool fresh = finished(swaying_);
     if (fresh)
@@ -340,7 +347,8 @@ const std::vector<std::uint32_t>& Diorama::draw(SceneContext& context, int& widt
         // over it. A core that has rested runs the first milliseconds of a burst
         // several times slower, so one burst a period costs less than the frame here
         // and the foliage there. The picture is shown when found finished, a period on.
-        swaying_ = std::async(std::launch::async, &Diorama::picture_job, &stage, time, light_time_, shown_.creatures);
+        swaying_ = std::async(std::launch::async, &Diorama::picture_job, &stage, time, light_time_, shown_.creatures,
+                              Clock::now());
         last_sway_ = time;
     } else if (!swaying_.valid() && !fresh) {
         // No picture under way or just shown (reduced motion, or the picture rate
@@ -369,7 +377,8 @@ const std::vector<std::uint32_t>& Diorama::draw(SceneContext& context, int& widt
 // A picture: the foliage swayed to `time` and shown, then the frame composed over it,
 // in one burst on one worker. The result is its processor time, which is what the
 // governor budgets. GAMES_SWAY_TRACE=1 prints each one.
-double Diorama::picture_job(Stage* stage, double time, double light_time, std::vector<Creature> creatures) {
+double Diorama::picture_job(Stage* stage, double time, double light_time, std::vector<Creature> creatures,
+                            Clock::time_point asked) {
     prefer_performance_core();
     const Clock::time_point began = Clock::now();
     const double start = thread_seconds();
@@ -379,9 +388,10 @@ double Diorama::picture_job(Stage* stage, double time, double light_time, std::v
     (*stage).compose(time, light_time, creatures);
     const double end = thread_seconds();
     if (std::getenv("GAMES_SWAY_TRACE") != nullptr)
-        std::fprintf(stderr, "SWAY_TRACE picture cpu %.2f ms (sway %.2f, frame %.2f) wall %.2f ms\n", (end - start) * 1000,
-                     (swayed - start) * 1000, (end - swayed) * 1000,
-                     std::chrono::duration<double>(Clock::now() - began).count() * 1000);
+        std::fprintf(stderr, "SWAY_TRACE picture cpu %.2f ms (sway %.2f, frame %.2f) wall %.2f ms, started %.2f ms after asked\n",
+                     (end - start) * 1000, (swayed - start) * 1000, (end - swayed) * 1000,
+                     std::chrono::duration<double>(Clock::now() - began).count() * 1000,
+                     std::chrono::duration<double>(began - asked).count() * 1000);
     return end - start;
 }
 
