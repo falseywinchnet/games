@@ -63,7 +63,7 @@ void PcmPlayer::create_voice(Slot& slot) {
         if (!balanced.clip) { report(balanced.status, "pan"); return; }
         playback = balanced.clip;
     }
-    const gui_forms::AudioStatus admitted = engine_.voice(playback, slot.loop, slot.voice, !slot.loop);
+    const gui_forms::AudioStatus admitted = engine_.voice(playback, slot.loop, slot.voice, !slot.loop || slot.rate != 1.0);
     report(admitted, slot.name);
     slot.voice_ready = admitted == gui_forms::AudioStatus::ok;
     if (!slot.voice_ready) { return; }
