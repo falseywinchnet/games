@@ -260,7 +260,9 @@ double limit(Stereo& s, double ceilingDb, bool circular) {
         }
     }
     const double rel = std::exp(-1.0 / (0.08 * SR));
-    std::vector<float> g(N);
+    // The gain curve reuses the requests' memory (they are not read again), and the smoothed
+    // gain is applied as it is made, so a loop's limiter holds two buffers instead of four.
+    std::vector<float>& g = req;
     double gp = 1.0;
     int passes = circular ? 2 : 1;
     for (int p = 0; p < passes; ++p)
@@ -269,19 +271,17 @@ double limit(Stereo& s, double ceilingDb, bool circular) {
             gp = std::min<double>(m[i], rec);
             g[i] = float(gp);
         }
+    m = std::vector<float>();
     double sum = 0;
     double worst = 1.0;
-    std::vector<float> gs(N);
     for (std::size_t k = 0; k < W; ++k)
         sum += circular ? g[(N - W + k) % N] : 1.0;
     for (std::size_t i = 0; i < N; ++i) {
         std::size_t back = (i + N - W) % N;
         double old = (i >= W || circular) ? g[back] : 1.0;
         sum += g[i] - old;
-        gs[i] = float(sum / W);
-    }
-    for (std::size_t i = 0; i < N; ++i) {
-        double gg = std::min<double>(gs[i], 1.0);
+        const float gs = float(sum / W);
+        double gg = std::min<double>(gs, 1.0);
         worst = std::min(worst, gg);
         s.L[i] = float(s.L[i] * gg);
         s.R[i] = float(s.R[i] * gg);
@@ -680,7 +680,9 @@ struct TrackRun {
             if (hasCur) {
                 const bool nextDue = next < evs.size() && evs[next].s0 < until;
                 const long limit = nextDue ? std::numeric_limits<long>::max() : until;
-                win.reserveUntil(std::min(cur.e.s0 + cur.maxlen, N));
+                // a note that must finish now may write past the segment
+                if (nextDue)
+                    win.reserveUntil(std::min(cur.e.s0 + cur.maxlen, N));
                 cur.run(limit, N, [this](long idx, float l, float r) {
                     win.l(idx) += l;
                     win.r(idx) += r;
