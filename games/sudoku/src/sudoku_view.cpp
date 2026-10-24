@@ -386,6 +386,11 @@ void SudokuView::tick() {
     if (animated && effectively_visible())
         invalidate(board_);
 }
+// A move changes only the sheet and the status line above it; the paper, its halo and
+// the sheet's shadow stay as they are, so only that rectangle is repainted.
+void SudokuView::invalidate_sheet() {
+    invalidate(gf::Rect{board_.x - 9, board_.y - 34, board_.width + 18, board_.height + 43});
+}
 void SudokuView::persist() {
     if (!game.seed.empty() && !game.save(sudoku_path()))
         game.message = "Your puzzle is in memory; the local save could not be written.";
@@ -425,7 +430,7 @@ void SudokuView::edit(int digit, bool note) {
                                                                           : "sudoku_note_place")
                               : "sudoku_digit_place",
                    sound_);
-    invalidate(gf::Dirty::paint);
+    invalidate_sheet();
 }
 std::vector<GameCommand> SudokuView::commands() const {
     return {{"new", "New game", !busy_, false, true},
@@ -530,7 +535,7 @@ void SudokuView::on_pointer(gf::PointerEvent& e) {
             static_cast<void>((*attached_window()).request_focus(shared_from_this()));
         keyboard_ = false;
         edit(digit_, digit_ != 0 && (notes_ || e.button == gf::PointerButton::secondary));
-        invalidate(gf::Dirty::paint);
+        invalidate_sheet();
         e.handled = true;
     }
 }
@@ -567,7 +572,7 @@ void SudokuView::on_key(gf::KeyEvent& e) {
         return;
     keyboard_ = true;
     hover_ = -1;
-    invalidate(gf::Dirty::paint);
+    invalidate_sheet();
     e.handled = true;
 }
 void SudokuView::on_text_input(gf::TextInputEvent& e) {

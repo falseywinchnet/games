@@ -9,7 +9,7 @@ void require(bool condition, const char* message) {
     if (!condition)
         throw std::runtime_error(message);
 }
-int main(int argc, char** argv) {
+static int run(int argc, char** argv) {
     std::filesystem::path root =
         games_test::scratch_directory("sudoku-test-");
     for (int difficulty = 0; difficulty < 3; ++difficulty) {
@@ -65,4 +65,15 @@ int main(int argc, char** argv) {
             << " ms; deterministic generation, error/undo, notes, saves and top scores pass.\n";
     }
     std::filesystem::remove_all(root);
+    return 0;
+}
+// An escaping exception is reported, not left to the runtime: under Node a C++
+// exception thrown on the program's worker surfaces only as an unhandled rejection.
+int main(int argc, char** argv) {
+    try {
+        return run(argc, argv);
+    } catch (const std::exception& error) {
+        std::cerr << "sudoku_tests: " << error.what() << "\n";
+        return 1;
+    }
 }
