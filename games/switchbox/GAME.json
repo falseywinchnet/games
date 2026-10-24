@@ -39,6 +39,7 @@
   ],
   "hosted": true,
   "engines": [
-    "render"
+    "render",
+    "voice"
   ]
 }
