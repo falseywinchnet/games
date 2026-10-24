@@ -48,6 +48,7 @@ class SudokuView final : public gf::Control, public CommandSource {
     void panel(int kind);
     void persist();
     void refresh_pad();
+    void invalidate_sheet();
     void text(gf::Painter& p, double x, double y, const std::string& value, double size,
               gf::Color color);
 };
