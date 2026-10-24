@@ -12,6 +12,7 @@ if(NOT TARGET voice_core)
 endif()
 add_library(studio_core STATIC
   "${ENGINE_DIR}/src/studio_card_sfx.cpp"
+  "${ENGINE_DIR}/src/studio_crew.cpp"
   "${ENGINE_DIR}/src/studio_cues.cpp"
   "${ENGINE_DIR}/src/studio_mix.cpp"
   "${ENGINE_DIR}/src/studio_score.cpp"
@@ -30,9 +31,18 @@ if(MSVC)
 else()
   target_compile_options(studio_core PRIVATE -ffp-contract=off)
 endif()
+# register_studio_cues(): the cues with GUI.Forms Workers as their render crew, for the shell.
+if(TARGET GUIForms::Threading)
+  add_library(studio_workers STATIC "${ENGINE_DIR}/ui/studio_workers.cpp")
+  target_link_libraries(studio_workers PUBLIC studio_core PRIVATE GUIForms::Threading)
+endif()
 include(CTest)
 add_executable(studio_cues_tests "${ENGINE_DIR}/tests/studio_cues_tests.cpp")
 target_link_libraries(studio_cues_tests PRIVATE studio_core)
+if(TARGET studio_workers)
+  target_link_libraries(studio_cues_tests PRIVATE studio_workers)
+  target_compile_definitions(studio_cues_tests PRIVATE STUDIO_WORKERS=1)
+endif()
 if(NOT MSVC)
   target_compile_options(studio_cues_tests PRIVATE -ffp-contract=off)
 endif()

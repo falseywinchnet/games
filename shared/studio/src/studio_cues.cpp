@@ -5,6 +5,7 @@
 #include "studio_songs.hpp"
 
 #include <array>
+#include <mutex>
 #include <cstddef>
 #include <stdexcept>
 #include <string>
@@ -65,6 +66,14 @@ constexpr std::array<std::string_view, 47> names = {
     "card_shuffle_02",
 };
 
+std::mutex crew_mutex{};
+Crew render_crew{};
+
+Crew current_crew() {
+    const std::lock_guard<std::mutex> lock(crew_mutex);
+    return render_crew;
+}
+
 voice::Stereo widen(const Stereo& s) {
     voice::Stereo result{};
     result.left.assign(s.L.begin(), s.L.end());
@@ -79,7 +88,7 @@ Stereo render_named(std::string_view name) {
     for (const SongFactory& factory : allSongs()) {
         if (factory.id == name) {
             const Song song = factory.make();
-            return renderSong(song);
+            return renderSong(song, nullptr, current_crew());
         }
     }
     throw std::logic_error("no studio piece called " + std::string(name));
@@ -103,7 +112,12 @@ std::span<const voice::Cue> sound_cues() {
     return cues;
 }
 
-void register_studio_cues() {
+void set_render_crew(const Crew& crew) {
+    const std::lock_guard<std::mutex> lock(crew_mutex);
+    render_crew = crew;
+}
+
+void add_studio_cues() {
     voice::Bank::shared().add(cues);
 }
 

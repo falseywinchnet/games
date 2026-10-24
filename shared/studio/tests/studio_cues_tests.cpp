@@ -6,7 +6,11 @@
 //                                        program's render (shared/studio/tools/studio_reference.cpp)
 //                                        to 1e-9 of its peak, and quantises to the same 24-bit master
 //   studio_cues_tests --time ID...       render time and peak heap of each cue
+//   studio_cues_tests --stages ID...     where each song's render spends its time
+// --workers before any of these renders with GUI.Forms Workers (when built with them).
 #include "studio_cues.hpp"
+#include "studio_mix.hpp"
+#include "studio_songs.hpp"
 #include "voice_reference.hpp"
 
 #include <atomic>
@@ -53,6 +57,9 @@ void operator delete(void* pointer, std::size_t) noexcept {
 }
 
 namespace {
+
+// --workers: renders share GUI.Forms Workers, as in the shell.
+studio::Crew crew{};
 
 int checks = 0;
 int failures = 0;
@@ -144,7 +151,18 @@ void self_tests(bool all) {
             require(cue.stereo().left == s.left, name + " renders the same every time");
         }
     }
-    studio::register_studio_cues();
+#ifdef STUDIO_WORKERS
+    {
+        // the same samples with any crew
+        studio::set_render_crew(studio::worker_crew());
+        const voice::Stereo shared = (*cue_named("music_hearts_loop")).stereo();
+        studio::set_render_crew({});
+        const voice::Stereo alone = (*cue_named("music_hearts_loop")).stereo();
+        require(shared.left == alone.left && shared.right == alone.right,
+                "a loop rendered by Workers equals one rendered alone");
+    }
+#endif
+    studio::add_studio_cues();
     require(voice::Bank::shared().find("music_menu_loop").has_value(), "the cues reach the shell's bank");
     const voice::Interleaved clip = voice::render(*voice::Bank::shared().find("card_place_02"));
     require(clip.size() == 2 * 18240, "a clip is interleaved stereo");
@@ -207,12 +225,42 @@ void time_tests(const std::vector<std::string>& ids) {
     }
 }
 
+// Where each song's render spends its time.
+void stage_tests(const std::vector<std::string>& ids) {
+    std::printf("%-30s %8s %8s %8s %8s\n", "song", "tracks", "buses", "master", "total");
+    for (const std::string& id : ids) {
+        for (const studio::SongFactory& factory : studio::allSongs()) {
+            if (factory.id != id) {
+                continue;
+            }
+            studio::RenderTimings t{};
+            const studio::Song song = factory.make();
+            (void)studio::renderSong(song, &t, crew);
+            std::printf("%-30s %8.2f %8.2f %8.2f %8.2f\n", id.c_str(), t.tracks, t.buses, t.master,
+                        t.tracks + t.buses + t.master);
+            std::fflush(stdout);
+        }
+    }
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
-    const std::vector<std::string> args(argv + 1, argv + argc);
+    std::vector<std::string> args(argv + 1, argv + argc);
+    if (!args.empty() && args[0] == "--workers") {
+#ifdef STUDIO_WORKERS
+        crew = studio::worker_crew();
+        studio::set_render_crew(crew);
+        std::printf("rendering with %d helper Workers\n", crew.helpers);
+#else
+        std::printf("built without GUI.Forms: rendering alone\n");
+#endif
+        args.erase(args.begin());
+    }
     if (args.size() >= 2 && args[0] == "--reference") {
         reference_tests(args[1], std::set<std::string>(args.begin() + 2, args.end()));
+    } else if (!args.empty() && args[0] == "--stages") {
+        stage_tests(std::vector<std::string>(args.begin() + 1, args.end()));
     } else if (!args.empty() && args[0] == "--time") {
         time_tests(std::vector<std::string>(args.begin() + 1, args.end()));
     } else {

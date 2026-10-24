@@ -1,10 +1,13 @@
 #include "studio_mix.hpp"
 #include "studio_voice.hpp"
+#include "studio_crew.hpp"
 #include <algorithm>
-#include <cstdio>
-#include <deque>
 #include <chrono>
-#include <stdexcept>
+#include <cstdint>
+#include <deque>
+#include <limits>
+#include <memory>
+#include <utility>
 
 namespace studio {
 
@@ -54,93 +57,6 @@ std::vector<Ev> schedule(const Song& song, const Track& tr, Rng& rng) {
     };
     std::stable_sort(evs.begin(), evs.end(), EarlierEvent{});
     return evs;
-}
-
-void renderTrack(const Song& song, const Track& tr, Stereo& out, Rng& rng,
-                 std::vector<long>* triggers) {
-    std::vector<Ev> evs = schedule(song, tr, rng);
-    if (triggers)
-        for (const Ev& e : evs)
-            (*triggers).push_back(e.s0);
-    const long N = long(out.size());
-    if (isMono(tr.p.inst)) {
-        if (evs.empty())
-            return;
-        Voice v(tr.p, rng);
-        long pos = evs[0].s0, offAt = -1, prevEnd = -1000000;
-        double pl, pr;
-        panGains(tr.pan, pl, pr);
-        struct StepVoice {
-            long& pos;
-            const long& offAt;
-            Voice& v;
-            long N;
-            Stereo& out;
-            double pl, pr;
-            void operator()() const {
-                if (pos == offAt)
-                    v.noteOff();
-                double l, r;
-                v.tick(l, r);
-                if (pos >= 0 && pos < N) {
-                    out.L[pos] += float(l * pl);
-                    out.R[pos] += float(r * pr);
-                }
-                ++pos;
-            }
-        };
-        StepVoice step{pos, offAt, v, N, out, pl, pr};
-        bool started = false;
-        for (const Ev& e : evs) {
-            while (pos < e.s0)
-                step();
-            bool legato = started && (e.glide || prevEnd >= e.s0 - 48);
-            if (!started) {
-                v.noteOn(e.pitch, e.vel, e.len / SR);
-                started = true;
-            } else if (legato) {
-                v.setGlide(e.glide ? tr.p.glide * 3.0 : tr.p.glide);
-                v.glideTo(e.pitch, e.vel, e.len / SR);
-            } else {
-                v.setGlide(tr.p.glide);
-                v.retrigger(e.pitch, e.vel, e.len / SR);
-            }
-            offAt = e.s0 + e.len;
-            prevEnd = offAt;
-        }
-        long stop = offAt + long(v.maxTail() * SR);
-        while (pos < stop && pos < N) {
-            step();
-            if (pos > offAt && v.finished())
-                break;
-        }
-        return;
-    }
-    for (const Ev& e : evs) {
-        Voice v(tr.p, rng);
-        v.noteOn(e.pitch, e.vel, e.len / SR);
-        double pl, pr;
-        panGains(clamp(tr.pan + e.pan, -1.0, 1.0), pl, pr);
-        if (tr.bed) {
-            double l, r;
-            for (long k = 0; k < long(3.5 * SR); ++k)
-                v.tick(l, r);
-        }
-        long maxlen = e.len + long(v.maxTail() * SR);
-        for (long i = 0; i < maxlen; ++i) {
-            if (i == e.len)
-                v.noteOff();
-            double l, r;
-            v.tick(l, r);
-            long idx = e.s0 + i;
-            if (idx >= N)
-                break;
-            out.L[idx] += float(l * pl);
-            out.R[idx] += float(r * pr);
-            if (i > e.len && v.finished())
-                break;
-        }
-    }
 }
 
 struct Allpass {
@@ -395,24 +311,56 @@ std::vector<double> oversampleKernel() {
 
 } // namespace
 
-double truePeakDb(const Stereo& s) {
+namespace {
+
+// The 4x oversampled peak of samples [from, to) of one channel (the loop wraps at N).
+double truePeakSpan(const std::vector<float>& x, std::size_t from, std::size_t to) {
     static const std::vector<double> h = oversampleKernel();
-    const std::size_t N = s.size();
+    const std::size_t N = x.size();
     double peak = 0;
-    for (int ch = 0; ch < 2; ++ch) {
-        const std::vector<float>& x = ch ? s.R : s.L;
-        for (std::size_t i = 0; i < N; ++i) {
-            for (int p = 0; p < 4; ++p) {
-                double acc = 0;
-                for (int k = 0, j = p; j < 64; ++k, j += 4) {
-                    const std::size_t back = std::size_t(k);
-                    std::size_t idx = i >= back ? i - back : (i + N - back) % N;
-                    acc += x[idx] * h[j];
-                }
-                peak = std::max(peak, std::fabs(acc));
+    for (std::size_t i = from; i < to; ++i) {
+        for (int p = 0; p < 4; ++p) {
+            double acc = 0;
+            for (int k = 0, j = p; j < 64; ++k, j += 4) {
+                const std::size_t back = std::size_t(k);
+                std::size_t idx = i >= back ? i - back : (i + N - back) % N;
+                acc += x[idx] * h[j];
             }
+            peak = std::max(peak, std::fabs(acc));
         }
     }
+    return peak;
+}
+
+struct PeakJobs {
+    const Stereo* s;
+    std::size_t parts;
+    std::vector<double> peaks;
+};
+
+void peakJob(void* context, std::size_t index) {
+    PeakJobs& jobs = *static_cast<PeakJobs*>(context);
+    const std::vector<float>& x = index % 2 ? (*jobs.s).R : (*jobs.s).L;
+    const std::size_t part = index / 2, N = x.size();
+    jobs.peaks[index] = truePeakSpan(x, N * part / jobs.parts, N * (part + 1) / jobs.parts);
+}
+
+// truePeakDb with the work shared by a team: the largest of the parts' peaks is the peak.
+double truePeakDb(const Stereo& s, Team& team) {
+    PeakJobs jobs{&s, 8, std::vector<double>(16, 0.0)};
+    team.run(jobs.peaks.size(), peakJob, &jobs);
+    double peak = 0;
+    for (double p : jobs.peaks)
+        peak = std::max(peak, p);
+    return todb(peak);
+}
+
+} // namespace
+
+double truePeakDb(const Stereo& s) {
+    double peak = 0;
+    peak = std::max(peak, truePeakSpan(s.L, 0, s.size()));
+    peak = std::max(peak, truePeakSpan(s.R, 0, s.size()));
     return todb(peak);
 }
 
@@ -496,17 +444,395 @@ Rng trackRng(const Song& song, std::size_t k) {
                (k * 0xBF58476D1CE4E5B9ull));
 }
 
+// Whether an instrument's voice draws from the track's random stream while it sounds (noise
+// in its tick). Every voice draws when its note starts; one that draws while it sounds must
+// finish before the track's next note starts, as the original rendered them.
+bool drawsWhileSounding(Inst i) {
+    switch (i) {
+    case Inst::Organ:
+    case Inst::Glock:
+    case Inst::Celesta:
+    case Inst::MusicBox:
+    case Inst::Vibes:
+    case Inst::Marimba:
+    case Inst::Timpani:
+    case Inst::Kalimba:
+    case Inst::Piano:
+    case Inst::FunkBass:
+    case Inst::SlapBass:
+    case Inst::Flute:
+    case Inst::Clarinet:
+    case Inst::Whistle:
+    case Inst::Kick:
+    case Inst::Snare:
+    case Inst::Clap:
+    case Inst::HatC:
+    case Inst::HatO:
+    case Inst::Ride:
+    case Inst::Crash:
+    case Inst::Swell:
+    case Inst::Tom:
+    case Inst::Shaker:
+    case Inst::Tamb:
+    case Inst::Rim:
+    case Inst::WoodBlock:
+    case Inst::Brush:
+    case Inst::BrushSweep:
+    case Inst::Snap:
+    case Inst::Water:
+    case Inst::Air:
+        return true;
+    default:
+        return false;
+    }
+}
+
+// A track's raw voice output (the original's whole-length `buf`) for the samples not yet
+// filtered: a ring that grows when a note writes further ahead than it holds. Samples it has
+// not been given are zero, as in the original's zeroed buffer.
+class Window {
+  public:
+    void reserveUntil(long end) {
+        if (end - base_ <= long(cap_))
+            return;
+        std::size_t cap = cap_ ? cap_ * 2 : 65536;
+        while (long(cap) < end - base_)
+            cap *= 2;
+        std::vector<float> l(cap, 0.0f), r(cap, 0.0f);
+        for (std::size_t i = 0; i < cap_; ++i) {
+            l[(std::size_t(base_) + i) & (cap - 1)] = L_[(std::size_t(base_) + i) & (cap_ - 1)];
+            r[(std::size_t(base_) + i) & (cap - 1)] = R_[(std::size_t(base_) + i) & (cap_ - 1)];
+        }
+        L_.swap(l);
+        R_.swap(r);
+        cap_ = cap;
+    }
+    float& l(long i) {
+        return L_[std::size_t(i) & (cap_ - 1)];
+    }
+    float& r(long i) {
+        return R_[std::size_t(i) & (cap_ - 1)];
+    }
+    // Samples before `end` are finished with: they read as zero again on the ring's next lap.
+    void consume(long end) {
+        for (long i = base_; i < end; ++i) {
+            l(i) = 0.0f;
+            r(i) = 0.0f;
+        }
+        base_ = end;
+    }
+
+  private:
+    std::vector<float> L_, R_;
+    std::size_t cap_ = 0;
+    long base_ = 0;
+};
+
+// One poly note: the original's per-note loop, able to stop before a sample and resume.
+struct NoteRun {
+    std::unique_ptr<Voice> v;
+    Ev e{};
+    double pl = 0, pr = 0;
+    long i = 0, maxlen = 0;
+    bool pretick = false, done = false;
+
+    void begin(const Track& tr, const Ev& ev, Rng& rng) {
+        v = std::make_unique<Voice>(tr.p, rng);
+        e = ev;
+        (*v).noteOn(e.pitch, e.vel, e.len / SR);
+        panGains(clamp(tr.pan + e.pan, -1.0, 1.0), pl, pr);
+        pretick = tr.bed;
+        maxlen = e.len + long((*v).maxTail() * SR);
+    }
+    // Runs the note until its next sample would be at or after `until` (or it ends), calling
+    // put(idx, l, r) with the floats the original added at idx.
+    template <class Put>
+    void run(long until, long N, Put&& put) {
+        if (pretick) {
+            double l, r;
+            for (long k = 0; k < long(3.5 * SR); ++k)
+                (*v).tick(l, r);
+            pretick = false;
+        }
+        while (!done) {
+            if (i >= maxlen) {
+                done = true;
+                break;
+            }
+            const long idx = e.s0 + i;
+            if (idx >= until && idx < N)
+                return;
+            if (i == e.len)
+                (*v).noteOff();
+            double l, r;
+            (*v).tick(l, r);
+            if (idx >= N) {
+                done = true;
+                break;
+            }
+            put(idx, float(l * pl), float(r * pr));
+            const bool ended = i > e.len && (*v).finished();
+            ++i;
+            if (ended)
+                done = true;
+        }
+        v.reset();
+    }
+};
+
+// A sounding note of an instrument that does not draw while it sounds: rendered a segment at
+// a time on any thread into its own slice, then added into its track in note order.
+struct NoteSlot {
+    NoteRun run;
+    long sliceStart = 0;
+    long written = 0; // slice samples written this segment
+    std::vector<float> L, R;
+};
+
+struct TrackRun {
+    const Song* song = nullptr;
+    const Track* tr = nullptr;
+    Rng rng;
+    std::vector<Ev> evs;
+    std::size_t next = 0;
+    bool mono = false, serial = false;
+    long N = 0, L = 0;
+    Window win;
+    // serial poly tracks: the note sounding now
+    NoteRun cur;
+    bool hasCur = false;
+    // mono tracks: the original's single voice and its loop position
+    std::unique_ptr<Voice> mv;
+    long pos = 0, offAt = -1, prevEnd = -1000000, stop = 0;
+    bool started = false, inTail = false, monoDone = false;
+    double mpl = 0, mpr = 0;
+    // other poly tracks: the notes sounding, in order
+    std::deque<NoteSlot> active;
+    // filters, gain and ducking
+    std::vector<Biquad> fl, fr;
+    double g = 1;
+    std::size_t ti = 0;
+    // this segment's contribution to the buses: exactly the floats the original added
+    std::vector<float> dL, dR, rL, rR, yL, yR;
+
+    explicit TrackRun(Rng r) : rng(r) {}
+
+    void stepMono() {
+        if (pos == offAt)
+            (*mv).noteOff();
+        double l, r;
+        (*mv).tick(l, r);
+        if (pos >= 0 && pos < N) {
+            win.l(pos) += float(l * mpl);
+            win.r(pos) += float(r * mpr);
+        }
+        ++pos;
+    }
+
+    // The original's mono loop, paused before sample `until`.
+    void advanceMono(long until) {
+        while (!monoDone) {
+            if (!inTail) {
+                if (next < evs.size()) {
+                    const Ev& e = evs[next];
+                    while (pos < e.s0) {
+                        if (pos >= until)
+                            return;
+                        stepMono();
+                    }
+                    bool legato = started && (e.glide || prevEnd >= e.s0 - 48);
+                    if (!started) {
+                        (*mv).noteOn(e.pitch, e.vel, e.len / SR);
+                        started = true;
+                    } else if (legato) {
+                        (*mv).setGlide(e.glide ? (*tr).p.glide * 3.0 : (*tr).p.glide);
+                        (*mv).glideTo(e.pitch, e.vel, e.len / SR);
+                    } else {
+                        (*mv).setGlide((*tr).p.glide);
+                        (*mv).retrigger(e.pitch, e.vel, e.len / SR);
+                    }
+                    offAt = e.s0 + e.len;
+                    prevEnd = offAt;
+                    ++next;
+                } else {
+                    inTail = true;
+                    stop = offAt + long((*mv).maxTail() * SR);
+                }
+            } else {
+                if (!(pos < stop && pos < N)) {
+                    monoDone = true;
+                    break;
+                }
+                if (pos >= until)
+                    return;
+                stepMono();
+                if (pos > offAt && (*mv).finished())
+                    monoDone = true;
+            }
+        }
+    }
+
+    // A poly track whose voices draw while sounding: each note runs to its end before the next
+    // starts, so the stream is drawn in the original's order; a note pauses at `until` only
+    // while the next note starts later.
+    void advanceSerial(long until) {
+        for (;;) {
+            if (hasCur) {
+                const bool nextDue = next < evs.size() && evs[next].s0 < until;
+                const long limit = nextDue ? std::numeric_limits<long>::max() : until;
+                win.reserveUntil(std::min(cur.e.s0 + cur.maxlen, N));
+                cur.run(limit, N, [this](long idx, float l, float r) {
+                    win.l(idx) += l;
+                    win.r(idx) += r;
+                });
+                if (!cur.done)
+                    return;
+                hasCur = false;
+            }
+            if (next < evs.size() && evs[next].s0 < until) {
+                cur = NoteRun{};
+                cur.begin(*tr, evs[next], rng);
+                ++next;
+                hasCur = true;
+                continue;
+            }
+            return;
+        }
+    }
+
+    // Filters, gain and ducking for [a, b), as the original applied them to its whole buffer.
+    void finishSegment(long a, long b, const std::vector<long>& trig2) {
+        const Track& t = *tr;
+        const std::size_t n = std::size_t(b - a);
+        dL.resize(n);
+        dR.resize(n);
+        rL.resize(n);
+        rR.resize(n);
+        yL.resize(n);
+        yR.resize(n);
+        const bool bedFade = t.bed && (*song).loop;
+        const long X = std::min<long>(long(4.0 * SR), L / 4);
+        for (long i = a; i < b; ++i) {
+            float bl = win.l(i), br = win.r(i);
+            if (bedFade) {
+                double gg;
+                if (i < X)
+                    gg = std::sin(0.5 * PI * double(i) / X);
+                else if (i < L)
+                    gg = 1.0;
+                else if (i < L + X)
+                    gg = std::cos(0.5 * PI * double(i - L) / X);
+                else
+                    gg = 0.0;
+                bl = float(bl * gg);
+                br = float(br * gg);
+            }
+            double l = bl, r = br;
+            for (Biquad& f : fl)
+                l = f.tick(l);
+            for (Biquad& f : fr)
+                r = f.tick(r);
+            double dg = 1.0;
+            if (t.duck > 0 && !trig2.empty()) {
+                while (ti + 1 < trig2.size() && trig2[ti + 1] <= long(i))
+                    ++ti;
+                long since = long(i) - trig2[ti];
+                if (since >= 0) {
+                    double ts = since / SR;
+                    double shape = ts < 0.004 ? ts / 0.004 : std::exp(-(ts - 0.004) / 0.12);
+                    dg = 1.0 - t.duck * shape;
+                }
+            }
+            l *= g * dg;
+            r *= g * dg;
+            const std::size_t k = std::size_t(i - a);
+            dL[k] = float(l);
+            dR[k] = float(r);
+            rL[k] = float(l * t.rev);
+            rR[k] = float(r * t.rev);
+            yL[k] = float(l * t.dly);
+            yR[k] = float(r * t.dly);
+        }
+        win.consume(b);
+    }
+};
+
+// One segment's work, shared out as jobs.
+struct Segment {
+    std::vector<TrackRun>* tracks = nullptr;
+    const std::vector<long>* trig2 = nullptr;
+    long a = 0, b = 0;
+    std::vector<std::size_t> serial; // serial poly and mono tracks, one job each
+    std::vector<NoteSlot*> slots;    // then one job per sounding note of the other tracks
+};
+
+void voicesJob(void* context, std::size_t index) {
+    Segment& s = *static_cast<Segment*>(context);
+    if (index < s.serial.size()) {
+        TrackRun& t = (*s.tracks)[s.serial[index]];
+        if (t.mono)
+            t.advanceMono(s.b);
+        else
+            t.advanceSerial(s.b);
+        return;
+    }
+    NoteSlot& slot = *s.slots[index - s.serial.size()];
+    slot.sliceStart = s.a;
+    slot.written = 0;
+    slot.L.resize(std::size_t(s.b - s.a));
+    slot.R.resize(std::size_t(s.b - s.a));
+    const long N = (*s.tracks)[0].N;
+    slot.run.run(s.b, N, [&slot](long idx, float l, float r) {
+        const std::size_t k = std::size_t(idx - slot.sliceStart);
+        // a note writes its samples in order and leaves none out once it has begun
+        slot.L[k] = l;
+        slot.R[k] = r;
+        slot.written = long(k) + 1;
+    });
+}
+
+void finishJob(void* context, std::size_t index) {
+    Segment& s = *static_cast<Segment*>(context);
+    TrackRun& t = (*s.tracks)[index];
+    if (!t.serial && !t.mono) {
+        // the notes' slices, added in note order as the original added whole notes
+        for (NoteSlot& slot : t.active) {
+            long first = 0;
+            if (slot.run.e.s0 > slot.sliceStart)
+                first = slot.run.e.s0 - slot.sliceStart;
+            for (long k = first; k < slot.written; ++k) {
+                t.win.l(slot.sliceStart + k) += slot.L[std::size_t(k)];
+                t.win.r(slot.sliceStart + k) += slot.R[std::size_t(k)];
+            }
+        }
+        for (std::size_t k = 0; k < t.active.size();)
+            if (t.active[k].run.done)
+                t.active.erase(t.active.begin() + std::ptrdiff_t(k));
+            else
+                ++k;
+    }
+    t.finishSegment(s.a, s.b, *s.trig2);
+}
+
+// Frames per segment: every track's voices for a segment are rendered at once, then summed
+// into the buses in track order.
+constexpr long segmentFrames = 48000;
+
 } // namespace
 
-std::vector<long> duckTriggers(const Song& song) {
+Stereo renderSong(const Song& song, RenderTimings* timings, const Crew& crew) {
+    using clock = std::chrono::steady_clock;
+    clock::time_point started = clock::now();
     const long L = song.loopSamples();
     const long T = long(song.tail * SR);
+    const std::size_t N = std::size_t(L + T);
+    // ducking triggers: every duck source's note starts (its schedule, from a fresh stream)
     std::vector<long> trig;
     for (std::size_t k = 0; k < song.tracks.size(); ++k)
         if (song.tracks[k].duck_source) {
             Rng r2 = trackRng(song, k);
-            Stereo none;
-            renderTrack(song, song.tracks[k], none, r2, &trig);
+            for (const Ev& e : schedule(song, song.tracks[k], r2))
+                trig.push_back(e.s0);
         }
     std::vector<long> trig2 = trig;
     if (song.loop)
@@ -514,173 +840,118 @@ std::vector<long> duckTriggers(const Song& song) {
             if (t < T)
                 trig2.push_back(t + L);
     std::sort(trig2.begin(), trig2.end());
-    return trig2;
-}
 
-namespace {
-
-// Track k, as the original rendered it: into the buses (`stem` null) or into a stem of its own.
-void renderTrackBuses(const Song& song, std::size_t k, const std::vector<long>& trig2, std::size_t N,
-                      Stereo& busDry, Stereo& busRev, Stereo& busDly, TrackStem* stem) {
-    const long L = song.loopSamples();
-    const Track& tr = song.tracks[k];
-    Stereo own;
-    if (!stem)
-        own = Stereo(N);
-    else
-        (*stem).dry = Stereo(N);
-    Stereo& buf = stem ? (*stem).dry : own;
-    Rng rng = trackRng(song, k);
-    renderTrack(song, tr, buf, rng, nullptr);
-    if (tr.bed && song.loop) {
-        const long X = std::min<long>(long(4.0 * SR), L / 4);
-        for (long i = 0; i < long(N); ++i) {
-            double g;
-            if (i < X)
-                g = std::sin(0.5 * PI * double(i) / X);
-            else if (i < L)
-                g = 1.0;
-            else if (i < L + X)
-                g = std::cos(0.5 * PI * double(i - L) / X);
-            else
-                g = 0.0;
-            buf.L[i] = float(buf.L[i] * g);
-            buf.R[i] = float(buf.R[i] * g);
-        }
-    }
-    std::vector<Biquad> fl, fr;
-    if (tr.hp > 0) {
-        fl.push_back(Biquad::make(1, tr.hp, 0.707));
-    }
-    if (tr.lp > 0) {
-        fl.push_back(Biquad::make(0, tr.lp, 0.707));
-    }
-    if (tr.eq_low_db != 0)
-        fl.push_back(Biquad::make(4, 200, 0.7, tr.eq_low_db));
-    if (tr.eq_high_db != 0)
-        fl.push_back(Biquad::make(5, 5000, 0.7, tr.eq_high_db));
-    if (tr.eq_mid_db != 0)
-        fl.push_back(Biquad::make(3, tr.eq_mid_hz, 0.9, tr.eq_mid_db));
-    fr = fl;
-    double g = db(tr.gain_db);
-    std::size_t ti = 0;
-    // The original added float(l), float(l * rev) and float(l * dly) straight into the buses;
-    // a stem keeps exactly those floats (a zero send adds only signed zeros, which leave a
-    // bus that is never -0 unchanged, so a stem does not keep it).
-    if (stem) {
-        (*stem).rev = tr.rev != 0;
-        (*stem).dly = tr.dly != 0;
-        (*stem).rsend = Stereo((*stem).rev ? N : 0);
-        (*stem).dsend = Stereo((*stem).dly ? N : 0);
-    }
-    for (std::size_t i = 0; i < N; ++i) {
-        double l = buf.L[i], r = buf.R[i];
-        for (Biquad& f : fl)
-            l = f.tick(l);
-        for (Biquad& f : fr)
-            r = f.tick(r);
-        double dg = 1.0;
-        if (tr.duck > 0 && !trig2.empty()) {
-            while (ti + 1 < trig2.size() && trig2[ti + 1] <= long(i))
-                ++ti;
-            long since = long(i) - trig2[ti];
-            if (since >= 0) {
-                double ts = since / SR;
-                double shape = ts < 0.004 ? ts / 0.004 : std::exp(-(ts - 0.004) / 0.12);
-                dg = 1.0 - tr.duck * shape;
+    std::vector<TrackRun> tracks;
+    tracks.reserve(song.tracks.size());
+    for (std::size_t k = 0; k < song.tracks.size(); ++k) {
+        const Track& tr = song.tracks[k];
+        tracks.emplace_back(trackRng(song, k));
+        TrackRun& t = tracks.back();
+        t.song = &song;
+        t.tr = &tr;
+        t.N = long(N);
+        t.L = L;
+        t.evs = schedule(song, tr, t.rng);
+        t.mono = isMono(tr.p.inst);
+        t.serial = !t.mono && drawsWhileSounding(tr.p.inst);
+        if (t.mono) {
+            if (t.evs.empty()) {
+                t.monoDone = true;
+            } else {
+                t.mv = std::make_unique<Voice>(tr.p, t.rng);
+                t.pos = t.evs[0].s0;
+                panGains(tr.pan, t.mpl, t.mpr);
             }
         }
-        l *= g * dg;
-        r *= g * dg;
-        if (!stem) {
-            busDry.L[i] += float(l);
-            busDry.R[i] += float(r);
-            busRev.L[i] += float(l * tr.rev);
-            busRev.R[i] += float(r * tr.rev);
-            busDly.L[i] += float(l * tr.dly);
-            busDly.R[i] += float(r * tr.dly);
-            continue;
+        if (tr.hp > 0) {
+            t.fl.push_back(Biquad::make(1, tr.hp, 0.707));
         }
-        TrackStem& st = *stem;
-        st.dry.L[i] = float(l);
-        st.dry.R[i] = float(r);
-        if (st.rev) {
-            st.rsend.L[i] = float(l * tr.rev);
-            st.rsend.R[i] = float(r * tr.rev);
+        if (tr.lp > 0) {
+            t.fl.push_back(Biquad::make(0, tr.lp, 0.707));
         }
-        if (st.dly) {
-            st.dsend.L[i] = float(l * tr.dly);
-            st.dsend.R[i] = float(r * tr.dly);
-        }
+        if (tr.eq_low_db != 0)
+            t.fl.push_back(Biquad::make(4, 200, 0.7, tr.eq_low_db));
+        if (tr.eq_high_db != 0)
+            t.fl.push_back(Biquad::make(5, 5000, 0.7, tr.eq_high_db));
+        if (tr.eq_mid_db != 0)
+            t.fl.push_back(Biquad::make(3, tr.eq_mid_hz, 0.9, tr.eq_mid_db));
+        t.fr = t.fl;
+        t.g = db(tr.gain_db);
     }
-}
 
-} // namespace
-
-void renderStem(const Song& song, std::size_t k, const std::vector<long>& triggers, std::size_t frames,
-                TrackStem& stem) {
-    Stereo none;
-    renderTrackBuses(song, k, triggers, frames, none, none, none, &stem);
-}
-
-void addStem(const TrackStem& stem, Stereo& dry, Stereo& rsend, Stereo& dsend) {
-    const std::size_t N = dry.size();
-    for (std::size_t i = 0; i < N; ++i) {
-        dry.L[i] += stem.dry.L[i];
-        dry.R[i] += stem.dry.R[i];
-    }
-    if (stem.rev)
-        for (std::size_t i = 0; i < N; ++i) {
-            rsend.L[i] += stem.rsend.L[i];
-            rsend.R[i] += stem.rsend.R[i];
-        }
-    if (stem.dly)
-        for (std::size_t i = 0; i < N; ++i) {
-            dsend.L[i] += stem.dsend.L[i];
-            dsend.R[i] += stem.dsend.R[i];
-        }
-}
-
-Stereo renderSong(const Song& song, RenderTimings* timings, const StemRenderer& stems) {
-    using clock = std::chrono::steady_clock;
-    clock::time_point started = clock::now();
-    const long L = song.loopSamples();
-    const long T = long(song.tail * SR);
-    const std::size_t N = std::size_t(L + T);
-    Stereo dry(N), rsend(N), dsend(N);
-    const std::vector<long> trig2 = duckTriggers(song);
-    if (stems) {
-        stems(song, trig2, dry, rsend, dsend);
-    } else {
-        for (std::size_t k = 0; k < song.tracks.size(); ++k)
-            renderTrackBuses(song, k, trig2, N, dry, rsend, dsend, nullptr);
-    }
-    if (timings)
-        (*timings).tracks = seconds_since(started);
-    started = clock::now();
-    // The delay, reverb and master high-pass in one pass (the original ran each over whole
-    // buffers in this order; no stage looks ahead, so the samples are the same). The mix
-    // replaces the dry bus in place.
+    // The delay, reverb and master high-pass run sample by sample behind the tracks (the
+    // original ran each over whole buffers in this order; none looks ahead).
     PingPong pp;
     pp.init(long(std::lround(song.dly_beats * song.spb)), song.dly_fb, song.dly_lp);
     Reverb rv;
     rv.init(song.rev_size, song.rev_rt60, song.rev_damp, song.rev_predelay);
     rv.start();
     Biquad hl = Biquad::make(1, song.master_hp, 0.707), hr = hl;
-    for (std::size_t i = 0; i < N; ++i) {
-        float doutL, doutR, wetL, wetR;
-        pp.step(dsend.L[i], dsend.R[i], doutL, doutR);
-        rsend.L[i] += doutL * 0.25f;
-        rsend.R[i] += doutR * 0.25f;
-        rv.step(rsend.L[i], rsend.R[i], wetL, wetR);
-        dry.L[i] = float(hl.tick(double(dry.L[i]) + wetL + doutL));
-        dry.R[i] = float(hr.tick(double(dry.R[i]) + wetR + doutR));
+    Stereo mix(N);
+    double busSeconds = 0;
+    Team team(crew);
+    {
+        Segment seg;
+        std::vector<float> sum[6];
+        seg.tracks = &tracks;
+        seg.trig2 = &trig2;
+        for (long a = 0; a < long(N); a += segmentFrames) {
+            const long b = std::min<long>(a + segmentFrames, long(N));
+            seg.a = a;
+            seg.b = b;
+            seg.serial.clear();
+            seg.slots.clear();
+            for (std::size_t k = 0; k < tracks.size(); ++k) {
+                TrackRun& t = tracks[k];
+                t.win.reserveUntil(b);
+                if (t.mono || t.serial) {
+                    seg.serial.push_back(k);
+                    continue;
+                }
+                // notes start in order, drawing from the track's stream as the original did
+                while (t.next < t.evs.size() && t.evs[t.next].s0 < b) {
+                    t.active.emplace_back();
+                    t.active.back().run.begin(*t.tr, t.evs[t.next], t.rng);
+                    ++t.next;
+                }
+                for (NoteSlot& slot : t.active)
+                    seg.slots.push_back(&slot);
+            }
+            team.run(seg.serial.size() + seg.slots.size(), voicesJob, &seg);
+            team.run(tracks.size(), finishJob, &seg);
+            const clock::time_point busStart = clock::now();
+            // the buses, summed track after track as the original summed them
+            const std::size_t n = std::size_t(b - a);
+            for (std::vector<float>* bus : {&sum[0], &sum[1], &sum[2], &sum[3], &sum[4], &sum[5]})
+                (*bus).assign(n, 0.0f);
+            for (const TrackRun& t : tracks) {
+                const std::vector<float>* from[6] = {&t.dL, &t.dR, &t.rL, &t.rR, &t.yL, &t.yR};
+                for (int c = 0; c < 6; ++c) {
+                    float* to = sum[c].data();
+                    const float* add = (*from[c]).data();
+                    for (std::size_t k = 0; k < n; ++k)
+                        to[k] += add[k];
+                }
+            }
+            for (long i = a; i < b; ++i) {
+                const std::size_t k = std::size_t(i - a);
+                float doutL, doutR, wetL, wetR;
+                pp.step(sum[4][k], sum[5][k], doutL, doutR);
+                float revL = sum[2][k], revR = sum[3][k];
+                revL += doutL * 0.25f;
+                revR += doutR * 0.25f;
+                rv.step(revL, revR, wetL, wetR);
+                mix.L[std::size_t(i)] = float(hl.tick(double(sum[0][k]) + wetL + doutL));
+                mix.R[std::size_t(i)] = float(hr.tick(double(sum[1][k]) + wetR + doutR));
+            }
+            busSeconds += seconds_since(busStart);
+        }
     }
-    rsend = Stereo();
-    dsend = Stereo();
-    Stereo mix = std::move(dry);
-    if (timings)
-        (*timings).buses = seconds_since(started);
+    tracks.clear();
+    if (timings) {
+        (*timings).buses = busSeconds;
+        (*timings).tracks = seconds_since(started) - busSeconds;
+    }
     started = clock::now();
     Stereo out;
     if (song.loop) {
@@ -747,7 +1018,7 @@ Stereo renderSong(const Song& song, RenderTimings* timings, const StemRenderer& 
             out.R[i] = float(out.R[i] * g);
         }
         limit(out, ceilDb, song.loop);
-        double tp = truePeakDb(out);
+        double tp = truePeakDb(out, team);
         double lu = integratedLufs(out);
         bool ok = true;
         if (tp > -1.5) {
