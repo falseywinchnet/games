@@ -1,6 +1,9 @@
 #include "audio.hpp"
 #include "pcm_player.hpp"
 #include "runtime_paths.hpp"
+#include "batch_cues.hpp"
+#include "studio_cues.hpp"
+#include "voice_bank.hpp"
 #include <map>
 
 namespace games {
@@ -16,6 +19,13 @@ std::map<std::string, std::shared_ptr<LiveScore>> scores{};
 std::shared_ptr<LiveScore> live{};
 constexpr std::size_t live_effects_slot = PcmPlayer::slot_count - 1;
 std::size_t next_effect{};
+// The shared cue sets (shared/studio: music loops, stingers and card sounds;
+// shared/batch_cues: interface and puzzle effects) are registered before any
+// shell sound is named, so effect variants are counted from the live cues too.
+void register_cues() {
+    static const bool registered = (studio::register_studio_cues(), batch_cues::register_batch_cues(), true);
+    (void)registered;
+}
 std::string track_name(const std::string& name) { return name == "solitaire" ? "klondike" : name; }
 std::string effect_name(const std::string& name) {
     if (name == "win") { return "stinger_win_" + track_name(current); }
@@ -34,7 +44,8 @@ std::string effect_name(const std::string& name) {
             const std::string stem = base + "_0" + std::to_string(count + 1);
             const bool compressed = std::filesystem::exists(directory / (stem + ".ogg"));
             const bool pcm = std::filesystem::exists(directory / (stem + ".wav"));
-            if (!compressed && !pcm) { break; }
+            const bool cue = voice::Bank::shared().find(stem).has_value();
+            if (!compressed && !pcm && !cue) { break; }
             ++count;
         }
     }
@@ -55,6 +66,7 @@ void live_score(const std::string& game, std::shared_ptr<LiveScore> score) {
     scores[game] = std::move(score);
 }
 void music_play(const std::string& game, bool enabled) {
+    register_cues();
     music_enabled = enabled;
     if (game.empty()) { player.shutdown(); effects.fill({}); current.clear(); live.reset(); return; }
     attach_score(game);
@@ -70,6 +82,7 @@ void music_play(const std::string& game, bool enabled) {
     } else { player.resume(0); }
 }
 void sound_play(const std::string& name, bool enabled) {
+    register_cues();
     if (live && (*live).cue(name, enabled)) { return; }
     if (!enabled) { return; }
     const std::string mapped = effect_name(name);

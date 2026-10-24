@@ -7,6 +7,8 @@ add_library(game_audio_adapters STATIC ${GAMES_MODULE_AUDIO}
 target_include_directories(game_audio_adapters PUBLIC src)
 # Live cues (shared/voice) are rendered by the clip loader instead of read from files.
 target_link_libraries(game_audio_adapters PUBLIC GUIForms::Audio game_paths voice_core batch_cues_core)
+# The studio's loops, stingers and card sounds (shared/studio), rendered on Workers.
+target_link_libraries(game_audio_adapters PUBLIC studio_workers)
 add_library(game_text_frames STATIC src/text_requests.cpp src/game_text.cpp)
 target_include_directories(game_text_frames PUBLIC src)
 target_link_libraries(game_text_frames PUBLIC GUIForms::TextMasks)
