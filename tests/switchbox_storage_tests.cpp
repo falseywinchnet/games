@@ -44,5 +44,7 @@ int main() {
     std::filesystem::remove(legacy);
     std::filesystem::remove(sbx::save_path(false));
     std::filesystem::remove(sbx::save_path(true));
-    std::filesystem::remove(directory);
+    // remove_all removes the emptied directory with rmdir; plain remove unlinks first,
+    // which Emscripten's Node file system on macOS refuses for a directory (EPERM).
+    std::filesystem::remove_all(directory);
 }
