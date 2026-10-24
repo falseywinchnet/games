@@ -217,8 +217,14 @@ def discover(root: Path, extra_dirs=(), include_disabled=False) -> list[dict]:
 def quoted(value):
     return json.dumps(value, ensure_ascii=False)
 
-def generate(root: Path, output: Path, extra_dirs=()):
+def generate(root: Path, output: Path, extra_dirs=(), only=()):
     games = discover(root, extra_dirs)
+    if only:
+        # A single-game build (one browser exhibit per game) keeps just these.
+        unknown = sorted(set(only) - {g['id'] for g in games})
+        if unknown:
+            raise ValueError('unknown game for --only: ' + ', '.join(unknown))
+        games = [g for g in games if g['id'] in only]
     if not games:
         raise ValueError('the collection requires at least one enabled game')
     output.mkdir(parents=True, exist_ok=True)
@@ -315,9 +321,10 @@ def main():
     parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[1])
     parser.add_argument('--extra',action='append',default=[],type=Path)
     parser.add_argument('--generate',type=Path)
+    parser.add_argument('--only',action='append',default=[],help='generate a catalog of just this game (repeatable)')
     args=parser.parse_args()
     try:
-        games=generate(args.root,args.generate,args.extra) if args.generate else discover(args.root,args.extra,True)
+        games=generate(args.root,args.generate,args.extra,args.only) if args.generate else discover(args.root,args.extra,True)
     except ValueError as error:
         parser.exit(1,str(error)+'\n')
     for g in games:

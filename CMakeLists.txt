@@ -13,6 +13,13 @@ project(Games VERSION ${GAMES_RELEASE_VERSION} LANGUAGES C CXX)
 if(EMSCRIPTEN)
     add_compile_options(-pthread -msimd128 -fwasm-exceptions)
     add_link_options(-pthread -fwasm-exceptions)
+    # Thin LTO inlines across files (the render engine's per-pixel calls from
+    # each game); floating-point semantics are unchanged.
+    option(GAMES_WEB_LTO "Link the browser build with thin LTO" ON)
+    if(GAMES_WEB_LTO)
+        add_compile_options(-flto=thin)
+        add_link_options(-flto=thin)
+    endif()
 endif()
 # Windows finds a program's DLLs beside it: build every program and DLL, GUI.Forms'
 # Application and Threading included, into one folder.
@@ -86,6 +93,10 @@ set(GAMES_EXTRA_GAME_DIRS "" CACHE STRING "Additional game folders to test befor
 file(GLOB module_manifests CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/games/*/GAME.json"
   "${CMAKE_CURRENT_SOURCE_DIR}/shared/*/ENGINE.json")
 set(catalog_arguments)
+set(GAMES_ONLY "" CACHE STRING "Build just these games (a browser exhibit per game)")
+foreach(game IN LISTS GAMES_ONLY)
+  list(APPEND catalog_arguments --only "${game}")
+endforeach()
 foreach(directory IN LISTS GAMES_EXTRA_GAME_DIRS)
   list(APPEND catalog_arguments --extra "${directory}")
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${directory}/GAME.json")
