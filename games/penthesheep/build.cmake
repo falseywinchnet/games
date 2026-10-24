@@ -1,11 +1,20 @@
-add_library(sh_core STATIC ${GAME_MODULE_DIR}/src/field.cpp ${GAME_MODULE_DIR}/src/pasture.cpp ${GAME_MODULE_DIR}/src/turf.cpp)
+add_library(sh_core STATIC ${GAME_MODULE_DIR}/src/field.cpp ${GAME_MODULE_DIR}/src/pasture.cpp ${GAME_MODULE_DIR}/src/turf.cpp
+            ${GAME_MODULE_DIR}/src/sheep_cues.cpp)
 target_include_directories(sh_core PUBLIC ${GAME_MODULE_DIR}/src)
 target_link_libraries(sh_core PUBLIC render_core)  # the 2D canvas, 3D renderer and meshes (shared/render)
 target_link_libraries(sh_core PUBLIC game_paths grass_core Threads::Threads)  # the meadow's turf (shared/grass)
+target_link_libraries(sh_core PUBLIC voice_core)  # the effects, rendered live (shared/voice)
 target_compile_definitions(sh_core PRIVATE _USE_MATH_DEFINES)
+if(NOT MSVC)
+  set_source_files_properties(${GAME_MODULE_DIR}/src/sheep_cues.cpp PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
+endif()
 add_executable(penthesheep_rules_tests ${GAME_MODULE_DIR}/tests/sheep_tests.cpp)
 target_link_libraries(penthesheep_rules_tests PRIVATE sh_core)
 add_test(NAME penthesheep_rules COMMAND penthesheep_rules_tests)
 set_tests_properties(penthesheep_rules PROPERTIES LABELS design)
+# The live effects render, and (with --reference) equal the NumPy masters.
+add_executable(penthesheep_cues_tests ${GAME_MODULE_DIR}/tests/sheep_cues_tests.cpp)
+target_link_libraries(penthesheep_cues_tests PRIVATE sh_core)
+add_test(NAME penthesheep_cues COMMAND penthesheep_cues_tests)
 
 list(APPEND GAMES_NATIVE_FRAME_MODULES penthesheep)
