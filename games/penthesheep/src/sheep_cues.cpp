@@ -226,6 +226,7 @@ std::span<const voice::Cue> sound_cues() {
 
 void register_sound_cues() {
     voice::Bank::shared().add(cues);
+    voice::Bank::shared().add(music_cues());
 }
 
 }  // namespace sh
