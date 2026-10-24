@@ -2,7 +2,7 @@
 // build is served): frame rate, GUI.Forms' per-frame costs and the hottest
 // functions on the page's main thread and on every program thread.
 //   node tools/web/profile.mjs <url> [--settle 8] [--seconds 6] [--out prefix] [--width 1280 --height 800 --scale 2]
-//     [--actions "click:x,y|key:5|wait:500|shot:file.png"]   (run after settling, before profiling)
+//     [--actions "click:x,y|key:5|wait:500|eval:js|shot:file.png"]   (run after settling, before profiling)
 // Console errors and uncaught exceptions are printed at the end.
 // Needs Google Chrome; uses Node's built-in WebSocket for the DevTools protocol.
 import { spawn } from 'node:child_process';
@@ -92,6 +92,9 @@ for (const step of actions.split('|').filter(Boolean)) {
     await send('Input.dispatchKeyEvent', { type: 'keyDown', code, key: argument, text });
     await send('Input.dispatchKeyEvent', { type: 'keyUp', code, key: argument });
     await sleep(150);
+  } else if (verb === 'eval') {
+    const value = await evaluate(argument);
+    if (value !== undefined) console.log(`eval: ${JSON.stringify(value)}`);
   } else if (verb === 'shot') {
     const shot = await send('Page.captureScreenshot', { format: 'png' });
     writeFileSync(argument, Buffer.from(shot.data, 'base64'));
