@@ -113,10 +113,11 @@ limits. Read the one you build on before writing a line.
 |---|---|---|
 | [`coverage`](../../shared/coverage/README.md) | The path-planning and path-fitting AI for a machine that must cover ground: a simulated scanner and a belief map, germs that own ground geodesically, a menu of laps, stripes and tufts, one planned tape at a time, and tractor steering with fitted curves and planned reverses. Deterministic. | Mowing (passive mode and whenever the player lets go) |
 
-**Music and sound** (authoring, not engines: a game's audio is rendered or synthesized by its own code)
+**Music and sound** (one engine; the rest is authoring, and a game's audio is its own code)
 
 | System | For | Where |
 |---|---|---|
+| [`voice`](../../shared/voice/README.md) (engine) | Every sound generated when it is first wanted instead of read from a file, as the web build requires: the numpy engine `synth.py` ported exactly, with NumPy's own random numbers, so a game's cues equal the masters its `make_sfx.py` wrote. A game registers its cues; the shell's clip loader renders them on its Worker and keeps them. | Pen the Sheep's effects; the other `synth.py` games next |
 | [PlaySuite music](../../authoring/playsuite_music/README.md) | The offline synthesizer and sequencer the collection's music is written in: polyBLEP oscillators, filters, forty-odd instruments, a melody notation, chord symbols, drum grids, arranging helpers, a mastering chain (reverb, bus compression, BS.1770 loudness, true-peak limiting, seamless loop folding) and the `integrate.py` packager. A new game's score is a `song_*.cpp` beside the others, rendered with `playsuite_music render` and packaged with `integrate.py`. It also renders the card handling sounds (`sfx`). | `authoring/playsuite_music/` |
 | Live synthesis | Sound made as it plays, when synthesis is faster than real time: `SoundDesk::live` and `live_music` voices on `games::PcmPlayer`, as Nature Cube's music, Stillwater's ambience and Mowing's machines do. The kit's `make_sfx.py` and `games/zenconstruction/audio_src/engine/synth.py` are the offline starting points. | `src/scene_audio.*`, `src/pcm_player.*`, each game's `audio_src/` |
 

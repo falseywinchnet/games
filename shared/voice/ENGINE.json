@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "voice",
+  "namespace": "voice",
+  "title": "Live voice",
+  "summary": "Every sound generated as it is wanted instead of read from a file: the collection's numpy synthesis engine (synth.py) ported exactly, with NumPy's own random numbers, so a game's cues, rendered live, equal the masters its sound scripts wrote; a bank the shell's clip loader asks before it looks for a file.",
+  "build": "build.cmake",
+  "libraries": [
+    "voice_core"
+  ],
+  "source_directories": [
+    "src"
+  ],
+  "tests": [
+    "tests/voice_tests.cpp"
+  ]
+}
