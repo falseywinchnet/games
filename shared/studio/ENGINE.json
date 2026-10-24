@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "studio",
+  "namespace": "studio",
+  "title": "PlaySuite studio",
+  "summary": "The collection's own music studio (authoring/playsuite_music) running inside the game: its instruments, scores, mix bus and mastering render the menu and game music loops, the win and top-score stingers and the card sounds live, sample for sample as the studio rendered their masters.",
+  "build": "build.cmake",
+  "engines": [
+    "voice"
+  ],
+  "libraries": [
+    "studio_core"
+  ],
+  "source_directories": [
+    "src"
+  ],
+  "tests": [
+    "tests/studio_cues_tests.cpp"
+  ]
+}
