@@ -1,12 +1,21 @@
-add_library(kk_core STATIC ${GAME_MODULE_DIR}/src/koikoi.cpp)
+add_library(kk_core STATIC ${GAME_MODULE_DIR}/src/koikoi.cpp ${GAME_MODULE_DIR}/src/koikoi_cues.cpp)
 target_include_directories(kk_core PUBLIC ${GAME_MODULE_DIR}/src)
 target_link_libraries(kk_core PUBLIC render_core)  # the 2D canvas, 3D renderer and meshes (shared/render)
 target_link_libraries(kk_core PUBLIC game_paths Threads::Threads)
+target_link_libraries(kk_core PUBLIC voice_core)  # the sound, rendered live (shared/voice)
 target_compile_definitions(kk_core PRIVATE _USE_MATH_DEFINES)
+if(NOT MSVC)
+  set_source_files_properties(${GAME_MODULE_DIR}/src/koikoi_cues.cpp PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
+endif()
 add_executable(koikoi_rules_tests ${GAME_MODULE_DIR}/tests/koikoi_tests.cpp)
 target_link_libraries(koikoi_rules_tests PRIVATE kk_core)
 add_test(NAME koikoi_rules COMMAND koikoi_rules_tests)
 set_tests_properties(koikoi_rules PROPERTIES LABELS design)
+# The live sound renders, and (with --reference) equals the NumPy masters.
+add_executable(koikoi_cues_tests ${GAME_MODULE_DIR}/tests/koikoi_cues_tests.cpp)
+target_link_libraries(koikoi_cues_tests PRIVATE kk_core)
+add_test(NAME koikoi_cues COMMAND koikoi_cues_tests)
+set_tests_properties(koikoi_cues PROPERTIES TIMEOUT 300)
 
 list(APPEND GAMES_NATIVE_FRAME_MODULES koikoi)
 

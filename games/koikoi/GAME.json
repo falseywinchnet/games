@@ -36,7 +36,8 @@
   ],
   "engines": [
     "ambient",
-    "render"
+    "render",
+    "voice"
   ],
   "audio_sources": [
     "src/platform/audio.cpp"
