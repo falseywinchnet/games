@@ -1,5 +1,6 @@
 #include "game_module.hpp"
 #include "koi_view.hpp"
+#include "koikoi_cues.hpp"
 #include "suite_settings.hpp"
 namespace games::modules {
 namespace {
@@ -18,6 +19,7 @@ class KoiInstance final : public HostedGameInstance<kk::KoiView> {
 };
 }  // namespace
 std::unique_ptr<GameInstance> koikoi_create([[maybe_unused]] ModuleContext& context) {
+    kk::register_sound_cues();  // the sound is rendered live, not read from files
     return std::make_unique<KoiInstance>(gf::make_control<kk::KoiView>(gf::StableId("koikoi.view"),kk::Options{.hosted=context.hosted,.dev=context.dev}));
 }
 }

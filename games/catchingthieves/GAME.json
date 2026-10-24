@@ -26,7 +26,8 @@
   "engines": [
     "grass",
     "soil",
-    "render"
+    "render",
+    "voice"
   ],
   "help": "help.md",
   "module": "module.cpp",
