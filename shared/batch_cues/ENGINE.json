@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "batch_cues",
+  "namespace": "batch_cues",
+  "title": "Batch cues",
+  "summary": "The audio batch 1 and 2 sounds several games share (the card games' interface cues, Gems, Sudoku, Untangle, Puzzle Solve and Switchbox effects, the name-entry and new-game cues, and Switchbox's stingers and music), generated live on the voice engine and equal to the masters their numpy scripts wrote.",
+  "build": "build.cmake",
+  "engines": [
+    "voice"
+  ],
+  "libraries": [
+    "batch_cues_core"
+  ],
+  "source_directories": [
+    "src"
+  ],
+  "tests": [
+    "tests/batch_cues_tests.cpp"
+  ]
+}
