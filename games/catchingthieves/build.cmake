@@ -1,12 +1,14 @@
 add_library(ct_core STATIC
     ${GAME_MODULE_DIR}/src/level.cpp ${GAME_MODULE_DIR}/src/solver.cpp ${GAME_MODULE_DIR}/src/gen.cpp ${GAME_MODULE_DIR}/src/tiers.cpp ${GAME_MODULE_DIR}/src/levelset.cpp ${GAME_MODULE_DIR}/src/critters.cpp
     ${GAME_MODULE_DIR}/src/ground.cpp ${GAME_MODULE_DIR}/src/garden.cpp ${GAME_MODULE_DIR}/src/hedge.cpp ${GAME_MODULE_DIR}/src/field.cpp ${GAME_MODULE_DIR}/src/show.cpp ${GAME_MODULE_DIR}/src/lines.cpp ${GAME_MODULE_DIR}/src/save.cpp
+    ${GAME_MODULE_DIR}/src/thieves_cues.cpp ${GAME_MODULE_DIR}/src/thieves_music.cpp
     # Astra's constructive garden generator (src/research, borrowed unchanged)
     ${GAME_MODULE_DIR}/src/research/port_graph.cpp ${GAME_MODULE_DIR}/src/research/tree_orchard.cpp ${GAME_MODULE_DIR}/src/research/folded_space.cpp ${GAME_MODULE_DIR}/src/research/nested_orchard.cpp ${GAME_MODULE_DIR}/src/research/borrowed_goals.cpp ${GAME_MODULE_DIR}/src/research/nested_score.cpp ${GAME_MODULE_DIR}/src/research/nested_grow.cpp ${GAME_MODULE_DIR}/src/research/turnout_space.cpp ${GAME_MODULE_DIR}/src/research/shared_stage.cpp ${GAME_MODULE_DIR}/src/research/terminal_order.cpp ${GAME_MODULE_DIR}/src/research/garden_score.cpp ${GAME_MODULE_DIR}/src/research/restricted_garden.cpp)
 target_include_directories(ct_core PUBLIC "${GAME_MODULE_DIR}/src" PRIVATE "${GAME_MODULE_DIR}/src/research")
 target_link_libraries(ct_core PUBLIC render_core)  # the 2D canvas, 3D renderer and meshes (shared/render)
 target_link_libraries(ct_core PUBLIC grass_core)  # the field round the garden (shared/grass)
 target_link_libraries(ct_core PUBLIC soil_core)   # the beds and burrows (shared/soil)
+target_link_libraries(ct_core PUBLIC voice_core)  # the sound, rendered live (shared/voice)
 target_compile_definitions(ct_core PRIVATE _USE_MATH_DEFINES)
 if(MSVC)
     target_compile_options(ct_core PRIVATE /utf-8 /W4 /fp:precise)
@@ -23,6 +25,11 @@ add_executable(ct_contract_tests ${GAME_MODULE_DIR}/tests/core_contract_tests.cp
 target_link_libraries(ct_contract_tests PRIVATE ct_core)
 add_test(NAME catchingthieves_core_contract COMMAND ct_contract_tests)
 set_tests_properties(catchingthieves_core_contract PROPERTIES LABELS design)
+# The live sound renders, and (with --reference) equals the NumPy masters.
+add_executable(ct_cues_tests ${GAME_MODULE_DIR}/tests/thieves_cues_tests.cpp)
+target_link_libraries(ct_cues_tests PRIVATE ct_core)
+add_test(NAME catchingthieves_cues COMMAND ct_cues_tests)
+set_tests_properties(catchingthieves_cues PROPERTIES TIMEOUT 300)
 add_executable(ct_preview ${GAME_MODULE_DIR}/tests/preview.cpp)
 target_link_libraries(ct_preview PRIVATE ct_core)
 add_executable(ct_levelgen ${GAME_MODULE_DIR}/tools/levelgen.cpp)
