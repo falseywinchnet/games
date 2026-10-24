@@ -55,6 +55,17 @@
       Module.ENV.GUI_FORMS_FONT_DIR = '/gui_forms/fonts';
       Module.FS.mkdir('/state');
       Module.FS.mount(Module.IDBFS, {}, '/state');
+      // ?trace-files logs each runtime asset the program opens (for packing
+      // one game's files on its own).
+      if (params.has('trace-files')) {
+        const open = Module.FS.open;
+        const seen = new Set();
+        Module.FS.open = function (path, ...rest) {
+          const name = typeof path === 'string' ? path : '';
+          if (name.startsWith('/assets/') && !seen.has(name)) { seen.add(name); console.warn('asset-open ' + name); }
+          return open.call(this, path, ...rest);
+        };
+      }
     }],
     onRuntimeInitialized: () => {
       statusText.textContent = 'Opening saves';

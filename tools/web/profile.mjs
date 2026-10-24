@@ -149,7 +149,7 @@ for (const { thread, profile } of profiles) {
   console.log(result.top.join('\n'));
   if (out) writeFileSync(`${out}-${thread.replace(/[^A-Za-z0-9]+/g, '_')}.cpuprofile`, JSON.stringify(profile));
 }
-if (problems.length) console.log(`\n# console problems (${problems.length})\n` + [...new Set(problems)].slice(0, 30).join('\n'));
+if (problems.length) console.log(`\n# console problems (${problems.length})\n` + [...new Set(problems)].slice(0, 2000).join('\n'));
 socket.close();
 chrome.kill();
 await sleep(300);
