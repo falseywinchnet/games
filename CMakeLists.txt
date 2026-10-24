@@ -8,6 +8,12 @@ if(NOT GAMES_RELEASE_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
   message(FATAL_ERROR "GAMES_RELEASE_VERSION must be a numeric major.minor.patch")
 endif()
 project(Games VERSION ${GAMES_RELEASE_VERSION} LANGUAGES C CXX)
+# The browser build (cmake/Web.cmake): every object, the toolkit's included,
+# shares one threaded, SIMD128 WebAssembly memory.
+if(EMSCRIPTEN)
+    add_compile_options(-pthread -msimd128 -fwasm-exceptions)
+    add_link_options(-pthread -fwasm-exceptions)
+endif()
 # Windows finds a program's DLLs beside it: build every program and DLL, GUI.Forms'
 # Application and Threading included, into one folder.
 if(WIN32)
@@ -48,6 +54,8 @@ if(GAMES_BUILD_APPLICATION)
   set(GUI_FORMS_ENABLE_HARFBUZZ_TEXT ON CACHE BOOL "" FORCE)
   if(WIN32)
     set(GUI_FORMS_ENABLE_SKIA OFF CACHE BOOL "" FORCE)
+  elseif(EMSCRIPTEN)
+    set(GUI_FORMS_ENABLE_WEB_HOST ON CACHE BOOL "" FORCE)
   elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(GUI_FORMS_ENABLE_LINUX_HOST ON CACHE BOOL "" FORCE)
   endif()
@@ -95,6 +103,9 @@ include("${GAMES_CATALOG_DIR}/game_modules.cmake")
 add_test(NAME game_catalog COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/game_catalog_tests.py")
 if(GAMES_BUILD_APPLICATION)
   include(cmake/Application.cmake)
+  if(EMSCRIPTEN)
+    include(cmake/Web.cmake)
+  endif()
 endif()
 # Tests labelled `design` check deterministic game mechanics. They run when a game is designed
 # or its rules change (ctest -L design), not in CI, which keeps what depends on the platform

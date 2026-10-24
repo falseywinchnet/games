@@ -2,6 +2,8 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <shellapi.h>
+#elif defined(__EMSCRIPTEN__)
+#include <emscripten.h>
 #else
 #include <spawn.h>
 #include <sys/wait.h>
@@ -16,6 +18,11 @@ void open_link(const std::string& address) {
     std::wstring wide(static_cast<std::size_t>(length > 0 ? length : 1), L'\0');
     MultiByteToWideChar(CP_UTF8, 0, address.c_str(), -1, wide.data(), length);
     ShellExecuteW(nullptr, L"open", wide.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+}
+#elif defined(__EMSCRIPTEN__)
+// The browser opens the address in a new tab, away from the game.
+void open_link(const std::string& address) {
+    EM_ASM({ window.open(UTF8ToString($0), '_blank', 'noopener'); }, address.c_str());
 }
 #else
 namespace {

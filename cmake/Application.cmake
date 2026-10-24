@@ -68,6 +68,7 @@ else()
         set_target_properties(games PROPERTIES BUILD_RPATH "$ORIGIN")
     endif()
 endif()
+if(NOT EMSCRIPTEN)
 add_custom_command(TARGET games POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "${games_libraries}"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:GUIForms::Application>" "${games_libraries}"
@@ -79,6 +80,7 @@ if(UNIX)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:GUIForms::Application>"
             "${games_libraries}/$<TARGET_SONAME_FILE_NAME:GUIForms::Application>"
         VERBATIM)
+endif()
 endif()
 add_executable(ui_tests tests/ui_tests.cpp)
 add_executable(puzzle_frame_tests tests/puzzle_frame_tests.cpp)

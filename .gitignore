@@ -7,3 +7,6 @@
 /.ccache/
 
 __pycache__/
+
+# Browser build copied back from the Mini
+/web-out/
