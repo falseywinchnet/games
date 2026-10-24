@@ -193,7 +193,7 @@ Stereo season(const Season& a, const Start& start) {
     const long long spb = static_cast<long long>(voice::python_round(sr * 60 / a.bpm));
     const int bars = 24;
     const std::size_t length = static_cast<std::size_t>(bars * 4 * spb);
-    voice::LoopMix mix(length, true);
+    std::optional<voice::LoopMix> mix(std::in_place, length, true);
     const Scale& sc = *a.scale;
     const int ton = a.tonic;
     // at(bar, beat): the off-beat eighths swing
@@ -220,7 +220,7 @@ Stereo season(const Season& a, const Start& start) {
                 const int m = deg(*n.degree, sc, ton) + a.lead_oct;
                 const double vel = .72 + rng.uniform(-.05, .05);
                 const Signal& y = note(a.lead, m, n.beats * static_cast<double>(spb) / sr * .92, vel);
-                mix.add("lead", y, at(bar, beat), .05);
+                mix->add("lead", y, at(bar, beat), .05);
             }
             beat += n.beats;
         }
@@ -228,7 +228,7 @@ Stereo season(const Season& a, const Start& start) {
             beat = 0.0;
             for (const Note& n : counter_line()[static_cast<std::size_t>(i)]) {
                 const Signal& y = note(a.counter, deg(*n.degree, sc, ton), n.beats * static_cast<double>(spb) / sr * .95, .55);
-                mix.add("counter", y, at(bar, beat), -.35);
+                mix->add("counter", y, at(bar, beat), -.35);
                 beat += n.beats;
             }
         }
@@ -242,69 +242,69 @@ Stereo season(const Season& a, const Start& start) {
             for (const double b2 : offbeats) {
                 for (int k = 0; k < 3; ++k) {
                     const Signal& y = note(a.chords, chord[k], .3 * static_cast<double>(spb) / sr * (reed ? 2 : 1), .5);
-                    mix.add("chords", y, at(bar, b2) + k * 90, .3);
+                    mix->add("chords", y, at(bar, b2) + k * 90, .3);
                 }
             }
         } else {
             for (int k = 0; k < 3; ++k) {
                 const Signal& y =
                     note(a.chords, chord[k] + 12 * (chords_kind == "glass" ? 1 : 0), 3.8 * static_cast<double>(spb) / sr, .45);
-                mix.add("chords", y, at(bar, 0) + k * 200, .25 - .25 * k);
+                mix->add("chords", y, at(bar, 0) + k * 200, .25 - .25 * k);
             }
         }
         const int r = deg(root, sc, ton - 24);
         const int fifth = deg(root + 4, sc, ton - 24);
         const double bdur = .9 * static_cast<double>(spb) / sr;
-        mix.add("bass", note(a.bass, r, bdur, .8), at(bar, 0), -.1);
-        mix.add("bass", note(a.bass, bass_kind != "felt" ? fifth : r, bdur, .7), at(bar, 2), -.1);
+        mix->add("bass", note(a.bass, r, bdur, .8), at(bar, 0), -.1);
+        mix->add("bass", note(a.bass, bass_kind != "felt" ? fifth : r, bdur, .7), at(bar, 2), -.1);
         if (bar % 4 == 3 && bass_kind != "felt") {
             const int all[24] = {0, 5, 3, 4, 0, 5, 1, 4, 3, 0, 1, 4, 3, 2, 1, 4, 0, 5, 3, 4, 0, 5, 1, 4};
             const int target = deg(all[(bar + 1) % 24], sc, ton - 24);
             const int steps[3] = {-3, -2, -1};
             for (int k = 0; k < 3; ++k) {
-                mix.add("bass", note(a.bass, target + steps[k], .4 * static_cast<double>(spb) / sr, .6),
+                mix->add("bass", note(a.bass, target + steps[k], .4 * static_cast<double>(spb) / sr, .6),
                         at(bar, 3 + k / 3.0), -.1);
             }
         }
         if (a.pad) {
             for (int k = 0; k < 3; ++k) {
-                mix.add("pad", note("pad", chord[k], 4 * static_cast<double>(spb) / sr, .4), at(bar, 0), (k - 1) * .4);
+                mix->add("pad", note("pad", chord[k], 4 * static_cast<double>(spb) / sr, .4), at(bar, 0), (k - 1) * .4);
             }
         }
         switch (a.drums) {
             case Drums::spring:
                 for (int b2 = 0; b2 < 8; ++b2) {
-                    mix.add("drums", synth.render_drum("shaker", b2 % 2 ? .35 : .2, b2), at(bar, b2 / 2.0), .3);
+                    mix->add("drums", synth.render_drum("shaker", b2 % 2 ? .35 : .2, b2), at(bar, b2 / 2.0), .3);
                 }
-                mix.add("drums", synth.render_drum("kick", .5, 0), at(bar, 0), 0);
-                mix.add("drums", synth.render_drum("wbhi", .45, bar), at(bar, 1), -.3);
-                mix.add("drums", synth.render_drum("wblo", .45, bar), at(bar, 3), -.3);
+                mix->add("drums", synth.render_drum("kick", .5, 0), at(bar, 0), 0);
+                mix->add("drums", synth.render_drum("wbhi", .45, bar), at(bar, 1), -.3);
+                mix->add("drums", synth.render_drum("wblo", .45, bar), at(bar, 3), -.3);
                 break;
             case Drums::summer:
                 for (int b2 = 0; b2 < 16; ++b2) {
-                    mix.add("drums", synth.render_drum("shaker", b2 % 2 ? .3 : .18, b2), at(bar, b2 / 4.0), .3);
+                    mix->add("drums", synth.render_drum("shaker", b2 % 2 ? .3 : .18, b2), at(bar, b2 / 4.0), .3);
                 }
-                mix.add("drums", synth.render_drum("kick", .6, 0), at(bar, 0), 0);
-                mix.add("drums", synth.render_drum("kick", .45, 1), at(bar, 2.5), 0);
+                mix->add("drums", synth.render_drum("kick", .6, 0), at(bar, 0), 0);
+                mix->add("drums", synth.render_drum("kick", .45, 1), at(bar, 2.5), 0);
                 for (const int b2 : {1, 3}) {
-                    mix.add("drums", synth.render_drum("clap", .5, bar * 2 + b2), at(bar, b2), 0);
+                    mix->add("drums", synth.render_drum("clap", .5, bar * 2 + b2), at(bar, b2), 0);
                 }
                 break;
             case Drums::autumn:
                 for (const double b2 : {0.0, 1.5, 2.0, 3.0}) {
                     const bool high = voice::remainder(b2, 1) != 0;
-                    mix.add("drums", synth.render_drum(high ? "wbhi" : "wblo", .45, static_cast<long long>(b2 * 2)),
+                    mix->add("drums", synth.render_drum(high ? "wbhi" : "wblo", .45, static_cast<long long>(b2 * 2)),
                             at(bar, b2), -.25);
                 }
-                mix.add("drums", synth.render_drum("tap", .35, bar), at(bar, 1), .25);
-                mix.add("drums", synth.render_drum("tap", .35, bar + 1), at(bar, 3), .25);
+                mix->add("drums", synth.render_drum("tap", .35, bar), at(bar, 1), .25);
+                mix->add("drums", synth.render_drum("tap", .35, bar + 1), at(bar, 3), .25);
                 break;
             case Drums::winter:
                 for (int b2 = 0; b2 < 8; ++b2) {
-                    mix.add("drums", synth.render_drum("shaker", b2 % 2 ? .3 : .2, b2), at(bar, b2 / 2.0), .35);
+                    mix->add("drums", synth.render_drum("shaker", b2 % 2 ? .3 : .2, b2), at(bar, b2 / 2.0), .35);
                 }
                 if (bar % 2 == 0) {
-                    mix.add("drums", synth.render_drum("triangle", .35, bar), at(bar, 0), -.35);
+                    mix->add("drums", synth.render_drum("triangle", .35, bar), at(bar, 0), -.35);
                 }
                 break;
             case Drums::none:
@@ -314,7 +314,7 @@ Stereo season(const Season& a, const Start& start) {
     // master(mix, L, wet=.22)
     Stereo out{Signal(length, 0.0), Signal(length, 0.0)};
     Stereo send{Signal(length, 0.0), Signal(length, 0.0)};
-    for (const std::pair<std::string, Stereo>& bus : mix.buses()) {
+    for (const std::pair<std::string, Stereo>& bus : mix->buses()) {
         const double g = std::pow(10.0, (level_of(bus.first) - rms_db(bus.second)) / 20);
         const double s = send_of(bus.first);
         for (std::size_t i = 0; i < length; ++i) {
@@ -326,6 +326,7 @@ Stereo season(const Season& a, const Start& start) {
             send.right[i] += right * s;
         }
     }
+    mix.reset();  // the buses are folded in: free them before the reverb and the filter
     {
         const Stereo wet = voice::conv_reverb(send, voice::make_ir(1.8, 1.4, 1.2, .6), true);
         for (std::size_t i = 0; i < length; ++i) {

@@ -13,6 +13,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <ctime>
 #include <string>
 
 #if defined(__EMSCRIPTEN__)
@@ -180,11 +181,14 @@ void time_cue(const std::string& name) {
         return;
     }
     const double before = peak_memory_mb();
+    const std::clock_t cpu = std::clock();
     const std::chrono::steady_clock::time_point began = std::chrono::steady_clock::now();
     const voice::Interleaved clip = voice::render(*cue);
     const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
-    std::printf("%s: %zu frames rendered in %.2f s; peak memory %.0f MB (%.0f MB before), clip %.0f MB\n", name.c_str(),
-                clip.size() / 2, seconds, peak_memory_mb(), before,
+    const double cpu_seconds = static_cast<double>(std::clock() - cpu) / CLOCKS_PER_SEC;
+    std::printf("%s: %zu frames rendered in %.2f s (%.2f s of processor time); peak memory %.0f MB (%.0f MB before), "
+                "clip %.0f MB\n",
+                name.c_str(), clip.size() / 2, seconds, cpu_seconds, peak_memory_mb(), before,
                 static_cast<double>(clip.size() * sizeof(float)) / (1024.0 * 1024.0));
 }
 

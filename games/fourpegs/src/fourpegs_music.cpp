@@ -410,7 +410,7 @@ Stereo tier_loop(int tier) {
     const double spb = sr * 60 / bpm;
     const int bars = 32;  // the form twice: the second pass hands the theme to other voices
     const std::size_t length = static_cast<std::size_t>(voice::python_round(bars * 4 * spb));
-    voice::LoopMix mix(length, true);
+    std::optional<voice::LoopMix> mix(std::in_place, length, true);
     // at(beat): the beat's sample with a little timing jitter, drawn after the note
     const auto at = [&](double beat) {
         const double jitter = s.rng.normal(0, .002);
@@ -423,7 +423,7 @@ Stereo tier_loop(int tier) {
     };
     const auto add = [&](const std::string& bus, const Signal& y, double beat, double pan = 0.0) {
         const long long start = at(beat);
-        mix.add(bus, y, start, pan);
+        mix->add(bus, y, start, pan);
     };
     const std::vector<ChordBar>& form = chords();
     for (int bi = 0; bi < bars; ++bi) {
@@ -590,7 +590,7 @@ Stereo tier_loop(int tier) {
     // master(mix, LEVELS[tier], wet=.22)
     Stereo out{Signal(length, 0.0), Signal(length, 0.0)};
     Stereo send{Signal(length, 0.0), Signal(length, 0.0)};
-    for (const std::pair<std::string, Stereo>& bus : mix.buses()) {
+    for (const std::pair<std::string, Stereo>& bus : mix->buses()) {
         const std::string& name = bus.first;
         const double g = std::pow(10.0, (level(tier, name) - rms_db(bus.second)) / 20);
         const bool wide = name == "lead" || name == "harp" || name == "brass" || name == "choir" || name == "strings";
@@ -604,6 +604,7 @@ Stereo tier_loop(int tier) {
             send.right[i] += right * amount;
         }
     }
+    mix.reset();  // the buses are folded in: free them before the reverb and the filter
     {
         const Stereo wet = voice::conv_reverb(send, voice::make_ir(2.2, 1.8, 1.4, .7), true);
         for (std::size_t i = 0; i < length; ++i) {

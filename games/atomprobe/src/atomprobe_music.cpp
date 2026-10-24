@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -328,7 +329,7 @@ Stereo finish(Stereo x, double target_rms_db = -19.0, double ceiling_db = -3.0) 
 
 Stereo music() {
     Score s{voice::Synth(), voice::Generator(1964)};
-    voice::LoopMix mix(loop_length, true);
+    std::optional<voice::LoopMix> mix(std::in_place, loop_length, true);
     Signal pump(loop_length, 1.0);
     Signal duck(static_cast<std::size_t>(spb));
     {
@@ -346,7 +347,7 @@ Stereo music() {
         const std::size_t tones = c.tones.size();
         for (std::size_t k = 0; k < tones; ++k) {
             const Signal note = s.synth.pad(c.tones[k], 4 * spb / sr * .98, .5, .35, 1.2, intro ? 1600 : 2200);
-            mix.add("pad", note, at(bar, .02), (static_cast<double>(k) - 2) * .25);
+            mix->add("pad", note, at(bar, .02), (static_cast<double>(k) - 2) * .25);
         }
         std::vector<int> seq = c.tones;
         seq.push_back(c.tones[1] + 12);
@@ -355,28 +356,28 @@ Stereo music() {
             const int m = seq[static_cast<std::size_t>(arp_order[i]) % seq.size()] + 12;
             const double v = .55 + (i % 4 == 0 ? .25 : 0.0) + s.rng.uniform(-.05, .05);
             const Signal note = pluck_syn(s, m, .16, v, intro ? .7 : 1.0);
-            mix.add("arp", note, at(bar, i * .25), .35 * std::sin(i * .9));
+            mix->add("arp", note, at(bar, i * .25), .35 * std::sin(i * .9));
         }
         if (bar >= 4) {
             for (int i = 0; i < 8; ++i) {
                 const Signal note = bass_syn(s, c.root + bass_pattern[i], .22, i % 2 == 0 ? .75 : .6);
-                mix.add("bass", note, at(bar, i * .5), 0);
+                mix->add("bass", note, at(bar, i * .5), 0);
             }
         }
         if (bar >= 8) {
             for (const double b : {0.0, 2.0}) {
-                mix.add("drums", s.synth.kick(.9), at(bar, b), 0);
+                mix->add("drums", s.synth.kick(.9), at(bar, b), 0);
             }
             if (bar % 4 == 3) {
-                mix.add("drums", s.synth.kick(.7), at(bar, 2.75), 0);
+                mix->add("drums", s.synth.kick(.7), at(bar, 2.75), 0);
             }
             for (const double b : {1.0, 3.0}) {
-                mix.add("snare", snare(s, .8), at(bar, b), 0);
+                mix->add("snare", snare(s, .8), at(bar, b), 0);
             }
             for (int i = 0; i < 8; ++i) {
-                mix.add("hats", s.synth.hat(i % 2 ? .5 : .3), at(bar, i * .5 + (i % 2 ? .04 : 0.0)), .3);
+                mix->add("hats", s.synth.hat(i % 2 ? .5 : .3), at(bar, i * .5 + (i % 2 ? .04 : 0.0)), .3);
             }
-            mix.add("hats", open_hat(s, .6), at(bar, 3.5), -.3);
+            mix->add("hats", open_hat(s, .6), at(bar, 3.5), -.3);
             for (const double b : {0.0, 2.0}) {
                 const long long start = at(bar, b);
                 for (std::size_t i = 0; i < duck.size(); ++i) {
@@ -386,22 +387,22 @@ Stereo music() {
                 }
             }
         } else if (bar >= 4) {
-            mix.add("drums", s.synth.kick(.6), at(bar, 0), 0);
+            mix->add("drums", s.synth.kick(.6), at(bar, 0), 0);
             for (int i = 0; i < 4; ++i) {
-                mix.add("hats", s.synth.hat(.25), at(bar, i + .5), .3);
+                mix->add("hats", s.synth.hat(.25), at(bar, i + .5), .3);
             }
         }
         if (bar % 8 == 0) {
-            mix.add("fx", sonar(88, .4), at(bar, 0), -.5);
+            mix->add("fx", sonar(88, .4), at(bar, 0), -.5);
         }
         if (bar % 8 == 4) {
-            mix.add("fx", sonar(83, .3), at(bar, 2), .5);
+            mix->add("fx", sonar(83, .3), at(bar, 2), .5);
         }
         if (bar % 8 == 7) {
-            mix.add("fx", swell(s, 2 * spb / sr, .6), at(bar, 2), 0);
+            mix->add("fx", swell(s, 2 * spb / sr, .6), at(bar, 2), 0);
         }
         for (const LeadNote& note : lead_bar(bar)) {
-            mix.add("lead", lead_syn(s, note.midi, note.beats * static_cast<double>(spb) / sr * .95, .7),
+            mix->add("lead", lead_syn(s, note.midi, note.beats * static_cast<double>(spb) / sr * .95, .7),
                     at(bar, note.beat), .05);
         }
     }
@@ -413,7 +414,7 @@ Stereo music() {
         {"snare", .6}, {"lead", .4}, {"pad", .3}, {"arp", .25}, {"fx", .5}};
     Stereo out{Signal(loop_length, 0.0), Signal(loop_length, 0.0)};
     Stereo send{Signal(loop_length, 0.0), Signal(loop_length, 0.0)};
-    for (const std::pair<std::string, Stereo>& bus : mix.buses()) {
+    for (const std::pair<std::string, Stereo>& bus : mix->buses()) {
         const std::string& name = bus.first;
         const std::map<std::string, double>::const_iterator level = levels.find(name);
         const double g = std::pow(10.0, ((level == levels.end() ? -20 : (*level).second) - rms_db(bus.second)) / 20);
@@ -434,8 +435,13 @@ Stereo music() {
         const std::map<std::string, double>::const_iterator amount = sends.find(name);
         accumulate(send, b, amount == sends.end() ? .08 : (*amount).second);
     }
-    const Stereo wet = voice::conv_reverb(send, voice::make_ir(2.8, 2.2, 1.8, .9), true);
-    accumulate(out, wet, .26);
+    mix.reset();  // the buses are folded in: free them before the reverb and the filter
+    Signal().swap(pump);
+    {
+        const Stereo wet = voice::conv_reverb(send, voice::make_ir(2.8, 2.2, 1.8, .9), true);
+        accumulate(out, wet, .26);
+    }
+    send = Stereo{};
     out.left = voice::fft_filter(out.left, 28, 0, 2, 4096, true);
     out.right = voice::fft_filter(out.right, 28, 0, 2, 4096, true);
     return finish(std::move(out));

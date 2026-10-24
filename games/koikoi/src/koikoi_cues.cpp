@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <optional>
 
 // Each cue follows audio_src/koikoi_audio.py line for line, in numpy's order of
 // operations. The states are what the script's generators held when it began each cue
@@ -340,7 +341,7 @@ Stereo music() {
     voice::Generator rng(music_rng_start);
     const double spb = 48000 * 60 / 66.0;
     const std::size_t length = static_cast<std::size_t>(voice::python_round(128 * spb));
-    voice::LoopMix mix(length, true);
+    std::optional<voice::LoopMix> mix(std::in_place, length, true);
     static constexpr int pattern[8] = {0, 2, 4, 5, 4, 2, 3, 1};
     static constexpr int shifts[8] = {0, 0, 1, 0, -1, 0, 2, 0};
     for (int bar = 0; bar < 32; ++bar) {
@@ -353,12 +354,12 @@ Stereo music() {
             const long long at = static_cast<long long>((bar * 4 + k * .5) * spb + jitter * voice::sample_rate);
             const int m = yo(pattern[k] + shift + 2, tonic - 12);
             const Signal note = koto(synth, m, 2.2, .55 + (k == 0 ? .15 : 0.0));
-            mix.add("koto", note, at, -.3 + .1 * k);
+            mix->add("koto", note, at, -.3 + .1 * k);
         }
         if (bar % 2 == 0) {
             for (const std::pair<int, double> drone : {std::pair<int, double>{38, -.2}, std::pair<int, double>{45, .2}}) {
                 const Signal note = koto(synth, drone.first, 6.0, .5, false);
-                mix.add("drone", note, static_cast<long long>(bar * 4 * spb), drone.second);
+                mix->add("drone", note, static_cast<long long>(bar * 4 * spb), drone.second);
             }
         }
     }
@@ -368,14 +369,14 @@ Stereo music() {
         for (const Phrase& p : phrases[k % 4]) {
             if (p.step >= 0) {
                 const Signal note = flute(synth, yo(p.step), p.seconds * 1.15, .5);
-                mix.add("flute", note, static_cast<long long>(t * voice::sample_rate), .15);
+                mix->add("flute", note, static_cast<long long>(t * voice::sample_rate), .15);
             }
             t += p.seconds;
         }
         t += rng.uniform(4, 7);
     }
     Stereo out{Signal(length, 0.0), Signal(length, 0.0)};
-    for (const std::pair<std::string, Stereo>& bus : mix.buses()) {
+    for (const std::pair<std::string, Stereo>& bus : mix->buses()) {
         const double level = bus.first == "koto" ? -19 : bus.first == "drone" ? -25 : -19;
         const double g = std::pow(10.0, (level - 20 * std::log10(std::max(bus_rms(bus.second), 1e-9))) / 20);
         for (std::size_t i = 0; i < length; ++i) {
@@ -383,6 +384,7 @@ Stereo music() {
             out.right[i] += bus.second.right[i] * g;
         }
     }
+    mix.reset();  // the buses are folded in: free them before the reverb and the filter
     {
         Stereo send{Signal(length), Signal(length)};
         for (std::size_t i = 0; i < length; ++i) {
