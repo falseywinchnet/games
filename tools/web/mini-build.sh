@@ -6,7 +6,7 @@ set -eu
 deps="$HOME/Developer/PlaysuiteDependencies"
 main="$deps/web/playsuite-games/.build/web"
 export GAMES_TOOLKIT_SOURCE_DIR="${GAMES_TOOLKIT_SOURCE_DIR:-$deps/web/gui_forms}"
-export GAMES_RUNTIME_ASSET_DIR="${GAMES_RUNTIME_ASSET_DIR:-$deps/runtime-modular}"
+export GAMES_RUNTIME_ASSET_DIR="${GAMES_RUNTIME_ASSET_DIR:-$deps/runtime-web}"
 shared=""
 if [ "${PLAYSUITE_WEB_NAME:-playsuite-games}" != playsuite-games ]; then
     shared="$shared -DFETCHCONTENT_SOURCE_DIR_QUICKJS=$main/_deps/quickjs-src"

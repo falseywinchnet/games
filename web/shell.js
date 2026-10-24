@@ -40,6 +40,8 @@
   }
   window.Module = {
     guiFormsCanvas: 'gui-forms-canvas',
+    // ?canvas2d presents with putImageData instead of WebGL2 (for comparison).
+    guiFormsCanvas2D: params.has('canvas2d'),
     noInitialRun: true,
     print: (text) => console.log(text),
     printErr: (text) => console.warn(text),

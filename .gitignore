@@ -9,4 +9,4 @@
 __pycache__/
 
 # Browser build copied back from the Mini
-/web-out/
+/web-out*/

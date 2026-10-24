@@ -23,7 +23,7 @@ ssh "$host" "mkdir -p $remote_base/gui_forms $remote_base/$name"
   "$toolkit/" "$host:$remote_base/gui_forms/"
 rsync -az --delete "${common[@]}" \
   --exclude=/incoming/ --exclude=/evidence/ --exclude=/review/ --exclude=/bee-candidates/ \
-  --exclude=/new-games/ --exclude=/assets/audio/ --exclude='/*.wav' --exclude='/*.png' \
+  --include=/new-games/ '--include=/new-games/kit/***' '--exclude=/new-games/*' --exclude=/assets/audio/ --exclude='/*.wav' --exclude='/*.png' \
   --exclude='/[0-9]*' --exclude=screens/ --exclude=audio_src/ --exclude=/web-out/ \
   "$games/" "$host:$remote_base/$name/"
 (( sync_only )) && { print "synced to $host:~/$remote_base"; exit 0; }

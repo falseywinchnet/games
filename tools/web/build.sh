@@ -8,7 +8,7 @@ set -eu
 : "${GAMES_TOOLKIT_SOURCE_DIR:?set GAMES_TOOLKIT_SOURCE_DIR}"
 : "${GAMES_RUNTIME_ASSET_DIR:?set GAMES_RUNTIME_ASSET_DIR}"
 build=${GAMES_WEB_BUILD_DIR:-.build/web}
-skia_out="$GAMES_TOOLKIT_SOURCE_DIR/third_party/skia/out/gui_forms-wasm-cpu"
+skia_out=${GAMES_WEB_SKIA_OUT:-"$GAMES_TOOLKIT_SOURCE_DIR/third_party/skia/out/gui_forms-wasm-cpu"}
 if [ ! -f "$skia_out/libskia.wasm.a" ]; then
     (cd "$GAMES_TOOLKIT_SOURCE_DIR/third_party" && sh build_skia_cpu_wasm.sh)
 fi
