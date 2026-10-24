@@ -78,6 +78,7 @@
   ],
   "engines": [
     "render",
-    "ambient"
+    "ambient",
+    "voice"
   ]
 }
