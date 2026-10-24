@@ -28,7 +28,8 @@
     "ambient",
     "coverage",
     "grass",
-    "render"
+    "render",
+    "voice"
   ],
   "help": "help.md",
   "module": "module.cpp",
@@ -69,7 +70,10 @@
     "src/model3d.cpp",
     "src/stones.cpp",
     "src/models_shed.cpp",
-    "src/yard.cpp"
+    "src/yard.cpp",
+    "src/mowing_cues.cpp",
+    "src/gnome_voice.cpp",
+    "src/gnome_math.cpp"
   ],
   "core_tests": [
     "tests/mowing_tests.cpp"

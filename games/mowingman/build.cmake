@@ -33,11 +33,15 @@ add_library(mm_core STATIC
   "${GAME_MODULE_DIR}/src/models_gnome.cpp"
   "${GAME_MODULE_DIR}/src/models_mower.cpp"
   "${GAME_MODULE_DIR}/src/models_common.cpp"
-  "${GAME_MODULE_DIR}/src/yard.cpp")
+  "${GAME_MODULE_DIR}/src/yard.cpp"
+  "${GAME_MODULE_DIR}/src/mowing_cues.cpp"
+  "${GAME_MODULE_DIR}/src/gnome_voice.cpp"
+  "${GAME_MODULE_DIR}/src/gnome_math.cpp")
 target_include_directories(mm_core PUBLIC "${GAME_MODULE_DIR}/src" "${GAME_MODULE_DIR}/../../shared/felt")
 target_link_libraries(mm_core PUBLIC render_core)  # the 2D canvas (shared/render)
 find_package(Threads REQUIRED)
 target_link_libraries(mm_core PUBLIC coverage_core grass_core ${MM_FELT} Threads::Threads)
+target_link_libraries(mm_core PUBLIC voice_core)  # the one-shots and the gnome, rendered live (shared/voice)
 target_compile_definitions(mm_core PRIVATE _USE_MATH_DEFINES)
 if(MSVC)
   target_compile_options(mm_core PRIVATE /utf-8 /W4 /fp:precise)
@@ -63,6 +67,12 @@ add_executable(mowingman_voice_tests "${GAME_MODULE_DIR}/tests/mower_voice_tests
 target_link_libraries(mowingman_voice_tests PRIVATE mm_core)
 add_test(NAME mowingman_voice COMMAND mowingman_voice_tests)
 set_tests_properties(mowingman_voice PROPERTIES TIMEOUT 120)
+# The one-shots and the gnome's voice, rendered live, and (with --reference) their
+# equality to the masters make_audio.py and gnome_voice.mjs wrote.
+add_executable(mowingman_cues_tests "${GAME_MODULE_DIR}/tests/mowing_cues_tests.cpp")
+target_link_libraries(mowingman_cues_tests PRIVATE mm_core)
+add_test(NAME mowingman_cues COMMAND mowingman_cues_tests)
+set_tests_properties(mowingman_cues PROPERTIES TIMEOUT 120)
 # The music: the banjo band improvising live, and its renderer (any style, one part alone).
 add_executable(mowingman_banjo_tests "${GAME_MODULE_DIR}/tests/banjo_voice_tests.cpp")
 target_link_libraries(mowingman_banjo_tests PRIVATE mm_core)
