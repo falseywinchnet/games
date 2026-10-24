@@ -57,6 +57,13 @@ foreach(test_target IN LISTS games_web_targets)
     endif()
 endforeach()
 
+set(GAMES_WEB_SHARED_ASSETS "" CACHE PATH "Directory of an already packed assets.data + assets.js to link to instead")
+if(GAMES_WEB_SHARED_ASSETS)
+    file(MAKE_DIRECTORY "${GAMES_WEB_OUTPUT_DIR}")
+    foreach(pack assets.data assets.js)
+        file(CREATE_LINK "${GAMES_WEB_SHARED_ASSETS}/${pack}" "${GAMES_WEB_OUTPUT_DIR}/${pack}" SYMBOLIC)
+    endforeach()
+else()
 add_custom_command(
     OUTPUT "${GAMES_WEB_OUTPUT_DIR}/assets.data" "${GAMES_WEB_OUTPUT_DIR}/assets.js"
     COMMAND "${EMSCRIPTEN_ROOT_PATH}/tools/file_packager" assets.data
@@ -67,3 +74,4 @@ add_custom_command(
     VERBATIM)
 add_custom_target(games_web_assets ALL DEPENDS "${GAMES_WEB_OUTPUT_DIR}/assets.data")
 add_dependencies(games games_web_assets)
+endif()

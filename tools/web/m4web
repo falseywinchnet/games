@@ -3,6 +3,8 @@
 # (source only: no audio masters, screens, incoming packages or build folders)
 # and runs a command in the PlaySuite mirror with emsdk on PATH.
 #   tools/web/m4web [--sync-only] [--] <command...>
+# PLAYSUITE_WEB_NAME names this checkout's mirror (default playsuite-games);
+# M4WEB_TOOLKIT=0 leaves the shared GUI.Forms mirror as it is.
 set -euo pipefail
 here=${0:A:h}
 games=${here:h:h}
@@ -13,8 +15,9 @@ sync_only=0
 [[ "${1:-}" == --sync-only ]] && { sync_only=1; shift; }
 [[ "${1:-}" == -- ]] && shift
 common=(--exclude=.git/ --exclude=.claude/ --exclude=.build/ --exclude=/build/ --exclude=node_modules/)
-ssh "$host" "mkdir -p $remote_base/gui_forms $remote_base/playsuite-games"
-rsync -az --delete "${common[@]}" \
+name=${PLAYSUITE_WEB_NAME:-playsuite-games}
+ssh "$host" "mkdir -p $remote_base/gui_forms $remote_base/$name"
+[[ "${M4WEB_TOOLKIT:-1}" == 1 ]] && rsync -az --delete "${common[@]}" \
   --exclude=/third_party/skia/ --exclude=/third_party/harfbuzz/ --exclude=/third_party/freetype/ \
   --exclude=/third_party/libunibreak/ --exclude=/out/ \
   "$toolkit/" "$host:$remote_base/gui_forms/"
@@ -22,8 +25,8 @@ rsync -az --delete "${common[@]}" \
   --exclude=/incoming/ --exclude=/evidence/ --exclude=/review/ --exclude=/bee-candidates/ \
   --exclude=/new-games/ --exclude=/assets/audio/ --exclude='/*.wav' --exclude='/*.png' \
   --exclude='/[0-9]*' --exclude=screens/ --exclude=audio_src/ --exclude=/web-out/ \
-  "$games/" "$host:$remote_base/playsuite-games/"
+  "$games/" "$host:$remote_base/$name/"
 (( sync_only )) && { print "synced to $host:~/$remote_base"; exit 0; }
 cmd=""
 for a in "$@"; do printf -v q '%q' "$a"; cmd+="${cmd:+ }$q"; done
-ssh "$host" "export PATH=/opt/homebrew/bin:\$PATH EMSDK_QUIET=1; source ~/Developer/PlaysuiteDependencies/emsdk/emsdk_env.sh >/dev/null; cd ~/$remote_base/playsuite-games && $cmd"
+ssh "$host" "export PATH=/opt/homebrew/bin:\$PATH EMSDK_QUIET=1; source ~/Developer/PlaysuiteDependencies/emsdk/emsdk_env.sh >/dev/null; export PLAYSUITE_WEB_NAME=$name; cd ~/$remote_base/$name && $cmd"
