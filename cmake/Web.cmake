@@ -93,3 +93,13 @@ add_custom_command(
 add_custom_target(games_web_assets ALL DEPENDS "${GAMES_WEB_OUTPUT_DIR}/assets.data")
 add_dependencies(games games_web_assets)
 endif()
+
+# One pack per browser exhibit (tools/web/exhibits.json): packs/base plus
+# packs/<game>, loaded by the page for ?game=<id>&standalone.
+add_custom_target(games_web_packs
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/web/pack_exhibits.py"
+        --runtime "${GAMES_RUNTIME_ASSET_DIR}" --output "${GAMES_WEB_OUTPUT_DIR}/packs"
+        --packager "${EMSCRIPTEN_ROOT_PATH}/tools/file_packager"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tools/web/exhibits.json" "${CMAKE_CURRENT_SOURCE_DIR}/tools/web/pack_exhibits.py"
+    COMMENT "Packing each exhibit's runtime files"
+    VERBATIM)

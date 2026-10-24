@@ -1,0 +1,28 @@
+{
+  "comment": "Runtime files each browser exhibit loads, as globs under the prepared runtime (audio never ships). base is shared by every game and cached across exhibits; derived from ?trace-files sweeps and each game's code.",
+  "base": ["fonts/*", "back_*.png", "ARTWORK.md"],
+  "games": {
+    "solitaire": ["classic_*.png", "card_shadow.png"],
+    "spider": ["classic_*.png", "card_shadow.png"],
+    "freecell": ["classic_*.png", "card_shadow.png"],
+    "hearts": ["classic_*.png", "card_shadow.png"],
+    "sudoku": ["sudoku/*"],
+    "gems": [],
+    "cube": ["nature-lake.gpix"],
+    "untangle": [],
+    "atomprobe": [],
+    "fourpegs": [],
+    "switchbox": ["lines/switchbox/*"],
+    "solve": [],
+    "eggy": ["lines/*.txt"],
+    "koikoi": ["cards/*"],
+    "parrots": [],
+    "liarsdice": [],
+    "penthesheep": [],
+    "zenconstruction": [],
+    "catchingthieves": ["catchingthieves/levels/*", "catchingthieves/audio/*.json"],
+    "maze": ["maze/posters/*", "maze/residents/*"],
+    "stillwater": ["stillwater/scene/*", "stillwater/licenses/*"],
+    "mowingman": []
+  }
+}

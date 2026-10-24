@@ -43,6 +43,9 @@
     // ?canvas2d presents with putImageData instead of WebGL2 (for comparison).
     guiFormsCanvas2D: params.has('canvas2d'),
     noInitialRun: true,
+    // Exhibit packs keep their data beside their scripts in packs/.
+    locateFile: (path, prefix) =>
+      path.endsWith('.data') && path !== 'games.data' && path !== 'assets.data' ? 'packs/' + path : prefix + path,
     print: (text) => console.log(text),
     printErr: (text) => console.warn(text),
     setStatus: (text) => {
@@ -90,5 +93,10 @@
     script.onerror = () => fail('PlaySuite could not be loaded.');
     document.body.appendChild(script);
   }
-  load('assets.js', () => load('games.js'));
+  // An exhibit (?game=<id>) loads the shared base pack and that game's pack;
+  // the whole collection loads every runtime file.
+  const game = params.get('game');
+  if (game && /^[a-z]+$/.test(game) && params.has('standalone'))
+    load('packs/base.js', () => load(`packs/${game}.js`, () => load('games.js')));
+  else load('assets.js', () => load('games.js'));
 })();
