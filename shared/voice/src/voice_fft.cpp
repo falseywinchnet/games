@@ -2,12 +2,16 @@
 
 #include <cmath>
 #include <cstdint>
+#include <list>
+#include <memory>
+#include <mutex>
+#include <utility>
 
 namespace voice {
 namespace {
 
 constexpr double pi = 3.141592653589793238462643383279502884;
-// Above this prime factor a length goes through Bluestein's algorithm.
+// Above this prime factor a radix goes through Bluestein's algorithm.
 constexpr std::size_t largest_direct_prime = 61;
 
 Complex multiply(const Complex& a, const Complex& b) {
@@ -76,31 +80,111 @@ std::vector<std::size_t> factorize(std::size_t n) {
     return factors;
 }
 
+using Table = std::vector<Complex>;
+
 // The table w[j] = exp(-2 pi i j / n) for the whole transform.
-std::vector<Complex> twiddle_table(std::size_t n) {
-    std::vector<Complex> table(n);
+std::shared_ptr<const Table> twiddle_table(std::size_t n) {
+    std::shared_ptr<Table> table = std::make_shared<Table>(n);
     for (std::size_t j = 0; j < n; ++j) {
-        table[j] = twiddle(j, n);
+        (*table)[j] = twiddle(j, n);
     }
     return table;
 }
 
+// Tables and Bluestein kernels are the same every time for a length, so the recent
+// ones are kept (up to `cache_bytes` in all, none larger than `largest_cached`
+// entries): a cue's notes reuse a handful of lengths many times. Larger transforms
+// (a whole loop) build theirs once per call.
+constexpr std::size_t largest_cached = std::size_t{1} << 20;
+constexpr std::size_t cache_bytes = std::size_t{48} << 20;
+
+struct Cached {
+    std::size_t key{};  // a length, or (with the top bit) a Bluestein kernel's length and direction
+    std::shared_ptr<const Table> values{};
+};
+
+class Cache final {
+  public:
+    template <class Make>
+    std::shared_ptr<const Table> get(std::size_t key, std::size_t entries, Make make) {
+        if (entries > largest_cached) {
+            return make();
+        }
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            for (std::list<Cached>::iterator it = entries_.begin(); it != entries_.end(); ++it) {
+                if ((*it).key == key) {
+                    entries_.splice(entries_.begin(), entries_, it);
+                    return entries_.front().values;
+                }
+            }
+        }
+        std::shared_ptr<const Table> made = make();
+        std::lock_guard<std::mutex> lock(mutex_);
+        entries_.push_front({key, made});
+        bytes_ += (*made).size() * sizeof(Complex);
+        while (bytes_ > cache_bytes && entries_.size() > 1) {
+            bytes_ -= (*entries_.back().values).size() * sizeof(Complex);
+            entries_.pop_back();
+        }
+        return made;
+    }
+
+  private:
+    std::mutex mutex_{};
+    std::list<Cached> entries_{};
+    std::size_t bytes_{};
+};
+
+Cache& cache() {
+    static Cache shared{};
+    return shared;
+}
+
+std::shared_ptr<const Table> table_for(std::size_t n) {
+    return cache().get(n, n, [n] { return twiddle_table(n); });
+}
+
+// A radix too large to sum directly is transformed by Bluestein's algorithm through a
+// power-of-two transform of `size`: the chirp, the kernel's spectrum and that transform's
+// own table, as chirp_plan below builds them.
+struct Chirp {
+    std::size_t size{};
+    std::shared_ptr<const Table> chirp{};
+    std::shared_ptr<const Table> kernel{};
+    std::shared_ptr<const Table> table{};
+};
+
 struct Plan {
     std::size_t length{};
     std::vector<std::size_t> factors{};
-    std::vector<Complex> table{};
+    const Table* table{};
     bool inverse{};
+    std::vector<Chirp> chirps{};  // per level, for a radix above largest_direct_prime
 };
 
+// Per level of a transform: the twiddled inputs of one butterfly, the radix's roots, and
+// a large radix's transform buffers.
+struct Scratch {
+    std::vector<Complex> t{};
+    std::vector<Complex> roots{};
+    std::vector<Complex> work{};
+    std::vector<Complex> bins{};
+};
+
+Chirp chirp_plan(std::size_t n, bool inverse);
+void chirp_transform(const Chirp& c, const Complex* in, Complex* out, std::size_t n, std::vector<Complex>& work);
+
+// Every index a pass asks for is below the length.
 Complex root(const Plan& plan, std::size_t index) {
-    const Complex w = plan.table[index % plan.length];
+    const Complex w = (*plan.table)[index];
     const Complex result = plan.inverse ? std::conj(w) : w;
     return result;
 }
 
 // Decimation in time: `in` holds n values `stride` apart, `out` receives n contiguous bins.
 void pass(const Plan& plan, const Complex* in, std::size_t stride, Complex* out, std::size_t n,
-          std::size_t level, std::vector<Complex>& scratch) {
+          std::size_t level, std::vector<Scratch>& scratch) {
     if (n == 1) {
         out[0] = in[0];
         return;
@@ -111,7 +195,15 @@ void pass(const Plan& plan, const Complex* in, std::size_t stride, Complex* out,
         pass(plan, in + q * stride, stride * p, out + q * m, m, level + 1, scratch);
     }
     const std::size_t step = plan.length / n;  // W_n^j = table[j * step]
-    Complex* t = scratch.data() + level * largest_direct_prime;
+    Scratch& own = scratch[level];
+    Complex* t = own.t.data();
+    Complex* roots = own.roots.data();  // W_p^j, for a radix without its own butterfly
+    if (p != 2 && p != 4 && p <= largest_direct_prime) {
+        const std::size_t root_step = plan.length / p;
+        for (std::size_t j = 0; j < p; ++j) {
+            roots[j] = root(plan, j * root_step);
+        }
+    }
     for (std::size_t k = 0; k < m; ++k) {
         t[0] = out[k];
         for (std::size_t q = 1; q < p; ++q) {
@@ -131,12 +223,21 @@ void pass(const Plan& plan, const Complex* in, std::size_t stride, Complex* out,
             out[m + k] = b + rotated;
             out[2 * m + k] = a - c;
             out[3 * m + k] = b - rotated;
+        } else if (p > largest_direct_prime) {
+            chirp_transform(plan.chirps[level], t, own.bins.data(), p, own.work);
+            for (std::size_t s = 0; s < p; ++s) {
+                out[s * m + k] = own.bins[s];
+            }
         } else {
-            const std::size_t root_step = plan.length / p;
             for (std::size_t s = 0; s < p; ++s) {
                 Complex sum = t[0];
+                std::size_t index = 0;  // (q * s) % p
                 for (std::size_t q = 1; q < p; ++q) {
-                    sum += multiply(t[q], root(plan, ((q * s) % p) * root_step));
+                    index += s;
+                    if (index >= p) {
+                        index -= p;
+                    }
+                    sum += multiply(t[q], roots[index]);
                 }
                 out[s * m + k] = sum;
             }
@@ -144,50 +245,90 @@ void pass(const Plan& plan, const Complex* in, std::size_t stride, Complex* out,
     }
 }
 
-void mixed_radix(std::vector<Complex>& data, const std::vector<std::size_t>& factors, bool inverse) {
+void mixed_radix(std::vector<Complex>& data, const std::vector<std::size_t>& factors, bool inverse,
+                 const Table& table) {
     Plan plan{};
     plan.length = data.size();
     plan.factors = factors;
-    plan.table = twiddle_table(data.size());
+    plan.table = &table;
     plan.inverse = inverse;
+    std::vector<Scratch> scratch(factors.size());
+    plan.chirps.resize(factors.size());
+    for (std::size_t level = 0; level < factors.size(); ++level) {
+        const std::size_t p = factors[level];
+        scratch[level].t.resize(p);
+        if (p > largest_direct_prime) {
+            plan.chirps[level] = chirp_plan(p, inverse);
+            scratch[level].bins.resize(p);
+        } else if (p != 2 && p != 4) {
+            scratch[level].roots.resize(p);
+        }
+    }
     const std::vector<Complex> input = data;
-    std::vector<Complex> scratch(largest_direct_prime * (factors.size() + 1));
     pass(plan, input.data(), 1, data.data(), data.size(), 0, scratch);
 }
 
-void bluestein(std::vector<Complex>& data, bool inverse) {
-    const std::size_t n = data.size();
+std::size_t bluestein_size(std::size_t n) {
     std::size_t size = 1;
     while (size < 2 * n - 1) {
         size *= 2;
     }
-    // chirp[k] = exp(-pi i k^2 / n) = exp(-2 pi i (k^2 mod 2n) / 2n)
-    std::vector<Complex> chirp(n);
+    return size;
+}
+
+// chirp[k] = exp(-pi i k^2 / n) = exp(-2 pi i (k^2 mod 2n) / 2n), conjugated for an inverse
+std::shared_ptr<const Table> chirp_for(std::size_t n, bool inverse) {
+    std::shared_ptr<Table> chirp = std::make_shared<Table>(n);
     for (std::size_t k = 0; k < n; ++k) {
         const std::uint64_t square = (static_cast<std::uint64_t>(k) * k) % (2 * static_cast<std::uint64_t>(n));
         const Complex w = twiddle(square, 2 * static_cast<std::uint64_t>(n));
-        chirp[k] = inverse ? std::conj(w) : w;
+        (*chirp)[k] = inverse ? std::conj(w) : w;
     }
-    std::vector<Complex> a(size, Complex(0, 0));
-    std::vector<Complex> b(size, Complex(0, 0));
-    for (std::size_t k = 0; k < n; ++k) {
-        a[k] = multiply(data[k], chirp[k]);
-    }
-    b[0] = std::conj(chirp[0]);
+    return chirp;
+}
+
+// The forward transform of the conjugate chirp, wrapped round `size`.
+std::shared_ptr<const Table> kernel_for(const Table& chirp, std::size_t size, const Table& table) {
+    const std::size_t n = chirp.size();
+    std::shared_ptr<Table> b = std::make_shared<Table>(size, Complex(0, 0));
+    (*b)[0] = std::conj(chirp[0]);
     for (std::size_t k = 1; k < n; ++k) {
-        b[k] = std::conj(chirp[k]);
-        b[size - k] = std::conj(chirp[k]);
+        (*b)[k] = std::conj(chirp[k]);
+        (*b)[size - k] = std::conj(chirp[k]);
     }
-    const std::vector<std::size_t> factors = factorize(size);
-    mixed_radix(a, factors, false);
-    mixed_radix(b, factors, false);
-    for (std::size_t k = 0; k < size; ++k) {
-        a[k] = multiply(a[k], b[k]);
-    }
-    mixed_radix(a, factors, true);
-    const double scale = 1.0 / static_cast<double>(size);
+    mixed_radix(*b, factorize(size), false, table);
+    return b;
+}
+
+Chirp chirp_plan(std::size_t n, bool inverse) {
+    Chirp c{};
+    c.size = bluestein_size(n);
+    constexpr std::size_t top = std::size_t{1} << (sizeof(std::size_t) * 8 - 1);
+    const std::size_t chirp_key = top | (n << 2) | (inverse ? 1u : 0u);
+    const std::size_t kernel_key = top | (n << 2) | 2u | (inverse ? 1u : 0u);
+    c.table = table_for(c.size);
+    c.chirp = cache().get(chirp_key, c.size, [&] { return chirp_for(n, inverse); });
+    c.kernel = cache().get(kernel_key, c.size, [&] { return kernel_for(*c.chirp, c.size, *c.table); });
+    return c;
+}
+
+// The n-point transform of `in` into `out` by Bluestein's algorithm.
+void chirp_transform(const Chirp& c, const Complex* in, Complex* out, std::size_t n, std::vector<Complex>& work) {
+    const Table& chirp = *c.chirp;
+    const Table& kernel = *c.kernel;
+    work.assign(c.size, Complex(0, 0));
     for (std::size_t k = 0; k < n; ++k) {
-        data[k] = multiply(a[k] * scale, chirp[k]);
+        work[k] = multiply(in[k], chirp[k]);
+    }
+    const std::vector<std::size_t> factors = factorize(c.size);
+    mixed_radix(work, factors, false, *c.table);
+    for (std::size_t k = 0; k < c.size; ++k) {
+        work[k] = multiply(work[k], kernel[k]);
+    }
+    mixed_radix(work, factors, true, *c.table);
+    const double scale = 1.0 / static_cast<double>(c.size);
+    for (std::size_t k = 0; k < n; ++k) {
+        out[k] = multiply(work[k] * scale, chirp[k]);
     }
 }
 
@@ -197,12 +338,9 @@ void fft(std::vector<Complex>& data, bool inverse) {
     if (data.size() <= 1) {
         return;
     }
-    const std::vector<std::size_t> factors = factorize(data.size());
-    if (factors.back() > largest_direct_prime && factors.back() > 4) {
-        bluestein(data, inverse);
-        return;
-    }
-    mixed_radix(data, factors, inverse);
+    // A prime factor above largest_direct_prime is transformed inside the passes by
+    // Bluestein's algorithm at that factor's size, never the whole length's.
+    mixed_radix(data, factorize(data.size()), inverse, *table_for(data.size()));
 }
 
 void rfft(std::span<const double> x, std::size_t n, std::vector<Complex>& out) {

@@ -2,12 +2,14 @@
 // Discrete Fourier transforms of any length, with NumPy's rfft/irfft conventions:
 // rfft(x, n) zero-pads or truncates x to n samples and returns n / 2 + 1 bins;
 // irfft(X, n) reads bins 0..n / 2 (ignoring the imaginary parts of the bins that must
-// be real) and divides by n. Lengths with only small prime factors use a mixed-radix
-// transform; a length with a large prime factor goes through Bluestein's chirp. The
-// results agree with NumPy's pocketfft to rounding (about 1e-15 of the signal's size),
-// not bit for bit.
+// be real) and divides by n. Every length uses a mixed-radix transform; a prime factor
+// above 61 is transformed inside it by Bluestein's chirp at that factor's size, so an
+// awkward length never needs a power-of-two transform twice its own size. The results
+// agree with NumPy's pocketfft to rounding (about 1e-15 of the signal's size), not bit
+// for bit.
 //
-// Standard library only; no state is shared between calls, so any thread may call.
+// Standard library only. Twiddle tables and Bluestein kernels of up to 2^20 points are
+// kept in a small cache behind a mutex (48 MB at most), so any thread may call.
 #include <complex>
 #include <cstddef>
 #include <span>

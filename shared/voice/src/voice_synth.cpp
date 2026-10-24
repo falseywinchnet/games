@@ -418,10 +418,61 @@ Stereo make_ir(double length, double rt_low, double rt_mid, double rt_high, doub
     return ir;
 }
 
+namespace {
+
+// The convolution of `source` with a much shorter `response`, by overlap-add of blocks
+// through transforms of `size` (a power of two at least twice the response): circular
+// over the source's length, or zero-padded to `out_length`. The same sums as one
+// transform of the whole length, which for a long loop of awkward length means a large
+// Bluestein transform (several hundred megabytes); these blocks need a few.
+Signal block_convolve(std::span<const double> source, std::span<const double> response, std::size_t out_length,
+                      bool circular, std::size_t size) {
+    const std::size_t r = response.size();
+    const std::size_t block = size - r + 1;
+    std::vector<Complex> kernel{};
+    rfft(response, size, kernel);
+    Signal out(out_length, 0.0);
+    std::vector<Complex> spectrum{};
+    Signal piece{};
+    for (std::size_t start = 0; start < source.size(); start += block) {
+        const std::size_t count = std::min(block, source.size() - start);
+        rfft(source.subspan(start, count), size, spectrum);
+        for (std::size_t k = 0; k < spectrum.size(); ++k) {
+            const Complex a = spectrum[k];
+            const Complex b = kernel[k];
+            spectrum[k] = Complex(a.real() * b.real() - a.imag() * b.imag(),
+                                  a.real() * b.imag() + a.imag() * b.real());
+        }
+        irfft(spectrum, size, piece);
+        const std::size_t produced = count + r - 1;
+        for (std::size_t i = 0; i < produced; ++i) {
+            std::size_t index = start + i;
+            if (circular) {
+                index %= out_length;
+            } else if (index >= out_length) {
+                break;
+            }
+            out[index] += piece[i];
+        }
+    }
+    return out;
+}
+
+}  // namespace
+
 Stereo conv_reverb(const Stereo& x, const Stereo& ir, bool circular) {
     const std::size_t length = x.left.size();
     const std::size_t n = circular ? length : length + ir.left.size();
     Stereo out{};
+    std::size_t block_size = 1;
+    while (block_size < 2 * ir.left.size()) {
+        block_size *= 2;
+    }
+    if (!ir.left.empty() && ir.left.size() == ir.right.size() && length >= 4 * block_size) {
+        out.left = block_convolve(x.left, ir.left, n, circular, block_size);
+        out.right = block_convolve(x.right, ir.right, n, circular, block_size);
+        return out;
+    }
     for (int ch = 0; ch < 2; ++ch) {
         const Signal& source = ch == 0 ? x.left : x.right;
         const Signal& response = ch == 0 ? ir.left : ir.right;

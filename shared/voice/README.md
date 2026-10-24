@@ -15,11 +15,12 @@ time it is played and keeps it in memory. Standard library only; no GUI.Forms in
 |---|---|
 | `voice_random.hpp` | `Generator`: `np.random.default_rng(seed)` exactly (SeedSequence, PCG64, NumPy 1.26's ziggurat normal and exponential, 53-bit doubles, Lemire integers with the 32-bit half buffer, Poisson, choice). `GeneratorState` is `bit_generator.state`; `advance(n)` skips draws. |
 | `voice_random_tables.hpp` | NumPy's 256-entry ziggurat tables, copied exactly from the compiled module. |
-| `voice_fft.hpp` | `fft`, `rfft`, `irfft` of any length with NumPy's conventions (mixed radix; Bluestein for a prime factor above 61). |
+| `voice_fft.hpp` | `fft`, `rfft`, `irfft` of any length with NumPy's conventions (mixed radix; Bluestein inside it for a prime factor above 61; recent tables and kernels cached). |
 | `voice_synth.hpp` | synth.py: `mtof`, `tarr`, `gate`, `fft_filter`, `partials`, `wavetable`, `pan_gains`, `LoopMix`, `make_ir`, `conv_reverb`, `pingpong`, `autopan`, and `Synth`, one imported module: its `_rng`, every INSTR instrument and DRUMS drum (batch 2 included), `wt`, `noise`, `render_note` / `render_drum` with synth.py's quantised caches. Also the numpy semantics the ports need (`linspace`, `remainder`, pairwise `sum`, `standard_deviation`, `interpolate`, `cumulative_sum`, `python_round`, `samples` = `int(x * SR)`) and the cue-script helpers every `make_sfx.py` repeats: `master` (its `write()` before quantisation), `resonator`, `pcm16`. |
 | `voice_bank.hpp` | `Cue` (a name and a renderer of its master in doubles, mono or stereo), `Bank::shared()`, `render(cue)` to interleaved floats. |
 | `voice_reference.hpp` | Reading NumPy reference renders and measuring a render against one (tests only). |
 | `tools/numpy_reference.py` | Renders the references with NumPy (`engine` and `cues` modes). |
+| `tools/score_reference.py` | References for a whole sound script whose `write()` takes a path (music loops, stingers, Koi-Koi's effects): every float master it writes, mono or stereo, the generator states at each, and the `render_note` cache entries a later cue reuses (for `Synth::prime_note`). |
 | `tests/voice_tests.cpp` | CTest `voice_engine`; `--reference DIR` compares everything. |
 
 ## How a sound reaches the speaker
