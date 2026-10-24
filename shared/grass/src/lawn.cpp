@@ -925,7 +925,14 @@ void in_parallel(void (*work)(void*, int), void* data, int count, int threads) {
         thread.join();
 }
 int lawn_threads() {
-    return std::max(1, static_cast<int>(std::thread::hardware_concurrency()));
+    const int cores = std::max(1, static_cast<int>(std::thread::hardware_concurrency()));
+#ifdef __EMSCRIPTEN__
+    // A page starts a fixed pool of 16 workers that the whole collection shares; a
+    // larger crew would have to wait for new workers to load. The picture is the same.
+    return std::min(cores, 8);
+#else
+    return cores;
+#endif
 }
 
 struct BakeAll {
