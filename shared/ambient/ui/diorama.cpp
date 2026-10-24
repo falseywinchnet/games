@@ -34,7 +34,9 @@ template <typename Result> bool finished(const std::future<Result>& future) {
 }
 
 // The processor time this thread has used, in seconds: what the work costs whatever
-// core it lands on, which is what the governor budgets.
+// core it lands on, which is what the governor budgets. In a browser (Emscripten) the
+// thread clock is the page's wall clock, so a worker the system preempts is charged
+// for the wait too: the budget errs toward fewer pictures, never more.
 double thread_seconds() {
 #ifdef _WIN32
     FILETIME creation{};
@@ -57,7 +59,7 @@ double thread_seconds() {
 
 // A worker building the picture the player is looking at: on Apple silicon, asked for
 // the performance cores, or the system parks it on an efficiency core where the same
-// work takes three times the processor seconds.
+// work takes three times the processor seconds. A browser worker cannot ask.
 void prefer_performance_core() {
 #ifdef __APPLE__
     pthread_set_qos_class_self_np(QOS_CLASS_USER_INITIATED, 0);
