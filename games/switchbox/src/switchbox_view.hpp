@@ -121,6 +121,13 @@ private:
     int result_hits_ = 0;
     bool cursor_hidden_ = false;
     gf::CursorHiddenLease cursor_lease_{};
+    // Where the host cannot move the real cursor (a web page), the pointer she drops
+    // stays drawn where she left it, offset from the hidden real one; moving melts
+    // the offset away and the real cursor returns where the two meet.
+    bool ghost_ = false;
+    double ghost_dx_ = 0, ghost_dy_ = 0;  // drawn pointer minus real pointer, game pixels
+    double raw_x_ = 0, raw_y_ = 0;        // the real pointer, game pixels
+    V3 ghost_at_{};
     bool cab_front_ = true, cab_music_ = true, cab_sound_ = true;
     bool cab_reduced_ = false;
     std::vector<std::pair<double, int>> script_;  // dev: SBX_SCRIPT="t:switch,..." flips (-1 head, 7 next correct, 8 whack, 9 a wrong one, 10 the stolen hole)
@@ -134,6 +141,7 @@ private:
     void cursor_capture_changed(const gf::PointerCaptureChange& change);
     void cancel_cursor_interaction();
     void cursor_refused(gf::CursorStatus status);
+    void end_ghost();
     void tick();
     void publish();
     void flip(int sw);

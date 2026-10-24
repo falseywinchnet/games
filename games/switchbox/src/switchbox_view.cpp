@@ -112,6 +112,7 @@ void SwitchboxView::cancel_cursor_interaction() {
     mouse_down_ = false;
     st_.cursor = false;
     cursor_hidden_ = false;
+    end_ghost();
     actor_.cancel_pointer_interaction();
     const gf::CursorStatus released = cursor_lease_.release();
     if (!released.accepted() && released.error == gf::CursorError::native_failure) {
@@ -130,7 +131,36 @@ void SwitchboxView::cursor_active_changed(bool active) {
 
 void SwitchboxView::cursor_capture_changed(const gf::PointerCaptureChange& change) {
     const bool owns_capture = change.captured && change.control_id == runtime_id();
-    if (!owns_capture && (mouse_down_ || cursor_hidden_)) { cancel_cursor_interaction(); }
+    if (!owns_capture && (mouse_down_ || cursor_hidden_)) {
+        if (ghost_) {
+            // Letting go of the button ends the hold; the dropped pointer stays where she
+            // left it. Releasing capture revoked the hidden cursor, so it is hidden again
+            // in the same turn, before the page can show it.
+            hold_sw_ = -1;
+            hold_blocked_ = true;
+            mouse_down_ = false;
+            cursor_hidden_ = false;
+            if (gf::Window* window = attached_window()) {
+                gf::CursorLeaseResult hidden = (*window).begin_cursor_hidden();
+                if (hidden.status.accepted()) {
+                    cursor_lease_ = std::move(hidden.lease);
+                    cursor_hidden_ = true;
+                }
+            }
+            if (!cursor_hidden_) { cancel_cursor_interaction(); }
+            return;
+        }
+        cancel_cursor_interaction();
+    }
+}
+
+void SwitchboxView::end_ghost() {
+    if (ghost_) {
+        mouse_x_ = raw_x_;
+        mouse_y_ = raw_y_;
+    }
+    ghost_ = false;
+    ghost_dx_ = ghost_dy_ = 0;
 }
 
 void SwitchboxView::cursor_refused(gf::CursorStatus status) {
@@ -391,7 +421,13 @@ void SwitchboxView::mischief(double) {
         const gf::Rect bounds = absolute_bounds();
         const gf::CursorStatus placed = (*window).warp_cursor(
             metrics, {bounds.x + sx * pixel_, bounds.y + sy * pixel_});
-        if (!placed.accepted()) { cursor_refused(placed); return; }
+        if (placed.error == gf::CursorError::unsupported && cursor_hidden_) {
+            // The real cursor stays hidden where it is; the pointer is drawn at the drop.
+            ghost_ = true;
+            ghost_dx_ = sx - raw_x_;
+            ghost_dy_ = sy - raw_y_;
+            ghost_at_ = drop;
+        } else if (!placed.accepted()) { cursor_refused(placed); return; }
         mouse_x_ = sx;
         mouse_y_ = sy;
         hold_blocked_ = true;
@@ -403,6 +439,9 @@ void SwitchboxView::mischief(double) {
     } else if (hold_sw_ >= 0 && !hold_blocked_ && actor_.resting_on_hold()) {
         st_.cursor = true;
         st_.cursor_at = Stage::knob(hold_sw_, st_.sw[static_cast<size_t>(hold_sw_)].on) + V3{0, -.06, .09};
+    } else if (ghost_) {
+        st_.cursor = true;
+        st_.cursor_at = ghost_at_;
     }
     if (st_.cursor && !cursor_hidden_) {
         gf::CursorLeaseResult hidden = (*window).begin_cursor_hidden();
@@ -465,8 +504,30 @@ void SwitchboxView::mole_tick(double dt) {
 // ------------------------------------------------------------------ input
 void SwitchboxView::on_pointer(gf::PointerEvent& e) {
     const gf::Point local = point_from_window(e.position);
-    mouse_x_ = local.x / pixel_;
-    mouse_y_ = local.y / pixel_;
+    const double raw_x = local.x / pixel_, raw_y = local.y / pixel_;
+    if (ghost_ && e.action == gf::PointerAction::leave) {
+        end_ghost();
+    } else if (ghost_) {
+        // Each step of real motion takes half its length off the offset.
+        const double moved = std::hypot(raw_x - raw_x_, raw_y - raw_y_);
+        const double left = std::hypot(ghost_dx_, ghost_dy_);
+        const double keep = left > moved * .5 ? (left - moved * .5) / left : 0;
+        ghost_dx_ *= keep;
+        ghost_dy_ *= keep;
+        if (left * keep < .5) {
+            ghost_ = false;
+            ghost_dx_ = ghost_dy_ = 0;
+        }
+    }
+    raw_x_ = raw_x;
+    raw_y_ = raw_y;
+    mouse_x_ = raw_x + ghost_dx_;
+    mouse_y_ = raw_y + ghost_dy_;
+    if (ghost_) {
+        double wx = 0, wy = 0;
+        // It moves at the height she let go of it, so it stays in front of the box.
+        if (stage_.r.unproject_ground(mouse_x_, mouse_y_, ghost_at_.z, wx, wy)) ghost_at_ = {wx, wy, ghost_at_.z};
+    }
     mouse_in_ = e.action != gf::PointerAction::leave;
     auto hit = [&]() -> std::string {
         for (const Button& b : buttons_)
@@ -526,10 +587,13 @@ void SwitchboxView::on_key(gf::KeyEvent& e) {
     if (e.action != gf::KeyAction::down) return;
     const std::uint32_t k = e.physical_key;
     if (panel_ == Panel::name) {
-        if (k == K::backspace && !name_entry_.empty()) { name_entry_.pop_back(); play("ui_name_backspace", .6f); }
-        else if (k == K::enter) action("save_name");
-        else if (k == K::escape) open(Panel::none);
-        e.handled = true;
+        // Only the editing keys are taken here: a handled key brings no text input,
+        // so the letters themselves must pass through to on_text_input.
+        if (k == K::backspace) {
+            if (!name_entry_.empty()) { name_entry_.pop_back(); play("ui_name_backspace", .6f); }
+            e.handled = true;
+        } else if (k == K::enter) { action("save_name"); e.handled = true; }
+        else if (k == K::escape) { open(Panel::none); e.handled = true; }
         return;
     }
     const std::uint32_t digits[kSwitches] = {0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23};  // HID usages for 1..6
