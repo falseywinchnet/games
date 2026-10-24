@@ -133,7 +133,11 @@ private:
 }
 std::future<gui_forms::AudioClipResult> load_audio_clip(
     const std::string& name, std::shared_ptr<gui_forms::CancellationFlag> cancellation) {
-    static PcmLoader decoder;
+    // Music renders live for seconds; it has its own Worker so effects never wait behind it.
+    static PcmLoader effects;
+    static PcmLoader music;
+    const bool long_render = name.find("music") != std::string::npos || name.find("_loop") != std::string::npos;
+    PcmLoader& decoder = long_render ? music : effects;
     if (!cancellation) { cancellation = std::make_shared<gui_forms::CancellationFlag>(); }
     const std::filesystem::path path = std::filesystem::path(asset_directory()) / "audio" / name;
     std::future<gui_forms::AudioClipResult> result = decoder.request(path, name, std::move(cancellation));
