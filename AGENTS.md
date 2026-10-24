@@ -19,7 +19,8 @@ collection. Read it first; then the document for the work in hand:
 - `shared/<id>/`: engines several games build on, discovered from `ENGINE.json` and
   declared in a game's `GAME.json`: `render` (the 2D canvas, r3d and the surfaces),
   `ambient` (living 3D scenes), `cards` and `puzzles` (the card and puzzle engines),
-  `grass`, `soil` and `paper` (materials), `coverage` (the mowing brain), `felt`
+  `grass`, `soil` and `paper` (materials), `coverage` (the mowing brain), `voice`
+  (sounds generated live from the cue scripts instead of files), `felt`
   (cloth, linked once by the suite). Each README is its guide;
   [new-games/guide/05-shared-engines.md](new-games/guide/05-shared-engines.md) indexes them.
 - `src/`: only the shell and its services. The shelf (`shelf.*`) and the command
