@@ -1,6 +1,7 @@
 #include "audio_loader.hpp"
 #include "runtime_paths.hpp"
 #include "voice_bank.hpp"
+#include "batch_cues.hpp"
 #include <condition_variable>
 #include <deque>
 #include <map>
@@ -15,7 +16,10 @@ namespace {
 // read from a file, and the clip is kept for every later request.
 class PcmLoader final {
 public:
-    PcmLoader() : worker_(&PcmLoader::work, this) {}
+    PcmLoader() : worker_(&PcmLoader::work, this) {
+        // Cue sets several games share (shared/batch_cues), live before any sound is asked for.
+        batch_cues::register_batch_cues();
+    }
     ~PcmLoader() {
         {
             std::lock_guard<std::mutex> lock(mutex_);
