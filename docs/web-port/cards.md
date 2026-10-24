@@ -8,14 +8,20 @@ one press (`card_press.cpp`), one dealer (`dealer.cpp`) and the felt
 
 | Game | Opens | Play, undo, new game | Win / loss | Settings, Top scores | Saves across reload |
 |---|---|---|---|---|---|
-| Solitaire | yes | yes | won with hints in the browser | yes | yes |
+| Solitaire | yes | yes | won with hints; score offered for a name | yes | yes |
 | Spider | yes | yes (moves, stock rows) | not played to the end | yes | yes |
-| FreeCell | yes | yes | not played to the end | yes | yes |
+| FreeCell | yes | yes | won with hints in the browser | yes | yes |
 | Hearts | yes | yes (pass, tricks, computer players) | a hand played to the end | yes | yes (mid-hand) |
 
 The browser pane was hidden during testing, so the page's `requestAnimationFrame`
-was throttled; checks drove `_gf_web_tick` by hand. Nothing failed on the console
-apart from the asset problem below.
+was throttled; checks drove `_gf_web_tick` by hand. Wins were played by pressing
+Hint and Enter until the deal came out. A fresh page showed no console errors through
+new games, level changes, shelf switches, a Hearts hand and the FreeCell win; six
+"Uncaught" reports seen once in an earlier long session could not be reproduced.
+A settled table ran no ticks in ten seconds.
+
+In every PlaySuite build the shell takes H for help before the table sees it, so the
+table's "H gives a hint" never fires; that is not a web difference.
 
 ## Asset pack
 
@@ -73,21 +79,64 @@ survived reloads.
 
 `cmake/Web.cmake` gives Node link options to the executables that exist when it is
 included, but `CMakeLists.txt` declares `rules_tests`, `solver_tests` and later tests
-after including it. `solver_tests` therefore links with a fixed 16 MB heap. The fix
-(defer the loop to the end of the top-level directory) belongs to the lead.
+after including it. `solver_tests` therefore links with a fixed 16 MB heap (natively it
+peaks at 30 MB). The fix defers the loop to the end of the top-level directory; with it
+applied in the Mini mirror only, `solver_tests` linked with the Node options and passed:
+
+```diff
+diff --git a/cmake/Web.cmake b/cmake/Web.cmake
+index 0943837..525aea9 100644
+--- a/cmake/Web.cmake
++++ b/cmake/Web.cmake
+@@ -45,17 +45,22 @@ add_custom_command(TARGET games POST_BUILD
+     VERBATIM)
+ 
+ # Test programs run under Node (node <test>.js), reading files straight from
+-# the disk; main runs on a worker so it may block like a native test.
+-get_property(games_web_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+-foreach(test_target IN LISTS games_web_targets)
+-    get_target_property(test_type ${test_target} TYPE)
+-    if(test_type STREQUAL "EXECUTABLE" AND NOT test_target STREQUAL "games")
+-        set_target_properties(${test_target} PROPERTIES SUFFIX ".js")
+-        target_link_options(${test_target} PRIVATE -sENVIRONMENT=node -sNODERAWFS=1
+-            -sALLOW_MEMORY_GROWTH=1 -sSTACK_SIZE=8MB -sDEFAULT_PTHREAD_STACK_SIZE=4MB
+-            -sPROXY_TO_PTHREAD=1 -sEXIT_RUNTIME=1 -sPTHREAD_POOL_SIZE=8 -sASSERTIONS=1 --profiling-funcs)
+-    endif()
+-endforeach()
++# the disk; main runs on a worker so it may block like a native test. Deferred
++# to the end of the directory, so the tests the top-level CMakeLists.txt adds
++# after including this file (sudoku_tests, puzzle_tests, ...) are linked so too.
++function(games_web_link_tests_for_node)
++    get_property(games_web_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
++    foreach(test_target IN LISTS games_web_targets)
++        get_target_property(test_type ${test_target} TYPE)
++        if(test_type STREQUAL "EXECUTABLE" AND NOT test_target STREQUAL "games")
++            set_target_properties(${test_target} PROPERTIES SUFFIX ".js")
++            target_link_options(${test_target} PRIVATE -sENVIRONMENT=node -sNODERAWFS=1
++                -sALLOW_MEMORY_GROWTH=1 -sSTACK_SIZE=8MB -sDEFAULT_PTHREAD_STACK_SIZE=4MB
++                -sPROXY_TO_PTHREAD=1 -sEXIT_RUNTIME=1 -sPTHREAD_POOL_SIZE=8 -sASSERTIONS=1 --profiling-funcs)
++        endif()
++    endforeach()
++endfunction()
++cmake_language(DEFER CALL games_web_link_tests_for_node)
+ 
+ set(GAMES_WEB_SHARED_ASSETS "" CACHE PATH "Directory of an already packed assets.data + assets.js to link to instead")
+ if(GAMES_WEB_SHARED_ASSETS)
+```
 
 ## Frame cost
 
 The window was 1024 x 768 at device pixel ratio 2 (3.1 M device pixels), Release
 build, pane hidden, laptop shared with other workers. All figures are noisy.
 
-- Full repaint of a settled card table: 520-1100 ms. Four Pegs on the same page: 7-9 ms;
-  the shelf: about 450 ms.
-- Moves and deals: 300-1000 ms a frame, so a deal shows only two or three frames.
-- With the felt pattern, the lamp gradient, the slots and the cards skipped one at a
-  time, almost all of the cost is the two full-window Skia shaders: the felt
-  (a bilinear repeating image shader) and the lamp (a radial gradient). Blitting the
-  printed cards is cheap.
+- Full repaint of a settled card table: 0.5-1.1 s on a quieter laptop, 2.6-6 s when the
+  other workers were busy. Four Pegs on the same page: 7-9 ms; the shelf: about 450 ms.
+- Moves and deals: 0.3-1 s a frame, so a deal shows only two or three frames.
+- A temporary build that skipped parts of `Table::on_paint` (not committed) put the
+  cost in Skia's raster pipeline: the felt (a bilinear repeating image shader, 256 px
+  tile drawn at 2x, as natively) costs most, then the printed cards and their shadows
+  (alpha blits), then the lamp (a radial gradient, about 0.5 s). With all four skipped a
+  full repaint took 5-19 ms.
 - The Mini's Skia wasm archive was built with `SKVX_DISABLE_SIMD`, which makes Skia's
   raster pipeline run one pixel at a time. GUI.Forms' working tree already adds
   `-USKVX_DISABLE_SIMD`; the archive has to be rebuilt with it before these figures
