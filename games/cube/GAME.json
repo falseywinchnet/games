@@ -37,7 +37,8 @@
     "src/cube_score.cpp"
   ],
   "libraries": [
-    "cube_core"
+    "cube_core",
+    "batch_cues_core"
   ],
   "hosted": true,
   "view_header": "cube_view.hpp",
@@ -59,6 +60,7 @@
   "settles_when_untouched": true,
   "engines": [
     "ambient",
+    "batch_cues",
     "render"
   ]
 }

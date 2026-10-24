@@ -1,9 +1,12 @@
+#include "batch_cues.hpp"
 #include "cube_score.hpp"
 #include "cube_view.hpp"
 #include "game_module.hpp"
 namespace games::modules {
 std::unique_ptr<GameInstance> cube_create(ModuleContext& context) {
-    // Nature Cube's music and effects are synthesized live (src/glass_music.hpp).
+    // Nature Cube's music and effects are synthesized live (src/glass_music.hpp); the
+    // name-entry confirmation is rendered live from the audio batch scripts (shared/batch_cues).
+    batch_cues::register_batch_cues();
     if (std::shared_ptr<LiveScore> score = ps_cube::make_score()) {
         live_score("nature_cube", std::move(score));
     }
