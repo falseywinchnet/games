@@ -4,10 +4,14 @@ endif()
 add_library(sbx_core STATIC ${GAME_MODULE_DIR}/src/platform/lines.cpp
   ${GAME_MODULE_DIR}/src/puzzle.cpp ${GAME_MODULE_DIR}/src/face.cpp ${GAME_MODULE_DIR}/src/girl.cpp
   ${GAME_MODULE_DIR}/src/stage.cpp ${GAME_MODULE_DIR}/src/actor.cpp ${GAME_MODULE_DIR}/src/save.cpp
-  ${GAME_MODULE_DIR}/src/mole.cpp)
+  ${GAME_MODULE_DIR}/src/mole.cpp ${GAME_MODULE_DIR}/src/switchbox_babble_cues.cpp)
 target_include_directories(sbx_core PUBLIC ${GAME_MODULE_DIR}/src)
 target_link_libraries(sbx_core PUBLIC render_core)  # the 2D canvas, 3D renderer and meshes (shared/render)
 target_link_libraries(sbx_core PUBLIC game_paths)
+target_link_libraries(sbx_core PUBLIC voice_core)  # the clap and babble, rendered live (shared/voice)
+if(NOT MSVC)
+  set_source_files_properties(${GAME_MODULE_DIR}/src/switchbox_babble_cues.cpp PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
+endif()
 add_executable(switchbox_rules_tests ${GAME_MODULE_DIR}/tests/puzzle_tests.cpp)
 target_link_libraries(switchbox_rules_tests PRIVATE sbx_core)
 add_test(NAME switchbox_rules COMMAND switchbox_rules_tests)
@@ -21,6 +25,10 @@ add_executable(switchbox_actor_tests ${PLAYSUITE_SOURCE_DIR}/tests/switchbox_act
 target_link_libraries(switchbox_actor_tests PRIVATE sbx_core)
 add_test(NAME switchbox_actor COMMAND switchbox_actor_tests)
 set_tests_properties(switchbox_actor PROPERTIES LABELS design)
+# The live clap and babble, and (with --reference) their equality to the script's masters.
+add_executable(switchbox_cues_tests ${GAME_MODULE_DIR}/tests/switchbox_cues_tests.cpp)
+target_link_libraries(switchbox_cues_tests PRIVATE sbx_core)
+add_test(NAME switchbox_cues COMMAND switchbox_cues_tests)
 
 target_compile_definitions(sbx_core PRIVATE _USE_MATH_DEFINES)
 
