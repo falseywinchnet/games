@@ -132,7 +132,8 @@ class Diorama final : public Scenery {
     void start_loading(std::size_t scene);
     void start_build();
     void finish_sway(SceneContext* context);
-    static double picture_job(Stage* stage, double time, double light_time, std::vector<Creature> creatures);
+    static double picture_job(Stage* stage, double time, double light_time, std::vector<Creature> creatures,
+                              std::chrono::steady_clock::time_point asked);
     void tap(double x, double y, SceneContext& context);
     void choose(std::size_t scene, SceneContext& context);
     void swap_in();
