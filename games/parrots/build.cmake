@@ -1,11 +1,20 @@
-add_library(pt_core STATIC ${GAME_MODULE_DIR}/src/logic.cpp ${GAME_MODULE_DIR}/src/script.cpp ${GAME_MODULE_DIR}/src/birds.cpp ${GAME_MODULE_DIR}/src/parlor.cpp)
+add_library(pt_core STATIC ${GAME_MODULE_DIR}/src/logic.cpp ${GAME_MODULE_DIR}/src/script.cpp ${GAME_MODULE_DIR}/src/birds.cpp ${GAME_MODULE_DIR}/src/parlor.cpp
+            ${GAME_MODULE_DIR}/src/parrot_cues.cpp)
 target_include_directories(pt_core PUBLIC ${GAME_MODULE_DIR}/src)
 target_link_libraries(pt_core PUBLIC render_core)  # the 2D canvas, 3D renderer and meshes (shared/render)
 target_link_libraries(pt_core PUBLIC game_paths Threads::Threads)
+target_link_libraries(pt_core PUBLIC voice_core)  # the sounds, rendered live (shared/voice)
 target_compile_definitions(pt_core PRIVATE _USE_MATH_DEFINES)
+if(NOT MSVC)
+  set_source_files_properties(${GAME_MODULE_DIR}/src/parrot_cues.cpp PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
+endif()
 add_executable(parrots_rules_tests ${GAME_MODULE_DIR}/tests/logic_tests.cpp)
 target_link_libraries(parrots_rules_tests PRIVATE pt_core)
 add_test(NAME parrots_rules COMMAND parrots_rules_tests)
 set_tests_properties(parrots_rules PROPERTIES LABELS design)
+# The live sounds render, and (with --reference) equal the NumPy masters.
+add_executable(parrots_cues_tests ${GAME_MODULE_DIR}/tests/parrot_cues_tests.cpp)
+target_link_libraries(parrots_cues_tests PRIVATE pt_core)
+add_test(NAME parrots_cues COMMAND parrots_cues_tests)
 
 list(APPEND GAMES_NATIVE_FRAME_MODULES parrots)

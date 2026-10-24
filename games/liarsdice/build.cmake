@@ -1,11 +1,20 @@
-add_library(ld_core STATIC ${GAME_MODULE_DIR}/src/rules.cpp ${GAME_MODULE_DIR}/src/brain.cpp ${GAME_MODULE_DIR}/src/wager.cpp ${GAME_MODULE_DIR}/src/crew.cpp ${GAME_MODULE_DIR}/src/cabin.cpp ${GAME_MODULE_DIR}/src/save.cpp)
+add_library(ld_core STATIC ${GAME_MODULE_DIR}/src/rules.cpp ${GAME_MODULE_DIR}/src/brain.cpp ${GAME_MODULE_DIR}/src/wager.cpp ${GAME_MODULE_DIR}/src/crew.cpp ${GAME_MODULE_DIR}/src/cabin.cpp ${GAME_MODULE_DIR}/src/save.cpp
+            ${GAME_MODULE_DIR}/src/dice_cues.cpp)
 target_include_directories(ld_core PUBLIC ${GAME_MODULE_DIR}/src)
 target_link_libraries(ld_core PUBLIC render_core)  # the 2D canvas, 3D renderer and meshes (shared/render)
 target_link_libraries(ld_core PUBLIC game_paths Threads::Threads)
+target_link_libraries(ld_core PUBLIC voice_core)  # the sounds, rendered live (shared/voice)
 target_compile_definitions(ld_core PRIVATE _USE_MATH_DEFINES)
+if(NOT MSVC)
+  set_source_files_properties(${GAME_MODULE_DIR}/src/dice_cues.cpp PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
+endif()
 add_executable(liarsdice_rules_tests ${GAME_MODULE_DIR}/tests/dice_tests.cpp)
 target_link_libraries(liarsdice_rules_tests PRIVATE ld_core)
 add_test(NAME liarsdice_rules COMMAND liarsdice_rules_tests)
 set_tests_properties(liarsdice_rules PROPERTIES LABELS design)
+# The live sounds render, and (with --reference) equal the NumPy masters.
+add_executable(liarsdice_cues_tests ${GAME_MODULE_DIR}/tests/dice_cues_tests.cpp)
+target_link_libraries(liarsdice_cues_tests PRIVATE ld_core)
+add_test(NAME liarsdice_cues COMMAND liarsdice_cues_tests)
 
 list(APPEND GAMES_NATIVE_FRAME_MODULES liarsdice)

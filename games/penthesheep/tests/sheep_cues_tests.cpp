@@ -1,14 +1,21 @@
-// Pen the Sheep's live effects (CTest penthesheep_cues). Without arguments: every cue
-// renders at its master's length and level and reaches the shell's bank. With
-// --reference DIR (shared/voice/tools/numpy_reference.py cues --script
-// games/penthesheep/audio_src/make_sfx.py --out DIR): every cue equals the NumPy float
-// master to 1e-9 of its peak, and its 16-bit quantisation equals the shipped WAV.
+// Pen the Sheep's live sounds (CTest penthesheep_cues). Without arguments: every cue
+// renders at its master's length, channels and level and reaches the shell's bank. With
+// --reference DIR (repeatable): every cue in DIR's manifest equals the NumPy float master
+// to 1e-9 of its peak and quantises to the same 16-bit samples. DIR is written by
+// shared/voice/tools/numpy_reference.py cues --script games/penthesheep/audio_src/make_sfx.py
+// (`cue` lines, the effects) or games/penthesheep/tools/music_reference.py --script
+// games/penthesheep/audio_src/{meadow_music,long_grass,angel_music}.py (`music` lines).
+// --time renders each music cue and prints its render time and the memory its clip keeps.
 #include "sheep_cues.hpp"
 #include "voice_reference.hpp"
 
+#include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <span>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -26,83 +33,160 @@ void require(bool condition, const std::string& what) {
 struct Expected {
     const char* name;
     std::size_t samples;
-    double peak_db;
+    double peak_db;  // the write() level of an effect; the finish() ceiling of music
+    bool stereo;
 };
 
-// The masters' lengths and the levels make_sfx.py wrote them at.
-constexpr Expected expected[] = {{"sh_place", 19200, -12}, {"sh_hop", 12000, -20},    {"sh_baa_01", 28800, -13},
-                                 {"sh_baa_02", 36000, -13}, {"sh_baa_03", 38400, -13}, {"sh_baa_04", 21600, -13},
-                                 {"sh_munch", 43200, -17},  {"sh_hint", 43200, -17},   {"sh_undo", 8640, -22},
-                                 {"sh_click", 1920, -23},   {"sh_nope", 6720, -20},    {"sh_penned", 62400, -14},
-                                 {"sh_escape", 24000, -13}};
+// The masters' lengths and the levels the scripts wrote them at.
+constexpr Expected expected[] = {
+    {"sh_place", 19200, -12, false},  {"sh_hop", 12000, -20, false},    {"sh_baa_01", 28800, -13, false},
+    {"sh_baa_02", 36000, -13, false}, {"sh_baa_03", 38400, -13, false}, {"sh_baa_04", 21600, -13, false},
+    {"sh_munch", 43200, -17, false},  {"sh_hint", 43200, -17, false},   {"sh_undo", 8640, -22, false},
+    {"sh_click", 1920, -23, false},   {"sh_nope", 6720, -20, false},    {"sh_penned", 62400, -14, false},
+    {"sh_escape", 24000, -13, false}, {"sh_music", 2304000, -3, true},  {"sh_music_grass", 3072000, -3, true},
+    {"sh_music_choir", 3072000, -3, true}, {"sh_music_bells", 2688000, -3, true},
+    {"sh_tune_penned", 153600, -3, true},  {"sh_tune_away", 153600, -3, true},
+};
 
 const voice::Cue* cue_named(const std::string& name) {
-    for (const voice::Cue& cue : sh::sound_cues()) {
-        if (cue.name == name) {
-            return &cue;
+    for (const std::span<const voice::Cue> cues : {sh::sound_cues(), sh::music_cues()}) {
+        for (const voice::Cue& cue : cues) {
+            if (cue.name == name) {
+                return &cue;
+            }
         }
     }
     return nullptr;
 }
 
+// A cue's master as channels (one for a mono cue).
+std::vector<voice::Signal> channels_of(const voice::Cue& cue) {
+    std::vector<voice::Signal> result{};
+    if (cue.mono != nullptr) {
+        result.push_back(cue.mono());
+    } else if (cue.stereo != nullptr) {
+        const voice::Stereo s = cue.stereo();
+        result.push_back(s.left);
+        result.push_back(s.right);
+    }
+    return result;
+}
+
 void self_tests() {
-    require(sh::sound_cues().size() == std::size(expected), "every effect has a cue");
+    require(sh::sound_cues().size() + sh::music_cues().size() == std::size(expected), "every sound has a cue");
     for (const Expected& e : expected) {
         const voice::Cue* cue = cue_named(e.name);
-        require(cue != nullptr && (*cue).mono != nullptr, std::string(e.name) + " is a mono cue");
-        if (cue == nullptr || (*cue).mono == nullptr) {
+        const bool shaped = cue != nullptr && (e.stereo ? (*cue).stereo != nullptr : (*cue).mono != nullptr);
+        require(shaped, std::string(e.name) + (e.stereo ? " is a stereo cue" : " is a mono cue"));
+        if (!shaped) {
             continue;
         }
-        const voice::Signal y = (*cue).mono();
+        const std::vector<voice::Signal> y = channels_of(*cue);
         bool finite = true;
-        for (const double value : y) {
-            finite = finite && std::isfinite(value);
+        double top = 0;
+        for (const voice::Signal& channel : y) {
+            require(channel.size() == e.samples, std::string(e.name) + " has its master's length");
+            for (const double value : channel) {
+                finite = finite && std::isfinite(value);
+            }
+            top = std::max(top, voice::peak(channel));
         }
         const double level = std::pow(10.0, e.peak_db / 20);
-        require(y.size() == e.samples, std::string(e.name) + " has its master's length");
-        require(finite && voice::peak(y) <= level * (1 + 1e-12), std::string(e.name) + " peaks at its master's level");
-        require(finite && voice::peak(y) > 0.5 * level, std::string(e.name) + " is audible");
-        require((*cue).mono() == y, std::string(e.name) + " renders the same every time");
+        require(finite && top <= level * (1 + 1e-12), std::string(e.name) + " stays at its master's level");
+        require(finite && top > (e.stereo ? 0.2 : 0.5) * level, std::string(e.name) + " is audible");
+        if (!e.stereo) {
+            require(channels_of(*cue) == y, std::string(e.name) + " renders the same every time");
+        }
     }
     sh::register_sound_cues();
-    require(voice::Bank::shared().find("sh_baa_03").has_value(), "the cues reach the shell's bank");
+    require(voice::Bank::shared().find("sh_baa_03").has_value(), "the effects reach the shell's bank");
+    require(voice::Bank::shared().find("sh_music_choir").has_value(), "the music reaches the shell's bank");
     const voice::Interleaved clip = voice::render(*voice::Bank::shared().find("sh_click"));
     require(clip.size() == 2 * 1920, "a clip is interleaved stereo");
+    const voice::Interleaved tune = voice::render(*voice::Bank::shared().find("sh_tune_away"));
+    require(tune.size() == 2 * 153600, "a stereo cue is interleaved");
+}
+
+std::size_t pcm_differences(std::span<const double> ours, std::span<const double> reference) {
+    const std::vector<std::int16_t> a = voice::pcm16(ours);
+    const std::vector<std::int16_t> b = voice::pcm16(reference);
+    std::size_t count = a.size() == b.size() ? 0 : b.size();
+    for (std::size_t i = 0; i < a.size() && i < b.size(); ++i) {
+        count += a[i] != b[i] ? 1 : 0;
+    }
+    return count;
 }
 
 void reference_tests(const std::string& directory) {
     const std::vector<voice::reference::Case> cases = voice::reference::read_manifest(directory);
-    require(cases.size() == std::size(expected), "the reference holds every cue");
-    std::printf("%-10s %8s %13s %10s %9s %9s\n", "cue", "samples", "max err/peak", "error dB", "identical", "pcm16");
+    require(!cases.empty(), "the reference in " + directory + " holds cues");
+    std::printf("%-16s %3s %8s %13s %10s %9s %9s\n", "cue", "ch", "samples", "max err/peak", "error dB", "identical",
+                "pcm16");
     for (const voice::reference::Case& c : cases) {
+        const bool music = c.kind == "music";
         const voice::Cue* cue = c.args.empty() ? nullptr : cue_named(c.args[0]);
         require(cue != nullptr, "a cue for " + (c.args.empty() ? c.file : c.args[0]));
         if (cue == nullptr) {
             continue;
         }
-        const voice::Signal ours = (*cue).mono();
+        const std::size_t count = music ? std::stoul(c.args[1]) : 1;
         const std::vector<double> reference = voice::reference::read_array<double>(directory, c.file);
-        const voice::reference::Difference d = voice::reference::compare(ours, reference);
-        const std::vector<std::int16_t> ours16 = voice::pcm16(ours);
-        const std::vector<std::int16_t> reference16 = voice::pcm16(reference);
-        std::size_t pcm_differences = ours16.size() == reference16.size() ? 0 : reference16.size();
-        for (std::size_t i = 0; i < ours16.size() && i < reference16.size(); ++i) {
-            pcm_differences += ours16[i] != reference16[i] ? 1 : 0;
+        const std::size_t frames = reference.size() / count;
+        const std::vector<voice::Signal> ours = channels_of(*cue);
+        require(ours.size() == count, c.args[0] + " has the reference's channels");
+        double relative = 0;
+        double error_db = -400;
+        std::size_t identical = 0;
+        std::size_t pcm = 0;
+        bool same_length = true;
+        for (std::size_t ch = 0; ch < count && ch < ours.size(); ++ch) {
+            const std::span<const double> slice(reference.data() + ch * frames, frames);
+            const voice::reference::Difference d = voice::reference::compare(ours[ch], slice);
+            same_length = same_length && d.same_length();
+            relative = std::max(relative, d.relative);
+            error_db = std::max(error_db, d.error_db);
+            identical += d.identical;
+            pcm += pcm_differences(ours[ch], slice);
         }
-        const double share = 100.0 * static_cast<double>(d.identical) / static_cast<double>(d.reference_length);
-        std::printf("%-10s %8zu %13.3g %10.1f %8.2f%% %9s\n", c.args[0].c_str(), d.reference_length, d.relative,
-                    d.error_db, share, pcm_differences == 0 ? "same" : std::to_string(pcm_differences).c_str());
-        require(d.same_length() && d.relative <= 1e-9, c.args[0] + " equals its NumPy master");
-        require(pcm_differences == 0, c.args[0] + " quantises to the shipped WAV");
+        const double share = 100.0 * static_cast<double>(identical) / static_cast<double>(reference.size());
+        std::printf("%-16s %3zu %8zu %13.3g %10.1f %8.2f%% %9s\n", c.args[0].c_str(), count, frames, relative, error_db,
+                    share, pcm == 0 ? "same" : std::to_string(pcm).c_str());
+        require(same_length && relative <= 1e-9, c.args[0] + " equals its NumPy master");
+        require(pcm == 0, c.args[0] + " quantises to the same 16-bit samples");
+    }
+}
+
+void timing() {
+    for (const Expected& e : expected) {
+        const voice::Cue* cue = cue_named(e.name);
+        if (!e.stereo || cue == nullptr) {
+            continue;
+        }
+        const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+        const voice::Interleaved clip = voice::render(*cue);
+        const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        const double kept = static_cast<double>(clip.size() * sizeof(float)) / 1e6;
+        const double doubles = static_cast<double>(e.samples * 2 * sizeof(double)) / 1e6;
+        std::printf("%-16s %6.2f s audio  render %6.3f s  clip %6.1f MB  stereo master %6.1f MB\n", e.name,
+                    static_cast<double>(e.samples) / voice::sample_rate, seconds, kept, doubles);
     }
 }
 
 }  // namespace
 
 int main(int argc, char** argv) {
-    if (argc == 3 && std::string(argv[1]) == "--reference") {
-        reference_tests(argv[2]);
-    } else {
+    bool referenced = false;
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--reference" && i + 1 < argc) {
+            reference_tests(argv[++i]);
+            referenced = true;
+        } else if (arg == "--time") {
+            timing();
+            referenced = true;
+        }
+    }
+    if (!referenced) {
         self_tests();
     }
     std::printf("%d checks, %d failed\n", checks, failures);
