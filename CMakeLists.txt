@@ -33,10 +33,24 @@ set(QJS_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
 set(QJS_BUILD_LIBC OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(quickjs)
 set_property(DIRECTORY ${quickjs_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+# GUI.Forms comes from one of two places:
+# - an installed GUI.Forms found by find_package (CMAKE_PREFIX_PATH or GUIForms_DIR): the
+#   lockstep prefix every product on a development machine shares, built with
+#   --features all so it installs Application, Audio, TextMasks and AudioLoopTransport
+#   (docs/BUILDING.md, "Local builds");
+# - a GUI.Forms source tree in GAMES_TOOLKIT_SOURCE_DIR, built here with the options below:
+#   CI builds its pinned, pushed commit this way.
+set(GAMES_GUI_FORMS_INSTALLED OFF)
 if(GAMES_BUILD_APPLICATION)
-  set(GAMES_TOOLKIT_SOURCE_DIR "" CACHE PATH "Reviewed GUI.Forms source for development application builds")
+  set(GAMES_TOOLKIT_SOURCE_DIR "" CACHE PATH "GUI.Forms source to build with the application; empty to use an installed GUI.Forms")
+endif()
+if(GAMES_BUILD_APPLICATION AND GAMES_TOOLKIT_SOURCE_DIR STREQUAL "")
+  find_package(GUIForms CONFIG REQUIRED COMPONENTS Application Audio TextMasks AudioLoopTransport)
+  set(GAMES_GUI_FORMS_INSTALLED ON)
+  message(STATUS "GUI.Forms: installed package ${GUIForms_DIR}")
+elseif(GAMES_BUILD_APPLICATION)
   if(NOT EXISTS "${GAMES_TOOLKIT_SOURCE_DIR}/include/gui_forms/text_mask.hpp")
-    message(FATAL_ERROR "Set GAMES_TOOLKIT_SOURCE_DIR to the reviewed GUI.Forms source. Text masks and bar audio are not yet exported by the installed SDK; see docs/PORTABLE_TEXT_REQUIREMENTS.md.")
+    message(FATAL_ERROR "GAMES_TOOLKIT_SOURCE_DIR (${GAMES_TOOLKIT_SOURCE_DIR}) is not a GUI.Forms source tree with text masks; leave it empty to use an installed GUI.Forms.")
   endif()
   set(GUI_FORMS_BUILD_GALLERY OFF CACHE BOOL "" FORCE)
   set(GUI_FORMS_BUILD_TESTS OFF CACHE BOOL "" FORCE)
