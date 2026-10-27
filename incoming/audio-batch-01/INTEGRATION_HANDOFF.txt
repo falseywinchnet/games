@@ -1,0 +1,13 @@
+AUDIO BATCH 01 — CARD GAMES AND SOKOBAN
+
+56 WAV assets: 7 music loops, 6 stingers, 43 SFX. Matching 56 Ogg Opus and 56 AAC M4A encodings.
+
+IMPORTANT MAPPING: music_puzzle_main_loop and music_puzzle_tiptoe_loop are the Catching Thieves-inspired Sokoban game, NOT the newly requested Puzzle Solve (PicPax-style reconstruction game). Puzzle Solve has separate music pending in batch 02.
+
+Read outputs/AUDIO_MANIFEST.md and outputs/audio_manifest.json. All WAVs were independently fully decoded with FFmpeg: 56/56 passed. All manifest master paths exist. HANDOFF_VALIDATION.json records these checks. SHA256.json records preserved original batch files and generation sources.
+
+Opus reports no external samples and no recovered reference recordings included. Numerical quality measurements are producer-reported, not an independent listening review. Musical quality, subjective volume balance and target-engine looping need review. Use WAV or correctly trimmed decoded PCM and the manifest sample ranges for looping; compressed player priming/padding is implementation dependent. Do not assume .ogg uses Vorbis: these files contain Opus.
+
+New policy: autosave/resume with separate New Game. No running score HUD. Named arcade-style top scores at game end, no statistics system. Do not restart music on every autosave; avoid stacking game stinger and generic victory at full gain.
+
+Batch 02 requested from Opus: Gems, Sudoku (light/dark arrangements), Nature Cube, Untangle, Atom Probe, Four Pegs, Switchbox (cute anime), Puzzle Solve, Sticks & Stones (playful caveman). Rendezvous Riders excluded.

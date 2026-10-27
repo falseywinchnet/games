@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "particles",
+  "namespace": "particles",
+  "title": "Particles",
+  "summary": "Deterministic particles for living scenes: pools of water clumps, drops, spray, mist and glints made by emitters and moved by gravity, drag, lift and a swirling air, drawn as motion-blurred streaks, soft glows and points into a light buffer without sorting.",
+  "build": "build.cmake",
+  "libraries": [
+    "particles_core"
+  ],
+  "source_directories": [
+    "src"
+  ],
+  "tests": [
+    "tests/particles_tests.cpp"
+  ]
+}

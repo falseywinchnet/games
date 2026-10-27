@@ -1,0 +1,2216 @@
+#include "table.hpp"
+#include "audio.hpp"
+#include "card_backs.hpp"
+#include "table_art.hpp"
+#include "table_light.hpp"
+#include "card_print.hpp"
+#include "gui_forms/window.hpp"
+#include "help_route.hpp"
+#include "presentation.hpp"
+#include "solitaire_solver.hpp"
+#include <algorithm>
+#include <cmath>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+namespace games {
+// The PlaySuite capsule floats over the top of the felt; play starts below it.
+static constexpr double kTop = 54;
+namespace {
+bool inside_rectangle(gf::Rect r, gf::Point p) {
+    return p.x >= r.x && p.y >= r.y && p.x < r.x + r.width && p.y < r.y + r.height;
+}
+gf::Rect enlarged(gf::Rect r, double n) {
+    return {r.x - n, r.y - n, r.width + 2 * n, r.height + 2 * n};
+}
+const char* audio_name(Kind kind) {
+    const char* names[] = {"solitaire", "spider", "freecell", "hearts", "tripeaks"};
+    return names[static_cast<int>(kind)];
+}
+// The games whose deals the dealer makes to a level (solitaire_solver.hpp).
+bool leveled(Kind kind) {
+    return kind == Kind::solitaire || kind == Kind::spider || kind == Kind::freecell;
+}
+// A TriPeaks run climbs a major scale, card by card, from the card's own pitch to an octave
+// and a fifth, and stays there.
+double run_rate(int run) {
+    static constexpr int steps[] = {0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19};
+    const int semitones = steps[std::clamp(run - 1, 0, static_cast<int>(std::size(steps)) - 1)];
+    return std::exp2(semitones / 12.0);
+}
+// The Hearts table's own button (Pass cards / Next hand): a glossy crimson pill
+// with a white heart, rimmed in gold.
+class HeartsButton final : public gf::Button {
+  public:
+    HeartsButton(gf::StableId id, std::string text) : Button(std::move(id), std::move(text)) {}
+    void on_paint(gf::Painter& p, gf::Rect) override {
+        const gf::Rect b = client_rectangle();
+        const gf::Rect r{2, 2, b.width - 4, b.height - 6};
+        const double radius = r.height * .5;
+        const bool hot = hovered_visual() && enabled(), down = pressed_visual() && enabled();
+        if (!down)
+            p.draw_box_shadow(r, radius, {0, 3}, 6, 0, gf::Color::rgba(40, 0, 10, 110));
+        const gf::GradientStop stops[] = {
+            {0, hot ? gf::Color::rgba(240, 92, 112) : gf::Color::rgba(226, 70, 94)},
+            {.48, hot ? gf::Color::rgba(214, 48, 74) : gf::Color::rgba(196, 34, 60)},
+            {.52, hot ? gf::Color::rgba(184, 26, 54) : gf::Color::rgba(164, 18, 44)},
+            {1, hot ? gf::Color::rgba(206, 46, 72) : gf::Color::rgba(186, 32, 58)}};
+        p.save();
+        p.clip_rounded_rect(r, radius);
+        p.fill_linear_gradient(r, {r.x, down ? r.y + r.height : r.y},
+                               {r.x, down ? r.y : r.y + r.height}, stops);
+        p.draw_line({r.x + radius * .6, r.y + 1.5}, {r.x + r.width - radius * .6, r.y + 1.5},
+                    gf::Color::rgba(255, 255, 255, down ? 50 : 150), 1);
+        p.restore();
+        p.stroke_rounded_rect(r, radius, gf::Color::rgba(236, 196, 104), 1.5);
+        if (focus_cue_visible())
+            p.stroke_rounded_rect(enlarged(r, 3), radius + 3, gf::Color::rgba(255, 226, 150), 2);
+        const gf::FontSpec f{gf::FontRole::content, 16, 700, false, .3};
+        const gf::Size m = p.measure_text_utf8(text(), f);
+        const double heart = r.height * .42, gap = 8;
+        const double x = r.x + (r.width - m.width - heart - gap) * .5 + (down ? 1 : 0);
+        const double cy = r.y + r.height * .5 + (down ? 1 : 0);
+        std::vector<gf::Point> outline;
+        for (int k = 0; k < 48; ++k) {
+            const double t = k * 6.283185307179586 / 48;
+            const double hx = 16 * std::pow(std::sin(t), 3);
+            const double hy = 13 * std::cos(t) - 5 * std::cos(2 * t) - 2 * std::cos(3 * t) -
+                              std::cos(4 * t);
+            outline.push_back({x + heart * .5 + hx * heart / 34, cy - 1 - hy * heart / 34});
+        }
+        paint_polygon(p, outline, gf::Color::rgba(255, 246, 240, enabled() ? 255 : 120));
+        p.draw_text_utf8({x + heart + gap, cy + f.size * .36}, text(), f,
+                         gf::Color::rgba(255, 248, 240, enabled() ? 255 : 120));
+    }
+};
+std::string upper(std::string s) {
+    for (char& c : s)
+        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    return s;
+}
+gf::ImageId load_image(gf::Window& window, const std::string& name) {
+    std::ifstream file(asset_directory() + "/" + name, std::ios::binary | std::ios::ate);
+    if (!file)
+        throw std::runtime_error("Missing card artwork: " + name);
+    std::streamsize size = file.tellg();
+    file.seekg(0);
+    std::vector<std::byte> bytes(static_cast<std::size_t>(size));
+    file.read(reinterpret_cast<char*>(bytes.data()), size);
+    gf::ImageLoadResult result = window.load_png(bytes);
+    if (!result)
+        throw std::runtime_error("Could not load " + name);
+    return result.image;
+}
+} // namespace
+Table::Table(gf::StableId id) : Control(std::move(id)) {
+    set_focusable(true);
+    set_accessible_name("Card table. Arrow keys choose piles, Enter selects or places, H hints, "
+                        "Space deals, Z undoes, F1 opens help.");
+    next_seed_ =
+        static_cast<std::uint32_t>(std::chrono::system_clock::now().time_since_epoch().count());
+    load_levels();
+    {
+        // The deck the press prints: the classic faces, and every back design (a PNG, or
+        // drawn by card_backs.hpp where the path is empty).
+        std::vector<std::string> faces, backs;
+        for (int k = 0; k < 52; ++k)
+            faces.push_back(asset_directory() + "/classic_" + (k < 10 ? "0" : "") + std::to_string(k) + ".png");
+        for (int design = 0; design < card_back_count; ++design)
+            backs.push_back(design < painted_back_count ? asset_directory() + "/back_" + std::to_string(design) + ".png"
+                            : design == classic_back    ? asset_directory() + "/" + classic_back_file
+                                                        : std::string());
+        printer_.set_deck(std::move(faces), std::move(backs));
+    }
+    if (load_cabinet(cabinet_path(), cabinet_))
+        game = cabinet_.games[cabinet_.active];
+    else {
+        // The very first deal: one made here when none is ready.
+        const Difficulty level = static_cast<Difficulty>(levels_[0]);
+        std::uint32_t seed = dealer_.take(Kind::solitaire, 1, level);
+        game.deal(Kind::solitaire, seed ? seed : Dealer::make_now(Kind::solitaire, 1, level));
+    }
+    reload_preferences();
+}
+void Table::initialize_control_tree() {
+    // Slots 8 and 10-13 held the old Options panel; the shared Settings screen replaced
+    // it. They stay hidden so the other slots keep their numbers.
+    const char* names[] = {"Solitaire", "Spider",   "FreeCell",    "Hearts",     "New game",
+                           "Undo",      "Hint",     "How to play", "Options",    "Close",
+                           "Card back", "Motion",   "Sound",       "Music",      "Deal options",
+                           "Rules",     "Controls", "About",       "Pass cards", "Top scores",
+                           "Save name", "New game",  "Solve?"};
+    for (int i = 0; i < 23; ++i) {
+        if (i == 18)
+            buttons_[i] = gf::make_control<HeartsButton>(gf::StableId("action18"), names[i]);
+        else {
+            buttons_[i] = gf::make_control<GameButton>(gf::StableId("action" + std::to_string(i)),
+                                                       names[i]);
+            (*std::static_pointer_cast<GameButton>(buttons_[i])).set_skin(ButtonSkin::ivory);
+        }
+        (*buttons_[i]).set_font({gf::FontRole::content, 14, 700, false});
+        (*buttons_[i]).set_accessible_name(names[i]);
+        add_child(buttons_[i]);
+        subscriptions_.push_back(
+            (*buttons_[i])
+                .clicked()
+                .subscribe(*this,
+                           gf::Delegate<gf::ButtonBase&>::bind<Table, &Table::action>(*this)));
+        // Game commands live in the PlaySuite capsule; panel buttons appear with their panels.
+        (*buttons_[i]).set_visible(false);
+    }
+    score_name_ = gf::make_control<gf::TextBox>(gf::StableId("score.name"), cabinet_.player_name);
+    (*score_name_).set_accessible_name("Your name for the top score table");
+    (*score_name_).set_maximum_length(24);
+    (*score_name_).set_visible(false);
+    add_child(score_name_);
+}
+void Table::on_attached_to_window() {
+    gf::Window& window = *attached_window();
+    // The faces: a reprint of Goodall's 1902 pack (authoring/cards1902), the only style now.
+    for (int i = 0; i < 52; ++i) {
+        std::string number = i < 10 ? "0" + std::to_string(i) : std::to_string(i);
+        faces_[i] = load_image(window, "classic_" + number + ".png");
+    }
+    for (int i = 0; i < painted_back_count; ++i)
+        backs_[i] = load_image(window, "back_" + std::to_string(i) + ".png");
+    load_back();  // a drawn back only when it is the one chosen
+    shadow_ = load_image(window, "card_shadow.png");
+    felt_ = window.load_bgra32_premultiplied(felt_tile_side, felt_tile_side, felt_tile_side * 4U, felt_tile()).image;
+    timer_ = std::make_unique<gf::Timer>(window, std::chrono::milliseconds(8));
+    subscriptions_.push_back(
+        (*timer_).tick().subscribe(*this, gf::Delegate<>::bind<Table, &Table::tick>(*this)));
+    if (effectively_visible())
+        music_play(audio_name(game.state.kind), music_);
+    persist();
+    show_result();
+    request_tick();
+}
+void Table::on_detaching_from_window(gf::Window& window) noexcept {
+    try {
+        save_due_ = false;
+        persist();
+        dealer_.save_if_due();
+        dealer_.pause();
+    } catch (...) {
+    }
+    if (timer_)
+        (*timer_).stop();
+    timer_.reset();
+    for (gf::ImageId& id : faces_)
+        if (id.value) {
+            static_cast<void>(window.remove_image(id));
+            id = {};
+        }
+    for (gf::ImageId& id : backs_)
+        if (id.value) {
+            static_cast<void>(window.remove_image(id));
+            id = {};
+        }
+    if (felt_.value)
+        static_cast<void>(window.remove_image(felt_));
+    if (shadow_.value)
+        static_cast<void>(window.remove_image(shadow_));
+    if (finish_.value)
+        static_cast<void>(window.remove_image(finish_));
+    finish_ = {};
+    finish_width_ = finish_height_ = 0;
+    forget_pictures(window);
+    if (light_.value)
+        static_cast<void>(window.remove_image(light_));
+    light_ = {};
+    music_play("", false);
+}
+void Table::arrange(gf::Rect bounds) {
+    arrange_self(bounds);
+    double w = bounds.width;
+    popup_ = {std::max(10.0, (w - 680) * .5), kTop + 8, std::min(680.0, w - 20),
+              std::min(520.0, bounds.height - kTop - 46)};
+    set_child_layout(buttons_[9], {popup_.x + popup_.width - 93, popup_.y + 17, 72, 30});
+    for (int i = 10; i < 15; ++i)
+        set_child_layout(buttons_[i], {popup_.x + 30, popup_.y + 86 + (i - 10) * 66.0, 200, 38});
+    for (int i = 15; i < 18; ++i)
+        set_child_layout(buttons_[i], {popup_.x + 30 + (i - 15) * 145.0, popup_.y + 73, 133, 32});
+    set_child_layout(buttons_[18], {w * .5 - 88, bounds.height * .53, 176, 44});
+    set_child_layout(buttons_[19], {w - 134, bounds.height - 64, 110, 28});
+    set_child_layout(score_name_, {popup_.x + 30, popup_.y + 125, 245, 35});
+    set_child_layout(buttons_[20], {popup_.x + 289, popup_.y + 125, 119, 35});
+    set_child_layout(buttons_[22], {w * .5 - 60, bounds.height - 58, 120, 36});
+    set_child_layout(buttons_[21],
+                     {popup_.x + popup_.width - 140, popup_.y + popup_.height - 48, 110, 30});
+    layout_cards(false);
+    refresh_finish();
+    refresh_light();
+    request_tick();
+}
+void Table::refresh_light() {
+    gf::Window* window = attached_window();
+    const gf::Rect b = client_rectangle();
+    if (!window || b.width <= 0 || b.height <= 0)
+        return;
+    if (!printer_.light(b.width, b.height, card_w_) && light_.value)
+        return;
+    const TableLight& light = printer_.light_grid();
+    const std::uint32_t w = static_cast<std::uint32_t>(light.width),
+                        h = static_cast<std::uint32_t>(light.height);
+    gf::ImageLoadResult result =
+        light_.value
+            ? (*window).replace_bgra32_premultiplied(light_, w, h, w * 4, light.face, *this)
+            : (*window).load_bgra32_premultiplied(w, h, w * 4, light.face);
+    if (result)
+        light_ = result.image;
+}
+void Table::refresh_finish() {
+    gf::Window* window = attached_window();
+    if (!window)
+        return;
+    const double scale = std::max(1.0, (*window).scale());
+    scale_ = scale;
+    const int w = std::max(8, static_cast<int>(std::lround(card_w_ * scale)));
+    const int h = std::max(8, static_cast<int>(std::lround(card_w_ * 1.4 * scale)));
+    const bool made = printer_.prepare(w, h, scale, finish_settings());
+    if (!made && finish_.value && w == finish_width_ && h == finish_height_)
+        return;
+    if (finish_width_ > 0)
+        resized_at_ = gf::FrameClock::now();  // a resize: printed when it settles
+    const std::vector<std::byte> pixels = paper_overlay(printer_.paper());
+    gf::ImageLoadResult result =
+        finish_.value ? (*window).replace_bgra32_premultiplied(finish_, w, h, w * 4, pixels, *this)
+                      : (*window).load_bgra32_premultiplied(w, h, w * 4, pixels);
+    if (result) {
+        finish_ = result.image;
+        finish_width_ = w;
+        finish_height_ = h;
+    }
+    // The shadow at whole device pixels, at rest and in the hand.
+    for (int lifted = 0; lifted < 2; ++lifted) {
+        int shadow_width = 0, shadow_height = 0;
+        const std::vector<std::byte> bgra = printer_.shadow(lifted != 0, shadow_width, shadow_height);
+        if (bgra.empty())
+            return;
+        const std::uint32_t sw = static_cast<std::uint32_t>(shadow_width), sh = static_cast<std::uint32_t>(shadow_height);
+        gf::ImageId& image = lifted ? lifted_shadow_ : rest_shadow_;
+        gf::ImageLoadResult made = image.value
+                                       ? (*window).replace_bgra32_premultiplied(image, sw, sh, sw * 4, bgra, *this)
+                                       : (*window).load_bgra32_premultiplied(sw, sh, sw * 4, bgra);
+        image = made ? made.image : gf::ImageId{};
+    }
+}
+bool Table::picture_shows(const Printed& printed, const Card& card, bool up) const {
+    const bool shows = printed.image.value && printed.card == card.id && printed.generation == printer_.generation() &&
+                       printed.width == printer_.paper().width && printed.up == up && (up || printed.design == back_);
+    return shows;
+}
+void Table::print_stale() {
+    gf::Window* window = attached_window();
+    if (!window || !printer_.ready())
+        return;
+    // What is out of date: the card under the pointer glinting, then every card in sight.
+    std::vector<Printed*> targets;
+    std::vector<int> cards;
+    std::vector<bool> glints;
+    if (glint_ && glint_card_ >= 0 && glint_card_ < 104) {
+        const Sprite& s = sprites_[static_cast<std::size_t>(glint_card_)];
+        const int x = static_cast<int>(std::lround(s.rect.x * scale_)), y = static_cast<int>(std::lround(s.rect.y * scale_));
+        if (s.visible && s.card.up && !(picture_shows(glinted_, s.card, true) && glinted_.x == x && glinted_.y == y)) {
+            targets.push_back(&glinted_);
+            cards.push_back(glint_card_);
+            glints.push_back(true);
+        }
+    }
+    for (const Pile& pile : game.state.piles)
+        for (const Card& c : pile) {
+            if (c.id < 0 || c.id >= 104)
+                continue;
+            const Sprite& s = sprites_[static_cast<std::size_t>(c.id)];
+            Printed& printed = printed_[static_cast<std::size_t>(c.id)];
+            const int x = static_cast<int>(std::lround(s.rect.x * scale_)), y = static_cast<int>(std::lround(s.rect.y * scale_));
+            if (!s.visible || (picture_shows(printed, s.card, s.card.up) && printed.x == x && printed.y == y))
+                continue;
+            targets.push_back(&printed);
+            cards.push_back(c.id);
+            glints.push_back(false);
+        }
+    if (targets.empty())
+        return;
+    // The pictures, every core lending a hand (the artwork brought to the paper's size first,
+    // where it is not yet).
+    std::vector<PressSheet> sheets;
+    for (std::size_t i = 0; i < targets.size(); ++i) {
+        const Sprite& s = sprites_[static_cast<std::size_t>(cards[i])];
+        PressSheet sheet;
+        if (s.card.up)
+            sheet.face = std::clamp(s.card.suit * 13 + s.card.rank - 1, 0, 51);
+        else
+            sheet.design = back_;
+        sheet.x = static_cast<int>(std::lround(s.rect.x * scale_));
+        sheet.y = static_cast<int>(std::lround(s.rect.y * scale_));
+        sheet.glint = glints[i];
+        sheet.seed = static_cast<std::uint32_t>(cards[i]) * 2654435761U;
+        sheets.push_back(sheet);
+    }
+    const std::vector<std::vector<std::byte>> pictures = printer_.print(sheets);
+    for (std::size_t i = 0; i < targets.size(); ++i)
+        if (!pictures[i].empty())  // otherwise drawn the old way
+            keep_print(*targets[i], sprites_[static_cast<std::size_t>(cards[i])], pictures[i]);
+}
+void Table::keep_print(Printed& printed, const Sprite& sprite, std::span<const std::byte> pixels) {
+    gf::Window& window = *attached_window();
+    const int x = static_cast<int>(std::lround(sprite.rect.x * scale_)), y = static_cast<int>(std::lround(sprite.rect.y * scale_));
+    const CardPaper& paper = printer_.paper();
+    const std::uint32_t w = static_cast<std::uint32_t>(paper.width), h = static_cast<std::uint32_t>(paper.height);
+    const gf::Rect place{x / scale_, y / scale_, w / scale_, h / scale_};
+    gf::ImageLoadResult result;
+    if (printed.image.value && printed.width == paper.width && printed.height == paper.height)
+        // the same size: only where the card lies is painted again
+        result = window.patch_bgra32_premultiplied(printed.image, 0, 0, w, h, w * 4, pixels, *this, place);
+    else if (printed.image.value)
+        result = window.replace_bgra32_premultiplied(printed.image, w, h, w * 4, pixels, *this);
+    else {
+        result = window.load_bgra32_premultiplied(w, h, w * 4, pixels);
+        invalidate(place);
+    }
+    if (!result)
+        return;
+    printed.image = result.image;
+    printed.width = paper.width;
+    printed.height = paper.height;
+    printed.x = x;
+    printed.y = y;
+    printed.card = sprite.card.id;
+    printed.up = sprite.card.up;
+    printed.design = sprite.card.up ? -1 : back_;
+    printed.generation = printer_.generation();
+}
+void Table::forget_pictures(gf::Window& window) {
+    for (Printed& printed : printed_) {
+        if (printed.image.value)
+            static_cast<void>(window.remove_image(printed.image));
+        printed = {};
+    }
+    if (glinted_.image.value)
+        static_cast<void>(window.remove_image(glinted_.image));
+    glinted_ = {};
+    for (gf::ImageId* image : {&rest_shadow_, &lifted_shadow_}) {
+        if ((*image).value)
+            static_cast<void>(window.remove_image(*image));
+        *image = {};
+    }
+    printer_.forget();
+}
+void Table::layout_cards(bool animate) {
+    gf::Rect bounds = client_rectangle();
+    const bool peaks = game.state.kind == Kind::tripeaks;
+    int columns = game.state.kind == Kind::spider ? 10 : game.state.kind == Kind::freecell ? 8 : peaks ? 0 : 7;
+    // Cards scale with the window: columns share the width, and two rows plus a fan
+    // must fit below the capsule.
+    const double margin = std::clamp(bounds.width * .025, 10.0, 30.0);
+    const double step = (bounds.width - 2 * margin) / columns;
+    const bool spider = game.state.kind == Kind::spider;
+    card_w_ = std::min(113.0, step * .86);
+    card_w_ =
+        std::max(30.0, std::min(card_w_, (bounds.height - kTop - 18) / (spider ? 2.7 : 3.0) / 1.4));
+    card_h_ = card_w_ * 1.4;
+    spread_ = std::clamp(card_h_ * .25, 12.0, 35.0);
+    const double left = margin + (step - card_w_) * .5;
+    const double row = kTop + std::max(20.0, card_h_ * .2);
+    const double tableau =
+        spider ? kTop - 4 + card_h_ * .5 + 14 : row + card_h_ + std::max(16.0, card_h_ * .2);
+    for (gf::Rect& r : slots_)
+        r = {};
+    for (int i = 0; i < columns; ++i)
+        slots_[i] = {left + i * step, tableau, card_w_, card_h_};
+    // Foundations and free cells line up with the tableau columns beneath them.
+    for (int i = 0; i < 4; ++i) {
+        slots_[10 + i] = {left + (columns - 4 + i) * step, row, card_w_, card_h_};
+        slots_[16 + i] = {left + i * step, row, card_w_, card_h_};
+    }
+    slots_[14] = {left, row, card_w_, card_h_};
+    slots_[15] = {left + step, row, card_w_, card_h_};
+    if (spider)
+        slots_[14] = {bounds.width - margin - card_w_ * .5, kTop - 4, card_w_ * .5, card_h_ * .5};
+    if (game.state.kind == Kind::freecell) {
+        slots_[14] = {};
+        slots_[15] = {};
+    } else
+        for (int i = 16; i < 20; ++i)
+            slots_[i] = {};
+    if (game.state.kind == Kind::spider)
+        for (int i = 10; i < 14; ++i)
+            slots_[i] = {};
+    if (peaks) {
+        // Three peaks over ten cards, each row half a card below the last; under them the
+        // waste just right of the middle and the stock fanned out to its left.
+        const double across = (bounds.width - 2 * margin) / 10;
+        card_w_ = std::min(113.0, across * .94);
+        card_w_ = std::max(30.0, std::min(card_w_, (bounds.height - kTop - 46) / 3.8 / 1.4));
+        card_h_ = card_w_ * 1.4;
+        const double gap = std::min(across, card_w_ * 1.08);
+        const double x0 = (bounds.width - 9 * gap - card_w_) * .5, top = kTop + std::max(10.0, card_h_ * .08);
+        for (gf::Rect& r : slots_)
+            r = {};
+        for (int place = 0; place < tripeaks_places; ++place)
+            slots_[tripeaks_pile(place)] = {x0 + tripeaks_column(place) * gap, top + tripeaks_row(place) * card_h_ * .5,
+                                            card_w_, card_h_};
+        const double low = top + 2.5 * card_h_ + std::max(14.0, card_h_ * .3);
+        slots_[15] = {bounds.width * .5 + card_w_ * .15, low, card_w_, card_h_};
+        slots_[14] = {slots_[15].x - card_w_ * 1.35, low, card_w_, card_h_};
+        stock_fan_ = std::clamp((slots_[14].x - margin) / 22, 2.0, card_w_ * .16);
+    }
+    for (Sprite& s : sprites_) {
+        s.start = s.rect;
+        s.prior_up = s.card.up;
+        s.flipping = false;
+        s.moving = false;
+        s.delay = 0;
+        s.duration = .38;
+        s.arc = .45;
+        s.flip_progress = 1;
+        s.visible = false;
+    }
+    for (int pile = 0; pile < pile_count; ++pile) {
+        const Pile& cards = game.state.piles[pile];
+        for (int i = 0; i < static_cast<int>(cards.size()); ++i) {
+            Card c = cards[i];
+            Sprite& s = sprites_[c.id];
+            const int was = s.pile;
+            s.card = c;
+            s.pile = pile;
+            s.index = i;
+            s.target = slots_[pile];
+            if (game.state.kind == Kind::hearts) {
+                if (pile == 0) {
+                    double fan = std::min(card_w_ * .66,
+                                          (bounds.width - 100 - card_w_) /
+                                              std::max(1, static_cast<int>(cards.size()) - 1));
+                    double start = (bounds.width - card_w_ - fan * (cards.size() - 1)) * .5;
+                    s.target = {start + i * fan, bounds.height - card_h_ - 63, card_w_, card_h_};
+                    // A card chosen to pass rises out of the hand.
+                    if (game.state.passing &&
+                        std::find(pass_cards_.begin(), pass_cards_.end(), i) != pass_cards_.end())
+                        s.target.y -= card_h_ * .14;
+                    s.visible = true;
+                }
+                if (pile == 10) {
+                    int player = (game.state.leader + i) % 4;
+                    double dx[] = {0, -card_w_ * .85, 0, card_w_ * .85};
+                    double dy[] = {55, 0, -55, 0};
+                    s.target = {bounds.width * .5 - card_w_ * .5 + dx[player],
+                                bounds.height * .43 - card_h_ * .5 + dy[player], card_w_, card_h_};
+                    s.visible = true;
+                }
+            } else if (peaks) {
+                s.visible = true;
+                if (pile == 14) {
+                    // The whole stock in sight, so what is left is plain; its top card nearest
+                    // the waste.
+                    s.card.up = false;
+                    s.target.x -= (static_cast<int>(cards.size()) - 1 - i) * stock_fan_;
+                } else if (pile == 15)
+                    s.visible = i >= static_cast<int>(cards.size()) - 2;
+            } else {
+                if (pile < columns) {
+                    double offset = 0;
+                    double available =
+                        std::max(40.0, bounds.height - 14 - slots_[pile].y - card_h_);
+                    double exposed = 0;
+                    for (int j = 0; j < static_cast<int>(cards.size()) - 1; ++j)
+                        exposed += cards[j].up ? spread_ : 14;
+                    double factor = exposed > available ? available / exposed : 1;
+                    for (int j = 0; j < i; ++j)
+                        offset += (cards[j].up ? spread_ : 14) * factor;
+                    s.target.y += offset;
+                    s.visible = true;
+                } else if (pile == 14) {
+                    s.card.up = false;
+                    const int size = static_cast<int>(cards.size());
+                    if (spider) {
+                        // Each deal still to come is its own little stack, the next on the right.
+                        const int groups = (size + 9) / 10;
+                        s.target.x -= (groups - 1 - i / 10) * deal_step();
+                        s.visible = i % 10 == 9 || i == size - 1;
+                    } else
+                        // The card beneath the top shows while the top one is taken or put back.
+                        s.visible = i >= size - 2;
+                } else if (pile == 15) {
+                    int shown = std::min(game.state.draw_count, static_cast<int>(cards.size()));
+                    int first = static_cast<int>(cards.size()) - shown;
+                    // The cards just covered stay in sight, gathered under the fan, so a new card
+                    // turns over onto the old ones and an undo uncovers them again.
+                    s.visible = i >= first - game.state.draw_count;
+                    s.target.x += std::max(0, i - first) * 18;
+                    if (animate && was == 14)
+                        s.delay = std::max(0, i - first) * .09;
+                } else if (pile >= 16 && game.state.kind == Kind::freecell)
+                    s.visible = true;
+                else if (pile >= 10 && pile < 14 && game.state.kind != Kind::spider)
+                    // The card beneath the top shows too, so a card flying home lands on it
+                    // rather than on an empty pile.
+                    s.visible = i >= static_cast<int>(cards.size()) - 2;
+            }
+            if (s.start.width == 0)
+                s.start = {bounds.width * .5, 100, card_w_, card_h_};
+            s.flipping = animate && !reduced_ && s.prior_up != s.card.up;
+            if (dealing_ && animate && !reduced_ && s.visible) {
+                s.start = {bounds.width * .5 - card_w_ * .5, 86, card_w_, card_h_};
+                s.prior_up = false;
+                s.flipping = s.card.up;
+                s.delay = peaks ? (tripeaks_place(pile) >= 0 ? tripeaks_place(pile) * .022 : .62 + i * .006)
+                                : (pile < columns ? i * columns + pile : i) * .014;
+                s.duration = .44;
+                s.rect = s.start;
+            }
+            // Spider deals a row from the stock one column at a time, left to right.
+            if (animate && spider && was == 14 && pile < columns)
+                s.delay = pile * .05;
+            s.moving = animate && !reduced_ &&
+                       (std::abs(s.start.x - s.target.x) + std::abs(s.start.y - s.target.y) > .1 ||
+                        s.flipping);
+            s.flip_progress = s.flipping ? 0 : 1;
+            // A move takes as long as its distance asks: a card let go beside its place
+            // snaps in, one sent across the table still flies.
+            if (s.moving && !s.flipping && s.duration == .38) {
+                const double distance = std::hypot(s.target.x - s.start.x, s.target.y - s.start.y);
+                s.duration = std::clamp(.1 + distance / 2400, .1, .38);
+                s.arc = .45 * std::min(1.0, distance / 300);
+            }
+            if (!animate || reduced_)
+                s.rect = s.target;
+            // A card out of sight (under the stock's top card, beneath a foundation's) is
+            // already in its pile: shown later, it moves from there, not from wherever it
+            // was last seen (a card turned from the stock seemed to leave a column).
+            if (!s.visible) {
+                s.rect = s.target;
+                s.moving = false;
+                s.flipping = false;
+                s.flip_progress = 1;
+            }
+        }
+    }
+    (*buttons_[18])
+        .set_visible(panel_ == 0 && game.state.kind == Kind::hearts && !game.state.over &&
+                     (game.state.passing || game.state.trick_number == 13));
+    (*buttons_[18]).set_text(game.state.passing ? "Pass cards" : "Next hand");
+    (*buttons_[18]).set_enabled(!game.state.over);
+    dealing_ = false;
+    animating_ = animate && !reduced_;
+    animation_start_ = gf::FrameClock::now();
+    // at rest too: what moved is printed again where it lies
+    request_tick();
+    invalidate(gf::Dirty::paint);
+}
+void Table::request_tick() {
+    if (!timer_)
+        return;
+    if (waiting_ai_) {
+        waiting_ai_ = false;
+        (*timer_).start_at(gf::FrameClock::now() + std::chrono::milliseconds(8));
+    } else if (!(*timer_).enabled())
+        (*timer_).start();
+}
+void Table::reload_preferences() {
+    // The PlaySuite masters, which the Settings screen and the switches change.
+    const SuiteSettings& masters = SettingsStore::shared().values();
+    reduced_ = masters.reduced;
+    sound_ = masters.sound;
+    music_ = masters.music;
+    if (move_glow_ != masters.card_move_glow || glint_ != masters.card_glint || sparkle_ != masters.card_sparkle ||
+        glare_ != masters.card_glare || grain_ != masters.card_grain) {
+        move_glow_ = masters.card_move_glow;
+        glint_ = masters.card_glint;
+        sparkle_ = masters.card_sparkle;
+        glare_ = masters.card_glare;
+        grain_ = masters.card_grain;
+        printer_.set_glint(finish_settings());
+        glinted_.generation = -1;  // printed again as it now glints
+        invalidate(gf::Dirty::paint);
+        request_tick();
+    }
+    if (emboss_ != masters.card_emboss || emboss_size_ != masters.card_emboss_size) {
+        emboss_ = masters.card_emboss;
+        emboss_size_ = masters.card_emboss_size;
+        finish_width_ = 0;  // the paper is made again, and every card printed on it
+        refresh_finish();
+        invalidate(gf::Dirty::paint);
+        request_tick();
+    }
+    if (back_ != masters.card_back) {
+        back_ = masters.card_back;
+        load_back();
+        invalidate(gf::Dirty::paint);
+        request_tick();
+    }
+}
+void Table::load_back() {
+    gf::Window* window = attached_window();
+    if (window == nullptr || back_ < painted_back_count || back_ >= card_back_count || backs_[back_].value)
+        return;
+    if (back_ == classic_back) {
+        backs_[back_] = load_image(*window, classic_back_file);
+        return;
+    }
+    backs_[back_] = (*window).load_bgra32_premultiplied(card_art_width, card_art_height, card_art_width * 4U,
+                                                        drawn_card_back(back_)).image;
+}
+void Table::activate() {
+    reload_preferences();
+    dealer_.resume();
+    want_deals();
+    music_play(audio_name(game.state.kind), music_);
+    request_tick();
+    if (attached_window())
+        static_cast<void>((*attached_window()).request_focus(shared_from_this()));
+}
+void Table::tick() {
+    waiting_ai_ = false;
+    if (!effectively_visible()) {
+        // Hidden: no work goes on behind the shelf; what is due is kept first.
+        if (save_due_) {
+            save_due_ = false;
+            persist();
+        }
+        dealer_.save_if_due();
+        dealer_.pause();
+        if (timer_)
+            (*timer_).stop();
+        return;
+    }
+    gf::FrameTime now = gf::FrameClock::now();
+    if (dealer_.collect() && waiting_deal_ >= 0)
+        new_game(static_cast<Kind>(waiting_deal_));
+    if (animating_) {
+        double elapsed = std::chrono::duration<double>(now - animation_start_).count();
+        bool pending = false;
+        for (Sprite& s : sprites_)
+            if (s.visible && s.moving) {
+                double t = std::clamp((elapsed - s.delay) / s.duration, 0.0, 1.0);
+                double ease = t * t * t * (t * (t * 6 - 15) + 10);
+                gf::Rect old = s.rect;
+                s.rect = {s.start.x + (s.target.x - s.start.x) * ease,
+                          s.start.y + (s.target.y - s.start.y) * ease,
+                          s.start.width + (s.target.width - s.start.width) * ease,
+                          s.start.height + (s.target.height - s.start.height) * ease};
+                // A card turns over in the air: it rises, turns about its upright middle and
+                // settles face up as it lands.
+                s.flip_progress = std::clamp((t - .08) / .8, 0.0, 1.0);
+                s.lift = std::sin(t * 3.141592653589793) * (s.flipping ? 1 : s.arc);
+                bool complete = t >= 1 && (!s.flipping || s.flip_progress >= 1);
+                pending = pending || !complete;
+                s.moving = !complete;
+                // Its shadow reaches about a ninth of a card past it.
+                invalidate(enlarged(old, card_w_ * .2 + 16));
+                invalidate(enlarged(s.rect, card_w_ * .2 + 16));
+            }
+        animating_ = pending;
+    }
+    bool ai = game.state.kind == Kind::hearts && !game.state.passing && !game.state.over &&
+              game.state.trick_number < 13 &&
+              (game.state.turn != 0 || game.state.piles[10].size() == 4);
+    if (ai && panel_ == 0 && now >= ai_due_) {
+        if (game.state.piles[10].size() == 4)
+            game.advance_trick();
+        else {
+            int index = game.computer_choice();
+            if (index >= 0)
+                game.play(index);
+        }
+        ai_due_ = now + std::chrono::milliseconds(game.state.piles[10].size() == 4 ? 1100 : 650);
+        save_soon();
+        show_result();
+        layout_cards(true);
+        sound_play("place", sound_);
+    }
+    if (autoplay_next_ < autoplay_.size() && now >= autoplay_due_) {
+        const SolverStep step = autoplay_[autoplay_next_++];
+        const bool done = step.draw ? game.draw() : game.move(step.move);
+        if (done) {
+            changed(step.draw ? "flip" : "place");
+        } else {
+            autoplay_.clear();
+            autoplay_next_ = 0;
+        }
+        autoplay_due_ = now + std::chrono::milliseconds(100);
+    }
+    if (cascading_)
+        step_cascade();
+    if (!animating_ && !cascading_) {
+        if (save_due_) {
+            save_due_ = false;
+            persist();
+        }
+        dealer_.save_if_due();
+        // At rest, cards are printed where they lie (not in the hand, nor while the window is
+        // being sized); then the timer wakes only for the next computer play, and to see
+        // whether the dealer has finished a deal (a few times a second, only while it works).
+        const gf::FrameTime settled = resized_at_ + std::chrono::milliseconds(150);
+        const bool sizing = now < settled;
+        if (!dragging_ && !sizing)
+            print_stale();
+        const bool playing = ai && panel_ == 0;
+        if (sizing && !dragging_) {
+            waiting_ai_ = true;
+            (*timer_).start_at(playing ? std::min(ai_due_, settled) : settled);
+        } else if (autoplay_next_ < autoplay_.size()) {
+            waiting_ai_ = true;
+            (*timer_).start_at(autoplay_due_);
+        } else if (!playing && !dealer_.busy())
+            (*timer_).stop();
+        else {
+            waiting_ai_ = true;
+            const gf::FrameTime dealer_due = now + std::chrono::milliseconds(150);
+            (*timer_).start_at(playing && !dealer_.busy() ? ai_due_
+                               : playing                  ? std::min(ai_due_, dealer_due)
+                                                          : dealer_due);
+        }
+    }
+}
+// The classic finish: cards leap from the foundations one at a time, bounce along the
+// bottom of the table and leave a fading trail. Any click or key skips to the result.
+void Table::start_cascade() {
+    launch_queue_.clear();
+    bouncers_.clear();
+    launched_.fill(false);
+    for (int rank = 13; rank >= 1; --rank)
+        for (int f = 10; f < 14; ++f)
+            for (const Card& c : game.state.piles[f])
+                if (c.rank == rank)
+                    launch_queue_.push_back(c);
+    if (game.state.kind == Kind::tripeaks)  // the waste, from its top
+        launch_queue_.assign(game.state.piles[15].rbegin(), game.state.piles[15].rend());
+    if (launch_queue_.empty()) // Spider sends completed runs home; replay two decks of runs.
+        for (int run = 0; run < 8; ++run)
+            for (int rank = 13; rank >= 1; --rank)
+                launch_queue_.push_back({rank, run % 4, run * 13 + rank - 1, true});
+    cascading_ = true;
+    launch_timer_ = 1;
+    cascade_last_ = std::chrono::steady_clock::now();
+    request_tick();
+}
+void Table::step_cascade() {
+    const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+    const double dt =
+        std::clamp(std::chrono::duration<double>(now - cascade_last_).count(), 0.0, .05);
+    cascade_last_ = now;
+    const gf::Rect b = client_rectangle();
+    launch_timer_ += dt;
+    if (launch_timer_ >= .26 && !launch_queue_.empty()) {
+        launch_timer_ = 0;
+        const Card c = launch_queue_.front();
+        launch_queue_.erase(launch_queue_.begin());
+        gf::Point start{b.width * .5 - card_w_ * .5, kTop + 10};
+        if (c.id >= 0 && c.id < 104 && sprites_[c.id].visible && sprites_[c.id].pile >= 10 &&
+            sprites_[c.id].pile < 16)
+            start = {sprites_[c.id].rect.x, sprites_[c.id].rect.y};
+        if (c.id >= 0 && c.id < 104)
+            launched_[c.id] = true;
+        const double speed = 160 + std::fmod(c.id * 73.0 + c.rank * 31.0, 220.0);
+        Bouncer bouncer{c, start.x, start.y, (c.id + c.rank) % 2 ? speed : -speed,
+                        -(40 + std::fmod(c.id * 47.0, 260.0))};
+        bouncer.trail.fill(start);
+        bouncers_.push_back(bouncer);
+    }
+    const double floor = b.height - card_h_ - 34;
+    for (Bouncer& bouncer : bouncers_) {
+        bouncer.vy += 1900 * dt;
+        bouncer.x += bouncer.vx * dt;
+        bouncer.y += bouncer.vy * dt;
+        if (bouncer.y > floor) {
+            bouncer.y = floor;
+            bouncer.vy = -bouncer.vy * .74;
+            if (std::abs(bouncer.vy) < 150)
+                bouncer.vy = -520; // keep hopping, like the original
+        }
+        bouncer.sample += dt;
+        if (bouncer.sample >= .035) {
+            bouncer.sample = 0;
+            for (std::size_t k = bouncer.trail.size() - 1; k > 0; --k)
+                bouncer.trail[k] = bouncer.trail[k - 1];
+            bouncer.trail[0] = {bouncer.x, bouncer.y};
+        }
+    }
+    struct OffscreenBouncer {
+        gf::Rect b;
+        double card_w_;
+        bool operator()(const Bouncer& bouncer) const {
+            return (bouncer.x > b.width + 10 && bouncer.trail.back().x > b.width + 10) ||
+                   (bouncer.x < -card_w_ - 10 && bouncer.trail.back().x < -card_w_ - 10);
+        }
+    };
+    std::erase_if(bouncers_, OffscreenBouncer{b, card_w_});
+    invalidate(gf::Dirty::paint);
+    if (launch_queue_.empty() && bouncers_.empty())
+        finish_cascade();
+}
+void Table::finish_cascade() {
+    if (!cascading_)
+        return;
+    cascading_ = false;
+    launch_queue_.clear();
+    bouncers_.clear();
+    launched_.fill(false);
+    invalidate(gf::Dirty::paint);
+    show_result();
+}
+void Table::draw_text(gf::Painter& p, double x, double y, const std::string& text, double size,
+                      gf::Color color) {
+    p.draw_text_utf8(
+        {x, y}, text,
+        {gf::FontRole::content, size, static_cast<std::uint16_t>(size >= 15 ? 700 : 600), false,
+         size <= 12 && text.find_first_of("abcdefghijklmnopqrstuvwxyz") == std::string::npos ? .6
+                                                                                             : 0},
+        color);
+}
+void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
+    gf::Rect r = s.rect;
+    if (dragging_ && s.pile == selection_ && s.index >= selected_index_) {
+        r.x += pointer_.x - press_.x;
+        r.y += pointer_.y - press_.y;
+    }
+    bool face_up = s.card.up;
+    const double rise = animating_ && s.moving ? s.lift : 0;
+    if (rise > 0) {
+        // Nearer the eye in the air: a little larger about its middle.
+        const double grow = 1 + .06 * rise;
+        r = {r.x - r.width * (grow - 1) * .5, r.y - r.height * (grow - 1) * .5, r.width * grow,
+             r.height * grow};
+    }
+    const double full_width = r.width;
+    const bool turning = animating_ && s.flipping && s.flip_progress < 1;
+    if (turning) {
+        double turn = s.flip_progress;
+        double width = r.width * std::max(.018, std::abs(std::cos(turn * 3.141592653589793)));
+        r.x += (r.width - width) * .5;
+        r.width = width;
+        face_up = turn < .5 ? s.prior_up : s.card.up;
+    }
+    // A card in the hand rides higher: its shadow falls further and softer.
+    const bool lifted = dragging_ && s.pile == selection_ && s.index >= selected_index_;
+    // A card that can move, under the pointer (with any run on it), glows and brightens:
+    // a pale lamp-light halo round its edge, and a wash over the face.
+    // In a Hearts hand only the card itself: the cards after it are not a run.
+    const bool covered = game.state.kind == Kind::hearts ? s.index == lift_index_
+                                                         : s.index >= lift_index_;
+    const bool hovered = move_glow_ && !selected && !lifted && s.pile == lift_pile_ && !animating_ && covered;
+    const std::size_t id = static_cast<std::size_t>(std::clamp(s.card.id, 0, 103));
+    const Printed& printed = printed_[id];
+    const bool pictured = picture_shows(printed, s.card, face_up);
+    // Flat on the table or in the hand, at the cards' own size: its picture, copied whole at
+    // whole device pixels (where it was printed, or, moved, until it is printed again).
+    const bool whole = pictured && rise <= 0 && !turning && rest_shadow_.value && lifted_shadow_.value &&
+                       std::abs(r.width * scale_ - printer_.paper().width) < .5;
+    if (whole) {
+        const int x = static_cast<int>(std::lround(r.x * scale_)), y = static_cast<int>(std::lround(r.y * scale_));
+        const double w = printer_.paper().width, margin = printer_.margin();
+        // as the artwork's shadow is drawn below: risen by a full height in the hand
+        const double grow = lifted ? 1.06 : 1, drop = lifted ? w * .07 : 0;
+        const double shadow_x = static_cast<double>(std::lround(x - margin * grow + drop * .6)),
+                     shadow_y = static_cast<double>(std::lround(y - margin * grow + drop));
+        const double shadow_w = static_cast<double>(std::lround((w + 2 * margin) * grow)),
+                     shadow_h = static_cast<double>(std::lround((w * 1.4 + 2 * margin) * grow));
+        p.draw_image(lifted ? lifted_shadow_ : rest_shadow_,
+                     {shadow_x / scale_, shadow_y / scale_, shadow_w / scale_, shadow_h / scale_});
+        const gf::Rect at{x / scale_, y / scale_, printer_.paper().width / scale_, printer_.paper().height / scale_};
+        if (selected) {
+            p.fill_rounded_rect(enlarged(at, 4), 9, gf::Color::rgba(248, 220, 119));
+            p.draw_box_shadow(at, 7, {0, 0}, 9, 3, gf::Color::rgba(255, 220, 103, 100));
+        }
+        if (hovered)
+            p.draw_box_shadow(at, 7, {0, 0}, 14, 3, gf::Color::rgba(255, 244, 196, 215));
+        const bool glinting = glint_ && face_up && !animating_ && static_cast<int>(id) == glint_card_ &&
+                              picture_shows(glinted_, s.card, true) && glinted_.x == x && glinted_.y == y;
+        p.draw_image(glinting ? glinted_.image : printed.image, at);
+        if (hovered)
+            p.fill_rounded_rect(at, 6, gf::Color::rgba(255, 253, 240, 120));
+        return;
+    }
+    // A card turning edge-on casts a narrower shadow, never a shorter one.
+    const double shadow_scale = r.width / 360.0, shadow_height = full_width / 360.0;
+    const double height = lifted ? 1 : rise;
+    const double drop = r.width * .07 * height, grow = 1 + .06 * height;
+    p.draw_image(shadow_,
+                 {r.x - 40 * shadow_scale * grow + drop * .6,
+                  r.y - 40 * shadow_height * grow + drop, 440 * shadow_scale * grow,
+                  584 * shadow_height * grow});
+    if (selected) {
+        p.fill_rounded_rect(enlarged(r, 4), 9, gf::Color::rgba(248, 220, 119));
+        p.draw_box_shadow(r, 7, {0, 0}, 9, 3, gf::Color::rgba(255, 220, 103, 100));
+    }
+    if (hovered)
+        p.draw_box_shadow(r, 7, {0, 0}, 14, 3, gf::Color::rgba(255, 244, 196, 215));
+    if (pictured) {
+        // In the air: its picture, drawn to the card's place (a draft, printed again on landing).
+        p.draw_image(printed.image, r);
+    } else {
+        // Not printed yet: the artwork, the paper and the room's light, layer by layer.
+        const std::size_t which = static_cast<std::size_t>(s.card.suit * 13 + s.card.rank - 1);
+        p.draw_image(face_up ? faces_[which] : backs_[back_], r);
+        if (finish_.value)
+            p.draw_image(finish_, r);
+        if (light_.value) {
+            // The room's light where the card lies: its gloss changes as it crosses the table.
+            p.save();
+            p.clip_rounded_rect(r, 6);
+            p.draw_image(light_, client_rectangle());
+            p.restore();
+        }
+    }
+    if (hovered)
+        p.fill_rounded_rect(r, 6, gf::Color::rgba(255, 253, 240, 120));
+}
+// Where a card dropped on a pile would lie: the next place down a column's fan (squeezed
+// as the layout squeezes a long column), or the pile's own place.
+gf::Rect Table::landing(int pile) const {
+    const int columns = game.state.kind == Kind::spider ? 10 : game.state.kind == Kind::freecell ? 8 : 7;
+    if (pile < 0 || pile >= pile_count)
+        return {};
+    const gf::Rect slot = slots_[pile];
+    const Pile& cards = game.state.piles[pile];
+    if (game.state.kind == Kind::hearts || game.state.kind == Kind::tripeaks || pile >= columns || cards.empty())
+        return slot;
+    const gf::Rect bounds = client_rectangle();
+    const double available = std::max(40.0, bounds.height - 14 - slot.y - card_h_);
+    double exposed = 0;
+    for (const Card& card : cards)
+        exposed += card.up ? spread_ : 14;
+    const double factor = exposed > available ? available / exposed : 1;
+    return {slot.x, slot.y + exposed * factor, slot.width, slot.height};
+}
+void Table::on_paint(gf::Painter& p, gf::Rect) {
+    gf::Rect b = client_rectangle();
+    p.fill_rect(b, gf::Color::rgba(22, 75, 54));
+    if (felt_.value)
+        p.fill_image_pattern(felt_, {256, 256}, b, {256, 256});
+    // A lamp over the table: a warm pool that lifts the felt's own colour without washing
+    // it pale, falling away into deep shade at the edges.
+    std::array<gf::GradientStop, 4> light{{{0, gf::Color::rgba(120, 160, 70, 26)},
+                                           {.42, gf::Color::rgba(0, 0, 0, 0)},
+                                           {.8, gf::Color::rgba(0, 14, 10, 105)},
+                                           {1, gf::Color::rgba(0, 8, 6, 175)}}};
+    p.fill_radial_gradient(b, {b.width * .5, b.height * .42}, {b.width * .78, b.height * .9},
+                           light);
+    gf::Color cream = gf::Color::rgba(223, 229, 204);
+    gf::Color muted = gf::Color::rgba(156, 189, 160);
+    if (game.state.kind == Kind::tripeaks) {
+        // Only the stock and the waste have places of their own; the peaks lie on the felt.
+        for (int i : {14, 15}) {
+            p.fill_rounded_rect(slots_[i], 7, gf::Color::rgba(0, 25, 18, 32));
+            p.stroke_rounded_rect(slots_[i], 7, gf::Color::rgba(185, 209, 170, 60), 1.5);
+        }
+        const int stock = static_cast<int>(game.state.piles[14].size());
+        if (stock == 0)
+            draw_text(p, slots_[14].x + card_w_ * .22, slots_[14].y + card_h_ * .52, "Empty", 15, muted);
+        const double x = slots_[15].x + card_w_ + std::max(16.0, card_w_ * .25), y = slots_[15].y + card_h_ * .3;
+        const std::string run = game.state.run > 1 ? "Run of " + std::to_string(game.state.run) : "";
+        draw_text(p, x, y, run, 22, cream);
+        draw_text(p, x, y + 26, std::to_string(game.state.score) + " points", 15, cream);
+        draw_text(p, x, y + 48, std::to_string(stock) + (stock == 1 ? " card" : " cards") + " in the stock", 13,
+                  muted);
+    } else if (game.state.kind != Kind::hearts) {
+        int columns = game.state.kind == Kind::spider     ? 10
+                      : game.state.kind == Kind::freecell ? 8
+                                                          : 7;
+        for (int i = 0; i < 20; ++i) {
+            bool show = i < columns || (i >= 10 && i < 14 && game.state.kind != Kind::spider) ||
+                        (i >= 16 && game.state.kind == Kind::freecell) ||
+                        (i == 14 && game.state.kind != Kind::freecell);
+            if (show) {
+                p.fill_rounded_rect(slots_[i], 7, gf::Color::rgba(0, 25, 18, 32));
+                p.stroke_rounded_rect(slots_[i], 7, gf::Color::rgba(185, 209, 170, 60), 1.5);
+                if (i >= 10 && i < 14)
+                    draw_text(p, slots_[i].x + card_w_ * .40, slots_[i].y + card_h_ * .38, "A", 29,
+                              muted);
+            }
+        }
+        if (game.state.kind == Kind::freecell) {
+            draw_text(p, slots_[16].x, slots_[16].y - 7, "FREE CELLS  ·  " + upper(level_name()),
+                      11, cream);
+            draw_text(p, slots_[10].x, slots_[10].y - 7, "FOUNDATIONS", 11, cream);
+        }
+        if (game.state.kind == Kind::solitaire) {
+            // Earlier discards remain underneath the one/three-card fan.
+            // Only the top waste card participates in hit testing and moves.
+            const int buried =
+                std::max(0, static_cast<int>(game.state.piles[15].size()) - game.state.draw_count);
+            const int edges = std::min(8, buried);
+            for (int edge = edges; edge > 0; --edge) {
+                gf::Rect layer = slots_[15];
+                layer.x += edge * .7;
+                layer.y += edge * 1.2;
+                p.fill_rounded_rect(layer, 6, gf::Color::rgba(235, 232, 218));
+                p.stroke_rounded_rect(layer, 6, gf::Color::rgba(128, 128, 116), .7);
+            }
+            draw_text(p, slots_[14].x, slots_[14].y - 7,
+                      "DRAW " + std::to_string(game.state.draw_count) + "  ·  " +
+                          upper(level_name()),
+                      11, cream);
+            draw_text(p, slots_[10].x, slots_[10].y - 7, "FOUNDATIONS", 11, cream);
+            if (game.state.piles[14].empty())
+                draw_text(p, slots_[14].x + card_w_ * .2, slots_[14].y + card_h_ * .32, "Redeal",
+                          15, cream);
+        }
+        if (game.state.kind == Kind::spider) {
+            // Right-aligned beside the deal pile, clear of the capsule at the top left.
+            const std::string runs = std::to_string(game.state.completed) + " / 8 runs home";
+            const std::string details = std::to_string(game.state.spider_suits) + " suit  ·  " +
+                                        std::to_string(game.state.piles[14].size() / 10) +
+                                        " deals left  ·  " + level_name();
+            const int groups = static_cast<int>(game.state.piles[14].size() + 9) / 10;
+            const double right = slots_[14].x - std::max(0, groups - 1) * deal_step() - 16;
+            const double top = slots_[14].y + slots_[14].height * .5 - 14;
+            draw_text(p, right - p.measure_text_utf8(runs, {gf::FontRole::content, 18, 700, false}).width,
+                      top, runs, 18, cream);
+            draw_text(p, right - p.measure_text_utf8(details, {gf::FontRole::content, 13, 600, false}).width,
+                      top + 20, details, 13, muted);
+        }
+    } else {
+        double xs[] = {b.width * .5 - 90, 34, b.width * .5 - 90, b.width - 190};
+        double ys[] = {b.height - 49, b.height * .38, kTop + 22, b.height * .38};
+        for (int i = 0; i < 4; ++i) {
+            draw_text(p, xs[i], ys[i], hearts_name(game.state, i), 17, cream);
+            if (i > 0) {
+                if (game.state.turn == i && !game.state.passing)
+                    p.fill_rounded_rect({xs[i] - 12, ys[i] + 3, 5, 17}, 2,
+                                        gf::Color::rgba(240, 211, 132));
+            }
+        }
+        for (int player = 1; player < 4; ++player) {
+            int count = static_cast<int>(game.state.piles[player].size());
+            double miniature = card_w_ * .36, offset = 7;
+            double x = player == 2   ? b.width * .5 - (miniature + offset * (count - 1)) * .5
+                       : player == 1 ? 36
+                                     : b.width - 36 - miniature - offset * std::max(0, count - 1);
+            double y = player == 2 ? kTop + 34 : b.height * .38 + 58;
+            for (int i = 0; i < count; ++i)
+                p.draw_image(backs_[back_], {x + i * offset, y, miniature, miniature * 1.4});
+        }
+        if (game.state.passing)
+            draw_text(p, b.width * .5 - 180, b.height * .38,
+                      "Select 3 cards, then click Pass cards", 18, cream);
+        if (game.state.trick_number == 13)
+            draw_text(p, b.width * .5 - 145, b.height * .4,
+                      game.state.over ? "Match complete · lowest score wins"
+                                      : "Hand complete · click Next hand",
+                      18, cream);
+    }
+    for (int pile = 0; pile < pile_count; ++pile)
+        for (const Card& c : game.state.piles[pile]) {
+            const Sprite& s = sprites_[c.id];
+            if (!s.visible ||
+                (cascading_ && c.id < 104 && launched_[static_cast<std::size_t>(c.id)]) ||
+                (animating_ && s.moving) ||
+                (dragging_ && pile == selection_ && s.index >= selected_index_))
+                continue;
+            bool selected = pile == selection_ && s.index >= selected_index_;
+            if (game.state.kind == Kind::hearts)
+                selected = pile == 0 && (std::find(pass_cards_.begin(), pass_cards_.end(),
+                                                   s.index) != pass_cards_.end() ||
+                                         (selection_ == 0 && s.index == selected_index_));
+            draw_card(p, s, selected);
+        }
+    if (animating_)
+        for (const Pile& pile : game.state.piles)
+            for (const Card& card : pile) {
+                const Sprite& sprite = sprites_[card.id];
+                if (sprite.visible && sprite.moving &&
+                    !(dragging_ && sprite.pile == selection_ && sprite.index >= selected_index_))
+                    draw_card(p, sprite,
+                              sprite.pile == selection_ && sprite.index >= selected_index_);
+            }
+    if (dragging_)
+        for (const Card& c : game.state.piles[selection_]) {
+            const Sprite& s = sprites_[c.id];
+            if (s.index >= selected_index_)
+                draw_card(p, s, true);
+        }
+    if (hover_ >= 0 && selection_ < 0 && slots_[hover_].width > 0)
+        p.stroke_rounded_rect(enlarged(slots_[hover_], 4), 8, gf::Color::rgba(239, 220, 151), 2);
+    if (hover_ >= 0 && selection_ >= 0 && game.legal({selection_, selected_index_, hover_}))
+        p.stroke_rounded_rect(enlarged(landing(hover_), 5), 9, gf::Color::rgba(246, 228, 155), 3);
+    if (cascading_)
+        // As each top card leaps away, the next one down shows on its foundation (on
+        // TriPeaks' waste).
+        for (int f : {10, 11, 12, 13, 15})
+            for (std::vector<Card>::const_reverse_iterator it = game.state.piles[f].rbegin();
+                 it != game.state.piles[f].rend(); ++it)
+                if ((*it).id < 104 && !launched_[static_cast<std::size_t>((*it).id)]) {
+                    if (slots_[f].width > 0)
+                        p.draw_image(
+                            faces_[static_cast<std::size_t>((*it).suit * 13 + (*it).rank - 1)],
+                            slots_[f]);
+                    break;
+                }
+    for (const Bouncer& bouncer : bouncers_) {
+        const gf::ImageId face =
+            faces_[static_cast<std::size_t>(bouncer.card.suit * 13 + bouncer.card.rank - 1)];
+        for (std::size_t k = bouncer.trail.size(); k-- > 1;)
+            p.draw_image(face, {bouncer.trail[k].x, bouncer.trail[k].y, card_w_, card_h_},
+                         .5 * (1 - static_cast<double>(k) / bouncer.trail.size()));
+        p.draw_image(face, {bouncer.x, bouncer.y, card_w_, card_h_});
+    }
+    if (game.state.over && game.state.kind != Kind::hearts && !cascading_) {
+        p.fill_rounded_rect({b.width * .5 - 225, b.height * .5 - 45, 450, 90}, 12,
+                            gf::Color::rgba(246, 238, 206));
+        draw_text(p, b.width * .5 - 174, b.height * .5 - 22, "Beautifully played!", 30,
+                  gf::Color::rgba(35, 83, 61));
+    }
+
+    if (panel_)
+        draw_panel(p);
+}
+void Table::draw_panel(gf::Painter& p) {
+    gf::Rect b = client_rectangle();
+    p.fill_rect(b, gf::Color::rgba(0, 19, 15, 155));
+    p.draw_box_shadow(popup_, 12, {0, 10}, 28, 0, gf::Color::rgba(0, 0, 0, 130));
+    p.fill_rounded_rect(popup_, 12, gf::Color::rgba(255, 251, 236));
+    // A felt-green header band with a gold rule, matching the table.
+    p.save();
+    p.clip_rounded_rect(popup_, 12);
+    fill_vertical(p, {popup_.x, popup_.y, popup_.width, 56}, gf::Color::rgba(38, 112, 78),
+                  gf::Color::rgba(18, 66, 44));
+    p.restore();
+    p.draw_line({popup_.x, popup_.y + 56}, {popup_.x + popup_.width, popup_.y + 56},
+                gf::Color::rgba(232, 196, 112), 2);
+    p.stroke_rounded_rect(popup_, 12, gf::Color::rgba(120, 96, 50), 1);
+    gf::Color ink = gf::Color::rgba(39, 61, 48);
+    const gf::Color title_ink = gf::Color::rgba(255, 232, 170);
+    if (panel_ == 3) {
+        draw_text(p, popup_.x + 30, popup_.y + 38, "Top scores", 24, title_ink);
+        draw_text(p, popup_.x + 30, popup_.y + 80, score_profile_name(game.state), 17, ink);
+        bool pending = pending_score();
+        std::string result = game.state.over
+                                 ? "Your result: " + std::to_string(final_score(game.state)) + " " +
+                                       score_unit(game.state)
+                                 : score_unit(game.state);
+        draw_text(p, popup_.x + 30, popup_.y + 104, result, 14, ink);
+        if (game.state.over && !pending)
+            draw_text(p, popup_.x + 30, popup_.y + 142,
+                      cabinet_.result_recorded[static_cast<int>(game.state.kind)]
+                          ? "Your name is on the board. Beautifully played."
+                          : "Game complete. The ten best results are below.",
+                      14, ink);
+        const std::vector<TopScore>& list = cabinet_.top_scores[score_profile(game.state)];
+        double row = popup_.y + 181;
+        if (list.empty())
+            draw_text(p, popup_.x + 30, row, "Your next finish can be the first name here.", 16,
+                      ink);
+        for (int i = 0; i < static_cast<int>(list.size()); ++i) {
+            gf::Color color = i < 3 ? gf::Color::rgba(140, 93, 20) : ink;
+            draw_text(p, popup_.x + 30, row, std::to_string(i + 1), 16, color);
+            draw_text(p, popup_.x + 78, row, list[i].name, 16, color);
+            draw_text(p, popup_.x + popup_.width - 120, row, std::to_string(list[i].value), 16,
+                      color);
+            row += 27;
+        }
+        return;
+    }
+    draw_text(p, popup_.x + 30, popup_.y + 38,
+              panel_ == 1 ? std::string(game_name(game.state.kind)) + " Help"
+                          : "Make yourself at home",
+              24, title_ink);
+    std::string text;
+    if (topic_ == 1)
+        text = "Click a card, then its destination, or drag a legal run. A gold outline marks your "
+               "selection; a gold destination outline confirms a legal move. Double-click a card "
+               "to send it to a foundation.\n\nKeyboard: arrow keys choose a pile and card. Enter "
+               "selects or places. Space draws. Z undoes. H gives a hint. F1 opens this help; "
+               "Escape closes it or clears a selection. Tab visits the buttons.\n\nSettings (the "
+               "cog) changes the card back, the deal rules and level, motion, and the music and "
+               "sound volumes. New game deals fresh cards. All sound has visible feedback.";
+    else if (topic_ == 2)
+        text = "Games is a native C++ card cabinet built with GUI.Forms. The card faces are a "
+               "reprint of Goodall & Son's 1902 pack from the WCMPC Collection's scans, printed on "
+               "paper made here; the backs are original or reprinted. The felt comes from Plan Paint's fiber and light "
+               "renderer.\n\nThe rules are independent of drawing and sound. Deals use a recorded "
+               "seed and a specified shuffle. Animation follows committed moves and stops "
+               "requesting frames when idle.\n\nMusic and effects are being made in the dedicated "
+               "Opus session. Audio files are loaded locally. There are no accounts, "
+               "advertisements, or network play.";
+    else if (game.state.kind == Kind::solitaire)
+        text =
+            "Build each foundation from ace through king in one suit. In the seven tableau "
+            "columns, build downward in alternating red and black. Move a correctly ordered "
+            "face-up run together. Only a king may fill an empty column.\n\nClick the stock to "
+            "turn one card, or three in Draw 3 mode. When the stock is empty, click it to recycle "
+            "the waste. There is no redeal limit. Revealing a hidden card happens "
+            "automatically.\n\nUndo is unlimited within the last 512 actions. Hints suggest legal "
+            "moves; they do not promise that a deal can be won. Clear all 52 cards to win.";
+    else if (game.state.kind == Kind::spider)
+        text = "Build downward from king to ace. You can place a card on the next higher rank "
+               "regardless of suit, but only a descending run of ONE suit can move together. Any "
+               "card or valid run may fill an empty column.\n\nA complete king-to-ace run of one "
+               "suit moves home automatically. Clear eight runs to win. Click the stock to deal "
+               "one card onto each column. Every column must contain a card before "
+               "dealing.\n\nSettings selects one, two, or four suits and starts a new deal. One "
+               "suit is a relaxed introduction; four suits needs much more planning.";
+    else if (game.state.kind == Kind::tripeaks)
+        text = "Clear the three peaks. Click an open card one rank higher or lower than the waste "
+               "card to play it there; a king and an ace are next to each other. A card turns over "
+               "when both cards resting on it are gone.\n\nClick the stock to turn its next card "
+               "onto the waste. The stock is turned only once.\n\nEach card of a run is worth one "
+               "more point than the last, and the card sounds a step higher. Turning the stock ends "
+               "the run. A peak's top is worth 15, and clearing all three earns 50 more and 10 for "
+               "each card left in the stock.";
+    else if (game.state.kind == Kind::freecell)
+        text = "Build the four foundations upward from ace to king in one suit. Build tableau "
+               "columns downward in alternating colors. Any single card may occupy an empty free "
+               "cell. Any card may fill an empty tableau column.\n\nYou may move an ordered run "
+               "when enough temporary space exists: (empty free cells + 1) times 2 for each usable "
+               "empty column. An empty destination does not count as spare storage.\n\nAll 52 "
+               "cards are visible from the beginning. Keep free cells open when possible. This "
+               "application uses its own seeded deals, not Microsoft deal numbers.";
+    else
+        text =
+            "Avoid penalty cards: every heart is 1 point and the queen of spades is 13. Lowest "
+            "score wins when someone reaches 100. Three computer opponents, named for US "
+            "presidents, watch what is played and guess at the hands they cannot see. Each hand "
+            "one of them is sharp and remembers every card, and one is forgetful.\n\nPass "
+            "three cards left, then right, then across; every fourth hand has no pass. The two of "
+            "clubs leads the first trick. Follow suit if possible. The highest card of the led "
+            "suit wins; aces are high.\n\nHearts may lead only after a heart has been discarded, "
+            "unless your hand contains only hearts. No points may be discarded on the first trick "
+            "if a non-point alternative exists. Taking all 26 points shoots the moon: each "
+            "opponent gets 26 instead.\n\nSelect three cards then click Pass cards. During play, "
+            "click a legal card in your hand. After 13 tricks, click Next hand.";
+    std::istringstream words(text);
+    std::string paragraph;
+    double y = popup_.y + 129;
+    double max_width = popup_.width - 60;
+    while (std::getline(words, paragraph)) {
+        if (paragraph.empty()) {
+            y += 14;
+            continue;
+        }
+        std::istringstream stream(paragraph);
+        std::string word, line;
+        while (stream >> word) {
+            std::string candidate = line.empty() ? word : line + " " + word;
+            if (p.measure_text_utf8(candidate, {gf::FontRole::content, 15, 400, false}).width >
+                    max_width &&
+                !line.empty()) {
+                draw_text(p, popup_.x + 30, y, line, 15, ink);
+                y += 23;
+                line = word;
+            } else
+                line = candidate;
+        }
+        if (!line.empty()) {
+            draw_text(p, popup_.x + 30, y, line, 15, ink);
+            y += 23;
+        }
+    }
+}
+void Table::open_panel(int panel) {
+    if (panel == 1 && games::route_help(*this))
+        return;
+    panel_ = panel;
+    pointer_down_ = false;
+    dragging_ = false;
+    set_pointer_capture(false);
+    for (int i = 0; i < 9; ++i)
+        (*buttons_[i]).set_enabled(panel == 0);
+    for (int i = 9; i < 22; ++i)
+        (*buttons_[i])
+            .set_visible(i == 9   ? panel != 0
+                         : i < 15 ? false
+                         : i < 18 ? panel == 1
+                         : i == 18
+                             ? panel == 0 && game.state.kind == Kind::hearts && !game.state.over &&
+                                   (game.state.passing || game.state.trick_number == 13)
+                         : i == 19 ? false
+                         : i == 20 ? panel == 3 && pending_score()
+                                   : panel == 3 && game.state.over);
+    (*score_name_).set_visible(panel == 3 && pending_score());
+    if (!panel)
+        request_tick();
+    if (attached_window())
+        static_cast<void>(
+            (*attached_window()).request_focus(panel ? buttons_[9] : shared_from_this()));
+    invalidate(gf::Dirty::paint);
+}
+void Table::load_levels() {
+    std::ifstream file(cabinet_path().parent_path() / "card-levels.txt");
+    int version = 0;
+    std::array<int, 3> levels{};
+    std::array<std::uint32_t, 3> picks{};
+    if (!(file >> version) || version != 1)
+        return;
+    for (int k = 0; k < 3; ++k)
+        if (!(file >> levels[k] >> picks[k]) || levels[k] < 0 || levels[k] > 2)
+            return;
+    levels_ = levels;
+}
+void Table::save_levels() const {
+    std::error_code error;
+    std::filesystem::create_directories(cabinet_path().parent_path(), error);
+    std::ofstream file(cabinet_path().parent_path() / "card-levels.txt");
+    // Version 1 also kept a place in each deal table; the tables are gone, the field stays.
+    file << 1;
+    for (int k = 0; k < 3; ++k)
+        file << ' ' << levels_[k] << " 0";
+    file << '\n';
+}
+// A ready deal of the game's level, or 0 when the dealer has none yet.
+std::uint32_t Table::deal_seed(Kind kind, int option) {
+    if (kind == Kind::hearts)
+        return ++next_seed_;
+    if (kind == Kind::tripeaks) {
+        // A deal that can be won, found here: most can, and each is checked in milliseconds.
+        next_seed_ = tripeaks_winnable_seed(next_seed_ + 1);
+        next_seed_ += next_seed_ == 0;  // 0 means no deal
+        return next_seed_;
+    }
+    return dealer_.take(kind, option, static_cast<Difficulty>(levels_[static_cast<int>(kind)]));
+}
+// The dealer gets the open game's next deals ready: its level first, then the other two.
+void Table::want_deals() {
+    const Kind kind = game.state.kind;
+    if (!leveled(kind))
+        return;
+    const int option = kind == Kind::spider ? game.state.spider_suits : game.state.draw_count;
+    const int level = levels_[static_cast<int>(kind)];
+    for (int i = 0; i < 3; ++i)
+        dealer_.want(kind, option, static_cast<Difficulty>((level + i) % 3));
+}
+std::string Table::level_name() const {
+    const int k = static_cast<int>(game.state.kind);
+    return k < 3 ? difficulty_name(static_cast<Difficulty>(levels_[k])) : "";
+}
+void Table::new_game(Kind kind) {
+    int option = kind == Kind::spider ? game.state.spider_suits : game.state.draw_count;
+    std::uint32_t seed = deal_seed(kind, option);
+    // None ready: Solitaire and FreeCell deals are made here, in well under a second; a
+    // Spider deal can take seconds, so the dealer makes it and tick() deals it the moment
+    // it is ready, the game on the table staying until then.
+    if (seed == 0 && kind != Kind::spider)
+        seed = Dealer::make_now(kind, option,
+                                static_cast<Difficulty>(levels_[static_cast<int>(kind)]));
+    if (seed == 0) {
+        // The game on the table is kept; an empty table of the new one waits for its deal
+        // (and is never saved: persist() leaves the cabinet as it was).
+        if (waiting_deal_ < 0)
+            persist();
+        const Difficulty level = static_cast<Difficulty>(levels_[static_cast<int>(kind)]);
+        waiting_deal_ = static_cast<int>(kind);
+        dealer_.hurry(kind, option, level);
+        game = Game{};
+        game.state.kind = kind;
+        (kind == Kind::spider ? game.state.spider_suits : game.state.draw_count) = option;
+        game.message = std::string("Shuffling a fresh ") + difficulty_name(level) + " deal\u2026";
+        selection_ = -1;
+        selected_index_ = -1;
+        dragging_ = false;
+        pointer_down_ = false;
+        set_pointer_capture(false);
+        layout_cards(false);
+        request_tick();
+        invalidate(gf::Dirty::paint);
+        return;
+    }
+    waiting_deal_ = -1;
+    game.deal(kind, seed, option);
+    dealing_ = true;
+    cabinet_.result_recorded[static_cast<int>(kind)] = false;
+    selection_ = -1;
+    selected_index_ = -1;
+    pass_cards_.clear();
+    dragging_ = false;
+    pointer_down_ = false;
+    set_pointer_capture(false);
+    layout_cards(true);
+    music_play(audio_name(kind), music_);
+    sound_play("deal", sound_);
+    persist();
+    want_deals();
+    autoplay_.clear();
+    autoplay_next_ = 0;
+    update_solvable();
+}
+bool Table::pending_score() const {
+    return !cabinet_.result_recorded[static_cast<int>(game.state.kind)] &&
+           qualifies(cabinet_.top_scores, game.state);
+}
+void Table::show_result() {
+    if (cascading_)
+        return; // the score card opens when the cards have finished bouncing
+    if (game.state.over && !cabinet_.result_recorded[static_cast<int>(game.state.kind)]) {
+        (*score_name_).set_text(cabinet_.player_name);
+        open_panel(3);
+    }
+}
+void Table::persist() {
+    if (waiting_deal_ >= 0)
+        return; // an empty table waiting for its deal is not a game to keep
+    int current = static_cast<int>(game.state.kind);
+    cabinet_.active = current;
+    cabinet_.games[current].state = game.state;
+    cabinet_.games[current].message = game.message;
+    cabinet_.started[current] = true;
+    // The cabinet keeps a copy of the masters for earlier versions of PlaySuite.
+    const SuiteSettings& masters = SettingsStore::shared().values();
+    cabinet_.back = cabinet_back(masters.card_back);
+    cabinet_.reduced = masters.reduced;
+    cabinet_.sound = masters.sound;
+    cabinet_.music = masters.music;
+    if (!save_cabinet(cabinet_path(), cabinet_))
+        game.message = "Your move is safe in memory, but the local save could not be written.";
+}
+void Table::save_soon() {
+    save_due_ = true;
+    request_tick();
+}
+void Table::switch_game(Kind kind) {
+    persist();
+    waiting_deal_ = -1; // a deal still being made for the table left is given up
+    cabinet_.games[static_cast<int>(game.state.kind)].history = game.history;
+    int next = static_cast<int>(kind);
+    if (cabinet_.started[next]) {
+        game = cabinet_.games[next];
+        selection_ = -1;
+        selected_index_ = -1;
+        dragging_ = false;
+        pointer_down_ = false;
+        set_pointer_capture(false);
+        pass_cards_.clear();
+        layout_cards(false);
+        music_play(audio_name(kind), music_);
+        request_tick();
+    } else
+        new_game(kind);
+    persist();
+    show_result();
+}
+void Table::show_kind(Kind kind) {
+    if (game.state.kind != kind) {
+        open_panel(0);
+        switch_game(kind);
+    }
+}
+std::vector<GameCommand> Table::commands() const {
+    std::vector<GameCommand> list{{"new", "New game", true, false, true},
+                                  {"undo", "Undo", !game.history.empty() && panel_ == 0},
+                                  {"hint", "Hint", panel_ == 0 && !game.state.over}};
+    // The deal level, one click away: the one in force lit. Choosing it deals again when
+    // the deal is untouched, otherwise from the next deal (set_level).
+    if (leveled(game.state.kind)) {
+        const int level = levels_[static_cast<int>(game.state.kind)];
+        const char* ids[] = {"easy", "medium", "hard"};
+        for (int i = 0; i < 3; ++i)
+            list.push_back({ids[i], difficulty_name(static_cast<Difficulty>(i)), true,
+                            level == i, false, true});
+    }
+    list.push_back({"help", "Help", true, panel_ == 1});
+    list.push_back({"scores", "Top scores", true, panel_ == 3});
+    return list;
+}
+std::vector<GameSetting> Table::settings() const {
+    std::vector<GameSetting> list;
+    if (game.state.kind == Kind::solitaire)
+        list.push_back({"draw", "Draw", GameSetting::Kind::choice,
+                        game.state.draw_count == 3 ? 1.0 : 0.0, {"One card", "Three cards"}, 0,
+                        1, 1, "Changing it deals again."});
+    if (game.state.kind == Kind::spider)
+        list.push_back({"suits", "Suits", GameSetting::Kind::choice,
+                        game.state.spider_suits == 4   ? 2.0
+                        : game.state.spider_suits == 2 ? 1.0
+                                                       : 0.0,
+                        {"One", "Two", "Four"}, 0, 2, 1, "Changing it deals again."});
+    list.push_back({"move_glow", "Glow on movable cards", GameSetting::Kind::toggle, move_glow_ ? 1.0 : 0.0, {}, 0, 1, 1,
+                    "A card that can move glows when the pointer is over it. For every card game."});
+    list.push_back({"glint", "Glint", GameSetting::Kind::toggle, glint_ ? 1.0 : 0.0, {}, 0, 1, 1,
+                    "The card under the pointer catches the light in its finish. For every card game."});
+    list.push_back({"sparkle", "Glint sparkle", GameSetting::Kind::slider, sparkle_, {}, 0, 1, .05,
+                    "Facets of the finish catching the lamp, on the paper."});
+    list.push_back({"grain", "Glint size", GameSetting::Kind::slider, grain_, {}, 0, 1, .05,
+                    "How large each glinting facet is."});
+    list.push_back({"glare", "Glint glare", GameSetting::Kind::slider, glare_, {}, 0, 1, .05,
+                    "The lamp mirrored in the varnish: a soft band across the card."});
+    list.push_back({"emboss", "Card emboss", GameSetting::Kind::slider, emboss_, {}, 0, 1, .05,
+                    "How deep the finish's dimples look on every card."});
+    list.push_back({"emboss_size", "Emboss size", GameSetting::Kind::slider, emboss_size_, {}, 0, 1, .05,
+                    "How large the finish's dimples are."});
+    if (leveled(game.state.kind))
+        list.push_back({"level", "Deals", GameSetting::Kind::choice,
+                        static_cast<double>(levels_[static_cast<int>(game.state.kind)]),
+                        {"Easy", "Medium", "Hard"}, 0, 2, 1,
+                        "Every deal can be won. An untouched deal is dealt again; otherwise "
+                        "the next deal uses it."});
+    return list;
+}
+void Table::change_setting(std::string_view id, double value) {
+    const int choice = static_cast<int>(std::lround(value));
+    if (id == "move_glow" || id == "glint" || id == "sparkle" || id == "glare" || id == "emboss" || id == "grain" ||
+        id == "emboss_size") {
+        SuiteSettings next = SettingsStore::shared().values();
+        if (id == "move_glow")
+            next.card_move_glow = choice != 0;
+        else if (id == "glint")
+            next.card_glint = choice != 0;
+        else if (id == "sparkle")
+            next.card_sparkle = value;
+        else if (id == "glare")
+            next.card_glare = value;
+        else if (id == "grain")
+            next.card_grain = value;
+        else if (id == "emboss_size")
+            next.card_emboss_size = value;
+        else
+            next.card_emboss = value;
+        SettingsStore::shared().set(next);
+        reload_preferences();
+        return;
+    }
+    if (id == "draw" && game.state.kind == Kind::solitaire)
+        set_deal_option(choice == 1 ? 3 : 1);
+    else if (id == "suits" && game.state.kind == Kind::spider)
+        set_deal_option(choice == 2 ? 4 : choice == 1 ? 2 : 1);
+    else if (id == "level" && leveled(game.state.kind))
+        set_level(std::clamp(choice, 0, 2));
+}
+void Table::set_deal_option(int option) {
+    int& current = game.state.kind == Kind::spider ? game.state.spider_suits : game.state.draw_count;
+    if (current == option)
+        return;
+    current = option;
+    open_panel(0);
+    new_game(game.state.kind);
+}
+void Table::set_level(int level) {
+    const int k = static_cast<int>(game.state.kind);
+    if (levels_[k] == level)
+        return;
+    levels_[k] = level;
+    save_levels();
+    // An untouched deal is replaced at once; otherwise the level waits for the next deal.
+    if (game.history.empty() && !game.state.over) {
+        open_panel(0);
+        new_game(game.state.kind);
+    } else
+        game.message = "Your next deal will be " + level_name() + ".";
+    invalidate(gf::Dirty::paint);
+}
+void Table::run_command(std::string_view id) {
+    if (id == "new") {
+        open_panel(0);
+        action(*buttons_[4]);
+    } else if (id == "undo")
+        action(*buttons_[5]);
+    else if (id == "hint")
+        action(*buttons_[6]);
+    else if (id == "deal") {
+        open_panel(0);
+        action(*buttons_[14]);
+    } else if ((id == "easy" || id == "medium" || id == "hard") && leveled(game.state.kind)) {
+        open_panel(0);
+        set_level(id == "easy" ? 0 : id == "medium" ? 1 : 2);
+    } else if (id == "level" && leveled(game.state.kind)) {
+        // Scripts may still cycle the level; the Settings screen chooses it directly.
+        set_level((levels_[static_cast<int>(game.state.kind)] + 1) % 3);
+    } else if (id == "help")
+        panel_ == 1 ? open_panel(0) : action(*buttons_[7]);
+    else if (id == "scores")
+        panel_ == 3 ? open_panel(0) : action(*buttons_[19]);
+}
+void Table::action(gf::ButtonBase& button) {
+    int a = std::stoi(std::string(button.stable_id().value().substr(6)));
+    if (a < 4) {
+        open_panel(0);
+        switch_game(static_cast<Kind>(a));
+    }
+    if (a == 4)
+        new_game(game.state.kind);
+    if (a == 22 && solvable_ && autoplay_next_ >= autoplay_.size()) {
+        std::vector<SolverStep> line;
+        if (game.state.kind == Kind::tripeaks)
+            for (int step : tripeaks_solve(game.state, 20000).steps)
+                line.push_back({step < 0, {step, 0, 15}});
+        if (!line.empty() || (leveled(game.state.kind) && solve_state(game.state, 20000, &line).solved && !line.empty())) {
+            autoplay_ = std::move(line);
+            autoplay_next_ = 0;
+            autoplay_due_ = gf::FrameClock::now();
+            show_solve();
+            request_tick();
+        }
+        return;
+    }
+    if (a == 4 || a == 5) {
+        autoplay_.clear();
+        autoplay_next_ = 0;
+    }
+    if (a == 5 && game.undo()) {
+        pass_cards_.clear();
+        changed("undo");
+    }
+    if (a == 6 && waiting_deal_ >= 0)
+        return; // no cards yet
+    if (a == 6) {
+        sound_play("hint", sound_);
+        if (game.state.kind == Kind::tripeaks) {
+            // The winning line's next step when there is one; otherwise any card that plays.
+            const TriPeaksLine plan = tripeaks_solve(game.state, 200000);
+            const Move m = plan.solved && !plan.steps.empty() ? Move{plan.steps.front(), 0, 15} : game.hint();
+            selection_ = selected_index_ = -1;
+            if (m.from >= 0) {
+                // Marked for the keys too: Enter plays it.
+                selection_ = keyboard_slot_ = m.from;
+                selected_index_ = 0;
+                game.message = plan.solved ? "This card keeps a winning line open."
+                               : plan.exhausted ? "No winning line is left from here; undo may help. This card plays."
+                                                : "This card plays on the waste.";
+            } else if (!game.state.piles[14].empty()) {
+                hover_ = keyboard_slot_ = 14;
+                game.message = "Turn the stock.";
+            } else
+                game.message = "No card plays and the stock is empty. Try undo or a new deal.";
+        } else if (game.state.kind == Kind::hearts) {
+            if (game.state.passing)
+                game.message = "Pass high spades and hearts, and try to shorten a suit.";
+            else if (game.state.turn == 0) {
+                int index = game.computer_choice();
+                if (index >= 0)
+                    game.message = "Consider " + card_name(game.state.piles[0][index]) +
+                                   "; this is a legal suggestion.";
+            }
+        } else {
+            // Follow a winning line when the solver finds one quickly; otherwise suggest any
+            // legal move.
+            std::vector<SolverStep> line;
+            const SolveReport plan = solve_state(game.state, 60000, &line);
+            Move m = plan.solved && !line.empty() && !line.front().draw ? line.front().move
+                                                                        : game.hint();
+            if (plan.solved && !line.empty() && line.front().draw) {
+                selection_ = selected_index_ = -1;
+                hover_ = keyboard_slot_ = 14;
+                game.message = game.state.kind == Kind::spider
+                                   ? "Deal a new row: the winning line goes through the stock."
+                                   : "Turn the stock: the winning line goes through it.";
+            } else if (m.from >= 0) {
+                selection_ = m.from;
+                selected_index_ = m.index;
+                hover_ = m.to;
+                keyboard_slot_ = m.to;
+                game.message =
+                    plan.solved ? "This move keeps a winning line open."
+                    : plan.exhausted
+                        ? "No winning line is left from here; undo may help. This move is legal."
+                        : "The highlighted card has a legal destination. Choose where to place it.";
+            } else
+                game.message = plan.exhausted
+                                   ? "No winning line is left from here. Try undo or a new deal."
+                                   : "No tableau move found. Try the stock, undo, or a new deal.";
+        }
+        invalidate(gf::Dirty::paint);
+    }
+    if (a == 7) {
+        topic_ = 0;
+        open_panel(1);
+    }
+    if (a == 9)
+        open_panel(0);
+    if (a == 14) {
+        if (game.state.kind == Kind::solitaire) {
+            game.state.draw_count = game.state.draw_count == 1 ? 3 : 1;
+            new_game(game.state.kind);
+        }
+        if (game.state.kind == Kind::spider) {
+            game.state.spider_suits = game.state.spider_suits == 1   ? 2
+                                      : game.state.spider_suits == 2 ? 4
+                                                                     : 1;
+            new_game(game.state.kind);
+        }
+    }
+    if (a >= 15 && a < 18)
+        topic_ = a - 15;
+    if (a == 18)
+        heart_continue();
+    if (a == 19)
+        open_panel(3);
+    if (a == 20 && pending_score()) {
+        std::string name((*score_name_).text());
+        if (add_top_score(cabinet_.top_scores, game.state, name)) {
+            cabinet_.player_name = name;
+            cabinet_.result_recorded[static_cast<int>(game.state.kind)] = true;
+            open_panel(3);
+        } else {
+            game.message = "Enter a name before saving your top score.";
+            if (attached_window())
+                static_cast<void>((*attached_window()).request_focus(score_name_));
+        }
+    }
+    if (a == 21) {
+        new_game(game.state.kind);
+        open_panel(0);
+    }
+    show_solve();
+    if (panel_ == 0 && attached_window())
+        static_cast<void>((*attached_window()).request_focus(shared_from_this()));
+    persist();
+    invalidate(gf::Dirty::paint);
+}
+void Table::changed(const char* effect) {
+    lift_pile_ = lift_index_ = -1;
+    glint_card_ = -1;
+    save_soon();
+    if (game.state.over && game.state.kind != Kind::hearts && !reduced_ && !cascading_ &&
+        !cabinet_.result_recorded[static_cast<int>(game.state.kind)])
+        start_cascade();
+    show_result();
+    selection_ = -1;
+    selected_index_ = -1;
+    dragging_ = false;
+    hover_ = -1;
+    set_pointer_capture(false);
+    layout_cards(true);
+    if (game.state.over)
+        sound_play("win", sound_);
+    else if (game.state.kind == Kind::tripeaks && std::string_view(effect) == "place" && game.state.run > 0)
+        // One recording, so the steps of the scale are heard and not its variations.
+        sound_play("card_place_01", sound_, run_rate(game.state.run));
+    else
+        sound_play(effect, sound_);
+    if (game.state.kind == Kind::hearts) {
+        ai_due_ = gf::FrameClock::now() + std::chrono::milliseconds(650);
+        request_tick();
+    }
+    update_solvable();
+}
+void Table::update_solvable() {
+    const bool playing = autoplay_next_ < autoplay_.size();
+    if (!playing) {
+        bool certain = leveled(game.state.kind) && !game.state.over && !cascading_ &&
+                       game.state.piles[14].empty();
+        for (int pile = 0; certain && pile < 20; ++pile)
+            for (const Card& c : game.state.piles[pile])
+                certain = certain && c.up;
+        if (certain && game.state.kind == Kind::freecell)
+            for (int pile = 0; certain && pile < 8; ++pile) {
+                const Pile& cards = game.state.piles[pile];
+                for (std::size_t i = 1; certain && i < cards.size(); ++i)
+                    certain = cards[i].rank == cards[i - 1].rank - 1 && red(cards[i]) != red(cards[i - 1]);
+            }
+        solvable_ = certain && solve_state(game.state, 20000).solved;
+        if (game.state.kind == Kind::tripeaks && !game.state.over && !cascading_) {
+            // TriPeaks: every card left in the peaks face up and a line that clears them
+            // without the stock's hidden cards.
+            bool open = true;
+            for (int place = 0; place < tripeaks_places; ++place)
+                for (const Card& c : game.state.piles[tripeaks_pile(place)])
+                    open = open && c.up;
+            if (open) {
+                const TriPeaksLine line = tripeaks_solve(game.state, 20000);
+                solvable_ = line.solved && std::find(line.steps.begin(), line.steps.end(), -1) == line.steps.end();
+            }
+        }
+    }
+    show_solve();
+}
+void Table::show_solve() {
+    if (buttons_[22])
+        (*buttons_[22]).set_visible(panel_ == 0 && solvable_ && !game.state.over && autoplay_next_ >= autoplay_.size());
+}
+int Table::hit_card(gf::Point point) const {
+    int found = -1;
+    for (int pile = 0; pile < pile_count; ++pile)
+        for (const Card& c : game.state.piles[pile]) {
+            const Sprite& s = sprites_[c.id];
+            if (s.visible && inside_rectangle(s.rect, point))
+                found = c.id;
+        }
+    return found;
+}
+bool Table::movable(int pile, int index) const {
+    const Pile& cards = game.state.piles[static_cast<std::size_t>(pile)];
+    if (index < 0 || index >= static_cast<int>(cards.size()) || !cards[index].up)
+        return false;
+    if (game.state.kind == Kind::hearts)
+        return pile == 0 && !game.state.over &&
+               (game.state.passing || (game.state.turn == 0 && game.legal_heart(0, index)));
+    for (int to = 0; to < pile_count; ++to)
+        if (to != pile && game.legal({pile, index, to}))
+            return true;
+    return false;
+}
+void Table::track_hover(gf::Point point) {
+    const int id = hit_card(point);
+    int pile = -1, index = -1;
+    const int glint = id >= 0 && sprites_[id].card.up ? id : -1;
+    if (id >= 0 && movable(sprites_[id].pile, sprites_[id].index)) {
+        pile = sprites_[id].pile;
+        index = sprites_[id].index;
+    }
+    if (pile == lift_pile_ && index == lift_index_ && glint == glint_card_)
+        return;
+    if (pile != lift_pile_ || index != lift_index_)
+        invalidate(gf::Dirty::paint);
+    else
+        // only the glint moved: the card it left and the card it found
+        for (int card : {glint_card_, glint})
+            if (card >= 0)
+                invalidate(sprites_[card].rect);
+    lift_pile_ = pile;
+    lift_index_ = index;
+    glint_card_ = glint;
+    if (glint_)
+        request_tick();
+}
+int Table::drop_target() const {
+    if (selection_ < 0 || selected_index_ < 0 || game.state.kind == Kind::hearts)
+        return hit_slot(pointer_);
+    const Pile& from = game.state.piles[static_cast<std::size_t>(selection_)];
+    if (selected_index_ >= static_cast<int>(from.size()))
+        return -1;
+    gf::Rect held = sprites_[from[static_cast<std::size_t>(selected_index_)].id].rect;
+    held.x += pointer_.x - press_.x;
+    held.y += pointer_.y - press_.y;
+    // The overlap with each legal pile: its top card and the place the run would land.
+    int best = -1, second = -1;
+    double best_area = 0, second_area = 0;
+    for (int pile = 0; pile < pile_count; ++pile) {
+        if (pile == selection_ || slots_[pile].width <= 0 || !game.legal({selection_, selected_index_, pile}))
+            continue;
+        gf::Rect zone = landing(pile);
+        const Pile& cards = game.state.piles[static_cast<std::size_t>(pile)];
+        if (!cards.empty())
+            zone = gf::Rect::united(zone, sprites_[cards.back().id].rect);
+        const double area = gf::Rect::intersection(held, zone).area();
+        if (area <= 0)
+            continue;
+        if (area > best_area) {
+            second = best;
+            second_area = best_area;
+            best = pile;
+            best_area = area;
+        } else if (area > second_area) {
+            second = pile;
+            second_area = area;
+        }
+    }
+    // Held about evenly between two: the one further from where the run came from.
+    if (second >= 0 && second_area >= best_area * .9) {
+        const gf::Rect origin = slots_[selection_];
+        const double to_best = std::hypot(slots_[best].x - origin.x, slots_[best].y - origin.y);
+        const double to_second = std::hypot(slots_[second].x - origin.x, slots_[second].y - origin.y);
+        if (to_second > to_best)
+            best = second;
+    }
+    return best;
+}
+int Table::hit_slot(gf::Point point) const {
+    int card = hit_card(point);
+    if (card >= 0)
+        return sprites_[card].pile;
+    for (int i = 0; i < pile_count; ++i)
+        if (slots_[i].width > 0 && inside_rectangle(slots_[i], point))
+            return i;
+    return -1;
+}
+void Table::select_or_move(int pile, int index) {
+    if (pile == 15 && index != static_cast<int>(game.state.piles[15].size()) - 1) {
+        game.message = "Only the top waste card is available.";
+        invalidate(gf::Dirty::paint);
+        return;
+    }
+    if (pile == 14) {
+        if (game.draw())
+            changed("flip");
+        else
+            invalidate(gf::Dirty::paint);
+        return;
+    }
+    if (selection_ >= 0 && game.move({selection_, selected_index_, pile})) {
+        changed("place");
+        return;
+    }
+    if (pile >= 0 && game.liftable(pile, index)) {
+        selection_ = pile;
+        selected_index_ = index;
+        sound_play("select", sound_);
+        game.message =
+            "Selected " + card_name(game.state.piles[pile][index]) + ". Choose a destination.";
+    } else {
+        if (pile >= 0 && index >= 0 && index < static_cast<int>(game.state.piles[pile].size()) &&
+            game.state.piles[pile][index].up) {
+            game.message = "Only a run in order can be picked up.";
+            sound_play("invalid", sound_);
+        }
+        selection_ = -1;
+        selected_index_ = -1;
+    }
+    invalidate(gf::Dirty::paint);
+}
+void Table::on_pointer(gf::PointerEvent& e) {
+    const gf::Point local_position = point_from_window(e.position);
+    if (cascading_ && e.action == gf::PointerAction::down) {
+        finish_cascade();
+        e.handled = true;
+        return;
+    }
+    if (panel_)
+        return;
+    if (e.action == gf::PointerAction::down && e.button == gf::PointerButton::primary) {
+        if (attached_window())
+            static_cast<void>((*attached_window()).request_focus(shared_from_this()));
+        int id = hit_card(local_position);
+        int pile = hit_slot(local_position);
+        int index = id < 0 ? -1 : sprites_[id].index;
+        // The pointer's own choices replace the keys' marker; a drag sets it again.
+        if (hover_ >= 0)
+            invalidate(enlarged(slots_[hover_], 12));
+        hover_ = -1;
+        if (game.state.kind == Kind::hearts) {
+            if (pile == 0 && index >= 0)
+                heart_card(index);
+            e.handled = true;
+            return;
+        }
+        if (game.state.kind == Kind::tripeaks) {
+            tripeaks_press(pile);
+            e.handled = true;
+            return;
+        }
+        if (e.click_count >= 2 && pile >= 0 && index >= 0) {
+            for (int to = 10; to < 14; ++to)
+                if (game.move({pile, index, to})) {
+                    changed("place");
+                    e.handled = true;
+                    return;
+                }
+        }
+        pending_from_ = pending_index_ = pending_to_ = -1;
+        if (pile == 14) {
+            select_or_move(pile, index);
+            e.handled = true;
+            return;
+        }
+        // A click may finish the previous selection, but a drag always starts
+        // with the card under this press. Defer click-to-place until release.
+        if (selection_ >= 0 && pile != selection_ &&
+            game.legal({selection_, selected_index_, pile})) {
+            pending_from_ = selection_;
+            pending_index_ = selected_index_;
+            pending_to_ = pile;
+        }
+        selection_ = selected_index_ = -1;
+        select_or_move(pile, index);
+        if (selection_ >= 0 || pending_from_ >= 0) {
+            pointer_down_ = true;
+            dragging_ = false;
+            press_ = pointer_ = local_position;
+            set_pointer_capture(true);
+        }
+        e.handled = true;
+    } else if (e.action == gf::PointerAction::move && !pointer_down_) {
+        track_hover(local_position);
+    } else if (e.action == gf::PointerAction::move && pointer_down_) {
+        gf::Point previous = pointer_;
+        pointer_ = local_position;
+        if (selection_ >= 0 && std::hypot(pointer_.x - press_.x, pointer_.y - press_.y) > 4)
+            dragging_ = true;
+        // The destination outline lies where the card would land; repaint both places.
+        if (hover_ >= 0) {
+            invalidate(enlarged(slots_[hover_], 12));
+            invalidate(enlarged(landing(hover_), 12));
+        }
+        hover_ = dragging_ ? drop_target() : hit_slot(pointer_);
+        if (hover_ >= 0) {
+            invalidate(enlarged(slots_[hover_], 12));
+            invalidate(enlarged(landing(hover_), 12));
+        }
+        for (const Sprite& sprite : sprites_) {
+            if (sprite.visible && sprite.pile == selection_ && sprite.index >= selected_index_) {
+                gf::Rect before = sprite.rect;
+                before.x += previous.x - press_.x;
+                before.y += previous.y - press_.y;
+                gf::Rect after = sprite.rect;
+                after.x += pointer_.x - press_.x;
+                after.y += pointer_.y - press_.y;
+                // The lifted card's shadow falls a fifth of a card beyond it, and the
+                // selection glow a little further: repaint all of it, where it was and is.
+                const double reach = card_w_ * .2 + 16;
+                invalidate(enlarged(before, reach));
+                invalidate(enlarged(after, reach));
+            }
+        }
+        e.handled = true;
+    } else if (e.action == gf::PointerAction::up && pointer_down_) {
+        pointer_down_ = false;
+        set_pointer_capture(false);
+        if (dragging_) {
+            pointer_ = local_position;
+            const int to = drop_target();
+            for (Sprite& sprite : sprites_)
+                if (sprite.pile == selection_ && sprite.index >= selected_index_) {
+                    sprite.rect.x += pointer_.x - press_.x;
+                    sprite.rect.y += pointer_.y - press_.y;
+                }
+            bool moved = game.move({selection_, selected_index_, to});
+            dragging_ = false;
+            if (moved)
+                changed("place");
+            else {
+                game.message = "That run cannot go there. Your cards are still selected.";
+                sound_play("invalid", sound_);
+                layout_cards(true);
+            }
+        } else if (pending_from_ >= 0 && game.move({pending_from_, pending_index_, pending_to_})) {
+            changed("place");
+        }
+        pending_from_ = pending_index_ = pending_to_ = -1;
+        // Where the pointer passed while the button was down marks nothing once it is up.
+        if (hover_ >= 0) {
+            invalidate(enlarged(slots_[hover_], 12));
+            invalidate(enlarged(landing(hover_), 12));
+            hover_ = -1;
+        }
+        e.handled = true;
+    }
+}
+// TriPeaks plays at a click: an open card goes to the waste, the stock turns.
+void Table::tripeaks_press(int pile) {
+    selection_ = selected_index_ = -1;
+    if (pile == 14) {
+        if (game.draw())
+            changed("flip");
+        else
+            invalidate(gf::Dirty::paint);
+        return;
+    }
+    if (game.move({pile, 0, 15})) {
+        changed("place");
+        return;
+    }
+    if (tripeaks_place(pile) >= 0 && !game.state.piles[pile].empty() && game.state.piles[pile][0].up) {
+        game.message = game.liftable(pile, 0) ? "That card is not one higher or lower than the waste."
+                                              : "That card is still covered.";
+        sound_play("invalid", sound_);
+    }
+    invalidate(gf::Dirty::paint);
+}
+void Table::heart_card(int index) {
+    if (game.state.passing) {
+        std::vector<int>::iterator found = std::find(pass_cards_.begin(), pass_cards_.end(), index);
+        if (found != pass_cards_.end())
+            pass_cards_.erase(found);
+        else if (pass_cards_.size() < 3)
+            pass_cards_.push_back(index);
+        game.message = std::to_string(pass_cards_.size()) + " of 3 cards selected to pass.";
+        layout_cards(true);
+    } else if (game.play(index))
+        changed("place");
+    else
+        invalidate(gf::Dirty::paint);
+}
+void Table::heart_continue() {
+    if (game.state.passing) {
+        if (game.pass(pass_cards_)) {
+            pass_cards_.clear();
+            changed("deal");
+        } else {
+            game.message = "Choose exactly three cards to pass.";
+            invalidate(gf::Dirty::paint);
+        }
+    } else if (game.state.trick_number == 13) {
+        game.next_round();
+        changed("deal");
+    }
+}
+void Table::on_key_bubble(gf::KeyEvent& e) {
+    on_key(e);
+}
+void Table::on_key_preview(gf::KeyEvent& e) {
+    if (e.action == gf::KeyAction::down &&
+        (e.physical_key == gf::PhysicalKey::f1 || e.physical_key == gf::PhysicalKey::escape))
+        on_key(e);
+}
+void Table::on_key(gf::KeyEvent& e) {
+    if (cascading_ && e.action == gf::KeyAction::down) {
+        finish_cascade();
+        e.handled = true;
+        return;
+    }
+    if (e.handled || e.action != gf::KeyAction::down)
+        return;
+    if (e.physical_key == gf::PhysicalKey::escape) {
+        open_panel(0);
+        selection_ = -1;
+        dragging_ = false;
+        set_pointer_capture(false);
+        e.handled = true;
+        return;
+    }
+    if (e.physical_key == gf::PhysicalKey::f1) {
+        open_panel(panel_ ? 0 : 1);
+        e.handled = true;
+        return;
+    }
+    if (panel_)
+        return;
+    if (game.state.kind == Kind::hearts) {
+        if (e.physical_key == gf::PhysicalKey::left || e.physical_key == gf::PhysicalKey::right) {
+            int count = static_cast<int>(game.state.piles[0].size());
+            if (count > 0) {
+                keyboard_card_ =
+                    (keyboard_card_ + (e.physical_key == gf::PhysicalKey::left ? -1 : 1) + count) %
+                    count;
+                game.message = "Selected " + card_name(game.state.piles[0][keyboard_card_]) +
+                               ". Enter plays or marks it.";
+                selection_ = 0;
+                selected_index_ = keyboard_card_;
+                invalidate(gf::Dirty::paint);
+            }
+            e.handled = true;
+            return;
+        }
+        if (e.physical_key == gf::PhysicalKey::enter) {
+            heart_card(keyboard_card_);
+            e.handled = true;
+            return;
+        }
+        if (e.physical_key == gf::PhysicalKey::space) {
+            heart_continue();
+            e.handled = true;
+            return;
+        }
+    }
+    if (e.physical_key == gf::PhysicalKey::z) {
+        if (game.undo())
+            changed("undo");
+    } else if (e.physical_key == gf::PhysicalKey::h)
+        action(*buttons_[6]);
+    else if (e.physical_key == gf::PhysicalKey::space) {
+        if (game.draw())
+            changed("flip");
+    } else if (e.physical_key == gf::PhysicalKey::left ||
+               e.physical_key == gf::PhysicalKey::right) {
+        int step = e.physical_key == gf::PhysicalKey::left ? -1 : 1;
+        do {
+            keyboard_slot_ = (keyboard_slot_ + step + pile_count) % pile_count;
+        } while (
+            slots_[keyboard_slot_].width == 0 ||
+            (game.state.kind == Kind::tripeaks &&
+             (keyboard_slot_ == 15 || (keyboard_slot_ != 14 && !game.liftable(keyboard_slot_, 0)))) ||
+            (game.state.kind == Kind::spider && keyboard_slot_ >= 10 && keyboard_slot_ != 14) ||
+            (game.state.kind == Kind::solitaire && (keyboard_slot_ == 7 || keyboard_slot_ == 8 ||
+                                                    keyboard_slot_ == 9 || keyboard_slot_ >= 16)) ||
+            (game.state.kind == Kind::freecell && (keyboard_slot_ == 8 || keyboard_slot_ == 9 ||
+                                                   keyboard_slot_ == 14 || keyboard_slot_ == 15)));
+        hover_ = keyboard_slot_;
+        game.message =
+            "Pile " + std::to_string(keyboard_slot_ + 1) + ". Press Enter to select or place.";
+        invalidate(gf::Dirty::paint);
+    } else if (e.physical_key == gf::PhysicalKey::enter && game.state.kind == Kind::tripeaks) {
+        tripeaks_press(keyboard_slot_);
+    } else if (e.physical_key == gf::PhysicalKey::enter) {
+        select_or_move(keyboard_slot_,
+                       static_cast<int>(game.state.piles[keyboard_slot_].size()) - 1);
+    } else if (e.physical_key == gf::PhysicalKey::up && selection_ >= 0) {
+        if (game.liftable(selection_, selected_index_ - 1))
+            --selected_index_;
+        invalidate(gf::Dirty::paint);
+    } else if (e.physical_key == gf::PhysicalKey::down && selection_ >= 0) {
+        selected_index_ = std::min(static_cast<int>(game.state.piles[selection_].size()) - 1,
+                                   selected_index_ + 1);
+        invalidate(gf::Dirty::paint);
+    } else
+        return;
+    e.handled = true;
+}
+} // namespace games

@@ -1,0 +1,28 @@
+{
+ "music": [
+  {
+   "id": "ld_music",
+   "bpm": 132,
+   "bars": 24,
+   "bar_samples": 65454,
+   "loop_end_sample_exclusive": 1570896,
+   "seconds": 32.727
+  },
+  {
+   "id": "ld_music_tense",
+   "bpm": 132,
+   "bars": 24,
+   "bar_samples": 65454,
+   "loop_end_sample_exclusive": 1570896,
+   "seconds": 32.727
+  }
+ ],
+ "stingers": [
+  "ld_liar",
+  "ld_true",
+  "ld_false",
+  "ld_stinger_win",
+  "ld_stinger_lose",
+  "ld_stinger_free"
+ ]
+}

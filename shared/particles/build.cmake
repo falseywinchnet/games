@@ -1,0 +1,18 @@
+# The particle engine. Included once by the generated registry (and by a game's own
+# standalone build) with ENGINE_DIR set to this folder.
+if(TARGET particles_core)
+  return()
+endif()
+add_library(particles_core STATIC "${ENGINE_DIR}/src/particles.cpp")
+target_include_directories(particles_core PUBLIC "${ENGINE_DIR}/src")
+target_compile_features(particles_core PUBLIC cxx_std_20)
+if(MSVC)
+  target_compile_options(particles_core PRIVATE /utf-8 /W4 /fp:precise)
+else()
+  target_compile_options(particles_core PRIVATE -Wall -Wextra -ffp-contract=off)
+endif()
+include(CTest)
+add_executable(particles_tests "${ENGINE_DIR}/tests/particles_tests.cpp")
+target_link_libraries(particles_tests PRIVATE particles_core)
+add_test(NAME particles_engine COMMAND particles_tests)
+set_tests_properties(particles_engine PROPERTIES TIMEOUT 120)

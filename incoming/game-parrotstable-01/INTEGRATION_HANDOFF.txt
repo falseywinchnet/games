@@ -1,0 +1,79 @@
+GAME PARROTSTABLE 01 — The Parrot's Table, a new game for the collection
+
+A new knights-and-knaves logic puzzle, one of the five games the user asked for on 2026-10-02 (Parrot's Table, Liar's Dice, Block the Pig, Koi-Koi, Spice Wars). It was built on the Neo by Claude Opus, working with the user, borrowing the Eggy, Switchbox and Four Pegs techniques (software 3D, crisp text layers, synthesized audio). The user approved it for integration on 2026-10-02. It replaces nothing: it needs a new collection entry.
+
+Tea in the parlor, and something has happened (the last cracker is gone, the cake is pecked, the kettle has learned rude songs). Four to seven parrots sit in a row behind the table. Each is honest (everything they say is true) or a liar (everything they say is false), and the host says exactly how many lie. One of them did it. Each speaking parrot says their piece in its own manner (posh macaw, sea-dog, nervous budgie, gossip, grump, scholar, drama queen, sunny one). The player clicks beaks to mark honest (green) or liar (red); a line in the notebook turns red the moment the marks make it impossible, alone or with another line, counting only worlds with the right number of liars. Silent birds won't volunteer: the player gets one or two yes/no questions from a short list (at least one settles the case, at least one doesn't). Then they name the culprit: right, and the culprit confesses with confetti; wrong, and the culprit gloats and flies out of the window and every beak shows its true colour.
+
+Every table is generated from a hidden truth and proven by enumerating every world: exactly one fits (or, with silent birds, two to six until the right question). A human-style grader picks a difficulty that suits the table number; tables grow from 4 to 7 parrots, silent birds from table 4, two at a time from table 12, twins now and then. The wording is drawn fresh from a line generator, but every phrasing means exactly its logic.
+
+Score: "Tea for Seven", a chamber waltz (clarinet, harp, pizzicato, flute, celesta), one 32-bar loop at 126 BPM; win and lose stingers; squawky babble voices pitched by species; bell, marks, a disapproving "hmm", gavel, wings, cheering.
+
+Package: about 6.5 MB of sources, runtime audio and screenshots. No app bundle. The WAV music masters stay on the Neo under /Users/ultimussecundai/solitaire_sounds/parrots/audio_src/masters; re-render them with source/audio_src.
+
+LAYOUT
+  source/            CMakeLists.txt, README.md, src/ (+ src/platform/), tests/, audio_src/ (parlor_music.py, make_sfx.py, engine/synth.py)
+  assets/audio/      the music loop (AAC), 2 stingers (AAC), 17 WAV effects and voices (pt_*), the shared ui_name_* keys,
+                     parrots_audio_manifest.json
+  screens/           real app captures at the default size and at the cabinet minimum (small_window_*)
+
+BUILD (standalone, verified on the Neo)
+  Copy assets/ into source/assets first. The dev build reads PT_ASSET_DIR; the bundle copies source/assets to Resources/assets.
+  cmake -S source -B build -DCMAKE_PREFIX_PATH=<GUI.Forms paint-port SDK> && cmake --build build -j 8
+  ctest --test-dir build      logic_tests: statement semantics against an independent reference (204,800 evaluations),
+                              480 generated tables keep their promises (uniqueness, questions that settle / don't, grading),
+                              the voices are varied (81 distinct lines from 16 kinds x 6)
+  build/preview              headless stills of the parlor, for look development
+
+CODE BOUNDARY
+  Everything is in namespace pt, so it clashes with none of games, eggy, sbx, fp, ap.
+  Portable C++20 core (library pt_core):
+    logic.*      worlds, the sixteen statement kinds, generation, the step grader, questions (pure)
+    script.*     the line generator: each parrot's manner, statements, refusals, answers, cheers, gloats
+    birds.*      the parrot models (species, looks)
+    parlor.*     the scene: wallpaper, portrait, window, table, birds, picking
+    platform/raster|r3d|mesh   the shared renderer
+  View, still portable C++ against GUI.Forms:
+    table_view.*   input, the introductions, marks and contradictions, questions, accusation, verdict, panels, autosave
+  macOS-only adapters:
+    platform/text.mm     the text.hpp interface (CoreText; Georgia, Menlo)
+    platform/audio.mm    the audio.hpp interface (AVFoundation)
+    platform/present.mm  NativePresenter (Core Animation), plus dev_resize_window (dev only)
+  main.cpp is the standalone entry point. Do not link it into Games.
+
+INTEGRATING INTO THE CABINET
+  1. Copy source/src to vendor/parrots/src and leave this package unchanged (as with Eggy, Switchbox, Four Pegs and Atom Probe). Build pt_core plus a pt_ui library and link both into game_ui.
+  2. Add a new collection entry (a new slot and kind; nothing is replaced). Host
+       make_control<pt::TableView>(gf::StableId("parrots.view"), pt::Options{})
+     below the rail like the other vendor views. Call activate() when shown. Call set_cabinet(foreground, music, sound) on tab changes and when the master switches change: it gates its own music and sound, idles at 2 ticks/s when not in front, and stops its music. Stop the cabinet's music while it is in front.
+  3. Pointer coordinates: on_pointer() treats e.position as relative to the control (convert under the rail, as for Eggy). The mouse wheel scrolls the notebook.
+  4. Assets: add the pt_* files and parrots_audio_manifest.json to assets/audio. The ui_name_* files already exist in the cabinet as AAC.
+  5. Saves: parrots_table-v1.txt in the cabinet's save folder; GAMES_STATE_DIR redirects it (--dev uses parrots_table-dev-v1.txt). Versioned, checksummed, atomically replaced. It keeps tables solved, the current and best streak, and the table in progress (seed, marks, questions asked). Its records are not in games::TopScores.
+  6. Size: the layout reflows from 600 x 370 points (the cabinet's 600 x 420 less its 50-point rail) to full screen. Below about 460 x 300 game pixels (920 x 600 points) it goes compact: the host's band takes two lines and the notebook gets more of the height and scrolls (wheel or its small arrows), following new lines as they arrive. The help card's words step down a size to fit; place cards shrink and the "twin" note moves under the card where seats are tight. Rendering is 2 points per game pixel at any size.
+  7. Presentation: as with Eggy, Switchbox, Four Pegs and Atom Probe: a Core Animation layer at absolute_bounds and text as cached layers. PT_NO_NATIVE=1 forces the LiveSurface fallback. While a panel is open no scene text is drawn.
+  8. Keys: 1-7 mark a bird, Enter continues, M music, F1 help, Esc closes.
+  9. Dev only, with --dev: PT_SCRIPT="t:code,..." replays inputs (skip, m<bird> mark, truth, askgood, askpanel, accusepanel, s<bird> suspect, right, wrong, next, lvl<n>, help, records, close, size<W>x<H> resizes the window). PT_WINDOW=WxH opens at a given size. PT_PRINT_WID=1 prints the window id; with it, drawing continues while the window is covered (for captures).
+
+WINDOWS (Shadow)
+  These follow the Eggy, Switchbox, Four Pegs and Atom Probe seams in docs/WINDOWS_HANDOFF.md.
+  - Replace text.mm, audio.mm, present.mm. NativePresenter::attach() may return false to use the LiveSurface fallback. dev_resize_window is a dev aid; a no-op is fine.
+  - Music is one loop (audio_music, no bar-line cuts). AAC decoding must honour the encoder priming: the decoded length must equal loop_end_sample_exclusive (2,194,272), as it does through AVAudioFile.
+  - Fonts: Georgia (as the card table uses) and Menlo; on Windows Georgia is present and Consolas can stand in for Menlo.
+  - M_PI needs _USE_MATH_DEFINES on MSVC. The -Wall -Wextra flags are Clang/GCC spelling. The default save root is macOS Library/Application Support; keep the file name and GAMES_STATE_DIR.
+  - platform/raster.cpp includes the accumulate() fix (xa/xb clamped to the row; an intermittent one-float overread found under ASan on 2026-10-02). The repository's vendor copies of Switchbox, Four Pegs and Atom Probe predate the fix.
+
+POLICY NOTES
+  - Every table is solvable by reasoning alone, and the game never lies about logic: the generator's wording is checked against the statement semantics.
+  - Not every table will be solved: a wrong accusation is a real outcome, with the truth shown.
+  - All audio is synthesized: no samples, no third-party audio.
+
+MEASURED / VERIFIED ON THE NEO
+  - Clean build of this package's sources: OK (Release, arm64). ctest: PASS.
+  - Audio: 25/25 files decode; the music's AAC valid-frame count equals the manifest loop end exactly.
+  - The package-built app was driven by PT_SCRIPT in single runs at the default size and resized live to 600 x 370: introductions, marking with contradictions, a question and its answer, accusing, a solved table with confetti, a wrong bird, help, records. Captured in screens/.
+  - The user played earlier builds.
+
+NOT VERIFIED
+  - Listening: the checks on the score and effects were numerical (levels, no clipping, a clean loop seam).
+  - Reduced motion: not implemented. The cabinet's Motion master is not consumed.
+  - CPU: not measured. It runs at 30 fps in front, 10 fps in the background, 2 ticks/s when hidden.
+  - Cabinet integration and any non-macOS platform.

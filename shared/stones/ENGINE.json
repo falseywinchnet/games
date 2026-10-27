@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "stones",
+  "namespace": "stones",
+  "title": "Polished stones",
+  "summary": "Stones grown as solids and broken as real pieces are (shell, petrified wood, pulled candy, a knapped flake) or drawn from an outline (a faceted tumble, an agate nodule), in twenty-four materials printed through them, rendered with a room's light baked once by path tracing: reflections by polish, clear stones' glow and caustics, nacre's sheen, glints that come and go, and the soft shadow each casts; with a walnut tray of sockets lit the same way.",
+  "build": "build.cmake",
+  "engines": [
+    "render"
+  ],
+  "libraries": [
+    "stones_core"
+  ],
+  "source_directories": [
+    "src"
+  ],
+  "tests": [
+    "tests/stones_tests.cpp"
+  ]
+}

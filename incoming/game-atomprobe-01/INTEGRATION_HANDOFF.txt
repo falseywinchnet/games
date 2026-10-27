@@ -1,0 +1,77 @@
+GAME ATOMPROBE 01 — the owner's replacement Atom Probe
+
+This is the user's replacement for the current Atom Probe (PuzzleKind::atom, collection slot 5, today a 4x4 PuzzleView grid with three atoms and numbered port buttons). It was built on the Neo by Claude Opus, working with the user, and it borrows the Eggy, Switchbox and Four Pegs techniques. The user approved this build for integration on 2026-10-01.
+
+A classic Black Box. Four atoms hide in a sealed 8x8 chamber of smoked glass and drifting luminous fog in a dark lab, ringed by 32 beam emitters. Firing an emitter charges it, zaps a beam into the fog (which flares and ripples while the beam is inside), and then the beam streaks out of another emitter, snaps back to its own, or the chamber thumps and flashes violet as an atom swallows it. The answer lights the emitters' caps: H absorbed, R reflected, or a coloured number shared by both ends of a detour. The player marks four squares on the glass (right-click or Control-click crosses a square out) and pulls the lever on the side console. The vents hiss, the lid lifts, the atoms appear with orbiting electrons, every fired beam replays along its true path, and each marker locks on (green) or misses (red).
+
+Rules (classic): straight into an atom = absorbed; an atom diagonally ahead turns the beam 90 degrees away; two at once reverse it; an atom beside the entry square reflects it at the door. Points: 1 per H or R, 2 per detour (a port already answered costs nothing to re-fire). Solving all four in the fewest points signs the lab log (top ten). A box with atoms missed shows the classic +5-per-atom penalty and is not ranked. Every dealt box is fair: no other arrangement of four atoms gives the same 32 answers, so it can always be deduced exactly.
+
+Score: "Black Box", one 32-bar loop at 100 BPM in E minor (pulsing bass, glassy arpeggio through ping-pong delay, pads ducking with the kick, a slow lead in the second half), plus stingers for all found, atoms missed, and a top score.
+
+Package: about 12 MB of sources, runtime audio, and screenshots. No app bundle. The WAV music masters stay on the Neo under /Users/ultimussecundai/solitaire_sounds/atomprobe/audio_src/masters. Re-render them with source/audio_src.
+
+LAYOUT
+  source/            CMakeLists.txt, README.md, src/ (+ src/platform/), tests/, audio_src/ (lab_music.py, make_sfx.py, engine/synth.py)
+  assets/audio/      the music loop and 3 stingers (AAC .m4a), 19 WAV effects (ap_*), the shared ui_name_* keys,
+                     atomprobe_audio_manifest.json
+  screens/           real app captures: probing with hover and markers, a beam in the fog, the lever and vents,
+                     atoms appearing, beams replayed, a three-of-four result, a solved box signing the log, help
+
+BUILD (standalone, verified on the Neo)
+  Copy assets/ into source/assets first. The dev build reads AP_ASSET_DIR; the bundle copies source/assets to Resources/assets.
+  cmake -S source -B build -DCMAKE_PREFIX_PATH=<GUI.Forms paint-port SDK> && cmake --build build -j 8
+  ctest --test-dir build      box_tests: an independently written tracer against the game's on all 635,376 boxes x 32 ports,
+                              reversibility, hand-worked cases, fairness (brute force on sample boxes), scoring, save round trip and tamper check
+  build/preview play|reveal out.ppm [W H]    headless stills of the chamber, for look development
+
+CODE BOUNDARY
+  Everything is in namespace ap, so it clashes with none of games, eggy, sbx, fp.
+  Portable C++20 core (library ap_core):
+    box.*        rules: tracer, fair-box generation (a hash table of all arrangements' answers, built on 8 threads in ~0.1 s), probes, markers, scoring (pure)
+    chamber.*    the scene: lab, emitters, fog, glass, atoms, console and lever, beams, bloom, picking
+    save.*       the save file
+    platform/raster|r3d|mesh   the shared renderer (as in Four Pegs)
+  View, still portable C++ against GUI.Forms:
+    atomprobe_view.*   input, the probe and reveal timelines, words on the scene, dialogs, autosave, LiveSurface fallback
+  macOS-only adapters:
+    platform/text.mm     the text.hpp interface (CoreText; Avenir Next Condensed for words, DIN Condensed for titles)
+    platform/audio.mm    the audio.hpp interface (AVFoundation)
+    platform/present.mm  NativePresenter (Core Animation)
+  main.cpp is the standalone entry point. Do not link it into Games.
+
+INTEGRATING INTO THE CABINET
+  1. Copy source/src to vendor/atomprobe/src and leave this package unchanged (as with Eggy, Switchbox and Four Pegs). Build ap_core plus an ap_ui library and link both into game_ui.
+  2. Replace slot 5 (PuzzleKind::atom). Host
+       make_control<ap::AtomProbeView>(gf::StableId("atomprobe.view"), ap::Options{})
+     in place of puzzles_[3] for that slot. The old PuzzleKind::atom model is no longer offered, but keep the enum value so other IDs do not move. Call activate() when shown. Call set_cabinet(foreground, music, sound) on tab changes and when the master switches change. It gates its own Music and Sound settings, idles at 2 ticks/s when hidden, and stops music. Stop the cabinet's music while it is in front.
+  3. Pointer coordinates: on_pointer() treats e.position as relative to the control. Under the cabinet header, convert first (as Eggy needed with point_from_window()). Right-click (PointerButton::secondary) or Control/Option-click crosses a square out.
+  4. Assets: add the ap_* files and atomprobe_audio_manifest.json to assets/audio. The ui_name_* files already exist in the cabinet as AAC.
+  5. Saves: atom_probe-v2.txt in the cabinet's save folder; GAMES_STATE_DIR redirects it (--dev uses atom_probe-dev-v2.txt). Checksummed and atomically replaced. The board is stored as its atoms and the ports fired in order; answers are recomputed on load, and a file whose record could not have happened is refused. The old atom_probe-v1.txt is never read or written. It keeps its own top-ten "lab log" of fewest points with a name. It is not in games::TopScores.
+  6. Presentation: as with Eggy, Switchbox and Four Pegs. About 550x380 game pixels at 2 points per pixel, a Core Animation layer at absolute_bounds, and text as cached layers. AP_NO_NATIVE=1 forces the LiveSurface fallback. While a dialog is open no scene text is drawn (the text layer sits above the frame).
+  7. Keys: Enter or Space opens the box when four markers are placed (or starts a new box after the reveal). N new box, F1 help, T top scores, M music, S sound, Esc closes.
+  8. Dev only, with --dev: AP_SCRIPT="t:code,..." replays inputs (f<port> fire, m<cell> mark, x<cell> cross out, a mark the answer, w three right and one wrong, o pull the lever, n new box, help, scores). AP_PRINT_WID=1 prints the window id.
+
+WINDOWS (Shadow)
+  These follow the Eggy, Switchbox and Four Pegs seams in docs/WINDOWS_HANDOFF.md.
+  - Replace text.mm, audio.mm, present.mm. NativePresenter::attach() may return false to use the LiveSurface fallback.
+  - Music is one loop (audio_music, no bar-line cuts needed). AAC decoding must honour the encoder priming: the decoded length must equal loop_end_sample_exclusive (3,686,400), as it does through AVAudioFile.
+  - Fonts: Avenir Next Condensed and DIN Condensed are macOS faces; use comparable condensed sans faces on Windows (for example Bahnschrift SemiCondensed) through the text adapter.
+  - M_PI needs _USE_MATH_DEFINES on MSVC. The -Wall -Wextra flags are Clang/GCC spelling. box.cpp uses std::thread for the fairness table. save.cpp's default root is macOS Library/Application Support; keep the file name and GAMES_STATE_DIR.
+
+POLICY NOTES
+  - Rules commit before animation: a probe is recorded (and saved) the moment it is fired; the show catches up. Every probe's animation takes the same time, so its length never hints at the beam's path.
+  - Beams stay hidden inside the box during play; only the reveal shows their paths.
+  - All audio is synthesized: no samples, no third-party audio.
+
+MEASURED / VERIFIED ON THE NEO
+  - Clean build of this package's sources: OK (Release, arm64). ctest: PASS.
+  - The package-built app launched and saved to GAMES_STATE_DIR/atom_probe-dev-v2.txt.
+  - Audio: 28/28 files decode. The music's AAC valid-frame count equals the manifest loop end exactly (encoder priming 2112 frames).
+  - Probing, marking, crossing out, the lever, the reveal (three of four, and all four with the log), help, and resuming a saved box were driven end to end in the real app by AP_SCRIPT and captured (screens/).
+  - The user played it and checked an answer against the rules (a beam straight into an atom is H); the tracer agreed with the box they played.
+
+NOT VERIFIED
+  - Listening: nobody has listened to the score or the effects. The checks were numerical only (levels, no clipping, a clean loop seam).
+  - Reduced motion: not implemented. The cabinet's Motion master is not consumed (the camera drifts slightly with the pointer, and an absorption shakes it briefly).
+  - CPU: no measurement yet. It runs at 30 fps in front, 10 fps in the background, and 2 ticks/s when hidden.
+  - Cabinet integration and any non-macOS platform.

@@ -1,0 +1,16 @@
+# Run with --game maze --standalone --dev --script <this-file>
+100 key enter
+300 key up
+600 key right
+900 click 500 340
+1200 action auto
+5000 help
+5500 key escape
+6000 action lvl14
+6200 key enter
+6500 action auto
+9000 command trophies
+9300 command credits
+9500 action more
+9800 resize 600 420
+11000 quit

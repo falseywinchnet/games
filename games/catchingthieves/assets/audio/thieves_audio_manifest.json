@@ -1,0 +1,49 @@
+{
+ "music": [
+  {
+   "id": "ct_music_spring",
+   "bpm": 112,
+   "bars": 24,
+   "bar_samples": 102856,
+   "loop_end_sample_exclusive": 2468544,
+   "seconds": 51.428
+  },
+  {
+   "id": "ct_music_summer",
+   "bpm": 120,
+   "bars": 24,
+   "bar_samples": 96000,
+   "loop_end_sample_exclusive": 2304000,
+   "seconds": 48.0
+  },
+  {
+   "id": "ct_music_autumn",
+   "bpm": 104,
+   "bars": 24,
+   "bar_samples": 110768,
+   "loop_end_sample_exclusive": 2658432,
+   "seconds": 55.384
+  },
+  {
+   "id": "ct_music_winter",
+   "bpm": 96,
+   "bars": 24,
+   "bar_samples": 120000,
+   "loop_end_sample_exclusive": 2880000,
+   "seconds": 60.0
+  },
+  {
+   "id": "ct_music_night",
+   "bpm": 84,
+   "bars": 24,
+   "bar_samples": 137144,
+   "loop_end_sample_exclusive": 3291456,
+   "seconds": 68.572
+  }
+ ],
+ "stingers": [
+  "ct_stinger_win",
+  "ct_stinger_stuck",
+  "ct_stinger_book"
+ ]
+}

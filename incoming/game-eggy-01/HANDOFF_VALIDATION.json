@@ -1,0 +1,15 @@
+{
+ "package": "game-eggy-01",
+ "clean_build_from_package": "ok (Release, arm64, GUI.Forms paint-port SDK)",
+ "sim_tests": "PASS (0 failures)",
+ "audio_decoded": 49,
+ "audio_decode_passed": 49,
+ "line_files": 54,
+ "line_total": 17918,
+ "not_verified": [
+  "listening pass",
+  "multi-year endurance run",
+  "cabinet integration",
+  "non-macOS presentation"
+ ]
+}

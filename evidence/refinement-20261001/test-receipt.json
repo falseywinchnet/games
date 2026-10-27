@@ -1,0 +1,40 @@
+{
+  "full_suite": {
+    "passed": 8,
+    "failed": 0,
+    "seconds": 9.26,
+    "targets": [
+      "rules",
+      "ui_routing",
+      "storage",
+      "audio",
+      "sudoku",
+      "puzzles",
+      "collection_ui",
+      "eggy_sim"
+    ]
+  },
+  "final_focused_reruns": [
+    {
+      "targets": [
+        "ui_routing",
+        "collection_ui"
+      ],
+      "passed": 2,
+      "failed": 0,
+      "seconds": 3.59
+    },
+    {
+      "targets": [
+        "collection_ui",
+        "eggy_sim"
+      ],
+      "passed": 2,
+      "failed": 0,
+      "seconds": 2.88
+    }
+  ],
+  "audio_files_decoded": 236,
+  "cube_tilt_combinations": 9,
+  "cube_cells_visible_and_pickable": 48
+}

@@ -1,0 +1,1417 @@
+{
+ "generated_by": "work/src (numpy synthesis; no samples)",
+ "sample_rate": 48000,
+ "music": [
+  {
+   "id": "menu",
+   "title": "Shuffle Lounge (Menu)",
+   "file": "outputs/music/music_menu_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 4388608,
+   "seconds": 91.429,
+   "bpm": 83.9993,
+   "meter": "4/4",
+   "bars": 32,
+   "samples_per_beat": 34286,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 4388608,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "A3",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -5.2,
+   "validation": {
+    "peak_dbfs": -5.24,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.07e-10,
+    "loop_seam_jump": 0.000525,
+    "loop_seam_jump_percentile": 1.3,
+    "loop_seam_rms_step_db": 4.17,
+    "loop_seam_click_ratio": 0.026
+   },
+   "runtime": [
+    "outputs/runtime/music_menu_loop.ogg",
+    "outputs/runtime/music_menu_loop.m4a"
+   ]
+  },
+  {
+   "id": "klondike",
+   "title": "Sunny Porch (Klondike)",
+   "file": "outputs/music/music_klondike_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 6582784,
+   "seconds": 137.141,
+   "bpm": 112.0012,
+   "meter": "4/4",
+   "bars": 64,
+   "samples_per_beat": 25714,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 6582784,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "A3",
+     8
+    ],
+    [
+     "C",
+     8
+    ],
+    [
+     "B2",
+     8
+    ],
+    [
+     "A4",
+     8
+    ],
+    [
+     "tag",
+     4
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -4.4,
+   "validation": {
+    "peak_dbfs": -4.62,
+    "clipped_samples": 0,
+    "dc_offset_max": 7.18e-10,
+    "loop_seam_jump": 0.000933,
+    "loop_seam_jump_percentile": 5.2,
+    "loop_seam_rms_step_db": 12.37,
+    "loop_seam_click_ratio": 0.025
+   },
+   "runtime": [
+    "outputs/runtime/music_klondike_loop.ogg",
+    "outputs/runtime/music_klondike_loop.m4a"
+   ]
+  },
+  {
+   "id": "spider",
+   "title": "Tiptoe Web (Spider)",
+   "file": "outputs/music/music_spider_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 5857680,
+   "seconds": 122.035,
+   "bpm": 117.9989,
+   "meter": "4/4",
+   "bars": 60,
+   "samples_per_beat": 24407,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 5857680,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "A3",
+     8
+    ],
+    [
+     "C",
+     8
+    ],
+    [
+     "B2",
+     8
+    ],
+    [
+     "A4",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -4.1,
+   "validation": {
+    "peak_dbfs": -4.17,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.99e-08,
+    "loop_seam_jump": 0.00227,
+    "loop_seam_jump_percentile": 30.8,
+    "loop_seam_rms_step_db": 1.65,
+    "loop_seam_click_ratio": 0.951
+   },
+   "runtime": [
+    "outputs/runtime/music_spider_loop.ogg",
+    "outputs/runtime/music_spider_loop.m4a"
+   ]
+  },
+  {
+   "id": "freecell",
+   "title": "Clear Thinking (FreeCell)",
+   "file": "outputs/music/music_freecell_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 6912000,
+   "seconds": 144.0,
+   "bpm": 100.0,
+   "meter": "4/4",
+   "bars": 60,
+   "samples_per_beat": 28800,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 6912000,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "A3",
+     8
+    ],
+    [
+     "C",
+     8
+    ],
+    [
+     "B2",
+     8
+    ],
+    [
+     "A4",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -4.4,
+   "validation": {
+    "peak_dbfs": -4.46,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.46e-09,
+    "loop_seam_jump": 0.000775,
+    "loop_seam_jump_percentile": 7.9,
+    "loop_seam_rms_step_db": 4.11,
+    "loop_seam_click_ratio": 0.048
+   },
+   "runtime": [
+    "outputs/runtime/music_freecell_loop.ogg",
+    "outputs/runtime/music_freecell_loop.m4a"
+   ]
+  },
+  {
+   "id": "hearts",
+   "title": "Parlour Waltz (Hearts)",
+   "file": "outputs/music/music_hearts_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 4838400,
+   "seconds": 100.8,
+   "bpm": 150.0,
+   "meter": "3/4",
+   "bars": 84,
+   "samples_per_beat": 19200,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 4838400,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "A1",
+     16
+    ],
+    [
+     "B",
+     16
+    ],
+    [
+     "A2",
+     16
+    ],
+    [
+     "C",
+     16
+    ],
+    [
+     "A3",
+     16
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -7.6,
+   "validation": {
+    "peak_dbfs": -7.72,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.06e-11,
+    "loop_seam_jump": 0.00328,
+    "loop_seam_jump_percentile": 32.0,
+    "loop_seam_rms_step_db": 3.88,
+    "loop_seam_click_ratio": 0.043
+   },
+   "runtime": [
+    "outputs/runtime/music_hearts_loop.ogg",
+    "outputs/runtime/music_hearts_loop.m4a"
+   ]
+  },
+  {
+   "id": "puzzle_main",
+   "title": "Woozle Warehouse (Puzzle main)",
+   "file": "outputs/music/music_puzzle_main_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 4538144,
+   "seconds": 94.545,
+   "bpm": 132.0011,
+   "meter": "4/4",
+   "bars": 52,
+   "samples_per_beat": 21818,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 4538144,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "A3",
+     8
+    ],
+    [
+     "C",
+     8
+    ],
+    [
+     "A4",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -4.7,
+   "validation": {
+    "peak_dbfs": -4.7,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.1e-09,
+    "loop_seam_jump": 0.000578,
+    "loop_seam_jump_percentile": 8.7,
+    "loop_seam_rms_step_db": 22.46,
+    "loop_seam_click_ratio": 0.583
+   },
+   "runtime": [
+    "outputs/runtime/music_puzzle_main_loop.ogg",
+    "outputs/runtime/music_puzzle_main_loop.m4a"
+   ]
+  },
+  {
+   "id": "puzzle_tiptoe",
+   "title": "Tiptoe Trunks (Puzzle alternate)",
+   "file": "outputs/music/music_puzzle_tiptoe_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 4369728,
+   "seconds": 91.036,
+   "bpm": 115.9981,
+   "meter": "4/4",
+   "bars": 44,
+   "samples_per_beat": 24828,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 4369728,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "A1",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "C",
+     8
+    ],
+    [
+     "A3",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -4.1,
+   "validation": {
+    "peak_dbfs": -4.1,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.37e-07,
+    "loop_seam_jump": 0.00371,
+    "loop_seam_jump_percentile": 51.3,
+    "loop_seam_rms_step_db": 7.31,
+    "loop_seam_click_ratio": 0.592
+   },
+   "runtime": [
+    "outputs/runtime/music_puzzle_tiptoe_loop.ogg",
+    "outputs/runtime/music_puzzle_tiptoe_loop.m4a"
+   ]
+  }
+ ],
+ "stingers": [
+  {
+   "file": "outputs/music/stinger_win_freecell.wav",
+   "event": "freecell win",
+   "channels": 2,
+   "seconds": 4.035,
+   "lufs_integrated": -17.9,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.63e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_freecell.ogg",
+    "outputs/runtime/stinger_win_freecell.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_hearts.wav",
+   "event": "hearts win",
+   "channels": 2,
+   "seconds": 3.945,
+   "lufs_integrated": -18.3,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.24e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_hearts.ogg",
+    "outputs/runtime/stinger_win_hearts.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_klondike.wav",
+   "event": "klondike win",
+   "channels": 2,
+   "seconds": 4.093,
+   "lufs_integrated": -19.6,
+   "true_peak_dbtp": -5.9,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.23e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_klondike.ogg",
+    "outputs/runtime/stinger_win_klondike.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_menu.wav",
+   "event": "menu win",
+   "channels": 2,
+   "seconds": 4.071,
+   "lufs_integrated": -19.7,
+   "true_peak_dbtp": -5.9,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.53e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_menu.ogg",
+    "outputs/runtime/stinger_win_menu.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_puzzle.wav",
+   "event": "puzzle win",
+   "channels": 2,
+   "seconds": 4.026,
+   "lufs_integrated": -20.5,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.17e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_puzzle.ogg",
+    "outputs/runtime/stinger_win_puzzle.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_spider.wav",
+   "event": "spider win",
+   "channels": 2,
+   "seconds": 3.897,
+   "lufs_integrated": -17.4,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.96e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_spider.ogg",
+    "outputs/runtime/stinger_win_spider.m4a"
+   ]
+  }
+ ],
+ "sfx": [
+  {
+   "file": "outputs/sfx/card_deal_01.wav",
+   "event": "card_deal",
+   "use": "all: one card dealt (fire per card, ~40-70 ms apart)",
+   "channels": 1,
+   "seconds": 0.29,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -24.4,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.62e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_deal_01.ogg",
+    "outputs/runtime/card_deal_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_deal_02.wav",
+   "event": "card_deal",
+   "use": "all: one card dealt (fire per card, ~40-70 ms apart)",
+   "channels": 1,
+   "seconds": 0.29,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -23.2,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_deal_02.ogg",
+    "outputs/runtime/card_deal_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_deal_03.wav",
+   "event": "card_deal",
+   "use": "all: one card dealt (fire per card, ~40-70 ms apart)",
+   "channels": 1,
+   "seconds": 0.29,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -24.0,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.23e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_deal_03.ogg",
+    "outputs/runtime/card_deal_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_deal_04.wav",
+   "event": "card_deal",
+   "use": "all: one card dealt (fire per card, ~40-70 ms apart)",
+   "channels": 1,
+   "seconds": 0.29,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -22.2,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.58e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_deal_04.ogg",
+    "outputs/runtime/card_deal_04.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_flip_01.wav",
+   "event": "card_flip",
+   "use": "Klondike/Spider: face-down card turned up; Klondike stock draw",
+   "channels": 1,
+   "seconds": 0.31,
+   "peak_dbfs": -9,
+   "max_rms50ms_dbfs": -27.0,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.84e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_flip_01.ogg",
+    "outputs/runtime/card_flip_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_flip_02.wav",
+   "event": "card_flip",
+   "use": "Klondike/Spider: face-down card turned up; Klondike stock draw",
+   "channels": 1,
+   "seconds": 0.31,
+   "peak_dbfs": -9,
+   "max_rms50ms_dbfs": -27.2,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.36e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_flip_02.ogg",
+    "outputs/runtime/card_flip_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_flip_03.wav",
+   "event": "card_flip",
+   "use": "Klondike/Spider: face-down card turned up; Klondike stock draw",
+   "channels": 1,
+   "seconds": 0.31,
+   "peak_dbfs": -9,
+   "max_rms50ms_dbfs": -28.1,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.61e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_flip_03.ogg",
+    "outputs/runtime/card_flip_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_flip_04.wav",
+   "event": "card_flip",
+   "use": "Klondike/Spider: face-down card turned up; Klondike stock draw",
+   "channels": 1,
+   "seconds": 0.31,
+   "peak_dbfs": -9,
+   "max_rms50ms_dbfs": -26.7,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 7.24e-08,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_flip_04.ogg",
+    "outputs/runtime/card_flip_04.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_foundation_01.wav",
+   "event": "card_foundation",
+   "use": "valid foundation move (Klondike/FreeCell), completed run removed (Spider), trick taken (Hearts); use 01..04 ascending for consecutive moves",
+   "channels": 1,
+   "seconds": 1.805,
+   "peak_dbfs": -9,
+   "max_rms50ms_dbfs": -17.2,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.47e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_foundation_01.ogg",
+    "outputs/runtime/card_foundation_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_foundation_02.wav",
+   "event": "card_foundation",
+   "use": "valid foundation move (Klondike/FreeCell), completed run removed (Spider), trick taken (Hearts); use 01..04 ascending for consecutive moves",
+   "channels": 1,
+   "seconds": 1.665,
+   "peak_dbfs": -9,
+   "max_rms50ms_dbfs": -16.8,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.15e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_foundation_02.ogg",
+    "outputs/runtime/card_foundation_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_foundation_03.wav",
+   "event": "card_foundation",
+   "use": "valid foundation move (Klondike/FreeCell), completed run removed (Spider), trick taken (Hearts); use 01..04 ascending for consecutive moves",
+   "channels": 1,
+   "seconds": 1.788,
+   "peak_dbfs": -9,
+   "max_rms50ms_dbfs": -15.6,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.93e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_foundation_03.ogg",
+    "outputs/runtime/card_foundation_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_foundation_04.wav",
+   "event": "card_foundation",
+   "use": "valid foundation move (Klondike/FreeCell), completed run removed (Spider), trick taken (Hearts); use 01..04 ascending for consecutive moves",
+   "channels": 1,
+   "seconds": 1.557,
+   "peak_dbfs": -9,
+   "max_rms50ms_dbfs": -18.4,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.31e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_foundation_04.ogg",
+    "outputs/runtime/card_foundation_04.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_pickup_01.wav",
+   "event": "card_pickup",
+   "use": "all card games: card or stack lifted",
+   "channels": 1,
+   "seconds": 0.31,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -26.2,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.36e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_pickup_01.ogg",
+    "outputs/runtime/card_pickup_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_pickup_02.wav",
+   "event": "card_pickup",
+   "use": "all card games: card or stack lifted",
+   "channels": 1,
+   "seconds": 0.31,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -24.8,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5.17e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_pickup_02.ogg",
+    "outputs/runtime/card_pickup_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_pickup_03.wav",
+   "event": "card_pickup",
+   "use": "all card games: card or stack lifted",
+   "channels": 1,
+   "seconds": 0.31,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -23.5,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 7.05e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_pickup_03.ogg",
+    "outputs/runtime/card_pickup_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_pickup_04.wav",
+   "event": "card_pickup",
+   "use": "all card games: card or stack lifted",
+   "channels": 1,
+   "seconds": 0.31,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -27.6,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 7.26e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_pickup_04.ogg",
+    "outputs/runtime/card_pickup_04.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_place_01.wav",
+   "event": "card_place",
+   "use": "all: card dropped on tableau/free cell",
+   "channels": 1,
+   "seconds": 0.45,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -24.9,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5.22e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_place_01.ogg",
+    "outputs/runtime/card_place_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_place_02.wav",
+   "event": "card_place",
+   "use": "all: card dropped on tableau/free cell",
+   "channels": 1,
+   "seconds": 0.45,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -24.8,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.6e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_place_02.ogg",
+    "outputs/runtime/card_place_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_place_03.wav",
+   "event": "card_place",
+   "use": "all: card dropped on tableau/free cell",
+   "channels": 1,
+   "seconds": 0.45,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -22.7,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.41e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_place_03.ogg",
+    "outputs/runtime/card_place_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_place_04.wav",
+   "event": "card_place",
+   "use": "all: card dropped on tableau/free cell",
+   "channels": 1,
+   "seconds": 0.45,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -24.5,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.45e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_place_04.ogg",
+    "outputs/runtime/card_place_04.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_shuffle_01.wav",
+   "event": "card_shuffle",
+   "use": "new game / redeal",
+   "channels": 1,
+   "seconds": 1.45,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -25.5,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 7.34e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_shuffle_01.ogg",
+    "outputs/runtime/card_shuffle_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_shuffle_02.wav",
+   "event": "card_shuffle",
+   "use": "new game / redeal",
+   "channels": 1,
+   "seconds": 1.45,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -22.5,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 9.86e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_shuffle_02.ogg",
+    "outputs/runtime/card_shuffle_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_blocked_01.wav",
+   "event": "puzzle_blocked",
+   "use": "puzzle: walk/push into wall",
+   "channels": 1,
+   "seconds": 0.85,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -18.8,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.7e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_blocked_01.ogg",
+    "outputs/runtime/puzzle_blocked_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_blocked_02.wav",
+   "event": "puzzle_blocked",
+   "use": "puzzle: walk/push into wall",
+   "channels": 1,
+   "seconds": 0.85,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -18.8,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.53e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_blocked_02.ogg",
+    "outputs/runtime/puzzle_blocked_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_fail.wav",
+   "event": "puzzle_fail",
+   "use": "puzzle: stuck/restart/fail",
+   "channels": 1,
+   "seconds": 3.8,
+   "peak_dbfs": -8,
+   "max_rms50ms_dbfs": -14.5,
+   "validation": {
+    "peak_dbfs": -8.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.47e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_fail.ogg",
+    "outputs/runtime/puzzle_fail.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_on_target_01.wav",
+   "event": "puzzle_on_target",
+   "use": "puzzle: block lands on goal tile",
+   "channels": 1,
+   "seconds": 2.283,
+   "peak_dbfs": -10,
+   "max_rms50ms_dbfs": -18.5,
+   "validation": {
+    "peak_dbfs": -10.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.84e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_on_target_01.ogg",
+    "outputs/runtime/puzzle_on_target_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_on_target_02.wav",
+   "event": "puzzle_on_target",
+   "use": "puzzle: block lands on goal tile",
+   "channels": 1,
+   "seconds": 2.237,
+   "peak_dbfs": -10,
+   "max_rms50ms_dbfs": -18.6,
+   "validation": {
+    "peak_dbfs": -10.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.07e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_on_target_02.ogg",
+    "outputs/runtime/puzzle_on_target_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_push_01.wav",
+   "event": "puzzle_push",
+   "use": "puzzle: block pushed one tile (01-03)",
+   "channels": 1,
+   "seconds": 0.87,
+   "peak_dbfs": -10,
+   "max_rms50ms_dbfs": -17.2,
+   "validation": {
+    "peak_dbfs": -10.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.49e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_push_01.ogg",
+    "outputs/runtime/puzzle_push_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_push_02.wav",
+   "event": "puzzle_push",
+   "use": "puzzle: block pushed one tile (01-03)",
+   "channels": 1,
+   "seconds": 0.87,
+   "peak_dbfs": -10,
+   "max_rms50ms_dbfs": -18.0,
+   "validation": {
+    "peak_dbfs": -10.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.38e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_push_02.ogg",
+    "outputs/runtime/puzzle_push_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_push_03.wav",
+   "event": "puzzle_push",
+   "use": "puzzle: block pushed one tile (01-03)",
+   "channels": 1,
+   "seconds": 0.87,
+   "peak_dbfs": -10,
+   "max_rms50ms_dbfs": -17.2,
+   "validation": {
+    "peak_dbfs": -10.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.31e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_push_03.ogg",
+    "outputs/runtime/puzzle_push_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_undo_01.wav",
+   "event": "puzzle_undo",
+   "use": "puzzle: undo",
+   "channels": 1,
+   "seconds": 1.609,
+   "peak_dbfs": -12,
+   "max_rms50ms_dbfs": -18.6,
+   "validation": {
+    "peak_dbfs": -12.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_undo_01.ogg",
+    "outputs/runtime/puzzle_undo_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_walk_01.wav",
+   "event": "puzzle_walk",
+   "use": "puzzle: player step (round-robin 01-04)",
+   "channels": 1,
+   "seconds": 0.26,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -23.9,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.1e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_walk_01.ogg",
+    "outputs/runtime/puzzle_walk_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_walk_02.wav",
+   "event": "puzzle_walk",
+   "use": "puzzle: player step (round-robin 01-04)",
+   "channels": 1,
+   "seconds": 0.26,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -23.9,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5.1e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_walk_02.ogg",
+    "outputs/runtime/puzzle_walk_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_walk_03.wav",
+   "event": "puzzle_walk",
+   "use": "puzzle: player step (round-robin 01-04)",
+   "channels": 1,
+   "seconds": 0.26,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -25.4,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.24e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_walk_03.ogg",
+    "outputs/runtime/puzzle_walk_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_walk_04.wav",
+   "event": "puzzle_walk",
+   "use": "puzzle: player step (round-robin 01-04)",
+   "channels": 1,
+   "seconds": 0.26,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -23.1,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.21e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_walk_04.ogg",
+    "outputs/runtime/puzzle_walk_04.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_win.wav",
+   "event": "puzzle_win",
+   "use": "puzzle: level solved",
+   "channels": 1,
+   "seconds": 3.259,
+   "peak_dbfs": -7,
+   "max_rms50ms_dbfs": -16.6,
+   "validation": {
+    "peak_dbfs": -7.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.24e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_win.ogg",
+    "outputs/runtime/puzzle_win.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_hint_01.wav",
+   "event": "ui_hint",
+   "use": "hint shown",
+   "channels": 1,
+   "seconds": 2.641,
+   "peak_dbfs": -12,
+   "max_rms50ms_dbfs": -19.4,
+   "validation": {
+    "peak_dbfs": -12.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.53e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_hint_01.ogg",
+    "outputs/runtime/ui_hint_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_hint_02.wav",
+   "event": "ui_hint",
+   "use": "hint shown",
+   "channels": 1,
+   "seconds": 2.619,
+   "peak_dbfs": -12,
+   "max_rms50ms_dbfs": -19.3,
+   "validation": {
+    "peak_dbfs": -12.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.57e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_hint_02.ogg",
+    "outputs/runtime/ui_hint_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_invalid_01.wav",
+   "event": "ui_invalid",
+   "use": "gentle invalid move / rejected drop",
+   "channels": 1,
+   "seconds": 2.52,
+   "peak_dbfs": -14,
+   "max_rms50ms_dbfs": -20.1,
+   "validation": {
+    "peak_dbfs": -14.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.81e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_invalid_01.ogg",
+    "outputs/runtime/ui_invalid_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_invalid_02.wav",
+   "event": "ui_invalid",
+   "use": "gentle invalid move / rejected drop",
+   "channels": 1,
+   "seconds": 2.52,
+   "peak_dbfs": -14,
+   "max_rms50ms_dbfs": -20.0,
+   "validation": {
+    "peak_dbfs": -14.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.05e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_invalid_02.ogg",
+    "outputs/runtime/ui_invalid_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_undo_01.wav",
+   "event": "ui_undo",
+   "use": "undo",
+   "channels": 1,
+   "seconds": 1.609,
+   "peak_dbfs": -12,
+   "max_rms50ms_dbfs": -18.6,
+   "validation": {
+    "peak_dbfs": -12.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_undo_01.ogg",
+    "outputs/runtime/ui_undo_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_undo_02.wav",
+   "event": "ui_undo",
+   "use": "undo",
+   "channels": 1,
+   "seconds": 1.789,
+   "peak_dbfs": -12,
+   "max_rms50ms_dbfs": -17.9,
+   "validation": {
+    "peak_dbfs": -12.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5.32e-08,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_undo_02.ogg",
+    "outputs/runtime/ui_undo_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_victory.wav",
+   "event": "ui_victory",
+   "use": "generic victory SFX (layer with game stinger or use alone)",
+   "channels": 1,
+   "seconds": 3.289,
+   "peak_dbfs": -7,
+   "max_rms50ms_dbfs": -16.6,
+   "validation": {
+    "peak_dbfs": -7.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_victory.ogg",
+    "outputs/runtime/ui_victory.m4a"
+   ]
+  }
+ ],
+ "validation_summary": {
+  "files_with_clipping": []
+ }
+}

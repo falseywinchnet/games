@@ -1,0 +1,15 @@
+{
+ "music": [
+  {
+   "id": "mm_mower_run",
+   "loop_end_sample_exclusive": 960000,
+   "seconds": 20.0
+  },
+  {
+   "id": "mm_music_mowing",
+   "loop_end_sample_exclusive": 1588966,
+   "seconds": 33.103458333333336
+  }
+ ],
+ "stingers": []
+}

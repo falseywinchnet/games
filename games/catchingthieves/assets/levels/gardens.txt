@@ -1,0 +1,4776 @@
+; Catching Thieves: the garden tables. Made by tools/levelgen.cpp tables.
+; Tutorial gardens are hand-made lessons. The rest were generated backwards from solved positions,
+; solved push-optimally by an independent forward solver, replayed through the rules, measured and
+; filed under the tier their metrics fall in (src/tiers.cpp). Ids are permanent: saves refer to them.
+
+; id: 0
+; tier: tutorial
+; lesson: Walk into a pumpkin to push it. Roll it onto the burrow.
+; title: The First Burrow
+; section: Tutorial
+; par: 2
+; switches: 1
+; nodes: 3
+; solution: rRR
+#######
+#@ $ .#
+#######
+
+; id: 1
+; tier: tutorial
+; lesson: To push a pumpkin another way, walk round to its other side.
+; title: Round the Bend
+; section: Tutorial
+; par: 4
+; switches: 1
+; nodes: 7
+; solution: uRRurDD
+######
+#    #
+# $  #
+#@ # #
+#  #.#
+#    #
+######
+
+; id: 2
+; tier: tutorial
+; lesson: Every burrow needs a pumpkin. Cover them all to win.
+; title: Two of Them
+; section: Tutorial
+; par: 3
+; switches: 2
+; nodes: 18
+; solution: rUluRddrrrruulD
+########
+#  .   #
+# $##$ #
+#@   . #
+########
+
+; id: 243
+; tier: tutorial
+; lesson: The bear can push but never pull. Walk round behind the pumpkin.
+; title: No Pulling
+; section: Tutorial
+; par: 2
+; switches: 1
+; nodes: 3
+; solution: urrdLL
+########
+#      #
+#  .@$ #
+#      #
+########
+
+; id: 244
+; tier: tutorial
+; lesson: A pumpkin against a hedge with no burrow along it is stuck for good.
+; title: Hedge Trouble
+; section: Tutorial
+; par: 3
+; switches: 1
+; nodes: 5
+; solution: ruLLL
+########
+#      #
+#.  $  #
+#   @  #
+########
+
+; id: 245
+; tier: tutorial
+; lesson: A pumpkin against a hedge can still slide along it.
+; title: Along the Hedge
+; section: Tutorial
+; par: 4
+; switches: 1
+; nodes: 5
+; solution: uuRRRR
+########
+# $   .#
+#      #
+#@     #
+########
+
+; id: 246
+; tier: tutorial
+; lesson: Fill the far burrow first, or one pumpkin blocks the other.
+; title: The Far One First
+; section: Tutorial
+; par: 5
+; switches: 4
+; nodes: 12
+; solution: urrrdRullldRurrdRlulldRR
+#########
+#     ###
+#@ $ $..#
+#     ###
+#########
+
+; id: 247
+; tier: tutorial
+; lesson: The bear can push only one pumpkin. Two in a row won't budge.
+; title: One at a Time
+; section: Tutorial
+; par: 8
+; switches: 2
+; nodes: 98
+; solution: drUluRRRRurDlllldRR
+########
+#      #
+#      #
+#@$$ ..#
+#      #
+#      #
+########
+
+; id: 248
+; tier: tutorial
+; lesson: A pumpkin in a corner can never move again, so only a burrow there will do.
+; title: Into the Corner
+; section: Tutorial
+; par: 6
+; switches: 2
+; nodes: 99
+; solution: UluRRdddllUUruL
+#######
+#.   .#
+#  $  #
+# $@  #
+#     #
+#######
+
+; id: 250
+; tier: tutorial
+; lesson: Z or Backspace takes back a step. Try a push, then undo it.
+; title: Take It Back
+; section: Tutorial
+; par: 6
+; switches: 4
+; nodes: 59
+; solution: uulldRDrruLdlUruLrdddL
+#######
+#.  ###
+# $   #
+##$@  #
+#.    #
+#######
+
+; id: 249
+; tier: tutorial
+; lesson: Not sure? Hint in the bar shows a good next push.
+; title: Ask for a Hint
+; section: Tutorial
+; par: 9
+; switches: 4
+; nodes: 41
+; solution: llluurDRdrruulDlllddrUruLdlUrrrrdLLL
+#######
+#. #  #
+# $$  #
+#.  @ #
+#  #  #
+#######
+
+; id: 3
+; tier: easy
+; title: Beet Gate
+; section: Easy
+; par: 7
+; switches: 2
+; seed: 1087112 5x5 2
+; nodes: 10
+; solution: DllluurDldRRRurDD
+####
+#  ####
+# $#@ #
+#   $ #
+####. #
+   # .#
+   ####
+
+; id: 4
+; tier: easy
+; title: Parsnip Gate
+; section: Easy
+; par: 7
+; switches: 3
+; seed: 1229654 6x6 2
+; nodes: 15
+; solution: RluuuurrrrdddddlUUUruullldldddrRdrUU
+########
+#      #
+#   #. #
+#  ##. #
+#  #   #
+##@$ $ #
+ ###   #
+   #####
+
+; id: 5
+; tier: easy
+; title: Frosty Furrow
+; section: Easy
+; par: 7
+; switches: 2
+; seed: 1205897 6x6 2
+; nodes: 28
+; solution: luurUluRRdldlddrUUluRR
+######
+#   .#
+# $ .###
+#  #   #
+# $##  #
+# @#####
+####
+
+; id: 6
+; tier: easy
+; title: Beet Bed
+; section: Easy
+; par: 7
+; switches: 2
+; seed: 1079193 5x5 2
+; nodes: 31
+; solution: UUUruLLrrdDD
+ ######
+##.   #
+#  #  #
+#  # $#
+### $ #
+  # @.#
+  #####
+
+; id: 7
+; tier: easy
+; title: Mossy Hollow
+; section: Easy
+; par: 7
+; switches: 3
+; seed: 1031679 5x5 2
+; nodes: 22
+; solution: DDldRuuulDrddRRurD
+####
+# @#
+#$$####
+#. #  #
+#     #
+##   .#
+ ######
+
+; id: 8
+; tier: easy
+; title: Cabbage Hedge
+; section: Easy
+; par: 7
+; switches: 2
+; seed: 1158383 6x6 2
+; nodes: 34
+; solution: RRRRurDllllDD
+########
+#      #
+#@$    #
+# $ ##.#
+#  ##  #
+##.    #
+ ##    #
+  ######
+
+; id: 9
+; tier: easy
+; title: Windy Yard
+; section: Easy
+; par: 7
+; switches: 3
+; seed: 1015841 5x5 2
+; nodes: 24
+; solution: dlluurDrdLulDlddrrrUUllDldR
+#####
+#   ##
+#  $+#
+#    #
+#  #$#
+#  . #
+######
+
+; id: 10
+; tier: easy
+; title: Windy Hedge
+; section: Easy
+; par: 7
+; switches: 3
+; seed: 1110869 5x5 2
+; nodes: 24
+; solution: DDDrUluRRlddlldR
+ ######
+ #@   #
+ #$  .#
+## $###
+#   #
+#  .#
+#####
+
+; id: 11
+; tier: easy
+; title: Squash Tangle
+; section: Easy
+; par: 7
+; switches: 3
+; seed: 1221735 6x6 2
+; nodes: 24
+; solution: RlluurDlddrruRdrUUUU
+   #####
+   # . #
+####   #
+#  #   #
+# $##  #
+# +$   #
+#      #
+########
+
+; id: 12
+; tier: easy
+; title: Beet Yard
+; section: Easy
+; par: 7
+; switches: 3
+; seed: 1000003 5x5 2
+; nodes: 31
+; solution: DldddrruLdlUUUrDD
+######
+#  .@#
+#   $#
+##   ##
+ ## $ #
+  # . #
+  #####
+
+; id: 13
+; tier: easy
+; title: Sunny Gate
+; section: Easy
+; par: 7
+; switches: 2
+; seed: 1166302 6x6 2
+; nodes: 45
+; solution: LdlUUrdrdrUUUruL
+########
+#      #
+#   .  #
+# .##  #
+#   # ##
+#  $@$#
+#     #
+#######
+
+; id: 14
+; tier: easy
+; title: Onion Path
+; section: Easy
+; par: 7
+; switches: 3
+; seed: 1095031 5x5 2
+; nodes: 47
+; solution: RdrrUUruulldRdddlluRdrruulDrdL
+  #####
+  #   #
+  #  .#
+####  #
+#@$ $ #
+#  .  #
+#######
+
+; id: 15
+; tier: easy
+; title: Windy Bend
+; section: Easy
+; par: 7
+; switches: 5
+; seed: 1150464 5x5 2
+; nodes: 24
+; solution: DRurDlllddrUluRurrdDuulldR
+ ######
+##@   #
+# $$. #
+#  #  #
+#  #. #
+#  #  #
+#######
+
+; id: 16
+; tier: easy
+; title: Parsnip Mound
+; section: Easy
+; par: 9
+; switches: 2
+; seed: 1039598 5x5 2
+; nodes: 48
+; solution: luurUluRRRdlldlddrUUluRRR
+#######
+#    .#
+# $  .#
+#  ####
+# $#
+# @#
+####
+
+; id: 17
+; tier: easy
+; title: Radish Gate
+; section: Easy
+; par: 7
+; switches: 5
+; seed: 1174221 6x6 2
+; nodes: 27
+; solution: URlluurDlddrruRurDlldlluRR
+   #####
+   #   #
+####   #
+#  ##  #
+#  #   #
+# $$.  #
+# @ #. #
+########
+
+; id: 18
+; tier: easy
+; title: Clover Arbour
+; section: Easy
+; par: 7
+; switches: 5
+; seed: 1142545 5x5 2
+; nodes: 32
+; solution: dlluRdrrUdlluRuRlddrruUUdddlU
+   ####
+   # .#
+  ##  #
+### . #
+# $@$ #
+#     #
+#######
+
+; id: 19
+; tier: easy
+; title: Windy Loop
+; section: Easy
+; par: 8
+; switches: 5
+; seed: 1047517 5x5 2
+; nodes: 26
+; solution: DDrdrruLLrruullldlddRRlluurDrrD
+#######
+# @   #
+# $## #
+#   $ #
+# .   #
+### . #
+  #####
+
+; id: 20
+; tier: easy
+; title: Onion Corner
+; section: Easy
+; par: 9
+; switches: 3
+; seed: 1197978 6x6 2
+; nodes: 43
+; solution: RullldRurrrDDDrdLLLL
+#######
+#     #
+# $+$ ##
+#####  #
+####   #
+#.     #
+#   ####
+#####
+
+; id: 21
+; tier: easy
+; title: Parsnip Trellis
+; section: Easy
+; par: 7
+; switches: 5
+; seed: 1134626 5x5 2
+; nodes: 34
+; solution: ulDurrrdLLdLruulldDrruLdlD
+#######
+#     #
+#.$@$ #
+#   ###
+#  ##
+#. #
+####
+
+; id: 22
+; tier: easy
+; title: Bean Patch
+; section: Easy
+; par: 8
+; switches: 5
+; seed: 1118788 5x5 2
+; nodes: 27
+; solution: UdrruLLrruuulldDllddrUdrruruuullddLddrruLL
+  #####
+  #   #
+### # #
+#.  # #
+#. $$ #
+#  @  #
+#######
+
+; id: 23
+; tier: easy
+; title: Marrow Bed
+; section: Easy
+; par: 8
+; switches: 4
+; seed: 1055436 5x5 2
+; nodes: 49
+; solution: RluurDDlddrruruLLrddlluUUddR
+####
+#. #
+# $####
+#@$   #
+#  .  #
+#   ###
+#####
+
+; id: 24
+; tier: easy
+; title: Carrot Muddle
+; section: Easy
+; par: 9
+; switches: 3
+; seed: 1063355 5x5 2
+; nodes: 65
+; solution: UUUluRddddrrUUddlluuurRurDllluR
+#######
+#   . #
+#     #
+#  # .#
+# $#$ #
+# @  ##
+######
+
+; id: 25
+; tier: easy
+; title: Squash Nook
+; section: Easy
+; par: 8
+; switches: 4
+; seed: 1023760 5x5 2
+; nodes: 60
+; solution: urrdddlllluuRurrDulldRRurDlDDldR
+ ######
+##    #
+# $@$ #
+# ## .#
+#     #
+##   .#
+ ######
+
+; id: 26
+; tier: easy
+; title: Cucumber Ditch
+; section: Easy
+; par: 12
+; switches: 3
+; seed: 1126707 5x5 2
+; nodes: 40
+; solution: RurrrddlUruLLrruullldlddrUUluRRldddRurrddlUruLL
+#######
+#   . #
+#  ## #
+# .   #
+#@$ $ #
+####  #
+   ####
+
+; id: 27
+; tier: easy
+; title: Cabbage Ditch
+; section: Easy
+; par: 9
+; switches: 3
+; seed: 1213816 6x6 2
+; nodes: 89
+; solution: RUluRRRlldddrruLdlluurDldRR
+   ####
+   #  #
+####  ##
+#    . #
+# $##  #
+#@$   ##
+#   . #
+#######
+
+; id: 28
+; tier: easy
+; title: Rainy Hedge
+; section: Easy
+; par: 9
+; switches: 5
+; seed: 1102950 5x5 2
+; nodes: 45
+; solution: DDuulldRurrrdddlLuUddrruuulLddddlluRRR
+#######
+# .@  #
+# $$# #
+### # #
+#    .#
+#    ##
+######
+
+; id: 29
+; tier: easy
+; title: Rainy Maze
+; section: Easy
+; par: 10
+; switches: 7
+; seed: 1007922 5x5 2
+; nodes: 28
+; solution: RDuurrdLullddrDuluurDDlddRRlluurDldR
+#######
+#     #
+#@$   #
+# $## #
+#  #  #
+#  .. #
+#######
+
+; id: 30
+; tier: easy
+; title: Marrow Bend
+; section: Easy
+; par: 13
+; switches: 4
+; seed: 1071274 5x5 2
+; nodes: 62
+; solution: ululuurDlddrrdLLuuurDlddrruLdlUUUruLLdldddRRR
+######
+#.   #
+#   $#
+# #  ##
+#     #
+#   $+#
+#######
+
+; id: 31
+; tier: easy
+; title: Lettuce Path
+; section: Easy
+; par: 13
+; switches: 6
+; seed: 1190059 6x6 2
+; nodes: 79
+; solution: dlllllUUrdrrdrruLLLdlluuruulDrdDldRuuulDDrdRRR
+#####
+#   #
+#   #
+#   #
+#  #####
+#$   $@#
+#.    .#
+########
+
+; id: 32
+; tier: easy
+; title: Parsnip Path
+; section: Easy
+; par: 14
+; switches: 11
+; seed: 1182140 6x6 2
+; nodes: 85
+; solution: DlddrdrruruuLrdddllluluurDlddrrruruulLrrdddlllluurDlddrrururuullulDDlddRRlluurDlddrruRdllluRdrrrUU
+  ####
+ ##@ ###
+ # $ $ #
+##  ##.#
+#   #  #
+#   .  #
+#      #
+########
+
+; id: 33
+; tier: easy
+; title: Thistle Patch
+; section: Easy
+; par: 12
+; switches: 5
+; seed: 2087115 6x6 2
+; nodes: 28
+; solution: DDrddlUUUdddlluRdrruulDuuluurDDDrddLruulD
+#####
+#   #
+#  @#
+## $##
+###  #
+# $  #
+# .. #
+######
+
+; id: 34
+; tier: easy
+; title: Beet Furrow
+; section: Easy
+; par: 12
+; switches: 2
+; seed: 2031682 6x6 2
+; nodes: 92
+; solution: DDDDRRRdrUUUruLdlU
+#######
+#@  . ##
+#$     #
+# ##   #
+#   #  #
+# $    #
+#.     #
+########
+
+; id: 35
+; tier: easy
+; title: Pumpkin Maze
+; section: Easy
+; par: 12
+; switches: 3
+; seed: 2142548 6x6 2
+; nodes: 65
+; solution: RRRurDDrddllllUUluRRRdrUdD
+   ####
+   #  #
+#### .##
+#@$    #
+#  #   #
+##$##  #
+ #   . #
+ #######
+
+; id: 36
+; tier: easy
+; title: Bean Hedge
+; section: Easy
+; par: 12
+; switches: 3
+; seed: 2039601 6x6 2
+; nodes: 75
+; solution: DDrddlluRuuulldRurDDrrddllUUUluurrdLLrddddrU
+ ######
+##    #
+#. @  #
+# $$####
+### .  #
+#      #
+#     ##
+#######
+
+; id: 37
+; tier: easy
+; title: Beet Steps
+; section: Easy
+; par: 13
+; switches: 4
+; seed: 2023763 6x6 2
+; nodes: 42
+; solution: uuruulDrddldRuuulDrddlluRdrUUUluRRurrddlUruLrddddldLL
+  ######
+ ## .  #
+ #     #
+ #$ #  #
+##  ## #
+#      #
+# +$  ##
+#######
+
+; id: 38
+; tier: easy
+; title: Leek Patch
+; section: Easy
+; par: 12
+; switches: 2
+; seed: 2015844 6x6 2
+; nodes: 110
+; solution: UluRRRurDDldddllUUUluurrdLulDD
+########
+#      #
+#      #
+# $#   #
+#.@# .##
+##$   #
+ #    #
+ ######
+
+; id: 39
+; tier: easy
+; title: Dewy Square
+; section: Easy
+; par: 12
+; switches: 6
+; seed: 2063358 6x6 2
+; nodes: 31
+; solution: URuulDDrddrruuLrddlluUluurDDrrddlllUUrDldR
+####
+#  #
+#. ###
+#$$  #
+#@ # #
+#  . #
+#    #
+######
+
+; id: 40
+; tier: easy
+; title: Lettuce Loop
+; section: Easy
+; par: 12
+; switches: 4
+; seed: 2071277 6x6 2
+; nodes: 66
+; solution: UUluurDldDrdLuuurDDldLLLdlUU
+########
+#  ##  #
+#  ##  #
+#. ##  #
+#  ##$$#
+#     +#
+#      #
+########
+
+; id: 41
+; tier: easy
+; title: Cucumber Trellis
+; section: Easy
+; par: 12
+; switches: 4
+; seed: 2102953 6x6 2
+; nodes: 83
+; solution: RdrruuuullllldddRRdrrUUUruLLrddddlluRdrUUruulldR
+########
+#      #
+#  .   #
+# ##  .#
+# ###  #
+# $@$  #
+###    #
+  ######
+
+; id: 42
+; tier: easy
+; title: Muddy Bed
+; section: Easy
+; par: 12
+; switches: 3
+; seed: 2047520 6x6 2
+; nodes: 133
+; solution: RlddrUUUUruLLLrrrrdddLLulDrdL
+########
+#.     #
+#      #
+##   # #
+ ##@$  #
+ #. $###
+ #   #
+ #####
+
+; id: 43
+; tier: easy
+; title: Dewy Hollow
+; section: Easy
+; par: 14
+; switches: 3
+; seed: 2000006 6x6 2
+; nodes: 105
+; solution: RurrrddlUUruLdlUUruLdddldRurrddlUruLLLdlUU
+######
+# .  #
+#.#  ##
+# #   #
+#     #
+#@$ $ #
+####  #
+   ####
+
+; id: 44
+; tier: easy
+; title: Muddy Nook
+; section: Easy
+; par: 12
+; switches: 6
+; seed: 2126710 6x6 2
+; nodes: 88
+; solution: ULLdlluurDrrrruulDrdLLLLrddlluRuulDrrD
+   #####
+   #   #
+####   #
+#  ##  #
+#   $$ #
+#.  #@ #
+#  .####
+#####
+
+; id: 45
+; tier: easy
+; title: Squash Square
+; section: Easy
+; par: 12
+; switches: 6
+; seed: 2110872 6x6 2
+; nodes: 89
+; solution: UdlluRuurrdLulDDurDDLulDrdRRdrU
+ #####
+ #   #
+##   ###
+# $$#  #
+#  @#. #
+#.     #
+###    #
+  ######
+
+; id: 46
+; tier: easy
+; title: Moonlit Arbour
+; section: Easy
+; par: 15
+; switches: 5
+; seed: 2134629 6x6 2
+; nodes: 86
+; solution: DLLulDDurrrrddlUruLLLLulDDrDrddlluRuulD
+########
+#    @ #
+#   $$ #
+#  ##  #
+#   #  #
+#. . ###
+#    #
+######
+
+; id: 47
+; tier: easy
+; title: Parsnip Nook
+; section: Easy
+; par: 15
+; switches: 6
+; seed: 2055439 6x6 2
+; nodes: 70
+; solution: DuluurDDlddRRlluurDldRdrrUdlluRRRdrUUUU
+########
+#  ## .#
+# $##  #
+# @#   #
+# $#.# #
+#      #
+#      #
+########
+
+; id: 48
+; tier: easy
+; title: Marrow Path
+; section: Easy
+; par: 15
+; switches: 5
+; seed: 2007925 6x6 2
+; nodes: 105
+; solution: ULdlluuurrrDullldddrruLdlUUUruLdddrrdrruLLLdlUUluRR
+####
+#  ###
+#.   ##
+#   . #
+#  ## ##
+#   $$ #
+#    @ #
+########
+
+; id: 49
+; tier: easy
+; title: Moonlit Lane
+; section: Easy
+; par: 13
+; switches: 9
+; seed: 2095034 6x6 2
+; nodes: 49
+; solution: LulDurrrrdLLulldDuurrdLullddrDuluurDDlddRRlluurDlddrrrU
+########
+#      #
+#  $@$ #
+#  #####
+#  #. ##
+# .    #
+#      #
+########
+
+; id: 50
+; tier: easy
+; title: Turnip Tangle
+; section: Easy
+; par: 13
+; switches: 8
+; seed: 2118791 6x6 2
+; nodes: 70
+; solution: LruulDDDlluRdrUrdddlUruulldRuruulDDrDulldRdR
+  ######
+  #    #
+###$   #
+#  $@###
+#   .###
+###  . #
+  #    #
+  ######
+
+; id: 51
+; tier: easy
+; title: Sprout Barrow
+; section: Easy
+; par: 13
+; switches: 7
+; seed: 2079196 6x6 2
+; nodes: 102
+; solution: RurDrdrruLLrddddlluuluRRlluurDldRurrDulldRRurDlD
+#####
+#   ####
+#@$  $ #
+#      #
+##  # .#
+ ## #. #
+  #    #
+  ######
+
+; id: 52
+; tier: easy
+; title: Lettuce Bend
+; section: Easy
+; par: 16
+; switches: 4
+; seed: 2213819 7x6 3
+; nodes: 149
+; solution: LLrrRdrruLUUruLLLrrdddLLulldRRRdrruulDrdL
+  #######
+  #     #
+  #.    #
+######  #
+#    #$ #
+#. $@$  #
+#   #.  #
+#########
+
+; id: 53
+; tier: easy
+; title: Turnip Path
+; section: Easy
+; par: 14
+; switches: 6
+; seed: 2197981 7x6 3
+; nodes: 182
+; solution: DDRdrruuuuulllDDurrrddddlUUUUdddllldRRuruuulldDuurrdddldlluRR
+ ######
+ #  . #
+ #$   #
+ #@#  #
+##$#  #
+#  $. #
+#   . #
+#######
+
+; id: 54
+; tier: easy
+; title: Sprout Muddle
+; section: Easy
+; par: 12
+; switches: 7
+; seed: 2205900 7x6 3
+; nodes: 236
+; solution: ULdlluuuuurrrrddlDuruulllldddddrruLdlUrrdrruLuuUruLLrdddddlluRdrUU
+########
+# .    #
+# ##$  #
+# ##.  #
+#. # ###
+#  $$ #
+#   @ #
+#######
+
+; id: 55
+; tier: easy
+; title: Beet Hollow
+; section: Easy
+; par: 13
+; switches: 5
+; seed: 2182143 7x6 3
+; nodes: 551
+; solution: RRlluuullddRluurrdLurrrrddldllUdrrurrddlUUUruLLLLL
+#########
+#.      #
+#.$.##  #
+# $ #   #
+###@$   #
+  ####  #
+     #  #
+     ####
+
+; id: 56
+; tier: easy
+; title: Pumpkin Ditch
+; section: Easy
+; par: 14
+; switches: 9
+; seed: 2190062 7x6 3
+; nodes: 195
+; solution: RluulldRurrDDDuuulldldddrrRurruLdldllluuuurrrdDuulldRlldddrrrRuulDuluurDDrddR
+######
+#    #
+# $ $###
+# #@$  ##
+# ##.   #
+#   .  .#
+#    ####
+######
+
+; id: 57
+; tier: easy
+; title: Dewy Corner
+; section: Easy
+; par: 14
+; switches: 7
+; seed: 2174224 7x6 3
+; nodes: 416
+; solution: DulldRRurDDDlUruulldRurDlddrDRulluurDDrdR
+########
+#  @   #
+# $$   #
+###  ####
+  #     #
+  ##.$ .#
+   #. ###
+   ####
+
+; id: 58
+; tier: easy
+; title: Moonlit Nook
+; section: Easy
+; par: 15
+; switches: 7
+; seed: 2229657 7x6 3
+; nodes: 364
+; solution: RRuLuuurrrdLLulDDDLrrdLulDlluRdrruuurrrdddLLL
+  #######
+  #     #
+  #   $ #
+#### ## #
+#  .$ # #
+#  +$   #
+#  .#####
+#####
+
+; id: 59
+; tier: medium
+; title: Pea Hedge
+; section: Medium
+; par: 18
+; switches: 11
+; seed: 2150467 6x6 2
+; nodes: 73
+; solution: LulDrrdrruLLrdddllluluurDlddrrrruuulLullddrDuluurDDlddRRlluurDlddrruRdllluRRdrrUUruL
+#####
+#   ####
+#  $@$ #
+#  #.  #
+#  ##  #
+#   .  #
+#      #
+########
+
+; id: 60
+; tier: easy
+; title: Onion Yard
+; section: Easy
+; par: 12
+; switches: 10
+; seed: 2158386 7x6 3
+; nodes: 634
+; solution: LUlllddrURlluurDrdLrRuruulDrdDlluRdrUdrddlU
+   #####
+####   #
+#  # . #
+#   $ ###
+#.$ $+  #
+#  ##   #
+#  ##   #
+#########
+
+; id: 61
+; tier: medium
+; title: Bramble Hollow
+; section: Medium
+; par: 20
+; switches: 8
+; seed: 2166305 7x6 3
+; nodes: 855
+; solution: luuRlddrDuluurDrruLLLdddrUluurrdLulDDrdLLLrrddrUUUluurrdLulDrddlluluuRlddrdrruulD
+#########
+#   .$  #
+#  # $  #
+#    @###
+#.  .$#
+#  #  #
+#  #  #
+#######
+
+; id: 62
+; tier: medium
+; title: Potato Lane
+; section: Medium
+; par: 19
+; switches: 12
+; seed: 2221738 7x6 3
+; nodes: 1361
+; solution: LDDrdrruuuLulllldRurDDuurrdrddddlllluRdrruruuulullddDDuuuurrdLulDDurrrddddllLuRdrruuuullldDrdRdllLL
+########
+#      ##
+#   $@$ #
+####$## #
+####  # #
+#   .  .#
+#.      #
+#########
+
+; id: 63
+; tier: easy
+; title: Parsnip Steps
+; section: Easy
+; par: 16
+; switches: 4
+; seed: 3055442 7x6 3
+; nodes: 144
+; solution: DDDDRdrrUUUUruLLdlldddrRdrUUUruL
+#######
+#@.   ###
+#$ .    #
+# #     #
+# ##  ###
+# $ $##
+#.   #
+######
+
+; id: 64
+; tier: easy
+; title: Pea Barrow
+; section: Easy
+; par: 16
+; switches: 7
+; seed: 3031685 7x6 3
+; nodes: 167
+; solution: DDDrddllllUUdrdrrUUUUddddllululuurDrRurDDrddlllulUdrdrrruulullLrrrdD
+   ####
+#### +#
+#  # $#
+#.  $ ###
+#  ##   #
+##$ #   #
+ #   .  #
+ ########
+
+; id: 65
+; tier: easy
+; title: Pumpkin Maze
+; section: Easy
+; par: 16
+; switches: 4
+; seed: 3142551 7x6 3
+; nodes: 564
+; solution: RUUUluRdddddllluRRdrUUUruLLLrrddddrUUU
+#######
+#    .#
+#.   .#
+###   #
+####$ #
+# $@$ #
+#     #
+#######
+
+; id: 66
+; tier: easy
+; title: Dewy Yard
+; section: Easy
+; par: 16
+; switches: 4
+; seed: 3221741 7x7 3
+; nodes: 637
+; solution: dllulllluuuuurrrdLulDlddddrrrrdrruLLdllulldRRRRuLLLdlUUUUU
+######
+#.   #
+#  $ #
+# .###
+#  #
+# #######
+#     $@#
+# $   . #
+#########
+
+; id: 67
+; tier: medium
+; title: Carrot Yard
+; section: Medium
+; par: 16
+; switches: 5
+; seed: 3229660 7x7 3
+; nodes: 469
+; solution: LLLuRdrUluRddllLdlluuuuuRRRRllldldddRRRRR
+     ####
+######  #
+# $   . #
+#  #   ##
+# ###  .#
+# ## $  #
+#     $+#
+#   #####
+#####
+
+; id: 68
+; tier: easy
+; title: Cucumber Path
+; section: Easy
+; par: 16
+; switches: 3
+; seed: 3102956 7x6 3
+; nodes: 951
+; solution: UruLdlluurDrdLulDDlddrrrUUUruLrdrdLullldlddrrurUruLLLulD
+#####
+#   ###
+#  .  ###
+#   $   #
+#. #@$  #
+# . $####
+#    #
+######
+
+; id: 69
+; tier: easy
+; title: Moonlit Crossing
+; section: Easy
+; par: 16
+; switches: 4
+; seed: 3063361 7x6 3
+; nodes: 954
+; solution: UUUUruLLLLdlddddrruRUUUruLdddddrUUluR
+########
+#. .   #
+#      #
+# ##  .#
+# ##$ ##
+# # $$#
+#    @#
+#######
+
+; id: 70
+; tier: easy
+; title: Radish Arbour
+; section: Easy
+; par: 16
+; switches: 6
+; seed: 3118794 7x6 3
+; nodes: 506
+; solution: URRuRurDlDDrruLLLLLdlUUdrrrrdDrdL
+########
+#. ##  #
+# .# $ ##
+# $$    #
+# @##   #
+####    #
+   #.  ##
+   #####
+
+; id: 71
+; tier: medium
+; title: Bean Lane
+; section: Medium
+; par: 17
+; switches: 7
+; seed: 3015847 7x6 3
+; nodes: 287
+; solution: LLUluurDldldRRRRllluurDldRRdrrULLLulldddRR
+ ########
+ #  ##  #
+##  ##  #
+#  $# . #
+# . $@  #
+# ##    #
+# $ . ###
+#######
+
+; id: 72
+; tier: easy
+; title: Rainy Steps
+; section: Easy
+; par: 19
+; switches: 5
+; seed: 3182146 7x7 3
+; nodes: 518
+; solution: UluRRRdrUlllddlddrUUUluRRRdrruLLuurDldLLulDDrddrrdL
+#######
+#  #  ###
+#  #    #
+#    .  #
+# $#   ##
+#.@##   #
+# $  #  #
+# .$ ####
+######
+
+; id: 73
+; tier: easy
+; title: Sunny Ditch
+; section: Easy
+; par: 17
+; switches: 6
+; seed: 3197984 7x7 3
+; nodes: 602
+; solution: RdllluRRdrrUUUUUdddddlluRdrUUUUdrrddLuululuulllddddrdrrdrUruuruuulLL
+#########
+#  .    #
+# ## .  #
+# ##  # #
+# ##    #
+#  ##.  #
+# $@$ $ #
+#     ###
+#######
+
+; id: 74
+; tier: medium
+; title: Radish Patch
+; section: Medium
+; par: 19
+; switches: 4
+; seed: 3079199 7x6 3
+; nodes: 781
+; solution: DLLLulDDDrdLrrdrUUUddlluluuurrrrdLLLLrrrrrdLullllddrdrruUruulldRR
+########
+#     @##
+#.   $$.#
+#  ##   #
+#   # ###
+#.   $#
+#     #
+#######
+
+; id: 75
+; tier: easy
+; title: Cabbage Steps
+; section: Easy
+; par: 16
+; switches: 5
+; seed: 3023766 7x6 3
+; nodes: 1217
+; solution: UruLLrddDDRdrruLLLulldRdRRuLdlUruLL
+ ########
+##.     #
+#  #$   #
+#  #@####
+#.  $####
+#    $  #
+###   . #
+  #######
+
+; id: 76
+; tier: easy
+; title: Pea Corner
+; section: Easy
+; par: 16
+; switches: 8
+; seed: 3095037 7x6 3
+; nodes: 436
+; solution: LLullddddrUluuurrdLulDDDrUluurrdrruLdlLulDrrruLLddddLullddrUruL
+  #######
+  #.  $ #
+  #   $@#
+###. #  #
+#.  $####
+#    #
+#  ###
+####
+
+; id: 77
+; tier: medium
+; title: Moonlit Loop
+; section: Medium
+; par: 20
+; switches: 5
+; seed: 3205903 7x7 3
+; nodes: 540
+; solution: UrUUluRRurDldRRdrUUdddddllllUUUddrdrruuuulullldRRRRdrruulDllllddlUrurrrrrdL
+  #######
+###  #. #
+#    #  #
+#.      #
+# $##.  #
+#$ ##   #
+#@$ #  ##
+##     #
+ #######
+
+; id: 78
+; tier: medium
+; title: Frosty Bend
+; section: Medium
+; par: 18
+; switches: 6
+; seed: 3126713 7x6 3
+; nodes: 608
+; solution: RUUUddrruLdldllluuurrrDullldddrruRurrddLLuurDldLLdlUUUUluRR
+#######
+#   ..#
+#     ###
+#  ## $ #
+#  # $  #
+#   @$. #
+#   #  ##
+########
+
+; id: 79
+; tier: medium
+; title: Bramble Steps
+; section: Medium
+; par: 20
+; switches: 10
+; seed: 3000009 7x6 3
+; nodes: 122
+; solution: LDlluRluurDrDullddrRRddlUruulullddrRuulDrrDldRuullldRurDrdRRdrUUUU
+#########
+#  ##  .#
+# $ #   #
+#  $@## #
+#  $ .# #
+###.    #
+  #  #  #
+  #######
+
+; id: 80
+; tier: easy
+; title: Bean Trellis
+; section: Easy
+; par: 16
+; switches: 9
+; seed: 3110875 7x6 3
+; nodes: 455
+; solution: LruulDDDlluRRdrddlUruLuurDldLurrDlddrrrrUdlllluurDldRRR
+  #######
+  #     #
+###$ #  #
+#  $@## #
+#.   ##.#
+###  ##$#
+  #    .#
+  #######
+
+; id: 81
+; tier: medium
+; title: Rainy Tangle
+; section: Medium
+; par: 24
+; switches: 3
+; seed: 3039604 7x6 3
+; nodes: 852
+; solution: RRddrrrruullLrrrddlllluUUUluRRRldddllldRurrrrrddllllUUUUluRRdddrrrddlUruLLLrrddllluUUruulldRurD
+#########
+#    .. #
+#    ## #
+### .## #
+#@$     #
+# $ ##$ #
+###     #
+  #######
+
+; id: 82
+; tier: easy
+; title: Bramble Bed
+; section: Easy
+; par: 17
+; switches: 8
+; seed: 3071280 7x6 3
+; nodes: 824
+; solution: LLUdrruLLdLdlluuluurrrrDullllddrddrruUUruLLLrrdddrruLdlUUruLddddlluR
+#######
+#     #
+#. .  #
+# ##  ###
+#  # $$ #
+#   . $@#
+#    ####
+######
+
+; id: 83
+; tier: easy
+; title: Rainy Hedge
+; section: Easy
+; par: 16
+; switches: 9
+; seed: 3150470 7x6 3
+; nodes: 783
+; solution: LddrDuluurDllluRRdrDldddrruLdlluluuurrrdDDLLLdlUrrrrrdLLL
+ ######
+##  $+#
+#    $#
+#  #  #
+#. # $###
+#       #
+# .     #
+#########
+
+; id: 84
+; tier: medium
+; title: Sprout Tangle
+; section: Medium
+; par: 17
+; switches: 7
+; seed: 3047523 7x6 3
+; nodes: 1272
+; solution: RRRllluurDldRRllddrdrruruUruLddddllluluurrRlllddrdrrururuulDlllDurrrDullldDldRRRR
+########
+#  ##  ##
+# $#.   #
+#@$     #
+# $##   #
+#  # . ##
+#     .#
+########
+
+; id: 85
+; tier: medium
+; title: Potato Barrow
+; section: Medium
+; par: 20
+; switches: 6
+; seed: 3134632 7x6 3
+; nodes: 1077
+; solution: UdlluRuRUUruLLLLrrrdddlddrUUUruLLLulDDurrrrrddLulDD
+########
+#.     ##
+#       #
+#  ##$  #
+# .#    #
+### $$###
+  #  +#
+  #####
+
+; id: 86
+; tier: medium
+; title: Dewy Nook
+; section: Medium
+; par: 21
+; switches: 6
+; seed: 3190065 7x7 3
+; nodes: 1077
+; solution: uuluuurrrdddRuuurrdddddllUUUUluurrdLulDDurrrdddLdlUUUluurrdLLLullddddrddRRRuuuuullLulDrrrrdddddR
+########
+#      ##
+#       #
+#.##  # #
+# ##. # #
+#  # $  #
+#  ##$  #
+##@$   .#
+ ########
+
+; id: 87
+; tier: medium
+; title: Squash Tangle
+; section: Medium
+; par: 21
+; switches: 8
+; seed: 3007928 7x6 3
+; nodes: 551
+; solution: LLullDRRRRuLLLrrrrDllllllddrUluRRRRurrdDDDuuuulldRurD
+#########
+# .  $  #
+# $  $@ #
+#  ####.#
+#  ##   #
+####  # #
+   #   .#
+   ######
+
+; id: 88
+; tier: medium
+; title: Clover Ditch
+; section: Medium
+; par: 17
+; switches: 8
+; seed: 3213822 7x7 3
+; nodes: 1815
+; solution: DDuulllldddrruRUruLLLLulDDurrrrrdrdLrdLLLrruulDldLrurrdL
+########
+#      #
+#     @##
+#  ##$$ #
+#. # $  #
+# . .   #
+#     ###
+####  #
+   ####
+
+; id: 89
+; tier: medium
+; title: Cabbage Furrow
+; section: Medium
+; par: 22
+; switches: 10
+; seed: 3166308 7x7 3
+; nodes: 432
+; solution: lulluuuuurrrrrrdLLLLLdldddrrdrUrUUUdddlllluuuruulDurrrrrdLLLulldDuurrdLdlDDuuruulDrrrrddddlluRdrUUU
+#########
+#       #
+#    .$ #
+#. ## ###
+# ### #
+# #  $#
+#.  $ #
+#   @##
+######
+
+; id: 90
+; tier: medium
+; title: Rainy Corner
+; section: Medium
+; par: 26
+; switches: 8
+; seed: 3158389 7x7 3
+; nodes: 1230
+; solution: DurrdLLulDlddrdrrrrruuuLLLulldDuurrdLrdLLDldRRRRRdrUUdllllluuruulDDDldRRRR
+ #######
+## @   ##
+#  $$ $ #
+#.   ##.#
+#  #### #
+#     . #
+##  ##  #
+ #  ##  #
+ ########
+
+; id: 91
+; tier: medium
+; title: Potato Path
+; section: Medium
+; par: 25
+; switches: 10
+; seed: 3087118 7x6 3
+; nodes: 976
+; solution: RlddrUUluRRRRurDDrddllluLUUluRRdldllddrUUluRRRRllddrdrrruulDuruulDlluRdrrddlDuruulD
+ ########
+##    . #
+#       #
+#@$ ##  #
+# $$ #. #
+#  #    #
+#  ## . #
+#########
+
+; id: 92
+; tier: medium
+; title: Squash Corner
+; section: Medium
+; par: 24
+; switches: 15
+; seed: 3174227 7x7 3
+; nodes: 566
+; solution: DurrdLddLruuulldRulllddddddrruuruLdddlluuuuuurrrdDuurrdLulDulllddddddrruuuLrdddlluuUUluurrrrrdddLLrruulDuullllddrddddrruuuLLuluurrrrrdddLdlddlluulUUrddddrruuruLLLulDrrrruuullllD
+#########
+#    @  #
+# .# $$ #
+#. ##  ##
+#    $ #
+#. #  ##
+## # ##
+ #   #
+ #####
+
+; id: 93
+; tier: easy
+; title: Sprout Barrow
+; section: Easy
+; par: 23
+; switches: 3
+; seed: 4126716 7x7 3
+; nodes: 153
+; solution: LUUruLLLulDrdLulDDDldRRRdrrUUUUruLLLLL
+#########
+#       #
+#.      #
+##   #  #
+#  ###$ #
+#  ##.$@#
+#    .$##
+#  #   #
+########
+
+; id: 94
+; tier: medium
+; title: Beet Square
+; section: Medium
+; par: 22
+; switches: 3
+; seed: 4245501 8x7 3
+; nodes: 520
+; solution: UUruLLLulDDurrrrdddddllluuuLLulDDDuurrrdddrrUUUUruLLrdddddlluRdrUUU
+#######
+#     ####
+#  # .   #
+#    ##. #
+#     #$ #
+#  ## #@ #
+#  ## $$ #
+# .##    #
+##########
+
+; id: 95
+; tier: medium
+; title: Clover Barrow
+; section: Medium
+; par: 24
+; switches: 3
+; seed: 4095040 7x7 3
+; nodes: 692
+; solution: LLLLullddrUluRRdrUUruulldRurDldRlddrrrddllUdrruulLLLullddrUluRRdrUUruulldRurDldddrrD
+#######
+#     #
+#     ###
+# ## .. #
+#    ## #
+#     $@#
+#  ##$$ #
+##### . #
+    #####
+
+; id: 96
+; tier: medium
+; title: Leek Trellis
+; section: Medium
+; par: 23
+; switches: 8
+; seed: 4087121 7x7 3
+; nodes: 552
+; solution: LLUUddrruLLulluuurrdDDllddRUluuuurrdddLdlUUUUdddrddRRuLdlUruLdlUUU
+######
+# .  #
+# .  ####
+#  #    #
+#  # #  #
+#    ####
+##  $$ #
+ #   $+#
+ #######
+
+; id: 97
+; tier: medium
+; title: Windy Arbour
+; section: Medium
+; par: 22
+; switches: 7
+; seed: 4205906 8x7 3
+; nodes: 1500
+; solution: DDDldRlddrUrrruulDrdLLLdllluuurrrDRdrruLLLLLLulDrddrrUdlluuurrrdLrrdLulD
+    ######
+    #@   #
+    #$   #
+##### ####
+#     #  #
+#  .   $ #
+#. # $   #
+#   . ####
+#######
+
+; id: 98
+; tier: medium
+; title: Rainy Bend
+; section: Medium
+; par: 23
+; switches: 5
+; seed: 4000012 7x7 3
+; nodes: 2669
+; solution: RRRuuuLLrrddddrUluRRdlllllddrUluRRRdrUruLdlUUUddrruruullLLLrrdddrrdrUUU
+#########
+#.     .#
+#. $ ## #
+###  #  #
+####    #
+#@$     #
+# $#  ###
+#  ####
+####
+
+; id: 99
+; tier: medium
+; title: Cabbage Loop
+; section: Medium
+; par: 24
+; switches: 4
+; seed: 4166311 8x7 3
+; nodes: 3174
+; solution: luulluuuurrrrrDLLLLullddrUluRdrrrrrrddlUruLLLLLrrrrddldlllluuluurDDDDDrrdrUlulluuurrrrrddldLLLdlluurDrdL
+#########
+#  .    ##
+#     $$ #
+#  ####  #
+#  ###   #
+#      ###
+#.   $##
+# .# @#
+#######
+
+; id: 100
+; tier: medium
+; title: Parsnip Maze
+; section: Medium
+; par: 27
+; switches: 7
+; seed: 4063364 7x7 3
+; nodes: 571
+; solution: RlluurDrdRRllulldRRRlululuurrrrrrdddddlUUUUUruLLLLdllddrdrdrRdrUUUUruLLLLrrrddddllldRR
+#########
+# .     #
+# .     #
+# ####  #
+#  ###  #
+# $ #   #
+# @$    #
+### $ . #
+  #######
+
+; id: 101
+; tier: medium
+; title: Sunny Muddle
+; section: Medium
+; par: 22
+; switches: 10
+; seed: 4023769 7x7 3
+; nodes: 672
+; solution: llUdrrULuLLLrrrurDlddlUruLLrrrDulllulllddrUluRRldRRRdrruulDDDuullluurDldR
+  ####
+###  ####
+#    #  #
+#    .  #
+#  ##$$$#
+##  #  +#
+#   ##. #
+#   ##  #
+#########
+
+; id: 102
+; tier: medium
+; title: Windy Crossing
+; section: Medium
+; par: 22
+; switches: 7
+; seed: 4150473 7x7 3
+; nodes: 2585
+; solution: uuuullllddrDRllddrUluRuluurrrrddddLUUUruLLulldddrdRluluuurrrrdddddlUUUruLddddLullddrUruLdlUUUU
+#######
+#.    #
+# ..  ###
+# ##    #
+#  #    #
+# $$  ###
+#   $@#
+#  ####
+####
+
+; id: 103
+; tier: medium
+; title: Lettuce Plot
+; section: Medium
+; par: 22
+; switches: 9
+; seed: 4213825 8x7 3
+; nodes: 1396
+; solution: urrdrrULrruulDrddlluLrdrruLLruulullddlddRUUUUruLLulDrrrrddrddlLLdlUruLLrrddRRR
+########
+#      #
+#      #
+# .#   ###
+# ## #   #
+#.   ##  #
+###   $$ #
+  #@$   .#
+  ########
+
+; id: 104
+; tier: medium
+; title: Pumpkin Crossing
+; section: Medium
+; par: 22
+; switches: 12
+; seed: 4182149 8x7 3
+; nodes: 494
+; solution: ULLrrdrddllluluUUUddrrrdrruLLLLrrruulDrddddllluluUrrRlllluurDldRRlddrdrrruuluurDrdddlllluluurRllddrdrrruruulDrddlllluluurrRdrUdD
+#####
+# . ####
+#   #  #
+#  ## .##
+#   $$$ ##
+#  ##@   #
+#   ##   #
+###   .  #
+  ########
+
+; id: 105
+; tier: medium
+; title: Squash Mound
+; section: Medium
+; par: 22
+; switches: 10
+; seed: 4142554 7x7 3
+; nodes: 1101
+; solution: LLLdlUluurDurDDDuulldRdrDDrrdrUUUddllluuluurDrrdrUlllDDuurrrddddllLLrrurruuulllddDrdL
+ #####
+ #   ####
+ #  $# .#
+ #    $@#
+ ##  #  #
+#### ## #
+#      $#
+# ..    #
+#########
+
+; id: 106
+; tier: medium
+; title: Carrot Trellis
+; section: Medium
+; par: 23
+; switches: 9
+; seed: 4237582 8x7 3
+; nodes: 1281
+; solution: RRRurrrddlUruLLrdLLLDlluRRRRRurDDulllldDuurrrrdDuullllddDuuurrrrddDrdLL
+   #######
+####.    #
+#@$   $  #
+#  $##   #
+### ###  #
+ #  #    #
+ # . .   #
+ ######  #
+      ####
+
+; id: 107
+; tier: medium
+; title: Parsnip Square
+; section: Medium
+; par: 23
+; switches: 11
+; seed: 4197987 8x7 3
+; nodes: 648
+; solution: RddllluuRlddrrruuurDDldllluurRllddrrruruulDrdrdLLLrruulDullldddrruLdlluurDuurrrrddLLLLulDDRurrdddrrrUUlulllldRurD
+     ####
+  ####  #
+### $@$ ##
+#   ##   #
+#       .#
+#     #  #
+# .##.##$#
+#  ##    #
+##########
+
+; id: 108
+; tier: medium
+; title: Squash Plot
+; section: Medium
+; par: 24
+; switches: 5
+; seed: 4015850 7x7 3
+; nodes: 4684
+; solution: lUluluuurrdrrddlLLdlUUUUluRRRddrrddllddrUluRllluuurrdrrrdddLUUdlllluuurrdrRdrUddlllddrUruLLLLdlUU
+#########
+#    .  #
+#    ##.#
+#. #    #
+#  ###  #
+#       #
+#   $$$ #
+#  # @###
+#######
+
+; id: 109
+; tier: medium
+; title: Parsnip Tangle
+; section: Medium
+; par: 24
+; switches: 9
+; seed: 4031688 7x7 3
+; nodes: 1265
+; solution: RRdrruLruulDuruulDrddlDuruulDrddlLLLrrrruulDrdLLLulllddrUUruLdlUUrdrdrdLullddrUUruLdlU
+#### ####
+#. # #  #
+#. ###$ #
+#   ##  #
+#    #$ #
+#  @$   #
+#  ## . #
+#  ######
+####
+
+; id: 110
+; tier: medium
+; title: Potato Crossing
+; section: Medium
+; par: 25
+; switches: 7
+; seed: 4071283 7x7 3
+; nodes: 2080
+; solution: DlDurrdRlulldRRlllddrrrrurUUUddddllllluururuuurrrrdLLLLddrdRdrUUUUruLddddddllllUluRRRRRdrU
+#########
+#    .  #
+# .     #
+###@## ##
+## $ # .#
+# $  $  #
+#  ##   #
+#       #
+#########
+
+; id: 111
+; tier: medium
+; title: Dewy Crossing
+; section: Medium
+; par: 23
+; switches: 9
+; seed: 4055445 7x7 3
+; nodes: 1980
+; solution: uuurrrrrDLddrruLdlUruullldldldRRRRuUruLdddllluurRUUUluRRRdllddrrddlUruLdlUUUddrdddR
+ ########
+ #  .  .#
+ #      #
+###  ####
+#      #
+#    $$##
+#  ##   #
+#@$    .#
+#########
+
+; id: 112
+; tier: medium
+; title: Sprout Loop
+; section: Medium
+; par: 22
+; switches: 10
+; seed: 4158392 8x7 3
+; nodes: 1847
+; solution: ulllluluurDlddrrrruuuuulllDrrrddddlllluurDlddrrurruuuulllDDlddRRlluurDlddrruLdlUrrRlluuuurrrddrdddLUUUUUdddddLLLLL
+   #######
+   #   . #
+  ##$    #
+  #  #  ##
+  # $#   #
+###. ##  #
+#        #
+#.     $@#
+##########
+
+; id: 113
+; tier: medium
+; title: Marrow Gate
+; section: Medium
+; par: 23
+; switches: 12
+; seed: 4134635 7x7 3
+; nodes: 751
+; solution: LrdrruLuurDlddlluRdlddlluuuRRdrrUUrDDllluRdrruulDrdLLulDDuulldddrdrrrurUUllldDuurrrdddllLuuuurrurDldlldddLL
+     ####
+     #. #
+###### $#
+#   $@$ #
+#  #   .#
+#  # ## #
+#    #  #
+#.      #
+#########
+
+; id: 114
+; tier: medium
+; title: Windy Gate
+; section: Medium
+; par: 26
+; switches: 7
+; seed: 4229663 8x7 3
+; nodes: 2866
+; solution: DulldRuuuulldldddRluuuurrrdddddRUUUUluRRRllllldldddrRurrddlUUUUdddllluuuurrRRRdldddddrruLdlUUUUluRR
+##########
+#      ..#
+#  #   . #
+# #   #  #
+# #  @#  #
+# $ $$####
+####    #
+   #    #
+   ######
+
+; id: 115
+; tier: medium
+; title: Onion Hedge
+; section: Medium
+; par: 29
+; switches: 10
+; seed: 4079202 7x7 3
+; nodes: 609
+; solution: LLLLDlluRRRRRdddllllUdrrurruullllldRdRluurDDRRRurDllllldRRurDDDurrddlLuuuurrDDDullddL
+#########
+#     $+#
+#  $##  #
+##$     #
+ #      #
+#####   #
+#  #  # #
+#  .   .#
+#########
+
+; id: 116
+; tier: medium
+; title: Potato Furrow
+; section: Medium
+; par: 25
+; switches: 9
+; seed: 4039607 7x7 3
+; nodes: 2259
+; solution: LdlUUUUUluRRdlddddrrdrrULrruulDuululllddddrdrruLLdlluurDuuuurrrdrrdddLLLLrrruuulullldddlddRluuuuurrrrdrdddlllLdlUUUrdddRR
+#######
+#   . #
+#     ###
+#. ##   #
+#  ##   #
+#  ###  #
+#  $@$$ #
+#    . ##
+########
+
+; id: 117
+; tier: medium
+; title: Clover Furrow
+; section: Medium
+; par: 25
+; switches: 10
+; seed: 4102959 7x7 3
+; nodes: 1654
+; solution: llluluuRRllddrdrrrUUUUluRRdlddddllluluurrRuulDrrDDDrddllulluluurRRurDDullllddrdrrdrruLdllululuurrrrdDDLLrrrdLLL
+  #######
+  #    .#
+###$    #
+# $   ###
+# ### ##
+#  ##$ #
+# .  @ #
+# .    #
+########
+
+; id: 118
+; tier: medium
+; title: Leek Patch
+; section: Medium
+; par: 24
+; switches: 11
+; seed: 4190068 8x7 3
+; nodes: 1816
+; solution: ulldllluRRRRRRldLLLulDlddrdrrrrrruuuLLLLulldDuurrdLullddrDuluurDlddrDuluurDDlddRluurDD
+##########
+# $     .#
+#    $@$ #
+#  ##### #
+#  ##### #
+#        #
+#  .#  ###
+# . ####
+#####
+
+; id: 119
+; tier: medium
+; title: Clover Corner
+; section: Medium
+; par: 34
+; switches: 6
+; seed: 4221744 8x7 3
+; nodes: 2380
+; solution: RdrruLdlUUUUluRRRRRRllldlldddrrdrUllluuuurrrrrddddLLLdlluuuurrdrDulullddddrruLdlUUUUluRRRddrdrdLLLdlUUUluRRurD
+  ########
+###      #
+#    .  .#
+#    ##  #
+#  #. #  #
+#  ##    #
+#@$  $$  #
+##    ####
+ ######
+
+; id: 120
+; tier: medium
+; title: Bean Nook
+; section: Medium
+; par: 23
+; switches: 19
+; seed: 4007931 7x7 3
+; nodes: 671
+; solution: DulldRDDlddrrruuuLrdddllluuuuurrDllddrDuluurDRlDlddRRlluurDlddrruRdllluRdrruRdllluRdrruRdllluRRdrrUUddlluR
+#########
+#  @##  #
+# $$##  #
+# $ .## #
+#  # ##.#
+#  #  # #
+#      .#
+#       #
+#########
+
+; id: 121
+; tier: medium
+; title: Dewy Bend
+; section: Medium
+; par: 26
+; switches: 16
+; seed: 4047526 7x7 3
+; nodes: 2999
+; solution: RRdrrurruulDrddlllluRdrrruulDrddlluluRlllluurDldRRRdrdrruLruulDrddlldlluuurRRurDllDurrDLLLulDDurrDulldDuurrdDldL
+#### ####
+#  # #  #
+# $###$ #
+#@$     #
+###     #
+##  #  .#
+#     ###
+# .  .#
+#######
+
+; id: 122
+; tier: medium
+; title: Radish Path
+; section: Medium
+; par: 31
+; switches: 13
+; seed: 4253420 8x7 3
+; nodes: 2777
+; solution: RRRRRDDDuuulldRurDrruLLdDullulllddrdddrrrrruLdlllluuuluurrrdrruLrddDlDurDlDurrdLLLLdlUUUruLdlUrdddrrrrdLLL
+##########
+#@$ .    #
+#.## $$  #
+#   ## ###
+#   #  ##
+#  ##   ##
+#        #
+# .      #
+##########
+
+; id: 123
+; tier: medium
+; title: Clover Arbour
+; section: Medium
+; par: 26
+; switches: 7
+; seed: 5031691 8x7 3
+; nodes: 190
+; solution: DDDrdrdLLUUUUdddLLdRRuuuuruulDDDDrdLdlluRRRRRdrUdllLL
+   ######
+   #    #
+   #@   #
+   #$ ####
+#### ##  #
+#  #  # .#
+#. $     #
+#  . $   #
+##########
+
+; id: 124
+; tier: medium
+; title: Rainy Steps
+; section: Medium
+; par: 26
+; switches: 4
+; seed: 5126719 8x7 3
+; nodes: 788
+; solution: DDrDLdlluRdrUUUUluRRRurDllldddrdRRurrdLLLLLdlluRdrUUUUluR
+   #####
+####   #
+#   .  #
+#  @# .#
+## $######
+###  #   #
+#   $$   #
+#   .  ###
+########
+
+; id: 125
+; tier: medium
+; title: Clover Steps
+; section: Medium
+; par: 27
+; switches: 7
+; seed: 5063367 8x7 3
+; nodes: 1196
+; solution: DDDlddlluRdrURuuuulllddrDRdrUUUUluRdddddldlluRdrUluRdrUUUruLLrdddrrdLLullddrUluRRR
+    ######
+#####  . #
+#   . @  #
+#   ##$  #
+###  # ###
+  ##$   .#
+  # $    #
+  #   ####
+  #####
+
+; id: 126
+; tier: medium
+; title: Squash Mound
+; section: Medium
+; par: 26
+; switches: 6
+; seed: 5308856 8x8 4
+; nodes: 4589
+; solution: UUUluRRdlllldRurrddddrruLdlUUUUruLLLrrddddrrdrruLLLdlUUUUruLrdrruLdlllldRurDD
+####
+#  ######
+#. . .  #
+#       #
+# $  ####
+####$#####
+   #+$ $ #
+   #     #
+   #######
+
+; id: 127
+; tier: medium
+; title: Frosty Bed
+; section: Medium
+; par: 28
+; switches: 7
+; seed: 5047529 8x7 3
+; nodes: 2516
+; solution: RRRldRullldRurrdRdrruulLLLLdlUUUluurrdLulDrdddrdRRurrrddllUdrruulLLLLdlUUUUdddrrrrdRurD
+#######
+# .   #
+#     #
+#. ####
+## #######
+##@$     #
+#  $ $   #
+#  ###  .#
+#### #####
+
+; id: 128
+; tier: medium
+; title: Squash Lane
+; section: Medium
+; par: 29
+; switches: 8
+; seed: 5150476 8x7 3
+; nodes: 1493
+; solution: LUdLLLuuuurrrrdLLLulllddrrUruLLulDDldRdrrdrrurUUruLLLLLulDDurrdddlldRuruuulldDuurrdddldRRRR
+      ####
+#######  #
+#    ##  #
+#        #
+#  #   $ #
+#  . ## ##
+##.  # $ #
+ #     $+#
+ #########
+
+; id: 129
+; tier: medium
+; title: Rainy Barrow
+; section: Medium
+; par: 26
+; switches: 11
+; seed: 5102962 8x7 3
+; nodes: 1172
+; solution: urrrrrdrruLLLdllulldRRRRuLrdRurDDullllllddrdrrUUddlluluurrRRRurrddlDuruulDrddlDuruulDDrddLruulDDrdLL
+##########
+#  .   $ #
+#@$      #
+# ## ##  #
+#  #$##  #
+#    ##  #
+#   # .  #
+#   #.   #
+##########
+
+; id: 130
+; tier: medium
+; title: Lettuce Hollow
+; section: Medium
+; par: 26
+; switches: 4
+; seed: 5190071 8x8 4
+; nodes: 14839
+; solution: lUUUUluRRRRRurDldddlddllUUUUluRRRlldddddrruuruuUdddldLdlUUUUdddrrurrddLLL
+  ########
+###  ##  #
+#    #.  #
+#  .     #
+#   ## .##
+#   ##  #
+##  #   #
+ #$$$ # #
+ # +  $ #
+ ########
+
+; id: 131
+; tier: medium
+; title: Onion Ditch
+; section: Medium
+; par: 28
+; switches: 9
+; seed: 5269261 8x8 4
+; nodes: 3391
+; solution: RRRRDrruLLLLLrrrdDlddrUUdddddrruLdlUUUluurDuruulDrrddLLDDDuuuruulDDDD
+##########
+# +$     #
+#  ###$  #
+#  ##    #
+#####. $ #
+    #  ###
+    ## ###
+     #.$ #
+     #.  #
+     #####
+
+; id: 132
+; tier: medium
+; title: Windy Yard
+; section: Medium
+; par: 28
+; switches: 13
+; seed: 5039610 8x7 3
+; nodes: 1309
+; solution: LrddlUUruuullldddRRdrUUdllluuurrdRRRurDllllDurrrrDuulllllldddrRdrUUluRRRdrDuluurDlllddllldRurDuuurrrddrDuluurDrddlDuruulDD
+#########
+#       #
+# #     ##
+# #  #   #
+#  $@#   #
+# $$ #   #
+###. ##. #
+  #####. #
+      ####
+
+; id: 133
+; tier: medium
+; title: Lettuce Yard
+; section: Medium
+; par: 27
+; switches: 8
+; seed: 5197990 8x8 4
+; nodes: 11321
+; solution: lllluRdrruruuullldDDRRdrUUUUUluurrdLulDrdddddlllldRurrrdRUrrdLLLuuurDlddrruLdlUUUUUUluR
+   ######
+   #  . #
+   #    #
+ ###. ###
+ #    ##
+## ##  #
+# $ #  ###
+# $   $  #
+#  ..@$  #
+##########
+
+; id: 134
+; tier: medium
+; title: Lettuce Barrow
+; section: Medium
+; par: 26
+; switches: 12
+; seed: 5000015 8x7 3
+; nodes: 4140
+; solution: lulullluuurrrDDDDrdrUruuLLrrddlllullluuurrrdDDurrDrdLdlLrruuulldDDrruLruulldDrddLLrruulDLLLulDrrrdLurrrdLL
+#######
+#     #
+#  ##$####
+#  ##  $ #
+#     #  #
+#  ##  $ #
+#      @##
+#...    #
+#########
+
+; id: 135
+; tier: medium
+; title: Sunny Tangle
+; section: Medium
+; par: 32
+; switches: 9
+; seed: 5261342 8x8 4
+; nodes: 7035
+; solution: LruulDLrrddllUdrruuuuruullldlddlddRUUUUluRRRRRdddldlLrururuullldlddlddrUUUUluRRRRlldldddrrrddllUdrruulLdlUUdrddrUruLLLdlU
+  ########
+###      #
+#     .. #
+#   ## ###
+# .##    #
+#. #     #
+#  $$ ####
+# $ $@#
+###   #
+  #####
+
+; id: 136
+; tier: medium
+; title: Squash Muddle
+; section: Medium
+; par: 29
+; switches: 14
+; seed: 5174233 8x8 4
+; nodes: 3785
+; solution: UULuuRRRllDDldlluRdrUruurrdrruLdlLullDDldddddrruruulULuuurrdrruLdlLulDDllddrdddrruruuluUluRRRlldllDDDDldR
+  ########
+  # $.   #
+###  $ . #
+#  $ #  ##
+#  .$####
+#  #@  #
+#  ##  #
+#  #   #
+#  .   #
+########
+
+; id: 137
+; tier: medium
+; title: Rainy Trellis
+; section: Medium
+; par: 26
+; switches: 18
+; seed: 5229666 8x8 4
+; nodes: 3465
+; solution: luUUdddrUluuluulldRullldRurrrrDDuulldRullldRurrddrDDrdLuuuluulldRurrDDuulldRdrDDlDDuurrdLuuurDulluurDldRdrDllD
+########
+#      #
+# $ $  ##
+##  #  .#
+ #####$ #
+  ##   $#
+  #    +#
+  #  .###
+  #  .#
+  #####
+
+; id: 138
+; tier: hard
+; title: Cabbage Yard
+; section: Hard
+; par: 33
+; switches: 19
+; seed: 5015853 8x7 3
+; nodes: 526
+; solution: LDlluulldRurDRdrruLLLrrdDuullulldRdRRlluurDldRurrrddlDuruulDDuulldRurrddddLLrruulDuruulDDrdddlluLLLrrrdrruLLrruulDldLLrrurrdLL
+  #####
+  #   ####
+  # $  $@#
+  ##   $ #
+   ####  #
+######   #
+# .. .   #
+#  ##    #
+##########
+
+; id: 139
+; tier: medium
+; title: Bramble Nook
+; section: Medium
+; par: 30
+; switches: 10
+; seed: 5158395 8x8 4
+; nodes: 24208
+; solution: ulluLrdrruuuulldlDDulldRlllddrrrUUluluuurrrrddldLLdlUUUluRdddrrddRRlluurDuururrdddddLruuuuulldlddrdRdrUUUUdddllulldRRRdrUUddlLLLL
+##########
+#        #
+#  .     #
+#  ###  .#
+#  ##  # #
+#    $##.#
+#    $ # #
+# ##$    #
+# .    $@#
+##########
+
+; id: 140
+; tier: medium
+; title: Leek Hollow
+; section: Medium
+; par: 26
+; switches: 12
+; seed: 5221747 8x8 4
+; nodes: 31565
+; solution: ullluuurrrdLLullddrdrrrdRlulldRDuullldddrrdrruruuLrdrruLLdddllluRuUdddrruuuLuLLLrrrdrdddllullluuUUUdddddrrruUruLLLrrdddllluuUrrrdddRRdrUluR
+#######
+#.    #
+# . $ #
+#. ####
+#     ####
+# # $@$  #
+# ##$#  .#
+#        #
+#        #
+##########
+
+; id: 141
+; tier: hard
+; title: Beet Hollow
+; section: Hard
+; par: 32
+; switches: 11
+; seed: 5253423 8x8 4
+; nodes: 15388
+; solution: RRRdrUUUUUUruLddddlDLdlluRRdRdrUUdlluRuRRllddrUluRurrrddLLUluRRlddrUlllddrUluRRR
+  ######
+  # .  #
+  #    #
+  ###  ###
+   ##  ..#
+####    .#
+#  $$  $ #
+#@$   ####
+####  #
+   ####
+
+; id: 142
+; tier: hard
+; title: Bramble Plot
+; section: Hard
+; par: 26
+; switches: 14
+; seed: 5300937 8x8 4
+; nodes: 29427
+; solution: DrddddlluluuluuuurrrDDullldddrddrdrruuuLLLdllluuurrurrrdDuulllddDuuurrrddrdLLLdLUdLrurrruuullldllddlddRluuuurrrurrrdddlllUddlLdRurrddlUruLLdlUrrurrrrddLLdlluurDrdL
+   ######
+####    #
+#  #   $#
+#   .##@##
+#  # ##$ #
+# .#     #
+#.    ## #
+# $    $ #
+####.    #
+   #######
+
+; id: 143
+; tier: medium
+; title: Parsnip Lane
+; section: Medium
+; par: 27
+; switches: 14
+; seed: 5293018 8x8 4
+; nodes: 23882
+; solution: lUdrUUULURlluurDldldRRRuLLrrRldRRRurDllluRRdlllddlUruulldRRRurrdrDDuululldR
+#####
+#   ####
+#   #  ###
+#. $    .#
+#  $   . #
+###  ##  #
+  #$$##  #
+  # @## .#
+  #####  #
+      ####
+
+; id: 144
+; tier: hard
+; title: Radish Muddle
+; section: Hard
+; par: 26
+; switches: 18
+; seed: 5245504 8x8 4
+; nodes: 8898
+; solution: ruuulluRdrrruulDrdrdddllluuuluRRldRRRlluurDldRdrrruulDuruullldddRluuurrrddddLruulDlDurDulllldddlUlUUdRurDDuurrrdDuulllddldRRluuurrrddDuuullldddrR
+   #######
+   #     #
+####  ## #
+#.$ $ #  #
+#        #
+#$  #    #
+# $ ## .##
+##@   . #
+ #### . #
+    #####
+
+; id: 145
+; tier: hard
+; title: Potato Bend
+; section: Hard
+; par: 40
+; switches: 7
+; seed: 5182152 8x8 4
+; nodes: 16440
+; solution: URRurrddlUUluRdrUUUruulldRurDldddddlllldlluRRRRuulDrdLLdlluRuRRdrUluRRdrUUUUruLdddddlllllddrUluRRdrUrrddlUluRdrUUUUU
+   #######
+   #  .. #
+   #     #
+   #### .#
+   ####  #
+ ### .   #
+##  $   ##
+# $$$   #
+#  @##  #
+#########
+
+; id: 146
+; tier: hard
+; title: Sprout Furrow
+; section: Hard
+; par: 39
+; switches: 13
+; seed: 5316775 8x8 4
+; nodes: 13028
+; solution: LuurDlddlluRdrUUruLdddrUdrrruulDrdLLLuRRllluurDldRuululldRurDrddRdrrUUUUUUruLLrdddddddlluRdrUUUUUUluRddddddllllldRuruulDrdLdlluRR
+   #######
+   # .  .#
+   #     #
+######  ##
+#   ##  #
+#    ## #
+### $#  #
+#  $+$$ #
+#   .   #
+#########
+
+; id: 147
+; tier: hard
+; title: Bean Tangle
+; section: Hard
+; par: 28
+; switches: 21
+; seed: 5205909 8x8 4
+; nodes: 13391
+; solution: RuulldRurDRurrDulldDuurrdDuullddDuulldRuurrrrdddLuuulldlddrDrddlluRuuluurDuurrdLullddrDuluurDlddrDrDLLruuluurDDDuuurrddLddLrDldRR
+#########
+#       #
+# $ $ $ #
+##@$ #  #
+ ## .   #
+ ###  ###
+##..  ###
+#       #
+#  #   .#
+#########
+
+; id: 148
+; tier: hard
+; title: Bramble Gate
+; section: Hard
+; par: 37
+; switches: 16
+; seed: 5277180 8x8 4
+; nodes: 11768
+; solution: DrrdrruuulUruLrddddddlllllululuuurrrDDulllddrdrdrrUdlluRRllluluurrrdDuulllddrdrdrruLLLdlUUUUrrrdddrRuLdllluluurrrdDrdLLLrrrrRdrUUUUluuulldRurrdDuulldRdrDuluurDlddrDDuuluurDDD
+    ######
+#####    #
+#  ##    #
+#.   ##$ #
+#   $##  #
+# ##@### #
+#  #$  #.#
+#.   $  .#
+#        #
+##########
+
+; id: 149
+; tier: hard
+; title: Frosty Hedge
+; section: Hard
+; par: 33
+; switches: 20
+; seed: 5213828 8x8 4
+; nodes: 21153
+; solution: UUUruulllldRurrDDuulldRurrddlDDldddrrruuuLLrdLuuuruulDrdDDrdddllluluuRDrRuulDuruulDDrddLLrruulDrrDullldDldRRluuurrdLulDDldRuuulD
+  #######
+  #     #
+  # $   #
+  ####  #
+   ### $##
+####  $$ #
+#  #  @  #
+#   . ##.#
+#     .. #
+##########
+
+; id: 150
+; tier: hard
+; title: Cabbage Loop
+; section: Hard
+; par: 41
+; switches: 16
+; seed: 5285099 8x8 4
+; nodes: 20223
+; solution: UluurDDulllddlDRllDurrdLuuruurrrdrddllLrrruululllddlddrUUUUluRRdldddllldRlddrUUluRRRdLuuruurrrdrddllLrrruululllddlddrUUUddrrrruulDrdLLLrruuullulldRRlddlddrUUUUruLddddrrruuuuLrddlUllddddlLulDD
+  #######
+  #. .. #
+  #     ##
+  ## # $ #
+###  ##@ #
+#  $$    #
+# $  ##  #
+#  ####  #
+#. #  #  #
+####  ####
+
+; id: 151
+; tier: hard
+; title: Frosty Plot
+; section: Hard
+; par: 31
+; switches: 21
+; seed: 5237585 8x8 4
+; nodes: 45722
+; solution: ULLuurDDldlluRdrddrdrruuulululDrrdrruLuLrdddddllululuuruurDldDuurrrddlLrruulDLdLrRRurDllllDurrrrDulllldDuuruulDDDurrrrdDldldllluRdrruruuullldDDuuurrrdddldlUdLL
+   ####
+   #  ###
+#### $  ##
+#    $$$ #
+#  .  @  #
+# #  ##  #
+# ## .#  #
+#       .#
+# .    ###
+########
+
+; id: 152
+; tier: hard
+; title: Pea Plot
+; section: Hard
+; par: 35
+; switches: 22
+; seed: 5166314 8x8 4
+; nodes: 50855
+; solution: rrrururuLdddllllUUluurDurrdLDuulldRDDurDuluurDDldDlddrrurururuuLLullddddRluurDuluurDlddrDuluurDlddrRRllluurDldRRluuurrrrddddlUruLuullldddrRRdrUUdllllDLrDldR
+########
+#      ###
+#   $  $ #
+##  $## .#
+ ##$ #.  #
+## @     #
+# .   #  #
+#    ##  #
+###  .   #
+  ########
+
+; id: 153
+; tier: medium
+; title: Moonlit Tangle
+; section: Medium
+; par: 30
+; switches: 8
+; seed: 6000018 8x8 4
+; nodes: 12671
+; solution: uullldRurrddRdrrULUUruLLruuullllldddrrdrUUUruLddddddRdrUUUruLLrdddlluuUUddlldRuurrrdddllUUddrruuulLLLdlUUdrrrrrdddrUU
+########
+#  .   #
+#.# .  #
+# ## # ##
+#      .#
+#    #  #
+# $  #$ #
+####@$ $#
+   ##   #
+    #####
+
+; id: 154
+; tier: medium
+; title: Bean Steps
+; section: Medium
+; par: 31
+; switches: 6
+; seed: 6031694 8x8 4
+; nodes: 28319
+; solution: RuullldlddrdrrUUUUruLLdlUUdrrdddddrUUUUluRddddrrruulDLdlUUUddrrrdLLullddrUruLdlUUruLLullddrUruLdlUU
+########
+#..##  #
+#  #   #
+#    ..#
+#     ####
+#  #  #  #
+# ##@$ $ #
+#  #$$   #
+#     ####
+#######
+
+; id: 155
+; tier: medium
+; title: Onion Square
+; section: Medium
+; par: 32
+; switches: 5
+; seed: 6023775 8x8 4
+; nodes: 31794
+; solution: RuullldddrdrrUUUUruLLLdlUUdrrrrruullllLLrrrrrrdddddLuulllldddrdrruUUUruLLLdlUUdrrrddddLLdlUUUUruLrrrrrdddddLLLL
+##########
+#. .     #
+#   #### #
+##.      #
+###      #
+#   ##   #
+# # #@$  #
+#    $$# #
+#  .   $ #
+##########
+
+; id: 156
+; tier: hard
+; title: Sunny Ditch
+; section: Hard
+; par: 35
+; switches: 9
+; seed: 6110884 8x8 4
+; nodes: 4801
+; solution: rruuuuuullllddllddrddlUUUUluRRdrUluRurrdrrddddddllULLLuluuururRRllddllddrddlUUUUluRRdrUluRddllddrdrrrdrruLLLuurDldLLdlUUUUddrdrrdrruLLL
+   #####
+  ##   ###
+###  . . #
+# .  ##  #
+#    ##  #
+#  ##  # #
+#   #  # #
+# $. $$$ #
+#   # @  #
+##########
+
+; id: 157
+; tier: hard
+; title: Pumpkin Corner
+; section: Hard
+; par: 30
+; switches: 11
+; seed: 6087127 8x8 4
+; nodes: 10389
+; solution: uUUdddRuluuruuulldRurDurrdLulldDuurrdLDlDDDrddlUruLuuuruulDDDDDLullddrUruLdlUUruLrddrrdrddlUruLLulDD
+   #######
+   #     #
+#### $ $ #
+#.  #  ###
+#   # .#
+#    $##
+##     ###
+ #  #@$. #
+ # .#    #
+ #########
+
+; id: 158
+; tier: medium
+; title: Cucumber Row
+; section: Medium
+; par: 31
+; switches: 7
+; seed: 6190074 9x8 4
+; nodes: 43010
+; solution: uuuuurrrrdddlddrUUUUruLLLLulDDurrrrdddddrUUrddrruLLdlUruLdlUUUlullddddldRRRuuruuruLLLrrddddldlluuuuluurDrrrdddrUddlldRRRR
+########
+#  ##  #
+#  ##  #
+#      #
+# .#  .#
+#. ##  ##
+#  #    ###
+#  # $$ $ #
+#@$      .#
+###########
+
+; id: 159
+; tier: medium
+; title: Frosty Trellis
+; section: Medium
+; par: 30
+; switches: 9
+; seed: 6102965 8x8 4
+; nodes: 30297
+; solution: DRllddrUdrUUUUUluRRRRdddllldLurrrdLullddrUluRRRurrddLUluRdrUddlLLullddrUluRRRdrUluR
+######
+#    #####
+#       .#
+###  ## .#
+  #  #  .#
+ ##@     #
+##.$$  $ #
+#   $#####
+#    #
+######
+
+; id: 160
+; tier: medium
+; title: Cabbage Trellis
+; section: Medium
+; par: 33
+; switches: 11
+; seed: 6150479 8x8 4
+; nodes: 7873
+; solution: LLuurrrdrdLuulllddrDuluurrrdddLruuulllddrRdrUUUluRRldllldlldRRRRdrUUUluurrdLulDldldddRlddrUUluRluuurrrddddLruuuulldlddrRdrUUUddlllddrUluRRdrU
+##########
+#        #
+# #   . .#
+# #  . ###
+#   ##. #
+#   $@$ #
+### $$ ##
+  #  ###
+  #  #
+  ####
+
+; id: 161
+; tier: medium
+; title: Onion Bed
+; section: Medium
+; par: 33
+; switches: 8
+; seed: 6095046 8x8 4
+; nodes: 31521
+; solution: DDDDrddlUUUUUUruLrrdddLDlUUruLLLulDDDuurrrdddddrUUUUruLLLLulDrrruLdllDurrrrddddddrruL
+##########
+# .      #
+#   @    #
+#  #$  ###
+#. # $ #
+#. # $##
+####  ###
+  #  .$ #
+  #     #
+  #######
+
+; id: 162
+; tier: hard
+; title: Sprout Bed
+; section: Hard
+; par: 33
+; switches: 9
+; seed: 6174236 9x8 4
+; nodes: 23308
+; solution: UUUrUruLLLLLLLulDDurrrrrrrddlUruLLLLLullddDDuuuurrdLulDDurrrrdddlddlluulDrdrruuruuulllldDDrddrruLdlUrruruurrddddrruLdlUUU
+######
+#    ######
+#         #
+# #    .$ #
+# ### #  ##
+# .#  # ###
+#. $ ##$$ #
+#.   ##@  #
+###########
+
+; id: 163
+; tier: hard
+; title: Lettuce Lane
+; section: Hard
+; par: 32
+; switches: 14
+; seed: 6166317 9x8 4
+; nodes: 6786
+; solution: UlluurDRRRurDllllldRurrrrDulllldlddrUUluRRRRlllddrUluRurrddrDRRllDDlddrruLdlUUruuuluulldRurrDDuulldRdrDDDlddrruL
+###########
+#         #
+# $   .#  #
+#  $#  ## #
+# $@## $ .#
+#  ##. ####
+#  ##  ###
+#####.   #
+    #    #
+    ######
+
+; id: 164
+; tier: hard
+; title: Rainy Hedge
+; section: Hard
+; par: 32
+; switches: 16
+; seed: 6229669 9x8 4
+; nodes: 4025
+; solution: RRuuRlddRluurDRluurDrDulldlddrUluurrrdrddlULLLuurDurrDLLulDDLLdlUrrrurrdLLLLLrrrurrrrdLLLLL
+     ####
+    ##  ##
+##### $  ##
+# . # $$  #
+#. +$     #
+##  #. #  #
+ #######  #
+       #  #
+       ####
+
+; id: 165
+; tier: medium
+; title: Cucumber Gate
+; section: Medium
+; par: 30
+; switches: 12
+; seed: 6197993 9x8 4
+; nodes: 27014
+; solution: DDrddLUdLdlluRuRURRRRdrUUUddllllldRuuulDrddRRRurDlllllDuruulDrddlluRRRRurDDD
+  #### ####
+  #  # #. #
+  # @###  #
+  # $##   #
+ ##$      #
+## $      #
+#   $ # .##
+#  .###  #
+##### #. #
+      ####
+
+; id: 166
+; tier: hard
+; title: Turnip Loop
+; section: Hard
+; par: 33
+; switches: 14
+; seed: 6055451 8x8 4
+; nodes: 8006
+; solution: LdddrruruuLUdrdddlllullUUUluurDDDDrruLdlUUluurDDDrrdddrruruulLrrdddlllllluRdrruululDrrddrruruullLLdlUUddDuuuluurDDDDrrddlUdLLrruruulldDrdL
+#########
+#       #
+#   ###.#
+##  ## $##
+ ##  $@$ #
+###$. ## #
+#     #  #
+#..      #
+######  ##
+     ####
+
+; id: 167
+; tier: hard
+; title: Turnip Hollow
+; section: Hard
+; par: 37
+; switches: 9
+; seed: 6134641 8x8 4
+; nodes: 18069
+; solution: DlUUUluurrdLdllldddddrrrUUUluuruulDrdLLrddrdddllluuuuluurDDurrddrUUluurrdLulDrdLLLrrrdddddrUdrruLuLrddlluUUUUluurrdLulDrdLrdddddrUruLdlUUUUU
+##########
+#  # .   #
+#  #     #
+#. .  ####
+#  #  ##
+# .# $@##
+## ## $ ##
+ # # $ $ #
+ #       #
+ #########
+
+; id: 168
+; tier: medium
+; title: Thistle Corner
+; section: Medium
+; par: 36
+; switches: 10
+; seed: 6221750 9x8 4
+; nodes: 16751
+; solution: LLLuLLuuuuuulDDDrddlluRdrUUluRRRdlldddrrRllldRurrdrruLLLLdlUUUUddlldRRdrRuLdlUUUluRRldddrrrrdLLL
+  #########
+  #       #
+  #$ ##   #
+  # .  .###
+###   .##
+#    ####
+#    #  ###
+#    $ $  #
+####.   $@#
+   ########
+
+; id: 169
+; tier: hard
+; title: Pea Nook
+; section: Hard
+; par: 35
+; switches: 16
+; seed: 6007937 8x8 4
+; nodes: 3440
+; solution: RRuuUluRurrrrrdLulllldddddlluRdrUUUdddRdrruLLLuuuluurDDuurrdLurrrdLLulllddrDDlDRRdrruLLLLulDrDuuruuluurDDuurrdLdlDuruulDD
+##########
+#        #
+#      $ #
+## $ #####
+###.##
+# $.####
+#@$    #
+#. #   #
+# .#   #
+########
+
+; id: 170
+; tier: hard
+; title: Carrot Plot
+; section: Hard
+; par: 32
+; switches: 14
+; seed: 6047532 8x8 4
+; nodes: 14044
+; solution: LLLdlLrrurrDulldllullddddddrrrrrurruulDrddllllllluuuuuurrdrrurrdDuulldllullddddddrrrrrrruulDldllllluuuuuurrdrruLLrrrrddDrddlldllllluuuuuRRRurrrdddDrddLLrruulDldLLLLdlUUUddrrrrrurrdLLLLLLdlU
+##########
+# .    $@#
+#  $ .#$ #
+#  #### ##
+#. #  #  #
+# ## ##$ #
+#.####   #
+#        #
+#        #
+##########
+
+; id: 171
+; tier: hard
+; title: Moonlit Trellis
+; section: Hard
+; par: 32
+; switches: 13
+; seed: 6118803 8x8 4
+; nodes: 29639
+; solution: lddrrruruuLDrddlllluurDldRRdrruuuuulllDDDuuurrdLulDDurrrddddlluLLuurDldLullddrUluRdrruururrrddddlluLLLLulDrrrrrdrruLruulDDLLLrrrDDrdLL
+##########
+#  ##    #
+#  ##$ $ #
+#  # @#$ #
+#  . $#  #
+#  .     #
+#. ###   #
+#####    #
+    #.   #
+    ######
+
+; id: 172
+; tier: hard
+; title: Windy Gate
+; section: Hard
+; par: 45
+; switches: 8
+; seed: 6015856 8x8 4
+; nodes: 9019
+; solution: RRRuurrdLulDrDLLLLullddrUUUluRdrdrdrrrDDrddLUUUUluurrdLulDrdLLLLullddrUUUrdrdrdRurDDrddlUUUUluurrdLulDrdLLLLLulD
+#####
+# ..######
+#   ##   #
+#    # $ #
+#  @$   ##
+#. ## $ ##
+#######  #
+  #  #   #
+  #   .$ #
+  ########
+
+; id: 173
+; tier: hard
+; title: Pumpkin Nook
+; section: Hard
+; par: 47
+; switches: 6
+; seed: 6205912 9x8 4
+; nodes: 12756
+; solution: DuruullldddRlddrrrUUUUUluRRRurDldRRurDDuullllldllldddrRllddrrruUUUUluRRRurDldRRullllddddddllUluRRlddrruUUUUluRRRurDldRulllddddddlUluRdrUUUUluurrdLulDrdL
+  #######
+###     ###
+#         #
+# .  #  ..#
+# ## ###  #
+# #@ # ##.#
+# $$ #  # #
+# $ $#### #
+#         #
+###########
+
+; id: 174
+; tier: hard
+; title: Mossy Hollow
+; section: Hard
+; par: 30
+; switches: 17
+; seed: 6237588 9x8 4
+; nodes: 14512
+; solution: DRRdrruLLrrdrruLLLdldllUUUluRdrUdlddRRlluurDlddrruRuLrdRlldlluRRlluurDrdRullldRurrrrDulldRullldRurrdRRurD
+  #####
+###.  #
+#     #
+# @ #######
+##$$   $  #
+#  $ .    #
+#    ##. .#
+###########
+
+; id: 175
+; tier: hard
+; title: Windy Bed
+; section: Hard
+; par: 35
+; switches: 15
+; seed: 6213831 9x8 4
+; nodes: 9151
+; solution: RuuulllddldRRluuurrrrddrDulldRuuulllldddrRlluuurrrrddddRluuuulllldddrrRurrDulldlllddrUluuuurrrdddlLdlUUUluRRRRurDlddrrdLLLLdlUrrrrrrrddlUruLLLdRuulluullldlddrrrRuuullldDldRRluuurrrddrrddlUruL
+    ######
+   ##    #
+####     #
+#       ##
+#  ## .##
+#  ##.  ###
+# $ +$ $  #
+## $##  . #
+ #  ####  #
+ ####  ####
+
+; id: 176
+; tier: hard
+; title: Bean Square
+; section: Hard
+; par: 30
+; switches: 16
+; seed: 6158398 9x8 4
+; nodes: 29304
+; solution: uluRdllluRdrrdRRuuurrrdddlLLLdllluurruRldllddrrrurrruruuullllDrrrrdddllluUUluRRdldddldllluurruRldlluRRdllddrrrurrruruulllDurrrdddlllldllluurrDrrrruruullldDuurrrdddllLLddlluluuurrRurrrrdddllluUluRdddlddlluRlluurrDrDLLruulldD
+    #######
+    #   . #
+#####$ .  #
+# $ $  ## #
+#    # #  #
+#  #@$    #
+#     #####
+# .  .  #
+#   #   #
+#########
+
+; id: 177
+; tier: hard
+; title: Turnip Trellis
+; section: Hard
+; par: 34
+; switches: 16
+; seed: 6039613 8x8 4
+; nodes: 17244
+; solution: DrddddlluluuuuuurrDLulDDDDlddrrdrruuuulDrdddllulluuuururrDulldddDlddrruLdlUUUUrdddrdrruLruulDrddllluuuuuurrdDrddlDuruulDrddlLrruulDuuuullddddlddrruLdlUUUruLLrruurrddrdddLLdlluurDrdLurrrdLL
+    #####
+    #   #
+##### $$#
+#  #. #@##
+# .   #$ #
+###   #  #
+  #   #  #
+  ##   $ #
+   #..   #
+   #######
+
+; id: 178
+; tier: hard
+; title: Bean Barrow
+; section: Hard
+; par: 33
+; switches: 22
+; seed: 6126722 8x8 4
+; nodes: 8283
+; solution: lDulldRullldRurrrrDDDDuuuulldRullldRRurrDDrddlDuruulDDuuuulldRurDDrddddLruulDuruulDrddlDuruulDuuulldRurDrddddlLrruulDuruulDrddddLLuLrdrruLL
+ ########
+ #     @#
+ # $ $$$##
+ ####    #
+    ###  #
+ #### #. #
+##  ###  #
+#   ..   #
+#    .   #
+##########
+
+; id: 179
+; tier: hard
+; title: Bramble Maze
+; section: Hard
+; par: 36
+; switches: 19
+; seed: 6063370 8x8 4
+; nodes: 12699
+; solution: DLLulldldddrrrrUUddlllluuururrdRurrddLruulldDuullldldddrrrrrUdllllluuururrdLrrdDuuurrddLruulldDrruLdddLLLLrrrruulDuruulDrdddLLdlllluurDrdrruLLrdddlluluRluurDDRRurDlllDldRRRR
+  ########
+ ##    @ #
+## .  $$ #
+#  ###.  #
+#  ###$$##
+#       #
+#     ###
+#  # . #
+#     .#
+########
+
+; id: 180
+; tier: hard
+; title: Frosty Loop
+; section: Hard
+; par: 35
+; switches: 17
+; seed: 6182155 9x8 4
+; nodes: 41775
+; solution: RRDrrULLrrruulDrdLdlluuRlddrruruulDlldLLLLulDrrrrrurDurrdLdLLLLulDDlddrrurrUddlllluuruurrrurrddlLuurDldLLulDrrrddllLrrruulllDDLdRR
+ ####  ####
+ #  #  #  #
+##  ####  #
+#   ## $  #
+#   @$  $ #
+#.#   $. ##
+#   ## ###
+#.     #
+#    . #
+########
+
+; id: 181
+; tier: hard
+; title: Mossy Hollow
+; section: Hard
+; par: 31
+; switches: 24
+; seed: 6079208 8x8 4
+; nodes: 18315
+; solution: DurrDurrrdLulllldDuurrdLurrrdLLDurrrdddlllllluurDlddrrurrurruuulllllDDuurrdLrdDrddlluLdlluururDllddrrrrruuluuullDDldDuururrddrddlluLrdrruuluulldDuurrddrddlluRdrUluRddlllLrruruuullddlDuururrdddlLulldDDuuurrddLruulldDrruL
+  ########
+  #@     #
+ ##$$$ $ #
+##  # ## #
+#   #  . #
+#.       #
+#      ###
+#. #####
+#. #
+####
+
+; id: 182
+; tier: hard
+; title: Parsnip Tangle
+; section: Hard
+; par: 38
+; switches: 22
+; seed: 6142560 8x8 4
+; nodes: 24756
+; solution: DlDurDlDlluuuurrDDDuuulldRurDDrdDLruulDrdDuuuulllddddrRlluuuurrddDuuullddddrdrRRllluluuuurrdddDldRdrruRdllluRRlluurDlddrrrrUUUUUruulldRddddddlluRdllluRRdrrUUUluRddddlluR
+##########
+#   ##   #
+# $$@#  .#
+# # $##  #
+# #$ #  .#
+# .  #   #
+#    ##  #
+#      . #
+###      #
+  ########
+
+; id: 183
+; tier: medium
+; title: Mossy Corner
+; section: Medium
+; par: 33
+; switches: 9
+; seed: 7000021 9x8 4
+; nodes: 5679
+; solution: DDDDRRurDDrdLLLrrrdrruLdlUruLdlUUddlldlluRRRRuulllDurrrdrrddlUruLdlUdlldlluRuuulldRRRlddRRRurrddlUluR
+  ####
+  #@ #
+  #$ ######
+### ##    #
+#   # .#  #
+# $ $..####
+### ##  .##
+#       $ #
+#    ##   #
+###########
+
+; id: 184
+; tier: hard
+; title: Thistle Row
+; section: Hard
+; par: 36
+; switches: 5
+; seed: 7071292 9x8 4
+; nodes: 38069
+; solution: dlluuurrurrdLLLLLLullddrUluRRdrUUUluRRdldddrdddrUUluluuurrdrddLLLLullddrUluRRdrUUUluRdrrdrrrddddLUruLLLLrrrddLdlUU
+########
+#    ..#
+#      ####
+# ## #    #
+#    ##   #
+#   . . $ #
+#  ##  #$ #
+#     $@$ #
+#  #     ##
+##########
+
+; id: 185
+; tier: hard
+; title: Cucumber Mound
+; section: Hard
+; par: 34
+; switches: 10
+; seed: 7039616 9x8 4
+; nodes: 11256
+; solution: DDDlllDurrdRullldRddlUUruLLLrrrrrdLullddrUluRRdrUUUUruLLrdddddllddrrruruLLLuruurrdLulDDlllddrUruLLrdddrrruuLLullddrUruL
+ ##########
+ #   .    #
+ #   ##@  #
+#######$  #
+#    ## $ #
+#. ..   ###
+####$$    #
+   #  ##  #
+   #      #
+   ########
+
+; id: 186
+; tier: medium
+; title: Thistle Steps
+; section: Medium
+; par: 34
+; switches: 9
+; seed: 7079211 9x8 4
+; nodes: 26584
+; solution: UruuLulldlllluuuurrrrrDulllldldddrrrrurrdLLLdlluluuuurrrrrdDDuuurrdLulDulllldldddrdrruLLdlUUUUluRRRRlldldddrrrrurrdLLLLLdlUUUUluRRRldldddrrrrrrDD
+###########
+#    ..   #
+#   ###$$ #
+#  ####.###
+#  ###   ##
+#       $ #
+#     ##  #
+#  #### $ #
+#  #  # +##
+####  ####
+
+; id: 187
+; tier: hard
+; title: Thistle Mound
+; section: Hard
+; par: 34
+; switches: 9
+; seed: 7087130 9x8 4
+; nodes: 27297
+; solution: ruuuullllLDlluRRdrUdddlUUluRRRRRdrUUUddlllldllldRurrddlUUluRRRRRdrdddlUruululluuurrdrdDDDDlUUruuululldddrRdrUllluuurrdrruLL
+   ########
+   #  .   #
+   #  #   #
+####. ##.##
+#  $     #
+#  $ ##  #
+# $   #  #
+###   #$ #
+  #####@.#
+      ####
+
+; id: 188
+; tier: hard
+; title: Sprout Barrow
+; section: Hard
+; par: 33
+; switches: 13
+; seed: 7007940 9x8 4
+; nodes: 9563
+; solution: uRUdldRDrruLLLururuulDDDlllddrUrRdrruLUUluRRRurDDulllddddlUluRdrUUluRRRllddddddlUUruulldlluRdrRdrUU
+   ########
+   #      #
+   #    . #
+####$.#   #
+#  .$ ##. #
+#  @$  ####
+#  #$  #
+#  #  ##
+####  #
+   ####
+
+; id: 189
+; tier: hard
+; title: Beet Nook
+; section: Hard
+; par: 35
+; switches: 14
+; seed: 7142563 9x8 4
+; nodes: 4539
+; solution: LUrdddlUllUdrrruulDuruulDrddlLLLuurDldLLullddrUUluRRurrrrrrdddllLuuurrdDuulldddLLLullddrUUruurrrrrrdddLLLLLLullddrUrrrrrrrddlUruLLLL
+###########
+#         #
+# . .  #  #
+# . #  #$ #
+#   . $ $@#
+#  ###  $ #
+#### ###  #
+       ####
+
+; id: 190
+; tier: hard
+; title: Bramble Crossing
+; section: Hard
+; par: 37
+; switches: 9
+; seed: 7118806 9x8 4
+; nodes: 17855
+; solution: LLLddllUUUUrrrDulllddddrruuRuulululDDrrrddRRlllddlluuRRRRurrrddlUUUUluRdddlldRurrddlUUUUdddllllddlUluRRRRRurrddlUruLdlUU
+###########
+#  ##     #
+#  ##  .. #
+#   ##. ###
+#    #  ###
+#.##$     #
+#    $@   #
+#$$ ###   #
+#   # ##  #
+#####  ####
+
+; id: 191
+; tier: hard
+; title: Beet Loop
+; section: Hard
+; par: 33
+; switches: 16
+; seed: 7055454 9x8 4
+; nodes: 12859
+; solution: urrrdLulldDDDrDLrrddlUruulldRullldRRurrDulldRuluuuurrdLulDDDDlluRdrUUddrddRluulldRurrDDuulldRdrRRRdrUllllldRRRR
+  ######
+  #    #
+  #+ $ ####
+###$###   #
+# $ ###   #
+#     #   #
+#   $.## .#
+####      #
+   #     .#
+   ########
+
+; id: 192
+; tier: hard
+; title: Beet Yard
+; section: Hard
+; par: 40
+; switches: 8
+; seed: 7031697 9x8 4
+; nodes: 40936
+; solution: RRRdrrUUUUluuullllddRRRuurrrrrdddllllUUruLLLLrrrrdDldRRRdrUUdlllddddlluRlllluurDldRRRdrrUUUUruLdlUruLrddddddlluRdrUUUUruL
+###########
+#.        #
+# ##.  ##.#
+# $  .  # #
+#####     #
+#  ### #  #
+# $### ####
+#@$   $#
+###    #
+  ######
+
+; id: 193
+; tier: hard
+; title: Thistle Patch
+; section: Hard
+; par: 38
+; switches: 12
+; seed: 7063373 9x8 4
+; nodes: 16712
+; solution: lluluuurrDulldddrdrrULLdlUUUUruulDrdLLLulDDldRuurrrrrdDuulldddrdrruruuLrdddllluluuurrDrrddlLrruulDrddlluLdlUUUddrrdrruuullulLLLLulDDDuurrrrrrdrrddLLLrruulDrddlllUrdrruLL
+    ######
+ ####    #
+##  #    #
+#   #  ###
+#       ###
+#  ## #$$ #
+#  .#.#   #
+#.  #. $$ #
+#####   @ #
+    #######
+
+; id: 194
+; tier: hard
+; title: Sprout Corner
+; section: Hard
+; par: 33
+; switches: 16
+; seed: 7174239 9x9 5
+; nodes: 13574
+; solution: rRRlllDDlldddrrrrrrruruuuulDrddddlllllllluuurruurrrRllllddlluRdrDDrdrrrruruuullullllDDDulldddrRRllluuurrdDrdRRRdrruuuuuuLLLLrrrrddddlDDulllluluullddddddrUluuuuurrddrdrrrrdDrdLuuulllluluulldddrRRRRlllllddrUluR
+  #########
+###@.$    #
+# $$### $ #
+#   # ##. #
+# # ## ## #
+# #  ###  #
+#  .   .  #
+#  ####   #
+# $#  #   #
+#  #  #.  #
+####  #####
+
+; id: 195
+; tier: hard
+; title: Rainy Crossing
+; section: Hard
+; par: 35
+; switches: 16
+; seed: 7015859 9x8 4
+; nodes: 11367
+; solution: DrdLLdlluLLullddrUluRRdrUUUruLLrddddrdrruLuRdlLLuuurrrDrDulullldddLulDurruurrrdrdrdLLLrruulDldLLrrurrdLdllululldDuurrdLulDlddRluurDDldR
+#######
+# .   ###
+# #     ##
+# ## ##$@##
+#    # $$ #
+#   $ .   #
+#  ##   ###
+#  .#####
+#  .#
+#####
+
+; id: 196
+; tier: hard
+; title: Beet Gate
+; section: Hard
+; par: 49
+; switches: 5
+; seed: 7134644 9x8 4
+; nodes: 28253
+; solution: dlllllluuRRllddrrruUUUUluRdrUluRdddlddddllUUUUluRRurrddlUluRRRRurDDDrddlluRdrUdllddllllUluRdrUUUUluRRRRurDllluRRdllddldddrdrruLLdlUUUUUluRdrUluRR
+   ########
+  ##   .. #
+###       #
+#     ##.##
+#  #  ## .#
+#  # ##   #
+# $  ##   #
+# $$  $@###
+#       #
+#########
+
+; id: 197
+; tier: hard
+; title: Frosty Gate
+; section: Hard
+; par: 34
+; switches: 19
+; seed: 7023778 9x8 4
+; nodes: 8308
+; solution: DurrdLDDuuulldRurDDuururrrddddddllllllUrRRdrruuuruuulllddldDuulldRurDuururrrddddddllluRdllluRdrruRdllluRdrruuuruuulllddldDuuururrrddddlddlluRdllluRdrrrrUUUUruulldRurDldddddlluRdllluRdrrrUUUUUruL
+   ######
+   #    ##
+####  .  ##
+# @  #    #
+# $$ ## . #
+#  $##    #
+#.# ##  ###
+#$   .    #
+#         #
+###########
+
+; id: 198
+; tier: hard
+; title: Pea Plot
+; section: Hard
+; par: 38
+; switches: 7
+; seed: 7190077 9x9 5
+; nodes: 223545
+; solution: LLLLLullddrUUUddddddrruLdlUUUUluRdrUluRRlddldddrrdrUUddrUUdlllluuurrrrrrdddLLuUddrruuulLLLLullddrUluRdrUluRddrrrdddLLLLdlUU
+#######
+#     ##
+#  .   #
+###  ..#
+##   ######
+#       $@#
+# . # . # #
+##  ##  # #
+#   $ $$$ #
+#       ###
+#########
+
+; id: 199
+; tier: hard
+; title: Turnip Gate
+; section: Hard
+; par: 35
+; switches: 8
+; seed: 7166320 9x9 5
+; nodes: 323288
+; solution: ururuulllllldlddrUUUluRRRRRdlllldddlddrUUUUluRurrrrdrrdddlldRuuruullullllddddddrruRUUUddrruruullulldRRRlldddrrururuulDrdddlldLuluuuulllddddddrrrUUUUddrrurruulllulldRRRRurDllluRdlldddrrrrdLL
+   #######
+   #  #  #
+####  #  ##
+#       . #
+#  .      #
+#  ## ##..#
+# $## #   #
+#  ##$    #
+# $# $+$  #
+#     #####
+#######
+
+; id: 200
+; tier: hard
+; title: Moonlit Patch
+; section: Hard
+; par: 36
+; switches: 16
+; seed: 7047535 9x8 4
+; nodes: 22310
+; solution: luurrrrddrruuLLrrddrddddlllluullluurDuluurDRRdrrruullDllllddrUluurrdrdRRluurrdDllullulldRRRdrrruullDldRRdRluluurrdDllulluRRRlddrrrDulldRdRluurDDDrddllulllullUUUluRRurDrdrrrdrDD
+#########
+#     $.#
+# $$  # ##
+# @#.    ##
+# $##     #
+#    ##   #
+##   ###  #
+ ##     ..#
+  #       #
+  #########
+
+; id: 201
+; tier: hard
+; title: Pea Bend
+; section: Hard
+; par: 37
+; switches: 17
+; seed: 7095049 9x8 4
+; nodes: 14384
+; solution: LLLLulDurrrrrrrdLLLLLulldDuurrdLrrrrrrddlUruLLLLLulllddrDuluurDDuurrrrrrdddlllddldllluUUdRlddrrurururrruuullllllddDrDDuulldRurDllddrRlluurrDrDuulllddrdrRuulDrdLrRR
+###########
+#         #
+#  .  $@$ #
+#. #####$ #
+#   #     #
+#$    #####
+# #   #####
+#    #    #
+##.    .  #
+ ##########
+
+; id: 202
+; tier: hard
+; title: Rainy Mound
+; section: Hard
+; par: 34
+; switches: 14
+; seed: 7197996 9x9 5
+; nodes: 82551
+; solution: llulUUddrdrddllluluuuRldddrdrrruululUdrdrrDrrruuuuuulllllllDRRRRRRurDlllllllDurrrrrrddrdddlllulluluUluRRRRRdrdrdddlllldllluluuuRurDlldddrdrrrdrrUdllullluluuuruurrrrrdrdrdddlLrruuululuurrdDDDuullullllddlldddrdrrrdrruuLulDDurrdLdLLrruulD
+ ##########
+ #        #
+ #$     . #
+##  ###   #
+# $$####  #
+# #. #### #
+# #   @##.#
+#  ## $   #
+#      $###
+#  . .  #
+#########
+
+; id: 203
+; tier: hard
+; title: Clover Ditch
+; section: Hard
+; par: 41
+; switches: 14
+; seed: 7205915 9x9 5
+; nodes: 63075
+; solution: LUUUUUddlDLLLLullddrUluRRRdrrrrdrdddlUUUUlldRurDulllluuurrrrdDlddrrddllUUlulluuurrrrddDLLLLLulDDurrrrrdddrruuLrddlluUruLLruruullldlddlldDuuurruurrrrddddldRurDuluuuullldlddllddDldR
+   #######
+   #    .#
+   #     #
+####  ## #
+#    .#  #
+#    .$$ ##
+#  ###  $ #
+#  #### $@#
+#     # $.#
+#  .  ##  #
+###########
+
+; id: 204
+; tier: hard
+; title: Windy Trellis
+; section: Hard
+; par: 37
+; switches: 19
+; seed: 7110887 9x8 4
+; nodes: 29083
+; solution: RURlluurDlddrRuRldlluRdrRuRldlluRRlluuurrrrrddrrddddllluuUUluRulllldddrrRRRRurDlllddlUluRRRurrdDDuuulldRurDllldlllldlddrUUluRRRRdrdrrurDllluluurDurrrDD
+#########
+#       #
+#  ##  .###
+#  ##     #
+# $$      #
+#@$    ## #
+#  ## .#  #
+# $ ##   .#
+#   ##   .#
+###########
+
+; id: 205
+; tier: hard
+; title: Thistle Mound
+; section: Hard
+; par: 39
+; switches: 15
+; seed: 7213834 9x9 5
+; nodes: 99659
+; solution: UUUUrrdLDlddrUUUUlDurruullDulldRurrDulldRRRRRdlldllUdrruuullldRRRddlddlUUUdrruuullldRRlddrrurrrdrdddLLLLrrruuuuluurDDllldlluRRluurDRR
+       ####
+       #  #
+########  #
+#     #   #
+# $     . #
+###  ..  ##
+  # $ ##. #
+  # $###  #
+  #$ ###  #
+  #@.   $ #
+  #########
+
+; id: 206
+; tier: hard
+; title: Mossy Hollow
+; section: Hard
+; par: 33
+; switches: 19
+; seed: 7237591 9x9 5
+; nodes: 190573
+; solution: ulllDurrrdDuurrdddrruLrddddllulluluuruurrrDulllddlddrdrrdrruuullUUruLLLLLrrrrrdDrddddllllllluluuRRlluurDldRlddrdrrrrrrruuuuluulllddlDuruurrrddrddddllllllluluurRllddrdrrrrrrruuuuluulllddDDuuuurrrddrddddllllllluluurrRDDuuuruurrrddrddddllllLuurDuluurDDlddLdlluurDrrRluuuuruurrrddrddddllulDlluRdlllD
+##########
+# .      #
+# $##@# $##
+#  # $# $ #
+# $   # . #
+# ##  ### #
+#  #  . # #
+#         #
+#   ##.   #
+# . #######
+#####
+
+; id: 207
+; tier: hard
+; title: Dewy Nook
+; section: Hard
+; par: 54
+; switches: 10
+; seed: 7150482 9x8 4
+; nodes: 35509
+; solution: LDlUluurrDulluurrDDllddrUluuurrddLLdlUruLLLulDDDDuuurrrrdrdddrruLdlUUluuurrddLLdlUruLLLLulDDDuurrrrrdrrDlddrruLdlUUruLLdlUruLLLLulDDrddDldRuuuuurrrrdrrddrdddlUUruLdlUUruLLdlUruL
+##########
+#        #
+#   .  #$#
+#  ##    #
+#. ##   $##
+#. ###  $@#
+#  #### $ #
+#  .   #  #
+#      #  #
+###########
+
+; id: 208
+; tier: hard
+; title: Cucumber Patch
+; section: Hard
+; par: 41
+; switches: 27
+; seed: 7126725 9x8 4
+; nodes: 13561
+; solution: urrrrrddllUdrruulLLrdLLLulDrrruLdllDurrrrdrdddldllllluuuluRddddrrruuulLrrddrruruulullllDlDDlddrrrruuulLuurDurrrdrdddllluuLulllddrDuluurDDuurrdLullddddRRlluurDuluurDDldddrruRdllluRRlluurDlddrrrrUUddlluRdllluRdrruRdllluRRdrrUdlluRuRR
+  #########
+  # .     #
+### @ $$# #
+# $ $##   #
+#     ##  #
+#  # .#   #
+#  ##   .##
+#     . ##
+#       #
+#########
+
+; id: 209
+; tier: hard
+; title: Turnip Hollow
+; section: Hard
+; par: 42
+; switches: 26
+; seed: 7221753 9x9 5
+; nodes: 25108
+; solution: DRUdlDDrrrrrruurruuuulllllldllDDuurrurrrrrrddddddlllluluuLrddrdrruurruuuulllllldllddDrRurDllluRluurDlddDurrrDullluurDuururrrrrrddddddlllluluuLrddrdrruurruuuulllllldldlddRRlluurDldRurrDulluururrrrrrdddddddlllllluRdrruruurruuuulllllldlddrrdDDRuluulldRurDulluururrrrrrdddddddlllluRRdrUUdllllldRRurrurruuuuulllllldlddrrdDrdrruuRdrUUdddlllldlluRRRR
+  ######
+  #    ####
+###       #
+#   ##### #
+#$ ###  #.#
+#@$$ #### #
+#$$  ##   #
+# ##  #   #
+#.      . #
+#.    .   #
+###########
+
+; id: 210
+; tier: hard
+; title: Onion Trellis
+; section: Hard
+; par: 44
+; switches: 21
+; seed: 7229672 9x9 5
+; nodes: 158044
+; solution: RRRRRDrruLLLrdLDDrUluurrdLulDrddlDDuuruulDDldllluuuurrdRlullddddrrrururuulDrddllddrDRdLLruuluurDuruulDullullddddrrrrDulllluuuurrdrrdDlddrDulullddddrruLdlUUUluRluuuurrdrrddlddrdrdLLruuluurDDDuuuuullullddddrddddrruLdlUUU
+###########
+#@$ .     #
+# #  $$   #
+# ###$ ####
+# ##   #
+# ..  ##
+#  #  ####
+#  ## $. #
+#    .   #
+#    #####
+######
+
+; id: 211
+; tier: hard
+; title: Radish Bend
+; section: Hard
+; par: 37
+; switches: 29
+; seed: 7158401 9x9 5
+; nodes: 300224
+; solution: DRullldRurrdRullldRurrdRullldRRurrDulldRRurDllllDurrrDurDulllldDuulldRDDldRRRlluurDuluurDldddRurrDullluurDlddrRlluurDrdRullldRurrrDlDuulldRurrdDDL
+###########
+#   @     #
+#  $$$    #
+###  $#   #
+  ##$ ##..#
+  #       #
+###    .  #
+#    ##  ##
+#  ###.  #
+#  # #  .#
+#### #####
+
+; id: 212
+; tier: hard
+; title: Lettuce Path
+; section: Hard
+; par: 57
+; switches: 36
+; seed: 7182158 9x9 5
+; nodes: 58180
+; solution: DlluuurrDulldddrrRRdrruLLLLLdlluuuurrrdDuullddlddrUUdrRRRuLdllluluurrrdDrrddrruuLLLdLLdlluuuurrrdDuulllddrDuluurrrddrdLLruuulllddrUdlddRluurDrrurrrrdLLulldllDurrurrdLLLDlluurDrdDDldRuuuulldRurDlDDrdRdllluRuuurDldddrruRdllluRdrruRdllluRlluurDlddrrrruRdllluRdllluRdrruRdrrU
+ ######
+ # .  #
+##  #$#####
+#   #@$ $ #
+#    $$   #
+#    .#   #
+###  ######
+###  ### .#
+#    .  . #
+#         #
+###########
+
+; id: 213
+; tier: medium
+; title: Windy Nook
+; section: Medium
+; par: 38
+; switches: 7
+; seed: 8142566 9x9 5
+; nodes: 9504
+; solution: DDDurrDulldRurrdrddLLLUUddrrruululLdlUUUddrrrdLrrddllluUruLdlUUlulluuurrrrdddLLLrrruuullllddDDDDDuuuurrrddrdddrUUruLLdlUUlulluuurrrrdddLLLLulD
+########
+#      ####
+#  #   #  #
+#  ##.    #
+#    @  ###
+#. # $####
+#  ##    ##
+#  ## $$  #
+#  ##.$ # #
+# .##.  $ #
+###########
+
+; id: 214
+; tier: hard
+; title: Thistle Barrow
+; section: Hard
+; par: 37
+; switches: 10
+; seed: 8118809 9x9 5
+; nodes: 24015
+; solution: luuuurrrdRRurDldRRulullllllddddrDuluurDuluurDRRRRurDllllllddrUluRRRRRdRluurDDDuulllllddlddrUUUluRRRRlllddddlddrUUUUUluRR
+#########
+#       ##
+# $$.$.  ##
+#  ##   ..#
+# $####   #
+# @#  #.  #
+# $## # ###
+#   # #  ##
+#   # #   #
+##### ##  #
+       ####
+
+; id: 215
+; tier: hard
+; title: Squash Barrow
+; section: Hard
+; par: 39
+; switches: 7
+; seed: 8023781 9x9 5
+; nodes: 76591
+; solution: UUUUUruLdlllldlllddrDldRRllddrrrrrrrUUUUUUruLLLLrrrdddddddlluRdllluRRdrrUUUUUUruLLrdddddddlluRdrUUUUUluurrdLulDD
+ ##########
+##     .  #
+#   . .   #
+#    ##   #
+# #####  ##
+#  #  #. ##
+# $#### $ #
+#   . ##@ #
+# ## $ $$ #
+#        ##
+##########
+
+; id: 216
+; tier: hard
+; title: Bramble Row
+; section: Hard
+; par: 40
+; switches: 9
+; seed: 8102971 9x9 5
+; nodes: 59491
+; solution: RRRRllDDDrDDlUUUUruLLLullddrUruLdddddlddRluuuuuurrrrddddddRRdrruuLLLdlUUUUUruLLLulDrrrdddrddrddrUruLLLdlUruuluuurrurrdLL
+###########
+#.   ##   #
+#  @$ .   #
+# .# $ #  #
+#  ## #####
+#  ##  #
+#  ##.$####
+# ###   $ #
+# $.#     #
+###   #   #
+  #########
+
+; id: 217
+; tier: hard
+; title: Cucumber Loop
+; section: Hard
+; par: 37
+; switches: 16
+; seed: 8110890 9x9 5
+; nodes: 27802
+; solution: UlluuurRlldddrrURldlluuurrDrdRRRRdrUUUluurDDDDlllldLurrrrrDulllldlDuuululldddrRdrUruullDurrddlUluulldddrRurruuLLddddrUluRRRRRdrUUUUddddD
+####  #####
+#  #  #  .#
+#  ####   #
+# .$  ##  #
+# # .  ## #
+# # $     #
+#  $$ ##  #
+###@$###  #
+  ##.##  .#
+   #      #
+   ########
+
+; id: 218
+; tier: hard
+; title: Marrow Path
+; section: Hard
+; par: 44
+; switches: 9
+; seed: 8126728 9x9 5
+; nodes: 86977
+; solution: LrRlluuurrrrddddRuluuulllldddrrddlUrRUUUUruLLdlUUruLdddldddRRdrUUUUruLLdlUrrrddddrdLLullddrUluRdrUUUruLLLLrrrrdddrddrruLLLLullddrUluRdrUUUruL
+###### ####
+# .  # #  #
+# #. ###  #
+#         #
+#.  .   ###
+#  ##  ##
+#  ##  ##
+#.$@$   ###
+###$ $ $  #
+  #  ##   #
+  #########
+
+; id: 219
+; tier: hard
+; title: Rainy Bend
+; section: Hard
+; par: 38
+; switches: 10
+; seed: 8047538 9x9 5
+; nodes: 272063
+; solution: LrddlULLUUUUruLLrdddddrrruulDLdlUUUluRddlllldlddrdrruuRurrrrddlUruLLLulllldlddrdrruurUruLLLLulDDDDrdrruurDuurrdLuulllldlddrdrrurUUruLLLL
+   ######
+   #.   #
+####   .#
+#      ####
+#.     #  #
+#  ## $ $@#
+# ##   $$ #
+#  # $##  #
+#.   .  ###
+#  ###  #
+#### ####
+
+; id: 220
+; tier: hard
+; title: Windy Tangle
+; section: Hard
+; par: 39
+; switches: 11
+; seed: 8015862 9x9 5
+; nodes: 207861
+; solution: RRRRRUruuuulllldllDulldRRururrrrrddddldllllluUUdddrrrrruruuuulllldlLLrrrdLuurrrrrddddldllllluuUluRddddrrrrruUUUruLLLLrrrddddddrUUdllllddlUrurrruuuuulllddlldddRRRRlllluuurruurrrddddrddlUllllluuurruurrrrddDuuullllddlldddrrrrrUUUUruLLL
+    #######
+   ##     #
+####..    #
+#.  . ##  #
+# $$  #   #
+### ###   #
+  # ####$.#
+  #@$     #
+  ##$ ##  #
+   #  ##  #
+   ########
+
+; id: 221
+; tier: hard
+; title: Carrot Bend
+; section: Hard
+; par: 39
+; switches: 14
+; seed: 8087133 9x9 5
+; nodes: 92343
+; solution: RULrdRRRuuullllDurrrrdddllluUluRRurrddlUUluRRRldddddllllUruuruullldldddRRdrrrruuullllDurrrrdddlllUUluRRurrddlUUluRlllldldddrRdrUUluRRurrddlUruLdllddllldRRRRluuurrrdddRluuullldddrR
+  ####
+  #  #
+  #  ######
+ ##  #    #
+##     . .#
+#  ##.  # #
+# #     # #
+# #$ #    #
+#  $$## # #
+# $@$  . .#
+###########
+
+; id: 222
+; tier: hard
+; title: Pumpkin Yard
+; section: Hard
+; par: 37
+; switches: 13
+; seed: 8039619 9x9 5
+; nodes: 303312
+; solution: URuuulllLrrrrddLLLLUlDrrrrruulllulDrrrrddllllluluRRRRRllllddrrrrruUUdddlllllDurrrrddlUruruulllllddrrRRdrUUdllllluurrrrRRdrddLLullddrUluRdrUUdllllluurrrrRurDlllllDlddDldRurD
+  ########
+  #  ##. ##
+###  ##   #
+#  $     .#
+#  $### . #
+#  .    # #
+#  ##$$$  #
+#   # @####
+#    ###
+###. #
+  ####
+
+; id: 223
+; tier: hard
+; title: Rainy Muddle
+; section: Hard
+; par: 38
+; switches: 10
+; seed: 8213837 10x9 6
+; nodes: 1061285
+; solution: LLLLulldRRRRRRRllddlUruLLLdRulullddRUluRdrrrrddlUruLLrrrrdLullddrUUruuurrrddddLUUUruulldRddddLLullddrUluRdrUUUluR
+     #######
+ #####     #
+##  ##  . .#
+#   ##  #  #
+#  .##. #  #
+#  .  $@   #
+# $.$$ $ $ #
+#####  #####
+    ####
+
+; id: 224
+; tier: hard
+; title: Bramble Maze
+; section: Hard
+; par: 36
+; switches: 16
+; seed: 8007943 9x9 5
+; nodes: 495696
+; solution: ULrruulDldLLuuuurrrDDuulllddllldddrrUUUUluRRluurrrddrddrddLLLrrruuluuluulllddddddddrrULUUUluuuurrrddrddrddllLddllluluuuruurrRllddlldddrdrrururrruululUlllddrUluRRlddllldddrdrrururrUdlldlUUUUddddLLLdlU
+#########
+#       #
+#    ##.##
+# #  . . #
+# #   # $##
+#     ##. #
+#  #  #   #
+#. #   $$ #
+#    $$#@ #
+#      ####
+########
+
+; id: 225
+; tier: hard
+; title: Sprout Crossing
+; section: Hard
+; par: 40
+; switches: 14
+; seed: 8150485 9x9 5
+; nodes: 525817
+; solution: DDDRRRllluurDldRdrruuruuulllDDlddrRdrrUdllulluurDuuurrrrrrddddlllUUUUUUluRdddlUrddddddlluRuruuullldddldRRdrrUUUUddddlluluuuurrRRRdrUddddllldlluRdrUUUUdddllllldRRR
+    #######
+    #  .  #
+    #. ## #
+  ###$ # .#
+ ##   .   #
+##@$##    #
+# $ ## #  #
+#  $#  ## #
+#  $      #
+#    . ####
+########
+
+; id: 226
+; tier: hard
+; title: Cucumber Hedge
+; section: Hard
+; par: 37
+; switches: 19
+; seed: 8071295 9x9 5
+; nodes: 236867
+; solution: UURULuurDDDllluRdrruulDDrRRRllllDurrrrddrruuLLLLLDurrrrDulllldlDldddrrruulLuuruulDDDlDlddrrrruulLLulDrDurrrddllLuuururDldRuuurrrddlUrrrdL
+  ####
+  #  #
+###  #
+#   $######
+#   $ .   #
+###$ #$ $ #
+#  @ # .  #
+#    .#####
+#. ##  #
+#.     #
+########
+
+; id: 227
+; tier: hard
+; title: Parsnip Trellis
+; section: Hard
+; par: 36
+; switches: 19
+; seed: 8055457 9x9 5
+; nodes: 319482
+; solution: drrruruuuurrrruulDrddddllluuuuulllldlddrUluurrrrrdddddrruruuLLrrdddllluuluurDDDldddlllluUUdrURRlldlddrrrurrrururuullluulllllddrDuluurDDuurrrrddrrrdddllddlllllluuuRRldlddrrrurrrururuullldlDuurrrrdddllddlllllluuurrRRuuuulllddDuuurrrrddrrrdddllddlllllluuuRuulDrdRluuuurrrddddDRddllllluururRlldlddrrrrruulUllluuuurrrrdddDDDuulllldlddrrrrRuulDrdLLL
+###########
+#      #  #
+#  ##  #$ #
+# $##     #
+#  ##. ## #
+#.$$   #  #
+#$ ##  .  #
+#@##    ###
+# .    .#
+#     ###
+#######
+
+; id: 228
+; tier: hard
+; title: Windy Nook
+; section: Hard
+; par: 37
+; switches: 18
+; seed: 8174242 10x9 6
+; nodes: 380882
+; solution: RlddrURRRRuRurrdLdLruulDlDDDldRRluuuurrdLulDllllluurDurrDulldRdLrRRRDDlddrruRdllldllLulldRRdrruruuuruuurrdLulDllluurDldRRRR
+############
+#     ##   #
+# @$ $# $  #
+# .$$    .##
+##  ###.###
+#####   ####
+#  ##  .  .#
+#   ##     #
+#  $.  #####
+###    #
+  ######
+
+; id: 229
+; tier: hard
+; title: Sunny Lane
+; section: Hard
+; par: 36
+; switches: 17
+; seed: 8229675 10x9 6
+; nodes: 739598
+; solution: LLrrDDDDDrdLuuuuuulldRurDDDDlllluuuuRRdrrdddldDrruruuuLrddddllluullluuuurrdrruLdlLulDrrruLdllDurrrrDDRurDDDlLrruullDurrddldllUdrruruulldLrDrdLrRurD
+#######
+# . $@#
+# $ $$###
+# ### $ #
+#.### $ #
+#  .  # ##
+##       #
+#  #.    #
+#   .#  .#
+#    ##  #
+##########
+
+; id: 230
+; tier: hard
+; title: Clover Maze
+; section: Hard
+; par: 41
+; switches: 17
+; seed: 8095052 9x9 5
+; nodes: 256247
+; solution: DurDlDDRRRllluurDldRRllDurDRRRdrrrruuullldDlddlllUdrrruullulldRRRllddlUrdrrruRRRlluuurrrddDllldlllluurrRdrrrruuullldDldRuuulDrdddlllluuurRRldllddrrruruUluRRRlldddRluuurrdrddDDuuuululldddrRlluuurrdrdDD
+#### ######
+#@ ###    #
+#$$##     #
+#  ##    .#
+# $    #  #
+#.$$ . ## #
+#  ##     #
+#      ## #
+######## .#
+       # .#
+       ####
+
+; id: 231
+; tier: hard
+; title: Pea Gate
+; section: Hard
+; par: 42
+; switches: 16
+; seed: 8158404 10x9 6
+; nodes: 348975
+; solution: uuuluuurrrrdLullldddrdddLLLuULuluurDRRllldldRlddrRuruUddldlluuuurrRlldRldlddrrRRRuuuUUUluurDldRRRllddddddllllluuuurrrRlldldlddrrrrruuuUUUluurDDDDDrddldlluuUluRRlddddrruruulUUUddlldlldRurDlddrrruU
+   #####
+   #   #
+   #  .#####
+#####    . #
+#   ## #.$ #
+#  $$  ##  #
+#    #.  ###
+#  $$#   #
+# # .#  ##
+#     $+#
+#########
+
+; id: 232
+; tier: hard
+; title: Sprout Path
+; section: Hard
+; par: 39
+; switches: 17
+; seed: 8197999 10x9 6
+; nodes: 700617
+; solution: DDlDuruulDrdDlDlddRUrUUUUluRRdllDrdddlluRdrUUUluRRRRllldlDrddlluRdrUUluurrrrdrdddldddllllUUluuruuurrrrurDDullllldddlddrUruLddddrruLUUdddlUUruL
+   ########
+   # @ .  #
+   #$$    #
+   # .##  ##
+####$ ###. #
+#  . .###  #
+#  .  ##   #
+### $ #  ###
+  ##$$   #
+   #     #
+   #######
+
+; id: 233
+; tier: hard
+; title: Moonlit Steps
+; section: Hard
+; par: 43
+; switches: 23
+; seed: 8031700 9x9 5
+; nodes: 52796
+; solution: RRRdrddddllulUdlluRdrrdrruuuulullldDRRRurruLLrdDDrddlllulUdlluRuRRRlllddrrdrrruulDrddllululluurrrurDDulllluurDldRRRlllddrrdrdrruuulUllllddrUluRRRllddrdrRdrUruullDurrddldllululuurruurrdLDllluuRRllddrrrDrrddlUddlluRRllluluurrrdDrdL
+  #########
+  #@$  .  #
+  # $#.   #
+ ##$    ###
+## $$## . #
+#     #   #
+#  ## .  .#
+#   ##   ##
+#   ######
+#####
+
+; id: 234
+; tier: hard
+; title: Bean Plot
+; section: Hard
+; par: 41
+; switches: 23
+; seed: 8079214 9x9 5
+; nodes: 121170
+; solution: UrdddllluuuRRdrdrrurruuullllllDurrrrrrdddllddllllluuuRuurrdDuurrrrdddlUruulldRulllddDuuullddRdrDululuurDrDDuulldRuurrrrdddlddlLLdlluuuurrdrDuluurDDulllddddrruLdlluurDuuuruurrrrrdddlddlLLLrrrururuuullldddDrdLuuulllddlddRRuLdlUruuurrrdddLLrruuulllddDrdLurrDlddrrrrUUruLulldldDldR
+  #########
+  #       #
+ ##$  #  .#
+## $$ ##$ #
+#  #@ #   #
+#. ##   ###
+#     .  #
+#.   #   #
+###  ##$##
+  #  .  #
+  #######
+
+; id: 235
+; tier: hard
+; title: Bramble Tangle
+; section: Hard
+; par: 36
+; switches: 20
+; seed: 8205918 10x9 6
+; nodes: 1294047
+; solution: LLrrDDuulldRdrrddLLLrrruulDuluurDDrddLLddlluluurDlddrrruuLLDlllldRurrrurrrruulDrdLLdLLLLLdlUrdRurrDDuulldRuruulDrdrruLLdLU
+##########
+#    . $@#
+#  ### $$##
+#######   #
+####. ##  #
+#. #    $ #
+#  .  $ ####
+# $  .  #  #
+#####      #
+    #. #####
+    ####
+
+; id: 236
+; tier: hard
+; title: Thistle Plot
+; section: Hard
+; par: 43
+; switches: 16
+; seed: 8182161 10x9 6
+; nodes: 1158135
+; solution: UUdLLLUUUUrUdlluRRlluurrDullddrdrrUdlluluurrdRRlddlldddllddrUluRdrUUUUrrdLulDDDrdrruruuLLLrrrddldlluluUruLrruulDLLLrrdLrdrrrrddlUruLLLruulldDrruLrdrdddllL
+###########
+#         #
+#    #   .#
+# .   $ ###
+###. .  ###
+  ### $ $ #
+  ###.##  #
+  #  $ #  #
+  # .  $$##
+  #  ## @#
+  ########
+
+; id: 237
+; tier: hard
+; title: Sprout Square
+; section: Hard
+; par: 40
+; switches: 19
+; seed: 8190080 10x9 6
+; nodes: 976231
+; solution: drrururuulDrdddlllldlllluulURuulDDrdddrrurrrrurruuulllllddlLrruulDurrrrrrddddlllldlllluuUdddrrurrrrurruuulllllddLuurrrrrrddddlllldlllluuuluurDRRdrUUUruLrddrrrrddddlllldlllluuUluRRRdLulDurrurrrrrdDrddlllluRdrrruulDrdLLLuRdrruulDldlLLrurrrrdLLLurruuulllllddrUluRRRR
+ #######
+ #     #
+ #  .  #
+#####  #####
+#  #     . #
+#  $$ ###$ #
+#$$   ###  #
+#..###@$   #
+#  #. .    #
+#      #####
+########
+
+; id: 238
+; tier: hard
+; title: Clover Ditch
+; section: Hard
+; par: 55
+; switches: 13
+; seed: 8134647 9x9 5
+; nodes: 580245
+; solution: LLullddrUUruLdlUUUluRRdldddddddrUUUUruLdlUUluRRRRurDllluRRddRRRllullllddrdddddrrURdllluuurrrDullldddrruUruLLullddrUUruLdlUUluRRlddrrddrdddrUluuluulluuurrrdrdrrdrddddlLLdllluuurrrDullldddrrUUruLLLLuuuuurrrdrdrrdrddddllLdlUUruLL
+########
+#     .#
+#   .  ####
+#  ##    .#
+#    #    #
+#    #### #
+#. . $@## #
+##  # $#  #
+ # $#$$   #
+ #     ####
+ #######
+
+; id: 239
+; tier: hard
+; title: Lettuce Crossing
+; section: Hard
+; par: 46
+; switches: 18
+; seed: 8166323 10x9 6
+; nodes: 1590997
+; solution: DldDrrrruruulDrddllllluuruuurrrDrddddllllUUUUruulldRurrdrdrddlDuruulDDrddLLrruuuululullddddddddlUUUruLLLdlUruLdlUrrdrrruuuurrdrdrddddllLrrruulDuuuululldddddlddrUluuruuuurrdrdrddddLLLLdlUUdrrrruuuuulullddddLLrddrddrrUdlluuluuruuuurrdrdddddLruuuuululldRddldlddrUUddddrruuLLdlUruLLLrrrdddrU
+    ######
+    #    ##
+#####   . ##
+#. ###  #$ #
+#   ##+ #  #
+#  .  $##$ #
+# .    ##  #
+#####$ .   #
+    #  $$###
+    #    #
+    ######
+
+; id: 240
+; tier: hard
+; title: Cucumber Crossing
+; section: Hard
+; par: 41
+; switches: 27
+; seed: 8063376 9x9 5
+; nodes: 279464
+; solution: DurrrdRulllldDDDrrruLrdrruLdlllluuuurrrrdDDuuurrdLulDDuullllddddrrrRRllllluuuurrrrddDuuullllddddrruRdllluRRdllDDrdrrrrruuluRdddllllluluurrrRRlllulluuurrrrddDuuulllldddrrRdlllddrdrrrrruurruulDrdddlluuluRdddllllluluurrrRllllddrdrrrrruuuRldddrruuLulDrrddllllllluluurrrrRllullluuurrrrddDrddrDurrddlLuuruurDDllluRdddLLL
+#########
+#@      #
+#$## $  #
+# ###$#####
+#  $ $ #  #
+#    .  . #
+# ####    #
+#  #### #.#
+#. .      #
+#    ##   #
+###########
+
+; id: 241
+; tier: hard
+; title: Thistle Yard
+; section: Hard
+; par: 38
+; switches: 26
+; seed: 8221756 10x9 6
+; nodes: 1267997
+; solution: rrruuuullUUURDlddlluuuRldddrruurDuuurrdLulDDlddlluuuruRRlldRdddRluurDuluurDlddrDurDulluurDlddrrDulldRRurrddrrUdlluulldDrddllllUluuurrrrrDlllllddrUluRRurrddDrdLuuuulldRurDrDDldLruruulDD
+ #######
+##   . #
+# $ $  #
+# # $#######
+# #$. #    #
+#       #. #
+#       #$ #
+#  ##      #
+# $ #  #####
+##@. ..#
+ #######
+
+; id: 242
+; tier: hard
+; title: Thistle Barrow
+; section: Hard
+; par: 46
+; switches: 31
+; seed: 8000024 9x9 5
+; nodes: 390007
+; solution: uurrrrrDurrdLLulldlldlDDDrdrdrrruuurUUddlluRddddlllululuuuuurrrrrdDuurrdLdlDuruulDulldllddlddrdrdrrruuluurDrUUUlDrddlDuruulDuuulldRurDrruLdlllllddlddrddlUUUUUrurrrrrddllddrDuluurDuruulDrddlDuruulDuullllddlddrdrdrrdrruLdllulululuuururrrrddlddrDuluurDuuullllddlddrdrdrdrrruulDLdlluululuuururrrrdddDDuuuuullllddlddrdrddrruLLdlUluuuuururrrrdddddrdLrdLL
+##########
+#     .  #
+#.    $$ #
+#@ ###  ##
+#$ ## $$#
+# ###   #
+#  ##  ##
+# . ##  ##
+#    .   #
+##  .    #
+ #########
+

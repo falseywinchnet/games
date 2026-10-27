@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "id": "parrots",
+  "entry_id": 14,
+  "entry_name": "parrots",
+  "namespace": "pt",
+  "title": "The Paradoxiary",
+  "kind": "Deduction",
+  "category": "puzzles",
+  "blurb": "Parrots in a glasshouse jungle: some lie, two tell the truth, the rest just chatter. Find the culprit.",
+  "colors": [
+    [
+      46,
+      120,
+      64
+    ],
+    [
+      14,
+      40,
+      24
+    ],
+    [
+      236,
+      214,
+      120
+    ]
+  ],
+  "help": "help.md",
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "build": "build.cmake",
+  "ui_sources": [
+    "src/table_view.cpp",
+    "src/platform/text.cpp",
+    "src/platform/present.cpp"
+  ],
+  "audio_sources": [
+    "src/platform/audio.cpp"
+  ],
+  "libraries": [
+    "pt_core"
+  ],
+  "hosted": true,
+  "engines": [
+    "render",
+    "soil"
+  ]
+}

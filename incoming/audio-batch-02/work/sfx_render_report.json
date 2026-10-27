@@ -1,0 +1,394 @@
+{
+ "card_pickup_01": {
+  "file": "outputs/sfx/card_pickup_01.wav",
+  "seconds": 0.31,
+  "peak_dbfs": -11,
+  "lufs_integrated": null,
+  "max_rms50ms_dbfs": -26.2,
+  "channels": 1
+ },
+ "card_place_01": {
+  "file": "outputs/sfx/card_place_01.wav",
+  "seconds": 0.45,
+  "peak_dbfs": -11,
+  "lufs_integrated": -34.4,
+  "max_rms50ms_dbfs": -24.9,
+  "channels": 1
+ },
+ "card_deal_01": {
+  "file": "outputs/sfx/card_deal_01.wav",
+  "seconds": 0.29,
+  "peak_dbfs": -11,
+  "lufs_integrated": null,
+  "max_rms50ms_dbfs": -24.4,
+  "channels": 1
+ },
+ "card_flip_01": {
+  "file": "outputs/sfx/card_flip_01.wav",
+  "seconds": 0.31,
+  "peak_dbfs": -9,
+  "lufs_integrated": null,
+  "max_rms50ms_dbfs": -27.0,
+  "channels": 1
+ },
+ "card_foundation_01": {
+  "file": "outputs/sfx/card_foundation_01.wav",
+  "seconds": 1.805,
+  "peak_dbfs": -9,
+  "lufs_integrated": -23.2,
+  "max_rms50ms_dbfs": -17.2,
+  "channels": 1
+ },
+ "card_pickup_02": {
+  "file": "outputs/sfx/card_pickup_02.wav",
+  "seconds": 0.31,
+  "peak_dbfs": -11,
+  "lufs_integrated": null,
+  "max_rms50ms_dbfs": -24.8,
+  "channels": 1
+ },
+ "card_place_02": {
+  "file": "outputs/sfx/card_place_02.wav",
+  "seconds": 0.45,
+  "peak_dbfs": -11,
+  "lufs_integrated": -34.3,
+  "max_rms50ms_dbfs": -24.8,
+  "channels": 1
+ },
+ "card_deal_02": {
+  "file": "outputs/sfx/card_deal_02.wav",
+  "seconds": 0.29,
+  "peak_dbfs": -11,
+  "lufs_integrated": null,
+  "max_rms50ms_dbfs": -23.2,
+  "channels": 1
+ },
+ "card_flip_02": {
+  "file": "outputs/sfx/card_flip_02.wav",
+  "seconds": 0.31,
+  "peak_dbfs": -9,
+  "lufs_integrated": null,
+  "max_rms50ms_dbfs": -27.2,
+  "channels": 1
+ },
+ "card_foundation_02": {
+  "file": "outputs/sfx/card_foundation_02.wav",
+  "seconds": 1.665,
+  "peak_dbfs": -9,
+  "lufs_integrated": -20.5,
+  "max_rms50ms_dbfs": -16.8,
+  "channels": 1
+ },
+ "card_pickup_03": {
+  "file": "outputs/sfx/card_pickup_03.wav",
+  "seconds": 0.31,
+  "peak_dbfs": -11,
+  "lufs_integrated": null,
+  "max_rms50ms_dbfs": -23.5,
+  "channels": 1
+ },
+ "card_place_03": {
+  "file": "outputs/sfx/card_place_03.wav",
+  "seconds": 0.45,
+  "peak_dbfs": -11,
+  "lufs_integrated": -32.2,
+  "max_rms50ms_dbfs": -22.7,
+  "channels": 1
+ },
+ "card_deal_03": {
+  "file": "outputs/sfx/card_deal_03.wav",
+  "seconds": 0.29,
+  "peak_dbfs": -11,
+  "lufs_integrated": null,
+  "max_rms50ms_dbfs": -24.0,
+  "channels": 1
+ },
+ "card_flip_03": {
+  "file": "outputs/sfx/card_flip_03.wav",
+  "seconds": 0.31,
+  "peak_dbfs": -9,
+  "lufs_integrated": null,
+  "max_rms50ms_dbfs": -28.1,
+  "channels": 1
+ },
+ "card_foundation_03": {
+  "file": "outputs/sfx/card_foundation_03.wav",
+  "seconds": 1.788,
+  "peak_dbfs": -9,
+  "lufs_integrated": -19.3,
+  "max_rms50ms_dbfs": -15.6,
+  "channels": 1
+ },
+ "card_pickup_04": {
+  "file": "outputs/sfx/card_pickup_04.wav",
+  "seconds": 0.31,
+  "peak_dbfs": -11,
+  "lufs_integrated": null,
+  "max_rms50ms_dbfs": -27.6,
+  "channels": 1
+ },
+ "card_place_04": {
+  "file": "outputs/sfx/card_place_04.wav",
+  "seconds": 0.45,
+  "peak_dbfs": -11,
+  "lufs_integrated": -33.9,
+  "max_rms50ms_dbfs": -24.5,
+  "channels": 1
+ },
+ "card_deal_04": {
+  "file": "outputs/sfx/card_deal_04.wav",
+  "seconds": 0.29,
+  "peak_dbfs": -11,
+  "lufs_integrated": null,
+  "max_rms50ms_dbfs": -22.2,
+  "channels": 1
+ },
+ "card_flip_04": {
+  "file": "outputs/sfx/card_flip_04.wav",
+  "seconds": 0.31,
+  "peak_dbfs": -9,
+  "lufs_integrated": null,
+  "max_rms50ms_dbfs": -26.7,
+  "channels": 1
+ },
+ "card_foundation_04": {
+  "file": "outputs/sfx/card_foundation_04.wav",
+  "seconds": 1.557,
+  "peak_dbfs": -9,
+  "lufs_integrated": -22.3,
+  "max_rms50ms_dbfs": -18.4,
+  "channels": 1
+ },
+ "card_shuffle_01": {
+  "file": "outputs/sfx/card_shuffle_01.wav",
+  "seconds": 1.45,
+  "peak_dbfs": -11,
+  "lufs_integrated": -32.3,
+  "max_rms50ms_dbfs": -25.5,
+  "channels": 1
+ },
+ "ui_undo_01": {
+  "file": "outputs/sfx/ui_undo_01.wav",
+  "seconds": 1.609,
+  "peak_dbfs": -12,
+  "lufs_integrated": -23.0,
+  "max_rms50ms_dbfs": -18.6,
+  "channels": 1
+ },
+ "ui_hint_01": {
+  "file": "outputs/sfx/ui_hint_01.wav",
+  "seconds": 2.641,
+  "peak_dbfs": -12,
+  "lufs_integrated": -25.8,
+  "max_rms50ms_dbfs": -19.4,
+  "channels": 1
+ },
+ "ui_invalid_01": {
+  "file": "outputs/sfx/ui_invalid_01.wav",
+  "seconds": 2.52,
+  "peak_dbfs": -14,
+  "lufs_integrated": -28.6,
+  "max_rms50ms_dbfs": -20.1,
+  "channels": 1
+ },
+ "card_shuffle_02": {
+  "file": "outputs/sfx/card_shuffle_02.wav",
+  "seconds": 1.45,
+  "peak_dbfs": -11,
+  "lufs_integrated": -29.9,
+  "max_rms50ms_dbfs": -22.5,
+  "channels": 1
+ },
+ "ui_undo_02": {
+  "file": "outputs/sfx/ui_undo_02.wav",
+  "seconds": 1.789,
+  "peak_dbfs": -12,
+  "lufs_integrated": -22.2,
+  "max_rms50ms_dbfs": -17.9,
+  "channels": 1
+ },
+ "ui_hint_02": {
+  "file": "outputs/sfx/ui_hint_02.wav",
+  "seconds": 2.619,
+  "peak_dbfs": -12,
+  "lufs_integrated": -25.0,
+  "max_rms50ms_dbfs": -19.3,
+  "channels": 1
+ },
+ "ui_invalid_02": {
+  "file": "outputs/sfx/ui_invalid_02.wav",
+  "seconds": 2.52,
+  "peak_dbfs": -14,
+  "lufs_integrated": -28.3,
+  "max_rms50ms_dbfs": -20.0,
+  "channels": 1
+ },
+ "ui_victory": {
+  "file": "outputs/sfx/ui_victory.wav",
+  "seconds": 3.289,
+  "peak_dbfs": -7,
+  "lufs_integrated": -22.1,
+  "max_rms50ms_dbfs": -16.6,
+  "channels": 1
+ },
+ "puzzle_walk_01": {
+  "file": "outputs/sfx/puzzle_walk_01.wav",
+  "seconds": 0.26,
+  "peak_dbfs": -15,
+  "lufs_integrated": null,
+  "max_rms50ms_dbfs": -23.9,
+  "channels": 1
+ },
+ "puzzle_walk_02": {
+  "file": "outputs/sfx/puzzle_walk_02.wav",
+  "seconds": 0.26,
+  "peak_dbfs": -15,
+  "lufs_integrated": null,
+  "max_rms50ms_dbfs": -23.9,
+  "channels": 1
+ },
+ "puzzle_walk_03": {
+  "file": "outputs/sfx/puzzle_walk_03.wav",
+  "seconds": 0.26,
+  "peak_dbfs": -15,
+  "lufs_integrated": null,
+  "max_rms50ms_dbfs": -25.4,
+  "channels": 1
+ },
+ "puzzle_walk_04": {
+  "file": "outputs/sfx/puzzle_walk_04.wav",
+  "seconds": 0.26,
+  "peak_dbfs": -15,
+  "lufs_integrated": null,
+  "max_rms50ms_dbfs": -23.1,
+  "channels": 1
+ },
+ "puzzle_push_01": {
+  "file": "outputs/sfx/puzzle_push_01.wav",
+  "seconds": 0.87,
+  "peak_dbfs": -10,
+  "lufs_integrated": -27.4,
+  "max_rms50ms_dbfs": -17.2,
+  "channels": 1
+ },
+ "puzzle_push_02": {
+  "file": "outputs/sfx/puzzle_push_02.wav",
+  "seconds": 0.87,
+  "peak_dbfs": -10,
+  "lufs_integrated": -27.7,
+  "max_rms50ms_dbfs": -18.0,
+  "channels": 1
+ },
+ "puzzle_push_03": {
+  "file": "outputs/sfx/puzzle_push_03.wav",
+  "seconds": 0.87,
+  "peak_dbfs": -10,
+  "lufs_integrated": -27.1,
+  "max_rms50ms_dbfs": -17.2,
+  "channels": 1
+ },
+ "puzzle_blocked_01": {
+  "file": "outputs/sfx/puzzle_blocked_01.wav",
+  "seconds": 0.85,
+  "peak_dbfs": -11,
+  "lufs_integrated": -29.9,
+  "max_rms50ms_dbfs": -18.8,
+  "channels": 1
+ },
+ "puzzle_on_target_01": {
+  "file": "outputs/sfx/puzzle_on_target_01.wav",
+  "seconds": 2.283,
+  "peak_dbfs": -10,
+  "lufs_integrated": -26.6,
+  "max_rms50ms_dbfs": -18.5,
+  "channels": 1
+ },
+ "puzzle_blocked_02": {
+  "file": "outputs/sfx/puzzle_blocked_02.wav",
+  "seconds": 0.85,
+  "peak_dbfs": -11,
+  "lufs_integrated": -30.1,
+  "max_rms50ms_dbfs": -18.8,
+  "channels": 1
+ },
+ "puzzle_on_target_02": {
+  "file": "outputs/sfx/puzzle_on_target_02.wav",
+  "seconds": 2.237,
+  "peak_dbfs": -10,
+  "lufs_integrated": -26.5,
+  "max_rms50ms_dbfs": -18.6,
+  "channels": 1
+ },
+ "puzzle_undo_01": {
+  "file": "outputs/sfx/puzzle_undo_01.wav",
+  "seconds": 1.609,
+  "peak_dbfs": -12,
+  "lufs_integrated": -23.0,
+  "max_rms50ms_dbfs": -18.6,
+  "channels": 1
+ },
+ "puzzle_win": {
+  "file": "outputs/sfx/puzzle_win.wav",
+  "seconds": 3.259,
+  "peak_dbfs": -7,
+  "lufs_integrated": -22.6,
+  "max_rms50ms_dbfs": -16.6,
+  "channels": 1
+ },
+ "puzzle_fail": {
+  "file": "outputs/sfx/puzzle_fail.wav",
+  "seconds": 3.8,
+  "peak_dbfs": -8,
+  "lufs_integrated": -19.8,
+  "max_rms50ms_dbfs": -14.5,
+  "channels": 1
+ },
+ "stinger_win_menu": {
+  "file": "outputs/music/stinger_win_menu.wav",
+  "seconds": 4.071,
+  "peak_dbfs": -6,
+  "lufs_integrated": -19.7,
+  "max_rms50ms_dbfs": -15.7,
+  "channels": 2
+ },
+ "stinger_win_klondike": {
+  "file": "outputs/music/stinger_win_klondike.wav",
+  "seconds": 4.093,
+  "peak_dbfs": -6,
+  "lufs_integrated": -19.6,
+  "max_rms50ms_dbfs": -16.0,
+  "channels": 2
+ },
+ "stinger_win_spider": {
+  "file": "outputs/music/stinger_win_spider.wav",
+  "seconds": 3.897,
+  "peak_dbfs": -6,
+  "lufs_integrated": -17.4,
+  "max_rms50ms_dbfs": -15.2,
+  "channels": 2
+ },
+ "stinger_win_freecell": {
+  "file": "outputs/music/stinger_win_freecell.wav",
+  "seconds": 4.035,
+  "peak_dbfs": -6,
+  "lufs_integrated": -17.9,
+  "max_rms50ms_dbfs": -15.1,
+  "channels": 2
+ },
+ "stinger_win_hearts": {
+  "file": "outputs/music/stinger_win_hearts.wav",
+  "seconds": 3.945,
+  "peak_dbfs": -6,
+  "lufs_integrated": -18.3,
+  "max_rms50ms_dbfs": -15.9,
+  "channels": 2
+ },
+ "stinger_win_puzzle": {
+  "file": "outputs/music/stinger_win_puzzle.wav",
+  "seconds": 4.026,
+  "peak_dbfs": -6,
+  "lufs_integrated": -20.5,
+  "max_rms50ms_dbfs": -16.3,
+  "channels": 2
+ }
+}

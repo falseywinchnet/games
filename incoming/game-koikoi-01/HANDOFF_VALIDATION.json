@@ -1,0 +1,39 @@
+{
+ "package": "game-koikoi-01",
+ "kind": "fifth card game: portable rules module games::koi plus a complete table (kk::KoiView)",
+ "clean_build_from_package": "ok (Release, arm64, GUI.Forms paint-port SDK copy on the Neo)",
+ "cabinet_build": "not attempted on the Neo: PlaySuite now needs LLVM 20 and CPU Skia, not installed there",
+ "koikoi_tests": "PASS (deck; every set; quick count equals named sets on 20,000 piles; doublings; deal; matching and choosing; 700 whole matches; temperaments: Ishida 573 koi-koi calls vs Hana 23; Kiri beats the plain computer 63-54; save round trip and nonsense refused)",
+ "audio_files": 16,
+ "audio_decoded_afconvert": 16,
+ "aac_valid_frames_equal_manifest_loop_end": true,
+ "card_art": "49 PNGs at 360x504 drawn by tools/make_hanafuda.py",
+ "window_sizes_checked_live": [
+  "1180x800 (default)",
+  "600x370 (cabinet minimum less the rail)",
+  "640x900",
+  "800x500",
+  "1100x760",
+  "1600x1000"
+ ],
+ "behaviours_captured_in_app": [
+  "the koi-koi decision (resumed from a saved mid-round state)",
+  "koi-koi called",
+  "sets made",
+  "a choice between two matches",
+  "a round's end",
+  "rules",
+  "the sets",
+  "the Score panel"
+ ],
+ "played_by_user": true,
+ "anomalies": [],
+ "not_verified": [
+  "linking against the cabinet's own paint and card_finish",
+  "listening pass on the final renders (checks were numerical)",
+  "reduced motion (not implemented)",
+  "CPU measurement",
+  "cabinet integration",
+  "non-macOS platforms"
+ ]
+}

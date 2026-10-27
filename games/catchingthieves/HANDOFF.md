@@ -1,0 +1,64 @@
+# Catching Thieves integration
+
+## VERIFIED
+
+- Built the complete twenty-game native application on the M4 Mini with the pinned GUI.Forms source, LLVM 22.1.8 and its Skia CPU renderer.
+- `catchingthieves_rules`: all 251 table gardens (11 lessons, 72 Easy, 78 Medium, 90 Hard) replay their witness to a win in exactly their par; 155 pars and solver efforts are re-solved; every generated garden measures into its own tier and the tier medians rise at every step for pumpkins, soil, pushes, moves, switches, solver states, trap pushes and score; fresh gardens grow at each tier, measure into it and replay; each lesson shows its mechanism (the obvious push wedges, the near pumpkin first is unsolvable, two in a row won't budge); 500 lines are unique, short, ASCII and free of unkind words; the save's new fields round-trip and nonsense is refused; an old book save migrates (garden in play move for move, tier, season, records, cleared and perfect counts, old endless gardens).
+- `catchingthieves_core_contract`: a simulated 18-minute session says about 110 lines with none repeated; repeated wedges escalate from laughing to cheering to kind pointers at Undo, the last without the laugh sound.
+- `catchingthieves_view_contract`: a first game starts with a lesson; the difficulty is a choice on the shell's Settings screen, not a command; choosing it re-deals an untouched garden in about 1 ms at every tier and waits for the next garden otherwise; a fresh Medium garden grows, saves, resumes exactly and its witness wins it; an old book save halfway through garden 150 reopens move for move at Hard and is upgraded in place; instant win/new-garden autosave, no duplicate result, hidden timer/presentation silence and refusal of production script input pass.
+- Real AppKit standalone and hosted native-window scripts completed without frame or native callback faults. The hosted run switched games and opened shared help.
+- Inspected native LiveSurface captures at 1180 × 800, 600 × 370 and 600 × 320; the contract also checks 150% scale. Inspected garden 41 and the garden-book controls at 600 × 320. PNGs are in `screens/`, including the hosted capsule and game at 600 × 420.
+- Portable text/audio adapters compile against the pinned headers. Source audio and exact producer loop metadata pass the dynamic inventory verifier; the native decoder and Four Pegs transport checks pass with libvorbis quality-6 runtime assets.
+- The authoring gate checks newly edited files against house style. `borrowed` records only source files that remained byte-for-byte identical to the original package; original fingerprints are in `SOURCE_PROVENANCE.json`.
+
+Reproduce standalone native input with `games --game catchingthieves --standalone --dev --script games/catchingthieves/tests/native.script`. The full native host recipe is in the root `AGENTS.md`.
+
+## NOT VERIFIED
+
+Human listening, subjective play feel and long sessions have not been certified by these automated runs. Local development uses macOS arm64. Windows x64 and both Linux architectures, and the release macOS compiler/installer, are validated by the publication workflow. A passing local build does not itself establish those results.
+
+## DECISIONS
+
+The sequential book of 243 gardens became four difficulties (README "The gardens"). The book's gardens are kept, measured and filed by tier in `assets/levels/gardens.txt` under their old indices as permanent ids, so old saves resume; they are the instant fallback while a fresh garden for the chosen tier grows on a worker. Seasons are random per garden (never twice running; lessons in spring) because difficulty is named on the card and the calendar would show half the world the wrong season and hide four of the five musical arrangements for months. Catching Thieves is not a long real-time game, so it has no passive mode. The `ct_stinger_book` cue now marks having seen every lesson.
+
+Preserved the complete user-supplied `thieves` game: original campaign, garden renderer, mesh artwork, critters, seasonal scene, hints, endless generation and sounds. Platform-specific presentation, text and audio were replaced with portable GUI.Forms services. The game owns its module entry, cover, help and resources at permanent ID 18. Hosted commands use the shared capsule/help and master switches. Independent play uses the same view through the standalone host.
+
+Hint and endless workers are cancellation-aware and joined when hidden. Reduced motion settles presentation immediately while retaining puzzle rules and committed moves. The garden book pages at the minimum window size. Save files use the suite state directory and an isolated development file.
+
+The cue checker reports prefixes such as `ct_step_0`, `ct_push_0`, `ct_muffle_0` and `ct_music_` because names are completed at runtime. The corresponding numbered/seasonal files are present. Original generic unused UI cues were prefixed `ct_ui_` to prevent collisions with the suite's other sounds. No campaign, artwork or gameplay feature was removed.
+
+## SCENERY (hedge and field)
+
+- The hedge (`src/hedge.*`) is one continuous shell built per garden from the wall cells: a flat clipped top with rounded shoulders, sides that lean in towards the top, inside corners closed, and the leaf mass bulging and hollowing with world-locked noise. Generated leaf textures (clumps of small leaves lit as domes, dark gaps with twigs), occlusion at the foot and in hollows, colour drifting along the run, new growth on the outer leaves, a cut-out fringe of sprigs on the shoulders, and a ground shade (contact darkness plus the sun's shadow) baked once per garden. Seasons: box green with a yellow-green flush (spring), deep green (summer), a copper beech hedge (autumn), dark yew under snow with frosted shoulders (winter, night). Shell, colours and shade are rebuilt only when the garden or season changes.
+- The field (`src/field.*`) is meadow grass from the shared grass engine (`shared/grass`), grown for the season (fresh spring with daisies, dandelions and speedwell; summer buttercups and clover; straw-tinged autumn with mushrooms and clocks; frosted snow in winter and, moonlit, at night), folded so it wraps without a seam. The view grows it on a worker when the season changes (about 0.15 s on the M4); the plain lawn shows until then. Hidden or detached views cancel it.
+- `src/garden.*` are no longer byte-identical to the package, so they left `borrowed`.
+
+## SOIL AND BURROWS
+
+- The beds (`src/ground.*`) are painted by the shared soil engine (`shared/soil`): dug rows with clods and crumbs, a little straw and stone; damp in spring, paler and lightly cracked in summer, leaf litter and twigs in autumn, frost and a dusting of snow lying in the slumped rows in winter, the same moonlit at night. The light in the picture comes from the back left, as the hedge's shadows do. Alternate squares stay a shade apart so the grid can be counted. Pictures are made at the screen's texel density (in steps of about an eighth) once per season and size, and kept: 8–20 ms at 600 × 420, 30–40 ms at 1100 × 760 on the M4; frames cost the same as before.
+- A burrow is a pit cut into the bed (the square is drawn as a ring round the mouth), its wall darkening to nothing, with roots in the far side; a lumpy lip of spoil with a pale dry crest, trodden low where a fan of fresh dark spoil is thrown onto the open bed (never into a hedge, away from other burrows); clods and a stone on the heap. Translucent layers down the pit shade whatever of the raccoon is still below ground. Raccoon animation and gameplay are unchanged; the pumpkin plugs the mouth.
+- The lawn and the field no longer write depth, so the pits can go below them. `ct_preview burrows out.ppm [season] [W] [H]` renders every burrow state close up.
+
+## ASTRA'S GARDEN GENERATOR (2026-10-11)
+
+- Fresh gardens come from Astra's constructive generator (the user's `thieves` tree,
+  `~/solitaire_sounds/thieves`, graph-v4): `grow(tier, seed)` builds a garden directly from
+  its tier's action graph in a few microseconds, with its solution and a proof that the par
+  is the fewest pushes possible. There are no rejected boards and no search. Easy needs one
+  pumpkin task at a time, Medium two at once and Hard four; gardens may start with burrows
+  already covered ("borrowed" goals that must be uncovered and restored).
+- New pieces, all in the rules with exact undo: one-way gates (`^ > v <`, for the bear and the
+  pumpkins; every tier), marked pits a pumpkin fills to make a crossing (`O`; Medium and Hard)
+  and pumpkin-loving squirrels that carry off an unguarded pumpkin (`X`; Hard), drawn by
+  `Garden::draw_features` and played by `Show` (escapes, sinking into pits).
+- Borrowed unchanged from Astra's tree: `src/level.*`, `src/critters.*` (our include only) and
+  `src/research/*` (the generator core). `src/solver.*` is Astra's push-optimal solver (it
+  searches pits, gates and theft) with one change: the hint worker's cancellation is threaded
+  through all three of its searches.
+- `tiers.*` keeps PlaySuite's tier names and keys and gives each grown garden its own title;
+  the book's older gardens keep their measured tiers (`gen.hpp` `SolvedMetrics`, `classify`).
+- Saves accept the new pieces: a garden's text carries `!ct2` overlay lines (level.cpp), so the
+  stored board allows their characters and up to 20,000 bytes.
+- Not yet: pits are drawn as a flat dark slab rather than dug into the soil engine's beds; the
+  help does not yet describe gates, pits and squirrels; the background worker that grew gardens
+  could now go, since growing takes microseconds.

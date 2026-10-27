@@ -1,0 +1,92 @@
+--- a/shared/cards/table.cpp	2026-10-12 07:15:50
++++ b/shared/cards/table.cpp	2026-10-12 07:15:50
+@@ -1,3 +1,4 @@
++#include <cstdlib>
+ #include "table.hpp"
+ #include "audio.hpp"
+ #include "card_backs.hpp"
+@@ -756,7 +757,16 @@
+          size <= 12 && text.find_first_of("abcdefghijklmnopqrstuvwxyz") == std::string::npos ? .6
+                                                                                              : 0},
+         color);
++}
++namespace {
++// Capture passes for authoring/table_light/bake.py: PLAYSUITE_LIGHT_PASS=albedo draws the
++// table unlit (no painted shading or shadows); =height draws the cards plain on black, and
++// with PLAYSUITE_LIGHT_DUMP=<file> writes every card's place, "pile index x y width height".
++int light_pass() {
++    const char* v = std::getenv("PLAYSUITE_LIGHT_PASS");
++    return !v ? 0 : v[0] == 'a' ? 1 : 2;
+ }
++}  // namespace
+ void Table::draw_card(gf::Painter& p, const Sprite& s, bool selected) {
+     gf::Rect r = s.rect;
+     if (dragging_ && s.pile == selection_ && s.index >= selected_index_) {
+@@ -785,6 +795,11 @@
+     const bool lifted = dragging_ && s.pile == selection_ && s.index >= selected_index_;
+     const double height = lifted ? 1 : rise;
+     const double drop = r.width * .07 * height, grow = 1 + .06 * height;
++    if (light_pass() == 2) {
++        p.fill_rounded_rect(r, 6, gf::Color::rgba(255, 255, 255));
++        return;
++    }
++    if (light_pass() != 1)
+     p.draw_image(shadow_,
+                  {r.x - 40 * shadow_scale * grow + drop * .6,
+                   r.y - 40 * shadow_height * grow + drop, 440 * shadow_scale * grow,
+@@ -830,6 +845,29 @@
+ void Table::on_paint(gf::Painter& p, gf::Rect) {
+     gf::Rect b = client_rectangle();
+     p.fill_rect(b, gf::Color::rgba(22, 75, 54));
++    if (light_pass() == 2) {
++        p.fill_rect(b, gf::Color::rgba(0, 0, 0));
++        std::ofstream dump;
++        if (const char* path = std::getenv("PLAYSUITE_LIGHT_DUMP"))
++            dump.open(path, std::ios::trunc);
++        if (game.state.kind == Kind::solitaire) {
++            const int buried =
++                std::max(0, static_cast<int>(game.state.piles[15].size()) - game.state.draw_count);
++            for (int edge = std::min(8, buried); edge > 0; --edge)
++                dump << "15 " << -edge << ' ' << slots_[15].x + edge * .7 << ' '
++                     << slots_[15].y + edge * 1.2 << ' ' << slots_[15].width << ' '
++                     << slots_[15].height << '\n';
++        }
++        for (int pile = 0; pile < 20; ++pile)
++            for (const Card& c : game.state.piles[pile])
++                if (const Sprite& sprite = sprites_[c.id]; sprite.visible) {
++                    draw_card(p, sprite, false);
++                    dump << pile << ' ' << sprite.index << ' ' << sprite.rect.x << ' '
++                         << sprite.rect.y << ' ' << sprite.rect.width << ' '
++                         << sprite.rect.height << '\n';
++                }
++        return;
++    }
+     if (felt_.value)
+         p.fill_image_pattern(felt_, {256, 256}, b, {256, 256});
+     // A lamp over the table: a warm pool that lifts the felt's own colour without washing
+@@ -838,6 +876,7 @@
+                                            {.42, gf::Color::rgba(0, 0, 0, 0)},
+                                            {.8, gf::Color::rgba(0, 14, 10, 105)},
+                                            {1, gf::Color::rgba(0, 8, 6, 175)}}};
++    if (light_pass() != 1)
+     p.fill_radial_gradient(b, {b.width * .5, b.height * .42}, {b.width * .78, b.height * .9},
+                            light);
+     gf::Color cream = gf::Color::rgba(223, 229, 204);
+--- a/src/main.cpp	2026-10-12 07:15:50
++++ b/src/main.cpp	2026-10-12 07:15:50
+@@ -1,3 +1,4 @@
++#include <cstdlib>
+ #include "collection.hpp"
+ #include "dogfood.hpp"
+ #include "gui_forms/application.hpp"
+@@ -48,7 +49,9 @@
+ static void capture_frame(gf::Window& window,const std::filesystem::path& path) {
+     const gf::Size size=window.client_size();
+     const gf::Rect bounds{0,0,size.width,size.height};
+-    std::unique_ptr<gf::PaintFramebuffer> frame=window.create_framebuffer(size,window.scale());
++    // PLAYSUITE_CAPTURE_SCALE=2 captures as a Retina screen shows it.
++    const char* forced=std::getenv("PLAYSUITE_CAPTURE_SCALE");
++    std::unique_ptr<gf::PaintFramebuffer> frame=window.create_framebuffer(size,forced?std::atof(forced):window.scale());
+     if(!frame || !(*frame).begin(window.image_resources(),bounds))
+         throw std::runtime_error("Native renderer could not capture the window");
+     invalidate_capture(*window.root());

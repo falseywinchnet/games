@@ -1,0 +1,38 @@
+{
+ "package": "game-penthesheep-01",
+ "kind": "new game (new collection entry; replaces nothing)",
+ "clean_build_from_package": "ok (Release, arm64, GUI.Forms paint-port SDK copy on the Neo)",
+ "sheep_tests": "PASS (hex neighbourhoods, wall measure, head start, edge walk-off, clover, determinism, 36 campaign meadows replay their proof to a penned sheep, cleverer sheep are harder; careless player escapes 13/20 dozy, 19/20 clever, 15/20 cunning)",
+ "audio_files": 22,
+ "audio_decoded_afconvert": 22,
+ "aac_valid_frames_equal_manifest_loop_end": true,
+ "music_study": "the original's two loops were downloaded with the user's permission for study only; not in this package; nothing sampled",
+ "window_sizes_checked_live": [
+  "1000x760 (default)",
+  "600x370 (cabinet minimum less the rail)",
+  "640x900",
+  "1400x520",
+  "1600x1000"
+ ],
+ "behaviours_captured_in_app": [
+  "head start",
+  "fences joining old panels",
+  "penned with three stars",
+  "a clever sheep by clover",
+  "the Meadows map and its pages",
+  "help",
+  "walking off the edge",
+  "the got-away card"
+ ],
+ "played_by_user": true,
+ "anomalies": [
+  "penned_three_stars.png predates the final narrowing of the result card"
+ ],
+ "not_verified": [
+  "listening pass on the final renders (checks were numerical)",
+  "reduced motion (not implemented)",
+  "CPU measurement",
+  "cabinet integration",
+  "non-macOS platforms"
+ ]
+}

@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "coverage",
+  "namespace": "coverage",
+  "title": "Coverage",
+  "summary": "An autonomous coverage brain for mowing or vacuuming scenes: a forward-only simulated scanner and a belief map with the fence discovered rather than given, a support field that seeds germs and geodesic owners, a menu of laps, stripes and tufts, a manager that drives one planned tape at a time, and tractor steering with a turning circle and planned reverses.",
+  "build": "build.cmake",
+  "libraries": [
+    "coverage_core"
+  ],
+  "source_directories": [
+    "src"
+  ],
+  "tests": [
+    "tests/coverage_tests.cpp"
+  ]
+}

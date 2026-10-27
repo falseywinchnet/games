@@ -1,0 +1,1837 @@
+#include "stage.hpp"
+
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <limits>
+
+namespace ambient {
+namespace {
+
+// Marks a lit pixel that a leaf covers (Stage::lit_pixels_).
+constexpr std::uint32_t leaf_bit = 0x80000000U;
+
+// A boost that can change a pixel by at least two display levels somewhere: smaller
+// ones are not worth a pixel's work every frame.
+bool visible_boost(std::uint32_t boost) {
+    const bool result = ((boost >> 16U) & 255U) >= 2 || ((boost >> 8U) & 255U) >= 2 || (boost & 255U) >= 2;
+    return result;
+}
+
+// ------------------------------------------------------------------ material maps
+
+float channel(const Texture& level, int x, int y, int c) {
+    const int wx = x & (level.width - 1);
+    const int wy = y & (level.height - 1);
+    const float result =
+        static_cast<float>(level.rgb[(static_cast<std::size_t>(wy) * static_cast<std::size_t>(level.width) +
+                                      static_cast<std::size_t>(wx)) * 3U + static_cast<std::size_t>(c)]) /
+        255.0F;
+    return result;
+}
+
+// ------------------------------------------------------------------ rasterizer policies
+
+// Shadow map: orthographic depth, nearest to the light kept, in two layers: the nearest
+// caster with its ribbon, and the nearest caster of any other ribbon (ShadowMap).
+struct LightPolicy {
+    static constexpr bool perspective = false;
+    int width{};
+    float* depth{};
+    std::uint16_t* ribbon{};
+    float* behind{};
+    std::uint16_t caster{ShadowMap::no_ribbon};  // the triangle's ribbon
+    bool test(int x, int y, float nearness) {
+        const std::size_t index = static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x);
+        float& nearest = depth[index];
+        std::uint16_t& nearest_ribbon = ribbon[index];
+        float& second = behind[index];
+        if (nearness > nearest) {
+            if (caster != ShadowMap::no_ribbon && caster == nearest_ribbon) {
+                nearest = nearness;  // the same blade, nearer: the second layer stands
+            } else {
+                second = nearest;  // what was nearest is of another ribbon (or none)
+                nearest = nearness;
+                nearest_ribbon = caster;
+            }
+        } else if (nearness > second && (caster == ShadowMap::no_ribbon || caster != nearest_ribbon)) {
+            second = nearness;
+        }
+        return false;
+    }
+    void cover(const Coverage&, bool) {}
+};
+
+// Fixed layer: a visibility buffer of nearest triangle and its weights.
+struct VisibilityPolicy {
+    static constexpr bool perspective = true;
+    int width{};
+    float* depth{};
+    std::uint32_t* triangle{};
+    float* weights{};  // two per sample: weight1, weight2
+    std::uint8_t* front{};
+    std::uint32_t current{};
+    bool test(int x, int y, float inverse_depth) {
+        const std::size_t index =
+            static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x);
+        const bool result = inverse_depth > depth[index];
+        return result;
+    }
+    void cover(const Coverage& c, bool is_front) {
+        const std::size_t index =
+            static_cast<std::size_t>(c.y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(c.x);
+        depth[index] = c.inverse_depth;
+        triangle[index] = current;
+        weights[index * 2] = c.weight1;
+        weights[index * 2 + 1] = c.weight2;
+        front[index] = is_front ? 1 : 0;
+    }
+};
+
+// Sway layer: Gouraud colour between precomputed vertex shades, which arrive as
+// display levels already clamped to 0..255. Foliage triangles cover a few pixels
+// at most, so screen-linear weights are indistinguishable from perspective-correct
+// ones. Blending is integer arithmetic on packed channels (red with blue, green
+// alone); each field's product stays below 2^16, so fields never carry into each other.
+// A projected triangle's facing is known before it is scanned, so its three corners'
+// sides are chosen once (`FixedCorners`); a triangle clipped at the near plane learns
+// its facing from the scan and chooses per pixel.
+template <bool FixedCorners> struct GouraudPolicy {
+    static constexpr bool perspective = false;
+    // An unclipped triangle (fixed corners) is shaded by planes: its colour, alpha and
+    // caustic texel position formed once from the corners, then one multiply-add each
+    // per pixel. A clipped one takes its weights per pixel (`cover`).
+    static constexpr bool planes = FixedCorners;
+    // Its corners already in the scan's fixed point, rounded once per vertex.
+    static constexpr bool cache_quantized = FixedCorners;
+    const render::r3d::QuantizedPoint* quantized[3] = {};
+    static constexpr int attributes = 6;  // red, green, blue, alpha, u, v
+    float plane_at[attributes]{};
+    float plane_across[attributes]{};
+    float plane_down[attributes]{};
+    int plane_x{};
+    int plane_y{};
+    float run_at[attributes]{};
+    float run_step[attributes]{};
+    int width{};
+    float* depth{};
+    std::uint32_t* color{};
+    std::uint8_t* lit{};
+    const float* corner0{};  // the side of each corner facing the camera (FixedCorners)
+    const float* corner1{};
+    const float* corner2{};
+    const FoliageShade* s0{};  // both sides of each corner (otherwise)
+    const FoliageShade* s1{};
+    const FoliageShade* s2{};
+    // Caustic light on the leaves, when the look has a field and the leaf takes it
+    // (`triangle_boost`): the per-vertex texel positions are interpolated, and each
+    // pixel keeps its tap and boost.
+    const CausticField* field{};
+    std::uint32_t* tap{};
+    std::uint32_t* boost{};
+    const CausticPoint* l0{};
+    const CausticPoint* l1{};
+    const CausticPoint* l2{};
+    std::uint32_t triangle_boost{};
+    std::uint32_t tap_bits{};  // the triangle's sharpness and gain (CausticField::tap_bits)
+    bool test(int x, int y, float inverse_depth) {
+        const std::size_t index =
+            static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x);
+        const bool result = inverse_depth > depth[index];
+        return result;
+    }
+    void triangle(const render::r3d::WeightPlanes& weights) {
+        const float* a = corner0;
+        const float* b = corner1;
+        const float* d = corner2;
+        for (int k = 0; k < 4; ++k) {
+            plane_at[k] = a[k] * weights.at[0] + b[k] * weights.at[1] + d[k] * weights.at[2];
+            plane_across[k] = a[k] * weights.across[0] + b[k] * weights.across[1] + d[k] * weights.across[2];
+            plane_down[k] = a[k] * weights.down[0] + b[k] * weights.down[1] + d[k] * weights.down[2];
+        }
+        if (triangle_boost != 0) {
+            const float u[3] = {(*l0).u, (*l1).u, (*l2).u};
+            const float v[3] = {(*l0).v, (*l1).v, (*l2).v};
+            plane_at[4] = u[0] * weights.at[0] + u[1] * weights.at[1] + u[2] * weights.at[2];
+            plane_across[4] = u[0] * weights.across[0] + u[1] * weights.across[1] + u[2] * weights.across[2];
+            plane_down[4] = u[0] * weights.down[0] + u[1] * weights.down[1] + u[2] * weights.down[2];
+            plane_at[5] = v[0] * weights.at[0] + v[1] * weights.at[1] + v[2] * weights.at[2];
+            plane_across[5] = v[0] * weights.across[0] + v[1] * weights.across[1] + v[2] * weights.across[2];
+            plane_down[5] = v[0] * weights.down[0] + v[1] * weights.down[1] + v[2] * weights.down[2];
+        }
+        plane_x = weights.x;
+        plane_y = weights.y;
+    }
+    void run(int x, int y, bool down) {
+        const float dx = static_cast<float>(x - plane_x);
+        const float dy = static_cast<float>(y - plane_y);
+        for (int k = 0; k < attributes; ++k) {
+            run_at[k] = plane_at[k] + plane_across[k] * dx + plane_down[k] * dy;
+            run_step[k] = down ? plane_down[k] : plane_across[k];
+        }
+    }
+    void cover_at(int x, int y, float inverse_depth, float offset) {
+        float shade[attributes];
+        for (int k = 0; k < attributes; ++k)
+            shade[k] = run_at[k] + run_step[k] * offset;
+        write(static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x),
+              inverse_depth, shade);
+    }
+    void cover(const Coverage& c, bool is_front) {
+        const std::size_t index =
+            static_cast<std::size_t>(c.y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(c.x);
+        const float* a = corner0;
+        const float* b = corner1;
+        const float* d = corner2;
+        if constexpr (!FixedCorners) {
+            a = is_front ? (*s0).front : (*s0).back;
+            b = is_front ? (*s1).front : (*s1).back;
+            d = is_front ? (*s2).front : (*s2).back;
+        }
+        // Red, green, blue and alpha at once (the compiler's four-wide multiply and add).
+        float shade[attributes]{};
+        for (int k = 0; k < 4; ++k)
+            shade[k] = a[k] * c.weight0 + b[k] * c.weight1 + d[k] * c.weight2;
+        if (triangle_boost != 0) {
+            shade[4] = (*l0).u * c.weight0 + (*l1).u * c.weight1 + (*l2).u * c.weight2;
+            shade[5] = (*l0).v * c.weight0 + (*l1).v * c.weight1 + (*l2).v * c.weight2;
+        }
+        write(index, c.inverse_depth, shade);
+    }
+    // One pixel from its shade: red, green, blue, alpha and the texel position.
+    void write(std::size_t index, float inverse_depth, const float* shade) {
+        const std::uint32_t r = static_cast<std::uint32_t>(shade[0] + 0.5F);
+        const std::uint32_t g = static_cast<std::uint32_t>(shade[1] + 0.5F);
+        const std::uint32_t bl = static_cast<std::uint32_t>(shade[2] + 0.5F);
+        const float alpha = shade[3];
+        depth[index] = inverse_depth;
+        lit[index] = 0;
+        if (triangle_boost != 0) {
+            // Lit by the leaf's own tap and boost (read only where lit says so).
+            lit[index] = 2;
+            boost[index] = triangle_boost;
+            tap[index] = (*field).texel_index(shade[4], shade[5]) | tap_bits;
+        }
+        const std::uint32_t source = (std::min(r, 255U) << 16U) | (std::min(g, 255U) << 8U) | std::min(bl, 255U);
+        if (alpha >= 0.999F) {
+            color[index] = source;
+            return;
+        }
+        const std::uint32_t weight = static_cast<std::uint32_t>(alpha * 256.0F + 0.5F);
+        const std::uint32_t keep = 256U - weight;
+        const std::uint32_t under = color[index];
+        const std::uint32_t red_blue = (((source & 0xFF00FFU) * weight + (under & 0xFF00FFU) * keep) >> 8U) & 0xFF00FFU;
+        const std::uint32_t green = (((source & 0x00FF00U) * weight + (under & 0x00FF00U) * keep) >> 8U) & 0x00FF00U;
+        color[index] = red_blue | green;
+    }
+};
+
+// Settled foliage in the supersampled fixed layer: display colour per sample,
+// blended for see-through leaf tips. Leaves take caustic light when the look gives
+// them a boost (SwayShade::light_boost); otherwise none.
+struct RestFoliagePolicy {
+    static constexpr bool perspective = false;
+    int width{};
+    float* depth{};
+    std::uint32_t* color{};
+    std::uint32_t* boost{};
+    float* light_xyz{};
+    const SwayShade* s0{};
+    const SwayShade* s1{};
+    const SwayShade* s2{};
+    Vec3 p0{};
+    Vec3 p1{};
+    Vec3 p2{};
+    bool test(int x, int y, float inverse_depth) {
+        const std::size_t index =
+            static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x);
+        const bool result = inverse_depth > depth[index];
+        return result;
+    }
+    void cover(const Coverage& c, bool is_front) {
+        const std::size_t index =
+            static_cast<std::size_t>(c.y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(c.x);
+        const Rgb a = is_front ? (*s0).front : (*s0).back;
+        const Rgb b = is_front ? (*s1).front : (*s1).back;
+        const Rgb d = is_front ? (*s2).front : (*s2).back;
+        const Rgb shade = add(add(scale(a, c.weight0), scale(b, c.weight1)), scale(d, c.weight2));
+        const float alpha = (*s0).alpha * c.weight0 + (*s1).alpha * c.weight1 + (*s2).alpha * c.weight2;
+        depth[index] = c.inverse_depth;
+        color[index] = pack_rgb(alpha >= 0.999F ? shade : mix(unpack_rgb(color[index]), shade, alpha));
+        const Rgb light = add(add(scale((*s0).light_boost, c.weight0), scale((*s1).light_boost, c.weight1)),
+                              scale((*s2).light_boost, c.weight2));
+        boost[index] = pack_rgb(light);
+        if (boost[index] != 0) {
+            const Vec3 at = add(add(scale(p0, c.weight0), scale(p1, c.weight1)), scale(p2, c.weight2));
+            light_xyz[index * 3] = at.x;
+            light_xyz[index * 3 + 1] = at.y;
+            light_xyz[index * 3 + 2] = at.z;
+        }
+    }
+};
+
+// Creatures: nearest fragments listed for shading after scanning.
+template <typename Fragment> struct FragmentPolicy {
+    static constexpr bool perspective = true;
+    int width{};
+    float* depth{};
+    std::vector<Fragment>* fragments{};
+    std::uint32_t part{};
+    std::uint32_t triangle{};
+    bool test(int x, int y, float inverse_depth) {
+        const std::size_t index =
+            static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x);
+        const bool result = inverse_depth > depth[index];
+        return result;
+    }
+    void cover(const Coverage& c, bool is_front) {
+        const std::uint32_t index = static_cast<std::uint32_t>(c.y) * static_cast<std::uint32_t>(width) +
+                                    static_cast<std::uint32_t>(c.x);
+        depth[index] = c.inverse_depth;
+        const Fragment fragment{index, part, triangle, c.weight0, c.weight1, c.weight2, is_front};
+        (*fragments).push_back(fragment);
+    }
+};
+
+// Orthographic scan (shadow maps): screen points are texel coordinates and the
+// "depth" field carries nearness, interpolated linearly.
+template <typename Policy> void rasterize_flat(Policy& policy, int width, int height, ScreenPoint a, ScreenPoint b,
+                                               ScreenPoint c) {
+    const render::r3d::Lens texels{width, height, 1, 0};
+    render::r3d::rasterize_projected(policy, texels, a, b, c, Cull::none);
+}
+
+Vec3 decode_normal(const std::int8_t* n) {
+    const Vec3 result = normalize({n[0] / 127.0F, n[1] / 127.0F, n[2] / 127.0F});
+    return result;
+}
+Vec3 decode_albedo(const std::uint8_t* rgb) {
+    const float r = rgb[0] / 255.0F;
+    const float g = rgb[1] / 255.0F;
+    const float b = rgb[2] / 255.0F;
+    const Vec3 result{r * r, g * g, b * b};
+    return result;
+}
+Vec3 position_of(const float* p) {
+    const Vec3 result{p[0], p[1], p[2]};
+    return result;
+}
+Affine affine_of(const float* m) {
+    Affine result{};
+    for (int k = 0; k < 12; ++k)
+        result.m[k] = m[k];
+    return result;
+}
+
+ScreenPoint light_texel(const LightFrame& frame, int size, Vec3 world) {
+    const Vec3 d = subtract(world, frame.origin);
+    const float u = dot(d, frame.right) / frame.half_width * 0.5F + 0.5F;
+    const float v = 0.5F - dot(d, frame.up) / frame.half_height * 0.5F;
+    // Nearness to the light: larger is nearer, as the policies expect.
+    const ScreenPoint result{u * static_cast<float>(size), v * static_cast<float>(size), dot(d, frame.toward)};
+    return result;
+}
+
+// Display colour 0..1 to clamped display levels 0..255, the Gouraud policy's units.
+bool sort_key_less(const SortKey& a, const SortKey& b) {
+    if (a.depth != b.depth)
+        return a.depth < b.depth;
+    return a.triangle < b.triangle;
+}
+
+// Global index of a fixed triangle: its placement and triangle within the mesh.
+struct FixedTriangle {
+    std::uint32_t placement{};
+    std::uint32_t triangle{};
+};
+
+} // namespace
+
+// ------------------------------------------------------------------ material maps
+
+MipChain build_mips(const Texture& texture) {
+    MipChain chain{};
+    chain.levels.push_back(texture);
+    while (chain.levels.back().width > 1 && chain.levels.back().height > 1) {
+        const Texture& source = chain.levels.back();
+        Texture next{};
+        next.width = source.width / 2;
+        next.height = source.height / 2;
+        next.normal_map = source.normal_map;
+        next.rgb.resize(static_cast<std::size_t>(next.width) * static_cast<std::size_t>(next.height) * 3U);
+        for (int y = 0; y < next.height; ++y) {
+            for (int x = 0; x < next.width; ++x) {
+                for (int c = 0; c < 3; ++c) {
+                    const std::size_t w = static_cast<std::size_t>(source.width);
+                    const std::size_t sx = static_cast<std::size_t>(x) * 2U;
+                    const std::size_t sy = static_cast<std::size_t>(y) * 2U;
+                    const std::size_t cc = static_cast<std::size_t>(c);
+                    const unsigned sum = source.rgb[(sy * w + sx) * 3U + cc] + source.rgb[(sy * w + sx + 1U) * 3U + cc] +
+                                         source.rgb[((sy + 1U) * w + sx) * 3U + cc] +
+                                         source.rgb[((sy + 1U) * w + sx + 1U) * 3U + cc];
+                    next.rgb[(static_cast<std::size_t>(y) * static_cast<std::size_t>(next.width) +
+                              static_cast<std::size_t>(x)) * 3U + cc] = static_cast<std::uint8_t>((sum + 2U) / 4U);
+                }
+            }
+        }
+        chain.levels.push_back(std::move(next));
+    }
+    return chain;
+}
+
+Vec3 sample(const MipChain& chain, float u, float v, float lod) {
+    const int count = static_cast<int>(chain.levels.size());
+    const int level_index = std::clamp(static_cast<int>(std::floor(lod + 0.5F)), 0, count - 1);
+    const Texture& level = chain.levels[static_cast<std::size_t>(level_index)];
+    const float x = u * static_cast<float>(level.width) - 0.5F;
+    const float y = v * static_cast<float>(level.height) - 0.5F;
+    const float fx = std::floor(x);
+    const float fy = std::floor(y);
+    const int ix = static_cast<int>(fx);
+    const int iy = static_cast<int>(fy);
+    const float tx = x - fx;
+    const float ty = y - fy;
+    float out[3]{};
+    for (int c = 0; c < 3; ++c) {
+        const float top = mix(channel(level, ix, iy, c), channel(level, ix + 1, iy, c), tx);
+        const float bottom = mix(channel(level, ix, iy + 1, c), channel(level, ix + 1, iy + 1, c), tx);
+        out[c] = mix(top, bottom, ty);
+    }
+    const Vec3 result{out[0], out[1], out[2]};
+    return result;
+}
+
+// ------------------------------------------------------------------ shadows
+
+float ShadowMap::visibility(Vec3 world, float bias, std::uint16_t receiver) const {
+    if (size <= 0)
+        return 1;
+    const ScreenPoint texel = light_texel(frame, size, world);
+    const int cx = static_cast<int>(std::floor(texel.x));
+    const int cy = static_cast<int>(std::floor(texel.y));
+    if (cx < 1 || cy < 1 || cx >= size - 1 || cy >= size - 1)
+        return 1;
+    const float nearness = texel.inverse_depth + bias;
+    const bool own = receiver != no_ribbon && !ribbon.empty();
+    int lit = 0;
+    for (int dy = -1; dy <= 1; ++dy) {
+        const std::size_t row = static_cast<std::size_t>(cy + dy) * static_cast<std::size_t>(size);
+        for (int dx = -1; dx <= 1; ++dx) {
+            const std::size_t at = row + static_cast<std::size_t>(cx + dx);
+            // A blade is not shadowed by itself: where it is the nearest caster, the
+            // nearest caster of any other ribbon counts instead.
+            const float occluder = own && ribbon[at] == receiver ? depth_behind[at] : depth[at];
+            if (occluder <= nearness)
+                ++lit;
+        }
+    }
+    const float result = static_cast<float>(lit) / 9.0F;
+    return result;
+}
+
+std::vector<std::uint16_t> foliage_ribbons(const SceneData& scene) {
+    const std::vector<SwayVertex>& vertices = scene.sway.vertices;
+    const std::vector<std::uint32_t>& indices = scene.sway.indices;
+    // Pieces of the mesh joined by shared vertices, by union-find.
+    std::vector<std::uint32_t> parent(vertices.size());
+    for (std::size_t index = 0; index < parent.size(); ++index)
+        parent[index] = static_cast<std::uint32_t>(index);
+    struct Find {
+        static std::uint32_t root(std::vector<std::uint32_t>& parents, std::uint32_t index) {
+            while (parents[index] != index) {
+                parents[index] = parents[parents[index]];
+                index = parents[index];
+            }
+            return index;
+        }
+    };
+    for (std::size_t t = 0; t + 2 < indices.size(); t += 3) {
+        const std::uint32_t a = Find::root(parent, indices[t]);
+        const std::uint32_t b = Find::root(parent, indices[t + 1]);
+        const std::uint32_t c = Find::root(parent, indices[t + 2]);
+        parent[b] = a;
+        parent[Find::root(parent, c)] = Find::root(parent, a);
+    }
+    // A piece is a thin leaf when every vertex of it is see-through at the tips.
+    std::vector<std::uint8_t> broad(vertices.size(), 0);
+    for (std::size_t index = 0; index < vertices.size(); ++index) {
+        if (vertices[index].translucency < 179)
+            broad[Find::root(parent, static_cast<std::uint32_t>(index))] = 1;
+    }
+    std::vector<std::uint16_t> label(vertices.size(), ShadowMap::no_ribbon);
+    std::vector<std::uint16_t> result(vertices.size(), ShadowMap::no_ribbon);
+    std::uint32_t count = 0;
+    for (std::size_t index = 0; index < vertices.size(); ++index) {
+        const std::uint32_t root = Find::root(parent, static_cast<std::uint32_t>(index));
+        if (broad[root] != 0)
+            continue;
+        if (label[root] == ShadowMap::no_ribbon && count < 0xFFFEU) {
+            ++count;
+            label[root] = static_cast<std::uint16_t>(count);
+        }
+        result[index] = label[root];
+    }
+    return result;
+}
+
+ShadowMap build_shadow_map(const SceneData& scene, const Look& look, int size) {
+    ShadowMap map{};
+    map.frame = look.light_frame();
+    map.size = size;
+    const std::size_t texel_count = static_cast<std::size_t>(size) * static_cast<std::size_t>(size);
+    map.depth.assign(texel_count, -std::numeric_limits<float>::infinity());
+    map.ribbon.assign(texel_count, ShadowMap::no_ribbon);
+    map.depth_behind.assign(texel_count, -std::numeric_limits<float>::infinity());
+    LightPolicy policy{};
+    policy.width = size;
+    policy.depth = map.depth.data();
+    policy.ribbon = map.ribbon.data();
+    policy.behind = map.depth_behind.data();
+    std::vector<ScreenPoint> texels{};
+    for (const StaticPlacementRecord& placement : scene.placements) {
+        const Mesh<StaticVertex>& mesh = scene.static_meshes[placement.mesh];
+        const Affine transform = affine_of(placement.transform);
+        texels.resize(mesh.vertices.size());
+        for (std::size_t index = 0; index < mesh.vertices.size(); ++index) {
+            const Vec3 world = apply(transform, position_of(mesh.vertices[index].position));
+            texels[index] = light_texel(map.frame, size, world);
+        }
+        for (std::size_t t = 0; t + 2 < mesh.indices.size(); t += 3)
+            rasterize_flat(policy, size, size, texels[mesh.indices[t]], texels[mesh.indices[t + 1]],
+                           texels[mesh.indices[t + 2]]);
+    }
+    texels.resize(scene.sway.vertices.size());
+    for (std::size_t index = 0; index < scene.sway.vertices.size(); ++index)
+        texels[index] = light_texel(map.frame, size, position_of(scene.sway.vertices[index].position));
+    const std::vector<std::uint16_t> ribbons = foliage_ribbons(scene);
+    for (std::size_t t = 0; t + 2 < scene.sway.indices.size(); t += 3) {
+        policy.caster = ribbons[scene.sway.indices[t]];
+        rasterize_flat(policy, size, size, texels[scene.sway.indices[t]], texels[scene.sway.indices[t + 1]],
+                       texels[scene.sway.indices[t + 2]]);
+    }
+    return map;
+}
+
+// ------------------------------------------------------------------ the fixed layer
+
+FixedLayer build_fixed_layer(const SceneData& scene, const Look& look, const ShadowMap& shadows,
+                             const Foliage& foliage, int width, int height, int supersample,
+                             float settle_threshold_pixels, int sway_samples_x, int sway_samples_y) {
+    FixedLayer layer{};
+    if (width <= 0 || height <= 0)
+        return layer;
+    const int ss = std::clamp(supersample, 1, 4);
+    const int big_w = width * ss;
+    const int big_h = height * ss;
+    const std::size_t samples = static_cast<std::size_t>(big_w) * static_cast<std::size_t>(big_h);
+    const Projection projection = make_projection(scene.camera, big_w, big_h);
+
+    std::vector<float> depth(samples, 0.0F);
+    std::vector<std::uint32_t> triangle(samples, 0);
+    std::vector<float> weights(samples * 2U, 0.0F);
+    std::vector<std::uint8_t> front(samples, 0);
+    std::vector<FixedTriangle> triangles{};
+    triangles.reserve(400000);
+    VisibilityPolicy policy{big_w, depth.data(), triangle.data(), weights.data(), front.data(), 0};
+    std::vector<ViewPoint> view{};
+    for (std::size_t p = 0; p < scene.placements.size(); ++p) {
+        const StaticPlacementRecord& placement = scene.placements[p];
+        const Mesh<StaticVertex>& mesh = scene.static_meshes[placement.mesh];
+        const Affine transform = affine_of(placement.transform);
+        const Cull cull = look.closed_fixed(placement.material) ? Cull::back : Cull::none;
+        view.resize(mesh.vertices.size());
+        for (std::size_t index = 0; index < mesh.vertices.size(); ++index)
+            view[index] = to_view(projection, apply(transform, position_of(mesh.vertices[index].position)));
+        for (std::size_t t = 0; t + 2 < mesh.indices.size(); t += 3) {
+            const FixedTriangle record{static_cast<std::uint32_t>(p), static_cast<std::uint32_t>(t / 3)};
+            triangles.push_back(record);
+            policy.current = static_cast<std::uint32_t>(triangles.size());  // 0 means none
+            rasterize(policy, projection, view[mesh.indices[t]], view[mesh.indices[t + 1]], view[mesh.indices[t + 2]],
+                      cull);
+        }
+    }
+
+    // Shade every visible sample once. Colours are kept as display levels (packed),
+    // which bounds the build's transient memory; four samples average to one pixel.
+    std::vector<std::uint32_t> color(samples, 0);
+    std::vector<std::uint32_t> boost(samples, 0);
+    std::vector<float> light_xyz(samples * 3U, 0.0F);
+    for (int y = 0; y < big_h; ++y) {
+        for (int x = 0; x < big_w; ++x) {
+            const std::size_t index = static_cast<std::size_t>(y) * static_cast<std::size_t>(big_w) +
+                                      static_cast<std::size_t>(x);
+            const std::uint32_t id = triangle[index];
+            if (id == 0) {
+                color[index] = pack_rgb(look.background((static_cast<float>(x) + 0.5F) / static_cast<float>(big_w),
+                                                        (static_cast<float>(y) + 0.5F) / static_cast<float>(big_h)));
+                continue;
+            }
+            const FixedTriangle record = triangles[id - 1];
+            const StaticPlacementRecord& placement = scene.placements[record.placement];
+            const Mesh<StaticVertex>& mesh = scene.static_meshes[placement.mesh];
+            const Affine transform = affine_of(placement.transform);
+            const StaticVertex& v0 = mesh.vertices[mesh.indices[record.triangle * 3U]];
+            const StaticVertex& v1 = mesh.vertices[mesh.indices[record.triangle * 3U + 1U]];
+            const StaticVertex& v2 = mesh.vertices[mesh.indices[record.triangle * 3U + 2U]];
+            const float w1 = weights[index * 2];
+            const float w2 = weights[index * 2 + 1];
+            const float w0 = 1.0F - w1 - w2;
+            const Vec3 p0 = apply(transform, position_of(v0.position));
+            const Vec3 p1 = apply(transform, position_of(v1.position));
+            const Vec3 p2 = apply(transform, position_of(v2.position));
+            FixedSample s{};
+            s.world = add(add(scale(p0, w0), scale(p1, w1)), scale(p2, w2));
+            const Vec3 n0 = decode_normal(v0.normal);
+            const Vec3 n1 = decode_normal(v1.normal);
+            const Vec3 n2 = decode_normal(v2.normal);
+            const Vec3 local_normal = add(add(scale(n0, w0), scale(n1, w1)), scale(n2, w2));
+            s.front = front[index] != 0;
+            Vec3 normal = apply_normal(transform, local_normal);
+            if (!s.front)
+                normal = scale(normal, -1);
+            s.normal = normal;
+            const float us = placement.uv_scale[0];
+            const float vs = placement.uv_scale[1];
+            const float u0 = v0.uv[0] * us;
+            const float u1 = v1.uv[0] * us;
+            const float u2 = v2.uv[0] * us;
+            const float t0 = v0.uv[1] * vs;
+            const float t1 = v1.uv[1] * vs;
+            const float t2 = v2.uv[1] * vs;
+            s.u = u0 * w0 + u1 * w1 + u2 * w2;
+            s.v = t0 * w0 + t1 * w1 + t2 * w2;
+            // Tangent frame and texture footprint from the whole triangle.
+            const Vec3 e1 = subtract(p1, p0);
+            const Vec3 e2 = subtract(p2, p0);
+            const float du1 = u1 - u0;
+            const float dv1 = t1 - t0;
+            const float du2 = u2 - u0;
+            const float dv2 = t2 - t0;
+            const float determinant = du1 * dv2 - du2 * dv1;
+            if (std::abs(determinant) > 1e-12F) {
+                const float r = 1.0F / determinant;
+                s.tangent = scale(subtract(scale(e1, dv2), scale(e2, dv1)), r);
+                s.bitangent = scale(subtract(scale(e2, du1), scale(e1, du2)), r);
+            }
+            const ScreenPoint q0 = to_screen(projection, to_view(projection, p0));
+            const ScreenPoint q1 = to_screen(projection, to_view(projection, p1));
+            const ScreenPoint q2 = to_screen(projection, to_view(projection, p2));
+            const float screen_area =
+                std::abs((q1.x - q0.x) * (q2.y - q0.y) - (q1.y - q0.y) * (q2.x - q0.x)) * 0.5F;
+            const float uv_area = std::abs(determinant) * 0.5F * 256.0F * 256.0F;
+            s.texture_lod = screen_area > 1e-6F ? 0.5F * std::log2(std::max(uv_area / screen_area, 1e-6F)) : 8.0F;
+            const Vec3 a0 = decode_albedo(v0.albedo);
+            const Vec3 a1 = decode_albedo(v1.albedo);
+            const Vec3 a2 = decode_albedo(v2.albedo);
+            const Vec3 tint{placement.tint[0], placement.tint[1], placement.tint[2]};
+            s.albedo = multiply(add(add(scale(a0, w0), scale(a1, w1)), scale(a2, w2)), tint);
+            s.moss = (v0.moss * w0 + v1.moss * w1 + v2.moss * w2) / 255.0F;
+            s.material = placement.material;
+            s.light_visibility = shadows.visibility(s.world, 0.12F);
+            const FixedShade shade = look.shade_fixed(s, scene);
+            color[index] = pack_rgb(shade.color);
+            boost[index] = pack_rgb(shade.light_boost);
+            light_xyz[index * 3] = s.world.x;
+            light_xyz[index * 3 + 1] = s.world.y;
+            light_xyz[index * 3 + 2] = s.world.z;
+        }
+    }
+
+    // Foliage that cannot move a visible fraction of a pixel at this size is drawn
+    // here once, at rest, with its rest shading.
+    const Projection display_projection = make_projection(scene.camera, width, height);
+    std::vector<std::uint8_t> settled =
+        settle_foliage(scene, foliage, display_projection, settle_threshold_pixels);
+    {
+        const std::vector<SwayVertex>& vertices = scene.sway.vertices;
+        std::vector<ViewPoint> rest_view(vertices.size());
+        for (std::size_t index = 0; index < vertices.size(); ++index)
+            rest_view[index] = to_view(projection, position_of(vertices[index].position));
+        RestFoliagePolicy rest{};
+        rest.width = big_w;
+        rest.depth = depth.data();
+        rest.color = color.data();
+        rest.boost = boost.data();
+        rest.light_xyz = light_xyz.data();
+        const std::vector<std::uint32_t>& indices = scene.sway.indices;
+        for (const std::uint32_t triangle : foliage.order) {
+            if (settled[triangle] == 0)
+                continue;
+            const std::size_t t = static_cast<std::size_t>(triangle) * 3U;
+            rest.s0 = &foliage.rest[indices[t]];
+            rest.s1 = &foliage.rest[indices[t + 1]];
+            rest.s2 = &foliage.rest[indices[t + 2]];
+            rest.p0 = position_of(vertices[indices[t]].position);
+            rest.p1 = position_of(vertices[indices[t + 1]].position);
+            rest.p2 = position_of(vertices[indices[t + 2]].position);
+            rasterize(rest, projection, rest_view[indices[t]], rest_view[indices[t + 1]], rest_view[indices[t + 2]],
+                      Cull::none);
+        }
+    }
+
+    // Resolve the supersamples: averaged colour, nearest depth.
+    layer.width = width;
+    layer.height = height;
+    const std::size_t pixels = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+    layer.color.assign(pixels, 0);
+    layer.depth.assign(pixels, 0.0F);
+    layer.boost.assign(pixels, 0);
+    layer.light_position.assign(pixels * 3U, 0.0F);
+    const float inverse_count = 1.0F / static_cast<float>(ss * ss);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            Rgb sum{};
+            Rgb boost_sum{};
+            float nearest = 0;
+            float lx = 0;
+            float ly = 0;
+            float lz = 0;
+            int lit = 0;
+            for (int sy = 0; sy < ss; ++sy) {
+                for (int sx = 0; sx < ss; ++sx) {
+                    const std::size_t index = static_cast<std::size_t>(y * ss + sy) * static_cast<std::size_t>(big_w) +
+                                              static_cast<std::size_t>(x * ss + sx);
+                    sum = add(sum, unpack_rgb(color[index]));
+                    boost_sum = add(boost_sum, unpack_rgb(boost[index]));
+                    nearest = std::max(nearest, depth[index]);
+                    if (boost[index] != 0) {
+                        lx += light_xyz[index * 3];
+                        ly += light_xyz[index * 3 + 1];
+                        lz += light_xyz[index * 3 + 2];
+                        ++lit;
+                    }
+                }
+            }
+            const std::size_t out = static_cast<std::size_t>(y) * static_cast<std::size_t>(width) +
+                                    static_cast<std::size_t>(x);
+            layer.color[out] = pack_rgb(scale(sum, inverse_count));
+            layer.depth[out] = nearest;
+            const std::uint32_t packed_boost = pack_rgb(scale(boost_sum, inverse_count));
+            layer.boost[out] = lit > 0 ? packed_boost : 0;
+            if (lit > 0) {
+                layer.light_position[out * 3] = lx / static_cast<float>(lit);
+                layer.light_position[out * 3 + 1] = ly / static_cast<float>(lit);
+                layer.light_position[out * 3 + 2] = lz / static_cast<float>(lit);
+            }
+        }
+    }
+    // The fixed surfaces at the sway layer's sampling, for a multisampled sway layer:
+    // each of its samples is the mean of the supersamples it covers, the nearest depth,
+    // and lit when any of them takes the light.
+    const int sample_x = std::clamp(sway_samples_x, 1, 2);
+    const int sample_y = std::clamp(sway_samples_y, 1, 2);
+    if ((sample_x > 1 || sample_y > 1) && ss % sample_x == 0 && ss % sample_y == 0) {
+        layer.samples_x = sample_x;
+        layer.samples_y = sample_y;
+        const int sample_w = width * sample_x;
+        const int sample_h = height * sample_y;
+        const int block_w = ss / sample_x;
+        const int block_h = ss / sample_y;
+        const std::size_t count = static_cast<std::size_t>(sample_w) * static_cast<std::size_t>(sample_h);
+        layer.sample_color.assign(count, 0);
+        layer.sample_depth.assign(count, 0.0F);
+        layer.sample_lit.assign(count, 0);
+        const float inverse_block = 1.0F / static_cast<float>(block_w * block_h);
+        for (int y = 0; y < sample_h; ++y) {
+            for (int x = 0; x < sample_w; ++x) {
+                Rgb sum{};
+                float nearest = 0;
+                bool lit = false;
+                for (int by = 0; by < block_h; ++by) {
+                    for (int bx = 0; bx < block_w; ++bx) {
+                        const std::size_t index =
+                            static_cast<std::size_t>(y * block_h + by) * static_cast<std::size_t>(big_w) +
+                            static_cast<std::size_t>(x * block_w + bx);
+                        sum = add(sum, unpack_rgb(color[index]));
+                        nearest = std::max(nearest, depth[index]);
+                        lit = lit || visible_boost(boost[index]);
+                    }
+                }
+                const std::size_t out = static_cast<std::size_t>(y) * static_cast<std::size_t>(sample_w) +
+                                        static_cast<std::size_t>(x);
+                layer.sample_color[out] = pack_rgb(scale(sum, inverse_block));
+                layer.sample_depth[out] = nearest;
+                layer.sample_lit[out] = lit ? 1 : 0;
+            }
+        }
+    }
+    layer.hidden = hide_foliage(scene, foliage, display_projection, layer.depth, settled);
+    layer.settled = std::move(settled);
+    return layer;
+}
+
+// ------------------------------------------------------------------ projection
+
+Projection make_projection(const CameraSetup& camera, int width, int height) {
+    Projection projection{};
+    projection.width = width;
+    projection.height = height;
+    projection.eye = camera.eye;
+    projection.forward = normalize(subtract(camera.target, camera.eye));
+    projection.right = normalize(cross(projection.forward, {0, 1, 0}));
+    projection.up = cross(projection.right, projection.forward);
+    const float half_angle = camera.field_of_view_degrees * 3.14159265F / 360.0F;
+    projection.focal = static_cast<float>(height) * 0.5F / std::tan(half_angle);
+    projection.near_plane = camera.near_plane;
+    return projection;
+}
+
+// ------------------------------------------------------------------ the stage
+
+// ------------------------------------------------------------------ foliage
+
+Foliage prepare_foliage(const SceneData& scene, const Look& look, const ShadowMap& shadows) {
+    Foliage foliage{};
+    prepare_current(scene, foliage.phases, foliage.current);
+    const std::vector<SwayVertex>& vertices = scene.sway.vertices;
+    // Lighting, linearized in the bend. The current tilts each normal by `slope`
+    // along the ribbon; the shade is evaluated at rest and at a small tilt, and each
+    // update extrapolates linearly. The shadow map holds the foliage at rest, so each
+    // vertex's direct-light visibility is taken once, at rest. The bend's effect on
+    // fog distance (a few hundredths of a unit) is ignored.
+    constexpr float probe = 0.2F;
+    const std::vector<std::uint16_t> ribbons = foliage_ribbons(scene);
+    foliage.rest.resize(vertices.size());
+    foliage.gradient.resize(vertices.size());
+    foliage.reach.resize(vertices.size());
+    foliage.boost.resize(vertices.size());
+    for (std::size_t index = 0; index < vertices.size(); ++index) {
+        const SwayVertex& source = vertices[index];
+        const Vec3 bend{source.bend[0] / 127.0F, source.bend[1] / 127.0F, source.bend[2] / 127.0F};
+        const Vec3 along{source.along[0] / 127.0F, source.along[1] / 127.0F, source.along[2] / 127.0F};
+        const Vec3 rest_normal = decode_normal(source.normal);
+        SwaySample sample{};
+        sample.world = position_of(source.position);
+        sample.normal = rest_normal;
+        sample.albedo = decode_albedo(source.albedo);
+        sample.translucency = source.translucency / 255.0F;
+        sample.u = source.uv[0] / 65535.0F;
+        sample.light_visibility = shadows.visibility(sample.world, 0.12F, ribbons[index]);
+        const SwayShade rest = look.shade_sway(sample);
+        sample.normal = normalize(subtract(rest_normal, scale(along, probe * dot(bend, rest_normal))));
+        const SwayShade tilted = look.shade_sway(sample);
+        foliage.rest[index] = rest;
+        foliage.boost[index] = visible_boost(pack_rgb(rest.light_boost)) ? pack_rgb(rest.light_boost) : 0U;
+        SwayShade gradient{};
+        gradient.front = scale(subtract(tilted.front, rest.front), 1.0F / probe);
+        gradient.back = scale(subtract(tilted.back, rest.back), 1.0F / probe);
+        gradient.alpha = 0;
+        foliage.gradient[index] = gradient;
+        foliage.reach[index] = current_reach(foliage.current[index]);
+    }
+
+    // Draw order. Each plant (root) is ordered by its mean depth and keeps its own
+    // triangles in archive order, which preserves memory locality. Plants with
+    // see-through leaf tips (most of Riverscape's grass) are drawn farthest first so
+    // their blending layers correctly; fully opaque plants are drawn first, nearest
+    // first, so what they hide fails the depth test early. Sorted once at rest; the
+    // sway is too small to change the order meaningfully.
+    const std::vector<std::uint32_t>& indices = scene.sway.indices;
+    const std::size_t count = indices.size() / 3;
+    const std::size_t roots = scene.sway_roots.size();
+    const Vec3 forward = normalize(subtract(scene.camera.target, scene.camera.eye));
+    std::vector<double> depth_sum(roots, 0.0);
+    std::vector<std::uint32_t> triangles(roots, 0);
+    std::vector<std::uint8_t> see_through(roots, 0);
+    for (std::size_t t = 0; t < count; ++t) {
+        const std::uint32_t root = vertices[indices[t * 3]].root;
+        for (std::size_t k = 0; k < 3; ++k) {
+            const std::uint32_t vertex = indices[t * 3 + k];
+            depth_sum[root] += dot(subtract(position_of(vertices[vertex].position), scene.camera.eye), forward);
+            if (foliage.rest[vertex].alpha < 0.999F)
+                see_through[root] = 1;
+        }
+        ++triangles[root];
+    }
+    std::vector<SortKey> opaque{};
+    std::vector<SortKey> translucent{};
+    for (std::size_t root = 0; root < roots; ++root) {
+        if (triangles[root] == 0)
+            continue;
+        const float depth = static_cast<float>(depth_sum[root] / (3.0 * triangles[root]));
+        if (see_through[root] != 0)
+            translucent.push_back({-depth, static_cast<std::uint32_t>(root)});
+        else
+            opaque.push_back({depth, static_cast<std::uint32_t>(root)});
+    }
+    std::sort(opaque.begin(), opaque.end(), sort_key_less);
+    std::sort(translucent.begin(), translucent.end(), sort_key_less);
+    // Bucket triangles by root in archive order, then emit roots in sorted order.
+    std::vector<std::uint32_t> first(roots + 1, 0);
+    for (std::size_t root = 0; root < roots; ++root)
+        first[root + 1] = first[root] + triangles[root];
+    std::vector<std::uint32_t> cursor(first.begin(), first.end() - 1);
+    std::vector<std::uint32_t> by_root(count, 0);
+    for (std::size_t t = 0; t < count; ++t) {
+        const std::uint32_t root = vertices[indices[t * 3]].root;
+        by_root[cursor[root]] = static_cast<std::uint32_t>(t);
+        ++cursor[root];
+    }
+    foliage.order.reserve(count);
+    for (const SortKey& key : opaque)
+        for (std::uint32_t k = first[key.triangle]; k < first[key.triangle + 1]; ++k)
+            foliage.order.push_back(by_root[k]);
+    for (const SortKey& key : translucent)
+        for (std::uint32_t k = first[key.triangle]; k < first[key.triangle + 1]; ++k)
+            foliage.order.push_back(by_root[k]);
+    return foliage;
+}
+
+std::vector<std::uint8_t> settle_foliage(const SceneData& scene, const Foliage& foliage, const Projection& projection,
+                                         float threshold_pixels) {
+    const std::vector<SwayVertex>& vertices = scene.sway.vertices;
+    std::vector<std::uint8_t> still(vertices.size(), 0);
+    for (std::size_t index = 0; index < vertices.size(); ++index) {
+        const ViewPoint view = to_view(projection, position_of(vertices[index].position));
+        if (view.depth <= projection.near_plane)
+            continue;
+        const float pixels = foliage.reach[index] * projection.focal / view.depth;
+        still[index] = pixels < threshold_pixels ? 1 : 0;
+    }
+    const std::vector<std::uint32_t>& indices = scene.sway.indices;
+    std::vector<std::uint8_t> settled(indices.size() / 3, 0);
+    for (std::size_t t = 0; t < settled.size(); ++t)
+        settled[t] = (still[indices[t * 3]] & still[indices[t * 3 + 1]] & still[indices[t * 3 + 2]]);
+    return settled;
+}
+
+std::vector<std::uint8_t> hide_foliage(const SceneData& scene, const Foliage& foliage, const Projection& projection,
+                                       const std::vector<float>& depth, const std::vector<std::uint8_t>& settled) {
+    const std::vector<SwayVertex>& vertices = scene.sway.vertices;
+    const std::vector<std::uint32_t>& indices = scene.sway.indices;
+    std::vector<std::uint8_t> hidden(indices.size() / 3, 0);
+    const int width = projection.width;
+    const int height = projection.height;
+    if (width <= 0 || height <= 0 || depth.size() != static_cast<std::size_t>(width) * static_cast<std::size_t>(height))
+        return hidden;
+    // Nearest fixed depth per 8 x 8 tile: the smallest reciprocal depth in it. A
+    // triangle is hidden when it is farther than the smallest over every tile it
+    // could touch, which is the same or stricter than testing each pixel.
+    constexpr int tile = 8;
+    const int tiles_x = (width + tile - 1) / tile;
+    const int tiles_y = (height + tile - 1) / tile;
+    std::vector<float> nearest(static_cast<std::size_t>(tiles_x) * static_cast<std::size_t>(tiles_y), 1e30F);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            float& slot = nearest[static_cast<std::size_t>(y / tile) * static_cast<std::size_t>(tiles_x) +
+                                  static_cast<std::size_t>(x / tile)];
+            slot = std::min(slot, depth[static_cast<std::size_t>(y) * static_cast<std::size_t>(width) +
+                                        static_cast<std::size_t>(x)]);
+        }
+    }
+    // Per vertex, everywhere the current can take it: its screen bounds and its
+    // nearest reciprocal depth. A vertex that could reach the near plane is never culled.
+    struct Bound {
+        float x0{};
+        float x1{};
+        float y0{};
+        float y1{};
+        float inverse_depth{};
+        bool usable{};
+    };
+    std::vector<Bound> bounds(vertices.size());
+    for (std::size_t index = 0; index < vertices.size(); ++index) {
+        const SwayVertex& source = vertices[index];
+        const Vec3 bend{source.bend[0] / 127.0F, source.bend[1] / 127.0F, source.bend[2] / 127.0F};
+        const float reach = foliage.reach[index] * length(bend) * 1.01F + 1e-4F;
+        const ViewPoint view = to_view(projection, position_of(source.position));
+        const float closest = view.depth - reach;
+        Bound& bound = bounds[index];
+        if (closest <= projection.near_plane * 2)
+            continue;
+        const ScreenPoint at = to_screen(projection, view);
+        const float lateral = std::sqrt(view.x * view.x + view.y * view.y);
+        const float radius = projection.focal * reach / closest * (1.0F + lateral / view.depth) + 1.0F;
+        bound.x0 = at.x - radius;
+        bound.x1 = at.x + radius;
+        bound.y0 = at.y - radius;
+        bound.y1 = at.y + radius;
+        bound.inverse_depth = 1.0F / closest;
+        bound.usable = true;
+    }
+    for (std::size_t t = 0; t < hidden.size(); ++t) {
+        if (t < settled.size() && settled[t] != 0)
+            continue;
+        const Bound& a = bounds[indices[t * 3]];
+        const Bound& b = bounds[indices[t * 3 + 1]];
+        const Bound& c = bounds[indices[t * 3 + 2]];
+        if (!a.usable || !b.usable || !c.usable)
+            continue;
+        const float x0 = std::min({a.x0, b.x0, c.x0});
+        const float x1 = std::max({a.x1, b.x1, c.x1});
+        const float y0 = std::min({a.y0, b.y0, c.y0});
+        const float y1 = std::max({a.y1, b.y1, c.y1});
+        if (x1 < 0 || y1 < 0 || x0 >= static_cast<float>(width) || y0 >= static_cast<float>(height)) {
+            hidden[t] = 1;  // off the picture wherever it sways
+            continue;
+        }
+        const float farthest = std::max({a.inverse_depth, b.inverse_depth, c.inverse_depth}) * 1.001F;
+        const int tx0 = std::max(0, static_cast<int>(std::floor(x0))) / tile;
+        const int tx1 = std::min(width - 1, static_cast<int>(std::ceil(x1))) / tile;
+        const int ty0 = std::max(0, static_cast<int>(std::floor(y0))) / tile;
+        const int ty1 = std::min(height - 1, static_cast<int>(std::ceil(y1))) / tile;
+        bool covered = true;
+        for (int ty = ty0; ty <= ty1 && covered; ++ty) {
+            for (int tx = tx0; tx <= tx1; ++tx) {
+                if (nearest[static_cast<std::size_t>(ty) * static_cast<std::size_t>(tiles_x) +
+                            static_cast<std::size_t>(tx)] <= farthest) {
+                    covered = false;
+                    break;
+                }
+            }
+        }
+        hidden[t] = covered ? 1 : 0;
+    }
+    return hidden;
+}
+
+// ------------------------------------------------------------------ the stage
+
+Stage::Stage(const SceneData& scene, const Look& look, const Foliage& foliage)
+    : scene_(scene), look_(look), foliage_(foliage), roots_(foliage.phases) {
+    std::size_t total = 0;
+    part_vertex_base_.resize(scene_.parts.size());
+    for (std::size_t index = 0; index < scene_.parts.size(); ++index) {
+        part_vertex_base_[index] = static_cast<std::uint32_t>(total);
+        total += scene_.actor_meshes[scene_.parts[index].mesh].vertices.size();
+    }
+    actor_vertices_.resize(total);
+    fragments_.reserve(65536);
+    // Per mesh: normals decoded once. Per part: the normal transform (the linear part
+    // with each column divided by its squared length, as the original shader did).
+    mesh_normals_.resize(scene_.actor_meshes.size());
+    for (std::size_t m = 0; m < scene_.actor_meshes.size(); ++m) {
+        const std::vector<ActorVertex>& vertices = scene_.actor_meshes[m].vertices;
+        mesh_normals_[m].resize(vertices.size());
+        for (std::size_t index = 0; index < vertices.size(); ++index)
+            mesh_normals_[m][index] = decode_normal(vertices[index].normal);
+    }
+    part_normal_transform_.resize(scene_.parts.size());
+    creature_radius_.assign(scene_.actors.size(), 0.0F);
+    for (std::size_t p = 0; p < scene_.parts.size(); ++p) {
+        const ActorPartRecord& part = scene_.parts[p];
+        const Affine transform = affine_of(part.transform);
+        Affine normal_transform = transform;
+        for (int column = 0; column < 3; ++column) {
+            const float squared = transform.m[column] * transform.m[column] + transform.m[4 + column] * transform.m[4 + column] +
+                                  transform.m[8 + column] * transform.m[8 + column];
+            const float inverse = 1.0F / std::max(squared, 1e-5F);
+            normal_transform.m[column] *= inverse;
+            normal_transform.m[4 + column] *= inverse;
+            normal_transform.m[8 + column] *= inverse;
+        }
+        part_normal_transform_[p] = normal_transform;
+        // Bounding radius of the creature in its own space, with room for deformation.
+        float reach = 0;
+        for (const ActorVertex& vertex : scene_.actor_meshes[part.mesh].vertices)
+            reach = std::max(reach, length(apply(transform, position_of(vertex.position))));
+        float& radius = creature_radius_[static_cast<std::size_t>(part.actor)];
+        radius = std::max(radius, reach + 0.15F);
+    }
+}
+
+void Stage::adopt(FixedLayer layer) {
+    fixed_ = std::move(layer);
+    projection_ = make_projection(scene_.camera, fixed_.width, fixed_.height);
+    const std::size_t pixels = static_cast<std::size_t>(fixed_.width) * static_cast<std::size_t>(fixed_.height);
+    const CausticField* field = look_.caustics();
+    const bool caustic = field != nullptr && !(*field).empty();
+    for (int k = 0; k < 2; ++k) {
+        sway_tap_[k].assign(caustic ? pixels : 0U, 0);
+        sway_boost_[k].assign(caustic ? pixels : 0U, 0);
+        sway_color_[k].assign(pixels, 0);
+        sway_depth_[k].assign(pixels, 0.0F);
+        lit_pixels_[k].clear();
+        lit_pixels_[k].reserve(pixels);
+    }
+    shown_ = 0;
+    shown_frame_ = 0;
+    for (int k = 0; k < 2; ++k) {
+        frame_color_[k].assign(pixels, 0);
+        frame_depth_[k].assign(pixels, 0.0F);
+    }
+    lit_mask_.assign(pixels, 0);
+    fixed_lit_.resize(pixels);
+    for (std::size_t index = 0; index < pixels; ++index)
+        fixed_lit_[index] = (caustic ? visible_boost(fixed_.boost[index]) : fixed_.boost[index] != 0) ? 1 : 0;
+    fixed_tap_.assign(caustic ? pixels : 0U, 0);
+    for (std::size_t index = 0; caustic && index < pixels; ++index) {
+        if (fixed_.boost[index] == 0)
+            continue;
+        const Vec3 at{fixed_.light_position[index * 3U], fixed_.light_position[index * 3U + 1U],
+                      fixed_.light_position[index * 3U + 2U]};
+        fixed_tap_[index] = (*field).tap(at);
+    }
+    // A multisampled sway layer is drawn at the sample grid: the same camera, the view's
+    // x stretched where there are more samples across than down.
+    const bool multisampled = fixed_.samples_x > 1 || fixed_.samples_y > 1;
+    const std::size_t samples = multisampled ? fixed_.sample_color.size() : 0U;
+    sample_color_.assign(samples, 0);
+    sample_depth_.assign(samples, 0.0F);
+    sample_lit_.assign(samples, 0);
+    sample_tap_.assign(caustic ? samples : 0U, 0);
+    sample_boost_.assign(caustic ? samples : 0U, 0);
+    sample_projection_ = make_projection(scene_.camera, fixed_.width * fixed_.samples_x, fixed_.height * fixed_.samples_y);
+    sample_stretch_ = static_cast<float>(fixed_.samples_x) / static_cast<float>(fixed_.samples_y);
+    // Only foliage the fixed layer did not settle is redrawn on the sway cadence. It is
+    // packed in draw order, each vertex once, the first time a triangle uses it.
+    const std::vector<SwayVertex>& vertices = scene_.sway.vertices;
+    const std::vector<std::uint32_t>& indices = scene_.sway.indices;
+    constexpr std::uint32_t unpacked = 0xFFFFFFFFU;
+    std::vector<std::uint32_t> packed(vertices.size(), unpacked);
+    moving_.clear();
+    moving_triangles_.clear();
+    std::uint64_t hidden = 0;
+    for (const std::uint32_t triangle : foliage_.order) {
+        if (triangle < fixed_.settled.size() && fixed_.settled[triangle] != 0)
+            continue;
+        if (triangle < fixed_.hidden.size() && fixed_.hidden[triangle] != 0) {
+            ++hidden;
+            continue;
+        }
+        MovingTriangle out{};
+        std::uint32_t corner_boost[3] = {0, 0, 0};
+        for (std::size_t k = 0; k < 3; ++k) {
+            const std::uint32_t vertex = indices[static_cast<std::size_t>(triangle) * 3U + k];
+            if (packed[vertex] == unpacked) {
+                packed[vertex] = static_cast<std::uint32_t>(moving_.size());
+                const SwayVertex& source = vertices[vertex];
+                const SwayShade& rest = foliage_.rest[vertex];
+                const SwayShade& gradient = foliage_.gradient[vertex];
+                MovingVertex moving{};
+                moving.position = position_of(source.position);
+                moving.bend = {source.bend[0] / 127.0F, source.bend[1] / 127.0F, source.bend[2] / 127.0F};
+                moving.current = foliage_.current[vertex];
+                moving.root = source.root;
+                moving.rest_front = rest.front;
+                moving.rest_back = rest.back;
+                moving.gradient_front = gradient.front;
+                moving.gradient_back = gradient.back;
+                moving.alpha = rest.alpha;
+                moving.boost = foliage_.boost[vertex];
+                moving_.push_back(moving);
+            }
+            out.vertex[k] = packed[vertex];
+            corner_boost[k] = foliage_.boost[vertex];
+        }
+        // A leaf triangle is a few pixels: one boost for it, from its first corner.
+        out.boost = corner_boost[0] != 0 && corner_boost[1] != 0 && corner_boost[2] != 0 ? corner_boost[0] : 0;
+        moving_triangles_.push_back(out);
+    }
+    // The moving vertices renumbered root by root (in first use within a root), the
+    // triangles' corners with them; the triangles keep their draw order.
+    const std::size_t count = moving_.size();
+    std::vector<std::uint64_t> keys(count);
+    for (std::size_t index = 0; index < count; ++index)
+        keys[index] = (static_cast<std::uint64_t>(moving_[index].root) << 32U) | static_cast<std::uint64_t>(index);
+    std::sort(keys.begin(), keys.end());
+    std::vector<std::uint32_t> renumber(count);
+    std::vector<MovingVertex> grouped(count);
+    for (std::size_t index = 0; index < count; ++index) {
+        const std::size_t old = static_cast<std::size_t>(keys[index] & 0xFFFFFFFFU);
+        renumber[old] = static_cast<std::uint32_t>(index);
+        grouped[index] = moving_[old];
+    }
+    moving_.swap(grouped);
+    for (MovingTriangle& triangle : moving_triangles_) {
+        for (std::uint32_t& corner : triangle.vertex)
+            corner = renumber[corner];
+    }
+    root_runs_.clear();
+    for (std::size_t index = 0; index < count; ++index) {
+        if (index == 0 || moving_[index].root != moving_[index - 1].root)
+            root_runs_.push_back(RootRun{moving_[index].root, static_cast<std::uint32_t>(index), 0});
+        root_runs_.back().last = static_cast<std::uint32_t>(index + 1);
+    }
+    root_terms_.assign(roots_.size() * root_terms, 0.0F);
+    // Each vertex's coefficients, from its current constants. With the root's angle A,
+    // the vertex's offset B and the strength s:
+    //   shape  = sin(A - B) + 0.3 sin(R - C)
+    //   amount = s drag a + c g e shape
+    //   slope  = s drag b + c g (p shape - e (1.05 cos(A - B) + 0.51 cos(R - C)))
+    // with the gain g = 0.012 + 0.02 s; sin(A - B), cos(A - B) are linear in sin A and
+    // cos A, so the root's terms are s and g sin A, g cos A, g sin R, g cos R.
+    sway_coefficients_.assign(count * root_terms * 2U, 0.0F);
+    for (std::size_t index = 0; index < count; ++index) {
+        const CurrentVertex& v = moving_[index].current;
+        const float shape[4] = {v.cos_wave, -v.sin_wave, 0.3F * v.cos_ripple, -0.3F * v.sin_ripple};
+        const float turn[4] = {1.05F * v.sin_wave, 1.05F * v.cos_wave, 0.51F * v.sin_ripple, 0.51F * v.cos_ripple};
+        float amount[root_terms];
+        float slope[root_terms];
+        amount[0] = v.drag * v.amount_scale;
+        slope[0] = v.drag * v.slope_scale;
+        for (std::size_t k = 0; k < 4; ++k) {
+            amount[1 + k] = v.compliance * v.envelope_scale * shape[k];
+            slope[1 + k] = v.compliance * (v.slope_power * shape[k] - v.envelope_scale * turn[k]);
+        }
+        for (std::size_t k = 0; k < root_terms; ++k) {
+            sway_coefficients_[k * count + index] = amount[k];
+            sway_coefficients_[(root_terms + k) * count + index] = slope[k];
+        }
+    }
+    // Rest position and bend in view space: the view transform is linear, so a bent
+    // vertex is its rest view plus its bend view times the amount.
+    const bool sampled = fixed_.samples_x > 1 || fixed_.samples_y > 1;
+    const Projection& lens = sampled ? sample_projection_ : projection_;
+    const float stretch = sampled ? sample_stretch_ : 1.0F;
+    rest_view_.assign(count * 3U, 0.0F);
+    bend_view_.assign(count * 3U, 0.0F);
+    for (std::size_t index = 0; index < count; ++index) {
+        const MovingVertex& v = moving_[index];
+        const ViewPoint rest = to_view(lens, v.position);
+        rest_view_[index] = rest.x * stretch;
+        rest_view_[count + index] = rest.y;
+        rest_view_[count * 2U + index] = rest.depth;
+        bend_view_[index] = dot(v.bend, lens.right) * stretch;
+        bend_view_[count + index] = dot(v.bend, lens.up);
+        bend_view_[count * 2U + index] = dot(v.bend, lens.forward);
+    }
+    sway_amount_.resize(count);
+    sway_slope_.resize(count);
+    sway_quantized_.resize(count);
+    // The shade, scaled to display levels before the clamp: rest plus rate times slope.
+    shade_rest_.assign(count * 6U, 0.0F);
+    shade_rate_.assign(count * 6U, 0.0F);
+    alpha_.assign(count, 1.0F);
+    for (std::size_t index = 0; index < count; ++index) {
+        const MovingVertex& v = moving_[index];
+        const float rest[6] = {v.rest_front.x, v.rest_front.y, v.rest_front.z, v.rest_back.x, v.rest_back.y, v.rest_back.z};
+        const float rate[6] = {v.gradient_front.x, v.gradient_front.y, v.gradient_front.z,
+                               v.gradient_back.x,  v.gradient_back.y,  v.gradient_back.z};
+        for (std::size_t k = 0; k < 6; ++k) {
+            shade_rest_[k * count + index] = rest[k];
+            shade_rate_[k * count + index] = rate[k];
+        }
+        alpha_[index] = v.alpha;
+    }
+    lit_vertices_.clear();
+    light_rest_.clear();
+    light_rate_.clear();
+    const CausticField* light_field = look_.caustics();
+    if (light_field != nullptr && !(*light_field).empty()) {
+        for (std::size_t index = 0; index < count; ++index) {
+            if (moving_[index].boost != 0)
+                lit_vertices_.push_back(static_cast<std::uint32_t>(index));
+        }
+        const std::size_t lit_count = lit_vertices_.size();
+        light_rest_.assign(lit_count * 3U, 0.0F);
+        light_rate_.assign(lit_count * 3U, 0.0F);
+        for (std::size_t n = 0; n < lit_count; ++n) {
+            const MovingVertex& v = moving_[lit_vertices_[n]];
+            float u0 = 0;
+            float v0 = 0;
+            float u1 = 0;
+            float v1 = 0;
+            (*light_field).texel_of(v.position, u0, v0);
+            (*light_field).texel_of(add(v.position, v.bend), u1, v1);
+            light_rest_[n] = u0;
+            light_rest_[lit_count + n] = v0;
+            light_rest_[lit_count * 2U + n] = v.position.y;
+            light_rate_[n] = u1 - u0;
+            light_rate_[lit_count + n] = v1 - v0;
+            light_rate_[lit_count * 2U + n] = v.bend.y;
+        }
+    }
+    sway_view_.resize(moving_.size());
+    sway_screen_.resize(moving_.size());
+    sway_in_front_.resize(moving_.size());
+    sway_shade_.resize(moving_.size());
+    sway_light_.resize(moving_.size());
+    counters_.hidden_triangles = hidden;
+    ++counters_.fixed_builds;
+}
+
+void Stage::update_sway(double time) {
+    build_sway(time);
+    show_sway();
+}
+
+void Stage::show_sway() {
+    shown_ = 1 - shown_;
+}
+
+void Stage::build_sway(double time) {
+    if (!ready())
+        return;
+    const int target = 1 - shown_;
+    std::vector<std::uint32_t>& sway_color = sway_color_[target];
+    std::vector<float>& sway_depth = sway_depth_[target];
+    std::vector<std::uint32_t>& lit_pixels = lit_pixels_[target];
+    const std::size_t pixels = fixed_.color.size();
+    std::vector<std::uint8_t>& lit = lit_mask_;
+    const CausticField* field = look_.caustics();
+    const bool caustic = field != nullptr && !(*field).empty() && !fixed_tap_.empty();
+    // The foliage is drawn over the fixed layer: at the pixels, or at the sample grid of
+    // a multisampled layer, resolved into the pixels afterwards.
+    const bool multisampled = fixed_.samples_x > 1 || fixed_.samples_y > 1;
+    std::uint32_t* draw_color = sway_color.data();
+    float* draw_depth = sway_depth.data();
+    std::uint8_t* draw_lit = nullptr;
+    std::uint32_t* draw_tap = caustic ? sway_tap_[target].data() : nullptr;
+    std::uint32_t* draw_boost = caustic ? sway_boost_[target].data() : nullptr;
+    int draw_width = fixed_.width;
+    Projection projection = projection_;
+    if (multisampled) {
+        const std::size_t samples = fixed_.sample_color.size();
+        std::memcpy(sample_color_.data(), fixed_.sample_color.data(), samples * sizeof(std::uint32_t));
+        std::memcpy(sample_depth_.data(), fixed_.sample_depth.data(), samples * sizeof(float));
+        std::memcpy(sample_lit_.data(), fixed_.sample_lit.data(), samples);
+        draw_color = sample_color_.data();
+        draw_depth = sample_depth_.data();
+        draw_lit = sample_lit_.data();
+        draw_tap = caustic ? sample_tap_.data() : nullptr;
+        draw_boost = caustic ? sample_boost_.data() : nullptr;
+        draw_width = fixed_.width * fixed_.samples_x;
+        projection = sample_projection_;
+    } else {
+        std::memcpy(sway_color.data(), fixed_.color.data(), pixels * sizeof(std::uint32_t));
+        std::memcpy(sway_depth.data(), fixed_.depth.data(), pixels * sizeof(float));
+        lit = fixed_lit_;
+        draw_lit = lit.data();
+    }
+
+    update_current_roots(scene_.sway_roots, time, roots_);
+    const std::size_t moving_count = moving_.size();
+    // Per root: its five terms.
+    for (std::size_t r = 0; r < roots_.size(); ++r) {
+        const CurrentRoot& root = roots_[r];
+        float* terms = root_terms_.data() + r * root_terms;
+        const float gain = 0.012F + 0.02F * root.strength;
+        terms[0] = root.strength;
+        terms[1] = gain * root.sin_theta;
+        terms[2] = gain * root.cos_theta;
+        terms[3] = gain * root.sin_ripple;
+        terms[4] = gain * root.cos_ripple;
+    }
+    // Per run of a root's vertices: amount and slope, two dot products with the
+    // root's terms held in registers, streamed over the coefficient rows.
+    {
+        const float* c = sway_coefficients_.data();
+        const std::size_t n = moving_count;
+        float* amount = sway_amount_.data();
+        float* slope = sway_slope_.data();
+        for (const RootRun& run : root_runs_) {
+            const float* t = root_terms_.data() + static_cast<std::size_t>(run.root) * root_terms;
+            const float t0 = t[0];
+            const float t1 = t[1];
+            const float t2 = t[2];
+            const float t3 = t[3];
+            const float t4 = t[4];
+            for (std::size_t v = run.first; v < run.last; ++v) {
+                amount[v] = c[v] * t0 + c[n + v] * t1 + c[n * 2U + v] * t2 + c[n * 3U + v] * t3 + c[n * 4U + v] * t4;
+                slope[v] = c[n * 5U + v] * t0 + c[n * 6U + v] * t1 + c[n * 7U + v] * t2 + c[n * 8U + v] * t3 +
+                           c[n * 9U + v] * t4;
+            }
+        }
+    }
+    // Per vertex: placed in view space, rest plus bend times amount, and projected.
+    // Every vertex is projected; one behind the near plane is marked and its screen
+    // point never read.
+    {
+        const std::size_t n = moving_count;
+        const float* rest = rest_view_.data();
+        const float* bend = bend_view_.data();
+        const float* amount = sway_amount_.data();
+        ViewPoint* views = sway_view_.data();
+        ScreenPoint* screens = sway_screen_.data();
+        std::uint8_t* in_front = sway_in_front_.data();
+        render::r3d::QuantizedPoint* quantized = sway_quantized_.data();
+        const float near = projection.near_plane;
+        const float focal = projection.focal;
+        const float centre_x = static_cast<float>(projection.width) * 0.5F;
+        const float centre_y = static_cast<float>(projection.height) * 0.5F;
+        for (std::size_t v = 0; v < n; ++v) {
+            const float a = amount[v];
+            const float x = rest[v] + bend[v] * a;
+            const float y = rest[n + v] + bend[n + v] * a;
+            const float depth = rest[n * 2U + v] + bend[n * 2U + v] * a;
+            views[v] = ViewPoint{x, y, depth};
+            const bool front = depth >= near;
+            const float inverse = 1.0F / (front ? depth : 1.0F);
+            const ScreenPoint screen{centre_x + x * focal * inverse, centre_y - y * focal * inverse, inverse};
+            screens[v] = screen;
+            in_front[v] = front ? 1 : 0;
+            quantized[v] = render::r3d::QuantizedPoint{render::r3d::quantize(screen.x), render::r3d::quantize(screen.y)};
+        }
+    }
+    // Per vertex: shaded, rest plus rate times slope, clamped to display levels.
+    {
+        const std::size_t n = moving_count;
+        const float* rest = shade_rest_.data();
+        const float* rate = shade_rate_.data();
+        const float* slope = sway_slope_.data();
+        const float* alpha = alpha_.data();
+        FoliageShade* shades = sway_shade_.data();
+        for (std::size_t v = 0; v < n; ++v) {
+            const float bent = slope[v];
+            FoliageShade& shade = shades[v];
+            for (std::size_t k = 0; k < 3; ++k) {
+                shade.front[k] = std::clamp(rest[k * n + v] + rate[k * n + v] * bent, 0.0F, 1.0F) * 255.0F;
+                shade.back[k] = std::clamp(rest[(k + 3U) * n + v] + rate[(k + 3U) * n + v] * bent, 0.0F, 1.0F) * 255.0F;
+            }
+            shade.front[3] = alpha[v];
+            shade.back[3] = alpha[v];
+        }
+    }
+    // Per lit vertex: where the caustic light falls on it, rest plus rate times amount.
+    if (caustic) {
+        const std::size_t n = lit_vertices_.size();
+        const std::uint32_t* lit_index = lit_vertices_.data();
+        const float* rest = light_rest_.data();
+        const float* rate = light_rate_.data();
+        const float* amount = sway_amount_.data();
+        CausticPoint* lights = sway_light_.data();
+        for (std::size_t k = 0; k < n; ++k) {
+            const std::uint32_t v = lit_index[k];
+            const float a = amount[v];
+            CausticPoint& light = lights[v];
+            light.u = rest[k] + rate[k] * a;
+            light.v = rest[n + k] + rate[n + k] * a;
+            light.height = rest[n * 2U + k] + rate[n * 2U + k] * a;
+        }
+    }
+    GouraudPolicy<true> policy{};
+    policy.width = draw_width;
+    policy.depth = draw_depth;
+    policy.color = draw_color;
+    policy.lit = draw_lit;
+    GouraudPolicy<false> clipped{};  // for the rare triangle crossing the near plane
+    clipped.width = draw_width;
+    clipped.depth = draw_depth;
+    clipped.color = draw_color;
+    clipped.lit = draw_lit;
+    if (caustic) {
+        policy.field = field;
+        policy.tap = draw_tap;
+        policy.boost = draw_boost;
+        clipped.field = field;
+        clipped.tap = draw_tap;
+        clipped.boost = draw_boost;
+    }
+    for (const MovingTriangle& triangle : moving_triangles_) {
+        const std::uint32_t i0 = triangle.vertex[0];
+        const std::uint32_t i1 = triangle.vertex[1];
+        const std::uint32_t i2 = triangle.vertex[2];
+        if ((sway_in_front_[i0] & sway_in_front_[i1] & sway_in_front_[i2]) != 0) {
+            const ScreenPoint& a = sway_screen_[i0];
+            const ScreenPoint& b = sway_screen_[i1];
+            const ScreenPoint& c = sway_screen_[i2];
+            // The facing as the scan decides it, so each corner's side is chosen once.
+            const float signed_area = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+            const bool front = signed_area < 0;
+            policy.quantized[0] = &sway_quantized_[i0];
+            policy.quantized[1] = &sway_quantized_[i1];
+            policy.quantized[2] = &sway_quantized_[i2];
+            policy.corner0 = front ? sway_shade_[i0].front : sway_shade_[i0].back;
+            policy.corner1 = front ? sway_shade_[i1].front : sway_shade_[i1].back;
+            policy.corner2 = front ? sway_shade_[i2].front : sway_shade_[i2].back;
+            if (caustic) {
+                policy.triangle_boost = triangle.boost;
+                // Leaves take the soft light only: thin blades seen edge-on would turn
+                // the sharp lines into dashes.
+                if (triangle.boost != 0)
+                    policy.tap_bits = (*field).tap_bits(sway_light_[i0].height, 0.0F);
+                policy.l0 = &sway_light_[i0];
+                policy.l1 = &sway_light_[i1];
+                policy.l2 = &sway_light_[i2];
+            }
+            rasterize_projected(policy, projection, a, b, c, Cull::none);
+            continue;
+        }
+        clipped.s0 = &sway_shade_[i0];
+        clipped.s1 = &sway_shade_[i1];
+        clipped.s2 = &sway_shade_[i2];
+        if (caustic) {
+            clipped.triangle_boost = triangle.boost;
+            if (triangle.boost != 0)
+                clipped.tap_bits = (*field).tap_bits(sway_light_[i0].height, 0.0F);
+            clipped.l0 = &sway_light_[i0];
+            clipped.l1 = &sway_light_[i1];
+            clipped.l2 = &sway_light_[i2];
+        }
+        rasterize(clipped, projection, sway_view_[i0], sway_view_[i1], sway_view_[i2], Cull::none);
+    }
+    lit_pixels.clear();
+    if (multisampled) {
+        resolve_samples(target);
+    } else {
+        // Leaf pixels are marked (top bit): their tap and boost are in this sway
+        // buffer; the others read the fixed layer's. Eight marks are read at a time,
+        // so the stretches of unlit pixels cost a word each.
+        const std::uint8_t* marks = lit.data();
+        std::size_t index = 0;
+        for (; index + 8 <= pixels; index += 8) {
+            std::uint64_t word = 0;
+            std::memcpy(&word, marks + index, 8);
+            if (word == 0)
+                continue;
+            for (std::size_t k = index; k < index + 8; ++k) {
+                if (marks[k] != 0)
+                    lit_pixels.push_back(static_cast<std::uint32_t>(k) | (marks[k] == 2 ? leaf_bit : 0U));
+            }
+        }
+        for (; index < pixels; ++index) {
+            if (marks[index] != 0)
+                lit_pixels.push_back(static_cast<std::uint32_t>(index) | (marks[index] == 2 ? leaf_bit : 0U));
+        }
+    }
+    counters_.sway_triangles += moving_triangles_.size();
+    ++counters_.sway_updates;
+}
+
+// The multisampled sway layer into the pixels of sway buffer `target`: each pixel the
+// mean of its samples and their nearest depth. Its light: where a lit leaf covers any
+// sample, the leaf's tap and its boost in proportion to the samples it covers; where
+// none does, the fixed surface's tap and its boost in proportion to the samples still
+// showing it. Both are kept in this buffer's own tap and boost, so every lit pixel
+// reads as a leaf pixel to the frame, and the buffer's lit list is written here.
+// The samples' channels are summed packed, red with blue and green alone: two or four
+// of them never carry into the next field.
+void Stage::resolve_samples(int target) {
+    const int width = fixed_.width;
+    const int height = fixed_.height;
+    const int samples_x = fixed_.samples_x;
+    const int samples_y = fixed_.samples_y;
+    const int sample_width = width * samples_x;
+    const std::uint32_t count = static_cast<std::uint32_t>(samples_x * samples_y);
+    const std::uint32_t half = count / 2;
+    const std::uint32_t shift = count == 4 ? 2 : 1;  // the mean of 2 or 4 samples
+    const std::uint32_t round_red_blue = (half << 16U) | half;
+    const std::uint32_t round_green = half << 8U;
+    const bool caustic = !sample_tap_.empty();
+    std::uint32_t* out_color = sway_color_[target].data();
+    float* out_depth = sway_depth_[target].data();
+    std::uint32_t* out_tap = caustic ? sway_tap_[target].data() : nullptr;
+    std::uint32_t* out_boost = caustic ? sway_boost_[target].data() : nullptr;
+    std::uint8_t* out_lit = lit_mask_.data();
+    std::vector<std::uint32_t>& lit_pixels = lit_pixels_[target];
+    const std::uint32_t* colors = sample_color_.data();
+    const float* depths = sample_depth_.data();
+    const std::uint8_t* lits = sample_lit_.data();
+    const std::uint32_t* taps = sample_tap_.data();
+    const std::uint32_t* boosts = sample_boost_.data();
+    const std::uint32_t* fixed_taps = fixed_tap_.data();
+    const std::uint32_t* fixed_boosts = fixed_.boost.data();
+    for (int y = 0; y < height; ++y) {
+        const std::size_t row = static_cast<std::size_t>(y) * static_cast<std::size_t>(samples_y) *
+                                static_cast<std::size_t>(sample_width);
+        for (int x = 0; x < width; ++x) {
+            std::uint32_t red_blue = 0;
+            std::uint32_t green = 0;
+            float nearest = 0;
+            std::uint32_t lit_any = 0;  // the samples' marks or-ed: 0 none, 1 fixed only, 2 or 3 a leaf
+            std::uint32_t leaf_lit = 0;
+            std::uint32_t fixed_lit = 0;
+            std::uint32_t leaf_tap = 0;
+            std::uint32_t boost_red_blue = 0;
+            std::uint32_t boost_green = 0;
+            for (int sy = 0; sy < samples_y; ++sy) {
+                const std::size_t index = row + static_cast<std::size_t>(sy) * static_cast<std::size_t>(sample_width) +
+                                          static_cast<std::size_t>(x * samples_x);
+                for (int sx = 0; sx < samples_x; ++sx) {
+                    const std::uint32_t c = colors[index + static_cast<std::size_t>(sx)];
+                    red_blue += c & 0xFF00FFU;
+                    green += c & 0x00FF00U;
+                    nearest = std::max(nearest, depths[index + static_cast<std::size_t>(sx)]);
+                    lit_any |= lits[index + static_cast<std::size_t>(sx)];
+                }
+            }
+            const std::size_t pixel = static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x);
+            out_color[pixel] = (((red_blue + round_red_blue) >> shift) & 0xFF00FFU) | (((green + round_green) >> shift) & 0x00FF00U);
+            out_depth[pixel] = nearest;
+            if (lit_any == 0) {
+                out_lit[pixel] = 0;
+                continue;
+            }
+            if (!caustic) {
+                out_lit[pixel] = 1;
+                lit_pixels.push_back(static_cast<std::uint32_t>(pixel));
+                continue;
+            }
+            // A lit pixel: its samples read again for the light, the rarer path.
+            for (int sy = 0; sy < samples_y; ++sy) {
+                const std::size_t index = row + static_cast<std::size_t>(sy) * static_cast<std::size_t>(sample_width) +
+                                          static_cast<std::size_t>(x * samples_x);
+                for (int sx = 0; sx < samples_x; ++sx) {
+                    const std::uint8_t lit = lits[index + static_cast<std::size_t>(sx)];
+                    if (lit == 2) {
+                        if (leaf_lit == 0)
+                            leaf_tap = taps[index + static_cast<std::size_t>(sx)];
+                        ++leaf_lit;
+                        const std::uint32_t b = boosts[index + static_cast<std::size_t>(sx)];
+                        boost_red_blue += b & 0xFF00FFU;
+                        boost_green += b & 0x00FF00U;
+                    } else if (lit == 1) {
+                        ++fixed_lit;
+                    }
+                }
+            }
+            out_lit[pixel] = 2;
+            lit_pixels.push_back(static_cast<std::uint32_t>(pixel) | leaf_bit);
+            if (leaf_lit > 0) {
+                out_tap[pixel] = leaf_tap;
+                out_boost[pixel] = (((boost_red_blue + round_red_blue) >> shift) & 0xFF00FFU) |
+                                   (((boost_green + round_green) >> shift) & 0x00FF00U);
+            } else {
+                out_tap[pixel] = fixed_taps[pixel];
+                const std::uint32_t b = fixed_boosts[pixel];
+                out_boost[pixel] = (((((b >> 16U) & 255U) * fixed_lit + half) / count) << 16U) |
+                                   (((((b >> 8U) & 255U) * fixed_lit + half) / count) << 8U) |
+                                   (((b & 255U) * fixed_lit + half) / count);
+            }
+        }
+    }
+}
+
+void Stage::compose(double time, double light_time, const std::vector<Creature>& creatures) {
+    if (!ready())
+        return;
+    const std::vector<std::uint32_t>& sway_color = sway_color_[shown_];
+    const std::size_t pixels = sway_color.size();
+    std::vector<std::uint32_t>& frame_color = frame_color_[1 - shown_frame_];
+    std::memcpy(frame_color.data(), sway_color.data(), pixels * sizeof(std::uint32_t));
+    std::memcpy(frame_depth_[1 - shown_frame_].data(), sway_depth_[shown_].data(), pixels * sizeof(float));
+    const float t = static_cast<float>(light_time);
+    const CausticField* field = look_.caustics();
+    const bool caustic = field != nullptr && !(*field).empty() && !sway_tap_[shown_].empty();
+    if (caustic) {
+        // Integer arithmetic on packed channels: the boost scaled by the light's level
+        // (0..256), added with saturation (red with blue, green alone).
+        const CausticField::Phase phase = (*field).phase(t);
+        const std::uint32_t* leaf_taps = sway_tap_[shown_].data();
+        const std::uint32_t* leaf_boosts = sway_boost_[shown_].data();
+        const std::uint32_t* fixed_taps = fixed_tap_.data();
+        const std::uint32_t* fixed_boosts = fixed_.boost.data();
+        for (const std::uint32_t entry : lit_pixels_[shown_]) {
+            const std::uint32_t index = entry & ~leaf_bit;
+            const bool leaf = (entry & leaf_bit) != 0;
+            const std::uint32_t level = CausticField::light_level(phase, leaf ? leaf_taps[index] : fixed_taps[index]);
+            if (level == 0)
+                continue;
+            const std::uint32_t add_light = leaf ? leaf_boosts[index] : fixed_boosts[index];
+            const std::uint32_t base = frame_color[index];
+            std::uint32_t red_blue = (base & 0xFF00FFU) + ((((add_light & 0xFF00FFU) * level) >> 8U) & 0xFF00FFU);
+            std::uint32_t green = (base & 0x00FF00U) + ((((add_light & 0x00FF00U) * level) >> 8U) & 0x00FF00U);
+            const std::uint32_t red_blue_over = red_blue & 0x01000100U;
+            const std::uint32_t green_over = green & 0x00010000U;
+            red_blue = (red_blue | (red_blue_over - (red_blue_over >> 8U))) & 0xFF00FFU;
+            green = (green | (green_over - (green_over >> 8U))) & 0x00FF00U;
+            frame_color[index] = red_blue | green;
+        }
+    } else {
+        for (const std::uint32_t entry : lit_pixels_[shown_]) {
+            const std::uint32_t index = entry & ~leaf_bit;
+            const float strength = look_.animated_light(fixed_.light_position[index * 3U],
+                                                        fixed_.light_position[index * 3U + 2U], t);
+            if (strength <= 0.002F)
+                continue;
+            const std::uint32_t base = frame_color[index];
+            const std::uint32_t add_light = fixed_.boost[index];
+            std::uint32_t out = 0;
+            for (std::uint32_t shift = 0; shift <= 16; shift += 8) {
+                const float channel_value = static_cast<float>((base >> shift) & 255U) +
+                                            static_cast<float>((add_light >> shift) & 255U) * strength;
+                const std::uint32_t c = static_cast<std::uint32_t>(std::min(255.0F, channel_value + 0.5F));
+                out |= c << shift;
+            }
+            frame_color[index] = out;
+        }
+    }
+    draw_actors(time, t, creatures);
+    draw_risers(time);
+    for (std::uint32_t& pixel : frame_color)
+        pixel |= 0xFF000000U;
+    shown_frame_ = 1 - shown_frame_;
+    ++counters_.frames;
+}
+
+void Stage::draw_actors(double time, float light_time, const std::vector<Creature>& creatures) {
+    const float t = static_cast<float>(time);
+    std::vector<std::uint32_t>& frame_color = frame_color_[1 - shown_frame_];
+    const CausticField* field = look_.caustics();
+    const bool caustic = field != nullptr && !(*field).empty();
+    const CausticField::Phase phase = caustic ? (*field).phase(light_time) : CausticField::Phase{};
+    // Which creatures are in view at all: a bounding sphere around each pose. A
+    // creature wholly outside the view costs nothing more this frame.
+    creature_visible_.assign(creatures.size(), 0);
+    poses_.resize(creatures.size());
+    const float width = static_cast<float>(projection_.width);
+    const float height = static_cast<float>(projection_.height);
+    for (std::size_t index = 0; index < creatures.size(); ++index) {
+        poses_[index] = creature_pose(creatures[index], time);
+        if (index >= creature_radius_.size())
+            continue;
+        const Pose& pose = poses_[index];
+        const float radius = creature_radius_[index] * static_cast<float>(creatures[index].scale);
+        const ViewPoint view = to_view(projection_, {static_cast<float>(pose.position.x),
+                                                     static_cast<float>(pose.position.y),
+                                                     static_cast<float>(pose.position.z)});
+        if (view.depth + radius <= projection_.near_plane)
+            continue;
+        if (view.depth - radius <= projection_.near_plane) {
+            creature_visible_[index] = 1;
+            continue;
+        }
+        const ScreenPoint centre = to_screen(projection_, view);
+        const float reach = radius * projection_.focal / (view.depth - radius);
+        const bool outside = centre.x + reach < 0 || centre.x - reach > width || centre.y + reach < 0 ||
+                             centre.y - reach > height;
+        creature_visible_[index] = outside ? 0 : 1;
+    }
+    // Pose every visible part's vertices in world and camera space.
+    for (std::size_t p = 0; p < scene_.parts.size(); ++p) {
+        const ActorPartRecord& part = scene_.parts[p];
+        const Mesh<ActorVertex>& mesh = scene_.actor_meshes[part.mesh];
+        const std::size_t actor = static_cast<std::size_t>(part.actor);
+        if (actor >= creatures.size() || creature_visible_[actor] == 0)
+            continue;
+        const Pose& pose = poses_[actor];
+        const float c = static_cast<float>(std::cos(pose.heading));
+        const float s = static_cast<float>(std::sin(pose.heading));
+        const float size = static_cast<float>(creatures[actor].scale);
+        const Vec3 position{static_cast<float>(pose.position.x), static_cast<float>(pose.position.y),
+                            static_cast<float>(pose.position.z)};
+        const Affine transform = affine_of(part.transform);
+        const Affine& normal_transform = part_normal_transform_[p];
+        const std::vector<Vec3>& normals = mesh_normals_[part.mesh];
+        const float lift = look_.joint_lift(part.joint, part.joint_phase, t);
+        const std::uint32_t base = part_vertex_base_[p];
+        for (std::size_t index = 0; index < mesh.vertices.size(); ++index) {
+            const ActorVertex& vertex = mesh.vertices[index];
+            Vec3 local = position_of(vertex.position);
+            Vec3 normal = normals[index];
+            look_.deform_actor(part.material, vertex, static_cast<float>(part.actor), t, local, normal);
+            Vec3 placed = apply(transform, local);
+            placed.y += lift;
+            const Vec3 world = add(rotate_y(scale(placed, size), c, s), position);
+            ActorVertexOut& out = actor_vertices_[base + index];
+            out.world = world;
+            out.normal = rotate_y(normalize(apply_linear(normal_transform, normal)), c, s);
+            out.local = local;
+            out.view = to_view(projection_, world);
+            out.in_front = out.view.depth >= projection_.near_plane;
+            if (out.in_front)
+                out.screen = to_screen(projection_, out.view);
+        }
+    }
+    fragments_.clear();
+    FragmentPolicy<Fragment> policy{};
+    policy.width = projection_.width;
+    policy.depth = frame_depth_[1 - shown_frame_].data();
+    policy.fragments = &fragments_;
+    for (std::size_t p = 0; p < scene_.parts.size(); ++p) {
+        const ActorPartRecord& part = scene_.parts[p];
+        const std::size_t actor = static_cast<std::size_t>(part.actor);
+        if (actor >= creatures.size() || creature_visible_[actor] == 0)
+            continue;
+        const Mesh<ActorVertex>& mesh = scene_.actor_meshes[part.mesh];
+        const std::uint32_t base = part_vertex_base_[p];
+        const Cull cull = look_.closed_actor(part.material) ? Cull::back : Cull::none;
+        policy.part = static_cast<std::uint32_t>(p);
+        for (std::size_t t = 0; t + 2 < mesh.indices.size(); t += 3) {
+            policy.triangle = static_cast<std::uint32_t>(t / 3);
+            // Each vertex is shared by several triangles: project it once (above), and
+            // clip only the rare triangle that crosses the near plane.
+            const ActorVertexOut& a = actor_vertices_[base + mesh.indices[t]];
+            const ActorVertexOut& b = actor_vertices_[base + mesh.indices[t + 1]];
+            const ActorVertexOut& d = actor_vertices_[base + mesh.indices[t + 2]];
+            if (a.in_front && b.in_front && d.in_front)
+                rasterize_projected(policy, projection_, a.screen, b.screen, d.screen, cull);
+            else
+                rasterize(policy, projection_, a.view, b.view, d.view, cull);
+        }
+    }
+    // Shade in scan order: a nearer fragment always comes after what it covers.
+    const float inverse_height = 1.0F / static_cast<float>(projection_.height);
+    for (const Fragment& fragment : fragments_) {
+        const ActorPartRecord& part = scene_.parts[fragment.part];
+        const Mesh<ActorVertex>& mesh = scene_.actor_meshes[part.mesh];
+        const std::uint32_t base = part_vertex_base_[fragment.part];
+        const std::uint32_t i0 = mesh.indices[fragment.triangle * 3U];
+        const std::uint32_t i1 = mesh.indices[fragment.triangle * 3U + 1U];
+        const std::uint32_t i2 = mesh.indices[fragment.triangle * 3U + 2U];
+        const ActorVertexOut& a = actor_vertices_[base + i0];
+        const ActorVertexOut& b = actor_vertices_[base + i1];
+        const ActorVertexOut& d = actor_vertices_[base + i2];
+        const float w0 = fragment.weight0;
+        const float w1 = fragment.weight1;
+        const float w2 = fragment.weight2;
+        ActorSample sample{};
+        sample.world = add(add(scale(a.world, w0), scale(b.world, w1)), scale(d.world, w2));
+        Vec3 normal = normalize(add(add(scale(a.normal, w0), scale(b.normal, w1)), scale(d.normal, w2)));
+        if (!fragment.front)
+            normal = scale(normal, -1);
+        sample.normal = normal;
+        sample.local = add(add(scale(a.local, w0), scale(b.local, w1)), scale(d.local, w2));
+        const ActorVertex& va = mesh.vertices[i0];
+        const ActorVertex& vb = mesh.vertices[i1];
+        const ActorVertex& vd = mesh.vertices[i2];
+        sample.u = (va.uv[0] * w0 + vb.uv[0] * w1 + vd.uv[0] * w2) / 65535.0F;
+        sample.v = (va.uv[1] * w0 + vb.uv[1] * w1 + vd.uv[1] * w2) / 65535.0F;
+        sample.part = static_cast<float>(va.part) * w0 + static_cast<float>(vb.part) * w1 +
+                      static_cast<float>(vd.part) * w2;
+        sample.fin = (va.fin * w0 + vb.fin * w1 + vd.fin * w2) / 255.0F;
+        sample.tint = {part.tint[0], part.tint[1], part.tint[2]};
+        sample.material = part.material;
+        sample.screen_v = static_cast<float>(fragment.pixel / static_cast<std::uint32_t>(projection_.width)) *
+                          inverse_height;
+        if (caustic)
+            sample.light = CausticField::strength(phase, (*field).tap(sample.world));
+        float alpha = 1;
+        const Rgb shade = look_.shade_actor(sample, alpha);
+        if (alpha >= 0.999F) {
+            frame_color[fragment.pixel] = pack_rgb(shade);
+        } else {
+            const Rgb under = unpack_rgb(frame_color[fragment.pixel]);
+            frame_color[fragment.pixel] = pack_rgb(mix(under, shade, alpha));
+        }
+    }
+    counters_.actor_fragments += fragments_.size();
+}
+
+void Stage::draw_risers(double time) {
+    std::vector<std::uint32_t>& frame_color = frame_color_[1 - shown_frame_];
+    const std::vector<float>& frame_depth = frame_depth_[1 - shown_frame_];
+    const int width = projection_.width;
+    const int height = projection_.height;
+    for (const RiserRecord& riser : scene_.risers) {
+        const double cycle = time * riser.speed + riser.phase;
+        const double h = cycle - std::floor(cycle / riser.height) * riser.height;
+        const Vec3 world{riser.base[0] + static_cast<float>(0.10 * std::sin(h * 2 + riser.phase)),
+                         riser.base[1] + static_cast<float>(h), riser.base[2]};
+        const ViewPoint view = to_view(projection_, world);
+        if (view.depth <= projection_.near_plane)
+            continue;
+        const ScreenPoint center = to_screen(projection_, view);
+        const float radius = riser.size * projection_.focal / view.depth;
+        if (radius < 0.35F)
+            continue;
+        const int x0 = std::max(0, static_cast<int>(std::floor(center.x - radius)));
+        const int x1 = std::min(width - 1, static_cast<int>(std::ceil(center.x + radius)));
+        const int y0 = std::max(0, static_cast<int>(std::floor(center.y - radius)));
+        const int y1 = std::min(height - 1, static_cast<int>(std::ceil(center.y + radius)));
+        for (int y = y0; y <= y1; ++y) {
+            for (int x = x0; x <= x1; ++x) {
+                const float dx = (static_cast<float>(x) + 0.5F - center.x) / radius;
+                const float dy = (static_cast<float>(y) + 0.5F - center.y) / radius;
+                const float r2 = dx * dx + dy * dy;
+                if (r2 >= 1)
+                    continue;
+                const std::size_t index =
+                    static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x);
+                if (center.inverse_depth <= frame_depth[index])
+                    continue;
+                const float dz = std::sqrt(1 - r2);
+                const Vec3 normal = normalize(add(add(scale(projection_.right, dx), scale(projection_.up, -dy)),
+                                                  scale(projection_.forward, -dz)));
+                const Rgb shade = look_.shade_riser(world, normal, static_cast<float>(y) / static_cast<float>(height));
+                // A soft rim keeps one- and two-pixel bubbles from flickering.
+                const float alpha = std::clamp((1 - r2) * 2.5F, 0.0F, 1.0F);
+                const Rgb under = unpack_rgb(frame_color[index]);
+                frame_color[index] = pack_rgb(mix(under, shade, alpha));
+            }
+        }
+    }
+}
+
+} // namespace ambient

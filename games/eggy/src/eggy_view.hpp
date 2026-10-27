@@ -1,0 +1,173 @@
+#pragma once
+#include "game_text.hpp"
+// The game as a GUI.Forms control: frame loop, input, HUD, speech, dialogs,
+// autosave, music. Rendering is published through a LiveSurface.
+#include "lines.hpp"
+#include "save.hpp"
+#include "scene.hpp"
+
+#include "gui_forms/basic_controls.hpp"
+#include "gui_forms/live_surface.hpp"
+#include "gui_forms/timer.hpp"
+
+#include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
+
+namespace eggy {
+namespace gf = gui_forms;
+
+struct Options {
+    bool hosted = false; // the collection owns help and music preferences
+    bool dev = false;          // separate save file, warp allowed
+    double warp_v = -1;        // start at this row (dev)
+    bool summit = false;       // warp next to the summit (dev)
+    bool storm = false;        // bring a storm in a few seconds (dev)
+};
+
+class EggyView final : public gf::Control {
+public:
+    bool editing_name() const { return panel_ == Panel::finale && !score_saved_; }
+    EggyView(gf::StableId id, Options opt);
+    static constexpr bool initialize_tree_after_construction = true;
+    void initialize_control_tree() {}
+    void arrange(gf::Rect bounds) override;
+    void on_paint(gf::Painter& p, gf::Rect damage) override;
+    void on_pointer(gf::PointerEvent& e) override;
+    void on_key(gf::KeyEvent& e) override;
+    void on_key_bubble(gf::KeyEvent& e) override { on_key(e); }
+    void on_text_input(gf::TextInputEvent& e) override;
+    void activate();
+    void set_cabinet_preferences(bool music, bool sound, bool reduced);
+    // Ticks the game has run: the count advances whether or not the picture changes.
+    std::uint64_t ticks() const { return ticks_; }
+    // Development scripts (only with --dev): "warp:<row>", "summit", "storm",
+    // "hour:<0..1>" (0.25 sunrise, 0.5 noon, 0.75 sunset), "seed:<n>" (a new climb on
+    // that mountain) and "play" (close the title).
+    bool scripted_action(std::string_view code);
+
+private:
+    enum class Panel { none, title, help, scores, confirm, away, finale };
+
+public:
+    // Host commands: "new" asks to start a new climb, "help" and "scores" toggle their panels.
+    void host_command(const std::string& id);
+    // "help", "scores" or "" for the panel a host should show as active.
+    [[nodiscard]] std::string host_panel() const;
+
+private:
+    struct Button { std::string id, label; int x, y, w, h; };
+    struct Bubble { std::string text; double age = 0, dur = 0; bool officer = false; int shown = 0; };
+
+    struct RenderState {
+        // Freeze only the values used by the HUD while text shaping completes.
+        // Copying Sim here also copied the mountain cache, stars and path every frame.
+        double altitude = 0, breath = 1, refreshed = 0, sun = 0;
+        double bubble_x = 0, bubble_y = 0;
+        int stars_collected = 0;
+        bool finished = false, player_mode = false;
+        Biome biome = Biome::meadow;
+        SaveData save_{};
+        Bubble bubble_{};
+        std::vector<Button> buttons_;
+        std::string banner_, name_entry_, pressed_;
+        Panel panel_ = Panel::title;
+        bool score_saved_ = false;
+        double away_m_ = 0, away_s_ = 0, banner_t_ = 0, t_ = 0;
+        double title_card_ = 0, wall_ = 0;
+    };
+    std::unique_ptr<RenderState> rendering_;
+    bool rendering_pending_ = false;
+    std::unique_ptr<games::GameText> game_text_;
+    void capture_render_state();
+    void layout_render_buttons();
+    void blit_title_mask(const games::TextImage& image, int x, int y, Col color, int scale);
+    void cabinet_visibility(bool shown);
+    void window_activation(bool active);
+    bool cabinet_music_ = true, cabinet_sound_ = true, cabinet_reduced_ = false;
+    Options opt_;
+    // Hosted, PlaySuite's Sound master is the only switch; standalone, the game's own.
+    [[nodiscard]] bool sound_on() const { return opt_.hosted || save_.settings.sound; }
+    // Where the HUD starts, in game pixels: in the collection, below the floating capsule and
+    // the help button, which take the top 58 points.
+    [[nodiscard]] int top_inset() const {
+        return opt_.hosted ? static_cast<int>(std::ceil(58 / save_.settings.pixel)) : 3;
+    }
+    std::unique_ptr<Sim> sim_;
+    Scene scene_;
+    SaveData save_;
+    LineBank lines_;
+    Canvas frame_;
+    std::shared_ptr<gf::LiveSurface> surface_;
+    std::unique_ptr<gf::Timer> timer_;
+    std::vector<gf::SubscriptionToken> subs_;
+    gf::SubscriptionToken activation_{};  // the window's, dropped on detach
+    std::chrono::steady_clock::time_point last_{};
+    double t_ = 0, save_t_ = 0, chatter_t_ = 20, speech_cool_ = 0, banner_t_ = 0, music_hold_ = 0;
+    std::uint64_t ticks_ = 0;
+    std::string banner_, music_track_;
+    Biome music_biome_ = Biome::meadow;
+    Bubble bubble_;
+    std::vector<Bubble> queue_;
+    Panel panel_ = Panel::title;
+    std::vector<Button> buttons_;
+    std::string pressed_;
+    double away_m_ = 0, away_s_ = 0;
+    bool keys_[5] = {};        // up down left right hop-held
+    bool hop_edge_ = false;
+    bool mouse_down_ = false;
+    double mouse_x_ = 0, mouse_y_ = 0;  // physical pixels
+    double bs_ = 2;            // backing scale
+    int pw_ = 0, ph_ = 0;      // framebuffer size in game pixels
+    int phys_w_ = 0, phys_h_ = 0;
+    std::vector<int> xmap_;
+    std::string name_entry_;
+    bool score_saved_ = false;
+    bool climb_started_ = false;
+    double title_card_ = 0;    // the "ELITE SPECIAL SOLDIER" banner timer
+
+    bool direct_ = false;
+    void register_surface();
+    void on_attached_to_window() override;
+    void on_detaching_from_window(gf::Window& window) noexcept override;
+    void tick();
+    void handle(const Event& e);
+    void say(const std::string& category, double chance = 1.0);
+    void say_text(const std::string& text, bool officer = false, double dur = 0);
+    std::string context_category();
+    std::string surroundings();
+    std::string self_category();
+    std::map<std::string, double> noticed_;
+    double notice_t_ = 6;
+    void persist();
+    void intro_tick(double dt);
+    void skip_intro();
+    int intro_ = -1;
+    double intro_t_ = 0;
+    bool intro_pending_ = false;
+    void new_climb(std::uint64_t seed = 0);  // 0: a fresh mountain from the clock
+    void action(const std::string& id);
+    void open(Panel p);
+    void layout_buttons();
+    // drawing
+    void compose();
+    void draw_hud();
+    void draw_bubble();
+    void draw_panel();
+    void draw_window(int x, int y, int w, int h, const std::string& title);
+    void draw_button(const Button& b);
+    struct HiText { std::string s; bool bold; double size; int wrap; int x, y; Col c; int big; };
+    std::vector<HiText> texts_;
+    games::TextImage tmask(const std::string& s, bool bold, double size, int wrap_game);
+    int text(const std::string& s, int x, int y, Col c, double size = 10, bool bold = false, int wrap = 0, int big = 1);
+    int text_w(const std::string& s, double size, bool bold, int big = 1);
+    int text_h(const std::string& s, double size, bool bold, int wrap = 0, int big = 1);
+    void blit_texts(std::uint32_t* dst, size_t stride_px, double k);
+};
+
+}  // namespace eggy

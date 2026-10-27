@@ -1,0 +1,69 @@
+{
+  "id": "specimencabinet",
+  "namespace": "sc",
+  "title": "Specimen Cabinet",
+  "kind": "Logic puzzle",
+  "category": "puzzles",
+  "blurb": "Lay every stone in the cabinet so no row or column repeats a shape or a material.",
+  "view_class": "SpecimenCabinetView",
+  "view_header": "specimencabinet_view.hpp",
+  "save_file": "specimen_cabinet-v1.txt",
+  "core_sources": [
+    "src/rules.cpp",
+    "src/save.cpp",
+    "src/stage.cpp",
+    "src/tumbler.cpp"
+  ],
+  "ui_sources": [
+    "src/specimencabinet_view.cpp",
+    "src/scene.cpp",
+    "src/platform/text.cpp"
+  ],
+  "audio_adapter": "src/platform/audio.cpp",
+  "core_tests": [
+    "tests/rules_tests.cpp"
+  ],
+  "contract_test": "tests/view_contract_tests.cpp",
+  "borrowed": [],
+  "audio_prefix": "sc_",
+  "audio_manifest": "assets/audio/sc_audio_manifest.json",
+  "settles_when_untouched": true,
+  "schema_version": 1,
+  "entry_id": 26,
+  "entry_name": "specimencabinet",
+  "enabled": true,
+  "hosted": true,
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "help": "help.md",
+  "build": "build.cmake",
+  "colors": [
+    [
+      92,
+      66,
+      44
+    ],
+    [
+      36,
+      26,
+      19
+    ],
+    [
+      255,
+      215,
+      122
+    ]
+  ],
+  "audio_sources": [
+    "src/platform/audio.cpp"
+  ],
+  "libraries": [
+    "sc_core"
+  ],
+  "help_topics": [],
+  "assets": "assets",
+  "engines": [
+    "render",
+    "stones"
+  ]
+}

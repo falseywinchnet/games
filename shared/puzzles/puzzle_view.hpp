@@ -1,0 +1,270 @@
+#pragma once
+#include "gui_forms/basic_controls.hpp"
+#include "gui_forms/controls/panel/text_box/text_box.hpp"
+#include "gui_forms/live_surface.hpp"
+#include "gui_forms/paint_framebuffer.hpp"
+#include "gui_forms/resources.hpp"
+#include "gui_forms/timer.hpp"
+#include "kitten.hpp"
+#include "gem_art.hpp"
+#include "puzzle_render.hpp"
+#include "r2d.hpp"
+#include "suite.hpp"
+#include <array>
+#include <chrono>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <span>
+#include <vector>
+namespace games {
+namespace gf = gui_forms;
+class PuzzleScenePart;
+class PuzzleView final : public gf::Control, public CommandSource {
+  public:
+    PuzzleView(gf::StableId id, PuzzleKind kind);
+    static constexpr bool initialize_tree_after_construction = true;
+    void initialize_control_tree();
+    void arrange(gf::Rect bounds) override;
+    void on_paint(gf::Painter& p, gf::Rect damage) override;
+    void on_pointer(gf::PointerEvent& e) override;
+    void on_key(gf::KeyEvent& e) override;
+    void on_key_bubble(gf::KeyEvent& e) override;
+    void on_text_input(gf::TextInputEvent& e) override;
+    void activate();
+    [[nodiscard]] std::vector<GameCommand> commands() const override;
+    void run_command(std::string_view id) override;
+    // Nature Cube and Untangle: the level, on the Settings screen.
+    [[nodiscard]] std::vector<GameSetting> settings() const override;
+    void change_setting(std::string_view id, double value) override;
+    [[nodiscard]] gf::Rect board() const {
+        return board_;
+    }
+    // Where a cube cell is drawn (the centroid of its pixels), or nothing if hidden.
+    [[nodiscard]] std::optional<gf::Point> cube_cell_point(int cell) const;
+    // Development actions for Puzzle Solve captures (refused unless `development`):
+    // "deal <level> <seed>", "witness <pieces>" places that many witness pieces, and
+    // "drag <piece> <x> <y>" holds a piece with the pointer at frame cell (x, y).
+    bool scripted_action(std::string_view action);
+    bool development = false;
+    PuzzleGame game;
+
+  private:
+    friend class PuzzleScenePart;
+    friend struct PuzzleFramebufferTest;
+    std::array<std::shared_ptr<gf::Control>, 3> scene_parts_;
+    void refresh_scene();
+    void invalidate_static_scene();
+    void present_framebuffer(gf::Rect damage);
+    // The same for several separate areas, each restored and painted on its own and published
+    // as one frame: a cat and a few frosted pegs far apart are not one box over the board.
+    void present_framebuffer_areas(std::vector<gf::Rect> areas);
+    // Gems: the still board and the gem layer laid straight into the live surface's buffer
+    // over `area` (device pixels), with no painter.
+    void present_gems(render::Rect area);
+    void compose_gems(const render::Target& target, render::Rect area);
+    // The board's device pixels, which the gem layer covers, and the same in points.
+    [[nodiscard]] render::Rect gem_box() const;
+    [[nodiscard]] gf::Rect gem_rect() const;
+    // Makes the gem layer an image for a frame the painter draws.
+    void upload_gem_layer();
+    std::vector<std::uint32_t> gem_pixels_;  // premultiplied BGRA, gem_scale_ x the board
+    render::r3d::Buffers gem_depth_;
+    int gem_scale_ = 1;
+    // A resting board copies each gem from its picture instead of drawing it again: one
+    // picture for each kind of gem at each of eight sizes of its breath, drawn without its
+    // sparkle (which is drawn over the copy), in the layer's pixels and byte order. Made as
+    // they are wanted; forgotten when the gems change size.
+    struct GemPicture {
+        int key = -1;  // value * 16 + breath step
+        int side = 0;
+        std::vector<std::uint32_t> pixels;
+        // Per row, what to copy: runs of (first, end, opaque) after rows[row] in `runs`;
+        // transparent pixels are skipped and opaque ones copied whole.
+        std::vector<int> rows;
+        std::vector<int> runs;
+    };
+    std::vector<GemPicture> gem_pictures_;
+    double gem_picture_radius_ = 0;
+    render::Order gem_picture_order_ = render::Order::bgra;
+    render::r3d::Buffers gem_picture_depth_;
+    // `radius` is the step's, `base` the gems' unbreathing radius (a new one forgets them all).
+    const GemPicture& gem_picture(int value, int step, double radius, double base);
+    // Laid over the layer inside `clip` (layer pixels).
+    void copy_gem(const GemPicture& picture, double x, double y, render::Rect clip);
+    // A resting board is drawn again only where a gem changed: what each square last showed
+    // (its gem, breath, sparkle and place, in quarter layer pixels) and the layer pixels it
+    // covered. gem_changed_ holds the device pixels the last render changed; a frame with
+    // none is not drawn at all.
+    std::array<std::uint64_t, 64> gem_shown_{};
+    std::array<render::Rect, 64> gem_covered_{};
+    bool gem_partial_ = false;      // the last render drew only what changed
+    bool gem_layer_whole_ = false;  // the layer holds every gem as gem_shown_ says
+    std::vector<render::Rect> gem_changed_;
+    // Lays the changed areas into the live surface's buffer, which holds the frame before.
+    void present_gem_changes();
+    render::Order gem_order_ = render::Order::bgra;  // the window's, or BGRA for an image
+    bool gem_image_stale_ = true;
+    bool gems_direct_ = false;  // the last gems frame was laid without the painter
+    // While a frame's moving layers are painted, the area being painted (empty: all of it):
+    // what lies wholly outside it is not drawn.
+    gf::Rect paint_area_{};
+    [[nodiscard]] bool in_paint_area(gf::Rect r) const {
+        return paint_area_.empty() || !gf::Rect::intersection(paint_area_, r).empty();
+    }
+    bool prepare_framebuffer();
+    std::unique_ptr<gf::PaintFramebuffer> framebuffer_;
+    std::shared_ptr<gf::LiveSurface> surface_;
+    gf::ImageRegistry frame_images_;
+    gf::ImageId frame_image_{};
+    std::vector<std::byte> static_pixels_;
+    gf::Size framebuffer_size_{};
+    double framebuffer_scale_ = 0;
+    bool static_pixels_dirty_ = true;
+    bool direct_ = false;
+    // The live surface holds a complete frame, so a new one need copy only what changed;
+    // device pixels a refused write lease left unpublished, to copy with the next frame.
+    bool surface_whole_ = false;
+    int unpublished_[4] = {0, 0, 0, 0}; // left, top, right, bottom; empty when right <= left
+    bool framebuffer_painting_ = false;
+    void invalidate_scene();
+    void invalidate_animation(gf::Rect damage);
+    void invalidate_animation_areas(const std::vector<gf::Rect>& areas);
+    bool update_untangle_geometry();
+    [[nodiscard]] gf::Rect untangle_animation_bounds() const;
+    // What moves on a resting board, each part apart: the cat, the hint, each frosted peg, each puff.
+    [[nodiscard]] std::vector<gf::Rect> untangle_animation_areas() const;
+    [[nodiscard]] gf::Rect untangle_board_damage() const;
+    std::vector<Point2> untangle_positions_;
+    bool untangle_geometry_dirty_ = true;
+    int untangle_crossings_ = 0;
+    std::array<std::shared_ptr<gf::Button>, 9> buttons_;
+    std::shared_ptr<gf::TextBox> name_;
+    std::vector<gf::SubscriptionToken> subscriptions_;
+    std::unique_ptr<gf::Timer> timer_;
+    gf::ImageId image_{}, nature_{}, curator_{};
+    gf::Size image_size_{};
+    PuzzleRaster raster_;
+    gf::Rect board_{}, popup_{};
+    int panel_ = 0, hover_ = -1, drag_ = -1, selection_ = 0, rotation_ = 0, palette_ = 1,
+        swap_a_ = -1, swap_b_ = -1, cascade_step_ = -1;
+    bool flip_ = false, sound_ = true, music_ = true, reduced_ = false, invalid_swap_ = false,
+         tracing_ = false, orbit_ = false;
+    double yaw_ = .75, pitch_ = -.56, target_yaw_ = .75, target_pitch_ = -.56;
+    gf::Point last_pointer_{}, pointer_seen_{};
+    Point2 drag_position_{};
+    // Puzzle Solve: the dragged piece follows the pointer at its grab point, in board units.
+    gf::Point solve_pointer_{};
+    Point2 grab_{};
+    bool lifted_ = false, lift_flip_ = false;
+    int lift_x_ = 0, lift_y_ = 0, lift_rotation_ = 0;
+    std::array<int, 12> piece_rotation_{};
+    std::array<bool, 12> piece_flip_{};
+    void solve_recenter();
+    bool solve_snap(int& x, int& y) const;
+    bool solve_lift(int piece);
+    void solve_select(int piece);
+    void layout_solve(gf::Rect bounds);
+    // Puzzle Solve's art is drawn into cached images between frames (an upload may ask for
+    // a repaint, so never while painting); a frame only places them. Each image remembers
+    // what it shows, so nothing is redrawn until that changes.
+    struct SolveSprite {
+        gf::ImageId image{};
+        std::vector<int> key;
+        double margin = 0, width = 0, height = 0; // device pixels
+    };
+    std::array<SolveSprite, 12> solve_board_sprites_{}, solve_tray_sprites_{};
+    SolveSprite solve_lift_sprite_{}, solve_ghost_sprite_{}, solve_frame_sprite_{},
+        solve_design_sprite_{}, solve_plaster_{};
+    std::array<gf::Point, 12> solve_board_origin_{}; // cell origin of each placed piece
+    double solve_scale_ = 1, solve_border_ = 14, solve_tray_unit_ = 20;
+    gf::Rect solve_design_{};
+    void solve_prepare();
+    void solve_glass(SolveSprite& sprite, const std::vector<PieceCell>& cells, double unit,
+                     GlassLook look);
+    void solve_upload(SolveSprite& sprite, const std::vector<int>& key, const GlassImage& image,
+                      double margin);
+    void solve_draw(gf::Painter& p, const SolveSprite& sprite, double x, double y,
+                    double opacity = 1) const;
+    void solve_release_images(gf::Window& window);
+    [[nodiscard]] double solve_unit() const;
+    [[nodiscard]] int solve_atom_at(gf::Point local) const;
+    [[nodiscard]] std::vector<PieceCell> solve_placed(int piece, int& x, int& y) const;
+    [[nodiscard]] double untangle_radius() const;
+    struct GemEffect {
+        enum Kind { shard, ring, shock, beam_row, beam_column, bolt, points } kind;
+        double x, y, vx, vy, spin, life, size;
+        gf::Color color;
+        double age = 0;
+    };
+    // Gems: a click picks a gem and a click on a neighbor swaps the two; a press can also
+    // drag the gem itself toward a neighbor. Offsets and positions are in cells.
+    int gem_pick_ = -1, gem_spring_ = -1, gem_hint_ = -1, gem_hint_to_ = -1;
+    bool gem_dragging_ = false;
+    gf::Point gem_press_{};
+    Point2 gem_offset_{};
+    double swap_from_ = 0, gem_idle_ = 0, fx_dt_ = 0;
+    gf::FrameTime intro_start_{};
+    bool intro_ = false;
+    void gem_swap(int a, int b, double from);
+    void gem_find_hint();
+    void gem_drag(gf::Point local);
+    // Untangle: the cat, how long the pegs have been left alone, the peg it last knocked
+    // (animated from where it was), a frozen peg refusing to move, and thaw bursts.
+    Kitten kitten_;
+    bool cat_carried_ = false;     // the player is holding the cat up
+    double untangle_hint_ = 0;     // seconds the "same colour" hint still shows
+    bool untangle_hinted_ = false; // shown once this session for the puzzle opened
+    [[nodiscard]] gf::Rect untangle_hint_rect() const;
+    double untangle_idle_ = 0, swat_t_ = 1, frozen_nudge_t_ = 1;
+    int swat_peg_ = -1, frozen_nudge_ = -1;
+    Point2 swat_from_{};
+    struct ThawPuff {
+        Point2 at;
+        double age = 0;
+    };
+    std::vector<ThawPuff> puffs_;
+    void untangle_step();
+    void untangle_released(const std::array<int, 96>& marks_before);
+    std::vector<GemEffect> effects_;
+    std::chrono::steady_clock::time_point fx_clock_{};
+    std::uint32_t fx_seed_ = 0x9E3779B9u;
+    double shake_ = 0, callout_life_ = 0;
+    std::string callout_;
+    void spawn_effects(const std::array<int, 96>& before, const std::array<int, 96>& after,
+                       int depth);
+    void step_effects();
+    gf::Rect target_{}, tray_{};
+    gf::Point press_point_{};
+    bool tray_turn_ = false;
+    gf::FrameTime animation_start_{}, clock_start_{};
+    double animation_duration_ = 0;
+    std::array<int, 4> guess_{};
+    std::array<int, 96> before_swap_{};
+    std::vector<gf::Rect> cells_;
+    std::array<gf::Rect, 21> clues_{};
+    std::filesystem::path path() const;
+    void on_attached_to_window() override;
+    void on_detaching_from_window(gf::Window&) noexcept override;
+    void action(gf::ButtonBase& button);
+    void tick();
+    void render();
+    void request_render();
+    void fit_raster();
+    bool coarse_ = false, raster_dirty_ = false;
+    void persist();
+    void changed(const std::string& sound);
+    void panel(int kind);
+    void new_game();
+    void text(gf::Painter&, double, double, const std::string&, double, gf::Color);
+    void paint_gems(gf::Painter&, int part = -1);
+    void paint_untangle(gf::Painter&, int part = -1);
+    void paint_pegs(gf::Painter&);
+    void paint_atoms(gf::Painter&);
+    void paint_solve(gf::Painter&);
+    void paint_sticks(gf::Painter&);
+    void paint_help(gf::Painter&);
+    int hit(gf::Point) const;
+    double elapsed() const;
+};
+} // namespace games

@@ -1,0 +1,31 @@
+{
+ "package": "game-fourpegs-01",
+ "replaces": "Four Pegs (PuzzleKind::pegs, collection slot 6)",
+ "clean_build_from_package": "ok (Release, arm64, GUI.Forms paint-port SDK copy on the Neo)",
+ "board_tests": "PASS (evaluator vs independent reference on all 1,679,616 pairs; duplicates; flow; save state)",
+ "package_app_launch": "ok; saved GAMES_STATE_DIR/four_pegs-dev-v2.txt",
+ "audio_files": 37,
+ "audio_decoded_afconvert": 37,
+ "aac_valid_frames_equal_manifest_loop_ends": true,
+ "tier_cuts_logged_on_bar_lines": [
+  "fp_music_t1 -> fp_music_t2",
+  "fp_music_t2 -> fp_music_t3"
+ ],
+ "behaviours_captured_in_app": [
+  "new game stakes",
+  "jab for no improvement",
+  "three exact",
+  "foiled: exclamation and lament",
+  "out of attempts: the promise",
+  "triumph laugh",
+  "collapse",
+  "GAME OVER / Try again"
+ ],
+ "not_verified": [
+  "listening pass (score, voice, laugh, collapse, effects)",
+  "reduced motion (not implemented)",
+  "CPU measurement",
+  "cabinet integration",
+  "non-macOS platforms"
+ ]
+}

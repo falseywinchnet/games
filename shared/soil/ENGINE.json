@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "soil",
+  "namespace": "soil",
+  "title": "Soil",
+  "summary": "A seeded, deterministic painter of garden ground: clods and crumbs of every size with soft self-shadowing, furrows and rake lines, pebbles and grit, straw, twigs and fallen leaves, damp patches, a cracked dry crust, frost and snow, as seamless repeating surfaces or as the fan of fresh spoil round a hole.",
+  "build": "build.cmake",
+  "libraries": [
+    "soil_core"
+  ],
+  "source_directories": [
+    "src"
+  ],
+  "tests": [
+    "tests/soil_tests.cpp"
+  ]
+}

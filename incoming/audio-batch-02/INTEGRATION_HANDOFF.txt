@@ -1,0 +1,21 @@
+RUNTIME DELIVERY DUE TO M4 DISK LIMIT
+
+All 131 sound assets are present in two formats: 131 AAC M4A and131 Ogg Opus files. WAV masters are preserved on the Neo in /Users/ultimussecundai/Documents/Codex/2026-09-30/sol/outputs/audio-batch-02, not in this runtime package. outputs/audio_manifest.json maps every entry to its M4A runtime file, with Ogg alternative and exact master location. audio_manifest_masters.json preserves original WAV metadata. Producer measurements and loop sample points describe masters, not untrimmed compressed streams.
+
+The original full-copy transfer failed for lack of disk space. This runtime package is complete for compressed playback; defer master copying and on-disk PCM expansion until space is available. Validate target-engine gapless playback before claiming seamless loops.
+
+AUDIO BATCH 02 — ADDITIONAL GAMES
+
+Incremental delivery: 10 music loops (9 games, two Sudoku arrangements), 18 win/top-score stingers, 103 SFX. 131 PCM24 WAV masters at 48 kHz plus matching Ogg Opus and AAC M4A encodings (393 audio files).
+
+outputs/audio_manifest.json contains ONLY this batch, with paths relative to this package root. outputs/audio_manifest_collection.json and AUDIO_MANIFEST.md describe the combined batches; batch01 assets remain in incoming/audio-batch-01. Merge audio inventories by file path. Sources under work/src are the full current generation sources.
+
+Music IDs: gems, sudoku_day, sudoku_night, nature_cube, untangle, atom_probe, four_pegs, switchbox, puzzle_solve, sticks_stones. music_puzzle_solve is PicPax-style Puzzle Solve. Batch01 music_puzzle_main/tiptoe remain the distinct Sokoban game. Rendezvous Riders is excluded.
+
+Use manifest PCM loop sample ranges, not rounded durations. Ogg files are Opus, not Vorbis. Compressed decoder priming/padding needs engine validation. Music starts/resumes by game; autosave must not restart tracks. Select Sudoku day/night by theme; they differ in tempo and length, so do not assume phase-aligned switching.
+
+Show only terminal named top scores, no running score HUD or lifetime statistics. stinger_topscore_* accompanies end-of-game name entry; sequence or choose between win and top-score stingers rather than stacking both at full gain. ui_new_game is for the explicit action, never autosave.
+
+Play Atom Probe/Four Pegs result cues only after equivalent visible feedback; no hidden path/code leaks. Switchbox switch cues do not reveal hidden sequence membership. Nature cube cues should not pan with mouse rotation. Sudoku errors remain counted after undo; do not infer that a cell must keep an error highlight after its value is undone/corrected. For simultaneous Sudoku completions use one cue.
+
+Producer reported no samples/soundfonts/recordings/external assets. Numerical audio measurements are not a listening pass. Listening quality and engine looping remain unverified. Puzzle Solve seam begins on a deliberate woodblock attack; review by listening before declaring it seamless. Reported music true peaks reach -3.5 dBTP (Sticks & Stones), so do not repeat the earlier blanket <= -4 dBTP claim for this batch.

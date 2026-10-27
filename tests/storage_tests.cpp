@@ -1,0 +1,131 @@
+#include "storage.hpp"
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <stdexcept>
+#include "test_paths.hpp"
+void require(bool condition, const char* message) {
+    if (!condition)
+        throw std::runtime_error(message);
+}
+int main() {
+    std::filesystem::path root =
+        games_test::scratch_directory("games-storage-test-");
+    std::filesystem::path path = root / "save.txt";
+    games::Cabinet source;
+    source.active = 2;
+    source.back = 3;
+    source.reduced = true;
+    for (int i = 0; i < games::kind_count; ++i) {
+        source.started[i] = true;
+        source.games[i].deal(static_cast<games::Kind>(i), 1234 + i);
+    }
+    source.player_name = "Ada \"Ace\"";
+    source.result_recorded[2] = true;
+    games::State finished = source.games[2].state;
+    finished.over = true;
+    for (int i = 0; i < 15; ++i) {
+        finished.moves = 100 - i;
+        require(games::add_top_score(source.top_scores, finished, "Player " + std::to_string(i)),
+                "qualifying result");
+    }
+    require(source.top_scores[5].size() == 10, "only top ten retained");
+    require(source.top_scores[5].front().value == 86 && source.top_scores[5].back().value == 95,
+            "low move counts rank first");
+    finished.moves = 999;
+    require(!games::qualifies(source.top_scores, finished), "nonqualifying result excluded");
+    finished.kind = games::Kind::solitaire;
+    finished.score = 300;
+    require(games::add_top_score(source.top_scores, finished, source.player_name),
+            "solitaire high score");
+    finished.score = 400;
+    require(games::add_top_score(source.top_scores, finished, "Bea"), "higher score accepted");
+    require(source.top_scores[0].front().value == 400, "higher solitaire score ranks first");
+    finished.draw_count = 3;
+    require(games::qualifies(source.top_scores, finished) && source.top_scores[1].empty(),
+            "draw profiles isolated");
+    require(!games::add_top_score(source.top_scores, finished, "   "), "blank names rejected");
+    require(!games::add_top_score(source.top_scores, finished, "A\nB"),
+            "control characters rejected");
+    source.games[0].draw();
+    {
+        // A TriPeaks run under way: its count is kept.
+        games::Game& peaks = source.games[static_cast<int>(games::Kind::tripeaks)];
+        const games::Move m = peaks.hint();
+        if (m.from >= 0)
+            require(peaks.move(m), "TriPeaks play");
+        else
+            require(peaks.draw(), "TriPeaks turn");
+    }
+    source.games[3].pass({0, 1, 2});
+    source.games[3].play(source.games[3].computer_choice());
+    require(games::save_cabinet(path, source), "save");
+    games::Cabinet loaded;
+    require(games::load_cabinet(path, loaded), "load");
+    require(loaded.active == 2 && loaded.back == 3 && loaded.reduced, "settings roundtrip");
+    require(loaded.player_name == source.player_name && loaded.result_recorded[2],
+            "name and result latch roundtrip");
+    require(loaded.top_scores[5].size() == 10 && loaded.top_scores[0][1].name == source.player_name,
+            "named scores survive quit");
+    require(loaded.games[4].state.run == source.games[4].state.run, "TriPeaks run roundtrip");
+    for (int i = 0; i < games::kind_count; ++i) {
+        require(loaded.games[i].invariant(), "saved conservation");
+        require(loaded.games[i].state.seed == source.games[i].state.seed, "saved seed");
+        for (int p = 0; p < games::pile_count; ++p) {
+            const games::Pile& a = source.games[i].state.piles[p];
+            const games::Pile& b = loaded.games[i].state.piles[p];
+            require(a.size() == b.size(), "pile size");
+            for (std::size_t c = 0; c < a.size(); ++c)
+                require(a[c].id == b[c].id && a[c].up == b[c].up, "card order/visibility");
+        }
+    }
+    {
+        std::ofstream out(path, std::ios::app);
+        out << "corrupt";
+    }
+    require(!games::load_cabinet(path, loaded), "corruption rejected");
+    require(loaded.back == 3, "failed read preserves previous cabinet");
+    {
+        std::ofstream out(path);
+        out << "RAINSTAR_GAMES 999 0\n";
+    }
+    require(!games::load_cabinet(path, loaded), "unknown version rejected");
+    {
+        // A version 2 save, as PlaySuite wrote it before TriPeaks: four games of 20 piles and
+        // seven score lists. It still loads, TriPeaks not yet started.
+        games::Game klondike;
+        klondike.deal(games::Kind::solitaire, 77);
+        std::ostringstream payload;
+        payload << "0 0 0 1 1\n1\n0 77 0 0 0 1 1 0 0 0 0 0 1 0\n0 0 0 0 0 0 0 0 \n";
+        for (int p = 0; p < 20; ++p) {
+            const games::Pile& pile = klondike.state.piles[p];
+            payload << pile.size();
+            for (const games::Card& c : pile)
+                payload << ' ' << c.rank << ' ' << c.suit << ' ' << c.id << ' ' << c.up;
+            payload << '\n';
+        }
+        payload << "0\n0\n0\n0 0 0 0 \n\"Old Hand\"\n";
+        for (int profile = 0; profile < 7; ++profile)
+            payload << (profile == 0 ? "1\n\"Old Hand\" 120\n" : "0\n");
+        const std::string data = payload.str();
+        std::uint64_t hash = 14695981039346656037ULL;
+        for (unsigned char c : data) {
+            hash ^= c;
+            hash *= 1099511628211ULL;
+        }
+        {
+            std::ofstream out(path, std::ios::binary);
+            out << "RAINSTAR_GAMES 2 " << hash << '\n' << data;
+        }
+        games::Cabinet old;
+        require(games::load_cabinet(path, old), "a version 2 save loads");
+        require(old.started[0] && !old.started[4] && old.player_name == "Old Hand" && old.top_scores[0].size() == 1 &&
+                    old.top_scores[0][0].value == 120 && old.top_scores[7].empty() && old.games[0].state.seed == 77,
+                "its game, name and scores kept; TriPeaks not started");
+        require(games::save_cabinet(path, old) && games::load_cabinet(path, loaded) && loaded.started[0], "saved again as version 3");
+    }
+    std::filesystem::remove_all(root);
+    std::cout << "Passed: all-game saves, card ordering, settings, checksum, future-version "
+                 "rejection and unchanged destination on failure.\n";
+}

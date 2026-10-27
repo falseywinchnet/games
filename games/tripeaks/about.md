@@ -1,0 +1,1 @@
+Three peaks of cards over a single waste: play any open card one rank above or below it, king and ace side by side, and keep a run going as long as you can. Every deal can be won, and each card of a run sounds a step higher than the last.

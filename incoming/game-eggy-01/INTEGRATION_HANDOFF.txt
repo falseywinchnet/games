@@ -1,0 +1,51 @@
+GAME EGGY 01 — "EGGY AND THE VERY, VERY TALL MOUNTAIN"
+
+A new game for the collection, built on GUI.Forms by the Neo/Claude Opus workflow. A tiny duckling in an acorn-cap helmet climbs an endless, seeded isometric mountain that takes years to summit. The player helps (keys or mouse). When the player stops, an autopilot keeps him climbing more slowly, including while the app is closed (credited on relaunch). A fresh climb opens at a level base camp where Eggy explains his motivation. At the summit an officer duck salutes him, pins a medal and names him ELITE SPECIAL SOLDIER, FIRST CLASS. The arcade top-score window follows, recording time to complete and stars collected.
+
+Package: ~45 MB. It contains sources, AAC M4A plus WAV ambience beds, the line bank, line drafts, and screenshots. No app bundle. No WAV music masters: those stay on the Neo under /Users/ultimussecundai/solitaire_sounds/eggy/audio_src/out (re-render with source/audio_src).
+
+LAYOUT
+  source/            CMakeLists.txt, src/, tests/, tools/, audio_src/ (+ audio_src/engine: bundled copy of the shared synthesis engine), README.md
+  assets/audio/      8 music loops (eggy_*.m4a) + 41 effects/stingers + 5 ambience beds (eggy_amb_*.wav) + eggy_audio_manifest.json
+  assets/lines/      53 categories, 17,918 lines (sibling-model drafts, filtered by tools/build_lines.py; storm.txt and the base-camp speech are by Opus)
+  lines_drafts/      unfiltered drafts for provenance
+  screens/           biomes, base camp, rare life, storms, summit
+
+BUILD (standalone dogfood, verified on the Neo)
+  cmake -S source -B build -DCMAKE_PREFIX_PATH=<paint-port-sdk> && cmake --build build -j 8
+  Copy assets/ into source/assets first, or point EGGY_ASSET_DIR at it. The bundle copies assets/ to Resources/assets.
+  ctest: sim_tests checks world determinism and that the autopilot never stalls in any biome (sampled across 3 seeds x 40 places).
+
+INTEGRATING INTO THE CABINET (not done; Astra's tree was not modified)
+  1. All code is in namespace eggy. It does not clash with namespace games. Add src/*.cpp|*.mm (not main.cpp) as a library linked into game_ui. Frameworks: AppKit, AVFoundation, CoreText, QuartzCore.
+  2. Host eggy::EggyView (gf::Control, eggy_view.hpp) as another tab in games::Collection:
+       make_control<eggy::EggyView>(StableId("eggy.view"), eggy::Options{})
+     Toggle its visibility as tabs switch. When hidden it hides its native layer, stops its music and drawing, and keeps the climb going. Call activate() when its tab is shown.
+  3. Assets: merge assets/audio and assets/lines into the cabinet's assets/. eggy::asset_dir() resolves Resources/assets in the bundle, like games::asset_directory().
+  4. Audio: Eggy runs its own AVAudioEngine and AVAudioPlayers, separate from games::music_play. Stop the cabinet's music while the Eggy tab is active. Eggy silences its own when hidden. Ambience beds are seamless WAV (AAC priming made them click).
+  5. Saves: ~/Library/Application Support/Rainstar/Games/eggy-v1.txt. That is the same folder as the cabinet, with a separate checksummed, atomically replaced file. Eggy keeps its own top-10 list (name, time to complete, stars). It is not in games::TopScores.
+  6. Presentation:
+     - macOS: renders a ~390x260 frame and presents it through a Core Animation layer placed exactly over the control (absolute_bounds). The GPU magnifies it nearest-neighbour. Crisp text runs are small cached layers.
+     - Fallback: GUI.Forms LiveSurface + draw_live_surface. Set EGGY_NO_NATIVE=1 to force it.
+     - Why: the macOS host's LiveSurface path re-rasterizes the whole Retina window on the CPU each frame (~20 ms here). Fixing that in GUI.Forms would help every game.
+  7. Frame pacing: 20 fps while helped, 12 fps while watching, 5 fps in the background, none while occluded or hidden. The simulation keeps running throughout.
+  8. Controls: arrows/WASD, Space hop, hold mouse to guide. Keys: F1 help, T scores, M music, N sound, +/- zoom, Esc. Accessible name set on the control.
+  9. Dev flags (separate dev save): --summit, --storm, --warp=<row>, --dev.
+
+POLICY NOTES
+  The HUD shows only achievements: altitude reached, stars collected, time climbing, breath. It never shows remaining distance or total stars. The autopilot never collects stars. Animals (deer, cat, frogs, fish) are rare background life only. Eggy does not meet or talk about them, per the original brief. The help panel carries the requested screensaver joke.
+
+MEASURED / VERIFIED ON THE NEO
+  Clean build of this package's sources: OK. sim_tests: PASS.
+  Audio: 49/49 files decode (HANDOFF_VALIDATION_AUDIO_LINES.json).
+  CPU, measured on a busy machine:
+    - about 15% watching (12 fps) and about 17% helping (20 fps), with music and ambience playing;
+    - 0% hidden.
+  Autopilot averages about 0.9 rows/s and a helping player about 1.6-1.7 rows/s. Summit length is 190-260 million rows, so a summit takes about 4.6-6 years of active helping.
+
+NOT VERIFIED
+  - Listening: no one has listened to the music or effects. Only loudness and peaks were checked numerically.
+  - Endurance: no real multi-year run has been done.
+  - Cabinet: the integration itself is not done.
+  - Platforms: Windows/Linux presentation would use the LiveSurface fallback, and none of it is tested.
+  - Character name: "Eggy" was the user's working name and echoes their inspiration. It is one string if it should change.

@@ -1,0 +1,1 @@
+Turn and flip glass pieces to rebuild a blue and yellow design. Every design is cut from a real tiling of squares, octagons, hexagons and more, from four-piece lessons to twelve-piece puzzles, and any arrangement with the same colours counts.

@@ -1,0 +1,4574 @@
+{
+ "generated_by": "work/src (numpy synthesis; no samples)",
+ "sample_rate": 48000,
+ "music": [
+  {
+   "id": "menu",
+   "title": "Shuffle Lounge (Menu)",
+   "batch": 1,
+   "file": "outputs/music/music_menu_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 4388608,
+   "seconds": 91.429,
+   "bpm": 83.9993,
+   "meter": "4/4",
+   "bars": 32,
+   "samples_per_beat": 34286,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 4388608,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "A3",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -5.2,
+   "validation": {
+    "peak_dbfs": -5.24,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.07e-10,
+    "loop_seam_jump": 0.000525,
+    "loop_seam_jump_percentile": 1.3,
+    "loop_seam_rms_step_db": 4.17,
+    "loop_seam_click_ratio": 0.026
+   },
+   "runtime": [
+    "outputs/runtime/music_menu_loop.ogg",
+    "outputs/runtime/music_menu_loop.m4a"
+   ]
+  },
+  {
+   "id": "klondike",
+   "title": "Sunny Porch (Klondike)",
+   "batch": 1,
+   "file": "outputs/music/music_klondike_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 6582784,
+   "seconds": 137.141,
+   "bpm": 112.0012,
+   "meter": "4/4",
+   "bars": 64,
+   "samples_per_beat": 25714,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 6582784,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "A3",
+     8
+    ],
+    [
+     "C",
+     8
+    ],
+    [
+     "B2",
+     8
+    ],
+    [
+     "A4",
+     8
+    ],
+    [
+     "tag",
+     4
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -4.4,
+   "validation": {
+    "peak_dbfs": -4.62,
+    "clipped_samples": 0,
+    "dc_offset_max": 7.18e-10,
+    "loop_seam_jump": 0.000933,
+    "loop_seam_jump_percentile": 5.2,
+    "loop_seam_rms_step_db": 12.37,
+    "loop_seam_click_ratio": 0.025
+   },
+   "runtime": [
+    "outputs/runtime/music_klondike_loop.ogg",
+    "outputs/runtime/music_klondike_loop.m4a"
+   ]
+  },
+  {
+   "id": "spider",
+   "title": "Tiptoe Web (Spider)",
+   "batch": 1,
+   "file": "outputs/music/music_spider_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 5857680,
+   "seconds": 122.035,
+   "bpm": 117.9989,
+   "meter": "4/4",
+   "bars": 60,
+   "samples_per_beat": 24407,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 5857680,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "A3",
+     8
+    ],
+    [
+     "C",
+     8
+    ],
+    [
+     "B2",
+     8
+    ],
+    [
+     "A4",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -4.1,
+   "validation": {
+    "peak_dbfs": -4.17,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.99e-08,
+    "loop_seam_jump": 0.00227,
+    "loop_seam_jump_percentile": 30.8,
+    "loop_seam_rms_step_db": 1.65,
+    "loop_seam_click_ratio": 0.951
+   },
+   "runtime": [
+    "outputs/runtime/music_spider_loop.ogg",
+    "outputs/runtime/music_spider_loop.m4a"
+   ]
+  },
+  {
+   "id": "freecell",
+   "title": "Clear Thinking (FreeCell)",
+   "batch": 1,
+   "file": "outputs/music/music_freecell_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 6912000,
+   "seconds": 144.0,
+   "bpm": 100.0,
+   "meter": "4/4",
+   "bars": 60,
+   "samples_per_beat": 28800,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 6912000,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "A3",
+     8
+    ],
+    [
+     "C",
+     8
+    ],
+    [
+     "B2",
+     8
+    ],
+    [
+     "A4",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -4.4,
+   "validation": {
+    "peak_dbfs": -4.46,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.46e-09,
+    "loop_seam_jump": 0.000775,
+    "loop_seam_jump_percentile": 7.9,
+    "loop_seam_rms_step_db": 4.11,
+    "loop_seam_click_ratio": 0.048
+   },
+   "runtime": [
+    "outputs/runtime/music_freecell_loop.ogg",
+    "outputs/runtime/music_freecell_loop.m4a"
+   ]
+  },
+  {
+   "id": "hearts",
+   "title": "Parlour Waltz (Hearts)",
+   "batch": 1,
+   "file": "outputs/music/music_hearts_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 4838400,
+   "seconds": 100.8,
+   "bpm": 150.0,
+   "meter": "3/4",
+   "bars": 84,
+   "samples_per_beat": 19200,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 4838400,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "A1",
+     16
+    ],
+    [
+     "B",
+     16
+    ],
+    [
+     "A2",
+     16
+    ],
+    [
+     "C",
+     16
+    ],
+    [
+     "A3",
+     16
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -7.6,
+   "validation": {
+    "peak_dbfs": -7.72,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.06e-11,
+    "loop_seam_jump": 0.00328,
+    "loop_seam_jump_percentile": 32.0,
+    "loop_seam_rms_step_db": 3.88,
+    "loop_seam_click_ratio": 0.043
+   },
+   "runtime": [
+    "outputs/runtime/music_hearts_loop.ogg",
+    "outputs/runtime/music_hearts_loop.m4a"
+   ]
+  },
+  {
+   "id": "puzzle_main",
+   "title": "Woozle Warehouse (Puzzle main)",
+   "batch": 1,
+   "file": "outputs/music/music_puzzle_main_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 4538144,
+   "seconds": 94.545,
+   "bpm": 132.0011,
+   "meter": "4/4",
+   "bars": 52,
+   "samples_per_beat": 21818,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 4538144,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "A3",
+     8
+    ],
+    [
+     "C",
+     8
+    ],
+    [
+     "A4",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -4.7,
+   "validation": {
+    "peak_dbfs": -4.7,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.1e-09,
+    "loop_seam_jump": 0.000578,
+    "loop_seam_jump_percentile": 8.7,
+    "loop_seam_rms_step_db": 22.46,
+    "loop_seam_click_ratio": 0.583
+   },
+   "runtime": [
+    "outputs/runtime/music_puzzle_main_loop.ogg",
+    "outputs/runtime/music_puzzle_main_loop.m4a"
+   ]
+  },
+  {
+   "id": "puzzle_tiptoe",
+   "title": "Tiptoe Trunks (Puzzle alternate)",
+   "batch": 1,
+   "file": "outputs/music/music_puzzle_tiptoe_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 4369728,
+   "seconds": 91.036,
+   "bpm": 115.9981,
+   "meter": "4/4",
+   "bars": 44,
+   "samples_per_beat": 24828,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 4369728,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "A1",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "C",
+     8
+    ],
+    [
+     "A3",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -4.1,
+   "validation": {
+    "peak_dbfs": -4.1,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.37e-07,
+    "loop_seam_jump": 0.00371,
+    "loop_seam_jump_percentile": 51.3,
+    "loop_seam_rms_step_db": 7.31,
+    "loop_seam_click_ratio": 0.592
+   },
+   "runtime": [
+    "outputs/runtime/music_puzzle_tiptoe_loop.ogg",
+    "outputs/runtime/music_puzzle_tiptoe_loop.m4a"
+   ]
+  },
+  {
+   "id": "gems",
+   "title": "Prism Parade (Gems)",
+   "batch": 2,
+   "file": "outputs/music/music_gems_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 5076656,
+   "seconds": 105.764,
+   "bpm": 117.9989,
+   "meter": "4/4",
+   "bars": 52,
+   "samples_per_beat": 24407,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 5076656,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "C",
+     8
+    ],
+    [
+     "B2",
+     8
+    ],
+    [
+     "A3",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -6.8,
+   "validation": {
+    "peak_dbfs": -6.82,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.78e-11,
+    "loop_seam_jump": 0.00109,
+    "loop_seam_jump_percentile": 5.7,
+    "loop_seam_rms_step_db": 8.25,
+    "loop_seam_click_ratio": 0.014
+   },
+   "runtime": [
+    "outputs/runtime/music_gems_loop.ogg",
+    "outputs/runtime/music_gems_loop.m4a"
+   ]
+  },
+  {
+   "id": "sudoku_day",
+   "title": "Quiet Grid \u2014 Day (Sudoku)",
+   "batch": 2,
+   "file": "outputs/music/music_sudoku_day_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 4850560,
+   "seconds": 101.053,
+   "bpm": 75.9995,
+   "meter": "4/4",
+   "bars": 32,
+   "samples_per_beat": 37895,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 4850560,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "A3",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -5.0,
+   "validation": {
+    "peak_dbfs": -4.96,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.94e-09,
+    "loop_seam_jump": 0.00821,
+    "loop_seam_jump_percentile": 76.5,
+    "loop_seam_rms_step_db": 11.05,
+    "loop_seam_click_ratio": 0.289
+   },
+   "runtime": [
+    "outputs/runtime/music_sudoku_day_loop.ogg",
+    "outputs/runtime/music_sudoku_day_loop.m4a"
+   ]
+  },
+  {
+   "id": "sudoku_night",
+   "title": "Quiet Grid \u2014 Night (Sudoku)",
+   "batch": 2,
+   "file": "outputs/music/music_sudoku_night_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 5421184,
+   "seconds": 112.941,
+   "bpm": 67.9999,
+   "meter": "4/4",
+   "bars": 32,
+   "samples_per_beat": 42353,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 5421184,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "A3",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -7.3,
+   "validation": {
+    "peak_dbfs": -7.32,
+    "clipped_samples": 0,
+    "dc_offset_max": 8.8e-12,
+    "loop_seam_jump": 0.00408,
+    "loop_seam_jump_percentile": 68.6,
+    "loop_seam_rms_step_db": 7.67,
+    "loop_seam_click_ratio": 0.041
+   },
+   "runtime": [
+    "outputs/runtime/music_sudoku_night_loop.ogg",
+    "outputs/runtime/music_sudoku_night_loop.m4a"
+   ]
+  },
+  {
+   "id": "nature_cube",
+   "title": "Mirror Meadow (Nature Cube)",
+   "batch": 2,
+   "file": "outputs/music/music_nature_cube_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 5236320,
+   "seconds": 109.09,
+   "bpm": 66.0006,
+   "meter": "3/4",
+   "bars": 40,
+   "samples_per_beat": 43636,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 5236320,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "C",
+     8
+    ],
+    [
+     "A3",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -3.9,
+   "validation": {
+    "peak_dbfs": -4.17,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.15e-09,
+    "loop_seam_jump": 0.00396,
+    "loop_seam_jump_percentile": 39.2,
+    "loop_seam_rms_step_db": 9.58,
+    "loop_seam_click_ratio": 0.009
+   },
+   "runtime": [
+    "outputs/runtime/music_nature_cube_loop.ogg",
+    "outputs/runtime/music_nature_cube_loop.m4a"
+   ]
+  },
+  {
+   "id": "untangle",
+   "title": "Slow Unknotting (Untangle)",
+   "batch": 2,
+   "file": "outputs/music/music_untangle_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 5632000,
+   "seconds": 117.333,
+   "bpm": 90.0,
+   "meter": "4/4",
+   "bars": 44,
+   "samples_per_beat": 32000,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 5632000,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "K1",
+     8
+    ],
+    [
+     "K2",
+     8
+    ],
+    [
+     "R1",
+     8
+    ],
+    [
+     "R2",
+     8
+    ],
+    [
+     "R3",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -5.9,
+   "validation": {
+    "peak_dbfs": -5.92,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.94e-12,
+    "loop_seam_jump": 0.00252,
+    "loop_seam_jump_percentile": 31.3,
+    "loop_seam_rms_step_db": 5.98,
+    "loop_seam_click_ratio": 0.077
+   },
+   "runtime": [
+    "outputs/runtime/music_untangle_loop.ogg",
+    "outputs/runtime/music_untangle_loop.m4a"
+   ]
+  },
+  {
+   "id": "atom_probe",
+   "title": "Beam & Bounce (Atom Probe)",
+   "batch": 2,
+   "file": "outputs/music/music_atom_probe_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 5509504,
+   "seconds": 114.781,
+   "bpm": 92.001,
+   "meter": "4/4",
+   "bars": 44,
+   "samples_per_beat": 31304,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 5509504,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "C",
+     8
+    ],
+    [
+     "A3",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -6.3,
+   "validation": {
+    "peak_dbfs": -6.32,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.75e-11,
+    "loop_seam_jump": 0.00219,
+    "loop_seam_jump_percentile": 21.2,
+    "loop_seam_rms_step_db": 6.8,
+    "loop_seam_click_ratio": 0.029
+   },
+   "runtime": [
+    "outputs/runtime/music_atom_probe_loop.ogg",
+    "outputs/runtime/music_atom_probe_loop.m4a"
+   ]
+  },
+  {
+   "id": "four_pegs",
+   "title": "Clever Pegs (Four Pegs)",
+   "batch": 2,
+   "file": "outputs/music/music_four_pegs_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 5172288,
+   "seconds": 107.756,
+   "bpm": 97.9992,
+   "meter": "4/4",
+   "bars": 44,
+   "samples_per_beat": 29388,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 5172288,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "C",
+     8
+    ],
+    [
+     "A3",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -5.6,
+   "validation": {
+    "peak_dbfs": -5.62,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.72e-11,
+    "loop_seam_jump": 0.0087,
+    "loop_seam_jump_percentile": 61.6,
+    "loop_seam_rms_step_db": 5.35,
+    "loop_seam_click_ratio": 0.009
+   },
+   "runtime": [
+    "outputs/runtime/music_four_pegs_loop.ogg",
+    "outputs/runtime/music_four_pegs_loop.m4a"
+   ]
+  },
+  {
+   "id": "switchbox",
+   "title": "Peekaboo Switches (Switchbox)",
+   "batch": 2,
+   "file": "outputs/music/music_switchbox_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 4680000,
+   "seconds": 97.5,
+   "bpm": 128.0,
+   "meter": "4/4",
+   "bars": 52,
+   "samples_per_beat": 22500,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 4680000,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "CH",
+     8
+    ],
+    [
+     "BR",
+     8
+    ],
+    [
+     "CH2",
+     8
+    ],
+    [
+     "A3",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -4.0,
+   "validation": {
+    "peak_dbfs": -4.03,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.18e-08,
+    "loop_seam_jump": 0.00628,
+    "loop_seam_jump_percentile": 55.5,
+    "loop_seam_rms_step_db": 1.4,
+    "loop_seam_click_ratio": 0.069
+   },
+   "runtime": [
+    "outputs/runtime/music_switchbox_loop.ogg",
+    "outputs/runtime/music_switchbox_loop.m4a"
+   ]
+  },
+  {
+   "id": "puzzle_solve",
+   "title": "Toy Workshop (Puzzle Solve)",
+   "batch": 2,
+   "file": "outputs/music/music_puzzle_solve_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 4969360,
+   "seconds": 103.528,
+   "bpm": 102.0011,
+   "meter": "4/4",
+   "bars": 44,
+   "samples_per_beat": 28235,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 4969360,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "C",
+     8
+    ],
+    [
+     "A3",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -4.8,
+   "validation": {
+    "peak_dbfs": -4.78,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.92e-09,
+    "loop_seam_jump": 0.038,
+    "loop_seam_jump_percentile": 99.4,
+    "loop_seam_rms_step_db": 11.52,
+    "loop_seam_click_ratio": 0.643
+   },
+   "runtime": [
+    "outputs/runtime/music_puzzle_solve_loop.ogg",
+    "outputs/runtime/music_puzzle_solve_loop.m4a"
+   ]
+  },
+  {
+   "id": "sticks_stones",
+   "title": "Boulder Boogie (Sticks & Stones)",
+   "batch": 2,
+   "file": "outputs/music/music_sticks_stones_loop.wav",
+   "format": "WAV PCM 24-bit",
+   "sample_rate": 48000,
+   "channels": 2,
+   "samples": 5068800,
+   "seconds": 105.6,
+   "bpm": 100.0,
+   "meter": "4/4",
+   "bars": 44,
+   "samples_per_beat": 28800,
+   "loop_start_sample": 0,
+   "loop_end_sample_exclusive": 5068800,
+   "wav_smpl_chunk": true,
+   "sections": [
+    [
+     "intro",
+     4
+    ],
+    [
+     "A1",
+     8
+    ],
+    [
+     "A2",
+     8
+    ],
+    [
+     "B",
+     8
+    ],
+    [
+     "C",
+     8
+    ],
+    [
+     "A3",
+     8
+    ]
+   ],
+   "lufs_integrated": -20.0,
+   "true_peak_dbtp": -3.5,
+   "validation": {
+    "peak_dbfs": -3.49,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.11e-07,
+    "loop_seam_jump": 0.00184,
+    "loop_seam_jump_percentile": 23.0,
+    "loop_seam_rms_step_db": 3.83,
+    "loop_seam_click_ratio": 0.005
+   },
+   "runtime": [
+    "outputs/runtime/music_sticks_stones_loop.ogg",
+    "outputs/runtime/music_sticks_stones_loop.m4a"
+   ]
+  }
+ ],
+ "stingers": [
+  {
+   "file": "outputs/music/stinger_topscore_atom_probe.wav",
+   "batch": 2,
+   "event": "top score / name-entry window: atom_probe",
+   "channels": 2,
+   "seconds": 4.048,
+   "lufs_integrated": -17.4,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.43e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_topscore_atom_probe.ogg",
+    "outputs/runtime/stinger_topscore_atom_probe.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_topscore_four_pegs.wav",
+   "batch": 2,
+   "event": "top score / name-entry window: four_pegs",
+   "channels": 2,
+   "seconds": 4.059,
+   "lufs_integrated": -19.5,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.06e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_topscore_four_pegs.ogg",
+    "outputs/runtime/stinger_topscore_four_pegs.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_topscore_gems.wav",
+   "batch": 2,
+   "event": "top score / name-entry window: gems",
+   "channels": 2,
+   "seconds": 4.399,
+   "lufs_integrated": -17.6,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 8.9e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_topscore_gems.ogg",
+    "outputs/runtime/stinger_topscore_gems.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_topscore_nature_cube.wav",
+   "batch": 2,
+   "event": "top score / name-entry window: nature_cube",
+   "channels": 2,
+   "seconds": 3.871,
+   "lufs_integrated": -17.9,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.68e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_topscore_nature_cube.ogg",
+    "outputs/runtime/stinger_topscore_nature_cube.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_topscore_puzzle_solve.wav",
+   "batch": 2,
+   "event": "top score / name-entry window: puzzle_solve",
+   "channels": 2,
+   "seconds": 3.853,
+   "lufs_integrated": -19.9,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.99e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_topscore_puzzle_solve.ogg",
+    "outputs/runtime/stinger_topscore_puzzle_solve.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_topscore_sticks_stones.wav",
+   "batch": 2,
+   "event": "top score / name-entry window: sticks_stones",
+   "channels": 2,
+   "seconds": 4.028,
+   "lufs_integrated": -17.1,
+   "true_peak_dbtp": -5.7,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.8e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_topscore_sticks_stones.ogg",
+    "outputs/runtime/stinger_topscore_sticks_stones.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_topscore_sudoku.wav",
+   "batch": 2,
+   "event": "top score / name-entry window: sudoku",
+   "channels": 2,
+   "seconds": 4.362,
+   "lufs_integrated": -17.6,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.18e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_topscore_sudoku.ogg",
+    "outputs/runtime/stinger_topscore_sudoku.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_topscore_switchbox.wav",
+   "batch": 2,
+   "event": "top score / name-entry window: switchbox",
+   "channels": 2,
+   "seconds": 3.697,
+   "lufs_integrated": -18.7,
+   "true_peak_dbtp": -5.9,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.29e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_topscore_switchbox.ogg",
+    "outputs/runtime/stinger_topscore_switchbox.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_topscore_untangle.wav",
+   "batch": 2,
+   "event": "top score / name-entry window: untangle",
+   "channels": 2,
+   "seconds": 3.871,
+   "lufs_integrated": -18.7,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.22e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_topscore_untangle.ogg",
+    "outputs/runtime/stinger_topscore_untangle.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_atom_probe.wav",
+   "batch": 2,
+   "event": "win: atom_probe",
+   "channels": 2,
+   "seconds": 4.193,
+   "lufs_integrated": -18.4,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 9.56e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_atom_probe.ogg",
+    "outputs/runtime/stinger_win_atom_probe.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_four_pegs.wav",
+   "batch": 2,
+   "event": "win: four_pegs",
+   "channels": 2,
+   "seconds": 4.126,
+   "lufs_integrated": -19.7,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.29e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_four_pegs.ogg",
+    "outputs/runtime/stinger_win_four_pegs.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_freecell.wav",
+   "batch": 1,
+   "event": "win: freecell",
+   "channels": 2,
+   "seconds": 4.035,
+   "lufs_integrated": -17.9,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.63e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_freecell.ogg",
+    "outputs/runtime/stinger_win_freecell.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_gems.wav",
+   "batch": 2,
+   "event": "win: gems",
+   "channels": 2,
+   "seconds": 4.592,
+   "lufs_integrated": -18.7,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 9.45e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_gems.ogg",
+    "outputs/runtime/stinger_win_gems.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_hearts.wav",
+   "batch": 1,
+   "event": "win: hearts",
+   "channels": 2,
+   "seconds": 3.945,
+   "lufs_integrated": -18.3,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.24e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_hearts.ogg",
+    "outputs/runtime/stinger_win_hearts.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_klondike.wav",
+   "batch": 1,
+   "event": "win: klondike",
+   "channels": 2,
+   "seconds": 4.093,
+   "lufs_integrated": -19.6,
+   "true_peak_dbtp": -5.9,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.23e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_klondike.ogg",
+    "outputs/runtime/stinger_win_klondike.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_menu.wav",
+   "batch": 1,
+   "event": "win: menu",
+   "channels": 2,
+   "seconds": 4.071,
+   "lufs_integrated": -19.7,
+   "true_peak_dbtp": -5.9,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.53e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_menu.ogg",
+    "outputs/runtime/stinger_win_menu.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_nature_cube.wav",
+   "batch": 2,
+   "event": "win: nature_cube",
+   "channels": 2,
+   "seconds": 4.035,
+   "lufs_integrated": -18.4,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.49e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_nature_cube.ogg",
+    "outputs/runtime/stinger_win_nature_cube.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_puzzle.wav",
+   "batch": 1,
+   "event": "win: puzzle",
+   "channels": 2,
+   "seconds": 4.026,
+   "lufs_integrated": -20.5,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.17e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_puzzle.ogg",
+    "outputs/runtime/stinger_win_puzzle.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_puzzle_solve.wav",
+   "batch": 2,
+   "event": "win: puzzle_solve",
+   "channels": 2,
+   "seconds": 4.042,
+   "lufs_integrated": -19.1,
+   "true_peak_dbtp": -5.9,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 7.36e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_puzzle_solve.ogg",
+    "outputs/runtime/stinger_win_puzzle_solve.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_spider.wav",
+   "batch": 1,
+   "event": "win: spider",
+   "channels": 2,
+   "seconds": 3.897,
+   "lufs_integrated": -17.4,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.96e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_spider.ogg",
+    "outputs/runtime/stinger_win_spider.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_sticks_stones.wav",
+   "batch": 2,
+   "event": "win: sticks_stones",
+   "channels": 2,
+   "seconds": 4.011,
+   "lufs_integrated": -17.4,
+   "true_peak_dbtp": -5.9,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 8.66e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_sticks_stones.ogg",
+    "outputs/runtime/stinger_win_sticks_stones.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_sudoku.wav",
+   "batch": 2,
+   "event": "win: sudoku",
+   "channels": 2,
+   "seconds": 4.541,
+   "lufs_integrated": -18.2,
+   "true_peak_dbtp": -5.9,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.2e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_sudoku.ogg",
+    "outputs/runtime/stinger_win_sudoku.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_switchbox.wav",
+   "batch": 2,
+   "event": "win: switchbox",
+   "channels": 2,
+   "seconds": 3.794,
+   "lufs_integrated": -18.2,
+   "true_peak_dbtp": -6.0,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.07e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_switchbox.ogg",
+    "outputs/runtime/stinger_win_switchbox.m4a"
+   ]
+  },
+  {
+   "file": "outputs/music/stinger_win_untangle.wav",
+   "batch": 2,
+   "event": "win: untangle",
+   "channels": 2,
+   "seconds": 4.048,
+   "lufs_integrated": -19.1,
+   "true_peak_dbtp": -5.9,
+   "validation": {
+    "peak_dbfs": -6.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.3e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/stinger_win_untangle.ogg",
+    "outputs/runtime/stinger_win_untangle.m4a"
+   ]
+  }
+ ],
+ "sfx": [
+  {
+   "file": "outputs/sfx/atom_probe_check_correct.wav",
+   "event": "atom_probe_check_correct",
+   "batch": 2,
+   "use": "final check: all correct",
+   "channels": 1,
+   "seconds": 2.067,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -19.9,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.16e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/atom_probe_check_correct.ogg",
+    "outputs/runtime/atom_probe_check_correct.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/atom_probe_check_wrong.wav",
+   "event": "atom_probe_check_wrong",
+   "batch": 2,
+   "use": "final check: errors",
+   "channels": 1,
+   "seconds": 1.52,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -20.8,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/atom_probe_check_wrong.ogg",
+    "outputs/runtime/atom_probe_check_wrong.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/atom_probe_fire_01.wav",
+   "event": "atom_probe_fire",
+   "batch": 2,
+   "use": "probe launched",
+   "channels": 1,
+   "seconds": 0.68,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -19.6,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.28e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/atom_probe_fire_01.ogg",
+    "outputs/runtime/atom_probe_fire_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/atom_probe_fire_02.wav",
+   "event": "atom_probe_fire",
+   "batch": 2,
+   "use": "probe launched",
+   "channels": 1,
+   "seconds": 0.68,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -19.6,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.03e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/atom_probe_fire_02.ogg",
+    "outputs/runtime/atom_probe_fire_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/atom_probe_mark_01.wav",
+   "event": "atom_probe_mark",
+   "batch": 2,
+   "use": "player marks suspected atom",
+   "channels": 1,
+   "seconds": 1.3,
+   "peak_dbfs": -16,
+   "max_rms50ms_dbfs": -20.7,
+   "validation": {
+    "peak_dbfs": -16.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5.27e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/atom_probe_mark_01.ogg",
+    "outputs/runtime/atom_probe_mark_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/atom_probe_mark_02.wav",
+   "event": "atom_probe_mark",
+   "batch": 2,
+   "use": "player marks suspected atom",
+   "channels": 1,
+   "seconds": 1.3,
+   "peak_dbfs": -16,
+   "max_rms50ms_dbfs": -21.4,
+   "validation": {
+    "peak_dbfs": -16.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5.97e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/atom_probe_mark_02.ogg",
+    "outputs/runtime/atom_probe_mark_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/atom_probe_result_absorb.wav",
+   "event": "atom_probe_result_absorb",
+   "batch": 2,
+   "use": "play only after absorb marker is shown",
+   "channels": 1,
+   "seconds": 1.3,
+   "peak_dbfs": -14,
+   "max_rms50ms_dbfs": -19.8,
+   "validation": {
+    "peak_dbfs": -14.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.22e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/atom_probe_result_absorb.ogg",
+    "outputs/runtime/atom_probe_result_absorb.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/atom_probe_result_deflect.wav",
+   "event": "atom_probe_result_deflect",
+   "batch": 2,
+   "use": "play only after the deflection exit marker is shown",
+   "channels": 1,
+   "seconds": 1.458,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -22.0,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5.67e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/atom_probe_result_deflect.ogg",
+    "outputs/runtime/atom_probe_result_deflect.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/atom_probe_result_pass.wav",
+   "event": "atom_probe_result_pass",
+   "batch": 2,
+   "use": "play only after the exit marker is shown",
+   "channels": 1,
+   "seconds": 1.388,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -22.3,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5.7e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/atom_probe_result_pass.ogg",
+    "outputs/runtime/atom_probe_result_pass.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/atom_probe_result_reflect.wav",
+   "event": "atom_probe_result_reflect",
+   "batch": 2,
+   "use": "play only after reflect marker is shown",
+   "channels": 1,
+   "seconds": 1.546,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -22.1,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 8.43e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/atom_probe_result_reflect.ogg",
+    "outputs/runtime/atom_probe_result_reflect.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/atom_probe_unmark.wav",
+   "event": "atom_probe_unmark",
+   "batch": 2,
+   "use": "player removes mark",
+   "channels": 1,
+   "seconds": 0.95,
+   "peak_dbfs": -18,
+   "max_rms50ms_dbfs": -21.5,
+   "validation": {
+    "peak_dbfs": -18.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.82e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/atom_probe_unmark.ogg",
+    "outputs/runtime/atom_probe_unmark.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_deal_01.wav",
+   "event": "card_deal",
+   "batch": 1,
+   "use": "all: one card dealt (fire per card, ~40-70 ms apart)",
+   "channels": 1,
+   "seconds": 0.29,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -24.4,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.62e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_deal_01.ogg",
+    "outputs/runtime/card_deal_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_deal_02.wav",
+   "event": "card_deal",
+   "batch": 1,
+   "use": "all: one card dealt (fire per card, ~40-70 ms apart)",
+   "channels": 1,
+   "seconds": 0.29,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -23.2,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_deal_02.ogg",
+    "outputs/runtime/card_deal_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_deal_03.wav",
+   "event": "card_deal",
+   "batch": 1,
+   "use": "all: one card dealt (fire per card, ~40-70 ms apart)",
+   "channels": 1,
+   "seconds": 0.29,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -24.0,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.23e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_deal_03.ogg",
+    "outputs/runtime/card_deal_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_deal_04.wav",
+   "event": "card_deal",
+   "batch": 1,
+   "use": "all: one card dealt (fire per card, ~40-70 ms apart)",
+   "channels": 1,
+   "seconds": 0.29,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -22.2,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.58e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_deal_04.ogg",
+    "outputs/runtime/card_deal_04.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_flip_01.wav",
+   "event": "card_flip",
+   "batch": 1,
+   "use": "Klondike/Spider: face-down card turned up; Klondike stock draw",
+   "channels": 1,
+   "seconds": 0.31,
+   "peak_dbfs": -9,
+   "max_rms50ms_dbfs": -27.0,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.84e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_flip_01.ogg",
+    "outputs/runtime/card_flip_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_flip_02.wav",
+   "event": "card_flip",
+   "batch": 1,
+   "use": "Klondike/Spider: face-down card turned up; Klondike stock draw",
+   "channels": 1,
+   "seconds": 0.31,
+   "peak_dbfs": -9,
+   "max_rms50ms_dbfs": -27.2,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.36e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_flip_02.ogg",
+    "outputs/runtime/card_flip_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_flip_03.wav",
+   "event": "card_flip",
+   "batch": 1,
+   "use": "Klondike/Spider: face-down card turned up; Klondike stock draw",
+   "channels": 1,
+   "seconds": 0.31,
+   "peak_dbfs": -9,
+   "max_rms50ms_dbfs": -28.1,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.61e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_flip_03.ogg",
+    "outputs/runtime/card_flip_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_flip_04.wav",
+   "event": "card_flip",
+   "batch": 1,
+   "use": "Klondike/Spider: face-down card turned up; Klondike stock draw",
+   "channels": 1,
+   "seconds": 0.31,
+   "peak_dbfs": -9,
+   "max_rms50ms_dbfs": -26.7,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 7.24e-08,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_flip_04.ogg",
+    "outputs/runtime/card_flip_04.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_foundation_01.wav",
+   "event": "card_foundation",
+   "batch": 1,
+   "use": "valid foundation move (Klondike/FreeCell), completed run removed (Spider), trick taken (Hearts); use 01..04 ascending for consecutive moves",
+   "channels": 1,
+   "seconds": 1.805,
+   "peak_dbfs": -9,
+   "max_rms50ms_dbfs": -17.2,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.47e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_foundation_01.ogg",
+    "outputs/runtime/card_foundation_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_foundation_02.wav",
+   "event": "card_foundation",
+   "batch": 1,
+   "use": "valid foundation move (Klondike/FreeCell), completed run removed (Spider), trick taken (Hearts); use 01..04 ascending for consecutive moves",
+   "channels": 1,
+   "seconds": 1.665,
+   "peak_dbfs": -9,
+   "max_rms50ms_dbfs": -16.8,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.15e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_foundation_02.ogg",
+    "outputs/runtime/card_foundation_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_foundation_03.wav",
+   "event": "card_foundation",
+   "batch": 1,
+   "use": "valid foundation move (Klondike/FreeCell), completed run removed (Spider), trick taken (Hearts); use 01..04 ascending for consecutive moves",
+   "channels": 1,
+   "seconds": 1.788,
+   "peak_dbfs": -9,
+   "max_rms50ms_dbfs": -15.6,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.93e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_foundation_03.ogg",
+    "outputs/runtime/card_foundation_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_foundation_04.wav",
+   "event": "card_foundation",
+   "batch": 1,
+   "use": "valid foundation move (Klondike/FreeCell), completed run removed (Spider), trick taken (Hearts); use 01..04 ascending for consecutive moves",
+   "channels": 1,
+   "seconds": 1.557,
+   "peak_dbfs": -9,
+   "max_rms50ms_dbfs": -18.4,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.31e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_foundation_04.ogg",
+    "outputs/runtime/card_foundation_04.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_pickup_01.wav",
+   "event": "card_pickup",
+   "batch": 1,
+   "use": "all card games: card or stack lifted",
+   "channels": 1,
+   "seconds": 0.31,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -26.2,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.36e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_pickup_01.ogg",
+    "outputs/runtime/card_pickup_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_pickup_02.wav",
+   "event": "card_pickup",
+   "batch": 1,
+   "use": "all card games: card or stack lifted",
+   "channels": 1,
+   "seconds": 0.31,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -24.8,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5.17e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_pickup_02.ogg",
+    "outputs/runtime/card_pickup_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_pickup_03.wav",
+   "event": "card_pickup",
+   "batch": 1,
+   "use": "all card games: card or stack lifted",
+   "channels": 1,
+   "seconds": 0.31,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -23.5,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 7.05e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_pickup_03.ogg",
+    "outputs/runtime/card_pickup_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_pickup_04.wav",
+   "event": "card_pickup",
+   "batch": 1,
+   "use": "all card games: card or stack lifted",
+   "channels": 1,
+   "seconds": 0.31,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -27.6,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 7.26e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_pickup_04.ogg",
+    "outputs/runtime/card_pickup_04.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_place_01.wav",
+   "event": "card_place",
+   "batch": 1,
+   "use": "all: card dropped on tableau/free cell",
+   "channels": 1,
+   "seconds": 0.45,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -24.9,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5.22e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_place_01.ogg",
+    "outputs/runtime/card_place_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_place_02.wav",
+   "event": "card_place",
+   "batch": 1,
+   "use": "all: card dropped on tableau/free cell",
+   "channels": 1,
+   "seconds": 0.45,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -24.8,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.6e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_place_02.ogg",
+    "outputs/runtime/card_place_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_place_03.wav",
+   "event": "card_place",
+   "batch": 1,
+   "use": "all: card dropped on tableau/free cell",
+   "channels": 1,
+   "seconds": 0.45,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -22.7,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.41e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_place_03.ogg",
+    "outputs/runtime/card_place_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_place_04.wav",
+   "event": "card_place",
+   "batch": 1,
+   "use": "all: card dropped on tableau/free cell",
+   "channels": 1,
+   "seconds": 0.45,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -24.5,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.45e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_place_04.ogg",
+    "outputs/runtime/card_place_04.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_shuffle_01.wav",
+   "event": "card_shuffle",
+   "batch": 1,
+   "use": "new game / redeal",
+   "channels": 1,
+   "seconds": 1.45,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -25.5,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 7.34e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_shuffle_01.ogg",
+    "outputs/runtime/card_shuffle_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/card_shuffle_02.wav",
+   "event": "card_shuffle",
+   "batch": 1,
+   "use": "new game / redeal",
+   "channels": 1,
+   "seconds": 1.45,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -22.5,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 9.86e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/card_shuffle_02.ogg",
+    "outputs/runtime/card_shuffle_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/four_pegs_feedback_exact.wav",
+   "event": "four_pegs_feedback_exact",
+   "batch": 2,
+   "use": "per revealed black/exact marker, after display",
+   "channels": 1,
+   "seconds": 1.15,
+   "peak_dbfs": -16,
+   "max_rms50ms_dbfs": -19.9,
+   "validation": {
+    "peak_dbfs": -16.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 9.72e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/four_pegs_feedback_exact.ogg",
+    "outputs/runtime/four_pegs_feedback_exact.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/four_pegs_feedback_none.wav",
+   "event": "four_pegs_feedback_none",
+   "batch": 2,
+   "use": "guess revealed with no markers",
+   "channels": 1,
+   "seconds": 0.42,
+   "peak_dbfs": -21,
+   "max_rms50ms_dbfs": -31.6,
+   "validation": {
+    "peak_dbfs": -21.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.65e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/four_pegs_feedback_none.ogg",
+    "outputs/runtime/four_pegs_feedback_none.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/four_pegs_feedback_partial.wav",
+   "event": "four_pegs_feedback_partial",
+   "batch": 2,
+   "use": "per revealed white/partial marker, after display",
+   "channels": 1,
+   "seconds": 1.15,
+   "peak_dbfs": -18,
+   "max_rms50ms_dbfs": -22.5,
+   "validation": {
+    "peak_dbfs": -18.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 8.94e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/four_pegs_feedback_partial.ogg",
+    "outputs/runtime/four_pegs_feedback_partial.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/four_pegs_out_of_turns.wav",
+   "event": "four_pegs_out_of_turns",
+   "batch": 2,
+   "use": "game lost",
+   "channels": 1,
+   "seconds": 2.118,
+   "peak_dbfs": -13,
+   "max_rms50ms_dbfs": -22.4,
+   "validation": {
+    "peak_dbfs": -13.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.16e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/four_pegs_out_of_turns.ogg",
+    "outputs/runtime/four_pegs_out_of_turns.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/four_pegs_place_01.wav",
+   "event": "four_pegs_place",
+   "batch": 2,
+   "use": "peg placed in slot 1-4 (variant = slot, not colour)",
+   "channels": 1,
+   "seconds": 0.685,
+   "peak_dbfs": -14,
+   "max_rms50ms_dbfs": -22.0,
+   "validation": {
+    "peak_dbfs": -14.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.51e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/four_pegs_place_01.ogg",
+    "outputs/runtime/four_pegs_place_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/four_pegs_place_02.wav",
+   "event": "four_pegs_place",
+   "batch": 2,
+   "use": "peg placed in slot 1-4 (variant = slot, not colour)",
+   "channels": 1,
+   "seconds": 0.685,
+   "peak_dbfs": -14,
+   "max_rms50ms_dbfs": -22.7,
+   "validation": {
+    "peak_dbfs": -14.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.18e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/four_pegs_place_02.ogg",
+    "outputs/runtime/four_pegs_place_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/four_pegs_place_03.wav",
+   "event": "four_pegs_place",
+   "batch": 2,
+   "use": "peg placed in slot 1-4 (variant = slot, not colour)",
+   "channels": 1,
+   "seconds": 0.685,
+   "peak_dbfs": -14,
+   "max_rms50ms_dbfs": -21.7,
+   "validation": {
+    "peak_dbfs": -14.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.24e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/four_pegs_place_03.ogg",
+    "outputs/runtime/four_pegs_place_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/four_pegs_place_04.wav",
+   "event": "four_pegs_place",
+   "batch": 2,
+   "use": "peg placed in slot 1-4 (variant = slot, not colour)",
+   "channels": 1,
+   "seconds": 0.685,
+   "peak_dbfs": -14,
+   "max_rms50ms_dbfs": -22.1,
+   "validation": {
+    "peak_dbfs": -14.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.35e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/four_pegs_place_04.ogg",
+    "outputs/runtime/four_pegs_place_04.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/four_pegs_remove.wav",
+   "event": "four_pegs_remove",
+   "batch": 2,
+   "use": "peg removed",
+   "channels": 1,
+   "seconds": 0.53,
+   "peak_dbfs": -18,
+   "max_rms50ms_dbfs": -26.1,
+   "validation": {
+    "peak_dbfs": -18.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5.01e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/four_pegs_remove.ogg",
+    "outputs/runtime/four_pegs_remove.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/four_pegs_submit.wav",
+   "event": "four_pegs_submit",
+   "batch": 2,
+   "use": "guess submitted",
+   "channels": 1,
+   "seconds": 1.706,
+   "peak_dbfs": -13,
+   "max_rms50ms_dbfs": -22.5,
+   "validation": {
+    "peak_dbfs": -13.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.01e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/four_pegs_submit.ogg",
+    "outputs/runtime/four_pegs_submit.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_bomb.wav",
+   "event": "gems_bomb",
+   "batch": 2,
+   "use": "four-bomb detonates",
+   "channels": 1,
+   "seconds": 1.671,
+   "peak_dbfs": -8,
+   "max_rms50ms_dbfs": -13.1,
+   "validation": {
+    "peak_dbfs": -8.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.19e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_bomb.ogg",
+    "outputs/runtime/gems_bomb.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_hover_01.wav",
+   "event": "gems_hover",
+   "batch": 2,
+   "use": "gem under cursor (hover/rotate start); very quiet, rate-limit to ~8/s",
+   "channels": 1,
+   "seconds": 1.1,
+   "peak_dbfs": -26,
+   "max_rms50ms_dbfs": -30.7,
+   "validation": {
+    "peak_dbfs": -26.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 9.39e-08,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_hover_01.ogg",
+    "outputs/runtime/gems_hover_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_hover_02.wav",
+   "event": "gems_hover",
+   "batch": 2,
+   "use": "gem under cursor (hover/rotate start); very quiet, rate-limit to ~8/s",
+   "channels": 1,
+   "seconds": 1.061,
+   "peak_dbfs": -26,
+   "max_rms50ms_dbfs": -30.6,
+   "validation": {
+    "peak_dbfs": -26.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 7.73e-09,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_hover_02.ogg",
+    "outputs/runtime/gems_hover_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_hover_03.wav",
+   "event": "gems_hover",
+   "batch": 2,
+   "use": "gem under cursor (hover/rotate start); very quiet, rate-limit to ~8/s",
+   "channels": 1,
+   "seconds": 1.054,
+   "peak_dbfs": -26,
+   "max_rms50ms_dbfs": -30.5,
+   "validation": {
+    "peak_dbfs": -26.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 8.43e-08,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_hover_03.ogg",
+    "outputs/runtime/gems_hover_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_hypercube.wav",
+   "event": "gems_hypercube",
+   "batch": 2,
+   "use": "hypercube used (colour clear)",
+   "channels": 1,
+   "seconds": 3.153,
+   "peak_dbfs": -9,
+   "max_rms50ms_dbfs": -18.4,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.14e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_hypercube.ogg",
+    "outputs/runtime/gems_hypercube.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_level_up.wav",
+   "event": "gems_level_up",
+   "batch": 2,
+   "use": "difficulty step / new colour introduced",
+   "channels": 1,
+   "seconds": 2.287,
+   "peak_dbfs": -10,
+   "max_rms50ms_dbfs": -17.7,
+   "validation": {
+    "peak_dbfs": -10.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.97e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_level_up.ogg",
+    "outputs/runtime/gems_level_up.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_match_01.wav",
+   "event": "gems_match",
+   "batch": 2,
+   "use": "match cleared; 01..05 = cascade depth 1..5+ (clamp at 05)",
+   "channels": 1,
+   "seconds": 2.596,
+   "peak_dbfs": -11.0,
+   "max_rms50ms_dbfs": -20.1,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.04e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_match_01.ogg",
+    "outputs/runtime/gems_match_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_match_02.wav",
+   "event": "gems_match",
+   "batch": 2,
+   "use": "match cleared; 01..05 = cascade depth 1..5+ (clamp at 05)",
+   "channels": 1,
+   "seconds": 2.601,
+   "peak_dbfs": -10.5,
+   "max_rms50ms_dbfs": -20.0,
+   "validation": {
+    "peak_dbfs": -10.5,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.07e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_match_02.ogg",
+    "outputs/runtime/gems_match_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_match_03.wav",
+   "event": "gems_match",
+   "batch": 2,
+   "use": "match cleared; 01..05 = cascade depth 1..5+ (clamp at 05)",
+   "channels": 1,
+   "seconds": 2.568,
+   "peak_dbfs": -10.0,
+   "max_rms50ms_dbfs": -19.2,
+   "validation": {
+    "peak_dbfs": -10.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.04e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_match_03.ogg",
+    "outputs/runtime/gems_match_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_match_04.wav",
+   "event": "gems_match",
+   "batch": 2,
+   "use": "match cleared; 01..05 = cascade depth 1..5+ (clamp at 05)",
+   "channels": 1,
+   "seconds": 2.603,
+   "peak_dbfs": -9.5,
+   "max_rms50ms_dbfs": -18.5,
+   "validation": {
+    "peak_dbfs": -9.5,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.73e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_match_04.ogg",
+    "outputs/runtime/gems_match_04.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_match_05.wav",
+   "event": "gems_match",
+   "batch": 2,
+   "use": "match cleared; 01..05 = cascade depth 1..5+ (clamp at 05)",
+   "channels": 1,
+   "seconds": 2.533,
+   "peak_dbfs": -9.0,
+   "max_rms50ms_dbfs": -18.3,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.1e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_match_05.ogg",
+    "outputs/runtime/gems_match_05.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_no_moves_shuffle.wav",
+   "event": "gems_no_moves_shuffle",
+   "batch": 2,
+   "use": "board reshuffled (no moves)",
+   "channels": 1,
+   "seconds": 2.939,
+   "peak_dbfs": -13,
+   "max_rms50ms_dbfs": -20.7,
+   "validation": {
+    "peak_dbfs": -13.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 8.51e-08,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_no_moves_shuffle.ogg",
+    "outputs/runtime/gems_no_moves_shuffle.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_powerup_created.wav",
+   "event": "gems_powerup_created",
+   "batch": 2,
+   "use": "star/bomb/hypercube gem formed",
+   "channels": 1,
+   "seconds": 2.636,
+   "peak_dbfs": -12,
+   "max_rms50ms_dbfs": -21.0,
+   "validation": {
+    "peak_dbfs": -12.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 9.53e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_powerup_created.ogg",
+    "outputs/runtime/gems_powerup_created.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_star_line.wav",
+   "event": "gems_star_line",
+   "batch": 2,
+   "use": "star gem fires (row/column clear)",
+   "channels": 1,
+   "seconds": 2.777,
+   "peak_dbfs": -9,
+   "max_rms50ms_dbfs": -18.8,
+   "validation": {
+    "peak_dbfs": -9.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.63e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_star_line.ogg",
+    "outputs/runtime/gems_star_line.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_swap_01.wav",
+   "event": "gems_swap",
+   "batch": 2,
+   "use": "drag-swap accepted",
+   "channels": 1,
+   "seconds": 2.37,
+   "peak_dbfs": -13,
+   "max_rms50ms_dbfs": -19.5,
+   "validation": {
+    "peak_dbfs": -13.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.7e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_swap_01.ogg",
+    "outputs/runtime/gems_swap_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_swap_02.wav",
+   "event": "gems_swap",
+   "batch": 2,
+   "use": "drag-swap accepted",
+   "channels": 1,
+   "seconds": 2.37,
+   "peak_dbfs": -13,
+   "max_rms50ms_dbfs": -19.4,
+   "validation": {
+    "peak_dbfs": -13.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.66e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_swap_02.ogg",
+    "outputs/runtime/gems_swap_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_swap_03.wav",
+   "event": "gems_swap",
+   "batch": 2,
+   "use": "drag-swap accepted",
+   "channels": 1,
+   "seconds": 2.369,
+   "peak_dbfs": -13,
+   "max_rms50ms_dbfs": -19.3,
+   "validation": {
+    "peak_dbfs": -13.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.8e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_swap_03.ogg",
+    "outputs/runtime/gems_swap_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_swap_return_01.wav",
+   "event": "gems_swap_return",
+   "batch": 2,
+   "use": "invalid swap animating back",
+   "channels": 1,
+   "seconds": 2.0,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -22.6,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.6e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_swap_return_01.ogg",
+    "outputs/runtime/gems_swap_return_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/gems_swap_return_02.wav",
+   "event": "gems_swap_return",
+   "batch": 2,
+   "use": "invalid swap animating back",
+   "channels": 1,
+   "seconds": 1.929,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -22.9,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.43e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/gems_swap_return_02.ogg",
+    "outputs/runtime/gems_swap_return_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/nature_cube_connect_01.wav",
+   "event": "nature_cube_connect",
+   "batch": 2,
+   "use": "source joined to matching target",
+   "channels": 1,
+   "seconds": 2.035,
+   "peak_dbfs": -13,
+   "max_rms50ms_dbfs": -18.9,
+   "validation": {
+    "peak_dbfs": -13.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 9.34e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/nature_cube_connect_01.ogg",
+    "outputs/runtime/nature_cube_connect_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/nature_cube_connect_02.wav",
+   "event": "nature_cube_connect",
+   "batch": 2,
+   "use": "source joined to matching target",
+   "channels": 1,
+   "seconds": 2.097,
+   "peak_dbfs": -13,
+   "max_rms50ms_dbfs": -19.2,
+   "validation": {
+    "peak_dbfs": -13.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.99e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/nature_cube_connect_02.ogg",
+    "outputs/runtime/nature_cube_connect_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/nature_cube_disconnect.wav",
+   "event": "nature_cube_disconnect",
+   "batch": 2,
+   "use": "path broken/retracted",
+   "channels": 1,
+   "seconds": 1.389,
+   "peak_dbfs": -17,
+   "max_rms50ms_dbfs": -25.8,
+   "validation": {
+    "peak_dbfs": -17.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.47e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/nature_cube_disconnect.ogg",
+    "outputs/runtime/nature_cube_disconnect.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/nature_cube_path_full.wav",
+   "event": "nature_cube_path_full",
+   "batch": 2,
+   "use": "all paths connected, before win stinger (optional)",
+   "channels": 1,
+   "seconds": 1.641,
+   "peak_dbfs": -12,
+   "max_rms50ms_dbfs": -20.0,
+   "validation": {
+    "peak_dbfs": -12.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 8.85e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/nature_cube_path_full.ogg",
+    "outputs/runtime/nature_cube_path_full.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/nature_cube_trace_01.wav",
+   "event": "nature_cube_trace",
+   "batch": 2,
+   "use": "path extended by one cell (round-robin; no stereo pan tied to rotation)",
+   "channels": 1,
+   "seconds": 1.994,
+   "peak_dbfs": -19,
+   "max_rms50ms_dbfs": -23.0,
+   "validation": {
+    "peak_dbfs": -19.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.69e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/nature_cube_trace_01.ogg",
+    "outputs/runtime/nature_cube_trace_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/nature_cube_trace_02.wav",
+   "event": "nature_cube_trace",
+   "batch": 2,
+   "use": "path extended by one cell (round-robin; no stereo pan tied to rotation)",
+   "channels": 1,
+   "seconds": 1.807,
+   "peak_dbfs": -19,
+   "max_rms50ms_dbfs": -23.2,
+   "validation": {
+    "peak_dbfs": -19.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 9.34e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/nature_cube_trace_02.ogg",
+    "outputs/runtime/nature_cube_trace_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/nature_cube_trace_03.wav",
+   "event": "nature_cube_trace",
+   "batch": 2,
+   "use": "path extended by one cell (round-robin; no stereo pan tied to rotation)",
+   "channels": 1,
+   "seconds": 1.848,
+   "peak_dbfs": -19,
+   "max_rms50ms_dbfs": -22.9,
+   "validation": {
+    "peak_dbfs": -19.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.8e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/nature_cube_trace_03.ogg",
+    "outputs/runtime/nature_cube_trace_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/nature_cube_trace_04.wav",
+   "event": "nature_cube_trace",
+   "batch": 2,
+   "use": "path extended by one cell (round-robin; no stereo pan tied to rotation)",
+   "channels": 1,
+   "seconds": 1.888,
+   "peak_dbfs": -19,
+   "max_rms50ms_dbfs": -23.1,
+   "validation": {
+    "peak_dbfs": -19.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.76e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/nature_cube_trace_04.ogg",
+    "outputs/runtime/nature_cube_trace_04.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_blocked_01.wav",
+   "event": "puzzle_blocked",
+   "batch": 1,
+   "use": "puzzle: walk/push into wall",
+   "channels": 1,
+   "seconds": 0.85,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -18.8,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.7e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_blocked_01.ogg",
+    "outputs/runtime/puzzle_blocked_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_blocked_02.wav",
+   "event": "puzzle_blocked",
+   "batch": 1,
+   "use": "puzzle: walk/push into wall",
+   "channels": 1,
+   "seconds": 0.85,
+   "peak_dbfs": -11,
+   "max_rms50ms_dbfs": -18.8,
+   "validation": {
+    "peak_dbfs": -11.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.53e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_blocked_02.ogg",
+    "outputs/runtime/puzzle_blocked_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_fail.wav",
+   "event": "puzzle_fail",
+   "batch": 1,
+   "use": "puzzle: stuck/restart/fail",
+   "channels": 1,
+   "seconds": 3.8,
+   "peak_dbfs": -8,
+   "max_rms50ms_dbfs": -14.5,
+   "validation": {
+    "peak_dbfs": -8.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.47e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_fail.ogg",
+    "outputs/runtime/puzzle_fail.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_on_target_01.wav",
+   "event": "puzzle_on_target",
+   "batch": 1,
+   "use": "puzzle: block lands on goal tile",
+   "channels": 1,
+   "seconds": 2.283,
+   "peak_dbfs": -10,
+   "max_rms50ms_dbfs": -18.5,
+   "validation": {
+    "peak_dbfs": -10.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.84e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_on_target_01.ogg",
+    "outputs/runtime/puzzle_on_target_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_on_target_02.wav",
+   "event": "puzzle_on_target",
+   "batch": 1,
+   "use": "puzzle: block lands on goal tile",
+   "channels": 1,
+   "seconds": 2.237,
+   "peak_dbfs": -10,
+   "max_rms50ms_dbfs": -18.6,
+   "validation": {
+    "peak_dbfs": -10.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.07e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_on_target_02.ogg",
+    "outputs/runtime/puzzle_on_target_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_push_01.wav",
+   "event": "puzzle_push",
+   "batch": 1,
+   "use": "puzzle: block pushed one tile (01-03)",
+   "channels": 1,
+   "seconds": 0.87,
+   "peak_dbfs": -10,
+   "max_rms50ms_dbfs": -17.2,
+   "validation": {
+    "peak_dbfs": -10.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.49e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_push_01.ogg",
+    "outputs/runtime/puzzle_push_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_push_02.wav",
+   "event": "puzzle_push",
+   "batch": 1,
+   "use": "puzzle: block pushed one tile (01-03)",
+   "channels": 1,
+   "seconds": 0.87,
+   "peak_dbfs": -10,
+   "max_rms50ms_dbfs": -18.0,
+   "validation": {
+    "peak_dbfs": -10.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.38e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_push_02.ogg",
+    "outputs/runtime/puzzle_push_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_push_03.wav",
+   "event": "puzzle_push",
+   "batch": 1,
+   "use": "puzzle: block pushed one tile (01-03)",
+   "channels": 1,
+   "seconds": 0.87,
+   "peak_dbfs": -10,
+   "max_rms50ms_dbfs": -17.2,
+   "validation": {
+    "peak_dbfs": -10.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.31e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_push_03.ogg",
+    "outputs/runtime/puzzle_push_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_solve_fit.wav",
+   "event": "puzzle_solve_fit",
+   "batch": 2,
+   "use": "piece snaps into a valid position",
+   "channels": 1,
+   "seconds": 2.001,
+   "peak_dbfs": -13,
+   "max_rms50ms_dbfs": -20.4,
+   "validation": {
+    "peak_dbfs": -13.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.47e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_solve_fit.ogg",
+    "outputs/runtime/puzzle_solve_fit.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_solve_flip_01.wav",
+   "event": "puzzle_solve_flip",
+   "batch": 2,
+   "use": "piece mirrored",
+   "channels": 1,
+   "seconds": 0.56,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -25.3,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.14e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_solve_flip_01.ogg",
+    "outputs/runtime/puzzle_solve_flip_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_solve_flip_02.wav",
+   "event": "puzzle_solve_flip",
+   "batch": 2,
+   "use": "piece mirrored",
+   "channels": 1,
+   "seconds": 0.56,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -25.7,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5.51e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_solve_flip_02.ogg",
+    "outputs/runtime/puzzle_solve_flip_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_solve_no_fit.wav",
+   "event": "puzzle_solve_no_fit",
+   "batch": 2,
+   "use": "drop rejected",
+   "channels": 1,
+   "seconds": 0.42,
+   "peak_dbfs": -18,
+   "max_rms50ms_dbfs": -28.6,
+   "validation": {
+    "peak_dbfs": -18.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.38e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_solve_no_fit.ogg",
+    "outputs/runtime/puzzle_solve_no_fit.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_solve_pickup.wav",
+   "event": "puzzle_solve_pickup",
+   "batch": 2,
+   "use": "piece picked up",
+   "channels": 1,
+   "seconds": 0.32,
+   "peak_dbfs": -16,
+   "max_rms50ms_dbfs": -26.1,
+   "validation": {
+    "peak_dbfs": -16.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.14e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_solve_pickup.ogg",
+    "outputs/runtime/puzzle_solve_pickup.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_solve_place.wav",
+   "event": "puzzle_solve_place",
+   "batch": 2,
+   "use": "piece set down",
+   "channels": 1,
+   "seconds": 0.35,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -21.2,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.49e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_solve_place.ogg",
+    "outputs/runtime/puzzle_solve_place.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_solve_rotate_01.wav",
+   "event": "puzzle_solve_rotate",
+   "batch": 2,
+   "use": "piece rotated 90 degrees",
+   "channels": 1,
+   "seconds": 1.663,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -25.6,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 8.22e-08,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_solve_rotate_01.ogg",
+    "outputs/runtime/puzzle_solve_rotate_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_solve_rotate_02.wav",
+   "event": "puzzle_solve_rotate",
+   "batch": 2,
+   "use": "piece rotated 90 degrees",
+   "channels": 1,
+   "seconds": 1.619,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -22.0,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.56e-08,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_solve_rotate_02.ogg",
+    "outputs/runtime/puzzle_solve_rotate_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_solve_rotate_03.wav",
+   "event": "puzzle_solve_rotate",
+   "batch": 2,
+   "use": "piece rotated 90 degrees",
+   "channels": 1,
+   "seconds": 1.568,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -24.2,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.55e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_solve_rotate_03.ogg",
+    "outputs/runtime/puzzle_solve_rotate_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_undo_01.wav",
+   "event": "puzzle_undo",
+   "batch": 1,
+   "use": "puzzle: undo",
+   "channels": 1,
+   "seconds": 1.609,
+   "peak_dbfs": -12,
+   "max_rms50ms_dbfs": -18.6,
+   "validation": {
+    "peak_dbfs": -12.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_undo_01.ogg",
+    "outputs/runtime/puzzle_undo_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_walk_01.wav",
+   "event": "puzzle_walk",
+   "batch": 1,
+   "use": "puzzle: player step (round-robin 01-04)",
+   "channels": 1,
+   "seconds": 0.26,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -23.9,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.1e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_walk_01.ogg",
+    "outputs/runtime/puzzle_walk_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_walk_02.wav",
+   "event": "puzzle_walk",
+   "batch": 1,
+   "use": "puzzle: player step (round-robin 01-04)",
+   "channels": 1,
+   "seconds": 0.26,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -23.9,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5.1e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_walk_02.ogg",
+    "outputs/runtime/puzzle_walk_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_walk_03.wav",
+   "event": "puzzle_walk",
+   "batch": 1,
+   "use": "puzzle: player step (round-robin 01-04)",
+   "channels": 1,
+   "seconds": 0.26,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -25.4,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.24e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_walk_03.ogg",
+    "outputs/runtime/puzzle_walk_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_walk_04.wav",
+   "event": "puzzle_walk",
+   "batch": 1,
+   "use": "puzzle: player step (round-robin 01-04)",
+   "channels": 1,
+   "seconds": 0.26,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -23.1,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.21e-05,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_walk_04.ogg",
+    "outputs/runtime/puzzle_walk_04.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/puzzle_win.wav",
+   "event": "puzzle_win",
+   "batch": 1,
+   "use": "puzzle: level solved",
+   "channels": 1,
+   "seconds": 3.259,
+   "peak_dbfs": -7,
+   "max_rms50ms_dbfs": -16.6,
+   "validation": {
+    "peak_dbfs": -7.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.24e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/puzzle_win.ogg",
+    "outputs/runtime/puzzle_win.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sticks_stones_constraint_broken.wav",
+   "event": "sticks_stones_constraint_broken",
+   "batch": 2,
+   "use": "a satisfied constraint becomes unsatisfied",
+   "channels": 1,
+   "seconds": 1.2,
+   "peak_dbfs": -18,
+   "max_rms50ms_dbfs": -24.2,
+   "validation": {
+    "peak_dbfs": -18.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.29e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sticks_stones_constraint_broken.ogg",
+    "outputs/runtime/sticks_stones_constraint_broken.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sticks_stones_constraint_ok_01.wav",
+   "event": "sticks_stones_constraint_ok",
+   "batch": 2,
+   "use": "a line constraint becomes satisfied",
+   "channels": 1,
+   "seconds": 1.415,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -25.4,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.98e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sticks_stones_constraint_ok_01.ogg",
+    "outputs/runtime/sticks_stones_constraint_ok_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sticks_stones_constraint_ok_02.wav",
+   "event": "sticks_stones_constraint_ok",
+   "batch": 2,
+   "use": "a line constraint becomes satisfied",
+   "channels": 1,
+   "seconds": 1.337,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -24.8,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.61e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sticks_stones_constraint_ok_02.ogg",
+    "outputs/runtime/sticks_stones_constraint_ok_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sticks_stones_remove.wav",
+   "event": "sticks_stones_remove",
+   "batch": 2,
+   "use": "piece removed",
+   "channels": 1,
+   "seconds": 0.38,
+   "peak_dbfs": -20,
+   "max_rms50ms_dbfs": -29.7,
+   "validation": {
+    "peak_dbfs": -20.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.27e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sticks_stones_remove.ogg",
+    "outputs/runtime/sticks_stones_remove.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sticks_stones_stick_place_01.wav",
+   "event": "sticks_stones_stick_place",
+   "batch": 2,
+   "use": "stick placed",
+   "channels": 1,
+   "seconds": 1.2,
+   "peak_dbfs": -14,
+   "max_rms50ms_dbfs": -19.4,
+   "validation": {
+    "peak_dbfs": -14.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.7e-08,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sticks_stones_stick_place_01.ogg",
+    "outputs/runtime/sticks_stones_stick_place_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sticks_stones_stick_place_02.wav",
+   "event": "sticks_stones_stick_place",
+   "batch": 2,
+   "use": "stick placed",
+   "channels": 1,
+   "seconds": 1.2,
+   "peak_dbfs": -14,
+   "max_rms50ms_dbfs": -20.4,
+   "validation": {
+    "peak_dbfs": -14.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.97e-08,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sticks_stones_stick_place_02.ogg",
+    "outputs/runtime/sticks_stones_stick_place_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sticks_stones_stick_place_03.wav",
+   "event": "sticks_stones_stick_place",
+   "batch": 2,
+   "use": "stick placed",
+   "channels": 1,
+   "seconds": 1.2,
+   "peak_dbfs": -14,
+   "max_rms50ms_dbfs": -19.7,
+   "validation": {
+    "peak_dbfs": -14.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.88e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sticks_stones_stick_place_03.ogg",
+    "outputs/runtime/sticks_stones_stick_place_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sticks_stones_stone_place_01.wav",
+   "event": "sticks_stones_stone_place",
+   "batch": 2,
+   "use": "stone placed",
+   "channels": 1,
+   "seconds": 1.0,
+   "peak_dbfs": -13,
+   "max_rms50ms_dbfs": -24.0,
+   "validation": {
+    "peak_dbfs": -13.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.31e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sticks_stones_stone_place_01.ogg",
+    "outputs/runtime/sticks_stones_stone_place_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sticks_stones_stone_place_02.wav",
+   "event": "sticks_stones_stone_place",
+   "batch": 2,
+   "use": "stone placed",
+   "channels": 1,
+   "seconds": 1.0,
+   "peak_dbfs": -13,
+   "max_rms50ms_dbfs": -24.2,
+   "validation": {
+    "peak_dbfs": -13.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.41e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sticks_stones_stone_place_02.ogg",
+    "outputs/runtime/sticks_stones_stone_place_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sticks_stones_stone_place_03.wav",
+   "event": "sticks_stones_stone_place",
+   "batch": 2,
+   "use": "stone placed",
+   "channels": 1,
+   "seconds": 1.0,
+   "peak_dbfs": -13,
+   "max_rms50ms_dbfs": -24.2,
+   "validation": {
+    "peak_dbfs": -13.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.8e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sticks_stones_stone_place_03.ogg",
+    "outputs/runtime/sticks_stones_stone_place_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sudoku_box_complete.wav",
+   "event": "sudoku_box_complete",
+   "batch": 2,
+   "use": "box completion animation (if several complete at once play only the box cue)",
+   "channels": 1,
+   "seconds": 2.085,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -24.9,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.19e-10,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sudoku_box_complete.ogg",
+    "outputs/runtime/sudoku_box_complete.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sudoku_column_complete.wav",
+   "event": "sudoku_column_complete",
+   "batch": 2,
+   "use": "column completion animation",
+   "channels": 1,
+   "seconds": 2.045,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -23.0,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.29e-10,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sudoku_column_complete.ogg",
+    "outputs/runtime/sudoku_column_complete.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sudoku_digit_place_01.wav",
+   "event": "sudoku_digit_place",
+   "batch": 2,
+   "use": "left-click digit placed (no sound on hover)",
+   "channels": 1,
+   "seconds": 1.35,
+   "peak_dbfs": -14,
+   "max_rms50ms_dbfs": -20.5,
+   "validation": {
+    "peak_dbfs": -14.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sudoku_digit_place_01.ogg",
+    "outputs/runtime/sudoku_digit_place_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sudoku_digit_place_02.wav",
+   "event": "sudoku_digit_place",
+   "batch": 2,
+   "use": "left-click digit placed (no sound on hover)",
+   "channels": 1,
+   "seconds": 1.35,
+   "peak_dbfs": -14,
+   "max_rms50ms_dbfs": -20.4,
+   "validation": {
+    "peak_dbfs": -14.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.03e-08,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sudoku_digit_place_02.ogg",
+    "outputs/runtime/sudoku_digit_place_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sudoku_digit_place_03.wav",
+   "event": "sudoku_digit_place",
+   "batch": 2,
+   "use": "left-click digit placed (no sound on hover)",
+   "channels": 1,
+   "seconds": 1.35,
+   "peak_dbfs": -14,
+   "max_rms50ms_dbfs": -19.5,
+   "validation": {
+    "peak_dbfs": -14.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.22e-08,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sudoku_digit_place_03.ogg",
+    "outputs/runtime/sudoku_digit_place_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sudoku_erase.wav",
+   "event": "sudoku_erase",
+   "batch": 2,
+   "use": "cell cleared",
+   "channels": 1,
+   "seconds": 0.4,
+   "peak_dbfs": -20,
+   "max_rms50ms_dbfs": -30.8,
+   "validation": {
+    "peak_dbfs": -20.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.51e-08,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sudoku_erase.ogg",
+    "outputs/runtime/sudoku_erase.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sudoku_error.wav",
+   "event": "sudoku_error",
+   "batch": 2,
+   "use": "conflicting digit (error marker persists after undo; play once when the error appears)",
+   "channels": 1,
+   "seconds": 1.04,
+   "peak_dbfs": -17,
+   "max_rms50ms_dbfs": -23.9,
+   "validation": {
+    "peak_dbfs": -17.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5.62e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sudoku_error.ogg",
+    "outputs/runtime/sudoku_error.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sudoku_note_place_01.wav",
+   "event": "sudoku_note_place",
+   "batch": 2,
+   "use": "right-click pencil note added",
+   "channels": 1,
+   "seconds": 0.25,
+   "peak_dbfs": -20,
+   "max_rms50ms_dbfs": -40.4,
+   "validation": {
+    "peak_dbfs": -20.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 9.57e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sudoku_note_place_01.ogg",
+    "outputs/runtime/sudoku_note_place_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sudoku_note_place_02.wav",
+   "event": "sudoku_note_place",
+   "batch": 2,
+   "use": "right-click pencil note added",
+   "channels": 1,
+   "seconds": 0.25,
+   "peak_dbfs": -20,
+   "max_rms50ms_dbfs": -39.7,
+   "validation": {
+    "peak_dbfs": -20.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.71e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sudoku_note_place_02.ogg",
+    "outputs/runtime/sudoku_note_place_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sudoku_note_place_03.wav",
+   "event": "sudoku_note_place",
+   "batch": 2,
+   "use": "right-click pencil note added",
+   "channels": 1,
+   "seconds": 0.25,
+   "peak_dbfs": -20,
+   "max_rms50ms_dbfs": -41.7,
+   "validation": {
+    "peak_dbfs": -20.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 8.33e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sudoku_note_place_03.ogg",
+    "outputs/runtime/sudoku_note_place_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sudoku_note_remove.wav",
+   "event": "sudoku_note_remove",
+   "batch": 2,
+   "use": "pencil note removed",
+   "channels": 1,
+   "seconds": 0.25,
+   "peak_dbfs": -22,
+   "max_rms50ms_dbfs": -40.8,
+   "validation": {
+    "peak_dbfs": -22.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.08e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sudoku_note_remove.ogg",
+    "outputs/runtime/sudoku_note_remove.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/sudoku_row_complete.wav",
+   "event": "sudoku_row_complete",
+   "batch": 2,
+   "use": "row completion animation",
+   "channels": 1,
+   "seconds": 2.066,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -23.2,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.12e-10,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/sudoku_row_complete.ogg",
+    "outputs/runtime/sudoku_row_complete.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/switchbox_giggle_boing.wav",
+   "event": "switchbox_giggle_boing",
+   "batch": 2,
+   "use": "optional comic accent on her reaction (non-vocal)",
+   "channels": 1,
+   "seconds": 0.82,
+   "peak_dbfs": -14,
+   "max_rms50ms_dbfs": -18.8,
+   "validation": {
+    "peak_dbfs": -14.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5.04e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/switchbox_giggle_boing.ogg",
+    "outputs/runtime/switchbox_giggle_boing.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/switchbox_reach.wav",
+   "event": "switchbox_reach",
+   "batch": 2,
+   "use": "the girl reaches out of the box",
+   "channels": 1,
+   "seconds": 2.55,
+   "peak_dbfs": -12,
+   "max_rms50ms_dbfs": -19.6,
+   "validation": {
+    "peak_dbfs": -12.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.95e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/switchbox_reach.ogg",
+    "outputs/runtime/switchbox_reach.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/switchbox_reset.wav",
+   "event": "switchbox_reset",
+   "batch": 2,
+   "use": "board reset",
+   "channels": 1,
+   "seconds": 2.623,
+   "peak_dbfs": -13,
+   "max_rms50ms_dbfs": -22.9,
+   "validation": {
+    "peak_dbfs": -13.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.67e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/switchbox_reset.ogg",
+    "outputs/runtime/switchbox_reset.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/switchbox_switch_off_01.wav",
+   "event": "switchbox_switch_off",
+   "batch": 2,
+   "use": "switch flips off (player or the girl)",
+   "channels": 1,
+   "seconds": 0.4,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -24.6,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.39e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/switchbox_switch_off_01.ogg",
+    "outputs/runtime/switchbox_switch_off_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/switchbox_switch_off_02.wav",
+   "event": "switchbox_switch_off",
+   "batch": 2,
+   "use": "switch flips off (player or the girl)",
+   "channels": 1,
+   "seconds": 0.4,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -25.6,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 9.41e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/switchbox_switch_off_02.ogg",
+    "outputs/runtime/switchbox_switch_off_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/switchbox_switch_off_03.wav",
+   "event": "switchbox_switch_off",
+   "batch": 2,
+   "use": "switch flips off (player or the girl)",
+   "channels": 1,
+   "seconds": 0.4,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -25.8,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.19e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/switchbox_switch_off_03.ogg",
+    "outputs/runtime/switchbox_switch_off_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/switchbox_switch_on_01.wav",
+   "event": "switchbox_switch_on",
+   "batch": 2,
+   "use": "player flips a switch on",
+   "channels": 1,
+   "seconds": 0.4,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -24.6,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.67e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/switchbox_switch_on_01.ogg",
+    "outputs/runtime/switchbox_switch_on_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/switchbox_switch_on_02.wav",
+   "event": "switchbox_switch_on",
+   "batch": 2,
+   "use": "player flips a switch on",
+   "channels": 1,
+   "seconds": 0.4,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -25.6,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.08e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/switchbox_switch_on_02.ogg",
+    "outputs/runtime/switchbox_switch_on_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/switchbox_switch_on_03.wav",
+   "event": "switchbox_switch_on",
+   "batch": 2,
+   "use": "player flips a switch on",
+   "channels": 1,
+   "seconds": 0.4,
+   "peak_dbfs": -15,
+   "max_rms50ms_dbfs": -25.8,
+   "validation": {
+    "peak_dbfs": -15.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.81e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/switchbox_switch_on_03.ogg",
+    "outputs/runtime/switchbox_switch_on_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/switchbox_unlock.wav",
+   "event": "switchbox_unlock",
+   "batch": 2,
+   "use": "sequence solved / box opens",
+   "channels": 1,
+   "seconds": 2.645,
+   "peak_dbfs": -10,
+   "max_rms50ms_dbfs": -18.4,
+   "validation": {
+    "peak_dbfs": -10.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.24e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/switchbox_unlock.ogg",
+    "outputs/runtime/switchbox_unlock.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_hint_01.wav",
+   "event": "ui_hint",
+   "batch": 1,
+   "use": "hint shown",
+   "channels": 1,
+   "seconds": 2.641,
+   "peak_dbfs": -12,
+   "max_rms50ms_dbfs": -19.4,
+   "validation": {
+    "peak_dbfs": -12.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.53e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_hint_01.ogg",
+    "outputs/runtime/ui_hint_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_hint_02.wav",
+   "event": "ui_hint",
+   "batch": 1,
+   "use": "hint shown",
+   "channels": 1,
+   "seconds": 2.619,
+   "peak_dbfs": -12,
+   "max_rms50ms_dbfs": -19.3,
+   "validation": {
+    "peak_dbfs": -12.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.57e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_hint_02.ogg",
+    "outputs/runtime/ui_hint_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_invalid_01.wav",
+   "event": "ui_invalid",
+   "batch": 1,
+   "use": "gentle invalid move / rejected drop",
+   "channels": 1,
+   "seconds": 2.52,
+   "peak_dbfs": -14,
+   "max_rms50ms_dbfs": -20.1,
+   "validation": {
+    "peak_dbfs": -14.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.81e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_invalid_01.ogg",
+    "outputs/runtime/ui_invalid_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_invalid_02.wav",
+   "event": "ui_invalid",
+   "batch": 1,
+   "use": "gentle invalid move / rejected drop",
+   "channels": 1,
+   "seconds": 2.52,
+   "peak_dbfs": -14,
+   "max_rms50ms_dbfs": -20.0,
+   "validation": {
+    "peak_dbfs": -14.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 6.05e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_invalid_02.ogg",
+    "outputs/runtime/ui_invalid_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_name_backspace.wav",
+   "event": "ui_name_backspace",
+   "batch": 2,
+   "use": "top-score name entry: delete",
+   "channels": 1,
+   "seconds": 0.75,
+   "peak_dbfs": -20,
+   "max_rms50ms_dbfs": -28.5,
+   "validation": {
+    "peak_dbfs": -20.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.4e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_name_backspace.ogg",
+    "outputs/runtime/ui_name_backspace.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_name_confirm.wav",
+   "event": "ui_name_confirm",
+   "batch": 2,
+   "use": "top-score name saved",
+   "channels": 1,
+   "seconds": 1.846,
+   "peak_dbfs": -12,
+   "max_rms50ms_dbfs": -19.1,
+   "validation": {
+    "peak_dbfs": -12.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.33e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_name_confirm.ogg",
+    "outputs/runtime/ui_name_confirm.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_name_key_01.wav",
+   "event": "ui_name_key",
+   "batch": 2,
+   "use": "top-score name entry: character typed",
+   "channels": 1,
+   "seconds": 0.75,
+   "peak_dbfs": -18,
+   "max_rms50ms_dbfs": -24.8,
+   "validation": {
+    "peak_dbfs": -18.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5.11e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_name_key_01.ogg",
+    "outputs/runtime/ui_name_key_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_name_key_02.wav",
+   "event": "ui_name_key",
+   "batch": 2,
+   "use": "top-score name entry: character typed",
+   "channels": 1,
+   "seconds": 0.75,
+   "peak_dbfs": -18,
+   "max_rms50ms_dbfs": -26.6,
+   "validation": {
+    "peak_dbfs": -18.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.65e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_name_key_02.ogg",
+    "outputs/runtime/ui_name_key_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_name_key_03.wav",
+   "event": "ui_name_key",
+   "batch": 2,
+   "use": "top-score name entry: character typed",
+   "channels": 1,
+   "seconds": 0.75,
+   "peak_dbfs": -18,
+   "max_rms50ms_dbfs": -26.7,
+   "validation": {
+    "peak_dbfs": -18.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.08e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_name_key_03.ogg",
+    "outputs/runtime/ui_name_key_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_new_game.wav",
+   "event": "ui_new_game",
+   "batch": 2,
+   "use": "New Game action (not on autosave/restore)",
+   "channels": 1,
+   "seconds": 1.891,
+   "peak_dbfs": -14,
+   "max_rms50ms_dbfs": -20.4,
+   "validation": {
+    "peak_dbfs": -14.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.73e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_new_game.ogg",
+    "outputs/runtime/ui_new_game.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_undo_01.wav",
+   "event": "ui_undo",
+   "batch": 1,
+   "use": "undo",
+   "channels": 1,
+   "seconds": 1.609,
+   "peak_dbfs": -12,
+   "max_rms50ms_dbfs": -18.6,
+   "validation": {
+    "peak_dbfs": -12.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_undo_01.ogg",
+    "outputs/runtime/ui_undo_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_undo_02.wav",
+   "event": "ui_undo",
+   "batch": 1,
+   "use": "undo",
+   "channels": 1,
+   "seconds": 1.789,
+   "peak_dbfs": -12,
+   "max_rms50ms_dbfs": -17.9,
+   "validation": {
+    "peak_dbfs": -12.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5.32e-08,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_undo_02.ogg",
+    "outputs/runtime/ui_undo_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/ui_victory.wav",
+   "event": "ui_victory",
+   "batch": 1,
+   "use": "generic victory SFX (layer with game stinger or use alone)",
+   "channels": 1,
+   "seconds": 3.289,
+   "peak_dbfs": -7,
+   "max_rms50ms_dbfs": -16.6,
+   "validation": {
+    "peak_dbfs": -7.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 5e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/ui_victory.ogg",
+    "outputs/runtime/ui_victory.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/untangle_edges_clear.wav",
+   "event": "untangle_edges_clear",
+   "batch": 2,
+   "use": "optional: a move reduces crossings to fewer (only if the game shows that count)",
+   "channels": 1,
+   "seconds": 1.846,
+   "peak_dbfs": -16,
+   "max_rms50ms_dbfs": -24.0,
+   "validation": {
+    "peak_dbfs": -16.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.16e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/untangle_edges_clear.ogg",
+    "outputs/runtime/untangle_edges_clear.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/untangle_grab_01.wav",
+   "event": "untangle_grab",
+   "batch": 2,
+   "use": "point picked up",
+   "channels": 1,
+   "seconds": 0.6,
+   "peak_dbfs": -16,
+   "max_rms50ms_dbfs": -23.7,
+   "validation": {
+    "peak_dbfs": -16.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.88e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/untangle_grab_01.ogg",
+    "outputs/runtime/untangle_grab_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/untangle_grab_02.wav",
+   "event": "untangle_grab",
+   "batch": 2,
+   "use": "point picked up",
+   "channels": 1,
+   "seconds": 0.6,
+   "peak_dbfs": -16,
+   "max_rms50ms_dbfs": -23.8,
+   "validation": {
+    "peak_dbfs": -16.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 2.95e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/untangle_grab_02.ogg",
+    "outputs/runtime/untangle_grab_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/untangle_grab_03.wav",
+   "event": "untangle_grab",
+   "batch": 2,
+   "use": "point picked up",
+   "channels": 1,
+   "seconds": 0.6,
+   "peak_dbfs": -16,
+   "max_rms50ms_dbfs": -24.4,
+   "validation": {
+    "peak_dbfs": -16.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 1.45e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/untangle_grab_03.ogg",
+    "outputs/runtime/untangle_grab_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/untangle_release_01.wav",
+   "event": "untangle_release",
+   "batch": 2,
+   "use": "point dropped",
+   "channels": 1,
+   "seconds": 2.013,
+   "peak_dbfs": -17,
+   "max_rms50ms_dbfs": -22.2,
+   "validation": {
+    "peak_dbfs": -17.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.8e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/untangle_release_01.ogg",
+    "outputs/runtime/untangle_release_01.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/untangle_release_02.wav",
+   "event": "untangle_release",
+   "batch": 2,
+   "use": "point dropped",
+   "channels": 1,
+   "seconds": 1.945,
+   "peak_dbfs": -17,
+   "max_rms50ms_dbfs": -21.5,
+   "validation": {
+    "peak_dbfs": -17.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 3.13e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/untangle_release_02.ogg",
+    "outputs/runtime/untangle_release_02.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/untangle_release_03.wav",
+   "event": "untangle_release",
+   "batch": 2,
+   "use": "point dropped",
+   "channels": 1,
+   "seconds": 1.881,
+   "peak_dbfs": -17,
+   "max_rms50ms_dbfs": -21.7,
+   "validation": {
+    "peak_dbfs": -17.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 4.21e-07,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/untangle_release_03.ogg",
+    "outputs/runtime/untangle_release_03.m4a"
+   ]
+  },
+  {
+   "file": "outputs/sfx/untangle_resolve.wav",
+   "event": "untangle_resolve",
+   "batch": 2,
+   "use": "no crossings remain (final resolution)",
+   "channels": 1,
+   "seconds": 3.654,
+   "peak_dbfs": -10,
+   "max_rms50ms_dbfs": -17.9,
+   "validation": {
+    "peak_dbfs": -10.0,
+    "clipped_samples": 0,
+    "dc_offset_max": 8.73e-06,
+    "start_abs": 0.0,
+    "end_abs": 0.0
+   },
+   "runtime": [
+    "outputs/runtime/untangle_resolve.ogg",
+    "outputs/runtime/untangle_resolve.m4a"
+   ]
+  }
+ ],
+ "validation_summary": {
+  "files_with_clipping": []
+ }
+}

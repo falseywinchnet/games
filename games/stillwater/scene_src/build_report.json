@@ -1,0 +1,31 @@
+{
+  "source": "stillwater@4a80ee3 assets/riverscape.swscene.gz",
+  "source_sha256": "e7a1b5735ba85f6c0347aba2569e9e0b5bc445ab87fd06b86e7ff8749cb97f4d",
+  "static": {
+    "meshes": 21,
+    "instances": 7038,
+    "triangles": 330504
+  },
+  "sway": {
+    "triangles_in": 502066,
+    "triangles_out": 126426,
+    "ribbons_thinned": 13943,
+    "triangles_unthinned": 6648,
+    "roots": 626
+  },
+  "actors": {
+    "fish": 16,
+    "crabs": 2,
+    "mesh_triangles": [
+      799,
+      399,
+      192
+    ],
+    "parts": 78
+  },
+  "bytes": {
+    "payload": 11554396,
+    "file": 5578358
+  },
+  "output_sha256": "a6031e334831c46639c66b01cb716707d075afdf7186e03cbbebb91782d174ca"
+}

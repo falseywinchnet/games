@@ -1,0 +1,35 @@
+{
+ "package": "game-parrotstable-01",
+ "kind": "new game (new collection entry; replaces nothing)",
+ "clean_build_from_package": "ok (Release, arm64, GUI.Forms paint-port SDK copy on the Neo)",
+ "logic_tests": "PASS (statement semantics vs an independent reference: 204,800 evaluations; 480 generated tables keep their promises: uniqueness, questions that settle and don't, grading; 81 distinct voice lines from 16 kinds x 6)",
+ "audio_files": 25,
+ "audio_decoded_afconvert": 25,
+ "aac_valid_frames_equal_manifest_loop_end": true,
+ "window_sizes_checked_live": [
+  "1100x780 (default)",
+  "600x370 (cabinet minimum less the rail)",
+  "640x900",
+  "800x500",
+  "1600x1000"
+ ],
+ "behaviours_captured_in_app": [
+  "introductions",
+  "marking with contradictions",
+  "asking a question and the answer in the notebook",
+  "accusing",
+  "a solved table with confetti",
+  "a wrong bird",
+  "help",
+  "the notebook scrolling at the minimum size"
+ ],
+ "played_by_user": true,
+ "anomalies": [],
+ "not_verified": [
+  "listening pass on the final renders (checks were numerical)",
+  "reduced motion (not implemented)",
+  "CPU measurement",
+  "cabinet integration",
+  "non-macOS platforms"
+ ]
+}

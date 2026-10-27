@@ -1,0 +1,68 @@
+{
+  "id": "tumbledstones",
+  "namespace": "ts",
+  "title": "Tumbled Stones",
+  "kind": "Shape matching",
+  "category": "matching",
+  "blurb": "Flip and turn polished stones until their hidden shapes line up, then pull them out.",
+  "view_class": "TumbledStonesView",
+  "view_header": "tumbledstones_view.hpp",
+  "save_file": "tumbled_stones-v1.txt",
+  "core_sources": [
+    "src/rules.cpp",
+    "src/save.cpp",
+    "src/stage.cpp"
+  ],
+  "ui_sources": [
+    "src/tumbledstones_view.cpp",
+    "src/scene.cpp",
+    "src/platform/text.cpp"
+  ],
+  "audio_adapter": "src/platform/audio.cpp",
+  "core_tests": [
+    "tests/rules_tests.cpp"
+  ],
+  "contract_test": "tests/view_contract_tests.cpp",
+  "borrowed": [],
+  "audio_prefix": "ts_",
+  "audio_manifest": "assets/audio/stones_audio_manifest.json",
+  "settles_when_untouched": true,
+  "schema_version": 1,
+  "entry_id": 22,
+  "entry_name": "tumbledstones",
+  "enabled": false,
+  "hosted": true,
+  "module": "module.cpp",
+  "cover": "cover.cpp",
+  "help": "help.md",
+  "build": "build.cmake",
+  "colors": [
+    [
+      74,
+      52,
+      36
+    ],
+    [
+      30,
+      19,
+      12
+    ],
+    [
+      226,
+      179,
+      90
+    ]
+  ],
+  "audio_sources": [
+    "src/platform/audio.cpp"
+  ],
+  "libraries": [
+    "ts_core"
+  ],
+  "help_topics": [],
+  "engines": [
+    "render",
+    "stones"
+  ],
+  "assets": "assets"
+}

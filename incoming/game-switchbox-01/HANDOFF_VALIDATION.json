@@ -1,0 +1,31 @@
+{
+ "package": "game-switchbox-01",
+ "clean_build_from_package": "ok (Release, arm64, GUI.Forms paint-port SDK copy on the Neo)",
+ "puzzle_tests": "PASS (rules, patience ladder, repeat rule, save state, whack-a-mole reachability)",
+ "package_app_launch": "ok; saved GAMES_STATE_DIR/switchbox-dev-v2.txt",
+ "audio_files": 25,
+ "audio_decoded_afconvert": 25,
+ "line_files": 30,
+ "line_total": 206,
+ "behaviours_captured_in_app": [
+  "lamps lit, she frets",
+  "push-down after a miss",
+  "win and clap",
+  "theft",
+  "taunt",
+  "bonk ladder",
+  "whack-a-mole",
+  "you're great"
+ ],
+ "behaviours_checked_as_renders": [
+  "holding: hand on pointer, meltdown, pointer carried off while the other hand forces the switch"
+ ],
+ "not_verified": [
+  "holding with a real mouse (cursor hide/warp)",
+  "listening pass (babble, clap)",
+  "reduced motion (not implemented)",
+  "CPU measurement",
+  "cabinet integration",
+  "non-macOS platforms"
+ ]
+}

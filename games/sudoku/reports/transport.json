@@ -1,0 +1,116 @@
+{
+  "description": "600 held-out requests, 40 per quantile per band, alternating both symmetry modes. Validates approximate slider targeting and population-level monotonicity; individual generation is stochastic.",
+  "results": {
+    "easy": [
+      {
+        "requested": 0.05,
+        "samples": 40,
+        "failures": 0,
+        "medianAchieved": 0.04587109427837143,
+        "meanAbsoluteQuantileError": 0.026069339239821448
+      },
+      {
+        "requested": 0.25,
+        "samples": 40,
+        "failures": 0,
+        "medianAchieved": 0.16478425537670768,
+        "meanAbsoluteQuantileError": 0.08375786216691465
+      },
+      {
+        "requested": 0.5,
+        "samples": 40,
+        "failures": 0,
+        "medianAchieved": 0.41365142702556473,
+        "meanAbsoluteQuantileError": 0.08258403219261462
+      },
+      {
+        "requested": 0.75,
+        "samples": 40,
+        "failures": 0,
+        "medianAchieved": 0.6898755579602327,
+        "meanAbsoluteQuantileError": 0.06514227985932641
+      },
+      {
+        "requested": 0.95,
+        "samples": 40,
+        "failures": 0,
+        "medianAchieved": 0.8879345326660354,
+        "meanAbsoluteQuantileError": 0.06241875760854858
+      }
+    ],
+    "medium": [
+      {
+        "requested": 0.05,
+        "samples": 40,
+        "failures": 0,
+        "medianAchieved": 0.12111801242236025,
+        "meanAbsoluteQuantileError": 0.08363354037267076
+      },
+      {
+        "requested": 0.25,
+        "samples": 40,
+        "failures": 0,
+        "medianAchieved": 0.2111801242236025,
+        "meanAbsoluteQuantileError": 0.0686335403726708
+      },
+      {
+        "requested": 0.5,
+        "samples": 40,
+        "failures": 0,
+        "medianAchieved": 0.422360248447205,
+        "meanAbsoluteQuantileError": 0.07496118012422359
+      },
+      {
+        "requested": 0.75,
+        "samples": 40,
+        "failures": 0,
+        "medianAchieved": 0.7018633540372671,
+        "meanAbsoluteQuantileError": 0.07783385093167702
+      },
+      {
+        "requested": 0.95,
+        "samples": 40,
+        "failures": 0,
+        "medianAchieved": 0.8571428571428571,
+        "meanAbsoluteQuantileError": 0.11727484472049703
+      }
+    ],
+    "hard": [
+      {
+        "requested": 0.05,
+        "samples": 40,
+        "failures": 0,
+        "medianAchieved": 0.1465798045602606,
+        "meanAbsoluteQuantileError": 0.14663680781758967
+      },
+      {
+        "requested": 0.25,
+        "samples": 40,
+        "failures": 0,
+        "medianAchieved": 0.2996742671009772,
+        "meanAbsoluteQuantileError": 0.09291530944625412
+      },
+      {
+        "requested": 0.5,
+        "samples": 40,
+        "failures": 0,
+        "medianAchieved": 0.48859934853420195,
+        "meanAbsoluteQuantileError": 0.077442996742671
+      },
+      {
+        "requested": 0.75,
+        "samples": 40,
+        "failures": 0,
+        "medianAchieved": 0.7231270358306189,
+        "meanAbsoluteQuantileError": 0.0644951140065147
+      },
+      {
+        "requested": 0.95,
+        "samples": 40,
+        "failures": 0,
+        "medianAchieved": 0.8794788273615635,
+        "meanAbsoluteQuantileError": 0.07704397394136826
+      }
+    ]
+  }
+}

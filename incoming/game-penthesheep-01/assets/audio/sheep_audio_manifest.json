@@ -1,0 +1,18 @@
+{
+ "music": [
+  {
+   "id": "sh_music",
+   "loop_end_sample_exclusive": 2304000,
+   "seconds": 48.0
+  },
+  {
+   "id": "sh_music_grass",
+   "loop_end_sample_exclusive": 3072000,
+   "seconds": 64.0
+  }
+ ],
+ "stingers": [
+  "sh_tune_penned",
+  "sh_tune_away"
+ ]
+}

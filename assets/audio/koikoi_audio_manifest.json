@@ -1,0 +1,12 @@
+{
+ "music": [
+  {
+   "id": "kk_music",
+   "bpm": 66,
+   "bars": 32,
+   "bar_samples": 174545,
+   "loop_end_sample_exclusive": 5585455,
+   "seconds": 116.36364583333334
+  }
+ ]
+}

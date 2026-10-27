@@ -1,0 +1,133 @@
+#pragma once
+// A level in play: the rules (maze.hpp) put in motion. Steps and quarter turns
+// glide; doors sink when their pad is pressed; the elevator rises through the
+// ceiling into the maze above; a flip stone rolls the whole world over; a bulb
+// puts the lights out; portals blink you away. The marble rolls the corridors
+// and gets in your way but never traps you; the snail paints its way over floor,
+// walls and ceiling, and hides in its shell when you come close. Now and then
+// someone steps into the corridor ahead with something to say, and occasionally
+// something useful to do; the other residents keep to their places
+// (residents.hpp). Rules always commit before the animation catches up.
+#include "maze.hpp"
+#include "soft3d.hpp"
+#include "world.hpp"
+
+#include <cstdint>
+#include <deque>
+#include <string>
+#include <vector>
+
+namespace mz {
+
+enum class Cmd { forward, back, left, right };
+
+struct Event {                 // for the view: a sound to play, or words to show
+    enum Kind { sound, say, won } kind = sound;
+    std::string text;          // sound name, or the words
+    std::string who;           // the speaker (say)
+    float gain = 1, rate = 1;
+};
+
+struct Speech {
+    std::string who, text;
+    double age = 0;
+    // A resident speaks from where it is: the view draws a bubble at it. `at.f` < 0 for the
+    // maze's own words, shown in the box at the foot of the view.
+    Pos at{-1, 0, 0};
+    double z = .8;  // the height its bubble points to
+};
+
+struct VisitorDef {            // supplied by the view: who might drop by
+    std::string name;
+    const Tex32* tex = nullptr;
+    std::vector<std::string> lines;
+    double w = .7, h = .9;
+    double lift = 0;            // hovering this far above the floor
+};
+
+class Session {
+public:
+    void start(const Level& lv, std::uint64_t seed);
+    void command(Cmd c);
+    void update(double dt);
+    void set_reduced_motion(bool value) { reduced_ = value; }
+    bool camera_animating() const;
+    bool simulation_animating() const;
+    double next_update_delay() const;
+    std::uint64_t speech_revision = 0;
+    std::vector<Pos> repainted;
+    void camera(Soft3D& r) const;     // where the eye is and how it is turned
+
+    Level lv;                         // a copy, for this play of it
+    Play play;
+    WorldState world;
+    std::vector<Event> events;
+    std::deque<Speech> speech;        // what is being said (the front is showing)
+    std::vector<VisitorDef> cast;     // filled in by the view
+    const Tex32* reward_tex = nullptr;
+    std::string reward_name;
+    bool busy() const { return move_t_ < 1 || turn_t_ < 1 || roll_t_ < 1 || ride_t_ >= 0; }
+    bool flipped_view() const { return play.flipped; }
+    double won_t = -1;                // seconds since the reward was reached
+    int bumps = 0;                    // times walked into something
+
+private:
+    bool reduced_ = false;
+    std::uint64_t rng_ = 1;
+    double t_ = 0;
+    // the eye's motion
+    V3 from_{}, to_{};
+    double move_t_ = 1, move_len_ = .22;
+    double yaw_from_ = 0, yaw_to_ = 0, turn_t_ = 1, turn_len_ = .2;
+    double roll_from_ = 0, roll_to_ = 0, roll_t_ = 1, roll_len_ = 1.1;
+    double ride_t_ = -1, ride_len_ = 2.4;
+    int ride_from_ = 0, ride_to_ = 0;
+    double flash_ = 0;                // a portal's white blink
+    bool snap_ = false;               // after a portal: move the eye to the far side when the step ends
+    double bump_ = 0;
+    std::deque<Cmd> queue_;
+    std::vector<double> door_target_;
+    // the movers
+    double marble_wait_ = 0;
+    std::vector<std::vector<char>> marble_ok_;  // per floor: squares on the maze's loops, where the marble may roll
+    // visitors
+    double visit_cool_ = 12;
+    double visit_t_ = 0;
+    int visit_who_ = -1;
+    std::vector<int> met_;            // recently seen, so the cast takes turns
+    double rand01();
+    int rand_int(int n);
+    void execute(Cmd c);
+    void arrive(const Arrival& a, Pos from);
+    void marble_update(double dt);
+    void snail_update(double dt);
+    void visitor_update(double dt);
+    void residents_update(double dt);
+    void place_residents();
+    double thinker_t_ = 0;           // when the Thinking Face's loop next starts
+    double ball_grumble_ = 0;        // the ball's next bell or burp
+    double thinker_says_ = 0;        // the Thinking Face's next thought aloud
+    void say(const std::string& who, const std::string& text);
+    void say_at(const std::string& who, const std::string& text, Pos at, double z);
+    // A resident is heard and seen only along an open line from you: no wall or shut door
+    // between, within `reach` squares. In front: within 55 degrees of the way you face.
+    [[nodiscard]] bool in_sight(Pos p, double reach) const;
+    [[nodiscard]] bool in_front(Pos p) const;
+    [[nodiscard]] double squares_to(Pos p) const;  // on the same floor (far otherwise)
+    bool blocked_by_movers(Pos p) const;
+    void sfx(const std::string& name, float gain = 1, float rate = 1) { events.push_back({Event::sound, name, {}, gain, rate}); }
+
+public:
+    // The maze itself says something in the speech box (no speaker): what it holds, what is new.
+    void announce(const std::string& text) { say("", text); }
+    // The line showing is put away (a click on it).
+    void dismiss_speech() {
+        if (!speech.empty()) {
+            speech.pop_front();
+            ++speech_revision;
+        }
+    }
+    double flash() const { return reduced_ ? 0 : flash_; }
+};
+
+}  // namespace mz

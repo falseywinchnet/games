@@ -1,0 +1,8 @@
+{
+ "music": [
+  {
+   "id": "music_switchbox_loop",
+   "loop_end_sample_exclusive": 4680000
+  }
+ ]
+}

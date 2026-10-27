@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "grass",
+  "namespace": "grass",
+  "title": "Grass",
+  "summary": "Whole-lawn pictures grown blade by blade on the processor: long grass with wildflowers and mushrooms, short grass laid each way a mower leaves it, bark mulch with bedding plants, and tree canopies, lit by one sun with close shadows, in any season from fresh spring growth to frost.",
+  "build": "build.cmake",
+  "libraries": [
+    "grass_core"
+  ],
+  "source_directories": [
+    "src"
+  ],
+  "tests": [
+    "tests/grass_tests.cpp"
+  ]
+}

@@ -1,0 +1,12 @@
+Switchbox remake, namespace sbx.
+Source: incoming/game-switchbox-01/source at Games commit de23ab8.
+The incoming package is the preserved delivery. This directory is its working copy.
+
+The cabinet hosts Switchbox in collection slot 7; PuzzleKind 5 remains its identity.
+No removed five-switch implementation is restored.
+Production save: switchbox-v2.txt. Development save: switchbox-dev-v2.txt.
+The separate earlier switchbox-v1.txt is never opened by this module.
+
+Portable integration uses shared Games asset/state paths, GUI.Forms audio and
+LiveSurface presentation. OS-specific text and cursor behavior belong to
+GUI.Forms. Dialogue is isolated under assets/lines/switchbox.

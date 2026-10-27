@@ -1,0 +1,134 @@
+#include "stillwater_view.hpp"
+
+#include "live_composer.hpp"
+#include "repertoire.hpp"
+#include "tank_voice.hpp"
+#include "tanks.hpp"
+
+#include <random>
+
+namespace sw {
+namespace {
+
+std::unique_ptr<ambient::Look> planted_look(const ambient::SceneData& scene) {
+    return make_tank_look(Tank::planted, scene);
+}
+std::unique_ptr<ambient::Look> reef_look(const ambient::SceneData& scene) {
+    return make_tank_look(Tank::reef, scene);
+}
+std::unique_ptr<ambient::Look> pool_look(const ambient::SceneData& scene) {
+    return make_tank_look(Tank::pool, scene);
+}
+void dress_planted(ambient::SceneData& scene) {
+    dress_tank(Tank::planted, scene);
+}
+void dress_reef(ambient::SceneData& scene) {
+    dress_tank(Tank::reef, scene);
+}
+
+ambient::DioramaScene tank_scene(const char* id, const char* name, const char* archive, ambient::LookFactory look,
+                                 ambient::SceneDressing dress) {
+    ambient::DioramaScene scene{};
+    scene.id = id;
+    scene.name = name;
+    scene.archive = archive;
+    scene.make_look = look;
+    scene.dress = dress;
+    scene.bounds = ambient::Bounds{};
+    return scene;
+}
+
+#ifdef GUI_FORMS_AUDIO_GENERATOR
+// The tank's water, synthesized as it plays (tank_voice.hpp), under the Sound master. It
+// follows the tank shown (the scenes are in Tank order) and plays the taps on the glass.
+class LiveTank final : public ambient::SceneVoice {
+  public:
+    void render(std::span<float> stereo) noexcept override {
+        std::fill(stereo.begin(), stereo.end(), 0.0F);
+        tank_.render_add(stereo, TankVoice::suite_level);
+    }
+    void show_scene(std::size_t scene) noexcept override {
+        tank_.set_tank(static_cast<int>(scene));
+    }
+    bool tap(double x, double, std::size_t) noexcept override {
+        tank_.knock(x * 2 - 1);
+        return true;
+    }
+
+  private:
+    TankVoice tank_{static_cast<std::uint32_t>(std::random_device{}())};
+};
+
+std::shared_ptr<ambient::SceneVoice> make_tank() {
+    std::shared_ptr<ambient::SceneVoice> voice = std::make_shared<LiveTank>();
+    return voice;
+}
+
+// The island band on its old record, making up tunes as it plays (the suite's
+// src/music/styles/island_band.hpp), under the Music master.
+std::shared_ptr<gui_forms::AudioGenerator> make_island() {
+    const std::uint32_t seed = static_cast<std::uint32_t>(std::random_device{}());
+    std::shared_ptr<gui_forms::AudioGenerator> voice =
+        std::make_shared<games::LiveComposer>(games::music::make_score("island_band", seed), games::music::score_level("island_band"));
+    return voice;
+}
+#endif
+
+} // namespace
+
+ambient::SceneSetup stillwater_setup() {
+    ambient::SceneSetup setup{};
+    setup.id = "stillwater";
+    setup.settings_file = "stillwater-v1.txt";
+    setup.archive = "scene/riverscape.ambient";
+    // The planted tank first: it is the default, and what saves from before there was
+    // a choice open on.
+    setup.scenes = {tank_scene("planted", "Planted", "scene/riverscape.ambient", &planted_look, &dress_planted),
+                    tank_scene("reef", "Reef", "scene/reef.ambient", &reef_look, &dress_reef),
+                    tank_scene("pool", "River pool", "scene/pool.ambient", &pool_look, nullptr)};
+    setup.accessible_name = "Stillwater. A living aquarium: a planted tank, a coral reef or a river pool. "
+                            "Click the glass to startle the fish; S changes the scene.";
+    // The water is sound (the Sound master); the island band is music (the Music
+    // master). Both are live where the toolkit plays generators, otherwise loops.
+    setup.ambience = "sw_ambience";
+    setup.music = "sw_island";
+#ifdef GUI_FORMS_AUDIO_GENERATOR
+    setup.live_ambience = &make_tank;
+    setup.live_music = &make_island;
+#endif
+    setup.tap_sound = "sw_tap";
+    setup.help_title = "Stillwater";
+    setup.help_paragraphs = {
+        "A planted tank: tall grass leaning in a slow current, driftwood, stones, sixteen "
+        "tetras, two crabs on the sand and a little sunken treasure chest, with sunlight "
+        "rippling over it all.",
+        "S changes the scene: the planted tank, a coral reef or a dim river pool. Stillwater "
+        "remembers the one you chose.",
+        "Click the glass near a fish to startle it. It darts away, then settles into a new loop.",
+        "Space pauses and resumes. While paused the tank costs nothing at all. "
+        "Q changes the detail; Light is kindest to an older computer.",
+        "The water and the glass are Sound; the island band is Music. "
+        "M turns the band off and on.",
+        "The tank slows itself to stay light on the processor, and slows further while "
+        "another window is in front."};
+    setup.make_look = &planted_look;
+    setup.dress = &dress_planted;
+    setup.bounds = ambient::Bounds{};
+    // The picture (grass, then fish and light over it) is built in one burst on a
+    // worker, twenty-four times a second when the budget allows: two fifths of a core
+    // (Fine doubles it). The governor lowers the picture rate first, to eight a
+    // second; the fish then move over the grass in hand between pictures, down to
+    // twelve frames a second.
+    setup.limits = ambient::CadenceLimits{.frames_preferred = 24,
+                                          .frames_lowest = 12,
+                                          .sway_preferred = 24,
+                                          .sway_lowest = 8,
+                                          .budget = 0.75};
+    setup.backdrop = 0x1C362D;
+    return setup;
+}
+
+StillwaterView::StillwaterView(ambient::gf::StableId id, ambient::ViewOptions options)
+    : AmbientView(std::move(id), stillwater_setup(), options) {}
+
+} // namespace sw
