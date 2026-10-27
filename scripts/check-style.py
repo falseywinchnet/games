@@ -5,6 +5,10 @@ are review candidates because distinguishing subscripts requires a C++ parser.
 Ownership, lifetimes, initialization and kernel design require source review.
 """
 
+# template_harness/harness/check_house_style.py, which CI runs, with two local changes for
+# contributors who have no harness: a default scope, and nested games/ folders left out
+# of a directory walk (name a game folder to check it). Keep the rules equal to it.
+
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,10 +36,18 @@ RULES: tuple[tuple[str, str], ...] = (
     ("coroutine", r"\bco_(?:await|yield|return)\b"),
     ("ranges-or-views", r"\bstd\s*::\s*(?:ranges|views)\s*::"),
     ("defaulted-comparison", r"\boperator\s*(?:==|!=|<=>|<=|>=|<|>)\s*\([^;{}]*?=\s*default\b"),
+    # Objective-C block literals (^{ ... }, ^(arguments) { ... } and
+    # ^Return(arguments) { ... }) are anonymous callbacks, which section 2
+    # forbids (owner decision V2-1). Checked in every file: C++ exclusive-or
+    # never puts a brace, or a parameter list and then a brace, after `^`, so
+    # in C++ sources the rule finds nothing; the macOS host's run file is
+    # Objective-C++ in a ".inc".
+    ("objective-c-block", r"\^\s*\{|\^\s*\([^()]*\)\s*\{|\^\s*[A-Za-z_]\w*\s*\*?\s*\([^()]*\)\s*\{"),
     ("lambda-review", r"\[(?:\s*|[^\[\];]*?)\]\s*(?:<[^;{}]+>\s*)?(?:\([^;{}]*?\)\s*)?(?:mutable\s*)?(?:noexcept\s*)?(?:->[^{};]+)?\{"),
 )
-EXTENSIONS: tuple[str, ...] = (".cpp", ".cc", ".cxx", ".hpp", ".hh", ".h", ".mm")
-EXCLUDED: tuple[str, ...] = (".git", ".build", "build", "third_party", "games", "node_modules")
+# ".inc" holds C++ included into a translation unit (the hosts' run files).
+EXTENSIONS: tuple[str, ...] = (".cpp", ".cc", ".cxx", ".hpp", ".hh", ".h", ".mm", ".m", ".inc")
+EXCLUDED: tuple[str, ...] = (".git", ".build", "build", "third_party", "vendor", "games", "node_modules")
 
 
 def mask_literal(match: re.Match[str]) -> str:

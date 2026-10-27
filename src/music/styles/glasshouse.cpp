@@ -562,9 +562,13 @@ void Glasshouse::step_sixteenth() {
                 bird_phrase();
         }
     }
-    const int root = bass_root_[bar_];
     const int s = sixteenth_;
-    switch (bass_style_) {
+    // bar_ is -1 for the rest of the bar after a resolution (and before the first bar):
+    // no bar's root exists, so the bass rests until the next bar (style -1 plays
+    // nothing), as the lead does below.
+    const int style = bar_ >= 0 ? bass_style_ : -1;
+    const int root = bar_ >= 0 ? bass_root_[static_cast<std::size_t>(bar_)] : 0;
+    switch (style) {
     case 0:
         if (s == 0)
             bass_note(root + (bar_ % 2 ? 12 : 0), 16);

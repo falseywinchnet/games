@@ -15,3 +15,5 @@ __pycache__/
 /notes-*/
 /projects/
 /.ci/
+/.toolchain/
+/.bootstrap/

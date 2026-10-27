@@ -20,9 +20,6 @@ from pathlib import Path
 
 from package_common import TOOLKIT_REVISION
 
-# Our platform names to GUI.Forms' archive names.
-ARCHIVES = {"windows-x64": "windows-x64", "macos-arm64": "macos-arm64",
-            "linux-amd64": "linux-x64", "linux-arm64": "linux-arm64"}
 # SHA-256 of each archive in release build-<TOOLKIT_REVISION>.
 DIGESTS = {
     "linux-arm64": "65443b9035375c15e2703958afe052401470fe45ff834b1918fb247b2b50e8f0",
@@ -41,8 +38,9 @@ def wanted(name: str) -> bool:
 
 
 def restore(platform: str) -> str:
-    name = ARCHIVES.get(platform)
-    if name is None:
+    # PlaySuite's platform names are GUI.Forms' (and the harness's).
+    name = platform
+    if name not in DIGESTS:
         return "no GUI.Forms cache is published for " + platform
     archive = Path("gui-forms-cache-" + name + ".tar.gz")
     tag = "build-" + TOOLKIT_REVISION
@@ -73,7 +71,9 @@ def restore(platform: str) -> str:
 
 
 def prepare_runtime() -> None:
-    tools = Path("gui_forms/tools")
+    # The macOS runtime tools are the pinned harness's (harness.lock), checked out at
+    # template_harness/ in the workspace.
+    tools = Path("template_harness/harness")
     check = subprocess.run([sys.executable, str(tools / "macos_runtime_manifest.py"), str(RUNTIME)], check=False)
     if check.returncode != 0:
         print("Building the LLVM 22 runtime for macOS 14 from GUI.Forms' pinned source", flush=True)

@@ -1,17 +1,13 @@
 name: Native portable text
 on:
-  push:
-    branches: [main]
-    paths: ['src/text_requests.*', 'src/game_text.*', 'src/bar_music.*', 'assets/fonts/**', 'games/eggy/**', 'games/fourpegs/**', 'games/atomprobe/**', 'games/switchbox/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', 'tools/restore_*.py', 'tools/package_common.py', '.github/workflows/native-text.yml']
-  pull_request:
-    paths: ['src/text_requests.*', 'src/game_text.*', 'src/bar_music.*', 'assets/fonts/**', 'games/eggy/**', 'games/fourpegs/**', 'games/atomprobe/**', 'games/switchbox/**', 'tests/*frame*', 'tests/*text*', 'tests/portable_text/**', 'tools/restore_*.py', 'tools/package_common.py', '.github/workflows/native-text.yml']
+  # Called by applications.yml, whose "PlaySuite CI summary" job stands for every check
+  # of a pull request; run by hand from the Actions tab.
+  # Only for the changes tools/ci_changes.py selects (it holds the paths).
+  workflow_call:
   workflow_dispatch:
 permissions:
   contents: read
   actions: read  # tools/test_reuse.py reads earlier runs' results
-concurrency:
-  group: text-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
 jobs:
   # On main after a merge: nothing to do when the pull request's run passed on this
   # exact tree (tools/test_reuse.py same-tree).
@@ -51,38 +47,28 @@ jobs:
         shell: ${{ matrix.shell }}
     steps:
       - uses: actions/checkout@v4
+      # The pinned template_harness (harness.lock) at ./template_harness.
+      - uses: ./.github/actions/harness-checkout
       - name: Fetch reviewed development text source
         uses: actions/checkout@v4
         with:
           repository: malkuth-software/gui_forms
           ref: e077f9d5a5117312e65e8c3b741c4edd24013d56
           path: gui_forms
-      # GUI.Forms' tools under gui_forms/tools forward to template_harness, checked out
-      # beside it at the commit gui_forms/harness.lock pins.
-      - uses: ./gui_forms/.github/actions/harness-checkout
       - uses: actions/setup-python@v5
         if: runner.os == 'Windows'
         with:
           python-version: '3.14'
-      # GUI.Forms publishes the MSYS2 tree its cache was compiled with; restoring it
-      # avoids the MSYS2 mirrors and guarantees the compiler the cache needs.
+      # GUI.Forms publishes the MSYS2 tree its cache was compiled with (the harness's
+      # windows_toolchain.json names it; projects/games.toml reads GUI.Forms' releases).
+      # Restoring it avoids the MSYS2 mirrors and guarantees the compiler the cache
+      # needs; without a published tree the job stops rather than install another.
       - name: Restore GUI.Forms' Windows toolchain
-        id: msys
         if: runner.os == 'Windows'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python tools/restore_windows_toolchain.py
-      # Only when the published toolchain could not be restored.
-      - uses: msys2/setup-msys2@v2
-        if: runner.os == 'Windows' && steps.msys.outputs.restored != 'true'
-        with:
-          msystem: CLANG64
-          update: true
-          install: >-
-            mingw-w64-clang-x86_64-clang mingw-w64-clang-x86_64-lld
-            mingw-w64-clang-x86_64-llvm-tools mingw-w64-clang-x86_64-cmake
-            mingw-w64-clang-x86_64-ninja mingw-w64-clang-x86_64-winpthreads mingw-w64-clang-x86_64-ccache git
+        run: python template_harness/harness/windows_toolchain.py restore
       - name: Select Windows compiler
         if: runner.os == 'Windows'
         run: |
@@ -104,11 +90,7 @@ jobs:
         if: runner.os == 'Linux'
         # Current GUI.Forms needs the LLVM 22 series (Ubuntu's compilers reject it).
         run: |
-          curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key -o "$RUNNER_TEMP/llvm-key.asc"
-          sudo install -m 0644 "$RUNNER_TEMP/llvm-key.asc" /usr/share/keyrings/apt-llvm.asc
-          echo 'deb [signed-by=/usr/share/keyrings/apt-llvm.asc] https://apt.llvm.org/noble/ llvm-toolchain-noble-22 main' | sudo tee /etc/apt/sources.list.d/llvm-22.list
-          sudo apt-get update && sudo apt-get install -y ninja-build clang-22 ccache
-          echo /usr/lib/llvm-22/bin >> "$GITHUB_PATH"
+          sh template_harness/harness/install_linux_ci_packages.sh core "$RUNNER_TEMP/apt-archives"
           echo "CC=clang" >> "$GITHUB_ENV"
           echo "CXX=clang++" >> "$GITHUB_ENV"
       - name: Restore GUI.Forms compiler cache and runtime
@@ -117,7 +99,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           platform="${{ matrix.platform }}"
-          [ "$platform" = linux-x64 ] && platform=linux-amd64
           python3 tools/restore_toolkit_cache.py "$platform" || python tools/restore_toolkit_cache.py "$platform"
       - uses: actions/cache/restore@v4
         id: objects
