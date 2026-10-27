@@ -9,6 +9,10 @@ import shutil
 import subprocess
 from package_common import ROOT, copy_resources, project_version, write_manifest
 
+# The pinned harness (harness.lock) at template_harness/ in the workspace: its audit of
+# every image's architecture, minimum macOS and C++ runtime.
+HARNESS = ROOT / "template_harness" / "harness"
+
 
 def run(arguments):
     return subprocess.check_output(arguments, text=True).strip()
@@ -124,7 +128,7 @@ def main():
         run(["strip", "-S", "-x", str(target)])
         run(["codesign", "--force", "--sign", "-", str(target)])
     # Every image is arm64, at most macOS 14.0, with no system or absolute libc++.
-    run(["python3", str(args.toolkit / "tools/audit_macos_minimum.py"), str(app)])
+    run(["python3", str(HARNESS / "audit_macos_minimum.py"), str(app)])
     write_manifest(resources, "macOS", "arm64")
     run(["codesign", "--force", "--deep", "--sign", "-", str(app)])
     run(["codesign", "--verify", "--deep", "--strict", str(app)])

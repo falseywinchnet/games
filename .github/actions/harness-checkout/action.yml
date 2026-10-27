@@ -1,0 +1,54 @@
+name: Check out the pinned template_harness
+description: >-
+  Reads harness.lock at the workspace root (PlaySuite is the workspace root,
+  source_dir "." in template_harness/projects/games.toml) and checks that
+  template_harness commit out, detached, at ./template_harness, inside the
+  checkout (.gitignore lists it). It then points HARNESS_PROJECT at
+  projects/games.toml and HARNESS_WORKSPACE at the workspace for the job's
+  later steps. The inline form of template_harness's own action
+  (docs/adopting.md, section 3): it follows harness.lock alone, so a bump is
+  one line. Run it right after the PlaySuite checkout, which cleans the
+  workspace.
+outputs:
+  commit:
+    description: The locked commit.
+    value: ${{ steps.lock.outputs.commit }}
+runs:
+  using: composite
+  steps:
+    # Exactly one repository line and one commit line, as harness/lock.py writes.
+    - id: lock
+      shell: bash
+      run: |
+        lock=harness.lock
+        repositories=$(sed -n 's/^repository[[:space:]]*=[[:space:]]*"\([A-Za-z0-9_.-]*\/[A-Za-z0-9_.-]*\)".*$/\1/p' "$lock")
+        commits=$(sed -n 's/^commit[[:space:]]*=[[:space:]]*"\([0-9a-f]\{40\}\)".*$/\1/p' "$lock")
+        if [ -z "$repositories" ] || [ "$(printf '%s\n' "$repositories" | wc -l)" -ne 1 ]; then
+          echo "harness-checkout: $lock needs exactly one line repository = \"owner/name\"" >&2
+          exit 1
+        fi
+        if [ -z "$commits" ] || [ "$(printf '%s\n' "$commits" | wc -l)" -ne 1 ]; then
+          echo "harness-checkout: $lock needs exactly one line commit = \"<40 lowercase hexadecimal characters>\"" >&2
+          exit 1
+        fi
+        echo "repository=$repositories" >> "$GITHUB_OUTPUT"
+        echo "commit=$commits" >> "$GITHUB_OUTPUT"
+    - uses: actions/checkout@v4
+      with:
+        repository: ${{ steps.lock.outputs.repository }}
+        ref: ${{ steps.lock.outputs.commit }}
+        path: template_harness
+        persist-credentials: false
+    - shell: bash
+      env:
+        COMMIT: ${{ steps.lock.outputs.commit }}
+        WORKSPACE: ${{ github.workspace }}
+      run: |
+        head=$(git -C template_harness rev-parse HEAD)
+        if [ "$head" != "$COMMIT" ]; then
+          echo "harness-checkout: template_harness is at $head, not the locked $COMMIT" >&2
+          exit 1
+        fi
+        echo "HARNESS_PROJECT=$WORKSPACE/template_harness/projects/games.toml" >> "$GITHUB_ENV"
+        echo "HARNESS_WORKSPACE=$WORKSPACE" >> "$GITHUB_ENV"
+        echo "template_harness at $COMMIT"

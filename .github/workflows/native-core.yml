@@ -37,29 +37,22 @@ jobs:
         shell: ${{ matrix.shell }}
     steps:
       - uses: actions/checkout@v4
+      # The pinned template_harness (harness.lock) at ./template_harness.
+      - uses: ./.github/actions/harness-checkout
       - uses: actions/setup-python@v5
         if: runner.os == 'Windows'
         with:
           python-version: '3.14'
-      # GUI.Forms publishes the MSYS2 tree its cache was compiled with; restoring it
-      # avoids the MSYS2 mirrors and guarantees the compiler the cache needs.
+      # GUI.Forms publishes the MSYS2 tree its cache was compiled with (the harness's
+      # windows_toolchain.json names it; projects/games.toml reads GUI.Forms' releases).
+      # Restoring it avoids the MSYS2 mirrors and guarantees the compiler the cache
+      # needs; without a published tree the job stops rather than install another.
       - name: Restore GUI.Forms' Windows toolchain
-        id: msys
         if: runner.os == 'Windows'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python tools/restore_windows_toolchain.py
-      # Only when the published toolchain could not be restored.
-      - uses: msys2/setup-msys2@v2
-        if: runner.os == 'Windows' && steps.msys.outputs.restored != 'true'
-        with:
-          msystem: CLANG64
-          update: true
-          install: >-
-            mingw-w64-clang-x86_64-clang mingw-w64-clang-x86_64-lld
-            mingw-w64-clang-x86_64-llvm-tools mingw-w64-clang-x86_64-cmake
-            mingw-w64-clang-x86_64-ninja git
+        run: python template_harness/harness/windows_toolchain.py restore
       - name: Install macOS tools
         if: runner.os == 'macOS'
         run: brew install ninja
