@@ -114,6 +114,15 @@ green. Each push to `main` publishes a release (`tools/publication_version.py`:
 `GAMES_BASE_VERSION` major.minor, patch = baseline patch + run number), so merge only
 what is ready to ship on its own.
 
+PlaySuite is a `template_harness` product (`projects/games.toml` there; `harness.lock`
+here pins the harness commit). Its checkout is the workspace root: the harness sits
+at `template_harness/`, the notes at `notes/` and `notes-games/` (the `games` branch
+of `malkuth-software/notes`, which holds PlaySuite's records, proposals, interviews,
+decisions and studies), and build trees at `.build/native-<platform>/games*`, all
+ignored. `template_harness/bootstrap.sh --workspace DIR --project games` sets a
+workspace up; its smoke build is `tools/harness_smoke.py` (the portable core with the
+harness's LLVM 22 toolchain file, then the `storage` test).
+
 The portable core configures without GUI.Forms and builds every game core, engine
 and their tests, but not the graphical application:
 
