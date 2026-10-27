@@ -121,7 +121,7 @@ class SongBand final : public Band {
     int bar_ = 0;            // in the section
     double beat_ = .5;
     std::vector<double> last_{};  // each part's last arpeggio note
-    long next_bar_ = 0;
+    std::int64_t next_bar_ = 0;
     long bars_ = 0;
 };
 

@@ -79,7 +79,7 @@ class MarimbaBand final : public Band {
     double drift_ = 0;                // the tempo's slow wander
     // this phrase's variety: the whole band at half time, or parts at half their pace
     bool half_all_ = false, half_bass_ = false, half_comp_ = false, half_tune_ = false;
-    long next_bar_ = 0;
+    std::int64_t next_bar_ = 0;
     long bars_ = 0;
 };
 

@@ -42,7 +42,7 @@ KotoGarden::KotoGarden(std::uint32_t seed, bool night)
         body_g_[k] = (1 - r) * 2 * std::sin(w);
     }
     // The first phrase after a breath of quiet.
-    next_phrase_ = static_cast<long>(sample_rate * (1.2 + uniform()));
+    next_phrase_ = static_cast<std::int64_t>(sample_rate * (1.2 + uniform()));
 }
 
 // The pick strikes near the end of the string: a short, bright burst, softer for a
@@ -115,15 +115,15 @@ float KotoGarden::run(String& s) noexcept {
 // the fifth, then room before the next.
 void KotoGarden::plan_phrase() noexcept {
     ++phrases_;
-    const long spb = static_cast<long>(beat_ * sample_rate);
-    long t = clock_ + spb / 8;
+    const std::int64_t spb = static_cast<std::int64_t>(beat_ * sample_rate);
+    std::int64_t t = clock_ + spb / 8;
     // Now and then the phrase opens with a sweep down the strings.
     if (uniform() < .16) {
         const int top = 8 + pick(5);
         const int count = 5 + pick(3);
         for (int k = 0; k < count && top - k >= 0; ++k)
-            events_.push_back({t + static_cast<long>(k * .045 * sample_rate), top - k, .55 - .05 * k, 0});
-        t += spb + static_cast<long>(count * .045 * sample_rate);
+            events_.push_back({t + static_cast<std::int64_t>(k * .045 * sample_rate), top - k, .55 - .05 * k, 0});
+        t += spb + static_cast<std::int64_t>(count * .045 * sample_rate);
         last_string_ = std::max(1, top - count + 1);
     }
     int current = std::clamp(last_string_ + pick(3) - 1, 2, 10);
@@ -165,7 +165,7 @@ void KotoGarden::plan_phrase() noexcept {
         if (n == 0 && uniform() < .25) {
             for (int j = current + 1; j < 13; ++j)
                 if (tuning_[static_cast<std::size_t>(j)] == tuning_[static_cast<std::size_t>(current)] + 12) {
-                    events_.push_back({t + static_cast<long>(.012 * sample_rate), j, strength * .7, 0});
+                    events_.push_back({t + static_cast<std::int64_t>(.012 * sample_rate), j, strength * .7, 0});
                     break;
                 }
         }
@@ -174,12 +174,12 @@ void KotoGarden::plan_phrase() noexcept {
         // The note after a press waits for the press to sound.
         if (press > 0)
             beats = std::max(beats, 1.0);
-        t += static_cast<long>(beats * spb);
+        t += static_cast<std::int64_t>(beats * spb);
     }
     last_string_ = current;
     // Ma: the quiet between phrases, longer at night.
     const double rest = (night_ ? 2.0 : 1.2) + uniform() * (night_ ? 3.0 : 2.0);
-    next_phrase_ = t + static_cast<long>(rest * spb);
+    next_phrase_ = t + static_cast<std::int64_t>(rest * spb);
     std::sort(events_.begin(), events_.end(), earlier);
     // Now and then the flute breathes a long tone over it.
     if (!flute_.on && uniform() < (night_ ? .45 : .25))

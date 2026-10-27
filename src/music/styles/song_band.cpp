@@ -210,7 +210,7 @@ void set_mix(Song& song, Instrument kind, double level, double send) { song.mix.
 SongBand::SongBand(std::uint32_t seed, Song song)
     : Band(seed * 2654435761U + 0x3C6EF372U, Room(song.room_seconds, song.room_dark_hz)), song_(std::move(song)) {
     beat_ = 60.0 / song_.bpm;
-    next_bar_ = static_cast<long>(sample_rate * .2);
+    next_bar_ = static_cast<std::int64_t>(sample_rate * .2);
     next_plan_ = next_bar_;
     std::size_t parts = 0;
     for (const SongSection& s : song_.sections) parts = std::max(parts, s.parts.size());
@@ -242,7 +242,7 @@ const SongChord& SongBand::chord_at(const SongSection& s, int bar, double beat) 
 
 void SongBand::play_bar() noexcept {
     if (song_.order.empty()) {
-        next_bar_ += static_cast<long>(4 * beat_ * sample_rate);
+        next_bar_ += static_cast<std::int64_t>(4 * beat_ * sample_rate);
         return;
     }
     const SongSection& s = song_.sections[static_cast<std::size_t>(song_.order[static_cast<std::size_t>(place_)])];
@@ -339,7 +339,7 @@ void SongBand::play_bar() noexcept {
     if (bar == 0 && s.crash) at(0, Instrument::crash, 0, .6, 0, .25);
     if (stopping) at(0, Instrument::crash, 0, .7, 0, .25);
     ++bars_;
-    next_bar_ += static_cast<long>(4 * beat_ * sample_rate);
+    next_bar_ += static_cast<std::int64_t>(4 * beat_ * sample_rate);
     if (++bar_ >= s.bars) {
         bar_ = 0;
         if (++place_ >= static_cast<int>(song_.order.size())) place_ = std::clamp(song_.loop_from, 0, static_cast<int>(song_.order.size()) - 1);

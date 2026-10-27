@@ -2,11 +2,13 @@
 // whatever the block size the device asks for, stays inside full scale at its game's
 // level, keeps playing (no score runs dry or stalls), and comes up from silence when
 // asked. Then what each game's score promises of its own.
+#include "band.hpp"
 #include "repertoire.hpp"
 #include "styles/koto_garden.hpp"
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <iostream>
 #include <stdexcept>
@@ -76,6 +78,38 @@ void check_koto(bool night) {
     std::printf("koto %s: %d phrases, %ld notes, %ld breaths, %.0f%% near silent\n", night ? "night" : "day", koto.phrases(), koto.notes_plucked(),
                 koto.breaths(), 100.0 * quiet / windows);
 }
+
+// A band that has played for over twelve hours. Its sample clock starts two seconds short
+// of 2^31 samples, where a 32-bit long (as on Windows) overflows, and a note is due every
+// half second across that point.
+class LongRunBand final : public Band {
+  public:
+    explicit LongRunBand(std::int64_t start) : Band(7, Room(1.0, 4000.0)) {
+        mix(Instrument::marimba, .8, .1);
+        clock_ = start;
+        next_plan_ = start;
+    }
+
+  private:
+    void plan() noexcept override {
+        note(next_plan_, 0.0, Instrument::marimba, 60, .8, .2);
+        next_plan_ += sample_rate / 2;
+    }
+};
+
+void check_long_run() {
+    const std::int64_t before = 2 * static_cast<std::int64_t>(sample_rate);
+    const std::int64_t start = (std::int64_t{1} << 31) - before;
+    LongRunBand band(start);
+    const std::vector<float> heard = render(band, 6, 512);
+    // Two seconds before the crossing and four after it: twelve notes at most, and the
+    // stretch past it still sounding.
+    const std::size_t crossing = static_cast<std::size_t>(before) * 2;
+    require(band.notes() >= 10, "long run: notes keep coming past 2^31 samples");
+    require(peak_of(heard, crossing + static_cast<std::size_t>(sample_rate) * 2, heard.size()) > .02F,
+            "long run: still sounding past 2^31 samples");
+    std::printf("long run: %ld notes across sample 2^31\n", band.notes());
+}
 }  // namespace
 
 int main() {
@@ -85,6 +119,7 @@ int main() {
         for (const std::string_view style : score_names()) check_score(style);
         check_koto(false);
         check_koto(true);
+        check_long_run();
     } catch (const std::exception& error) {
         std::cerr << "music: " << error.what() << '\n';
         return 1;

@@ -8,6 +8,7 @@
 #include "music_core.hpp"
 
 #include <array>
+#include <cstdint>
 #include <span>
 
 namespace games::music {
@@ -28,7 +29,7 @@ class Band : public Composer {
     virtual void plan() noexcept = 0;
     // Queues a note `seconds` after the sample `origin` (a bar's start, say), loosened by the
     // player's hand.
-    void note(long origin, double seconds, Instrument kind, double midi, double vel, double length_seconds = 0, double pan = 0) noexcept;
+    void note(std::int64_t origin, double seconds, Instrument kind, double midi, double vel, double length_seconds = 0, double pan = 0) noexcept;
     // How an instrument sits in the mix.
     void mix(Instrument kind, double level, double room_send) noexcept {
         level_[static_cast<std::size_t>(kind)] = level;
@@ -36,8 +37,10 @@ class Band : public Composer {
     }
 
     Random random_;
-    long clock_ = 0;        // samples rendered
-    long next_plan_ = 0;    // the sample plan() is next due at
+    // Sample positions are 64 bits: a 32-bit long (Windows) overflows after about
+    // 12.4 hours at 48 kHz.
+    std::int64_t clock_ = 0;        // samples rendered
+    std::int64_t next_plan_ = 0;    // the sample plan() is next due at
 
   private:
     void start(const Note& e) noexcept;
@@ -46,7 +49,7 @@ class Band : public Composer {
     std::array<Voice, 64> voices_{};
     std::array<Note, 512> queue_{};
     int queued_ = 0;
-    long next_due_ = 0;
+    std::int64_t next_due_ = 0;
     long notes_ = 0;
     int solo_ = -1;
     std::array<double, instrument_count> level_{};

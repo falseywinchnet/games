@@ -55,7 +55,7 @@ constexpr int instrument_count = static_cast<int>(Instrument::tom) + 1;
 
 // A note waiting for its moment.
 struct Note {
-    long at = 0;               // sample
+    std::int64_t at = 0;       // sample: 64 bits, as every sample clock (long is 32 on Windows)
     Instrument kind = Instrument::marimba;
     double midi = 0, vel = 0;
     double length = 0;         // seconds held (0: let it ring)

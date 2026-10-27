@@ -111,7 +111,7 @@ LoungeBand::LoungeBand(std::uint32_t seed, LoungeStyle style)
     swing_ = look.swing;
     base_beat_ = 60.0 / (look.bpm_low + random_.uniform() * (look.bpm_high - look.bpm_low));
     beat_ = base_beat_;
-    next_bar_ = static_cast<long>(sample_rate * .2);
+    next_bar_ = static_cast<std::int64_t>(sample_rate * .2);
     next_plan_ = next_bar_;
     // the mix: every instrument's level and how much of it reaches the room
     mix(In::kick, .3, .05);
@@ -625,7 +625,7 @@ void LoungeBand::plan_bar() noexcept {
     }
     ++bar_;
     ++bars_;
-    next_bar_ += static_cast<long>(beats_ * beat_ * sample_rate);
+    next_bar_ += static_cast<std::int64_t>(beats_ * beat_ * sample_rate);
     drift_ = std::clamp(drift_ + (random_.uniform() - .5) * .01, -.02, .02);
     beat_ = base_beat_ * (1 + drift_ + (bar_ == 3 ? .015 : 0));
 }
