@@ -3,19 +3,16 @@ name: README game list
 # (GAME.json, about.md and screens/readme.jpg) through tools/make_readme.py.
 # A pull request that changes a game folder runs the tool and commits the list
 # with it; this check fails when README.md is not what the tool makes. Nothing
-# pushes to main: every change arrives through a pull request, so branch
-# protection can require this check. It runs on every pull request, because a
-# required check that a path filter skips would block the merge.
+# pushes to main: every change arrives through a pull request. It runs on every
+# pull request, as part of applications.yml, whose "PlaySuite CI summary" job is
+# the check branch protection requires.
 on:
-  pull_request:
-  push:
-    branches: [main]
+  # Called by applications.yml, whose "PlaySuite CI summary" job stands for every check
+  # of a pull request; run by hand from the Actions tab.
+  workflow_call:
   workflow_dispatch:
 permissions:
   contents: read
-concurrency:
-  group: readme-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
 jobs:
   readme:
     runs-on: ubuntu-24.04

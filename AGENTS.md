@@ -14,7 +14,7 @@ collection. Read it first; then the document for the work in hand:
 - `games/<id>/`: one folder per game, discovered from its `GAME.json`. Adding a game
   edits nothing outside its folder. The README's game list is generated from each
   game's `GAME.json`, `about.md` and `screens/readme.jpg` by `tools/make_readme.py`;
-  edit those files, run it, and commit the list with them (the `readme.yml` check
+  edit those files, run it, and commit the list with them (the `readme` check
   fails a pull request whose list is out of date). The Pocket Library, once a box on
   the shelf, is its own application in `malkuth-software/books`; its permanent id,
   24, stays retired here.
@@ -109,7 +109,10 @@ notices.
 
 Every change reaches `main` through a pull request; nobody pushes to `main`, people
 and workflows alike. A pull request merges only when every check on its final head is
-green. Each push to `main` publishes a release (`tools/publication_version.py`:
+green. Every check runs in `applications.yml` (the core, text, audio and README
+workflows are called from it), and its `PlaySuite CI summary` job, which always
+reports, passes only when every other job passed or was not needed: it is the check
+branch protection requires. Each push to `main` publishes a release (`tools/publication_version.py`:
 `GAMES_BASE_VERSION` major.minor, patch = baseline patch + run number), so merge only
 what is ready to ship on its own.
 
@@ -131,10 +134,19 @@ cmake --build .build/portable-core --parallel 2
 ctest --test-dir .build/portable-core --output-on-failure --timeout 120
 ```
 
-The `Native game core checks` workflow runs that profile on Windows x64, macOS
-arm64, Linux x64 and Linux arm64. The portable text and audio adapters have their
-own workflows (`native-text.yml`, `runtime-assets.yml`), which run only when their
-inputs change; `tests/portable_text` and `tests/portable_audio` are their consumers.
+The `core` job (`native-core.yml`) runs that profile on Windows x64, macOS arm64,
+Linux x64 and Linux arm64. The portable text and audio adapters have their own
+workflows (`native-text.yml`, `runtime-assets.yml`), which run only for the changes
+`tools/ci_changes.py` selects (it holds their paths); `tests/portable_text` and
+`tests/portable_audio` are their consumers.
+
+The `Sanitizers (Linux, ASan + UBSan + LSan)` job builds the portable core with the
+harness's sanitizer options and runs every core test; any report fails it. Run the
+same locally before publishing a change to the cores or engines:
+`python3 tools/sanitize_core.py` (Windows has no LeakSanitizer; the tree is
+`.build/native-<platform>/games-core-sanitize`). Memory errors and undefined behaviour
+are defects, never accepted as flakes; `tools/sanitizer/lsan.supp` takes a leak only
+with a comment naming why it is not one.
 
 ### The M4 Mini
 

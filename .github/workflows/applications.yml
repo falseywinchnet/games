@@ -4,8 +4,9 @@ on:
     branches: [main]
     tags: ['v*']
     paths-ignore: ['docs/**', '*.md']
-  # Every pull request, documentation included: branch protection requires these
-  # checks, and a check that a path filter skips would block the merge.
+  # Every pull request, documentation included. This workflow holds every check of a
+  # pull request (the others are called from it), and its "PlaySuite CI summary" job,
+  # which always reports, is the one branch protection requires.
   pull_request:
   workflow_dispatch:
     inputs:
@@ -27,6 +28,8 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
       publish: ${{ steps.version.outputs.publish }}
+      text: ${{ steps.changes.outputs.text }}
+      audio: ${{ steps.changes.outputs.audio }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,6 +46,13 @@ jobs:
           python3 tools/check_contribution.py paths
           --base "${{ github.event.pull_request.base.sha }}" --head "${{ github.event.pull_request.head.sha }}"
           ${{ github.event.pull_request.head.repo.full_name != github.repository && '--fork' || '' }}
+      # The text and audio consumer checks run only for the changes that reach them.
+      - name: Select the suites this change needs
+        id: changes
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 tools/ci_changes.py --base "$BASE" --head "$HEAD"
       - name: Select one tested publication version
         id: version
         env:
@@ -389,6 +399,81 @@ jobs:
             ${{ env.GAMES_BUILD_DIR }}/Testing/Temporary/LastTest.log
             build/presentation-profile.json
           if-no-files-found: warn
+  readme:
+    uses: ./.github/workflows/readme.yml
+  # The portable game cores on every host, for pull requests (the application jobs test
+  # the same cores; a release takes these results from the merged pull request's run).
+  core:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/native-core.yml
+  text:
+    needs: prepare
+    if: needs.prepare.outputs.text == 'true'
+    uses: ./.github/workflows/native-text.yml
+  audio:
+    needs: prepare
+    if: needs.prepare.outputs.audio == 'true'
+    uses: ./.github/workflows/runtime-assets.yml
+  # Every core test under AddressSanitizer, UndefinedBehaviorSanitizer and LeakSanitizer
+  # (tools/sanitize_core.py, with the harness's sanitizer options): any report fails it.
+  sanitizers:
+    name: Sanitizers (Linux, ASan + UBSan + LSan)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/harness-checkout
+      - name: Name the Linux package cache
+        id: linux-image
+        run: echo "image=$ImageOS-$ImageVersion" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v4
+        id: linux-packages
+        with:
+          path: ${{ runner.temp }}/apt-archives
+          key: linux-debs-v1-core-${{ runner.arch }}-${{ hashFiles('template_harness/harness/install_linux_ci_packages.sh', 'template_harness/projects/games.toml') }}-${{ steps.linux-image.outputs.image }}
+          restore-keys: linux-debs-v1-core-${{ runner.arch }}-${{ hashFiles('template_harness/harness/install_linux_ci_packages.sh', 'template_harness/projects/games.toml') }}-
+      - name: Install the compiler and build tools
+        run: sh template_harness/harness/install_linux_ci_packages.sh core "$RUNNER_TEMP/apt-archives"
+      - uses: actions/cache/save@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.linux-packages.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/apt-archives
+          key: ${{ steps.linux-packages.outputs.cache-primary-key }}
+      - name: Verify the compiler
+        run: python3 template_harness/harness/compiler_identity.py
+      - uses: actions/cache/restore@v4
+        id: objects
+        with:
+          path: .ccache
+          key: games-sanitize-ccache-linux-x64-v1-${{ hashFiles('CMakeLists.txt', 'cmake/**', 'src/**', 'tests/**', 'games/**', 'shared/**') }}
+          restore-keys: games-sanitize-ccache-linux-x64-v1-
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .build/fetch/*-src
+            .build/fetch/*-subbuild
+          key: fetch-sanitize-v1-linux-x64-${{ hashFiles('CMakeLists.txt', 'cmake/*.cmake') }}
+          restore-keys: fetch-sanitize-v1-linux-x64-
+      - name: Build and test the sanitized core
+        id: sanitize
+        run: |
+          export CCACHE_DIR="$PWD/.ccache" CCACHE_BASEDIR="$PWD" CCACHE_COMPILERCHECK=content
+          ccache --max-size=500M
+          ccache --zero-stats
+          python3 tools/sanitize_core.py --platform linux-x64 --jobs 4 \
+            --define FETCHCONTENT_BASE_DIR="$PWD/.build/fetch" --define FETCHCONTENT_UPDATES_DISCONNECTED=ON
+          ccache --show-stats
+      - uses: actions/cache/save@v4
+        if: always() && steps.sanitize.outcome == 'success' && steps.objects.outputs.cache-hit != 'true'
+        with:
+          path: .ccache
+          key: ${{ steps.objects.outputs.cache-primary-key }}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: sanitizer-checks-linux-x64
+          path: .build/native-linux-x64/games-core-sanitize/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
   release:
     if: needs.prepare.outputs.publish == 'true'
     needs: [prepare, application]
@@ -417,7 +502,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          python3 tools/test_reuse.py collect --results test-results --workflow native-core.yml --expect \
+          python3 tools/test_reuse.py collect --results test-results --workflow applications.yml --expect \
             test-results-app-windows-x64.json test-results-app-macos-arm64.json \
             test-results-app-linux-x64.json test-results-app-linux-arm64.json \
             test-results-core-windows-x64.json test-results-core-macos-arm64.json \
@@ -429,3 +514,28 @@ jobs:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           python3 tools/publish_tested_release.py --artifacts dist --test-results test-results
+  # The one check branch protection requires. It always reports, for every pull request
+  # and push, and fails when any job above failed or was cancelled; a job this change
+  # does not need (text, audio), and the release outside publications, is skipped.
+  summary:
+    name: PlaySuite CI summary
+    if: always()
+    needs: [prepare, application, readme, core, text, audio, sanitizers, release]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every job to pass or be skipped
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | python3 -c '
+          import json, sys
+          results = json.load(sys.stdin)
+          failed = 0
+          for job in sorted(results):
+              result = results[job]["result"]
+              print(job + ": " + result)
+              if result not in ("success", "skipped"):
+                  failed += 1
+          sys.exit(1 if failed else 0)
+          '
