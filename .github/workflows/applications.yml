@@ -32,6 +32,9 @@ jobs:
         with:
           # A pull request's gate compares its head with the base it targets.
           fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}
+      # The pinned template_harness (harness.lock) at ./template_harness: the house-style
+      # checker and the Linux package profiles of its projects/games.toml.
+      - uses: ./.github/actions/harness-checkout
       # The contribution gate (tools/check_contribution.py): source limits for the
       # games a pull request touches and, for a fork, the one-folder and code rules.
       - name: Check contributed games
@@ -58,7 +61,7 @@ jobs:
           restore-keys: runtime-v3-
       - name: Install authoring tools
         if: steps.runtime-cache.outputs.cache-hit != 'true'
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg python3-pil
+        run: sh template_harness/harness/install_linux_ci_packages.sh assets "$RUNNER_TEMP/apt-archives"
       # The verification reads the lake's reduced picture (Pillow) on a cache hit too.
       - name: Install the verifier's image reader
         if: steps.runtime-cache.outputs.cache-hit == 'true'
@@ -66,8 +69,9 @@ jobs:
       - name: Prepare compact game resources
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         run: /usr/bin/python3 tools/prepare_portable_assets.py --output build/runtime-assets --ffmpeg ffmpeg
+      # The harness's checker; scripts/check-style.py is the contributors' copy of it.
       - name: Check first-party C++ style
-        run: python3 scripts/check-style.py
+        run: python3 -B template_harness/harness/check_house_style.py src tests tools shared
       - name: Check each game's shipped size
         run: python3 tools/check_contribution.py prepared --runtime build/runtime-assets
       - name: Verify and archive resources
@@ -83,6 +87,9 @@ jobs:
     needs: prepare
     env:
       GAMES_RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      # The harness layout: .build/native-<platform>/<build_name>. Three levels below the
+      # workspace, as GUI.Forms' own trees are, so the compiler cache it publishes matches.
+      GAMES_BUILD_DIR: .build/native-${{ matrix.platform }}/games
     strategy:
       fail-fast: false
       matrix:
@@ -94,7 +101,7 @@ jobs:
             platform: macos-arm64
             shell: bash
           - runner: ubuntu-24.04
-            platform: linux-amd64
+            platform: linux-x64
             shell: bash
           - runner: ubuntu-24.04-arm
             platform: linux-arm64
@@ -106,8 +113,10 @@ jobs:
         shell: ${{ matrix.shell }}
     steps:
       - uses: actions/checkout@v4
-      # GUI.Forms lives in its own repository. It sits at gui_forms/ and the
-      # application builds three levels down (.build/native/app), the same layout
+      # The pinned template_harness at ./template_harness: the Windows toolchain, the
+      # Linux packages, the compiler check and the macOS runtime tools.
+      - uses: ./.github/actions/harness-checkout
+      # GUI.Forms lives in its own repository. It sits at gui_forms/, the same layout
       # as its own CI, so the compiler cache it publishes can match our objects.
       - name: Fetch reviewed GUI.Forms source
         uses: actions/checkout@v4
@@ -115,34 +124,20 @@ jobs:
           repository: malkuth-software/gui_forms
           ref: e077f9d5a5117312e65e8c3b741c4edd24013d56
           path: gui_forms
-      # GUI.Forms' tools under gui_forms/tools forward to template_harness, checked out
-      # beside it at the commit gui_forms/harness.lock pins.
-      - uses: ./gui_forms/.github/actions/harness-checkout
       - uses: actions/setup-python@v5
         if: runner.os == 'Windows'
         with:
           python-version: '3.14'
-      # GUI.Forms publishes the MSYS2 tree its cache was compiled with; restoring it
-      # avoids the MSYS2 mirrors and guarantees the compiler the cache needs.
+      # GUI.Forms publishes the MSYS2 tree its cache was compiled with (the harness's
+      # windows_toolchain.json names it; projects/games.toml reads GUI.Forms' releases).
+      # Restoring it avoids the MSYS2 mirrors and guarantees the compiler the cache
+      # needs; without a published tree the job stops rather than install another.
       - name: Restore GUI.Forms' Windows toolchain
-        id: msys
         if: runner.os == 'Windows'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python tools/restore_windows_toolchain.py
-      # Only when the published toolchain could not be restored.
-      - uses: msys2/setup-msys2@v2
-        if: runner.os == 'Windows' && steps.msys.outputs.restored != 'true'
-        with:
-          msystem: CLANG64
-          update: true
-          install: >-
-            mingw-w64-clang-x86_64-clang mingw-w64-clang-x86_64-lld
-            mingw-w64-clang-x86_64-llvm-tools mingw-w64-clang-x86_64-cmake
-            mingw-w64-clang-x86_64-ninja mingw-w64-clang-x86_64-python
-            mingw-w64-clang-x86_64-nsis mingw-w64-clang-x86_64-ccache
-            mingw-w64-clang-x86_64-winpthreads git
+        run: python template_harness/harness/windows_toolchain.py restore
       # Name the compiler as GUI.Forms' CI does. CMake otherwise picks cc.exe and
       # c++.exe: the same Clang, but different files to ccache, so none of the
       # published cache would match.
@@ -166,19 +161,36 @@ jobs:
           echo "GUI_FORMS_LLVM_RUNTIME=$PWD/.build/toolchain/llvm-22.1.8-macos14" >> "$GITHUB_ENV"
       # Ubuntu's Clang 18 rejects current GUI.Forms; use the LLVM 22 series, as
       # GUI.Forms' own CI does, which also lets its compiler cache match.
+      # The packages profile of projects/games.toml: the application's (compiler, X11,
+      # ATK, ALSA, Xvfb) and the packaging tools. The downloaded Ubuntu packages are
+      # kept per runner image; only main saves them.
+      - name: Name the Linux package cache
+        id: linux-image
+        if: runner.os == 'Linux'
+        run: echo "image=$ImageOS-$ImageVersion" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v4
+        id: linux-packages
+        if: runner.os == 'Linux'
+        with:
+          path: ${{ runner.temp }}/apt-archives
+          key: linux-debs-v1-packages-${{ runner.arch }}-${{ hashFiles('template_harness/harness/install_linux_ci_packages.sh', 'template_harness/projects/games.toml') }}-${{ steps.linux-image.outputs.image }}
+          restore-keys: linux-debs-v1-packages-${{ runner.arch }}-${{ hashFiles('template_harness/harness/install_linux_ci_packages.sh', 'template_harness/projects/games.toml') }}-
       - name: Install Linux compiler and desktop libraries
         if: runner.os == 'Linux'
         run: |
-          curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key -o "$RUNNER_TEMP/llvm-key.asc"
-          sudo install -m 0644 "$RUNNER_TEMP/llvm-key.asc" /usr/share/keyrings/apt-llvm.asc
-          echo 'deb [signed-by=/usr/share/keyrings/apt-llvm.asc] https://apt.llvm.org/noble/ llvm-toolchain-noble-22 main' | sudo tee /etc/apt/sources.list.d/llvm-22.list
-          sudo apt-get update
-          sudo apt-get install -y clang-22 llvm-22 ninja-build generate-ninja ccache \
-            libx11-dev libxcursor-dev libatk1.0-dev libatk-bridge2.0-dev \
-            libasound2t64 patchelf xvfb dpkg-dev
-          echo /usr/lib/llvm-22/bin >> "$GITHUB_PATH"
+          sh template_harness/harness/install_linux_ci_packages.sh packages "$RUNNER_TEMP/apt-archives"
           echo "CC=clang" >> "$GITHUB_ENV"
           echo "CXX=clang++" >> "$GITHUB_ENV"
+      - uses: actions/cache/save@v4
+        if: runner.os == 'Linux' && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.linux-packages.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/apt-archives
+          key: ${{ steps.linux-packages.outputs.cache-primary-key }}
+      # Exactly LLVM 22.1.8 on every host, or the job stops here.
+      - name: Verify the compiler
+        run: |
+          py=python3; command -v python3 >/dev/null || py=python
+          $py template_harness/harness/compiler_identity.py
       - name: Fetch pinned text sources
         run: |
           sh gui_forms/third_party/fetch_text_stack.sh
@@ -253,7 +265,7 @@ jobs:
         run: |
           mkdir -p build/runtime
           tar -xzf build/data/runtime.tar.gz -C build/runtime
-          cmake -S . -B .build/native/app -G Ninja -DCMAKE_BUILD_TYPE=Release \
+          cmake -S . -B "$GAMES_BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_OBJCXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_TOOLCHAIN_FILE="$PWD/gui_forms/cmake/llvm22.cmake" \
@@ -267,11 +279,11 @@ jobs:
       # macOS), unlike the shared development hosts AGENTS.md limits to two jobs.
       - name: Compile complete collection
         id: compile
-        run: cmake --build .build/native/app --parallel 4
+        run: cmake --build "$GAMES_BUILD_DIR" --parallel 4
       # What each game's shipped code can call, on every platform, so code behind
       # a platform #ifdef is read too.
       - name: Check games' shipped code
-        run: python3 tools/check_contribution.py symbols --build .build/native/app || python tools/check_contribution.py symbols --build .build/native/app
+        run: python3 tools/check_contribution.py symbols --build "$GAMES_BUILD_DIR" || python tools/check_contribution.py symbols --build "$GAMES_BUILD_DIR"
       - name: Report compiler cache statistics
         if: always()
         run: ccache --show-stats --verbose
@@ -285,7 +297,7 @@ jobs:
       - name: Report Rock Stack stress benchmark
         if: needs.prepare.outputs.publish == 'true' || github.event_name == 'workflow_dispatch'
         continue-on-error: true
-        run: ./.build/native/app/rockstack_physics_tests performance
+        run: ./"$GAMES_BUILD_DIR"/rockstack_physics_tests performance
       # Tests whose inputs are unchanged since they last passed are not run again
       # (tools/test_reuse.py). Every release carries the results; each run starts from
       # the newest release's.
@@ -298,18 +310,18 @@ jobs:
       - name: Plan tests
         run: |
           py=python3; command -v python3 >/dev/null || py=python
-          $py tools/test_reuse.py plan --build .build/native/app --profile app-${{ matrix.platform }} \
+          $py tools/test_reuse.py plan --build "$GAMES_BUILD_DIR" --profile app-${{ matrix.platform }} \
             --results .build/test-results/test-results-app-${{ matrix.platform }}.json --exclude .build/test-results/exclude.txt
       - name: Test complete application
         run: |
           skip=$(cat .build/test-results/exclude.txt 2>/dev/null || true)
-          ctest --test-dir .build/native/app --output-on-failure --timeout 180 --parallel 4 --output-junit results.xml --no-tests=ignore -LE design ${skip:+-E "$skip"}
+          ctest --test-dir "$GAMES_BUILD_DIR" --output-on-failure --timeout 180 --parallel 4 --output-junit results.xml --no-tests=ignore -LE design ${skip:+-E "$skip"}
       - name: Record test results
         if: always()
         run: |
           py=python3; command -v python3 >/dev/null || py=python
-          $py tools/test_reuse.py record --build .build/native/app --profile app-${{ matrix.platform }} \
-            --results .build/test-results/test-results-app-${{ matrix.platform }}.json --junit .build/native/app/results.xml
+          $py tools/test_reuse.py record --build "$GAMES_BUILD_DIR" --profile app-${{ matrix.platform }} \
+            --results .build/test-results/test-results-app-${{ matrix.platform }}.json --junit "$GAMES_BUILD_DIR"/results.xml
       - name: Keep test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -328,13 +340,13 @@ jobs:
           ctest --test-dir build/message-tests -R '^gui_forms_windows_message_queue_tests$' --output-on-failure
       - name: Package Windows application and installer
         if: runner.os == 'Windows'
-        run: python tools/package_windows.py --build .build/native/app --toolkit gui_forms --runtime-dir /clang64/bin --installer
+        run: python tools/package_windows.py --build "$GAMES_BUILD_DIR" --toolkit gui_forms --runtime-dir /clang64/bin --installer
       - name: Package macOS application and installer
         if: runner.os == 'macOS'
-        run: python3 tools/package_macos.py --build .build/native/app --toolkit gui_forms --runtime "$GUI_FORMS_LLVM_RUNTIME"
+        run: python3 tools/package_macos.py --build "$GAMES_BUILD_DIR" --toolkit gui_forms --runtime "$GUI_FORMS_LLVM_RUNTIME"
       - name: Package Linux application and installer
         if: runner.os == 'Linux'
-        run: python3 tools/package_linux.py --build .build/native/app --toolkit gui_forms
+        run: python3 tools/package_linux.py --build "$GAMES_BUILD_DIR" --toolkit gui_forms
       - name: Launch packaged Windows application
         if: runner.os == 'Windows'
         run: |
@@ -373,8 +385,8 @@ jobs:
         with:
           name: application-checks-${{ matrix.platform }}
           path: |
-            .build/native/app/results.xml
-            .build/native/app/Testing/Temporary/LastTest.log
+            ${{ env.GAMES_BUILD_DIR }}/results.xml
+            ${{ env.GAMES_BUILD_DIR }}/Testing/Temporary/LastTest.log
             build/presentation-profile.json
           if-no-files-found: warn
   release:
@@ -407,7 +419,7 @@ jobs:
         run: |
           python3 tools/test_reuse.py collect --results test-results --workflow native-core.yml --expect \
             test-results-app-windows-x64.json test-results-app-macos-arm64.json \
-            test-results-app-linux-amd64.json test-results-app-linux-arm64.json \
+            test-results-app-linux-x64.json test-results-app-linux-arm64.json \
             test-results-core-windows-x64.json test-results-core-macos-arm64.json \
             test-results-core-linux-x64.json test-results-core-linux-arm64.json
       - name: Publish exactly the tested revision
