@@ -80,6 +80,13 @@ add_custom_command(TARGET games POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${GAMES_RUNTIME_ASSET_DIR}" "${games_resources}/assets"
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${GUIForms_FONT_DIR}" "${games_resources}/fonts"
     VERBATIM)
+# An installed GUI.Forms keeps its DLLs in <prefix>/bin; Windows finds a DLL beside the
+# executable, so the games and the tests (all built in this directory) get copies.
+if(WIN32 AND GAMES_GUI_FORMS_INSTALLED)
+    add_custom_command(TARGET games POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:GUIForms::Threading>" "${games_libraries}"
+        VERBATIM)
+endif()
 if(UNIX)
     add_custom_command(TARGET games POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:GUIForms::Application>"
