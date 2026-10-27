@@ -1,3 +1,8 @@
+# Text is LF in the repository and in every checkout, whatever the machine's
+# core.autocrlf, so hashes over file bytes agree between hosts.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
 # Font and license fingerprints identify exact upstream bytes on every platform.
 assets/fonts/*.ttf -text
 assets/fonts/OFL-*.txt -text

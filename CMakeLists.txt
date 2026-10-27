@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-set(GAMES_BASE_VERSION "0.5.0")
+set(GAMES_BASE_VERSION "0.6.0")
 set(GAMES_RELEASE_VERSION "$ENV{GAMES_RELEASE_VERSION}" CACHE STRING "Release version from the tested publication workflow")
 if(GAMES_RELEASE_VERSION STREQUAL "")
   set(GAMES_RELEASE_VERSION "${GAMES_BASE_VERSION}")

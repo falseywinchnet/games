@@ -13,10 +13,11 @@ collection. Read it first; then the document for the work in hand:
 
 - `games/<id>/`: one folder per game, discovered from its `GAME.json`. Adding a game
   edits nothing outside its folder. The README's game list is generated from each
-  game's `GAME.json`, `about.md` and `screens/readme.jpg` by `tools/make_readme.py`,
-  which the `readme.yml` workflow runs after every push to `main`; edit those files,
-  not the list. The Pocket Library, once a box on the shelf, is its own application in
-  `falseywinchnet/books`; its permanent id, 24, stays retired here.
+  game's `GAME.json`, `about.md` and `screens/readme.jpg` by `tools/make_readme.py`;
+  edit those files, run it, and commit the list with them (the `readme.yml` check
+  fails a pull request whose list is out of date). The Pocket Library, once a box on
+  the shelf, is its own application in `malkuth-software/books`; its permanent id,
+  24, stays retired here.
 - `shared/<id>/`: engines several games build on, discovered from `ENGINE.json` and
   declared in a game's `GAME.json`: `render` (the 2D canvas, r3d and the surfaces),
   `ambient` (living 3D scenes), `cards` and `puzzles` (the card and puzzle engines),
@@ -104,8 +105,13 @@ recipe for the complete application and its packages. Release CI pins GUI.Forms
 its LLVM 22.1.8 contract on every platform (macOS 14.0 Apple silicon with GUI.Forms'
 bundled runtime, Windows 10, Ubuntu 24.04), restoring that revision's published
 compiler cache. Ogg Vorbis is decoded by GUI.Forms' stx_vorbis; packages carry its
-notices. The main workflow is the release gate: a change proven on the M4 goes
-straight to `main`, and that run is the one check.
+notices.
+
+Every change reaches `main` through a pull request; nobody pushes to `main`, people
+and workflows alike. A pull request merges only when every check on its final head is
+green. Each push to `main` publishes a release (`tools/publication_version.py`:
+`GAMES_BASE_VERSION` major.minor, patch = baseline patch + run number), so merge only
+what is ready to ship on its own.
 
 The portable core configures without GUI.Forms and builds every game core, engine
 and their tests, but not the graphical application:
