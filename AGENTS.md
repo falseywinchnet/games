@@ -44,7 +44,8 @@ collection. Read it first; then the document for the work in hand:
 - `authoring/`: offline production of music, sounds and card art
   (`authoring/playsuite_music/README.md` rebuilds the music and the card sounds).
 - `incoming/`: delivered game packages, kept unchanged; `games/<id>/` holds the
-  editable copy. `evidence/` and `review/` are records.
+  editable copy. Records, proposals, interviews, decisions and studies live on the
+  `games` branch of `malkuth-software/notes`, not here.
 
 ## Rules that do not bend
 

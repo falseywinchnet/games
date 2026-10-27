@@ -232,4 +232,4 @@ Music, Sound and Motion are shared master controls on the shelf sign and in ever
 | Building and releasing | [docs/BUILDING.md](docs/BUILDING.md). |
 | Reusing an engine | Its README under [`shared/`](shared), indexed in the [shared engines](new-games/guide/05-shared-engines.md) guide. |
 | Working on the shell | [AGENTS.md](AGENTS.md), [docs/PERFORMANCE.md](docs/PERFORMANCE.md), the [controls](new-games/guide/04-controls.md) guide. |
-| GUI.Forms owner | [docs/TOOLKIT_REQUESTS.md](docs/TOOLKIT_REQUESTS.md), [docs/ACCESSIBILITY_TOOLKIT_REQUEST.md](docs/ACCESSIBILITY_TOOLKIT_REQUEST.md). |
+| GUI.Forms owner | [docs/TOOLKIT_REQUESTS.md](docs/TOOLKIT_REQUESTS.md), the accessibility request and the controls proposal in [PlaySuite's notes](https://github.com/malkuth-software/notes/tree/games/proposals). |
