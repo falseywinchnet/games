@@ -57,7 +57,9 @@ def upgrade_legacy_install(installer: Path) -> None:
             raise RuntimeError("InstallLocation is " + registered("InstallLocation") + ", not " + str(legacy))
         if registered("Publisher") != VENDOR:
             raise RuntimeError("Publisher is " + registered("Publisher"))
-        subprocess.run([str(legacy / "Uninstall.exe"), "/S", "_?=" + str(legacy)], check=True, timeout=90)
+        # NSIS's _?= takes a native path; MSYS2's Python spells LOCALAPPDATA with forward slashes.
+        native_legacy = str(legacy).replace("/", "\\")
+        subprocess.run([str(legacy / "Uninstall.exe"), "/S", "_?=" + native_legacy], check=True, timeout=90)
         if (legacy / "games.exe").exists():
             raise RuntimeError("Uninstaller left the upgraded application behind")
     finally:
