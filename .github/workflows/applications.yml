@@ -377,11 +377,12 @@ jobs:
           python3 tools/profile_presentation.py dist/PlaySuite.app/Contents/MacOS/games \
             --assets build/runtime --state build/profile-state \
             --output build/presentation-profile.json
+      # Installed over a stand-in for 0.5.x's rainstar-games, as an upgrade would be.
       - name: Install and launch Linux package
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get install -y ./dist/*.deb
-          xvfb-run -a python3 tools/smoke_package.py /usr/lib/rainstar-games/games
+          python3 tools/test_deb_upgrade.py dist/*.deb
+          xvfb-run -a python3 tools/smoke_package.py /usr/lib/playsuite/games
       - uses: actions/upload-artifact@v4
         with:
           name: games-${{ matrix.platform }}

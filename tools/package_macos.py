@@ -7,7 +7,8 @@ import plistlib
 import re
 import shutil
 import subprocess
-from package_common import ROOT, copy_resources, project_version, write_manifest
+from package_common import (BUNDLE_IDENTIFIER, ROOT, copy_resources, project_version,
+                            write_manifest)
 
 # The pinned harness (harness.lock) at template_harness/ in the workspace: its audit of
 # every image's architecture, minimum macOS and C++ runtime.
@@ -56,6 +57,8 @@ def main():
     plist = plistlib.loads(plist_path.read_bytes())
     plist["LSMinimumSystemVersion"] = "14.0"
     plist["CFBundleDisplayName"] = "PlaySuite"
+    if plist.get("CFBundleIdentifier") != BUNDLE_IDENTIFIER:
+        raise RuntimeError("The bundle identifier is not " + BUNDLE_IDENTIFIER + " (cmake/Application.cmake)")
     plist_path.write_bytes(plistlib.dumps(plist))
 
     def expand(value, owner):
@@ -144,7 +147,7 @@ def main():
     components.write_bytes(plistlib.dumps(records))
     run(["pkgbuild", "--root", str(installer_root), "--component-plist", str(components),
          "--install-location", "/Applications",
-         "--identifier", "org.rainstar.games", "--version", project_version(), str(output / (stem + ".pkg"))])
+         "--identifier", BUNDLE_IDENTIFIER, "--version", project_version(), str(output / (stem + ".pkg"))])
 
 
 if __name__ == "__main__":

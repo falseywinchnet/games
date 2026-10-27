@@ -57,7 +57,7 @@ endif()
 target_link_libraries(games PRIVATE game_ui)
 set_target_properties(games PROPERTIES
     MACOSX_BUNDLE_BUNDLE_NAME "PlaySuite"
-    MACOSX_BUNDLE_GUI_IDENTIFIER "org.rainstar.games"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "com.malkuthsoft.playsuite"
     MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}")
 if(APPLE)
