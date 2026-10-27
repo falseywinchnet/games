@@ -41,8 +41,8 @@ VENDOR = "Malkuth Software"
 BUNDLE_IDENTIFIER = "com.malkuthsoft.playsuite"
 LINUX_PACKAGE = "malkuth-playsuite"
 LEGACY_LINUX_PACKAGE = "rainstar-games"
-# The .deb Maintainer field needs an address; .invalid never delivers.
-MAINTAINER = VENDOR + " <noreply@malkuthsoft.invalid>"
+# The .deb Maintainer of every product (owner, 2026-10-27).
+MAINTAINER = VENDOR + " <maintainer@malkuthsoft.com>"
 # The Windows uninstall entry 0.5.x registered; upgrades rewrite the same entry.
 WINDOWS_UNINSTALL_KEY = "RainstarGames"
 # Where 0.5.x installed on Windows; an upgrade over it stays there.
