@@ -10,9 +10,12 @@ integrations were retired on 2026-10-11; git history keeps them.
 | [RENDER_ENGINE.md](RENDER_ENGINE.md) | The plan behind `shared/render`: do less work, not the same work faster; what was taken from other engines; the order the games moved over. |
 | [PORTABLE_TEXT_REQUIREMENTS.md](PORTABLE_TEXT_REQUIREMENTS.md) | The contract the games' text masks hold the toolkit's text service to, and the font fixtures. |
 | [TOOLKIT_REQUESTS.md](TOOLKIT_REQUESTS.md) | What PlaySuite has asked of GUI.Forms, found by using it, each with the local stand-in it would replace. |
-| [ACCESSIBILITY_TOOLKIT_REQUEST.md](ACCESSIBILITY_TOOLKIT_REQUEST.md) | The request for spoken, keyboard-complete play for blind players: what belongs in the toolkit and what stays here. |
 
 Everything about making a game is in [`new-games/`](../new-games/README.md) and its
 [guides](../new-games/guide/README.md); everything about an engine is in its README
 under [`shared/`](../shared). The root [AGENTS.md](../AGENTS.md) is the working
 agreement for anyone, person or model, changing the collection.
+
+Records, the proposals PlaySuite made to GUI.Forms (accessibility, reusable
+controls), interviews, decisions and studies are on the `games` branch of
+[malkuth-software/notes](https://github.com/malkuth-software/notes/tree/games).
