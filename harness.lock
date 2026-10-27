@@ -1,0 +1,3 @@
+[harness]
+repository = "malkuth-software/template_harness"
+commit = "08a1865e5c9bed2be5973986b902af88e95f030d"
