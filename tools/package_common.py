@@ -34,6 +34,21 @@ def missing_prepared_files(assets):
     return [name for name in listed if not (assets / name).is_file()]
 
 
+# The vendor identity every product shares (owner, 2026-10-27), and the names 0.5.x
+# installed under, which an upgrade must still find. Save folders (src/runtime_paths.cpp,
+# Rainstar/Games) are user data and keep their names.
+VENDOR = "Malkuth Software"
+BUNDLE_IDENTIFIER = "com.malkuthsoft.playsuite"
+LINUX_PACKAGE = "malkuth-playsuite"
+LEGACY_LINUX_PACKAGE = "rainstar-games"
+# The .deb Maintainer field needs an address; .invalid never delivers.
+MAINTAINER = VENDOR + " <noreply@malkuthsoft.invalid>"
+# The Windows uninstall entry 0.5.x registered; upgrades rewrite the same entry.
+WINDOWS_UNINSTALL_KEY = "RainstarGames"
+# Where 0.5.x installed on Windows; an upgrade over it stays there.
+LEGACY_WINDOWS_INSTALL = "$LOCALAPPDATA\\Rainstar\\Games"
+
+
 def project_version():
     from publication_version import baseline, validate
     version = os.environ.get("GAMES_RELEASE_VERSION") or baseline(ROOT)

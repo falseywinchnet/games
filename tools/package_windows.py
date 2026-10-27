@@ -6,7 +6,8 @@ import re
 import shutil
 import subprocess
 import zipfile
-from package_common import ROOT, copy_resources, project_version, write_manifest
+from package_common import (LEGACY_WINDOWS_INSTALL, VENDOR, WINDOWS_UNINSTALL_KEY, ROOT, copy_resources, project_version,
+                            write_manifest)
 
 # Windows' own DLLs, never shipped: GUI.Forms' list (tools/package_programs.py
 # WINDOWS_SYSTEM_DLLS at the pin). UIAutomationCore is its UI Automation provider.
@@ -34,21 +35,40 @@ def find_makensis():
 
 
 def make_installer(bundle, output):
-    installer = output / ("playsuite-" + project_version() + "-windows-x64-setup.exe")
+    version = project_version()
+    installer = output / ("playsuite-" + version + "-windows-x64-setup.exe")
     script = output / "games-installer.nsi"
+    key = '"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\' + WINDOWS_UNINSTALL_KEY + '"'
+    menu = "$SMPROGRAMS\\" + VENDOR
+    # New installs go under the vendor. An upgrade stays where it is: the recorded
+    # InstallLocation, else 0.5.x's folder when it holds the application. /D= still wins.
+    default = "$LOCALAPPDATA\\" + VENDOR + "\\PlaySuite"
     lines = ['Unicode True', '!include "MUI2.nsh"', 'Name "PlaySuite"',
-             'OutFile "' + str(installer).replace("/", "\\") + '"', 'InstallDir "$LOCALAPPDATA\\Rainstar\\Games"',
+             'OutFile "' + str(installer).replace("/", "\\") + '"', 'InstallDir "' + default + '"',
+             'InstallDirRegKey HKCU ' + key + ' "InstallLocation"',
+             'VIProductVersion "' + version + '.0"', 'VIAddVersionKey "ProductName" "PlaySuite"',
+             'VIAddVersionKey "CompanyName" "' + VENDOR + '"', 'VIAddVersionKey "FileDescription" "PlaySuite installer"',
+             'VIAddVersionKey "FileVersion" "' + version + '"', 'VIAddVersionKey "ProductVersion" "' + version + '"',
              'RequestExecutionLevel user', '!insertmacro MUI_PAGE_WELCOME',
              '!insertmacro MUI_PAGE_DIRECTORY', '!insertmacro MUI_PAGE_INSTFILES',
              '!insertmacro MUI_PAGE_FINISH', '!insertmacro MUI_UNPAGE_CONFIRM',
              '!insertmacro MUI_UNPAGE_INSTFILES', '!insertmacro MUI_LANGUAGE "English"',
+             'Function .onInit', 'StrCmp $INSTDIR "' + default + '" 0 keep',
+             'IfFileExists "' + LEGACY_WINDOWS_INSTALL + '\\games.exe" 0 keep',
+             'StrCpy $INSTDIR "' + LEGACY_WINDOWS_INSTALL + '"', 'keep:', 'FunctionEnd',
              'Section "PlaySuite"', 'SetOutPath "$INSTDIR"', 'File /r "' + str(bundle / "*").replace("/", "\\") + '"',
-             'CreateDirectory "$SMPROGRAMS\\Rainstar"',
-             'Delete "$SMPROGRAMS\\Rainstar\\Games.lnk"',
-             'CreateShortcut "$SMPROGRAMS\\Rainstar\\PlaySuite.lnk" "$INSTDIR\\games.exe"',
+             # 0.5.x's shortcuts lived under Rainstar.
+             'Delete "$SMPROGRAMS\\Rainstar\\Games.lnk"', 'Delete "$SMPROGRAMS\\Rainstar\\PlaySuite.lnk"',
+             'RMDir "$SMPROGRAMS\\Rainstar"',
+             'CreateDirectory "' + menu + '"',
+             'CreateShortcut "' + menu + '\\PlaySuite.lnk" "$INSTDIR\\games.exe"',
              'WriteUninstaller "$INSTDIR\\Uninstall.exe"',
-             'WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\RainstarGames" "DisplayName" "PlaySuite"',
-             'WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\RainstarGames" "UninstallString" \'$\\"$INSTDIR\\Uninstall.exe$\\"\'',
+             'WriteRegStr HKCU ' + key + ' "DisplayName" "PlaySuite"',
+             'WriteRegStr HKCU ' + key + ' "Publisher" "' + VENDOR + '"',
+             'WriteRegStr HKCU ' + key + ' "DisplayVersion" "' + version + '"',
+             'WriteRegStr HKCU ' + key + ' "DisplayIcon" \'$\\"$INSTDIR\\games.exe$\\"\'',
+             'WriteRegStr HKCU ' + key + ' "InstallLocation" "$INSTDIR"',
+             'WriteRegStr HKCU ' + key + ' "UninstallString" \'$\\"$INSTDIR\\Uninstall.exe$\\"\'',
              'SectionEnd', 'Section "Uninstall"']
     directories = []
     for path in sorted(bundle.rglob("*")):
@@ -61,10 +81,13 @@ def make_installer(bundle, output):
     # remove a user-selected directory or any per-user save directory.
     for relative in sorted(directories, key=len, reverse=True):
         lines.append('RMDir "$INSTDIR\\' + relative + '"')
+    # The vendor folder of a new install goes too when nothing else is left in it.
     lines += ['Delete "$INSTDIR\\Uninstall.exe"', 'RMDir "$INSTDIR"',
+              'RMDir "$LOCALAPPDATA\\' + VENDOR + '"',
+              'Delete "' + menu + '\\PlaySuite.lnk"', 'RMDir "' + menu + '"',
               'Delete "$SMPROGRAMS\\Rainstar\\Games.lnk"',
               'Delete "$SMPROGRAMS\\Rainstar\\PlaySuite.lnk"', 'RMDir "$SMPROGRAMS\\Rainstar"',
-              'DeleteRegKey HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\RainstarGames"', 'SectionEnd']
+              'DeleteRegKey HKCU ' + key, 'SectionEnd']
     script.write_text("\n".join(lines) + "\n", encoding="utf-8")
     makensis = find_makensis()
     print("Building the installer with", makensis, flush=True)

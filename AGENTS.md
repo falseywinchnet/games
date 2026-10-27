@@ -1,9 +1,14 @@
 # PlaySuite development
 
 PlaySuite is one native C++20 application on GUI.Forms holding a collection of games.
-The product is named PlaySuite; internal identifiers keep their old names so builds,
-saves and installs carry over: the `games` executable and CMake project, the
-`Rainstar/Games` save folders, the Linux package id and the Windows uninstall key.
+The product is named PlaySuite, and its vendor is Malkuth Software (owner, 2026-10-27):
+the installers' publisher, the bundle id `com.malkuthsoft.playsuite` and the Linux
+package `malkuth-playsuite`, which replaces 0.5.x's `rainstar-games` on install
+(`tools/package_common.py` holds the names). Internal identifiers keep their old names
+so builds, saves and installs carry over: the `games` executable and CMake project, the
+`Rainstar/Games` save folders, and the Windows uninstall key `RainstarGames`, whose
+entry an upgrade rewrites in 0.5.x's install folder (new installs go under
+`Malkuth Software\PlaySuite`).
 
 This file is the working agreement for anyone, person or model, changing the
 collection. Read it first; then the document for the work in hand:
