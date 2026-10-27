@@ -2,7 +2,7 @@
 
     python3 tools/test_deb_upgrade.py dist/playsuite-<version>-linux-<arch>.deb
 
-The vendor identity moved the package from rainstar-games to malkuth-playsuite
+The vendor identity renamed the package from rainstar-games to playsuite
 (tools/package_common.py). This builds a stand-in for the old package (the paths 0.5.x
 installed: /usr/lib/rainstar-games/games, /usr/bin/rainstar-games and its menu entry),
 installs it, then installs the new package with apt as a user would, and requires that

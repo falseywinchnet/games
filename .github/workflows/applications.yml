@@ -357,7 +357,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           python3 tools/test_deb_upgrade.py dist/*.deb
-          xvfb-run -a python3 tools/smoke_package.py /usr/lib/malkuth-playsuite/games
+          xvfb-run -a python3 tools/smoke_package.py /usr/lib/playsuite/games
       - uses: actions/upload-artifact@v4
         with:
           name: games-${{ matrix.platform }}

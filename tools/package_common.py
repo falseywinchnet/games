@@ -39,7 +39,7 @@ def missing_prepared_files(assets):
 # Rainstar/Games) are user data and keep their names.
 VENDOR = "Malkuth Software"
 BUNDLE_IDENTIFIER = "com.malkuthsoft.playsuite"
-LINUX_PACKAGE = "malkuth-playsuite"
+LINUX_PACKAGE = "playsuite"  # the vendor name stays out of package names (owner, 2026-10-27)
 LEGACY_LINUX_PACKAGE = "rainstar-games"
 # The .deb Maintainer of every product (owner, 2026-10-27).
 MAINTAINER = VENDOR + " <maintainer@malkuthsoft.com>"
