@@ -107,7 +107,7 @@ class LoungeBand final : public Band {
     double base_beat_ = .5;
     double drift_ = 0;
     bool half_all_ = false, half_bass_ = false, half_comp_ = false, half_tune_ = false;
-    long next_bar_ = 0;
+    std::int64_t next_bar_ = 0;
     long bars_ = 0;
 };
 

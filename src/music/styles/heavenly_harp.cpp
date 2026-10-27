@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <vector>
 
 namespace games::music {
@@ -574,7 +575,7 @@ struct Hall {
 // ---- What is to be played --------------------------------------------------------------
 
 struct Event {
-    long at = 0;                // sample
+    std::int64_t at = 0;        // sample
     int voice = 0;
     double midi = 60, velocity = .5, pan = 0;
     int slot = 0;               // for the pad: which of its chord tones
@@ -600,8 +601,8 @@ struct Score {
     Random random{};
     SineTable sine{};
     int solo = -1;
-    long clock = 0;
-    long phrase_end = 0;
+    std::int64_t clock = 0;
+    std::int64_t phrase_end = 0;
     long phrases = 0;
     int tonic = 62;              // D
     int home = 62;
@@ -642,7 +643,7 @@ double chord_tone(int tonic, const Chord& chord, int which, int octave_shift) {
 
 void add(Score& s, double beat, int voice, double midi, double velocity, double pan) {
     Event e;
-    e.at = s.phrase_end + static_cast<long>(beat * beat_seconds * rate);
+    e.at = s.phrase_end + static_cast<std::int64_t>(beat * beat_seconds * rate);
     e.voice = voice;
     e.midi = midi;
     e.velocity = velocity;
@@ -750,7 +751,7 @@ void plan_phrase(Score& s) {
             while (m > 62 + 3 * v)
                 m -= 12;
             Event e;
-            e.at = s.phrase_end + static_cast<long>((b * beats_per_bar - .4) * beat_seconds * rate);
+            e.at = s.phrase_end + static_cast<std::int64_t>((b * beats_per_bar - .4) * beat_seconds * rate);
             e.voice = HeavenlyHarp::pad;
             e.midi = m;
             e.slot = v;
@@ -780,7 +781,7 @@ void plan_phrase(Score& s) {
             add(s, 9.6 + q * .25, HeavenlyHarp::celesta, chord_tone(tonic, c, (3 - q % 4 + 4) % 4, 2 - q / 4), .28 - .03 * q, .35);
     }
     std::stable_sort(s.events.begin(), s.events.end(), EarlierFirst{});
-    s.phrase_end += static_cast<long>(bars_per_phrase * beats_per_bar * beat_seconds * rate);
+    s.phrase_end += static_cast<std::int64_t>(bars_per_phrase * beats_per_bar * beat_seconds * rate);
     ++s.phrases;
 }
 
@@ -868,7 +869,7 @@ void prepare(Score& s, std::uint32_t seed) {
     band(s.body_r[1], 500, 160);
     band(s.body_l[2], 1050, 420);
     band(s.body_r[2], 1100, 420);
-    s.phrase_end = static_cast<long>(1.6 * rate);  // a breath before the first phrase
+    s.phrase_end = static_cast<std::int64_t>(1.6 * rate);  // a breath before the first phrase
 }
 
 void render(Score& s, std::span<float> stereo, double gain, Fade& fade) {
@@ -881,7 +882,7 @@ void render(Score& s, std::span<float> stereo, double gain, Fade& fade) {
     const float body[3] = {.9f, .45f, .14f};
     for (std::size_t f = 0; f < frames; ++f) {
         ++s.clock;
-        if (s.next_event >= s.events.size() && s.clock >= s.phrase_end - static_cast<long>(1.4 * beat_seconds * rate))
+        if (s.next_event >= s.events.size() && s.clock >= s.phrase_end - static_cast<std::int64_t>(1.4 * beat_seconds * rate))
             plan_phrase(s);
         while (s.next_event < s.events.size() && s.events[s.next_event].at <= s.clock) {
             start(s, s.events[s.next_event]);

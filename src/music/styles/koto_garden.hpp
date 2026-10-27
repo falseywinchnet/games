@@ -70,7 +70,7 @@ class KotoGarden final : public Composer {
         double band_low = 0, band_mid = 0;  // the breath noise's band-pass state
     };
     struct Event {
-        long at = 0;             // sample
+        std::int64_t at = 0;     // sample
         int string = 0;
         double strength = 0;
         double press = 0;        // semitones of oshide, 0 none
@@ -92,8 +92,8 @@ class KotoGarden final : public Composer {
     std::array<String, 13> strings_{};
     Flute flute_{};
     std::vector<Event> events_{};
-    long clock_ = 0;                  // samples rendered
-    long next_phrase_ = 0;            // when the next phrase may be planned
+    std::int64_t clock_ = 0;          // samples rendered (64 bits: long is 32 on Windows)
+    std::int64_t next_phrase_ = 0;    // when the next phrase may be planned
     int last_string_ = 6;
     double beat_ = 1;                 // seconds
     int phrases_ = 0;

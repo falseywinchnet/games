@@ -1,10 +1,11 @@
 #include "band.hpp"
 
+#include <cstdint>
 #include <limits>
 
 namespace games::music {
 
-void Band::note(long origin, double seconds, Instrument kind, double midi, double vel, double length_seconds, double pan) noexcept {
+void Band::note(std::int64_t origin, double seconds, Instrument kind, double midi, double vel, double length_seconds, double pan) noexcept {
     if (queued_ >= static_cast<int>(queue_.size())) return;
     Note& e = queue_[static_cast<std::size_t>(queued_++)];
     // a player's hands, not a clock: the drums close to the beat, the bass sitting back a
@@ -19,7 +20,8 @@ void Band::note(long origin, double seconds, Instrument kind, double midi, doubl
     case Instrument::comp_marimba: case Instrument::guitar: case Instrument::ukulele: slop = .006 + (random_.uniform() - .5) * .016; break;
     default: slop = (random_.uniform() - .5) * .022; break;
     }
-    e.at = origin + std::max(0L, static_cast<long>((seconds + slop) * sample_rate));
+    const std::int64_t offset = static_cast<std::int64_t>((seconds + slop) * sample_rate);
+    e.at = origin + std::max<std::int64_t>(0, offset);
     next_due_ = std::min(next_due_, e.at);
     e.kind = kind;
     e.midi = midi;
@@ -54,9 +56,9 @@ void Band::render_add(std::span<float> stereo, double gain) noexcept {
         if (clock_ >= next_due_) {
             // start what is due, keep the rest, and note when the next is due
             int kept = 0;
-            // Nothing queued is due until a note says so. long is 32 bits on Windows, so the
-            // sentinel is the type's own maximum, not a shifted constant.
-            next_due_ = std::numeric_limits<long>::max();
+            // Nothing queued is due until a note says so: the sentinel is the clock type's
+            // own maximum, not a shifted constant.
+            next_due_ = std::numeric_limits<std::int64_t>::max();
             for (int k = 0; k < queued_; ++k) {
                 Note& e = queue_[static_cast<std::size_t>(k)];
                 if (e.at <= clock_) start(e);

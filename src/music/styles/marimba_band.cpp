@@ -70,7 +70,7 @@ MarimbaBand::MarimbaBand(std::uint32_t seed) : Band(seed * 2654435761U + 0x51A3E
     beat_ = base_beat_;
     const int keys[4] = {7, 0, 2, 5};  // G, C, D or F to begin
     key_ = next_key_ = anchor_ = keys[random_.pick(4)];
-    next_bar_ = static_cast<long>(sample_rate * .2);
+    next_bar_ = static_cast<std::int64_t>(sample_rate * .2);
     next_plan_ = next_bar_;
     mix(Instrument::marimba, .3, .3);
     mix(Instrument::comp_marimba, .16, .25);
@@ -290,7 +290,7 @@ void MarimbaBand::plan_bar() noexcept {
     if (random_.uniform() < .1) at(random_.uniform() * 3.5, Instrument::bird, 88 + random_.pick(8), .45, 0, random_.uniform() * 1.6 - .8);
     ++bar_;
     ++bars_;
-    next_bar_ += static_cast<long>(4 * beat_ * sample_rate);
+    next_bar_ += static_cast<std::int64_t>(4 * beat_ * sample_rate);
     // the tempo breathes: a slow wander of a percent or so, and a little ease at a phrase's end
     drift_ = std::clamp(drift_ + (random_.uniform() - .5) * .01, -.02, .02);
     beat_ = base_beat_ * (1 + drift_ + (bar_ == 3 ? .015 : 0));
