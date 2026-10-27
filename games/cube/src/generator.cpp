@@ -1,6 +1,7 @@
 #include "generator.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 
 namespace ps_cube {
 namespace {

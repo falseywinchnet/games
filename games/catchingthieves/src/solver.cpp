@@ -1,6 +1,8 @@
 #include "solver.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <cstdlib>
 #include <deque>
 #include <limits>
 #include <unordered_map>

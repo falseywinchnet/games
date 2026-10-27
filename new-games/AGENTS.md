@@ -143,7 +143,7 @@ CI prepares assets, discovers the game, runs every test, builds Windows, macOS a
 both Linux architectures, tests the installers and publishes a release. Do not edit
 counts, catalogs, versions or packaging, and do not repeat the platform matrix
 locally. After pushing, link the
-[workflow](https://github.com/falseywinchnet/games/actions/workflows/applications.yml),
+[workflow](https://github.com/malkuth-software/games/actions/workflows/applications.yml),
 and return only to fix a failure it reports.
 
 ## Craft

@@ -410,8 +410,8 @@ def fetch_toolkit(report: Report) -> bool:
     TOOLKIT.parent.mkdir(parents=True, exist_ok=True)
     steps = (
         ["git", "clone", "--quiet", "--filter=blob:none", "--no-checkout", "--sparse",
-         "https://github.com/falseywinchnet/file_manager.git", str(TOOLKIT)],
-        ["git", "-C", str(TOOLKIT), "sparse-checkout", "set", "gui_forms/include"],
+         "https://github.com/malkuth-software/gui_forms.git", str(TOOLKIT)],
+        ["git", "-C", str(TOOLKIT), "sparse-checkout", "set", "include"],
         ["git", "-C", str(TOOLKIT), "checkout", "--quiet", commit],
     )
     for step in steps:
@@ -427,7 +427,7 @@ def check_syntax(directory: Path, manifest: dict, report: Report, fetch: bool) -
     print("Hosted view against the pinned GUI.Forms headers (syntax only, nothing is linked)")
     if fetch and not fetch_toolkit(report):
         return
-    include = TOOLKIT / "gui_forms" / "include"
+    include = TOOLKIT / "include"
     if not include.is_dir():
         report.warn("not checked: run again with --fetch-toolkit (about 8 MB, once). Say so in HANDOFF.md if you skip it.")
         return

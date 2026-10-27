@@ -2,6 +2,8 @@
 #include "nested_realization.hpp"
 #include <algorithm>
 #include <array>
+#include <cmath>
+#include <cstdlib>
 #include <stdexcept>
 
 namespace ct::research {

@@ -3,6 +3,8 @@
 #include "puzzle_view.hpp"
 #include "runtime_paths.hpp"
 #include "test_paths.hpp"
+#include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <vector>
 #include <iostream>

@@ -1,7 +1,9 @@
 #include "port_graph.hpp"
 #include <algorithm>
 #include <bit>
+#include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <sstream>
 #include <stdexcept>
 #include <type_traits>

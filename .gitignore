@@ -7,3 +7,11 @@
 /.ccache/
 
 __pycache__/
+
+# The harness workspace (the product is the workspace root): the pinned harness,
+# the notes clones, the in-house projects clone and CI state.
+/template_harness/
+/notes/
+/notes-*/
+/projects/
+/.ci/

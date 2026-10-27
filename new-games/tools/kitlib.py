@@ -125,7 +125,7 @@ def audio_sources(extra_dirs=()) -> list[Path]:
 
 def pinned_toolkit_commit() -> str:
     workflow = (REPO / ".github" / "workflows" / "applications.yml").read_text(encoding="utf-8")
-    match = re.search(r"repository:\s*falseywinchnet/file_manager\s*\n\s*ref:\s*([0-9a-f]{40})", workflow)
+    match = re.search(r"repository:\s*malkuth-software/gui_forms\s*\n\s*ref:\s*([0-9a-f]{40})", workflow)
     if not match:
         raise SystemExit("The pinned GUI.Forms commit was not found in .github/workflows/applications.yml")
     return match.group(1)

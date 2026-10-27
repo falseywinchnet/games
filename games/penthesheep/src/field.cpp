@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <climits>
+#include <cmath>
+#include <cstdlib>
 
 namespace sh {
 

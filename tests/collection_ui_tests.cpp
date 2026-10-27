@@ -10,6 +10,8 @@
 #include "gui_forms/window.hpp"
 #include "test_paths.hpp"
 #include <cassert>
+#include <cmath>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <set>
