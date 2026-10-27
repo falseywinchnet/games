@@ -14,7 +14,7 @@ On macOS the compiler is Homebrew's, but the C++ runtime is not: Homebrew's libc
 
 GUI.Forms publishes a compiler cache from each tested main build as the prerelease `build-<revision>`, for macOS arm64, Linux x64, Linux arm64 and Windows x64; the macOS archive also carries the runtime. `tools/restore_toolkit_cache.py <platform>` downloads the one for the pin, checks it against the digest recorded there and the revision in its manifest, and unpacks it; on macOS it then verifies the runtime against the local compiler and SDK and rebuilds it from source if they differ. The workflow builds in the harness layout, `.build/native-<platform>/games`, with `CCACHE_BASEDIR` at the workspace: three levels down, as GUI.Forms' own trees are, so cached toolkit objects match. A miss only compiles from source. Update the pin, the digests and the package revision in `tools/package_common.py` together.
 
-The source integration uses public GUI.Forms APIs for native windows, input, presentation, text masks and audio. The selected development text and bar-transport APIs are source-only; an older installed SDK cannot replace this source dependency. Games does not install or export an SDK. Apple framework adaptation is confined to GUI.Forms; Games compiles its application and game adapters as C++.
+The application uses public GUI.Forms APIs for native windows, input, presentation, text masks and audio, through the components `Application`, `Audio`, `TextMasks` and `AudioLoopTransport`. CI builds them from the pinned source (`GAMES_TOOLKIT_SOURCE_DIR`); a local build finds an installed GUI.Forms instead (below). An installed GUI.Forms without those four components cannot build the application. Games does not install or export an SDK. Apple framework adaptation is confined to GUI.Forms; Games compiles its application and game adapters as C++.
 
 Prepare resources once with Python, Pillow and FFmpeg:
 
@@ -58,6 +58,20 @@ Windows installer creation requires NSIS. Linux packaging requires patchelf and 
 To publish a release, push a `v<version>` tag matching `project(Games VERSION ...)` after reviewing the platform runs. The workflow publishes installers, archives and SHA-256 checksums only after all four native application jobs pass.
 
 Sponsor: Rainstar
+
+## Local builds
+
+A development machine builds against one installed GUI.Forms, the lockstep prefix every product on that machine shares; it does not need a GUI.Forms source tree. The coordinator builds it from a merged GUI.Forms main commit with `--features all` and records it in `D:/malkuth/cache/lockstep/current-<target>.json` (`prefix`, `compiler`, `ccache_dir`, `lang`). Leave `GAMES_TOOLKIT_SOURCE_DIR` empty and pass the prefix as `CMAKE_PREFIX_PATH`; CMake then runs `find_package(GUIForms COMPONENTS Application Audio TextMasks AudioLoopTransport)`, takes the fonts from the package's `GUIForms_FONT_DIR`, and on Windows copies the package's two DLLs beside the executables so `games.exe` and the tests run from the build folder. The toolchain file is the harness copy, `template_harness/harness/cmake/llvm22.cmake`. A change that needs a GUI.Forms change waits until that change is merged and a new lockstep is recorded.
+
+On Windows, with the record's compiler directory (`D:/a/_temp/msys64/clang64/bin`) first on `PATH`, `CCACHE_DIR` set to the record's `ccache_dir`, `CCACHE_BASEDIR` at the checkout, `CCACHE_COMPILERCHECK=content` and `LANG=en_US.UTF-8`:
+
+```sh
+cmake -S . -B .build/native-windows-x64/games -G Ninja -DCMAKE_BUILD_TYPE=Release   -DCMAKE_TOOLCHAIN_FILE=$PWD/template_harness/harness/cmake/llvm22.cmake   -DCMAKE_PREFIX_PATH=<record prefix>   -DGAMES_RUNTIME_ASSET_DIR=<absolute-prepared-runtime-directory>   -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+cmake --build .build/native-windows-x64/games
+ctest --test-dir .build/native-windows-x64/games -LE design --output-on-failure
+```
+
+Reconfigure into a new build folder when moving between a source-built and an installed GUI.Forms; the old folder's cache keeps the other's settings.
 
 ## Test reuse in CI
 
