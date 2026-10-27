@@ -2,7 +2,9 @@
 #include "field.hpp"
 
 #include <chrono>
+#include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <set>
 
 using namespace sh;

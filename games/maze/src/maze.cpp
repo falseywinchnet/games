@@ -1,6 +1,8 @@
 #include "maze.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <cstdlib>
 #include <deque>
 #include <unordered_map>
 

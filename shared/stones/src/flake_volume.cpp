@@ -6,6 +6,8 @@
 #include "shapes.hpp"
 #include "volumes.hpp"
 
+#include <cmath>
+#include <cstdlib>
 #include <vector>
 
 namespace stones {

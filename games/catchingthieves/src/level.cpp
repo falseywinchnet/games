@@ -1,6 +1,8 @@
 #include "level.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <cstdlib>
 #include <sstream>
 
 namespace ct {
