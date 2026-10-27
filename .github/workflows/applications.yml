@@ -17,9 +17,12 @@ on:
 permissions:
   contents: read
   actions: read  # tools/test_reuse.py reads earlier runs' results
+# A newer push to a pull request cancels its older run. A main run is never cancelled,
+# because it may be building a release; later main pushes queue behind it, and GitHub
+# keeps only the newest of the queued ones.
 concurrency:
   group: applications-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   prepare:
     runs-on: ubuntu-24.04
