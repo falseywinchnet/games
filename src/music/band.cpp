@@ -1,5 +1,7 @@
 #include "band.hpp"
 
+#include <limits>
+
 namespace games::music {
 
 void Band::note(long origin, double seconds, Instrument kind, double midi, double vel, double length_seconds, double pan) noexcept {
@@ -52,7 +54,9 @@ void Band::render_add(std::span<float> stereo, double gain) noexcept {
         if (clock_ >= next_due_) {
             // start what is due, keep the rest, and note when the next is due
             int kept = 0;
-            next_due_ = 1L << 62;
+            // Nothing queued is due until a note says so. long is 32 bits on Windows, so the
+            // sentinel is the type's own maximum, not a shifted constant.
+            next_due_ = std::numeric_limits<long>::max();
             for (int k = 0; k < queued_; ++k) {
                 Note& e = queue_[static_cast<std::size_t>(k)];
                 if (e.at <= clock_) start(e);

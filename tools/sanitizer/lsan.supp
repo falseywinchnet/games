@@ -1,0 +1,3 @@
+# LeakSanitizer suppressions for tools/sanitize_core.py (Linux and macOS; Windows has no
+# LeakSanitizer). One line per suppression, each with a comment naming the leak and why it
+# is not a defect. None yet: every leak is a defect until shown otherwise.
