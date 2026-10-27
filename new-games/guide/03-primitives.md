@@ -199,8 +199,8 @@ surface; it draws its own with the canvas so it looks like itself.
 ## From GUI.Forms
 
 The toolkit is the owner's retained-mode C++20 GUI library, used by PlaySuite and
-his other applications. It lives in `gui_forms/` of the public repository
-`falseywinchnet/file_manager`, pinned by commit in
+his other applications. It is the public repository `malkuth-software/gui_forms`,
+pinned by commit in
 `.github/workflows/applications.yml`. `check_game.py --fetch-toolkit` fetches its
 headers for the syntax check.
 

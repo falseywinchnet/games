@@ -8,7 +8,16 @@ import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-TOOLKIT_REVISION = "6fd0071a0f25a8d4d13661dfe61d1c93c5552e00"
+TOOLKIT_REVISION = "e077f9d5a5117312e65e8c3b741c4edd24013d56"
+
+
+def miniaudio_license(toolkit, fetched):
+    """miniaudio's licence: GUI.Forms' source SDK carries it in third_party/miniaudio;
+    a git checkout of GUI.Forms fetches it at configure time."""
+    vendored = toolkit / "third_party/miniaudio/LICENSE"
+    if vendored.is_file():
+        return vendored
+    return fetched / "gui_forms_miniaudio-src/LICENSE"
 
 
 def missing_prepared_files(assets):
@@ -61,7 +70,14 @@ def copy_resources(build, toolkit, destination):
         "FreeType.txt": toolkit / "third_party/freetype/docs/FTL.TXT",
         "libunibreak.txt": toolkit / "third_party/libunibreak/LICENCE",
         "QuickJS.txt": fetched / "quickjs-src/LICENSE",
-        "miniaudio.txt": fetched / "gui_forms_miniaudio-src/LICENSE",
+        "miniaudio.txt": miniaudio_license(toolkit, fetched),
+        # GUI.Forms decodes PNG with its own stx_png over stx_zlib, and resamples
+        # image faces with stx_conv.
+        "stx_zlib.txt": toolkit / "stx_zlib/LICENSE",
+        "stx_zlib-puff.txt": toolkit / "stx_zlib/LICENSE-puff.txt",
+        "stx_zlib-zlib.txt": toolkit / "stx_zlib/LICENSE-zlib.txt",
+        "stx_png.txt": toolkit / "stx_png/LICENSE",
+        "stx_conv.txt": toolkit / "stx_conv/LICENSE",
         "Plan-Paint.txt": ROOT / "shared/felt/LICENSE",
     }
     for name, source in entries.items():
@@ -69,9 +85,8 @@ def copy_resources(build, toolkit, destination):
     skia = toolkit / "third_party/skia"
     if skia.is_dir():
         for name, source in {
+            # Skia is built without its PNG and zlib codecs (GUI.Forms Z-I5).
             "Skia.txt": skia / "LICENSE",
-            "libpng.txt": skia / "third_party/externals/libpng/LICENSE",
-            "zlib.txt": skia / "third_party/externals/zlib/LICENSE",
             "Skia-FreeType.txt": skia / "third_party/externals/freetype/docs/FTL.TXT",
         }.items():
             shutil.copy2(source, notices / name)

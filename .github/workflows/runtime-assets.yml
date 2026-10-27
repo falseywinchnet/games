@@ -120,9 +120,12 @@ jobs:
       - name: Fetch reviewed development audio source
         uses: actions/checkout@v4
         with:
-          repository: falseywinchnet/gui_forms
-          ref: 6fd0071a0f25a8d4d13661dfe61d1c93c5552e00
+          repository: malkuth-software/gui_forms
+          ref: e077f9d5a5117312e65e8c3b741c4edd24013d56
           path: gui_forms
+      # GUI.Forms' tools under gui_forms/tools forward to template_harness, checked out
+      # beside it at the commit gui_forms/harness.lock pins.
+      - uses: ./gui_forms/.github/actions/harness-checkout
       - uses: actions/setup-python@v5
         if: runner.os == 'Windows'
         with:

@@ -23,7 +23,7 @@ from pathlib import Path, PurePosixPath
 
 from package_common import TOOLKIT_REVISION
 
-REPOSITORY = "falseywinchnet/gui_forms"
+REPOSITORY = "malkuth-software/gui_forms"
 ARCHIVE = "gui-forms-toolchain-windows-x64.tar.zst"
 MANIFEST = "gui-forms-toolchain-windows-x64.json"
 # The toolchain in release build-<TOOLKIT_REVISION>, and the clang.exe inside it (the
