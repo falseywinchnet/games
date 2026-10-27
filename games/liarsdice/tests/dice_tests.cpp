@@ -4,6 +4,7 @@
 #include "save.hpp"
 #include "wager.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
